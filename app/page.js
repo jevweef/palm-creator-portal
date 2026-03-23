@@ -5,10 +5,53 @@ import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
 import { tagStyle } from '@/lib/tagStyle'
 
-// Tag categories — tags not listed here appear under "Other"
+function computeGradeFn(records) {
+  const scores = records.map((r) => r.engagementScore || 0).sort((a, b) => a - b)
+  const n = scores.length
+  return function getGrade(score) {
+    if (n === 0) return null
+    const s = score || 0
+    // bisect to find rank
+    let lo = 0, hi = n
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (scores[mid] <= s) lo = mid + 1; else hi = mid }
+    const pct = lo / n
+    if (pct >= 0.95) return 'A+'
+    if (pct >= 0.85) return 'A'
+    if (pct >= 0.75) return 'A-'
+    if (pct >= 0.65) return 'B+'
+    if (pct >= 0.55) return 'B'
+    if (pct >= 0.45) return 'B-'
+    if (pct >= 0.35) return 'C+'
+    if (pct >= 0.25) return 'C'
+    if (pct >= 0.15) return 'C-'
+    return 'D'
+  }
+}
+
+export function gradeColor(grade) {
+  if (!grade) return '#52525b'
+  if (grade === 'A+') return '#ffd700'
+  if (grade.startsWith('A')) return '#4ade80'
+  if (grade.startsWith('B')) return '#60a5fa'
+  if (grade.startsWith('C')) return '#fb923c'
+  return '#71717a'
+}
+
+const PINNED_TAGS = [
+  'Thirst Trap',
+  'Soft Tease',
+  'Implied Scenario',
+  'POV / Personal Attention',
+  'Body Focus',
+  'Outfit Showcase',
+  'Domestic / At-Home',
+  'Mirror Moment',
+  'Funny',
+  'Eye Contact Driven',
+]
+
 const CATEGORY_ORDER = ['Setting', 'Niche Identity', 'Vibe / Personality', 'Subject / Body', 'Scenario', 'Other']
 const TAG_CATEGORY_MAP = {
-  // Setting
   'Artsy / Creative Girl':      'Setting',
   'Beach Girl':                 'Setting',
   'City Girl':                  'Setting',
@@ -18,8 +61,6 @@ const TAG_CATEGORY_MAP = {
   'Mirror Moment':              'Setting',
   'Nature / Outdoors':          'Setting',
   'Travel / Adventure':         'Setting',
-
-  // Niche Identity
   'Bikini / Swim':              'Niche Identity',
   'Bookish / Smart Girl':       'Niche Identity',
   'Fitness':                    'Niche Identity',
@@ -27,8 +68,6 @@ const TAG_CATEGORY_MAP = {
   'Glam / Beauty':              'Niche Identity',
   'Musician / Singer':          'Niche Identity',
   'Tattoos':                    'Niche Identity',
-
-  // Vibe / Personality
   'Bratty / Mischievous':       'Vibe / Personality',
   'Cute / Sweet Vibe':          'Vibe / Personality',
   'Direct Flirt':               'Vibe / Personality',
@@ -42,8 +81,6 @@ const TAG_CATEGORY_MAP = {
   'Toxic':                      'Vibe / Personality',
   'Funny':                      'Vibe / Personality',
   'Wifey':                      'Vibe / Personality',
-
-  // Subject / Body
   'Body Focus':                 'Subject / Body',
   'Boobs':                      'Subject / Body',
   'Booty':                      'Subject / Body',
@@ -54,16 +91,12 @@ const TAG_CATEGORY_MAP = {
   'Outfit Showcase':            'Subject / Body',
   'Thirst Trap':                'Subject / Body',
   'Suggestive Movement':        'Subject / Body',
-
-  // Scenario
   'Eye Contact Driven':         'Scenario',
   'POV / Personal Attention':   'Scenario',
   'Personal Attention':         'Scenario',
   'POV':                        'Scenario',
   'Roleplay':                   'Scenario',
   'Implied Scenario':           'Scenario',
-
-  // Other
   'Dance':                      'Other',
   'Lipsync':                    'Other',
   'Lip Sync':                   'Other',
@@ -77,19 +110,41 @@ const TAG_CATEGORY_MAP = {
 function groupTags(allTags) {
   const groups = {}
   CATEGORY_ORDER.forEach((cat) => { groups[cat] = [] })
-
   allTags.forEach((tag) => {
     const cat = TAG_CATEGORY_MAP[tag] || 'Other'
     if (!groups[cat]) groups[cat] = []
     groups[cat].push(tag)
   })
-
-  // Remove empty categories (Other already in CATEGORY_ORDER — no double-append)
   return CATEGORY_ORDER
     .filter((cat) => groups[cat]?.length > 0)
     .map((cat) => ({ label: cat, tags: groups[cat] }))
 }
 
+function TagPill({ tag, active, onClick, size = 'sm' }) {
+  const ts = tagStyle(tag)
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontSize: size === 'sm' ? '11px' : '12px',
+        padding: size === 'sm' ? '3px 8px' : '4px 10px',
+        borderRadius: '9999px',
+        whiteSpace: 'nowrap',
+        border: 'none',
+        cursor: 'pointer',
+        fontWeight: active ? 700 : 400,
+        transition: 'all 0.15s',
+        background: active ? ts.color : ts.background,
+        color: active ? '#000' : ts.color,
+        outline: active ? `2px solid ${ts.color}` : 'none',
+        outlineOffset: active ? '1px' : '0',
+        opacity: active ? 1 : 0.8,
+      }}
+    >
+      {tag}
+    </button>
+  )
+}
 
 export default function InspoBoard() {
   const [records, setRecords] = useState([])
@@ -100,13 +155,14 @@ export default function InspoBoard() {
   const [selectedIdx, setSelectedIdx] = useState(null)
   const [activeTags, setActiveTags] = useState([])
   const [activeFormats, setActiveFormats] = useState([])
-  const [tagMode, setTagMode] = useState('any') // 'any' | 'all'
+  const [tagMode, setTagMode] = useState('any')
+  const [sort, setSort] = useState('top') // 'top' | 'recent' | 'viral'
   const [search, setSearch] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const [allTags, setAllTags] = useState([])
   const [allFormats, setAllFormats] = useState([])
 
-  // Fetch data
   useEffect(() => {
     async function load() {
       try {
@@ -115,7 +171,6 @@ export default function InspoBoard() {
         if (!res.ok) throw new Error('Failed to load')
         const data = await res.json()
         setRecords(data.records)
-        setFiltered(data.records)
 
         const tagSet = new Set()
         const fmtSet = new Set()
@@ -134,18 +189,16 @@ export default function InspoBoard() {
     load()
   }, [])
 
-  // Filter
   useEffect(() => {
-    let result = records
+    let result = [...records]
 
     if (search.trim()) {
       const q = search.toLowerCase()
-      result = result.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.username.toLowerCase().includes(q) ||
-          r.onScreenText.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q))
+      result = result.filter((r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.username.toLowerCase().includes(q) ||
+        r.onScreenText.toLowerCase().includes(q) ||
+        r.tags.some((t) => t.toLowerCase().includes(q))
       )
     }
 
@@ -167,22 +220,25 @@ export default function InspoBoard() {
       )
     }
 
+    // Sort
+    if (sort === 'top') {
+      result.sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0))
+    } else if (sort === 'viral') {
+      result.sort((a, b) => (b.views || 0) - (a.views || 0))
+    } else if (sort === 'recent') {
+      result.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    }
+
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode])
+  }, [records, search, activeTags, activeFormats, tagMode, sort])
 
-  const toggleTag = (tag) => {
-    setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    )
-  }
-
-  const toggleFormat = (fmt) => {
-    setActiveFormats((prev) =>
-      prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]
-    )
-  }
-
-  const clearAll = () => { setActiveTags([]); setActiveFormats([]); setSearch(''); setTagMode('any') }
+  const toggleTag = (tag) => setActiveTags((prev) =>
+    prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+  )
+  const toggleFormat = (fmt) => setActiveFormats((prev) =>
+    prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]
+  )
+  const clearAll = () => { setActiveTags([]); setActiveFormats([]); setSearch(''); setTagMode('any'); setSort('top') }
 
   const openModal = (idx) => setSelectedIdx(idx)
   const closeModal = () => setSelectedIdx(null)
@@ -190,6 +246,28 @@ export default function InspoBoard() {
   const goNext = useCallback(() => setSelectedIdx((i) => (i < filtered.length - 1 ? i + 1 : i)), [filtered.length])
 
   const tagGroups = groupTags(allTags)
+  const pinnedAvailable = PINNED_TAGS.filter((t) => allTags.includes(t))
+  const hasActiveFilters = activeTags.length > 0 || activeFormats.length > 0
+  const getGrade = records.length > 0 ? computeGradeFn(records) : () => null
+
+  const SortBtn = ({ value, label }) => (
+    <button
+      onClick={() => setSort(value)}
+      style={{
+        fontSize: '11px',
+        padding: '4px 10px',
+        borderRadius: '9999px',
+        border: 'none',
+        cursor: 'pointer',
+        fontWeight: sort === value ? 600 : 400,
+        background: sort === value ? '#fff' : 'transparent',
+        color: sort === value ? '#000' : '#71717a',
+        transition: 'all 0.15s',
+      }}
+    >
+      {label}
+    </button>
+  )
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
@@ -197,45 +275,42 @@ export default function InspoBoard() {
       <div className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b border-[#1a1a1a]">
         <div style={{maxWidth:'1400px', margin:'0 auto', padding:'12px 32px'}}>
 
-          {/* Top row */}
-          <div className="flex items-center justify-between mb-3">
+          {/* Top row: title + sort + search */}
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px'}}>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Palm Inspo Board</h1>
+              <h1 style={{fontSize:'18px', fontWeight:700, color:'#fff', letterSpacing:'-0.02em', margin:0}}>Palm Inspo Board</h1>
               {!loading && (
-                <p className="text-xs text-zinc-600 mt-0.5">{filtered.length} reels</p>
+                <p style={{fontSize:'11px', color:'#52525b', marginTop:'2px'}}>{filtered.length} reels</p>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              {/* ANY / ALL toggle — only show when 2+ tags active */}
+
+            <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+              {/* Sort toggle */}
+              <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
+                <SortBtn value="top" label="⭐ Top" />
+                <SortBtn value="viral" label="🔥 Viral" />
+                <SortBtn value="recent" label="🕐 Recent" />
+              </div>
+
+              {/* ANY/ALL — only when 2+ tags */}
               {activeTags.length >= 2 && (
-                <div style={{display:'flex', alignItems:'center', background:'#1a1a1a', border:'1px solid #2a2a2a', borderRadius:'9999px', padding:'2px'}}>
-                  <button
-                    onClick={() => setTagMode('any')}
-                    style={{
+                <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px'}}>
+                  {['any','all'].map((m) => (
+                    <button key={m} onClick={() => setTagMode(m)} style={{
                       fontSize:'11px', fontWeight:500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
-                      background: tagMode === 'any' ? '#fff' : 'transparent',
-                      color: tagMode === 'any' ? '#000' : '#71717a',
+                      background: tagMode === m ? '#fff' : 'transparent',
+                      color: tagMode === m ? '#000' : '#71717a',
                       transition:'all 0.15s',
-                    }}
-                  >
-                    Match ANY
-                  </button>
-                  <button
-                    onClick={() => setTagMode('all')}
-                    style={{
-                      fontSize:'11px', fontWeight:500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
-                      background: tagMode === 'all' ? '#fff' : 'transparent',
-                      color: tagMode === 'all' ? '#000' : '#71717a',
-                      transition:'all 0.15s',
-                    }}
-                  >
-                    Match ALL
-                  </button>
+                    }}>
+                      {m === 'any' ? 'Match ANY' : 'Match ALL'}
+                    </button>
+                  ))}
                 </div>
               )}
+
               {/* Search */}
-              <div className="relative w-56">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div style={{position:'relative'}}>
+                <svg style={{position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', width:'13px', height:'13px', color:'#52525b'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -243,88 +318,97 @@ export default function InspoBoard() {
                   placeholder="Search..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg pl-9 pr-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
+                  style={{
+                    width:'200px', background:'#111', border:'1px solid #222', borderRadius:'8px',
+                    paddingLeft:'30px', paddingRight:'12px', paddingTop:'6px', paddingBottom:'6px',
+                    fontSize:'13px', color:'#fff', outline:'none',
+                  }}
                 />
               </div>
             </div>
           </div>
 
-          {/* Tag filter rows — grouped by category */}
-          <div style={{overflowX:'auto', paddingBottom:'6px'}}>
-            {tagGroups.map((group, gi) => (
-              <div key={group.label} style={{display:'flex', alignItems:'center', gap:'8px', marginBottom: gi < tagGroups.length - 1 ? '6px' : '0'}}>
-                {/* Category label */}
-                <span style={{fontSize:'9px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', whiteSpace:'nowrap', width:'72px', flexShrink:0, textAlign:'right'}}>
-                  {group.label}
-                </span>
-                <div style={{width:'1px', height:'14px', background:'#27272a', flexShrink:0}} />
-                {/* Tags */}
-                <div style={{display:'flex', gap:'5px', flexWrap:'nowrap'}}>
-                  {group.tags.map((tag) => {
-                    const active = activeTags.includes(tag)
-                    const ts = tagStyle(tag)
-                    return (
-                      <button
-                        key={tag}
-                        onClick={() => toggleTag(tag)}
-                        style={{
-                          fontSize:'11px',
-                          padding:'3px 8px',
-                          borderRadius:'9999px',
-                          whiteSpace:'nowrap',
-                          border:'none',
-                          cursor:'pointer',
-                          fontWeight: active ? 700 : 400,
-                          transition:'all 0.15s',
-                          background: active ? ts.color : ts.background,
-                          color: active ? '#000' : ts.color,
-                          outline: active ? `2px solid ${ts.color}` : 'none',
-                          outlineOffset: active ? '1px' : '0',
-                          opacity: active ? 1 : 0.75,
-                        }}
-                      >
-                        {tag}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+          {/* Pinned quick-filter row */}
+          <div style={{display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap'}}>
+            {pinnedAvailable.map((tag) => (
+              <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
             ))}
 
-            {/* Film format row */}
-            {allFormats.length > 0 && (
-              <div style={{display:'flex', alignItems:'center', gap:'8px', marginTop:'6px'}}>
-                <span style={{fontSize:'9px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', whiteSpace:'nowrap', width:'72px', flexShrink:0, textAlign:'right'}}>
-                  Format
+            {/* Divider */}
+            <div style={{width:'1px', height:'18px', background:'#27272a', margin:'0 4px'}} />
+
+            {/* + Filters button */}
+            <button
+              onClick={() => setShowAdvanced((v) => !v)}
+              style={{
+                fontSize:'11px', padding:'3px 10px', borderRadius:'9999px', border:'1px solid #2a2a2a',
+                cursor:'pointer', background: showAdvanced ? '#27272a' : 'transparent',
+                color: showAdvanced ? '#fff' : '#71717a',
+                display:'flex', alignItems:'center', gap:'4px', transition:'all 0.15s',
+              }}
+            >
+              {showAdvanced ? '▲' : '▼'} {showAdvanced ? 'Less' : 'More'} filters
+              {(activeTags.filter(t => !PINNED_TAGS.includes(t)).length + activeFormats.length) > 0 && (
+                <span style={{background:'#fff', color:'#000', borderRadius:'9999px', fontSize:'9px', fontWeight:700, padding:'0 5px', marginLeft:'2px'}}>
+                  {activeTags.filter(t => !PINNED_TAGS.includes(t)).length + activeFormats.length}
                 </span>
-                <div style={{width:'1px', height:'14px', background:'#27272a', flexShrink:0}} />
-                <div style={{display:'flex', gap:'5px', flexWrap:'nowrap'}}>
-                  {allFormats.map((fmt) => (
-                    <button
-                      key={fmt}
-                      onClick={() => toggleFormat(fmt)}
-                      style={{
-                        fontSize:'11px',
-                        padding:'3px 8px',
-                        borderRadius:'9999px',
-                        whiteSpace:'nowrap',
-                        border:'none',
-                        cursor:'pointer',
-                        fontWeight: activeFormats.includes(fmt) ? 600 : 400,
-                        transition:'all 0.15s',
-                        background: activeFormats.includes(fmt) ? '#e4e4e7' : '#1a1a1a',
-                        color: activeFormats.includes(fmt) ? '#000' : '#71717a',
-                        outline: activeFormats.includes(fmt) ? '2px solid #e4e4e7' : '1px solid #2a2a2a',
-                        outlineOffset: activeFormats.includes(fmt) ? '1px' : '0',
-                      }}
-                    >
-                      {fmt}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              )}
+            </button>
+
+            {/* Clear all — only when filters active */}
+            {hasActiveFilters && (
+              <button onClick={clearAll} style={{fontSize:'11px', color:'#52525b', background:'none', border:'none', cursor:'pointer', marginLeft:'2px', textDecoration:'underline'}}>
+                Clear all
+              </button>
             )}
           </div>
+
+          {/* Advanced panel */}
+          {showAdvanced && (
+            <div style={{marginTop:'10px', paddingTop:'10px', borderTop:'1px solid #1a1a1a'}}>
+              {tagGroups.map((group, gi) => (
+                <div key={group.label} style={{display:'flex', alignItems:'center', gap:'8px', marginBottom: gi < tagGroups.length - 1 ? '6px' : '0'}}>
+                  <span style={{fontSize:'9px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', whiteSpace:'nowrap', width:'80px', flexShrink:0, textAlign:'right'}}>
+                    {group.label}
+                  </span>
+                  <div style={{width:'1px', height:'14px', background:'#27272a', flexShrink:0}} />
+                  <div style={{display:'flex', gap:'5px', flexWrap:'wrap'}}>
+                    {group.tags.map((tag) => (
+                      <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {allFormats.length > 0 && (
+                <div style={{display:'flex', alignItems:'center', gap:'8px', marginTop:'6px'}}>
+                  <span style={{fontSize:'9px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', whiteSpace:'nowrap', width:'80px', flexShrink:0, textAlign:'right'}}>
+                    Format
+                  </span>
+                  <div style={{width:'1px', height:'14px', background:'#27272a', flexShrink:0}} />
+                  <div style={{display:'flex', gap:'5px', flexWrap:'wrap'}}>
+                    {allFormats.map((fmt) => (
+                      <button
+                        key={fmt}
+                        onClick={() => toggleFormat(fmt)}
+                        style={{
+                          fontSize:'11px', padding:'3px 8px', borderRadius:'9999px', whiteSpace:'nowrap',
+                          border:'none', cursor:'pointer', transition:'all 0.15s',
+                          fontWeight: activeFormats.includes(fmt) ? 600 : 400,
+                          background: activeFormats.includes(fmt) ? '#e4e4e7' : '#1a1a1a',
+                          color: activeFormats.includes(fmt) ? '#000' : '#a1a1aa',
+                          outline: activeFormats.includes(fmt) ? '2px solid #e4e4e7' : '1px solid #2a2a2a',
+                          outlineOffset: activeFormats.includes(fmt) ? '1px' : '0',
+                        }}
+                      >
+                        {fmt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>
@@ -350,7 +434,7 @@ export default function InspoBoard() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-zinc-600 text-sm">No reels match your filters</p>
-            <button onClick={clearAll} className="mt-3 text-xs text-zinc-500 hover:text-white underline">
+            <button onClick={clearAll} className="mt-3 text.xs text-zinc-500 hover:text-white underline">
               Clear filters
             </button>
           </div>
@@ -360,6 +444,7 @@ export default function InspoBoard() {
               <InspoCard
                 key={record.id}
                 record={record}
+                grade={getGrade(record.engagementScore)}
                 onClick={() => openModal(idx)}
               />
             ))}
@@ -371,6 +456,7 @@ export default function InspoBoard() {
       {selectedIdx !== null && filtered[selectedIdx] && (
         <InspoModal
           record={filtered[selectedIdx]}
+          grade={getGrade(filtered[selectedIdx]?.engagementScore)}
           onClose={closeModal}
           onPrev={goPrev}
           onNext={goNext}

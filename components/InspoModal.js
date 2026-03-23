@@ -3,6 +3,15 @@
 import { useEffect, useCallback } from 'react'
 import { tagStyle } from '@/lib/tagStyle'
 
+function gradeColor(grade) {
+  if (!grade) return '#52525b'
+  if (grade === 'A+') return '#ffd700'
+  if (grade.startsWith('A')) return '#4ade80'
+  if (grade.startsWith('B')) return '#60a5fa'
+  if (grade.startsWith('C')) return '#fb923c'
+  return '#71717a'
+}
+
 function formatNum(n) {
   if (!n || n < 0) return null
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
@@ -20,7 +29,7 @@ function parseNotes(notes) {
   }
 }
 
-export default function InspoModal({ record, onClose, onPrev, onNext, hasPrev, hasNext }) {
+export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext }) {
   const handleKey = useCallback((e) => {
     if (e.key === 'Escape') onClose()
     if (e.key === 'ArrowLeft' && hasPrev) onPrev()
@@ -98,7 +107,21 @@ export default function InspoModal({ record, onClose, onPrev, onNext, hasPrev, h
           <div style={{flex:1, overflowY:'auto', padding:'22px 28px', borderLeft:'1px solid #222', display:'flex', flexDirection:'column', gap:'20px'}}>
 
             {/* Stats */}
-            <div className="flex items-center gap-5 text-sm">
+            <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
+              {/* Grade */}
+              {grade && (
+                <span style={{
+                  display:'inline-flex', alignItems:'center', justifyContent:'center',
+                  background: gradeColor(grade),
+                  color: grade === 'D' ? '#a1a1aa' : '#000',
+                  borderRadius:'8px',
+                  fontSize:'14px', fontWeight:800,
+                  padding:'2px 10px',
+                  letterSpacing:'-0.02em',
+                }}>
+                  {grade}
+                </span>
+              )}
               {views && (
                 <span className="flex items-center gap-1.5 text-zinc-400">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

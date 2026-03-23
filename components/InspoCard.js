@@ -9,8 +9,16 @@ function formatNum(n) {
   return n.toString()
 }
 
+function gradeColor(grade) {
+  if (!grade) return '#52525b'
+  if (grade === 'A+') return '#ffd700'
+  if (grade.startsWith('A')) return '#4ade80'
+  if (grade.startsWith('B')) return '#60a5fa'
+  if (grade.startsWith('C')) return '#fb923c'
+  return '#71717a'
+}
 
-export default function InspoCard({ record, onClick }) {
+export default function InspoCard({ record, grade, onClick }) {
   const views = formatNum(record.views)
   const likes = formatNum(record.likes)
   const comments = formatNum(record.comments)
@@ -45,6 +53,23 @@ export default function InspoCard({ record, onClick }) {
         {record.username && (
           <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm text-xs text-zinc-300 px-3 py-1 rounded-full">
             @{record.username}
+          </div>
+        )}
+
+        {/* Grade badge */}
+        {grade && (
+          <div style={{
+            position:'absolute', top:'10px', right:'10px',
+            background: gradeColor(grade),
+            color: grade === 'D' ? '#a1a1aa' : '#000',
+            borderRadius:'6px',
+            fontSize:'11px', fontWeight:800,
+            padding:'2px 7px',
+            lineHeight:1.5,
+            letterSpacing:'-0.02em',
+            boxShadow:'0 1px 4px rgba(0,0,0,0.5)',
+          }}>
+            {grade}
           </div>
         )}
 
