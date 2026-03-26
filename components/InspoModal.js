@@ -55,7 +55,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
 
   // Build video URL from DB Share Link (Dropbox dl=0 → dl=1 for direct)
   const videoUrl = record.dbShareLink
-    ? record.dbShareLink.replace('dl=0', 'dl=1').replace('?dl=', '?raw=1&dl=')
+    ? record.dbShareLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
     : null
 
   return (
