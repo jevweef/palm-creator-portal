@@ -68,7 +68,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full max-w-5xl max-h-[90vh] mx-6 bg-[#111] rounded-2xl overflow-hidden border border-[#2a2a2a] flex flex-col">
+      <div className="relative w-full max-w-5xl max-h-[95vh] mx-2 md:mx-6 bg-[#111] rounded-2xl overflow-hidden border border-[#2a2a2a] flex flex-col">
 
         {/* Header */}
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #222', gap:'16px'}}>
@@ -86,17 +86,17 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Body */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
 
-          {/* Left: Video */}
-          <div className="w-[280px] flex-shrink-0 bg-black flex items-center justify-center">
+          {/* Video */}
+          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center">
             {embedHtml ? (
               <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
               <video
                 src={videoUrl}
                 controls
-                className="w-full h-full object-contain max-h-[70vh]"
+                className="w-full object-contain max-h-[55vw] md:max-h-[70vh]"
                 autoPlay
                 muted
                 loop
@@ -104,7 +104,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             ) : record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} className="w-full object-contain" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-zinc-700">
+              <div className="w-full h-48 flex items-center justify-center text-zinc-700">
                 <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -112,8 +112,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             )}
           </div>
 
-          {/* Right: Details */}
-          <div style={{flex:1, overflowY:'auto', padding:'22px 28px', borderLeft:'1px solid #222', display:'flex', flexDirection:'column', gap:'20px'}}>
+          {/* Details */}
+          <div style={{flex:1, overflowY:'auto', padding:'22px 28px', borderTop:'1px solid #222', display:'flex', flexDirection:'column', gap:'20px'}} className="md:border-t-0 md:border-l md:border-l-[#222]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
