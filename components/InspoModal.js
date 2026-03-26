@@ -90,7 +90,9 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 src={videoUrl}
                 controls
                 className="w-full h-full object-contain max-h-[70vh]"
-                autoPlay={false}
+                autoPlay
+                muted
+                loop
               />
             ) : record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} className="w-full object-contain" />
