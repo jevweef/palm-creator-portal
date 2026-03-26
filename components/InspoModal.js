@@ -55,8 +55,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   const comments = formatNum(record.comments)
   const shares = formatNum(record.shares)
 
-  // Only use embed if it has an actual video source URL — otherwise fall back to thumbnail
-  const embedHtml = (record.dbEmbedCode && /src="https:/.test(record.dbEmbedCode))
+  const embedHtml = record.dbEmbedCode
     ? record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
     : null
 
@@ -86,7 +85,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
           {/* Video */}
-          <div className="w-full flex-shrink-0 bg-black relative">
+          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center">
             {embedHtml ? (
               <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : record.thumbnail ? (
