@@ -55,7 +55,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   const comments = formatNum(record.comments)
   const shares = formatNum(record.shares)
 
-  const embedHtml = record.dbEmbedCode
+  // Only use embed if it has an actual video source URL — otherwise fall back to thumbnail
+  const embedHtml = (record.dbEmbedCode && /src="https:/.test(record.dbEmbedCode))
     ? record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
     : null
 
