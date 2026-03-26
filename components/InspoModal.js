@@ -54,8 +54,13 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   const shares = formatNum(record.shares)
 
   // Build video URL from DB Share Link (Dropbox dl=0 → dl=1 for direct)
-  const videoUrl = record.dbShareLink
+  const videoUrl = record.dbRawLink || (record.dbShareLink
     ? record.dbShareLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
+    : null)
+
+  // Pre-built responsive embed from Airtable formula — inject directly if available
+  const embedHtml = record.dbEmbedCode
+    ? record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
     : null
 
   return (
@@ -85,7 +90,9 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
 
           {/* Left: Video */}
           <div className="w-[280px] flex-shrink-0 bg-black flex items-center justify-center">
-            {videoUrl ? (
+            {embedHtml ? (
+              <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            ) : videoUrl ? (
               <video
                 src={videoUrl}
                 controls
