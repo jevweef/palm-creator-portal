@@ -60,7 +60,10 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
 
   // Pre-built responsive embed from Airtable formula — inject directly if available
   const embedHtml = record.dbEmbedCode
-    ? record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
+    ? record.dbEmbedCode
+        .replace('<video ', '<video autoplay muted loop ')
+        .replace(/max-width:[^;]+;/, 'max-width:100%;')
+        .replace(/padding-top:[^;]+;/, 'padding-top:0 !important; height:100%;')
     : null
 
   return (
@@ -68,7 +71,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full max-w-5xl max-h-[90vh] mx-4 my-4 md:mx-6 md:my-0 bg-[#111] rounded-2xl overflow-hidden border border-[#2a2a2a] flex flex-col">
+      <div className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-[#111] overflow-hidden border-0 md:border md:border-[#2a2a2a] flex flex-col">
 
         {/* Header */}
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #222', gap:'16px'}}>
@@ -86,12 +89,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Body */}
-        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden" style={{WebkitOverflowScrolling:'touch'}}>
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
           {/* Video */}
-          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center" style={{maxHeight:'45vh', overflow:'hidden'}}>
+          <div className="w-full h-[42vh] md:h-full md:w-[280px] md:flex-shrink-0 bg-black flex-shrink-0 overflow-hidden flex items-center justify-center">
             {embedHtml ? (
-              <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+              <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
               <video
                 src={videoUrl}
@@ -113,7 +116,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
           </div>
 
           {/* Details */}
-          <div style={{flex:1, overflowY:'auto', padding:'22px 28px', borderTop:'1px solid #222', display:'flex', flexDirection:'column', gap:'20px'}} className="md:border-t-0 md:border-l md:border-l-[#222]">
+          <div style={{flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch', padding:'22px 28px', borderTop:'1px solid #222', display:'flex', flexDirection:'column', gap:'20px'}} className="md:border-t-0 md:border-l md:border-l-[#222]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
