@@ -86,12 +86,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Body */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
-          {/* Left: Video */}
-          <div className="w-[280px] flex-shrink-0 bg-black flex items-center justify-center">
+          {/* Video */}
+          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center">
             {embedHtml ? (
-              <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+              <div className="w-full max-h-[42vh] md:max-h-none overflow-hidden" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
               <video
                 src={videoUrl}
@@ -112,8 +112,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             )}
           </div>
 
-          {/* Right: Details */}
-          <div style={{flex:1, overflowY:'auto', padding:'22px 28px', borderLeft:'1px solid #222', display:'flex', flexDirection:'column', gap:'20px'}}>
+          {/* Details */}
+          <div style={{flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch', padding:'22px 28px', display:'flex', flexDirection:'column', gap:'20px'}} className="border-t md:border-t-0 md:border-l border-[#222]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
