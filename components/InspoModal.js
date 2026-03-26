@@ -55,11 +55,9 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   const comments = formatNum(record.comments)
   const shares = formatNum(record.shares)
 
-  // Extract video URL: prefer dbRawLink, then pull src from the embed code formula, then fallback to share link
-  const extractEmbedSrc = (html) => html?.match(/src="(https:\/\/[^"]+\.(mp4|mov|webm)[^"]*)"/i)?.[1] || null
-  const videoUrl = record.dbRawLink || extractEmbedSrc(record.dbEmbedCode) || (record.dbShareLink
-    ? record.dbShareLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
-    : null)
+  const embedHtml = record.dbEmbedCode
+    ? record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
+    : null
 
   return (
     <div
@@ -86,22 +84,17 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         {/* Body */}
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
-          {/* Video — 16:9 crop, tap to go full portrait */}
+          {/* Video — 16:9 clip of portrait embed, tap to go full portrait */}
           <div
             className="w-full flex-shrink-0 bg-black relative overflow-hidden cursor-pointer"
             style={{aspectRatio:'16/9'}}
-            onClick={() => videoUrl && setVideoFullscreen(true)}
+            onClick={() => embedHtml && setVideoFullscreen(true)}
           >
-            {videoUrl ? (
+            {embedHtml ? (
               <>
-                <video
-                  src={videoUrl}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  className="absolute inset-0 w-full h-full"
-                  style={{objectFit:'cover'}}
+                <div
+                  style={{position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:'100%', pointerEvents:'none'}}
+                  dangerouslySetInnerHTML={{ __html: embedHtml }}
                 />
                 <div className="absolute bottom-2 right-2 bg-black/50 rounded-full p-1.5">
                   <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -245,7 +238,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Prev / Next */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 22px 28px', borderTop:'1px solid #222'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 22px', borderTop:'1px solid #222'}}>
           <button
             onClick={onPrev}
             disabled={!hasPrev}
@@ -273,7 +266,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
     </div>
 
     {/* Fullscreen portrait video overlay */}
-    {videoFullscreen && videoUrl && (
+    {videoFullscreen && embedHtml && (
       <div className="fixed inset-0 z-[60] bg-black flex items-center justify-center" onClick={() => setVideoFullscreen(false)}>
         <button
           onClick={(e) => { e.stopPropagation(); setVideoFullscreen(false) }}
@@ -283,14 +276,11 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        <video
-          src={videoUrl}
-          autoPlay
-          controls
-          playsInline
-          className="h-full w-auto max-w-full"
-          style={{objectFit:'contain'}}
+        <div
+          className="h-full w-auto"
+          style={{maxWidth:'calc(100vh * 9 / 16)'}}
           onClick={(e) => e.stopPropagation()}
+          dangerouslySetInnerHTML={{ __html: embedHtml }}
         />
       </div>
     )}
