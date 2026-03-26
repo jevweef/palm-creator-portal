@@ -55,7 +55,9 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   const comments = formatNum(record.comments)
   const shares = formatNum(record.shares)
 
-  const videoUrl = record.dbRawLink || (record.dbShareLink
+  // Extract video URL: prefer dbRawLink, then pull src from the embed code formula, then fallback to share link
+  const extractEmbedSrc = (html) => html?.match(/src="(https:\/\/[^"]+\.(mp4|mov|webm)[^"]*)"/i)?.[1] || null
+  const videoUrl = record.dbRawLink || extractEmbedSrc(record.dbEmbedCode) || (record.dbShareLink
     ? record.dbShareLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
     : null)
 
