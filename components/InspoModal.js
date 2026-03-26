@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback } from 'react'
 import { tagStyle } from '@/lib/tagStyle'
 
 function gradeColor(grade) {
@@ -30,8 +30,6 @@ function parseNotes(notes) {
 }
 
 export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext }) {
-  const [videoFullscreen, setVideoFullscreen] = useState(false)
-
   const handleKey = useCallback((e) => {
     if (e.key === 'Escape') onClose()
     if (e.key === 'ArrowLeft' && hasPrev) onPrev()
@@ -55,6 +53,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   const comments = formatNum(record.comments)
   const shares = formatNum(record.shares)
 
+  // Build video URL from DB Share Link (Dropbox dl=0 → dl=1 for direct)
+  const videoUrl = record.dbRawLink || (record.dbShareLink
+    ? record.dbShareLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
+    : null)
+
+  // Pre-built responsive embed from Airtable formula — inject directly if available
   const embedHtml = record.dbEmbedCode
     ? record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
     : null
@@ -64,7 +68,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-[#111] overflow-hidden border-0 md:border md:border-[#2a2a2a] flex flex-col">
+      <div className="relative w-full max-w-5xl max-h-[90vh] mx-6 bg-[#111] rounded-2xl overflow-hidden border border-[#2a2a2a] flex flex-col">
 
         {/* Header */}
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #222', gap:'16px'}}>
@@ -82,19 +86,34 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Body */}
-        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden">
 
-          {/* Video */}
-          <div className="w-full h-[42vh] md:h-auto md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center">
+          {/* Left: Video */}
+          <div className="w-[280px] flex-shrink-0 bg-black flex items-center justify-center">
             {embedHtml ? (
               <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            ) : videoUrl ? (
+              <video
+                src={videoUrl}
+                controls
+                className="w-full h-full object-contain max-h-[70vh]"
+                autoPlay
+                muted
+                loop
+              />
             ) : record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} className="w-full object-contain" />
-            ) : null}
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
           </div>
 
-          {/* Details */}
-          <div style={{flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch', padding:'22px 28px', borderTop:'1px solid #222', display:'flex', flexDirection:'column', gap:'20px'}} className="md:border-t-0 md:border-l md:border-l-[#222]">
+          {/* Right: Details */}
+          <div style={{flex:1, overflowY:'auto', padding:'22px 28px', borderLeft:'1px solid #222', display:'flex', flexDirection:'column', gap:'20px'}}>
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
@@ -218,7 +237,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Prev / Next */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 22px', borderTop:'1px solid #222'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 22px', borderTop:'1px solid #222'}}>
           <button
             onClick={onPrev}
             disabled={!hasPrev}
@@ -244,25 +263,5 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
       </div>
     </div>
-
-    {/* Fullscreen portrait video overlay */}
-    {videoFullscreen && embedHtml && (
-      <div className="fixed inset-0 z-[60] bg-black flex items-center justify-center" onClick={() => setVideoFullscreen(false)}>
-        <button
-          onClick={(e) => { e.stopPropagation(); setVideoFullscreen(false) }}
-          className="absolute top-5 right-5 z-10 text-white bg-black/60 rounded-full p-2"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        <div
-          className="h-full w-auto"
-          style={{maxWidth:'calc(100vh * 9 / 16)'}}
-          onClick={(e) => e.stopPropagation()}
-          dangerouslySetInnerHTML={{ __html: embedHtml }}
-        />
-      </div>
-    )}
   )
 }
