@@ -68,7 +68,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full max-w-5xl max-h-[95vh] mx-2 md:mx-6 bg-[#111] rounded-2xl overflow-hidden border border-[#2a2a2a] flex flex-col">
+      <div className="relative w-full max-w-5xl max-h-[90vh] mx-4 my-4 md:mx-6 md:my-0 bg-[#111] rounded-2xl overflow-hidden border border-[#2a2a2a] flex flex-col">
 
         {/* Header */}
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #222', gap:'16px'}}>
@@ -86,10 +86,10 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Body */}
-        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden" style={{WebkitOverflowScrolling:'touch'}}>
 
           {/* Video */}
-          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center">
+          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center" style={{maxHeight:'45vh', overflow:'hidden'}}>
             {embedHtml ? (
               <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
