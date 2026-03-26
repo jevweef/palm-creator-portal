@@ -85,7 +85,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
           {/* Video */}
-          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center">
+          <div className="w-full h-[42vh] md:h-auto md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center">
             {embedHtml ? (
               <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : record.thumbnail ? (
