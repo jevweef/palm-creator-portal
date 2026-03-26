@@ -240,11 +240,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Prev / Next */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 22px', borderTop:'1px solid #222'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 22px 28px', borderTop:'1px solid #222'}}>
           <button
             onClick={onPrev}
             disabled={!hasPrev}
-            className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{background:'#222', color:'#d4d4d8', border:'1px solid #333', borderRadius:'9999px', padding:'8px 18px'}}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -254,7 +255,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
           <button
             onClick={onNext}
             disabled={!hasNext}
-            className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{background:'#222', color:'#d4d4d8', border:'1px solid #333', borderRadius:'9999px', padding:'8px 18px'}}
           >
             Next
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
