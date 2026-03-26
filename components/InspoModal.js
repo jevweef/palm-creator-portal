@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { tagStyle } from '@/lib/tagStyle'
 
 function gradeColor(grade) {
@@ -30,6 +30,19 @@ function parseNotes(notes) {
 }
 
 export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext }) {
+  const bodyRef = useRef(null)
+
+  // On mobile, auto-scroll to midpoint so content is visible on open
+  useEffect(() => {
+    if (bodyRef.current && window.innerWidth < 768) {
+      requestAnimationFrame(() => {
+        const el = bodyRef.current
+        const mid = el.scrollHeight / 2 - window.innerHeight / 3
+        el.scrollTo({ top: Math.max(0, mid) })
+      })
+    }
+  }, [record])
+
   const handleKey = useCallback((e) => {
     if (e.key === 'Escape') onClose()
     if (e.key === 'ArrowLeft' && hasPrev) onPrev()
@@ -86,7 +99,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Body */}
-        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
+        <div ref={bodyRef} className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
 
           {/* Video */}
           <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black md:flex md:items-center md:justify-center">
