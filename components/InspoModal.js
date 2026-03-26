@@ -86,12 +86,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Body */}
-        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
 
           {/* Video */}
-          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center">
+          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center flex-shrink-0">
             {embedHtml ? (
-              <div className="w-full max-h-[42vh] md:max-h-none overflow-hidden" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+              <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
               <video
                 src={videoUrl}
@@ -166,18 +166,34 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             </div>
 
             {/* Tags */}
-            {record.tags.length > 0 && (
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-zinc-600 mb-3">Tags</p>
-                <div className="flex flex-wrap gap-2">
-                  {record.tags.map((tag) => (
-                    <span key={tag} style={{fontSize:'12px', padding:'4px 12px', borderRadius:'9999px', ...tagStyle(tag)}}>
-                      {tag}
-                    </span>
-                  ))}
+            {record.tags.length > 0 && (() => {
+              const visibleMobile = 3
+              const extraCount = record.tags.length - visibleMobile
+              return (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-zinc-600 mb-3">Tags</p>
+                  {/* Desktop: all tags */}
+                  <div className="hidden md:flex flex-wrap gap-2">
+                    {record.tags.map((tag) => (
+                      <span key={tag} style={{fontSize:'12px', padding:'4px 12px', borderRadius:'9999px', ...tagStyle(tag)}}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  {/* Mobile: first 3 + count */}
+                  <div className="flex md:hidden flex-nowrap gap-2 items-center">
+                    {record.tags.slice(0, visibleMobile).map((tag) => (
+                      <span key={tag} style={{fontSize:'12px', padding:'4px 12px', borderRadius:'9999px', whiteSpace:'nowrap', ...tagStyle(tag)}}>
+                        {tag}
+                      </span>
+                    ))}
+                    {extraCount > 0 && (
+                      <span className="text-xs text-zinc-500 whitespace-nowrap">+{extraCount}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* Film Format */}
             {record.filmFormat.length > 0 && (
