@@ -68,7 +68,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full max-w-5xl max-h-[90vh] mx-6 bg-[#111] rounded-2xl overflow-hidden border border-[#2a2a2a] flex flex-col">
+      <div className="relative w-full h-full md:h-auto md:max-w-5xl md:max-h-[90vh] md:mx-6 md:rounded-2xl bg-[#111] overflow-hidden border-0 md:border md:border-[#2a2a2a] flex flex-col">
 
         {/* Header */}
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #222', gap:'16px'}}>
@@ -89,7 +89,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
 
           {/* Video */}
-          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black flex items-center justify-center flex-shrink-0">
+          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black md:flex md:items-center md:justify-center">
             {embedHtml ? (
               <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
@@ -113,7 +113,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
           </div>
 
           {/* Details */}
-          <div style={{flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch', padding:'22px 28px', display:'flex', flexDirection:'column', gap:'20px'}} className="border-t md:border-t-0 md:border-l border-[#222]">
+          <div style={{padding:'22px 28px', display:'flex', flexDirection:'column', gap:'20px'}} className="md:flex-1 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[#222]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
