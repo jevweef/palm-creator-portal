@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { tagStyle } from '@/lib/tagStyle'
 
 function gradeColor(grade) {
@@ -30,6 +30,8 @@ function parseNotes(notes) {
 }
 
 export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext }) {
+  const [videoFullscreen, setVideoFullscreen] = useState(false)
+
   const handleKey = useCallback((e) => {
     if (e.key === 'Escape') onClose()
     if (e.key === 'ArrowLeft' && hasPrev) onPrev()
@@ -53,18 +55,9 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   const comments = formatNum(record.comments)
   const shares = formatNum(record.shares)
 
-  // Build video URL from DB Share Link (Dropbox dl=0 → dl=1 for direct)
   const videoUrl = record.dbRawLink || (record.dbShareLink
     ? record.dbShareLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
     : null)
-
-  // Pre-built responsive embed from Airtable formula — inject directly if available
-  const embedHtml = record.dbEmbedCode
-    ? record.dbEmbedCode
-        .replace('<video ', '<video autoplay muted loop ')
-        .replace(/max-width:[^;]+;/, 'max-width:100%;')
-        .replace(/padding-top:[^;]+;/, 'padding-top:0 !important; height:100%;')
-    : null
 
   return (
     <div
@@ -91,23 +84,33 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         {/* Body */}
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
-          {/* Video */}
-          <div className="w-full h-[42vh] md:h-full md:w-[280px] md:flex-shrink-0 bg-black flex-shrink-0 overflow-hidden flex items-center justify-center">
-            {embedHtml ? (
-              <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
-            ) : videoUrl ? (
-              <video
-                src={videoUrl}
-                controls
-                className="w-full object-contain max-h-[55vw] md:max-h-[70vh]"
-                autoPlay
-                muted
-                loop
-              />
+          {/* Video — 16:9 crop, tap to go full portrait */}
+          <div
+            className="w-full flex-shrink-0 bg-black relative overflow-hidden cursor-pointer"
+            style={{aspectRatio:'16/9'}}
+            onClick={() => videoUrl && setVideoFullscreen(true)}
+          >
+            {videoUrl ? (
+              <>
+                <video
+                  src={videoUrl}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="absolute inset-0 w-full h-full"
+                  style={{objectFit:'cover'}}
+                />
+                <div className="absolute bottom-2 right-2 bg-black/50 rounded-full p-1.5">
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                </div>
+              </>
             ) : record.thumbnail ? (
-              <img src={record.thumbnail} alt={record.title} className="w-full object-contain" />
+              <img src={record.thumbnail} alt={record.title} className="absolute inset-0 w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-48 flex items-center justify-center text-zinc-700">
+              <div className="absolute inset-0 flex items-center justify-center text-zinc-700">
                 <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -266,5 +269,28 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
       </div>
     </div>
+
+    {/* Fullscreen portrait video overlay */}
+    {videoFullscreen && videoUrl && (
+      <div className="fixed inset-0 z-[60] bg-black flex items-center justify-center" onClick={() => setVideoFullscreen(false)}>
+        <button
+          onClick={(e) => { e.stopPropagation(); setVideoFullscreen(false) }}
+          className="absolute top-5 right-5 z-10 text-white bg-black/60 rounded-full p-2"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <video
+          src={videoUrl}
+          autoPlay
+          controls
+          playsInline
+          className="h-full w-auto max-w-full"
+          style={{objectFit:'contain'}}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    )}
   )
 }
