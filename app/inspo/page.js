@@ -157,6 +157,7 @@ export default function InspoBoard() {
   const [activeTags, setActiveTags] = useState([])
   const [activeFormats, setActiveFormats] = useState([])
   const [tagMode, setTagMode] = useState('any')
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [sort, setSort] = useState('recent') // 'top' | 'recent' | 'viral'
   const [search, setSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -339,7 +340,29 @@ export default function InspoBoard() {
               )}
             </div>
 
-            <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+            {/* Mobile: compact filter button */}
+            <button
+              className="md:hidden"
+              onClick={() => setShowMobileFilters(true)}
+              style={{
+                display:'flex', alignItems:'center', gap:'6px',
+                background:'#111', border:'1px solid #222', borderRadius:'9999px',
+                padding:'7px 14px', fontSize:'12px', fontWeight:500, color:'#d4d4d8', cursor:'pointer',
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Sort & Filter
+              {(activeTags.length + activeFormats.length) > 0 && (
+                <span style={{background:'#a855f7', color:'#fff', borderRadius:'9999px', fontSize:'9px', fontWeight:700, padding:'1px 6px'}}>
+                  {activeTags.length + activeFormats.length}
+                </span>
+              )}
+            </button>
+
+            {/* Desktop: inline controls */}
+            <div className="hidden md:flex" style={{alignItems:'center', gap:'8px'}}>
               <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
                 <SortBtn value="top" label="⭐ Top" />
                 <SortBtn value="viral" label="🔥 Viral" />
@@ -383,8 +406,8 @@ export default function InspoBoard() {
             </div>
           </div>
 
-          {/* Pinned quick-filter row */}
-          <div style={{display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap'}}>
+          {/* Pinned quick-filter row — desktop only */}
+          <div className="hidden md:flex" style={{alignItems:'center', gap:'6px', flexWrap:'wrap'}}>
             {pinnedAvailable.map((tag) => (
               <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
             ))}
@@ -508,6 +531,94 @@ export default function InspoBoard() {
           </div>
         )}
       </div>
+
+      {/* Mobile Sort & Filter bottom sheet */}
+      {showMobileFilters && (
+        <div className="fixed inset-0 z-50 md:hidden" onClick={() => setShowMobileFilters(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-[#111] rounded-t-2xl border-t border-[#333] max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            style={{WebkitOverflowScrolling:'touch'}}
+          >
+            {/* Handle bar */}
+            <div style={{display:'flex', justifyContent:'center', padding:'10px 0 6px'}}>
+              <div style={{width:'36px', height:'4px', borderRadius:'2px', background:'#444'}} />
+            </div>
+
+            <div style={{padding:'0 20px 24px'}}>
+              {/* Sort */}
+              <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', marginBottom:'8px'}}>Sort by</p>
+              <div style={{display:'flex', gap:'8px', marginBottom:'20px'}}>
+                {[['recent','🕐 Recent'],['top','⭐ Top'],['viral','🔥 Viral']].map(([val, label]) => (
+                  <button key={val} onClick={() => setSort(val)} style={{
+                    flex:1, padding:'10px', borderRadius:'10px', border:'1px solid #222', cursor:'pointer',
+                    background: sort === val ? '#fff' : '#1a1a1a',
+                    color: sort === val ? '#000' : '#a1a1aa',
+                    fontSize:'13px', fontWeight: sort === val ? 600 : 400,
+                    transition:'all 0.15s',
+                  }}>{label}</button>
+                ))}
+              </div>
+
+              {/* Search */}
+              <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', marginBottom:'8px'}}>Search</p>
+              <input
+                type="text"
+                placeholder="Search reels..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  width:'100%', background:'#1a1a1a', border:'1px solid #222', borderRadius:'10px',
+                  padding:'10px 14px', fontSize:'14px', color:'#fff', outline:'none', marginBottom:'20px',
+                  boxSizing:'border-box',
+                }}
+              />
+
+              {/* Tags */}
+              <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', marginBottom:'8px'}}>Tags</p>
+              <div style={{display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'16px'}}>
+                {allTags.map((tag) => (
+                  <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
+                ))}
+              </div>
+
+              {/* Film format */}
+              {allFormats.length > 0 && (
+                <>
+                  <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', marginBottom:'8px'}}>Format</p>
+                  <div style={{display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'16px'}}>
+                    {allFormats.map((fmt) => (
+                      <button
+                        key={fmt}
+                        onClick={() => toggleFormat(fmt)}
+                        style={{
+                          fontSize:'11px', padding:'5px 10px', borderRadius:'9999px', cursor:'pointer',
+                          border: activeFormats.includes(fmt) ? '1px solid #fff' : '1px solid #333',
+                          background: activeFormats.includes(fmt) ? '#27272a' : 'transparent',
+                          color: activeFormats.includes(fmt) ? '#fff' : '#71717a',
+                        }}
+                      >{fmt}</button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Actions */}
+              <div style={{display:'flex', gap:'10px'}}>
+                {hasActiveFilters && (
+                  <button onClick={clearAll} style={{flex:1, padding:'12px', borderRadius:'10px', border:'1px solid #333', background:'transparent', color:'#a1a1aa', fontSize:'14px', cursor:'pointer'}}>
+                    Clear all
+                  </button>
+                )}
+                <button onClick={() => setShowMobileFilters(false)} style={{flex:1, padding:'12px', borderRadius:'10px', border:'none', background:'#a855f7', color:'#fff', fontSize:'14px', fontWeight:600, cursor:'pointer'}}>
+                  Show {filtered.length} reels
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {selectedIdx !== null && filtered[selectedIdx] && (
