@@ -191,11 +191,11 @@ export default function AdminSources() {
         }}>
           <div></div>
           <div>Handle</div>
-          <div>Followers</div>
+          <div style={{ textAlign: 'right' }}>Followers</div>
           <div>Status</div>
           <div>Last Scraped</div>
-          <div>Scraped</div>
-          <div>Added</div>
+          <div style={{ textAlign: 'right' }}>Scraped</div>
+          <div style={{ textAlign: 'right' }}>Added</div>
           <div></div>
         </div>
 
@@ -240,8 +240,12 @@ export default function AdminSources() {
             </div>
 
             {/* Followers */}
-            <div style={{ color: '#d4d4d8' }}>
-              {source.followerCount ? (source.followerCount >= 1000000 ? `${(source.followerCount / 1000000).toFixed(1)}M` : `${(source.followerCount / 1000).toFixed(0)}K`) : '—'}
+            <div style={{ color: '#d4d4d8', textAlign: 'right' }}>
+              {source.followerCount ? (
+                source.followerCount >= 1000000
+                  ? <>{(source.followerCount / 1000000).toFixed(1)}<span style={{ color: '#a78bfa', fontSize: '11px', fontWeight: 600 }}>M</span></>
+                  : <>{(source.followerCount / 1000).toFixed(0)}<span style={{ color: '#71717a', fontSize: '11px', fontWeight: 600 }}>K</span></>
+              ) : '—'}
             </div>
 
             {/* Status */}
@@ -251,10 +255,10 @@ export default function AdminSources() {
             <div style={{ color: '#71717a' }}>{formatTime(source.lastScrapedAt)}</div>
 
             {/* Scraped */}
-            <div style={{ color: '#d4d4d8' }}>{source.reelsScraped || '—'}</div>
+            <div style={{ color: '#d4d4d8', textAlign: 'right' }}>{source.reelsScraped || '—'}</div>
 
             {/* Added */}
-            <div style={{ color: '#d4d4d8' }}>{source.sourceReelsAdded || '—'}</div>
+            <div style={{ color: '#d4d4d8', textAlign: 'right' }}>{source.sourceReelsAdded || '—'}</div>
 
             {/* Scrape button */}
             <div>
