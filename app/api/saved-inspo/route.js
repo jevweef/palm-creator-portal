@@ -13,24 +13,46 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Missing creatorOpsId' }, { status: 400 })
     }
 
-    // Fetch records where Saved By contains this creator
-    const url = `https://api.airtable.com/v0/${BASE_ID}/${INSPIRATION_TABLE}?` + new URLSearchParams({
-      filterByFormula: `FIND("${creatorOpsId}", ARRAYJOIN({Saved By}))`,
-      'fields[]': ['Title', 'Thumbnail', 'Tags', 'Username', 'Views', 'Likes', 'Content link', 'Engagement Score', 'Notes', 'On-Screen Text', 'Film Format'],
+    // Fetch all complete records with Saved By field — filter in code since
+    // ARRAYJOIN on linked records returns display names, not record IDs
+    const allRecords = []
+    let offset = null
+
+    do {
+      const params = new URLSearchParams({
+        filterByFormula: "{Status} = 'Complete'",
+      })
+      // Add fields individually (URLSearchParams doesn't handle arrays well)
+      ;['Title', 'Thumbnail', 'Tags', 'Username', 'Views', 'Likes', 'Content link', 'Engagement Score', 'Notes', 'On-Screen Text', 'Film Format', 'Saved By'].forEach((f) => {
+        params.append('fields[]', f)
+      })
+      if (offset) params.set('offset', offset)
+
+      const res = await fetch(
+        `https://api.airtable.com/v0/${BASE_ID}/${INSPIRATION_TABLE}?${params}`,
+        {
+          headers: { Authorization: `Bearer ${AIRTABLE_PAT}` },
+          cache: 'no-store',
+        }
+      )
+
+      if (!res.ok) {
+        const err = await res.text()
+        return NextResponse.json({ error: err }, { status: res.status })
+      }
+
+      const data = await res.json()
+      allRecords.push(...data.records)
+      offset = data.offset || null
+    } while (offset)
+
+    // Filter to records where Saved By includes this creator's ops ID
+    const saved = allRecords.filter((r) => {
+      const savedBy = r.fields['Saved By'] || []
+      return savedBy.includes(creatorOpsId)
     })
 
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${AIRTABLE_PAT}` },
-      cache: 'no-store',
-    })
-
-    if (!res.ok) {
-      const err = await res.text()
-      return NextResponse.json({ error: err }, { status: res.status })
-    }
-
-    const data = await res.json()
-    const records = data.records.map((r) => {
+    const records = saved.map((r) => {
       const thumb = r.fields['Thumbnail']
       return {
         id: r.id,
