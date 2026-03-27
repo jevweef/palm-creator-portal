@@ -185,45 +185,22 @@ export default function CreatorDashboard() {
             )}
           </Card>
 
-          {/* Saved Inspo */}
+          {/* Saved Inspo — links to My Content */}
           <Card>
             <Label>Saved Inspo ({savedReels.length})</Label>
-            {savedReels.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
-                {savedReels.map((reel) => (
-                  <a key={reel.id} href={reel.contentLink || '/inspo'} target="_blank" rel="noopener noreferrer"
-                    style={{ textDecoration: 'none', color: 'inherit', borderRadius: '8px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a', transition: 'border-color 0.2s' }}
-                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#444'}
-                    onMouseLeave={(e) => e.currentTarget.style.borderColor = '#222'}
-                  >
-                    <div style={{ position: 'relative', aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
-                      {reel.thumbnail ? (
-                        <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333' }}>🎬</div>
-                      )}
-                      {reel.username && (
-                        <div style={{ position: 'absolute', bottom: '6px', left: '6px', fontSize: '9px', color: '#ccc', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>
-                          @{reel.username}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ padding: '8px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
-                      <div style={{ fontSize: '10px', color: '#52525b', marginTop: '4px' }}>
-                        {reel.tags.slice(0, 2).join(' · ')}
-                      </div>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
-                <div style={{ fontSize: '32px', marginBottom: '8px' }}>✨</div>
-                <div style={{ fontSize: '13px', color: '#52525b' }}>Reels you save from the Inspo Board will appear here</div>
-                <a href="/inspo" style={{ fontSize: '12px', color: '#a78bfa', textDecoration: 'none', marginTop: '8px' }}>Browse Inspo →</a>
-              </div>
-            )}
+            <a href="/my-content" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 0', textDecoration: 'none', color: 'inherit',
+            }}>
+              <span style={{ fontSize: '13px', color: '#a1a1aa' }}>
+                {savedReels.length > 0
+                  ? `${savedReels.length} saved reel${savedReels.length !== 1 ? 's' : ''} — view, upload clips, and track progress`
+                  : 'Save reels from the Inspo Board to start creating content'}
+              </span>
+              <span style={{ color: '#a78bfa', fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap', marginLeft: '16px' }}>
+                My Content →
+              </span>
+            </a>
           </Card>
         </div>
 
