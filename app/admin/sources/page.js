@@ -179,7 +179,7 @@ export default function AdminSources() {
         {/* Table header */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 90px 80px 100px 80px 80px 90px',
+          gridTemplateColumns: '40px 1fr 110px 80px 100px 80px 80px 90px',
           padding: '10px 16px',
           borderBottom: '1px solid #222',
           fontSize: '11px',
@@ -205,7 +205,7 @@ export default function AdminSources() {
             key={source.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 90px 80px 100px 80px 80px 90px',
+              gridTemplateColumns: '40px 1fr 110px 80px 100px 80px 80px 90px',
               padding: '10px 16px',
               borderBottom: '1px solid #1a1a1a',
               alignItems: 'center',
@@ -243,8 +243,8 @@ export default function AdminSources() {
             <div style={{ color: '#d4d4d8', textAlign: 'right' }}>
               {source.followerCount ? (
                 source.followerCount >= 1000000
-                  ? <>{(source.followerCount / 1000000).toFixed(1)}<span style={{ color: '#a78bfa', fontSize: '11px', fontWeight: 600 }}>M</span></>
-                  : <>{(source.followerCount / 1000).toFixed(0)}<span style={{ color: '#71717a', fontSize: '11px', fontWeight: 600 }}>K</span></>
+                  ? <>{(source.followerCount / 1000000).toFixed(1)}<span style={{ color: '#a78bfa', fontWeight: 600 }}>M</span></>
+                  : <>{(source.followerCount / 1000).toFixed(0)}<span style={{ color: '#71717a', fontWeight: 600 }}>K</span></>
               ) : '—'}
             </div>
 
