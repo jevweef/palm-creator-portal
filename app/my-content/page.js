@@ -6,6 +6,7 @@ import { tagStyle } from '@/lib/tagStyle'
 import QuotaBar from '@/components/QuotaBar'
 import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
+import UploadModal from '@/components/UploadModal'
 
 const TABS = [
   { key: 'saved', label: 'Saved' },
@@ -107,6 +108,7 @@ export default function MyContentPage() {
   const [uploadRecord, setUploadRecord] = useState(null) // inspo record for upload modal
 
   const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recBELsdb0C6fRBSm'
+  const creatorHqId = user?.publicMetadata?.airtableHqId || 'rec6jLwh1nKf90S6K'
 
   const fetchData = useCallback(async () => {
     try {
@@ -353,47 +355,18 @@ export default function MyContentPage() {
         />
       )}
 
-      {/* Upload modal placeholder */}
+      {/* Upload modal */}
       {uploadRecord && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
-          onClick={(e) => e.target === e.currentTarget && setUploadRecord(null)}
-        >
-          <div style={{
-            background: '#111',
-            border: '1px solid #222',
-            borderRadius: '16px',
-            padding: '32px',
-            maxWidth: '500px',
-            width: '90%',
-            textAlign: 'center',
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#fff', margin: '0 0 8px 0' }}>
-              Upload Clips
-            </h2>
-            <p style={{ fontSize: '13px', color: '#71717a', margin: '0 0 16px 0' }}>
-              for &quot;{uploadRecord.title}&quot;
-            </p>
-            <p style={{ fontSize: '13px', color: '#52525b' }}>
-              Upload flow coming soon
-            </p>
-            <button
-              onClick={() => setUploadRecord(null)}
-              style={{
-                marginTop: '20px',
-                padding: '8px 24px',
-                background: '#222',
-                color: '#d4d4d8',
-                border: '1px solid #333',
-                borderRadius: '8px',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        <UploadModal
+          record={uploadRecord}
+          creatorOpsId={creatorOpsId}
+          creatorHqId={creatorHqId}
+          onClose={() => setUploadRecord(null)}
+          onSuccess={() => {
+            // Refresh data after successful upload
+            fetchData()
+          }}
+        />
       )}
     </div>
   )
