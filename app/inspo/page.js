@@ -281,7 +281,7 @@ export default function InspoBoard() {
     } else if (sort === 'viral') {
       result.sort((a, b) => (b.views || 0) - (a.views || 0))
     } else if (sort === 'recent') {
-      result.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      result.sort((a, b) => new Date(b.creatorPostedDate || 0) - new Date(a.creatorPostedDate || 0))
     }
 
     setFiltered(result)
