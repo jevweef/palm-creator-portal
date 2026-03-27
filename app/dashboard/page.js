@@ -55,10 +55,10 @@ export default function CreatorDashboard() {
   const [loading, setLoading] = useState(true)
   const [savedReels, setSavedReels] = useState([])
 
-  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recBELsdb0C6fRBSm'
+  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'rec2DmFmg0vJ2ig3g'
 
   useEffect(() => {
-    const hqId = user?.publicMetadata?.airtableHqId || 'rec6jLwh1nKf90S6K'
+    const hqId = user?.publicMetadata?.airtableHqId || 'recd0HgtW0XCcSwMd'
     Promise.all([
       fetch(`/api/creator-profile?hqId=${hqId}`).then((r) => r.json()),
       fetch(`/api/saved-inspo?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ records: [] })),

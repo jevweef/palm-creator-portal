@@ -167,7 +167,7 @@ export default function InspoBoard() {
   const [savedIds, setSavedIds] = useState(new Set())
 
   // Hardcoded to Taby's ops record for testing — will come from Clerk metadata later
-  const creatorOpsId = 'recBELsdb0C6fRBSm'
+  const creatorOpsId = 'rec2DmFmg0vJ2ig3g'
 
   useEffect(() => {
     async function load() {
