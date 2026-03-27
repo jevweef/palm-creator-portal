@@ -191,7 +191,7 @@ export default function AdminSources() {
         }}>
           <div></div>
           <div>Handle</div>
-          <div style={{ textAlign: 'right' }}>Followers</div>
+          <div style={{ textAlign: 'right', paddingRight: '16px' }}>Followers</div>
           <div>Status</div>
           <div>Last Scraped</div>
           <div style={{ textAlign: 'right' }}>Scraped</div>
@@ -240,7 +240,7 @@ export default function AdminSources() {
             </div>
 
             {/* Followers */}
-            <div style={{ color: '#d4d4d8', textAlign: 'right' }}>
+            <div style={{ color: '#d4d4d8', textAlign: 'right', paddingRight: '16px' }}>
               {source.followerCount ? (
                 source.followerCount >= 1000000
                   ? <>{(source.followerCount / 1000000).toFixed(1)}<span style={{ color: '#a78bfa', fontWeight: 600 }}>M</span></>
