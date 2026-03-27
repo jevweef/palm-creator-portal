@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useUser } from '@clerk/nextjs'
 
 import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
@@ -148,6 +149,7 @@ function TagPill({ tag, active, onClick, size = 'sm' }) {
 }
 
 export default function InspoBoard() {
+  const { user } = useUser()
   const [records, setRecords] = useState([])
   const [filtered, setFiltered] = useState([])
   const [loading, setLoading] = useState(true)
@@ -166,8 +168,7 @@ export default function InspoBoard() {
   const [allFormats, setAllFormats] = useState([])
   const [savedIds, setSavedIds] = useState(new Set())
 
-  // Hardcoded to Taby's ops record for testing — will come from Clerk metadata later
-  const creatorOpsId = 'rec2DmFmg0vJ2ig3g'
+  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK' // Default: Grace Collins
 
   useEffect(() => {
     async function load() {

@@ -107,8 +107,8 @@ export default function MyContentPage() {
   const [modalIndex, setModalIndex] = useState(null) // index into data.saved for InspoModal
   const [uploadRecord, setUploadRecord] = useState(null) // inspo record for upload modal
 
-  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'rec2DmFmg0vJ2ig3g'
-  const creatorHqId = user?.publicMetadata?.airtableHqId || 'recd0HgtW0XCcSwMd'
+  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK' // Default: Grace Collins
+  const creatorHqId = user?.publicMetadata?.airtableHqId || 'recYyxrPm6BWd3FSB' // Default: Grace Collins
 
   const fetchData = useCallback(async () => {
     try {
