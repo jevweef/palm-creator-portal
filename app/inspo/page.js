@@ -157,7 +157,7 @@ export default function InspoBoard() {
   const [activeTags, setActiveTags] = useState([])
   const [activeFormats, setActiveFormats] = useState([])
   const [tagMode, setTagMode] = useState('any')
-  const [sort, setSort] = useState('top') // 'top' | 'recent' | 'viral'
+  const [sort, setSort] = useState('recent') // 'top' | 'recent' | 'viral'
   const [search, setSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
 
