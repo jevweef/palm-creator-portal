@@ -53,14 +53,23 @@ export default function CreatorDashboard() {
   const { user, isLoaded } = useUser()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [savedReels, setSavedReels] = useState([])
+
+  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recBELsdb0C6fRBSm'
 
   useEffect(() => {
     const hqId = user?.publicMetadata?.airtableHqId || 'rec6jLwh1nKf90S6K'
-    fetch(`/api/creator-profile?hqId=${hqId}`)
-      .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false) })
+    Promise.all([
+      fetch(`/api/creator-profile?hqId=${hqId}`).then((r) => r.json()),
+      fetch(`/api/saved-inspo?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ records: [] })),
+    ])
+      .then(([profileData, savedData]) => {
+        setData(profileData)
+        setSavedReels(savedData.records || [])
+        setLoading(false)
+      })
       .catch((err) => { console.error(err); setLoading(false) })
-  }, [user])
+  }, [user, creatorOpsId])
 
   if (!isLoaded || loading) {
     return (
@@ -177,14 +186,45 @@ export default function CreatorDashboard() {
             )}
           </Card>
 
-          {/* Saved Inspo placeholder */}
+          {/* Saved Inspo */}
           <Card>
-            <Label>Saved Inspo</Label>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
-              <div style={{ fontSize: '32px', marginBottom: '8px' }}>✨</div>
-              <div style={{ fontSize: '13px', color: '#52525b' }}>Reels you save from the Inspo Board will appear here</div>
-              <a href="/inspo" style={{ fontSize: '12px', color: '#a78bfa', textDecoration: 'none', marginTop: '8px' }}>Browse Inspo →</a>
-            </div>
+            <Label>Saved Inspo ({savedReels.length})</Label>
+            {savedReels.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
+                {savedReels.map((reel) => (
+                  <a key={reel.id} href={reel.contentLink || '/inspo'} target="_blank" rel="noopener noreferrer"
+                    style={{ textDecoration: 'none', color: 'inherit', borderRadius: '8px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a', transition: 'border-color 0.2s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#444'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = '#222'}
+                  >
+                    <div style={{ position: 'relative', aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
+                      {reel.thumbnail ? (
+                        <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333' }}>🎬</div>
+                      )}
+                      {reel.username && (
+                        <div style={{ position: 'absolute', bottom: '6px', left: '6px', fontSize: '9px', color: '#ccc', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>
+                          @{reel.username}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ padding: '8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
+                      <div style={{ fontSize: '10px', color: '#52525b', marginTop: '4px' }}>
+                        {reel.tags.slice(0, 2).join(' · ')}
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>✨</div>
+                <div style={{ fontSize: '13px', color: '#52525b' }}>Reels you save from the Inspo Board will appear here</div>
+                <a href="/inspo" style={{ fontSize: '12px', color: '#a78bfa', textDecoration: 'none', marginTop: '8px' }}>Browse Inspo →</a>
+              </div>
+            )}
           </Card>
         </div>
 
