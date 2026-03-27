@@ -12,13 +12,10 @@ export default function Header() {
 
   return (
     <header style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '12px 24px',
       borderBottom: '1px solid #222',
       background: '#0a0a0a',
     }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="px-4 md:px-8 py-3">
       <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
         <Link href="/dashboard">
           <img
@@ -55,6 +52,7 @@ export default function Header() {
         </nav>
       </div>
       <UserButton afterSignOutUrl="/sign-in" />
+      </div>
     </header>
   )
 }
