@@ -81,7 +81,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full h-full md:h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-[#111] overflow-hidden border-0 md:border md:border-[#2a2a2a] flex flex-col">
+      <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-[#111] overflow-hidden border-0 md:border md:border-[#2a2a2a] flex flex-col">
 
         {/* Header */}
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #222', gap:'16px'}}>
