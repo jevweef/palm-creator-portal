@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@clerk/nextjs": "^5.7.5",
     "@tailwindcss/postcss": "^4.2.2",
     "airtable": "^0.12.2",
     "next": "^14.2.35",

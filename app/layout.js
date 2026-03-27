@@ -1,11 +1,12 @@
 import './globals.css'
+import { ClerkProvider } from '@clerk/nextjs'
 
 export const metadata = {
-  title: 'Palm Inspo Board',
-  description: 'Creator inspiration portal',
+  title: 'Palm Management',
+  description: 'Creator portal',
   openGraph: {
-    title: 'Palm Inspo Board',
-    description: 'Creator inspiration portal',
+    title: 'Palm Management',
+    description: 'Creator portal',
     url: 'https://app.palm-mgmt.com',
     siteName: 'Palm',
     images: [
@@ -20,8 +21,10 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    </ClerkProvider>
   )
 }
