@@ -185,23 +185,41 @@ export default function CreatorDashboard() {
             )}
           </Card>
 
-          {/* Saved Inspo — links to My Content */}
-          <Card>
-            <Label>Saved Inspo ({savedReels.length})</Label>
-            <a href="/my-content" style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 0', textDecoration: 'none', color: 'inherit',
-            }}>
-              <span style={{ fontSize: '13px', color: '#a1a1aa' }}>
-                {savedReels.length > 0
-                  ? `${savedReels.length} saved reel${savedReels.length !== 1 ? 's' : ''} — view, upload clips, and track progress`
-                  : 'Save reels from the Inspo Board to start creating content'}
-              </span>
-              <span style={{ color: '#a78bfa', fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap', marginLeft: '16px' }}>
-                My Content →
-              </span>
-            </a>
-          </Card>
+          {/* Saved Inspo — clickable card grid that links to My Content */}
+          <a href="/my-content" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+            <Card style={{ cursor: 'pointer', transition: 'border-color 0.2s' }}
+              className="hover:!border-[#444]"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: savedReels.length > 0 ? '14px' : 0 }}>
+                <Label>Saved Inspo ({savedReels.length})</Label>
+                <span style={{ color: '#a78bfa', fontSize: '12px', fontWeight: 500 }}>
+                  My Content →
+                </span>
+              </div>
+              {savedReels.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+                  {savedReels.slice(0, 8).map((reel) => (
+                    <div key={reel.id} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a' }}>
+                      <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
+                        {reel.thumbnail ? (
+                          <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '24px' }}>🎬</div>
+                        )}
+                      </div>
+                      <div style={{ padding: '6px 8px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: '#52525b', fontSize: '13px' }}>
+                  Save reels from the Inspo Board to start creating content
+                </div>
+              )}
+            </Card>
+          </a>
         </div>
 
       </div>
