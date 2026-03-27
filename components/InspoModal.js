@@ -125,23 +125,23 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Body */}
-        <div ref={bodyRef} className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
+        <div ref={bodyRef} className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden md:min-h-0">
 
           {/* Video */}
-          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black md:flex md:items-center md:justify-center">
+          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black md:overflow-hidden">
             {embedHtml ? (
-              <div className="w-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+              <div className="w-full md:h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
               <video
                 src={videoUrl}
                 controls
-                className="w-full h-full object-contain max-h-[70vh]"
+                className="w-full md:h-full object-cover"
                 autoPlay
                 muted
                 loop
               />
             ) : record.thumbnail ? (
-              <img src={record.thumbnail} alt={record.title} className="w-full md:h-full object-cover md:object-cover" />
+              <img src={record.thumbnail} alt={record.title} className="w-full md:h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-zinc-700">
                 <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
