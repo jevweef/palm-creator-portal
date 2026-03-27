@@ -359,25 +359,24 @@ export default function InspoBoard() {
             </button>
           </div>
 
-          {/* Desktop: single row — sort + tags + search */}
-          <div className="hidden md:flex items-center gap-2 flex-wrap">
+          {/* Desktop: single row — sort + tags + search — NO wrap */}
+          <div className="hidden md:flex items-center gap-2" style={{flexWrap:'nowrap'}}>
             {/* Sort toggle */}
-            <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
+            <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px', flexShrink:0}}>
               <SortBtn value="top" label="Top" />
               <SortBtn value="viral" label="Viral" />
               <SortBtn value="recent" label="Recent" />
             </div>
 
             {/* Divider */}
-            <div style={{width:'1px', height:'20px', background:'#27272a'}} />
+            <div style={{width:'1px', height:'20px', background:'#27272a', flexShrink:0}} />
 
-            {/* Tag pills */}
-            {pinnedAvailable.map((tag) => (
-              <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
-            ))}
-
-            {/* Divider */}
-            <div style={{width:'1px', height:'18px', background:'#27272a', margin:'0 4px'}} />
+            {/* Tag pills — scrollable if needed */}
+            <div style={{display:'flex', gap:'6px', overflow:'hidden', flexShrink:1, minWidth:0}}>
+              {pinnedAvailable.map((tag) => (
+                <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
+              ))}
+            </div>
 
             {/* + Filters button */}
             <button
@@ -386,7 +385,7 @@ export default function InspoBoard() {
                 fontSize:'11px', padding:'3px 10px', borderRadius:'9999px', border:'1px solid #2a2a2a',
                 cursor:'pointer', background: showAdvanced ? '#27272a' : 'transparent',
                 color: showAdvanced ? '#fff' : '#71717a',
-                display:'flex', alignItems:'center', gap:'4px', transition:'all 0.15s',
+                display:'flex', alignItems:'center', gap:'4px', transition:'all 0.15s', flexShrink:0, whiteSpace:'nowrap',
               }}
             >
               {showAdvanced ? '▲' : '▼'} {showAdvanced ? 'Less' : 'More'} filters
@@ -397,16 +396,9 @@ export default function InspoBoard() {
               )}
             </button>
 
-            {/* Clear all — only when filters active */}
-            {hasActiveFilters && (
-              <button onClick={clearAll} style={{fontSize:'11px', color:'#52525b', background:'none', border:'none', cursor:'pointer', marginLeft:'2px', textDecoration:'underline'}}>
-                Clear all
-              </button>
-            )}
-
             {/* ANY/ALL — only when 2+ tags */}
             {activeTags.length >= 2 && (
-              <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px'}}>
+              <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', flexShrink:0}}>
                 {['any','all'].map((m) => (
                   <button key={m} onClick={() => setTagMode(m)} style={{
                     fontSize:'11px', fontWeight:500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
@@ -418,6 +410,13 @@ export default function InspoBoard() {
                   </button>
                 ))}
               </div>
+            )}
+
+            {/* Clear all — only when filters active */}
+            {hasActiveFilters && (
+              <button onClick={clearAll} style={{fontSize:'11px', color:'#52525b', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', flexShrink:0, whiteSpace:'nowrap'}}>
+                Clear all
+              </button>
             )}
 
             {/* Spacer to push search right */}
