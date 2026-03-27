@@ -18,7 +18,7 @@ function gradeColor(grade) {
   return '#71717a'
 }
 
-export default function InspoCard({ record, grade, onClick }) {
+export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
   const views = formatNum(record.views)
   const likes = formatNum(record.likes)
   const comments = formatNum(record.comments)
@@ -71,6 +71,32 @@ export default function InspoCard({ record, grade, onClick }) {
           }}>
             {grade}
           </div>
+        )}
+
+        {/* Save button */}
+        {onSave && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSave(record.id) }}
+            className="absolute bottom-3 right-3 z-10 transition-all duration-200 hover:scale-110"
+            style={{
+              background: isSaved ? '#a855f7' : 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(4px)',
+              border: isSaved ? 'none' : '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title={isSaved ? 'Unsave' : 'Save to film later'}
+          >
+            <svg className="w-4 h-4" fill={isSaved ? '#fff' : 'none'} viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+          </button>
         )}
 
         {/* Engagement stats overlay at bottom of thumbnail */}

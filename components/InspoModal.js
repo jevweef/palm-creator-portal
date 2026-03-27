@@ -29,7 +29,7 @@ function parseNotes(notes) {
   }
 }
 
-export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext }) {
+export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext, isSaved, onSave }) {
   const bodyRef = useRef(null)
 
   // On mobile, auto-scroll to midpoint so content is visible on open
@@ -91,10 +91,35 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               <p style={{fontSize:'12px', color:'#71717a', marginTop:'6px'}}>@{record.username}</p>
             )}
           </div>
-          <button onClick={onClose} style={{flexShrink:0, color:'#71717a', background:'none', border:'none', cursor:'pointer', padding:'4px', marginTop:'2px'}}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <div style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>
+            {onSave && (
+              <button
+                onClick={() => onSave(record.id)}
+                style={{
+                  background: isSaved ? '#a855f7' : '#222',
+                  border: isSaved ? '1px solid #a855f7' : '1px solid #333',
+                  borderRadius: '9999px',
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: isSaved ? '#fff' : '#a1a1aa',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  transition: 'all 0.2s',
+                }}
+              >
+                <svg className="w-3.5 h-3.5" fill={isSaved ? '#fff' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+                {isSaved ? 'Saved' : 'Save'}
+              </button>
+            )}
+            <button onClick={onClose} style={{color:'#71717a', background:'none', border:'none', cursor:'pointer', padding:'4px', marginTop:'2px'}}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
           </button>
         </div>
 

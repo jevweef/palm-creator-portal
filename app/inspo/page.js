@@ -163,6 +163,10 @@ export default function InspoBoard() {
 
   const [allTags, setAllTags] = useState([])
   const [allFormats, setAllFormats] = useState([])
+  const [savedIds, setSavedIds] = useState(new Set())
+
+  // Hardcoded to Taby's ops record for testing — will come from Clerk metadata later
+  const creatorOpsId = 'recBELsdb0C6fRBSm'
 
   useEffect(() => {
     async function load() {
@@ -181,6 +185,13 @@ export default function InspoBoard() {
         })
         setAllTags(Array.from(tagSet).sort())
         setAllFormats(Array.from(fmtSet).sort())
+
+        // Initialize saved state from records
+        const saved = new Set()
+        data.records.forEach((r) => {
+          if (r.savedBy && r.savedBy.includes(creatorOpsId)) saved.add(r.id)
+        })
+        setSavedIds(saved)
       } catch (err) {
         setError(err.message)
       } finally {
@@ -189,6 +200,44 @@ export default function InspoBoard() {
     }
     load()
   }, [])
+
+  const handleSave = useCallback(async (recordId) => {
+    const isSaved = savedIds.has(recordId)
+    const action = isSaved ? 'unsave' : 'save'
+
+    // Optimistic update
+    setSavedIds((prev) => {
+      const next = new Set(prev)
+      if (isSaved) next.delete(recordId)
+      else next.add(recordId)
+      return next
+    })
+
+    try {
+      const res = await fetch('/api/inspo-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId, creatorOpsId, action }),
+      })
+      if (!res.ok) {
+        // Revert on failure
+        setSavedIds((prev) => {
+          const next = new Set(prev)
+          if (isSaved) next.add(recordId)
+          else next.delete(recordId)
+          return next
+        })
+      }
+    } catch {
+      // Revert on failure
+      setSavedIds((prev) => {
+        const next = new Set(prev)
+        if (isSaved) next.add(recordId)
+        else next.delete(recordId)
+        return next
+      })
+    }
+  }, [savedIds, creatorOpsId])
 
   useEffect(() => {
     let result = [...records]
@@ -447,6 +496,8 @@ export default function InspoBoard() {
                 record={record}
                 grade={getGrade(record.engagementScore)}
                 onClick={() => openModal(idx)}
+                isSaved={savedIds.has(record.id)}
+                onSave={handleSave}
               />
             ))}
           </div>
@@ -463,6 +514,8 @@ export default function InspoBoard() {
           onNext={goNext}
           hasPrev={selectedIdx > 0}
           hasNext={selectedIdx < filtered.length - 1}
+          isSaved={savedIds.has(filtered[selectedIdx]?.id)}
+          onSave={handleSave}
         />
       )}
     </div>
