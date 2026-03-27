@@ -331,18 +331,15 @@ export default function InspoBoard() {
       <div className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b border-[#1a1a1a]">
         <div style={{maxWidth:'1400px', margin:'0 auto', padding:'12px 32px'}}>
 
-          {/* Top row: title + sort + search */}
-          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px'}}>
+          {/* Mobile: title + filter button */}
+          <div className="md:hidden" style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0'}}>
             <div>
-              <h1 style={{fontSize:'18px', fontWeight:700, color:'#fff', letterSpacing:'-0.02em', margin:0}}>Palm Inspo Board</h1>
+              <h1 style={{fontSize:'16px', fontWeight:700, color:'#fff', margin:0}}>Inspo Board</h1>
               {!loading && (
-                <p style={{fontSize:'11px', color:'#52525b', marginTop:'2px'}}>{filtered.length} reels</p>
+                <p style={{fontSize:'11px', color:'#52525b', marginTop:'1px'}}>{filtered.length} reels</p>
               )}
             </div>
-
-            {/* Mobile: compact filter button */}
             <button
-              className="md:hidden"
               onClick={() => setShowMobileFilters(true)}
               style={{
                 display:'flex', alignItems:'center', gap:'6px',
@@ -360,54 +357,21 @@ export default function InspoBoard() {
                 </span>
               )}
             </button>
-
-            {/* Desktop: inline controls */}
-            <div className="hidden md:flex" style={{alignItems:'center', gap:'8px'}}>
-              <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
-                <SortBtn value="top" label="Top" />
-                <SortBtn value="viral" label="Viral" />
-                <SortBtn value="recent" label="Recent" />
-              </div>
-
-              {/* ANY/ALL — only when 2+ tags */}
-              {activeTags.length >= 2 && (
-                <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px'}}>
-                  {['any','all'].map((m) => (
-                    <button key={m} onClick={() => setTagMode(m)} style={{
-                      fontSize:'11px', fontWeight:500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
-                      background: tagMode === m ? '#fff' : 'transparent',
-                      color: tagMode === m ? '#000' : '#71717a',
-                      transition:'all 0.15s',
-                    }}>
-                      {m === 'any' ? 'Match ANY' : 'Match ALL'}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Search */}
-              <div style={{position:'relative'}}>
-                <svg style={{position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', width:'13px', height:'13px', color:'#52525b'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  style={{
-                    width:'200px', background:'#111', border:'1px solid #222', borderRadius:'8px',
-                    paddingLeft:'30px', paddingRight:'12px', paddingTop:'6px', paddingBottom:'6px',
-                    fontSize:'13px', color:'#fff', outline:'none',
-                  }}
-                />
-              </div>
-
-            </div>
           </div>
 
-          {/* Pinned quick-filter row — desktop only */}
-          <div className="hidden md:flex" style={{alignItems:'center', gap:'6px', flexWrap:'wrap'}}>
+          {/* Desktop: single row — sort + tags + search */}
+          <div className="hidden md:flex" style={{alignItems:'center', gap:'8px', flexWrap:'wrap'}}>
+            {/* Sort toggle */}
+            <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
+              <SortBtn value="top" label="Top" />
+              <SortBtn value="viral" label="Viral" />
+              <SortBtn value="recent" label="Recent" />
+            </div>
+
+            {/* Divider */}
+            <div style={{width:'1px', height:'20px', background:'#27272a'}} />
+
+            {/* Tag pills */}
             {pinnedAvailable.map((tag) => (
               <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
             ))}
@@ -439,6 +403,48 @@ export default function InspoBoard() {
                 Clear all
               </button>
             )}
+
+            {/* ANY/ALL — only when 2+ tags */}
+            {activeTags.length >= 2 && (
+              <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px'}}>
+                {['any','all'].map((m) => (
+                  <button key={m} onClick={() => setTagMode(m)} style={{
+                    fontSize:'11px', fontWeight:500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
+                    background: tagMode === m ? '#fff' : 'transparent',
+                    color: tagMode === m ? '#000' : '#71717a',
+                    transition:'all 0.15s',
+                  }}>
+                    {m === 'any' ? 'Match ANY' : 'Match ALL'}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Spacer to push search right */}
+            <div style={{flex:1}} />
+
+            {/* Reel count */}
+            {!loading && (
+              <span style={{fontSize:'11px', color:'#52525b'}}>{filtered.length} reels</span>
+            )}
+
+            {/* Search */}
+            <div style={{position:'relative'}}>
+              <svg style={{position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', width:'13px', height:'13px', color:'#52525b'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  width:'200px', background:'#111', border:'1px solid #222', borderRadius:'8px',
+                  paddingLeft:'30px', paddingRight:'12px', paddingTop:'6px', paddingBottom:'6px',
+                  fontSize:'13px', color:'#fff', outline:'none',
+                }}
+              />
+            </div>
           </div>
 
           {/* Advanced panel */}
