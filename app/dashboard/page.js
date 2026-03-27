@@ -7,8 +7,8 @@ function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', 
 function fmtPct(val) { return `${Math.round((val || 0) * 100)}%` }
 function fmtDate(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 
-function Card({ children, style }) {
-  return <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', ...style }}>{children}</div>
+function Card({ children, style, className }) {
+  return <div className={className} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', ...style }}>{children}</div>
 }
 
 function Label({ children }) {
