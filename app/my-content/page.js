@@ -255,20 +255,24 @@ export default function MyContentPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {savedRecords.map((record, i) => (
                   <div key={record.id} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <InspoCard
-                      record={record}
-                      onClick={() => handleCardClick(i)}
-                    />
+                    <div style={{ position: 'relative', zIndex: 2 }}>
+                      <InspoCard
+                        record={record}
+                        onClick={() => handleCardClick(i)}
+                      />
+                    </div>
                     <button
                       onClick={() => setUploadRecord(record)}
                       style={{
-                        marginTop: '6px',
+                        position: 'relative',
+                        zIndex: 1,
+                        marginTop: '-12px',
                         width: '100%',
-                        padding: '8px',
+                        padding: '22px 8px 10px',
                         background: '#a855f7',
                         color: '#fff',
                         border: 'none',
-                        borderRadius: '8px',
+                        borderRadius: '0 0 12px 12px',
                         fontSize: '12px',
                         fontWeight: 600,
                         cursor: 'pointer',
@@ -276,7 +280,10 @@ export default function MyContentPage() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '6px',
+                        transition: 'filter 0.15s',
                       }}
+                      onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.15)'}
+                      onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
                     >
                       <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
