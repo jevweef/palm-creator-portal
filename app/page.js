@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { UserButton } from '@clerk/nextjs'
 import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
 import { tagStyle } from '@/lib/tagStyle'
@@ -278,7 +279,10 @@ export default function InspoBoard() {
           {/* Top row: title + sort + search */}
           <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px'}}>
             <div>
-              <h1 style={{fontSize:'18px', fontWeight:700, color:'#fff', letterSpacing:'-0.02em', margin:0}}>Palm Inspo Board</h1>
+              <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                <h1 style={{fontSize:'18px', fontWeight:700, color:'#fff', letterSpacing:'-0.02em', margin:0}}>Palm Inspo Board</h1>
+                <UserButton afterSignOutUrl="/sign-in" />
+              </div>
               {!loading && (
                 <p style={{fontSize:'11px', color:'#52525b', marginTop:'2px'}}>{filtered.length} reels</p>
               )}
