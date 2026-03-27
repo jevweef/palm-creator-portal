@@ -14,7 +14,7 @@ export default function Home() {
     const role = user?.publicMetadata?.role
 
     if (role === 'admin') {
-      router.replace('/inspo')
+      router.replace('/admin')
     } else {
       router.replace('/dashboard')
     }

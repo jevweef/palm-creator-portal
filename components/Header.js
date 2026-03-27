@@ -1,11 +1,13 @@
 'use client'
 
-import { UserButton } from '@clerk/nextjs'
+import { UserButton, useUser } from '@clerk/nextjs'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 export default function Header() {
   const pathname = usePathname()
+  const { user } = useUser()
+  const isAdmin = user?.publicMetadata?.role === 'admin'
 
   // Don't show header on sign-in/sign-up pages
   if (pathname?.startsWith('/sign-')) return null
@@ -61,6 +63,20 @@ export default function Header() {
           >
             Inspo Board
           </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              style={{
+                fontSize: '13px',
+                fontWeight: pathname?.startsWith('/admin') ? 600 : 400,
+                color: pathname?.startsWith('/admin') ? '#a78bfa' : '#71717a',
+                textDecoration: 'none',
+                transition: 'color 0.15s',
+              }}
+            >
+              Admin
+            </Link>
+          )}
         </nav>
       </div>
       <UserButton afterSignOutUrl="/sign-in" />
