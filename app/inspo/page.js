@@ -332,7 +332,7 @@ export default function InspoBoard() {
         <div style={{maxWidth:'1400px', margin:'0 auto', padding:'12px 32px'}}>
 
           {/* Mobile: title + filter button */}
-          <div className="md:hidden" style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0'}}>
+          <div className="flex md:hidden items-center justify-between">
             <div>
               <h1 style={{fontSize:'16px', fontWeight:700, color:'#fff', margin:0}}>Inspo Board</h1>
               {!loading && (
@@ -360,7 +360,7 @@ export default function InspoBoard() {
           </div>
 
           {/* Desktop: single row — sort + tags + search */}
-          <div className="hidden md:flex" style={{alignItems:'center', gap:'8px', flexWrap:'wrap'}}>
+          <div className="hidden md:flex items-center gap-2 flex-wrap">
             {/* Sort toggle */}
             <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
               <SortBtn value="top" label="Top" />
