@@ -241,7 +241,7 @@ export default function AdminSources() {
 
             {/* Followers */}
             <div style={{ color: '#d4d4d8' }}>
-              {source.followerCount ? `${(source.followerCount / 1000).toFixed(source.followerCount >= 1000000 ? 1 : 0)}${source.followerCount >= 1000000 ? 'M' : 'K'}` : '—'}
+              {source.followerCount ? (source.followerCount >= 1000000 ? `${(source.followerCount / 1000000).toFixed(1)}M` : `${(source.followerCount / 1000).toFixed(0)}K`) : '—'}
             </div>
 
             {/* Status */}
