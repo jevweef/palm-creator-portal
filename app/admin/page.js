@@ -190,18 +190,19 @@ export default function AdminPipeline() {
       {/* Stats Row */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
         <StatCard
-          label="Sources"
+          label="Model Accounts"
           value={`${stats?.sources?.enabled || 0} / ${stats?.sources?.total || 0}`}
-          sub={`Last scrape: ${formatTime(stats?.sources?.lastScrape)}`}
+          sub={`${stats?.sources?.enabled || 0} active · last scraped ${formatTime(stats?.sources?.lastScrape)}`}
         />
         <StatCard
-          label="Source Reels"
+          label="Scraped Reels"
           value={stats?.sourceReels?.total?.toLocaleString() || '0'}
+          sub="collected from model accounts"
         />
         <StatCard
-          label="Inspiration"
-          value={stats?.inspiration?.total?.toLocaleString() || '0'}
-          sub={`${stats?.inspiration?.byStatus?.['Reviewed'] || 0} reviewed`}
+          label="Live on Inspo Board"
+          value={(stats?.inspiration?.byStatus?.['Complete'] || 0).toLocaleString()}
+          sub={`${stats?.inspiration?.total?.toLocaleString() || 0} total in pipeline`}
           color="#a78bfa"
         />
       </div>
@@ -237,7 +238,7 @@ export default function AdminPipeline() {
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <ActionButton
           label="Scrape"
-          description="Run Apify scraper for all enabled sources. Results arrive via webhook."
+          description="Fetch latest reels from all active model accounts. New reels land in Scraped Reels."
           onClick={runScrape}
           loading={scrapeLoading}
           result={scrapeResult}
@@ -245,7 +246,7 @@ export default function AdminPipeline() {
         />
         <ActionButton
           label="Promote"
-          description="Filter top reels from Source Reels and promote to Inspiration."
+          description="Score and filter Scraped Reels — top performers get pushed to the Inspo Board."
           onClick={runPromote}
           loading={promoteLoading}
           result={promoteResult}
@@ -253,7 +254,7 @@ export default function AdminPipeline() {
         />
         <ActionButton
           label="Analysis"
-          description="Trigger AI analysis for Ready for Analysis records."
+          description="Run AI analysis on promoted reels — writes tags, directions, and notes."
           onClick={runAnalysis}
           loading={analysisLoading}
           result={analysisResult}
