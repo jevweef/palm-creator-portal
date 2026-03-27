@@ -3,42 +3,49 @@
 import { useUser, UserButton } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
 
-function formatCurrency(val) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0)
-}
-
-function formatPct(val) {
-  return `${Math.round((val || 0) * 100)}%`
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—'
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
+function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0) }
+function fmtPct(val) { return `${Math.round((val || 0) * 100)}%` }
+function fmtDate(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 
 function Card({ children, style }) {
-  return (
-    <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', ...style }}>
-      {children}
-    </div>
-  )
+  return <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', ...style }}>{children}</div>
 }
 
-function SectionLabel({ children }) {
-  return <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>{children}</div>
+function Label({ children }) {
+  return <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>{children}</div>
 }
 
-function InfoRow({ label, value, href }) {
-  const content = href ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#a78bfa', textDecoration: 'none', fontSize: '14px' }}>{value}</a>
-  ) : (
-    <span style={{ color: '#d4d4d8', fontSize: '14px' }}>{value || '—'}</span>
-  )
+function Row({ label, value, href, mono }) {
+  const valStyle = { color: '#d4d4d8', fontSize: '13px', ...(mono ? { fontFamily: 'monospace' } : {}) }
+  const content = href
+    ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...valStyle, color: '#a78bfa', textDecoration: 'none' }}>{value}</a>
+    : <span style={valStyle}>{value || '—'}</span>
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #1a1a1a' }}>
-      <span style={{ color: '#71717a', fontSize: '13px' }}>{label}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #1a1a1a' }}>
+      <span style={{ color: '#71717a', fontSize: '12px', flexShrink: 0, marginRight: '16px' }}>{label}</span>
       {content}
     </div>
+  )
+}
+
+function StatBox({ value, label, color }) {
+  return (
+    <div style={{ flex: 1, minWidth: '120px' }}>
+      <div style={{ fontSize: '22px', fontWeight: 700, color: color || '#fff' }}>{value}</div>
+      <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>{label}</div>
+    </div>
+  )
+}
+
+function ActionCard({ href, icon, title, subtitle }) {
+  return (
+    <a href={href} target={href.startsWith('/') ? undefined : '_blank'} rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+      <Card style={{ textAlign: 'center', cursor: 'pointer', borderColor: '#2a2a2a', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', transition: 'border-color 0.2s' }}>
+        <div style={{ fontSize: '22px', marginBottom: '6px' }}>{icon}</div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{title}</div>
+        <div style={{ fontSize: '10px', color: '#71717a', marginTop: '3px' }}>{subtitle}</div>
+      </Card>
+    </a>
   )
 }
 
@@ -48,7 +55,6 @@ export default function CreatorDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // For now, use Taby's test ID. Later this will come from user.publicMetadata.airtableHqId
     const hqId = user?.publicMetadata?.airtableHqId || 'rec6jLwh1nKf90S6K'
     fetch(`/api/creator-profile?hqId=${hqId}`)
       .then((r) => r.json())
@@ -65,117 +71,138 @@ export default function CreatorDashboard() {
   }
 
   const { profile, uploads, invoices } = data || {}
-  const displayName = profile?.aka || profile?.name || 'there'
+  const p = profile || {}
+  const displayName = p.aka || p.name || 'there'
+  const igHandle = p.igAccount?.replace('https://', '')?.replace('instagram.com/', '@') || ''
+  const igHref = p.igAccount?.startsWith('http') ? p.igAccount : `https://${p.igAccount}`
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '40px 24px' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '32px 32px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
           <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
-            <p style={{ fontSize: '13px', color: '#71717a', marginTop: '4px' }}>Your Palm Management Dashboard</p>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
+            <p style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
           <UserButton afterSignOutUrl="/sign-in" />
         </div>
 
-        {/* Profile Card */}
-        <Card style={{ marginBottom: '16px' }}>
-          <SectionLabel>Your Profile</SectionLabel>
-          <InfoRow label="Name" value={profile?.name} />
-          <InfoRow label="Stage Name" value={profile?.aka} />
-          <InfoRow label="Commission" value={formatPct(profile?.commission)} />
-          <InfoRow label="Management Start" value={formatDate(profile?.managementStartDate)} />
-          <InfoRow label="OnlyFans" value={profile?.onlyfansUrl?.replace('https://', '')} href={profile?.onlyfansUrl} />
-          <InfoRow label="Instagram" value={profile?.igAccount?.replace('https://', '')?.replace('instagram.com/', '@')} href={profile?.igAccount?.startsWith('http') ? profile.igAccount : `https://${profile?.igAccount}`} />
-          {profile?.contractUrl && (
-            <InfoRow label="Contract" value={profile?.contractFilename || 'View Contract'} href={profile.contractUrl} />
-          )}
-          {profile?.telegram && (
-            <InfoRow label="Telegram" value={profile.telegram} />
-          )}
-        </Card>
+        {/* ── Row 1: Profile + Earnings + Quick Actions ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px', marginBottom: '12px' }}>
 
-        {/* Quick Actions */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-          {uploads?.socialUploadUrl && (
-            <a href={uploads.socialUploadUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-              <Card style={{ textAlign: 'center', cursor: 'pointer', borderColor: '#2a2a2a', transition: 'border-color 0.2s' }}>
-                <div style={{ fontSize: '24px', marginBottom: '8px' }}>📱</div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>Upload Social Content</div>
-                <div style={{ fontSize: '11px', color: '#71717a', marginTop: '4px' }}>Dropbox file request</div>
-              </Card>
-            </a>
-          )}
-          {uploads?.longformUploadUrl && (
-            <a href={uploads.longformUploadUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-              <Card style={{ textAlign: 'center', cursor: 'pointer', borderColor: '#2a2a2a', transition: 'border-color 0.2s' }}>
-                <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎬</div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>Upload Longform Content</div>
-                <div style={{ fontSize: '11px', color: '#71717a', marginTop: '4px' }}>Dropbox file request</div>
-              </Card>
-            </a>
-          )}
-          <a href="/inspo" style={{ textDecoration: 'none' }}>
-            <Card style={{ textAlign: 'center', cursor: 'pointer', borderColor: '#2a2a2a', transition: 'border-color 0.2s' }}>
-              <div style={{ fontSize: '24px', marginBottom: '8px' }}>✨</div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>Browse Inspo</div>
-              <div style={{ fontSize: '11px', color: '#71717a', marginTop: '4px' }}>Find reels to recreate</div>
+          {/* Profile — spans 5 cols */}
+          <Card style={{ gridColumn: 'span 5' }}>
+            <Label>Profile</Label>
+            <Row label="Name" value={p.name} />
+            <Row label="Stage Name" value={p.aka} />
+            <Row label="Commission" value={fmtPct(p.commission)} />
+            <Row label="Started" value={fmtDate(p.managementStartDate)} />
+            <Row label="OnlyFans" value={p.onlyfansUrl?.replace('https://', '')} href={p.onlyfansUrl} />
+            {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
+            {p.ofEmail && <Row label="OF Email" value={p.ofEmail} />}
+            {p.communicationEmail && p.communicationEmail !== p.ofEmail && <Row label="Email" value={p.communicationEmail} />}
+            {p.telegram && <Row label="Telegram" value={p.telegram} />}
+            {p.contractUrl && <Row label="Contract" value="View PDF" href={p.contractUrl} />}
+          </Card>
+
+          {/* Right column — Earnings + Actions stacked */}
+          <div style={{ gridColumn: 'span 7', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+            {/* Earnings row */}
+            <Card>
+              <Label>Last Month</Label>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                <StatBox value={fmt$(p.previousMonthTR)} label="Total Revenue" />
+                <StatBox value={fmt$(p.previousMonthTR * (p.commission || 0))} label={`Your Commission (${fmtPct(p.commission)})`} color="#4ade80" />
+                <StatBox value={fmtPct(p.commission)} label="Commission Rate" color="#a78bfa" />
+              </div>
             </Card>
-          </a>
+
+            {/* Quick Actions grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+              {uploads?.socialUploadUrl && (
+                <ActionCard href={uploads.socialUploadUrl} icon="📱" title="Upload Social" subtitle="Dropbox" />
+              )}
+              {uploads?.longformUploadUrl && (
+                <ActionCard href={uploads.longformUploadUrl} icon="🎬" title="Upload Longform" subtitle="Dropbox" />
+              )}
+              <ActionCard href="/inspo" icon="✨" title="Browse Inspo" subtitle="Find reels" />
+              <ActionCard href="#" icon="📂" title="My Files" subtitle="Coming soon" />
+            </div>
+
+            {/* Stats placeholder */}
+            <Card style={{ flex: 1 }}>
+              <Label>Growth & Stats</Label>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
+                <StatBox value="—" label="IG Followers" />
+                <StatBox value="—" label="TikTok Followers" />
+                <StatBox value="—" label="OF Subscribers" />
+                <StatBox value="—" label="Week-over-Week" />
+              </div>
+              <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+            </Card>
+          </div>
         </div>
 
-        {/* Earnings Snapshot */}
-        {profile?.previousMonthTR > 0 && (
-          <Card style={{ marginBottom: '16px' }}>
-            <SectionLabel>Last Month</SectionLabel>
-            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: '28px', fontWeight: 700, color: '#fff' }}>{formatCurrency(profile.previousMonthTR)}</div>
-                <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>Total Revenue</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '28px', fontWeight: 700, color: '#4ade80' }}>{formatCurrency(profile.previousMonthTR * (profile.commission || 0))}</div>
-                <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>Your Commission ({formatPct(profile.commission)})</div>
-              </div>
-            </div>
-          </Card>
-        )}
+        {/* ── Row 2: Invoices + Saved Inspo ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
 
-        {/* Invoices */}
-        {invoices && invoices.length > 0 && (
+          {/* Invoices */}
           <Card>
-            <SectionLabel>Invoices</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-              {invoices.map((inv) => (
-                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #1a1a1a' }}>
+            <Label>Invoices</Label>
+            {invoices && invoices.length > 0 ? (
+              invoices.map((inv) => (
+                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1a1a1a' }}>
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#d4d4d8' }}>{inv.label || `${formatDate(inv.periodStart)} – ${formatDate(inv.periodEnd)}`}</div>
-                    <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
-                      {formatCurrency(inv.earnings)} earned · {formatCurrency(inv.totalCommission)} commission
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#d4d4d8' }}>{inv.label || `${fmtDate(inv.periodStart)} – ${fmtDate(inv.periodEnd)}`}</div>
+                    <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>
+                      {fmt$(inv.earnings)} earned · {fmt$(inv.totalCommission)} commission
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {inv.dueDate && (
-                      <span style={{ fontSize: '11px', color: '#52525b' }}>Due {formatDate(inv.dueDate)}</span>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {inv.dueDate && <span style={{ fontSize: '10px', color: '#52525b' }}>Due {fmtDate(inv.dueDate)}</span>}
                     {inv.invoicePdfUrl && (
                       <a href={inv.invoicePdfUrl} target="_blank" rel="noopener noreferrer" style={{
-                        fontSize: '12px', color: '#a78bfa', textDecoration: 'none', padding: '4px 10px',
+                        fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px',
                         border: '1px solid #333', borderRadius: '6px',
-                      }}>
-                        PDF
-                      </a>
+                      }}>PDF</a>
                     )}
                   </div>
                 </div>
-              ))}
+              ))
+            ) : (
+              <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No invoices yet</div>
+            )}
+          </Card>
+
+          {/* Saved Inspo placeholder */}
+          <Card>
+            <Label>Saved Inspo</Label>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>✨</div>
+              <div style={{ fontSize: '13px', color: '#52525b' }}>Reels you save from the Inspo Board will appear here</div>
+              <a href="/inspo" style={{ fontSize: '12px', color: '#a78bfa', textDecoration: 'none', marginTop: '8px' }}>Browse Inspo →</a>
             </div>
           </Card>
-        )}
+        </div>
 
       </div>
+
+      {/* Responsive overrides */}
+      <style>{`
+        @media (max-width: 1024px) {
+          [style*="grid-template-columns: repeat(12"] { grid-template-columns: 1fr !important; }
+          [style*="grid-column: span 5"] { grid-column: span 1 !important; }
+          [style*="grid-column: span 7"] { grid-column: span 1 !important; }
+          [style*="grid-template-columns: repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 640px) {
+          [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+          [style*="grid-template-columns: repeat(2"] { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }
