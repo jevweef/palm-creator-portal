@@ -151,8 +151,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             )}
           </div>
 
-          {/* Details */}
-          <div style={{padding:'22px 28px', display:'flex', flexDirection:'column', gap:'20px'}} className="md:flex-1 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[#222]">
+          {/* Details — scrolls on desktop if content overflows */}
+          <div style={{padding:'22px 28px', display:'flex', flexDirection:'column', gap:'20px'}} className="md:flex-1 md:overflow-y-auto md:min-h-0 border-t md:border-t-0 md:border-l border-[#222]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
