@@ -26,16 +26,15 @@ export async function GET(request) {
     // For testing, allow passing a record ID. In production, this comes from Clerk metadata.
     const hqId = searchParams.get('hqId') || 'rec6jLwh1nKf90S6K' // Default: Taby
 
-    // Fetch all three in parallel
-    const [creatorData, onboardingData, invoicesData] = await Promise.all([
-      // 1. Creator profile
-      fetchAirtable(HQ_BASE, HQ_CREATORS, `/${hqId}`),
+    // Step 1: Fetch creator profile to get their name (needed for linked record filters)
+    const creatorData = await fetchAirtable(HQ_BASE, HQ_CREATORS, `/${hqId}`)
+    const creatorName = creatorData.fields?.['Creator'] || ''
 
-      // 2. Onboarding record (has Dropbox links)
-      fetchAirtable(HQ_BASE, HQ_ONBOARDING, `?filterByFormula=FIND("${hqId}",ARRAYJOIN(RECORD_ID({Creator})))&maxRecords=1`),
-
-      // 3. Invoices (linked by Creator field)
-      fetchAirtable(HQ_BASE, HQ_INVOICES, `?filterByFormula=FIND("${hqId}",ARRAYJOIN(RECORD_ID({Creator})))&sort%5B0%5D%5Bfield%5D=Period+End&sort%5B0%5D%5Bdirection%5D=desc`),
+    // Step 2: Use creator name to filter onboarding + invoices in parallel
+    const nameFilter = encodeURIComponent(`FIND("${creatorName}", {Creator})`)
+    const [onboardingData, invoicesData] = await Promise.all([
+      fetchAirtable(HQ_BASE, HQ_ONBOARDING, `?filterByFormula=${nameFilter}&maxRecords=1`),
+      fetchAirtable(HQ_BASE, HQ_INVOICES, `?filterByFormula=${nameFilter}&sort%5B0%5D%5Bfield%5D=Period+End&sort%5B0%5D%5Bdirection%5D=desc`),
     ])
 
     // Parse creator profile
