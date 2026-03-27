@@ -124,11 +124,11 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
           </div>
         </div>
 
-        {/* Body — on desktop, CSS grid: video column sizes to content, right column matches and scrolls */}
-        <div ref={bodyRef} className="flex flex-col flex-1 overflow-y-auto md:overflow-hidden md:min-h-0 md:grid" style={{gridTemplateColumns:'280px 1fr'}}>
+        {/* Body — on desktop, video drives height; right side is absolute so it can't push taller */}
+        <div ref={bodyRef} className="flex flex-col flex-1 overflow-y-auto md:overflow-visible md:min-h-0 md:relative md:flex-none">
 
-          {/* Video — 9:16 aspect ratio drives the row height */}
-          <div className="w-full bg-black overflow-hidden" style={{aspectRatio:'9/16'}}>
+          {/* Video — 9:16 aspect ratio sets the container height on desktop */}
+          <div className="w-full md:w-[280px] bg-black overflow-hidden" style={{aspectRatio:'9/16'}}>
             {embedHtml ? (
               <div className="w-full md:h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
@@ -151,8 +151,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             )}
           </div>
 
-          {/* Details — scrolls on desktop if content overflows */}
-          <div style={{padding:'22px 28px', display:'flex', flexDirection:'column', gap:'20px'}} className="md:flex-1 md:overflow-y-auto md:min-h-0 border-t md:border-t-0 md:border-l border-[#222]">
+          {/* Details — absolute on desktop, pinned to right of video, scrolls within video height */}
+          <div className="flex flex-col gap-5 p-[22px_28px] md:absolute md:top-0 md:bottom-0 md:left-[280px] md:right-0 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[#222]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
