@@ -55,10 +55,10 @@ export default function CreatorDashboard() {
   const [loading, setLoading] = useState(true)
   const [savedReels, setSavedReels] = useState([])
 
-  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'rec2DmFmg0vJ2ig3g'
+  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK' // Default: Grace Collins
 
   useEffect(() => {
-    const hqId = user?.publicMetadata?.airtableHqId || 'recd0HgtW0XCcSwMd'
+    const hqId = user?.publicMetadata?.airtableHqId || 'recYyxrPm6BWd3FSB' // Default: Grace Collins
     Promise.all([
       fetch(`/api/creator-profile?hqId=${hqId}`).then((r) => r.json()),
       fetch(`/api/saved-inspo?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ records: [] })),
