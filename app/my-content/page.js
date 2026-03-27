@@ -254,11 +254,36 @@ export default function MyContentPage() {
             savedRecords.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {savedRecords.map((record, i) => (
-                  <InspoCard
-                    key={record.id}
-                    record={record}
-                    onClick={() => handleCardClick(i)}
-                  />
+                  <div key={record.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <InspoCard
+                      record={record}
+                      onClick={() => handleCardClick(i)}
+                    />
+                    <button
+                      onClick={() => setUploadRecord(record)}
+                      style={{
+                        marginTop: '6px',
+                        width: '100%',
+                        padding: '8px',
+                        background: '#a855f7',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      Upload Clips
+                    </button>
+                  </div>
                 ))}
               </div>
             ) : <EmptyState tab="saved" />
