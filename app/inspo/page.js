@@ -220,6 +220,9 @@ export default function InspoBoard() {
         body: JSON.stringify({ recordId, creatorOpsId, action }),
       })
       if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        console.error(`[Save] Failed: ${res.status} ${res.statusText}`, errText)
+        alert(`Save failed: ${res.status} — check console for details`)
         // Revert on failure
         setSavedIds((prev) => {
           const next = new Set(prev)
@@ -228,7 +231,9 @@ export default function InspoBoard() {
           return next
         })
       }
-    } catch {
+    } catch (err) {
+      console.error('[Save] Exception:', err)
+      alert(`Save error: ${err.message}`)
       // Revert on failure
       setSavedIds((prev) => {
         const next = new Set(prev)
