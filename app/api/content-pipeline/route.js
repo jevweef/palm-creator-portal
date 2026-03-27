@@ -58,9 +58,10 @@ export async function GET(request) {
     const inspoParams = new URLSearchParams({
       filterByFormula: "{Status} = 'Complete'",
     })
-    ;['Title', 'Thumbnail', 'Tags', 'Username', 'Views', 'Likes', 'Content link',
-      'Engagement Score', 'Notes', 'On-Screen Text', 'Film Format', 'Saved By',
-      'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'Creator Posted Date',
+    ;['Title', 'Thumbnail', 'Tags', 'Username', 'Views', 'Likes', 'Comments',
+      'Shares', 'Content link', 'Engagement Score', 'Notes', 'On-Screen Text',
+      'Film Format', 'Saved By', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code',
+      'Creator Posted Date', 'Transcript', 'Suggested Tags',
     ].forEach((f) => inspoParams.append('fields[]', f))
 
     const assetParams = new URLSearchParams()
@@ -119,14 +120,22 @@ export async function GET(request) {
           title: r.fields['Title'] || 'Untitled',
           thumbnail: thumb && thumb.length > 0 ? thumb[0].url : null,
           tags: r.fields['Tags'] || [],
+          suggestedTags: r.fields['Suggested Tags'] || [],
           username: r.fields['Username'] || '',
           views: r.fields['Views'] || 0,
           likes: r.fields['Likes'] || 0,
+          comments: r.fields['Comments'] || 0,
+          shares: r.fields['Shares'] || 0,
           contentLink: r.fields['Content link'] || '',
           engagementScore: r.fields['Engagement Score'] || 0,
           notes: r.fields['Notes'] || '',
           onScreenText: r.fields['On-Screen Text'] || '',
           filmFormat: r.fields['Film Format'] || [],
+          dbShareLink: r.fields['DB Share Link'] || '',
+          dbRawLink: r.fields['DB Raw = 1'] || '',
+          dbEmbedCode: r.fields['DB Embed Code'] || '',
+          transcript: r.fields['Transcript'] || '',
+          creatorPostedDate: r.fields['Creator Posted Date'] || '',
         }
       })
 

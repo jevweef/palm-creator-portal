@@ -4,6 +4,8 @@ import { useUser } from '@clerk/nextjs'
 import { useEffect, useState, useCallback } from 'react'
 import { tagStyle } from '@/lib/tagStyle'
 import QuotaBar from '@/components/QuotaBar'
+import InspoCard from '@/components/InspoCard'
+import InspoModal from '@/components/InspoModal'
 
 const TABS = [
   { key: 'saved', label: 'Saved' },
@@ -19,98 +21,6 @@ const STATUS_COLORS = {
   'In Review': { bg: '#3f2412', color: '#fb923c' },
   Scheduled: { bg: '#2d1f4e', color: '#a78bfa' },
   Posted: { bg: '#14372a', color: '#4ade80' },
-}
-
-function parseNotes(notes) {
-  if (!notes) return { inspoDirection: '', whatMattersMost: '' }
-  const inspoMatch = notes.match(/Inspo direction:\n?([\s\S]*?)(?=What matters most:|$)/i)
-  const wmmMatch = notes.match(/What matters most:\n?([\s\S]*?)$/i)
-  return {
-    inspoDirection: inspoMatch ? inspoMatch[1].trim() : '',
-    whatMattersMost: wmmMatch ? wmmMatch[1].trim() : '',
-  }
-}
-
-function formatNum(n) {
-  if (!n || n < 0) return null
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
-  return n.toString()
-}
-
-function SavedCard({ record, onUpload }) {
-  const { inspoDirection } = parseNotes(record.notes)
-  const views = formatNum(record.views)
-
-  return (
-    <div style={{
-      background: '#111',
-      border: '1px solid #222',
-      borderRadius: '12px',
-      overflow: 'hidden',
-    }}>
-      {record.thumbnail && (
-        <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
-          <img
-            src={record.thumbnail}
-            alt={record.title}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-          {views && (
-            <span style={{
-              position: 'absolute', bottom: '8px', left: '8px',
-              fontSize: '11px', color: '#fff', background: 'rgba(0,0,0,0.7)',
-              padding: '2px 8px', borderRadius: '4px',
-            }}>
-              {views} views
-            </span>
-          )}
-        </div>
-      )}
-      <div style={{ padding: '14px' }}>
-        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', margin: 0, lineHeight: 1.3 }}>
-          {record.title}
-        </h3>
-        {record.username && (
-          <p style={{ fontSize: '11px', color: '#71717a', marginTop: '4px' }}>@{record.username}</p>
-        )}
-        {inspoDirection && (
-          <p style={{ fontSize: '12px', color: '#a1a1aa', marginTop: '8px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {inspoDirection}
-          </p>
-        )}
-        {record.tags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '10px' }}>
-            {record.tags.slice(0, 3).map((tag) => (
-              <span key={tag} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '9999px', ...tagStyle(tag) }}>
-                {tag}
-              </span>
-            ))}
-            {record.tags.length > 3 && (
-              <span style={{ fontSize: '10px', color: '#52525b' }}>+{record.tags.length - 3}</span>
-            )}
-          </div>
-        )}
-        <button
-          onClick={() => onUpload(record)}
-          style={{
-            marginTop: '12px',
-            width: '100%',
-            padding: '8px',
-            background: '#a855f7',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          Upload Clips
-        </button>
-      </div>
-    </div>
-  )
 }
 
 function PipelineCard({ item }) {
@@ -155,7 +65,7 @@ function PipelineCard({ item }) {
         )}
         {item.creatorNotes && (
           <p style={{ fontSize: '12px', color: '#a1a1aa', marginTop: '8px', lineHeight: 1.4, fontStyle: 'italic' }}>
-            "{item.creatorNotes}"
+            &quot;{item.creatorNotes}&quot;
           </p>
         )}
         {item.inspoTags.length > 0 && (
@@ -193,6 +103,7 @@ export default function MyContentPage() {
   const [activeTab, setActiveTab] = useState('saved')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [modalIndex, setModalIndex] = useState(null) // index into data.saved for InspoModal
   const [uploadRecord, setUploadRecord] = useState(null) // inspo record for upload modal
 
   const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recBELsdb0C6fRBSm'
@@ -222,6 +133,34 @@ export default function MyContentPage() {
     scheduled: data.scheduled.length,
     posted: data.posted.length,
   } : {}
+
+  // Modal navigation for saved tab
+  const savedRecords = data?.saved || []
+  const modalRecord = modalIndex !== null ? savedRecords[modalIndex] : null
+
+  const handleCardClick = (index) => {
+    setModalIndex(index)
+  }
+
+  const handleModalClose = () => {
+    setModalIndex(null)
+  }
+
+  const handleModalPrev = () => {
+    if (modalIndex > 0) setModalIndex(modalIndex - 1)
+  }
+
+  const handleModalNext = () => {
+    if (modalIndex < savedRecords.length - 1) setModalIndex(modalIndex + 1)
+  }
+
+  // Upload button handler from modal
+  const handleUploadFromModal = () => {
+    if (modalRecord) {
+      setModalIndex(null)
+      setUploadRecord(modalRecord)
+    }
+  }
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }} className="px-4 md:px-8 py-6">
@@ -289,13 +228,13 @@ export default function MyContentPage() {
       ) : (
         <>
           {activeTab === 'saved' && (
-            data.saved.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {data.saved.map((record) => (
-                  <SavedCard
+            savedRecords.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {savedRecords.map((record, i) => (
+                  <InspoCard
                     key={record.id}
                     record={record}
-                    onUpload={(r) => setUploadRecord(r)}
+                    onClick={() => handleCardClick(i)}
                   />
                 ))}
               </div>
@@ -344,7 +283,20 @@ export default function MyContentPage() {
         </>
       )}
 
-      {/* Upload modal placeholder — will be built next */}
+      {/* Inspo detail modal for saved tab — same as inspo board */}
+      {modalRecord && (
+        <InspoModal
+          record={modalRecord}
+          onClose={handleModalClose}
+          onPrev={handleModalPrev}
+          onNext={handleModalNext}
+          hasPrev={modalIndex > 0}
+          hasNext={modalIndex < savedRecords.length - 1}
+          onUpload={handleUploadFromModal}
+        />
+      )}
+
+      {/* Upload modal placeholder */}
       {uploadRecord && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
@@ -363,10 +315,10 @@ export default function MyContentPage() {
               Upload Clips
             </h2>
             <p style={{ fontSize: '13px', color: '#71717a', margin: '0 0 16px 0' }}>
-              for "{uploadRecord.title}"
+              for &quot;{uploadRecord.title}&quot;
             </p>
             <p style={{ fontSize: '13px', color: '#52525b' }}>
-              Upload flow coming soon — Dropbox integration in progress
+              Upload flow coming soon
             </p>
             <button
               onClick={() => setUploadRecord(null)}
