@@ -310,8 +310,8 @@ export default function InspoBoard() {
     <button
       onClick={() => setSort(value)}
       style={{
-        fontSize: '11px',
-        padding: '4px 10px',
+        fontSize: '13px',
+        padding: '5px 14px',
         borderRadius: '9999px',
         border: 'none',
         cursor: 'pointer',
@@ -364,9 +364,9 @@ export default function InspoBoard() {
             {/* Desktop: inline controls */}
             <div className="hidden md:flex" style={{alignItems:'center', gap:'8px'}}>
               <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
-                <SortBtn value="top" label="⭐ Top" />
-                <SortBtn value="viral" label="🔥 Viral" />
-                <SortBtn value="recent" label="🕐 Recent" />
+                <SortBtn value="top" label="Top" />
+                <SortBtn value="viral" label="Viral" />
+                <SortBtn value="recent" label="Recent" />
               </div>
 
               {/* ANY/ALL — only when 2+ tags */}
@@ -550,7 +550,7 @@ export default function InspoBoard() {
               {/* Sort */}
               <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', marginBottom:'8px'}}>Sort by</p>
               <div style={{display:'flex', gap:'8px', marginBottom:'20px'}}>
-                {[['recent','🕐 Recent'],['top','⭐ Top'],['viral','🔥 Viral']].map(([val, label]) => (
+                {[['recent','Recent'],['top','Top'],['viral','Viral']].map(([val, label]) => (
                   <button key={val} onClick={() => setSort(val)} style={{
                     flex:1, padding:'10px', borderRadius:'10px', border:'1px solid #222', cursor:'pointer',
                     background: sort === val ? '#fff' : '#1a1a1a',
