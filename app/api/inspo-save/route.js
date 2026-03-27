@@ -48,7 +48,7 @@ export async function POST(request) {
     // Update the record
     const patchBody = {
       fields: {
-        'Saved By': updatedIds.map((id) => ({ id })),
+        'Saved By': updatedIds,
       },
     }
     console.log('[inspo-save] PATCH body:', JSON.stringify(patchBody))
