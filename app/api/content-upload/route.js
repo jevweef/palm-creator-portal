@@ -40,6 +40,7 @@ export async function POST(request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          typecast: true,
           records: [{
             fields: {
               'Asset Name': `Inspo Upload: ${inspoTitle}`,
@@ -78,6 +79,7 @@ export async function POST(request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          typecast: true,
           records: [{
             fields: {
               'Name': `Edit: ${inspoTitle}`,
