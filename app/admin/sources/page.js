@@ -37,6 +37,126 @@ function StatusPill({ status }) {
   )
 }
 
+function formatNum(n) {
+  if (n == null) return '—'
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}K`
+  return String(n)
+}
+
+function shortcode(url) {
+  const m = url.match(/instagram\.com\/(?:p|reel|reels)\/([A-Za-z0-9_-]+)/)
+  return m ? m[1] : url
+}
+
+const GRADE_COLORS = {
+  'A+': '#a78bfa', A: '#a78bfa', 'A-': '#a78bfa',
+  'B+': '#22c55e', B: '#22c55e', 'B-': '#22c55e',
+  'C+': '#f59e0b', C: '#f59e0b', 'C-': '#f59e0b',
+  D: '#ef4444', F: '#ef4444',
+}
+
+function ReelsModal({ source, onClose }) {
+  const [reels, setReels] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/admin/sources/reels?handle=${encodeURIComponent(source.handle)}`)
+      .then(r => r.json())
+      .then(d => setReels(d.reels || []))
+      .catch(() => setReels([]))
+      .finally(() => setLoading(false))
+  }, [source.handle])
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '60px', overflowY: 'auto' }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: '#111', border: '1px solid #333', borderRadius: '12px', width: '860px', maxWidth: '95vw', padding: '24px', marginBottom: '60px' }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>@{source.handle}</div>
+            <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
+              {loading ? 'Loading...' : `${reels?.length || 0} reels scraped`}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <a
+              href={`https://instagram.com/${source.handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: '#1a1a2e', color: '#a78bfa', border: '1px solid #333', borderRadius: '6px', textDecoration: 'none' }}
+            >
+              Open Profile ↗
+            </a>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#71717a', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          </div>
+        </div>
+
+        {/* Grid */}
+        {loading ? (
+          <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '40px' }}>Loading reels...</div>
+        ) : reels?.length === 0 ? (
+          <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '40px' }}>No reels scraped yet for this account.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+            {reels.map(reel => (
+              <a
+                key={reel.id}
+                href={reel.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', display: 'block', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '12px', transition: 'border-color 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#a78bfa'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#222'}
+              >
+                {/* Top row: shortcode + grade */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '11px', color: '#555', fontFamily: 'monospace' }}>{shortcode(reel.url)}</span>
+                  {reel.grade && (
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: GRADE_COLORS[reel.grade] || '#fff' }}>{reel.grade}</span>
+                  )}
+                </div>
+
+                {/* Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                  {[
+                    { label: 'Views', value: formatNum(reel.views) },
+                    { label: 'Likes', value: formatNum(reel.likes) },
+                    { label: 'Comments', value: formatNum(reel.comments) },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{label}</div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#d4d4d8' }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer: date + audio type */}
+                {(reel.postedAt || reel.audioType) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #1a1a1a' }}>
+                    <span style={{ fontSize: '11px', color: '#555' }}>
+                      {reel.postedAt ? new Date(reel.postedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : ''}
+                    </span>
+                    {reel.audioType && (
+                      <span style={{ fontSize: '10px', color: '#555', background: '#1a1a1a', padding: '1px 6px', borderRadius: '3px' }}>{reel.audioType}</span>
+                    )}
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function AddSourceModal({ onClose, onAdd }) {
   const [handle, setHandle] = useState('')
   const [lookbackDays, setLookbackDays] = useState(180)
@@ -107,6 +227,7 @@ export default function AdminSources() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [scraping, setScraping] = useState({}) // { sourceId: true }
+  const [reelsSource, setReelsSource] = useState(null) // source for reels modal
 
   const fetchSources = useCallback(async () => {
     try {
@@ -235,7 +356,12 @@ export default function AdminSources() {
             </div>
 
             {/* Handle */}
-            <div style={{ color: '#fff', fontWeight: 500 }}>
+            <div
+              style={{ color: '#fff', fontWeight: 500, cursor: 'pointer' }}
+              onClick={() => setReelsSource(source)}
+              onMouseEnter={e => e.currentTarget.style.color = '#a78bfa'}
+              onMouseLeave={e => e.currentTarget.style.color = '#fff'}
+            >
               @{source.handle}
             </div>
 
@@ -287,6 +413,7 @@ export default function AdminSources() {
       </div>
 
       {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} />}
+      {reelsSource && <ReelsModal source={reelsSource} onClose={() => setReelsSource(null)} />}
     </div>
   )
 }
