@@ -87,7 +87,7 @@ export default function CreatorDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '32px 16px' }} className="md:!px-8">
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-8">
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
@@ -98,10 +98,10 @@ export default function CreatorDashboard() {
         </div>
 
         {/* ── Row 1: Profile + Earnings + Quick Actions ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ display: 'grid', gap: '12px', marginBottom: '12px' }} className="grid-cols-1 md:grid-cols-12">
 
-          {/* Profile — spans 5 cols */}
-          <Card style={{ gridColumn: 'span 5' }}>
+          {/* Profile — spans 5 cols on desktop, full on mobile */}
+          <Card className="md:col-span-5">
             <Label>Profile</Label>
             <Row label="Name" value={p.name} />
             <Row label="Stage Name" value={p.aka} />
@@ -116,7 +116,7 @@ export default function CreatorDashboard() {
           </Card>
 
           {/* Right column — Earnings + Actions stacked */}
-          <div style={{ gridColumn: 'span 7', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="md:col-span-7" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
             {/* Earnings row */}
             <Card>
@@ -155,7 +155,7 @@ export default function CreatorDashboard() {
         </div>
 
         {/* ── Row 2: Invoices + Saved Inspo ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px' }}>
 
           {/* Invoices */}
           <Card>
