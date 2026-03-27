@@ -1,6 +1,6 @@
 'use client'
 
-import { useUser, UserButton } from '@clerk/nextjs'
+import { useUser } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
 
 function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0) }
@@ -95,7 +95,6 @@ export default function CreatorDashboard() {
             <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
             <p style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
-          <UserButton afterSignOutUrl="/sign-in" />
         </div>
 
         {/* ── Row 1: Profile + Earnings + Quick Actions ── */}

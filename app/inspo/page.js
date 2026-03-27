@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { UserButton } from '@clerk/nextjs'
+
 import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
 import { tagStyle } from '@/lib/tagStyle'
@@ -379,7 +379,7 @@ export default function InspoBoard() {
                   }}
                 />
               </div>
-              <UserButton afterSignOutUrl="/sign-in" />
+
             </div>
           </div>
 
