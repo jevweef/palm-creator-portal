@@ -24,7 +24,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     // For testing, allow passing a record ID. In production, this comes from Clerk metadata.
-    const hqId = searchParams.get('hqId') || 'recd0HgtW0XCcSwMd' // Default: Raya
+    const hqId = searchParams.get('hqId') || 'recYyxrPm6BWd3FSB' // Default: Grace Collins
 
     // Step 1: Fetch creator profile to get their name (needed for linked record filters)
     const creatorData = await fetchAirtable(HQ_BASE, HQ_CREATORS, `/${hqId}`)
