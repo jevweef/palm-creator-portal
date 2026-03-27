@@ -92,6 +92,30 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             )}
           </div>
           <div style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>
+            {onUpload && (
+              <button
+                onClick={onUpload}
+                style={{
+                  background: '#a855f7',
+                  border: '1px solid #a855f7',
+                  borderRadius: '9999px',
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  transition: 'all 0.2s',
+                }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Upload
+              </button>
+            )}
             {onSave && (
               <button
                 onClick={() => onSave(record.id)}
@@ -289,34 +313,6 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               </div>
             )}
 
-            {/* Upload Clips button — shown when opened from My Content */}
-            {onUpload && (
-              <div>
-                <button
-                  onClick={onUpload}
-                  style={{
-                    width: '100%',
-                    padding: '10px 16px',
-                    background: '#a855f7',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '10px',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  Upload Clips
-                </button>
-              </div>
-            )}
           </div>
         </div>
 

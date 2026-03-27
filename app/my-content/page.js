@@ -162,6 +162,29 @@ export default function MyContentPage() {
     }
   }
 
+  // Unsave handler — removes from saved list
+  const handleUnsave = async (recordId) => {
+    // Optimistically remove from local data
+    setData((prev) => {
+      if (!prev) return prev
+      const updated = { ...prev, saved: prev.saved.filter((r) => r.id !== recordId) }
+      return updated
+    })
+    // Close modal if the unsaved record was open
+    setModalIndex(null)
+
+    try {
+      await fetch('/api/inspo-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId, creatorOpsId, action: 'unsave' }),
+      })
+    } catch (err) {
+      console.error('Failed to unsave:', err)
+      fetchData() // refetch on error
+    }
+  }
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }} className="px-4 md:px-8 py-6">
       {/* Page header + quota */}
@@ -293,6 +316,8 @@ export default function MyContentPage() {
           hasPrev={modalIndex > 0}
           hasNext={modalIndex < savedRecords.length - 1}
           onUpload={handleUploadFromModal}
+          isSaved={true}
+          onSave={handleUnsave}
         />
       )}
 
