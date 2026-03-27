@@ -371,8 +371,8 @@ export default function InspoBoard() {
             {/* Divider */}
             <div style={{width:'1px', height:'20px', background:'#27272a', flexShrink:0}} />
 
-            {/* Tag pills — scrollable if needed */}
-            <div style={{display:'flex', gap:'6px', overflow:'hidden', flexShrink:1, minWidth:0}}>
+            {/* Tag pills — scroll horizontally if needed */}
+            <div style={{display:'flex', gap:'6px', overflowX:'auto', flexShrink:1, minWidth:0, scrollbarWidth:'none', msOverflowStyle:'none', WebkitOverflowScrolling:'touch'}}>
               {pinnedAvailable.map((tag) => (
                 <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
               ))}
