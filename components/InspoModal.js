@@ -127,8 +127,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         {/* Body */}
         <div ref={bodyRef} className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden md:min-h-0">
 
-          {/* Video */}
-          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black md:overflow-hidden">
+          {/* Video — aspect ratio drives the modal height on desktop */}
+          <div className="w-full md:w-[280px] md:flex-shrink-0 bg-black md:overflow-hidden" style={{aspectRatio:'9/16'}}>
             {embedHtml ? (
               <div className="w-full md:h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
