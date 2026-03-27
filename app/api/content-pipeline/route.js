@@ -99,8 +99,7 @@ export async function GET(request) {
     const myAssets = assetRecords.filter((r) => {
       const creators = r.fields['Palm Creators'] || []
       const sourceType = r.fields['Source Type']
-      return creators.includes(creatorOpsId) &&
-        (sourceType === 'Inspo Upload' || sourceType === 'Creator Upload')
+      return creators.includes(creatorOpsId) && sourceType === 'Inspo Upload'
     })
 
     // Build a set of inspo IDs that already have uploads

@@ -186,7 +186,7 @@ export default function MyContentPage() {
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }} className="px-4 md:px-8 py-6">
+    <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-6">
       {/* Page header + quota */}
       <div style={{ marginBottom: '28px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#fff', margin: '0 0 16px 0' }}>
