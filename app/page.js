@@ -279,17 +279,13 @@ export default function InspoBoard() {
           {/* Top row: title + sort + search */}
           <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px'}}>
             <div>
-              <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-                <h1 style={{fontSize:'18px', fontWeight:700, color:'#fff', letterSpacing:'-0.02em', margin:0}}>Palm Inspo Board</h1>
-                <UserButton afterSignOutUrl="/sign-in" />
-              </div>
+              <h1 style={{fontSize:'18px', fontWeight:700, color:'#fff', letterSpacing:'-0.02em', margin:0}}>Palm Inspo Board</h1>
               {!loading && (
                 <p style={{fontSize:'11px', color:'#52525b', marginTop:'2px'}}>{filtered.length} reels</p>
               )}
             </div>
 
             <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-              {/* Sort toggle */}
               <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
                 <SortBtn value="top" label="⭐ Top" />
                 <SortBtn value="viral" label="🔥 Viral" />
@@ -329,6 +325,7 @@ export default function InspoBoard() {
                   }}
                 />
               </div>
+              <UserButton afterSignOutUrl="/sign-in" />
             </div>
           </div>
 
