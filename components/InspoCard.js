@@ -77,7 +77,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
         {onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(record.id) }}
-            className="absolute bottom-3 right-3 z-10 transition-all duration-200 hover:scale-110"
+            className="absolute top-3 right-[48px] z-20 transition-all duration-200 hover:scale-110"
             style={{
               background: isSaved ? '#a855f7' : 'rgba(0,0,0,0.6)',
               backdropFilter: 'blur(4px)',
