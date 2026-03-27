@@ -127,8 +127,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         {/* Body — on desktop, video drives height; right side is absolute so it can't push taller */}
         <div ref={bodyRef} className="flex flex-col flex-1 overflow-y-auto md:overflow-visible md:min-h-0 md:relative md:flex-none">
 
-          {/* Video — capped height on mobile, 9:16 aspect ratio drives height on desktop */}
-          <div className="w-full max-h-[45vh] md:max-h-none md:w-[280px] bg-black overflow-hidden" style={{aspectRatio:'9/16'}}>
+          {/* Video — 9:16 aspect ratio sets the container height on desktop */}
+          <div className="w-full md:w-[280px] bg-black overflow-hidden" style={{aspectRatio:'9/16'}}>
             {embedHtml ? (
               <div className="w-full md:h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
