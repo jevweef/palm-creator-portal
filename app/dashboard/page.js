@@ -87,7 +87,7 @@ export default function CreatorDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '32px 32px' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '32px 16px' }} className="md:!px-8">
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
