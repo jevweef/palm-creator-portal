@@ -36,24 +36,80 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
     if (files.length === 0) return
     setUploading(true)
     setError('')
-    setProgress('Uploading to Dropbox...')
 
     try {
-      const formData = new FormData()
-      files.forEach((f) => formData.append('files', f))
-      formData.append('inspoRecordId', record.id)
-      formData.append('creatorOpsId', creatorOpsId)
-      formData.append('creatorHqId', creatorHqId)
-      formData.append('notes', notes)
-
-      const res = await fetch('/api/content-upload', {
+      // Step 1: Get Dropbox token + folder path from server
+      setProgress('Preparing upload...')
+      const tokenRes = await fetch('/api/upload-token', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorHqId }),
       })
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Upload failed')
+      if (!tokenRes.ok) {
+        const err = await tokenRes.json()
+        throw new Error(err.error || 'Failed to get upload credentials')
+      }
+
+      const { accessToken, rootNamespaceId, uploadFolder } = await tokenRes.json()
+
+      // Step 2: Upload each file directly to Dropbox from browser
+      const uploadedFiles = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setProgress(`Uploading ${i + 1} of ${files.length}: ${file.name}...`)
+
+        const buffer = await file.arrayBuffer()
+        const filePath = `${uploadFolder}/${file.name}`
+
+        const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Dropbox-API-Arg': JSON.stringify({
+              path: filePath,
+              mode: 'add',
+              autorename: true,
+              mute: true,
+            }),
+            'Dropbox-API-Path-Root': JSON.stringify({
+              '.tag': 'root',
+              root: rootNamespaceId,
+            }),
+            'Content-Type': 'application/octet-stream',
+          },
+          body: buffer,
+        })
+
+        if (!dbxRes.ok) {
+          const errText = await dbxRes.text()
+          throw new Error(`Dropbox upload failed for ${file.name}: ${errText}`)
+        }
+
+        const result = await dbxRes.json()
+        uploadedFiles.push({
+          name: file.name,
+          path: result.path_display,
+          size: result.size,
+        })
+      }
+
+      // Step 3: Create Airtable records (Asset + Task) via our API
+      setProgress('Creating records...')
+      const recordRes = await fetch('/api/content-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inspoRecordId: record.id,
+          creatorOpsId,
+          notes,
+          uploadedFiles,
+        }),
+      })
+
+      if (!recordRes.ok) {
+        const err = await recordRes.json()
+        throw new Error(err.error || 'Failed to create records')
       }
 
       setSuccess(true)
@@ -99,9 +155,12 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
 
         <div style={{ padding: '22px' }}>
           {success ? (
-            /* Success state */
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>&#10003;</div>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#14372a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <svg style={{ width: '24px', height: '24px', color: '#4ade80' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
               <p style={{ fontSize: '16px', fontWeight: 600, color: '#4ade80', marginBottom: '8px' }}>
                 Clips uploaded!
               </p>
