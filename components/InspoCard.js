@@ -77,25 +77,24 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
         {onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(record.id) }}
-            className="absolute top-3 right-[48px] z-20 transition-all duration-200 hover:scale-110"
+            className="absolute bottom-[52px] right-3 z-20 transition-all duration-200 hover:scale-110"
             style={{
               background: isSaved ? '#a855f7' : 'rgba(0,0,0,0.6)',
               backdropFilter: 'blur(4px)',
               border: isSaved ? 'none' : '1px solid rgba(255,255,255,0.2)',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
+              borderRadius: '8px',
+              padding: '6px 10px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '4px',
               cursor: 'pointer',
-              padding: 0,
             }}
             title={isSaved ? 'Unsave' : 'Save to film later'}
           >
-            <svg className="w-4 h-4" fill={isSaved ? '#fff' : 'none'} viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
+            <svg className="w-3.5 h-3.5" fill={isSaved ? '#fff' : 'none'} viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
+            <span style={{fontSize:'10px', fontWeight:600, color:'#fff'}}>{isSaved ? 'Saved' : 'Save'}</span>
           </button>
         )}
 
@@ -143,30 +142,19 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
       <div style={{padding:'14px', flex:1}}>
         <h3 style={{fontSize:'13px', fontWeight:600, color:'#fff', marginBottom:'10px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{record.title}</h3>
 
-        {/* Tags */}
-        <div style={{display:'flex', flexWrap:'wrap', gap:'6px'}}>
+        {/* Tags — single line, overflow hidden */}
+        <div style={{display:'flex', gap:'6px', overflow:'hidden', whiteSpace:'nowrap'}}>
           {visibleTags.map((tag) => (
-            <span key={tag} style={{padding:'3px 8px', borderRadius:'9999px', fontSize:'10px', fontWeight:500, ...tagStyle(tag)}}>
+            <span key={tag} style={{padding:'3px 8px', borderRadius:'9999px', fontSize:'10px', fontWeight:500, flexShrink:0, ...tagStyle(tag)}}>
               {tag}
             </span>
           ))}
           {extraCount > 0 && (
-            <span className="text-[10px] rounded-full bg-zinc-800 text-zinc-400" style={{padding:'3px 8px'}}>
+            <span className="text-[10px] rounded-full bg-zinc-800 text-zinc-400" style={{padding:'3px 8px', flexShrink:0}}>
               +{extraCount}
             </span>
           )}
         </div>
-
-        {/* Film format */}
-        {record.filmFormat.length > 0 && (
-          <div style={{marginTop:'8px', display:'flex', flexWrap:'wrap', gap:'6px'}}>
-            {record.filmFormat.map((f) => (
-              <span key={f} className="text-[10px] text-zinc-500" style={{padding:'3px 8px', borderRadius:'4px', border:'1px solid #3f3f46'}}>
-                {f}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
