@@ -316,15 +316,17 @@ export default function AdminReview() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
-          {[['Views', record.views], ['Likes', record.likes], ['Comments', record.comments]].map(([label, val]) => (
-            <div key={label}>
-              <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#d4d4d8' }}>{formatNum(val)}</div>
-            </div>
-          ))}
-        </div>
+        {/* Stats — only show if we have data */}
+        {(record.views || record.likes || record.comments) && (
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+            {[['Views', record.views], ['Likes', record.likes], ['Comments', record.comments]].map(([label, val]) => (
+              <div key={label}>
+                <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#d4d4d8' }}>{formatNum(val)}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Data Source badge */}
         {record.dataSource && (
