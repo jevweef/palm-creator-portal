@@ -222,7 +222,7 @@ export default function InspoBoard() {
       if (!res.ok) {
         const errText = await res.text().catch(() => '')
         console.error(`[Save] Failed: ${res.status} ${res.statusText}`, errText)
-        alert(`Save failed: ${res.status} — check console for details`)
+        alert(`Save failed ${res.status}: ${errText.slice(0, 300)}`)
         // Revert on failure
         setSavedIds((prev) => {
           const next = new Set(prev)
