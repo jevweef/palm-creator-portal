@@ -8,8 +8,8 @@ import Link from 'next/link'
 const NAV_ITEMS = [
   { href: '/admin', label: 'Pipeline', icon: '⚡' },
   { href: '/admin/sources', label: 'Sources', icon: '📡' },
+  { href: '/admin/review', label: 'Review', icon: '✅' },
   // Phase 2+
-  // { href: '/admin/review', label: 'Review', icon: '✅' },
   // { href: '/admin/creators', label: 'Creators', icon: '👤' },
   // { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
 ]
