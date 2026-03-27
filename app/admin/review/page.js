@@ -179,7 +179,7 @@ export default function AdminReview() {
   async function deleteRecord() {
     const record = queue[index]
     if (!record) return
-    if (!confirm('Delete this record permanently?')) return
+    if (!confirm('Reject this reel? It will be hidden from the queue.')) return
     setSaving(true)
     try {
       const res = await fetch('/api/admin/review', {
@@ -326,13 +326,16 @@ export default function AdminReview() {
           ))}
         </div>
 
-        {/* Tags */}
-        {record.tags?.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {record.tags.map(tag => (
-              <span key={tag} style={{ fontSize: '10px', padding: '2px 7px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '3px', color: '#71717a' }}>{tag}</span>
-            ))}
-          </div>
+        {/* Data Source badge */}
+        {record.dataSource && (
+          <span style={{
+            fontSize: '10px', padding: '2px 8px', borderRadius: '3px', fontWeight: 600,
+            background: record.dataSource === 'IG Export' ? '#1a1a2e' : '#1a2e1a',
+            color: record.dataSource === 'IG Export' ? '#a78bfa' : '#22c55e',
+            border: `1px solid ${record.dataSource === 'IG Export' ? '#a78bfa44' : '#22c55e44'}`,
+          }}>
+            {record.dataSource}
+          </span>
         )}
       </div>
 
