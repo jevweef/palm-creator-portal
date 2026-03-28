@@ -11,7 +11,7 @@ export async function GET() {
         fields: ['Status', 'Marked Complete'],
       }),
       fetchAirtableRecords('Source Reels', {
-        fields: ['Source Handle'],
+        fields: ['Source Handle', 'Data Source', 'Review Status', 'Imported to Inspiration'],
       }),
       fetchAirtableRecords('Inspo Sources', {
         fields: ['Handle', 'Enabled', 'Last Scraped At', 'Pipeline Status', 'Reels Scraped', 'Source Reels Added', 'Follower Count'],
@@ -23,6 +23,21 @@ export async function GET() {
     for (const rec of inspoRecords) {
       const status = rec.fields?.Status || 'Unknown'
       statusCounts[status] = (statusCounts[status] || 0) + 1
+    }
+
+    // Source Reels breakdown
+    let reviewQueue = 0
+    const dataSourceCounts = {}
+    for (const rec of sourceReels) {
+      const ds = rec.fields?.['Data Source'] || 'Unknown'
+      dataSourceCounts[ds] = (dataSourceCounts[ds] || 0) + 1
+
+      // Count pending review items
+      const rs = rec.fields?.['Review Status'] || ''
+      const imported = rec.fields?.['Imported to Inspiration'] || ''
+      if ((ds === 'Manual' || ds === 'IG Export') && imported !== 'Yes' && (rs === 'Pending Review' || !rs)) {
+        reviewQueue++
+      }
     }
 
     // Source stats
@@ -42,6 +57,8 @@ export async function GET() {
       },
       sourceReels: {
         total: sourceReels.length,
+        byDataSource: dataSourceCounts,
+        reviewQueue,
       },
       sources: {
         total: inspoSources.length,

@@ -192,19 +192,27 @@ export default function AdminPipeline() {
         <StatCard
           label="Model Accounts"
           value={`${stats?.sources?.enabled || 0} / ${stats?.sources?.total || 0}`}
-          sub={`${stats?.sources?.enabled || 0} active · last scraped ${formatTime(stats?.sources?.lastScrape)}`}
+          sub={`Last scraped ${formatTime(stats?.sources?.lastScrape)}`}
         />
         <StatCard
           label="Scraped Reels"
           value={stats?.sourceReels?.total?.toLocaleString() || '0'}
-          sub="collected from model accounts"
+          sub={`${stats?.sourceReels?.byDataSource?.Apify || 0} Apify · ${stats?.sourceReels?.byDataSource?.RapidAPI || 0} RapidAPI · ${(stats?.sourceReels?.byDataSource?.Manual || 0) + (stats?.sourceReels?.byDataSource?.['IG Export'] || 0)} manual`}
         />
         <StatCard
-          label="Live on Inspo Board"
-          value={(stats?.inspiration?.byStatus?.['Complete'] || 0).toLocaleString()}
-          sub={`${stats?.inspiration?.total?.toLocaleString() || 0} total in pipeline`}
+          label="Inspo Board"
+          value={stats?.inspiration?.total?.toLocaleString() || '0'}
+          sub={`${stats?.inspiration?.byStatus?.['Complete'] || 0} analyzed · ${stats?.inspiration?.byStatus?.['Ready for Analysis'] || 0} queued`}
           color="#a78bfa"
         />
+        {(stats?.sourceReels?.reviewQueue > 0) && (
+          <StatCard
+            label="Review Queue"
+            value={stats.sourceReels.reviewQueue}
+            sub="reels waiting for your review"
+            color="#f59e0b"
+          />
+        )}
       </div>
 
       {/* Status Breakdown */}
@@ -216,7 +224,7 @@ export default function AdminPipeline() {
         marginBottom: '24px',
       }}>
         <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff', marginBottom: '12px' }}>
-          Inspiration Pipeline Status
+          Inspo Board Breakdown
         </div>
         {statusOrder.map(status => {
           const count = stats?.inspiration?.byStatus?.[status]
@@ -238,7 +246,7 @@ export default function AdminPipeline() {
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <ActionButton
           label="Scrape"
-          description="Fetch latest reels from all active model accounts. New reels land in Scraped Reels."
+          description="Pull latest reels from all active model accounts into Source Reels."
           onClick={runScrape}
           loading={scrapeLoading}
           result={scrapeResult}
@@ -246,7 +254,7 @@ export default function AdminPipeline() {
         />
         <ActionButton
           label="Promote"
-          description="Score and filter Scraped Reels — top performers get pushed to the Inspo Board."
+          description="Score scraped reels and push top performers to the Inspo Board."
           onClick={runPromote}
           loading={promoteLoading}
           result={promoteResult}
@@ -254,7 +262,7 @@ export default function AdminPipeline() {
         />
         <ActionButton
           label="Analysis"
-          description="Run AI analysis on promoted reels — writes tags, directions, and notes."
+          description="Run AI analysis on promoted reels — generates tags, directions, and notes."
           onClick={runAnalysis}
           loading={analysisLoading}
           result={analysisResult}
