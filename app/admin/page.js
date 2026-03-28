@@ -201,8 +201,8 @@ export default function AdminPipeline() {
         />
         <StatCard
           label="Inspo Board"
-          value={stats?.inspiration?.total?.toLocaleString() || '0'}
-          sub={`${stats?.inspiration?.byStatus?.['Complete'] || 0} analyzed · ${stats?.inspiration?.byStatus?.['Ready for Analysis'] || 0} queued`}
+          value={(stats?.inspiration?.byStatus?.['Complete'] || 0).toLocaleString()}
+          sub={`${stats?.inspiration?.byStatus?.['Ready for Analysis'] || 0} queued for analysis · ${stats?.inspiration?.total || 0} total in pipeline`}
           color="#a78bfa"
         />
         {(stats?.sourceReels?.reviewQueue > 0) && (
