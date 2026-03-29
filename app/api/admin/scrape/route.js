@@ -86,18 +86,19 @@ export async function POST(request) {
         // Start Apify run with webhook
         const callbackUrl = `${baseUrl}/api/admin/apify-callback?secret=${callbackSecret}&sourceId=${source.id}&handle=${encodeURIComponent(handle)}`
 
+        // Webhooks must be a base64-encoded query param, NOT in the input body
+        const webhooksPayload = JSON.stringify([{
+          eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
+          requestUrl: callbackUrl,
+        }])
+        const webhooksParam = Buffer.from(webhooksPayload).toString('base64')
+
         const runRes = await fetch(
-          `https://api.apify.com/v2/acts/${ACTOR_ID.replace('/', '~')}/runs?token=${APIFY_TOKEN}`,
+          `https://api.apify.com/v2/acts/${ACTOR_ID.replace('/', '~')}/runs?token=${APIFY_TOKEN}&webhooks=${webhooksParam}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...payload,
-              webhooks: [{
-                eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
-                requestUrl: callbackUrl,
-              }],
-            }),
+            body: JSON.stringify(payload),
           }
         )
 
