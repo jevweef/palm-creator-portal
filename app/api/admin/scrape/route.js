@@ -41,9 +41,7 @@ export async function POST(request) {
 
     // Determine the callback URL
     const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'https://app.palm-mgmt.com'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
 
     for (const source of enabled) {
       const f = source.fields
