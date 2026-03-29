@@ -169,6 +169,9 @@ export default function AdminReview() {
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       setQueue(q => q.filter((_, i) => i !== index))
       setIndex(i => Math.min(i, queue.length - 2))
+      setSelectedCreators(new Set())
+      setReviewerNotes('')
+      setTranscript('')
     } catch (err) {
       showToast(err.message, true)
     } finally {
