@@ -43,23 +43,19 @@ async function fetchReelData(shortcode) {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)
-    const res = await fetch(`https://${RAPIDAPI_HOST}/get_media_data.php`, {
-      headers: {
-        'x-rapidapi-host': RAPIDAPI_HOST,
-        'x-rapidapi-key': RAPIDAPI_KEY,
-      },
-      signal: controller.signal,
-    })
+    const res = await fetch(
+      `https://${RAPIDAPI_HOST}/get_media_data.php?reel_post_code_or_url=${shortcode}&type=reel`,
+      {
+        headers: {
+          'x-rapidapi-host': RAPIDAPI_HOST,
+          'x-rapidapi-key': RAPIDAPI_KEY,
+        },
+        signal: controller.signal,
+      }
+    )
     clearTimeout(timeout)
-    // Try the post endpoint instead
-    const res2 = await fetch(`https://${RAPIDAPI_HOST}/get_media_data.php?reel_post_code_or_url=${shortcode}&type=reel`, {
-      headers: {
-        'x-rapidapi-host': RAPIDAPI_HOST,
-        'x-rapidapi-key': RAPIDAPI_KEY,
-      },
-    })
-    if (!res2.ok) return null
-    return await res2.json()
+    if (!res.ok) return null
+    return await res.json()
   } catch {
     console.log(`[Review] Reel data fetch failed for ${shortcode}`)
     return null
