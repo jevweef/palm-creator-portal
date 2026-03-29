@@ -414,9 +414,15 @@ export async function POST(request) {
     }
 
     // Score and grade before writing
-    console.log(`[Apify Callback] Scoring ${newRecords.length} records, first has views: ${newRecords[0]?.fields?.Views}`)
+    // v2 — force cache bust
+    console.log(`[Apify Callback v2] Scoring ${newRecords.length} records`)
     scoreAndGradeRecords(newRecords)
-    console.log(`[Apify Callback] After scoring, first record score: ${newRecords[0]?.fields?.['Performance Score']}, grade: ${newRecords[0]?.fields?.Grade}`)
+    // Log first record's full field keys to verify scores are in payload
+    if (newRecords.length > 0) {
+      const first = newRecords[0].fields
+      console.log(`[Apify Callback v2] First record fields: ${Object.keys(first).join(', ')}`)
+      console.log(`[Apify Callback v2] Score=${first['Performance Score']} Grade=${first.Grade} Z=${first['Z Score']} Norm=${first['Normalized Score']}`)
+    }
 
     // Batch create
     if (newRecords.length > 0) {
