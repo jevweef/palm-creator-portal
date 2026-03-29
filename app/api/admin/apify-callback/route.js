@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { fetchAirtableRecords, batchCreateRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { fetchAirtableRecords, batchCreateRecords, batchUpdateRecords, patchAirtableRecord } from '@/lib/adminAuth'
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api.p.rapidapi.com'
+const MAKE_ANALYSIS_WEBHOOK_URL = process.env.MAKE_ANALYSIS_WEBHOOK_URL
 
 function normalizeUrl(url) {
   const match = url.match(/instagram\.com\/(?:p|reel|reels)\/([A-Za-z0-9_-]+)/)
@@ -92,6 +93,193 @@ async function fetchFollowerCount(username) {
     return data.follower_count || data.edge_followed_by?.count || null
   } catch {
     return null
+  }
+}
+
+// --- Promote + Analysis chain ---
+
+const LOOKBACK_DAYS = 180
+const MIN_AGE_DAYS = 10
+const TOP_PERCENT = 0.25
+const MAX_PER_CREATOR = 20
+
+function engagementScore(fields) {
+  const views = fields.Views || 0
+  if (views === 0) return 0
+  const likes = Math.max(0, fields.Likes || 0)
+  const comments = Math.max(0, fields.Comments || 0)
+  const shares = Math.max(0, fields.Shares || 0)
+  const weighted = (likes * 1 + comments * 3 + shares * 5) / views
+  return weighted * Math.log10(Math.max(views, 10))
+}
+
+function canonicalUrl(url) {
+  const shortcode = normalizeUrl(url)
+  if (shortcode && shortcode !== url.trim()) {
+    return `https://www.instagram.com/reel/${shortcode}/`
+  }
+  return url.trim()
+}
+
+async function runPromoteForHandle(handle) {
+  const now = new Date()
+  const cutoff = new Date(now - LOOKBACK_DAYS * 86400000)
+  const tooNew = new Date(now - MIN_AGE_DAYS * 86400000)
+
+  const [sourceReels, inspoRecords, inspoSources] = await Promise.all([
+    fetchAirtableRecords('Source Reels'),
+    fetchAirtableRecords('Inspiration', { fields: ['Content link'] }),
+    fetchAirtableRecords('Inspo Sources', { fields: ['Handle', 'Palm Creators', 'Follower Count'] }),
+  ])
+
+  const existingInspoUrls = new Set()
+  for (const rec of inspoRecords) {
+    const url = rec.fields?.['Content link'] || ''
+    if (url) existingInspoUrls.add(normalizeUrl(url))
+  }
+
+  const palmCreatorMap = {}
+  const followerMap = {}
+  for (const rec of inspoSources) {
+    const h = (rec.fields?.Handle || '').trim().toLowerCase()
+    if (!h) continue
+    const creators = rec.fields?.['Palm Creators'] || []
+    if (creators.length) palmCreatorMap[h] = creators
+    if (rec.fields?.['Follower Count']) followerMap[h] = rec.fields['Follower Count']
+  }
+
+  // Filter eligible — only this handle's reels
+  const eligible = []
+  for (const rec of sourceReels) {
+    const f = rec.fields || {}
+    const srcHandle = (f['Source Handle'] || '').trim().toLowerCase()
+    if (srcHandle !== handle.toLowerCase()) continue
+    if (!f['Reel URL'] || !f.Views) continue
+
+    const postedRaw = f['Posted At'] || ''
+    const isRapidAPI = f['Data Source'] === 'RapidAPI'
+    if (postedRaw) {
+      try {
+        const postedAt = new Date(postedRaw)
+        if (postedAt < cutoff) continue
+        if (!isRapidAPI && postedAt > tooNew) continue
+      } catch {}
+    }
+
+    eligible.push({ record: rec, score: engagementScore(f) })
+  }
+
+  eligible.sort((a, b) => b.score - a.score)
+  const target = Math.min(Math.max(1, Math.floor(eligible.length * TOP_PERCENT)), MAX_PER_CREATOR)
+
+  const toPromote = []
+  const goldenSet = []
+  let totalSelected = 0
+
+  for (const item of eligible) {
+    if (totalSelected >= target) break
+    const f = item.record.fields
+    const urlKey = normalizeUrl(f['Reel URL'] || '')
+
+    if (f['Imported to Inspiration'] || existingInspoUrls.has(urlKey)) {
+      goldenSet.push(item)
+      totalSelected++
+      continue
+    }
+
+    goldenSet.push(item)
+    toPromote.push(item)
+    totalSelected++
+  }
+
+  if (toPromote.length === 0) {
+    console.log(`[Promote] @${handle}: nothing new to promote`)
+    return 0
+  }
+
+  // Update scores
+  const scoreUpdates = goldenSet.map(item => ({
+    id: item.record.id,
+    fields: { 'Performance Score': Math.round(item.score * 1e6) / 1e6, 'Selected for Inspo': 'Yes' },
+  }))
+  await batchUpdateRecords('Source Reels', scoreUpdates)
+
+  // Build Inspiration records
+  const inspoRecordsToCreate = []
+  const sourceIdsToMark = []
+
+  for (const item of toPromote) {
+    const f = item.record.fields
+    const dataSource = f['Data Source'] || 'Apify'
+    const handleKey = (f['Source Handle'] || '').trim().toLowerCase()
+    const followerCt = f['Follower Count'] || followerMap[handleKey] || null
+
+    const inspoFields = {
+      'Content link': canonicalUrl(f['Reel URL'] || ''),
+      Username: f.Username || '',
+      'Ingestion Source': dataSource,
+      'Data Source': dataSource,
+      Views: f.Views || 0,
+      Likes: f.Likes || 0,
+      Comments: f.Comments || 0,
+      'Engagement Score': Math.round(item.score * 1e6) / 1e6,
+      Captions: f.Caption || '',
+      'Creator Posted Date': f['Posted At'] || null,
+      Duration: f['Duration Seconds'] || null,
+      Status: 'Ready for Analysis',
+    }
+
+    if (f.Shares) inspoFields.Shares = f.Shares
+    if (f['Audio Type']) inspoFields['Audio Type'] = f['Audio Type']
+    if (f.Transcript) inspoFields.Transcript = f.Transcript
+    if (f['Z Score'] != null) inspoFields['Z Score'] = f['Z Score']
+    if (f.Grade) inspoFields.Grade = f.Grade
+
+    if (followerCt) {
+      inspoFields['Follower Count'] = followerCt
+      if (inspoFields.Views) {
+        inspoFields['Normalized Score'] = Math.round((inspoFields.Views / followerCt) * 10000) / 10000
+      }
+    }
+
+    const palmCreators = palmCreatorMap[handleKey] || []
+    if (palmCreators.length) inspoFields['For Creator'] = palmCreators
+
+    inspoRecordsToCreate.push({ fields: inspoFields })
+    sourceIdsToMark.push(item.record.id)
+  }
+
+  let created = 0
+  for (let i = 0; i < inspoRecordsToCreate.length; i += 10) {
+    const chunk = inspoRecordsToCreate.slice(i, i + 10)
+    const idChunk = sourceIdsToMark.slice(i, i + 10)
+    await batchCreateRecords('Inspiration', chunk)
+    await batchUpdateRecords('Source Reels', idChunk.map(id => ({
+      id, fields: { 'Imported to Inspiration': 'Yes' },
+    })))
+    created += chunk.length
+  }
+
+  console.log(`[Promote] @${handle}: promoted ${created} reels`)
+  return created
+}
+
+async function triggerAnalysis() {
+  if (!MAKE_ANALYSIS_WEBHOOK_URL) {
+    console.log('[Analysis] No MAKE_ANALYSIS_WEBHOOK_URL configured, skipping')
+    return false
+  }
+  try {
+    const res = await fetch(MAKE_ANALYSIS_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trigger: 'auto-chain', timestamp: new Date().toISOString() }),
+    })
+    console.log(`[Analysis] Triggered Make webhook: ${res.status}`)
+    return res.ok
+  } catch (err) {
+    console.error('[Analysis] Failed to trigger:', err)
+    return false
   }
 }
 
@@ -196,12 +384,29 @@ export async function POST(request) {
 
     console.log(`[Apify Callback] @${handle}: added ${newRecords.length}, skipped ${tooNewSkipped} too new`)
 
+    // --- Chain: Promote → Analysis ---
+    let promoted = 0
+    let analysisTriggered = false
+
+    if (newRecords.length > 0) {
+      try {
+        promoted = await runPromoteForHandle(handle)
+        if (promoted > 0) {
+          analysisTriggered = await triggerAnalysis()
+        }
+      } catch (chainErr) {
+        console.error(`[Chain] Error in promote/analysis for @${handle}:`, chainErr)
+      }
+    }
+
     return NextResponse.json({
       handled: true,
       handle,
       added: newRecords.length,
       tooNewSkipped,
       total: items.length,
+      promoted,
+      analysisTriggered,
     })
   } catch (err) {
     console.error('Apify callback error:', err)
