@@ -79,7 +79,7 @@ async function fetchFollowerCount(username) {
   if (!RAPIDAPI_KEY) return null
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 3000) // 3s max
+    const timeout = setTimeout(() => controller.abort(), 8000) // 8s max (Pro plan)
     const res = await fetch(`https://${RAPIDAPI_HOST}/ig_get_fb_profile_v3.php`, {
       method: 'POST',
       headers: {
