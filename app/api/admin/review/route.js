@@ -62,9 +62,9 @@ async function fetchReelData(shortcode) {
   }
 }
 
-function triggerAnalysis() {
+async function triggerAnalysis() {
   if (!GITHUB_PAT) return
-  fetch(`https://api.github.com/repos/${GITHUB_REPO}/dispatches`, {
+  await fetch(`https://api.github.com/repos/${GITHUB_REPO}/dispatches`, {
     method: 'POST',
     headers: {
       'Authorization': `token ${GITHUB_PAT}`,
@@ -287,7 +287,7 @@ export async function PATCH(request) {
     await patchAirtableRecord('Source Reels', recordId, srUpdateFields)
 
     // 7. Trigger GitHub Actions for OpenAI analysis
-    triggerAnalysis()
+    await triggerAnalysis()
 
     return NextResponse.json({ ok: true, inspoRecordId, enriched: { views, followerCount, engagementScore } })
   } catch (err) {
