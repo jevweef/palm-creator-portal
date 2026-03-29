@@ -384,19 +384,15 @@ export async function POST(request) {
 
     console.log(`[Apify Callback] @${handle}: added ${newRecords.length}, skipped ${tooNewSkipped} too new`)
 
-    // --- Chain: Promote → Analysis ---
-    let promoted = 0
-    let analysisTriggered = false
-
+    // Fire-and-forget: trigger promote + analysis in a separate function
     if (newRecords.length > 0) {
-      try {
-        promoted = await runPromoteForHandle(handle)
-        if (promoted > 0) {
-          analysisTriggered = await triggerAnalysis()
-        }
-      } catch (chainErr) {
-        console.error(`[Chain] Error in promote/analysis for @${handle}:`, chainErr)
-      }
+      const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
+      fetch(`${baseUrl}/api/admin/promote-handle?secret=${callbackSecret}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle }),
+      }).catch(err => console.error(`[Chain] Failed to trigger promote for @${handle}:`, err))
     }
 
     return NextResponse.json({
@@ -405,8 +401,6 @@ export async function POST(request) {
       added: newRecords.length,
       tooNewSkipped,
       total: items.length,
-      promoted,
-      analysisTriggered,
     })
   } catch (err) {
     console.error('Apify callback error:', err)
