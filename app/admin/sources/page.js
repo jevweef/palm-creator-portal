@@ -157,6 +157,80 @@ function ReelsModal({ source, onClose }) {
   )
 }
 
+const COST_PER_REEL = 0.0084
+
+function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
+  const [saving, setSaving] = useState(false)
+  const oldLimit = source.apifyLimit || 15
+  const estCost = (newLimit * COST_PER_REEL).toFixed(2)
+
+  const confirm = async () => {
+    setSaving(true)
+    try {
+      await fetch('/api/admin/sources', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: source.id, fields: { 'Apify Limit': newLimit } }),
+      })
+      await fetch('/api/admin/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handles: [source.handle], force: true }),
+      })
+      onConfirm(newLimit)
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#111', border: '1px solid #333', borderRadius: '12px',
+        padding: '24px', width: '380px',
+      }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>
+          Update & Re-scrape @{source.handle}?
+        </h3>
+        <p style={{ fontSize: '13px', color: '#a3a3a3', marginBottom: '16px', lineHeight: 1.5 }}>
+          Limit: <span style={{ color: '#71717a' }}>{oldLimit}</span> → <span style={{ color: '#a78bfa', fontWeight: 600 }}>{newLimit}</span> reels
+        </p>
+
+        <div style={{ background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '12px', color: '#71717a' }}>Reels to scrape</span>
+            <span style={{ fontSize: '12px', color: '#d4d4d8', fontWeight: 600 }}>{newLimit}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '12px', color: '#71717a' }}>Already in Source Reels</span>
+            <span style={{ fontSize: '12px', color: '#22c55e' }}>skipped (free)</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #222', paddingTop: '6px' }}>
+            <span style={{ fontSize: '12px', color: '#71717a' }}>Est. Apify cost</span>
+            <span style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600 }}>~{estCost}</span>
+          </div>
+        </div>
+
+        <p style={{ fontSize: '11px', color: '#555', marginBottom: '16px', lineHeight: 1.4 }}>
+          Duplicates are automatically skipped — you only pay for the Apify scrape, not for reels you already have.
+        </p>
+
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
+          <button onClick={confirm} disabled={saving} style={{ ...btnStyle, background: '#a78bfa', opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Scraping...' : 'Update & Scrape'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function EnableModal({ source, onClose, onConfirm }) {
   const [lookback, setLookback] = useState(source.lookbackDays || 180)
   const [limit, setLimit] = useState(source.apifyLimit || 15)
@@ -316,6 +390,8 @@ export default function AdminSources() {
   const [scraping, setScraping] = useState({}) // { sourceId: true }
   const [reelsSource, setReelsSource] = useState(null) // source for reels modal
   const [enableSource, setEnableSource] = useState(null) // source for enable confirmation modal
+  const [rescrapeSource, setRescrapeSource] = useState(null) // { source, newLimit }
+
 
   const fetchSources = useCallback(async () => {
     try {
@@ -500,24 +576,26 @@ export default function AdminSources() {
               />
             </div>
 
-            {/* Apify Limit — inline editable */}
+            {/* Apify Limit — inline editable, triggers rescrape modal on change */}
             <div style={{ textAlign: 'right' }}>
               <input
                 type="text"
                 inputMode="numeric"
-                value={source.apifyLimit || 15}
+                value={source._editingLimit != null ? source._editingLimit : (source.apifyLimit || 15)}
                 onChange={e => {
-                  const val = parseInt(e.target.value.replace(/\D/g, '')) || ''
-                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, apifyLimit: val } : s))
+                  const val = e.target.value.replace(/\D/g, '')
+                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, _editingLimit: val } : s))
                 }}
                 onBlur={e => {
-                  const val = parseInt(e.target.value) || 15
-                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, apifyLimit: val } : s))
-                  fetch('/api/admin/sources', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: source.id, fields: { 'Apify Limit': val } }),
-                  })
+                  const newVal = parseInt(e.target.value) || 15
+                  const oldVal = source.apifyLimit || 15
+                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, _editingLimit: undefined } : s))
+                  if (newVal !== oldVal) {
+                    setRescrapeSource({ source, newLimit: newVal })
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') e.target.blur()
                 }}
                 style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
                 onFocus={e => e.target.style.borderColor = '#333'}
@@ -566,6 +644,19 @@ export default function AdminSources() {
       {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} />}
       {reelsSource && <ReelsModal source={reelsSource} onClose={() => setReelsSource(null)} />}
       {enableSource && <EnableModal source={enableSource} onClose={() => setEnableSource(null)} onConfirm={handleEnableConfirm} />}
+      {rescrapeSource && (
+        <RescrapeModal
+          source={rescrapeSource.source}
+          newLimit={rescrapeSource.newLimit}
+          onClose={() => {
+            setRescrapeSource(null)
+          }}
+          onConfirm={(newLimit) => {
+            setSources(prev => prev.map(s => s.id === rescrapeSource.source.id ? { ...s, apifyLimit: newLimit, pipelineStatus: 'Processing' } : s))
+            setRescrapeSource(null)
+          }}
+        />
+      )}
     </div>
   )
 }
