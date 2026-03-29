@@ -93,7 +93,7 @@ export async function POST(request) {
     const eligible = []
     for (const rec of sourceReels) {
       const f = rec.fields || {}
-      if (!f['Reel URL'] || !f.Views) continue
+      if (!f['Reel URL'] || !f.Views || f.Views < 5000) continue
 
       const postedRaw = f['Posted At'] || ''
       const isRapidAPI = f['Data Source'] === 'RapidAPI'
