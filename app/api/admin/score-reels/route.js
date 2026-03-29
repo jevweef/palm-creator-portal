@@ -11,6 +11,8 @@ function engagementScore(f) {
   return weighted * Math.log10(Math.max(views, 10))
 }
 
+export const maxDuration = 60
+
 // Public endpoint — secured by secret param
 export async function POST(request) {
   try {

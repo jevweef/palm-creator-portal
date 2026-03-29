@@ -30,6 +30,8 @@ function engagementScore(fields) {
   return weighted * Math.log10(Math.max(views, 10))
 }
 
+export const maxDuration = 60
+
 // Public endpoint — secured by secret param (called from apify-callback)
 export async function POST(request) {
   try {
