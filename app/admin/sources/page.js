@@ -615,7 +615,7 @@ export default function AdminSources() {
                   cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
                 }}
               >
-                {scraping[source.id] ? '...' : 'Scrape'}
+                {scraping[source.id] ? '...' : 'Scrape New'}
               </button>
             </div>
           </div>
