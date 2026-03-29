@@ -1,11 +1,85 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchCreateRecords } from '@/lib/adminAuth'
 
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
+const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api.p.rapidapi.com'
+const GITHUB_PAT = process.env.GITHUB_PAT
+const GITHUB_REPO = 'jevweef/inspo-pipeline'
+
 const SHORTCODE_RE = /instagram\.com\/(?:p|reel|reels)\/([A-Za-z0-9_-]+)/
 
 function extractShortcode(url) {
   const m = url?.match(SHORTCODE_RE)
   return m ? m[1] : null
+}
+
+async function fetchFollowerCount(username) {
+  if (!RAPIDAPI_KEY || !username) return null
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(`https://${RAPIDAPI_HOST}/ig_get_fb_profile_v3.php`, {
+      method: 'POST',
+      headers: {
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `username_or_url=${encodeURIComponent(username)}`,
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.follower_count || data.edge_followed_by?.count || null
+  } catch {
+    console.log(`[Review] Follower count fetch failed for @${username}`)
+    return null
+  }
+}
+
+async function fetchReelData(shortcode) {
+  if (!RAPIDAPI_KEY || !shortcode) return null
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const res = await fetch(`https://${RAPIDAPI_HOST}/get_media_data.php`, {
+      headers: {
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'x-rapidapi-key': RAPIDAPI_KEY,
+      },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    // Try the post endpoint instead
+    const res2 = await fetch(`https://${RAPIDAPI_HOST}/get_media_data.php?reel_post_code_or_url=${shortcode}&type=reel`, {
+      headers: {
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'x-rapidapi-key': RAPIDAPI_KEY,
+      },
+    })
+    if (!res2.ok) return null
+    return await res2.json()
+  } catch {
+    console.log(`[Review] Reel data fetch failed for ${shortcode}`)
+    return null
+  }
+}
+
+function triggerAnalysis() {
+  if (!GITHUB_PAT) return
+  fetch(`https://api.github.com/repos/${GITHUB_REPO}/dispatches`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${GITHUB_PAT}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      event_type: 'run-analysis',
+      client_payload: { trigger: 'review-approve', timestamp: new Date().toISOString() },
+    }),
+  }).catch(err => console.error('[Review] GitHub Actions trigger failed:', err))
 }
 
 // GET — fetch review queue from Source Reels + palm creators + existing source handles
@@ -79,7 +153,9 @@ export async function GET(request) {
   }
 }
 
-// PATCH — approve: promote Source Reel → Inspiration record
+export const maxDuration = 60
+
+// PATCH — approve: enrich + promote Source Reel → Inspiration record → trigger analysis
 export async function PATCH(request) {
   try {
     await requireAdmin()
@@ -97,32 +173,97 @@ export async function PATCH(request) {
 
     const sr = srRecords[0].fields
     const sc = extractShortcode(sr['Reel URL'])
+    const username = (sr.Username || sr['Source Handle'] || '').trim()
 
-    // 2. Create Inspiration record
+    console.log(`[Review] Approving reel from @${username}, shortcode=${sc}`)
+
+    // 2. Enrich: get follower count
+    let followerCount = sr['Follower Count'] || null
+
+    if (!followerCount && username) {
+      // Check Inspo Sources first
+      console.log(`[Review] Looking up follower count for @${username} in Inspo Sources...`)
+      const inspoSources = await fetchAirtableRecords('Inspo Sources', {
+        fields: ['Handle', 'Follower Count'],
+        filterByFormula: `LOWER({Handle}) = "${username.toLowerCase()}"`,
+      })
+      if (inspoSources.length && inspoSources[0].fields['Follower Count']) {
+        followerCount = inspoSources[0].fields['Follower Count']
+        console.log(`[Review] Found followers in Inspo Sources: ${followerCount}`)
+      } else {
+        // Fallback: RapidAPI
+        console.log(`[Review] Not in Inspo Sources, fetching from RapidAPI...`)
+        followerCount = await fetchFollowerCount(username)
+        console.log(`[Review] RapidAPI followers: ${followerCount}`)
+      }
+    }
+
+    // 3. Enrich: get engagement data if missing
+    let views = sr.Views || null
+    let likes = sr.Likes != null ? sr.Likes : null
+    let comments = sr.Comments || null
+    let shares = sr.Shares || null
+    let duration = sr['Duration Seconds'] || null
+    let audioType = sr['Audio Type'] || null
+    let caption = sr.Caption || ''
+    let postedAt = sr['Posted At'] || null
+
+    if (!views && sc) {
+      console.log(`[Review] Missing engagement data, fetching from RapidAPI...`)
+      const reelData = await fetchReelData(sc)
+      if (reelData) {
+        views = reelData.play_count || reelData.video_play_count || views
+        likes = reelData.like_count || likes
+        comments = reelData.comment_count || comments
+        duration = reelData.video_duration || duration
+        if (!caption && reelData.caption?.text) caption = reelData.caption.text
+        console.log(`[Review] RapidAPI reel data: views=${views}, likes=${likes}, comments=${comments}`)
+      }
+    }
+
+    // 4. Calculate scores
+    let engagementScore = null
+    let normalizedScore = null
+    let performanceScore = null
+
+    if (views && views > 0) {
+      const l = Math.max(likes || 0, 0)
+      const c = Math.max(comments || 0, 0)
+      const s = Math.max(shares || 0, 0)
+      const weighted = (l * 1 + c * 3 + s * 5) / views
+      engagementScore = Math.round(weighted * 1e6) / 1e6
+      performanceScore = Math.round(weighted * Math.log10(Math.max(views, 10)) * 1e6) / 1e6
+
+      if (followerCount && followerCount > 0) {
+        normalizedScore = Math.round((views / followerCount) * 1e4) / 1e4
+      }
+    }
+
+    // 5. Build Inspiration record — straight to Ready for Analysis, no filter
     const inspoFields = {
       'Content link': sc ? `https://www.instagram.com/reel/${sc}/` : sr['Reel URL'],
-      'Username': sr.Username || sr['Source Handle'] || '',
+      'Username': username,
       'Status': 'Ready for Analysis',
       'Ingestion Source': sr['Data Source'] || 'Manual',
       'Data Source': sr['Data Source'] || 'Manual',
     }
 
-    // Engagement fields
-    if (sr.Views != null) inspoFields['Views'] = sr.Views
-    if (sr.Likes != null) inspoFields['Likes'] = sr.Likes
-    if (sr.Comments != null) inspoFields['Comments'] = sr.Comments
-    if (sr.Shares != null) inspoFields['Shares'] = sr.Shares
-    if (sr['Duration Seconds'] != null) inspoFields['Duration'] = sr['Duration Seconds']
-    if (sr['Audio Type']) inspoFields['Audio Type'] = sr['Audio Type']
-    if (sr['Follower Count'] != null) inspoFields['Follower Count'] = sr['Follower Count']
-    if (sr.Caption) inspoFields['Captions'] = sr.Caption
+    if (views != null) inspoFields['Views'] = views
+    if (likes != null) inspoFields['Likes'] = Math.max(likes, 0)
+    if (comments != null) inspoFields['Comments'] = comments
+    if (shares != null) inspoFields['Shares'] = shares
+    if (duration != null) inspoFields['Duration'] = typeof duration === 'string' ? parseFloat(duration) : duration
+    if (audioType) inspoFields['Audio Type'] = audioType
+    if (followerCount != null) inspoFields['Follower Count'] = followerCount
+    if (caption) inspoFields['Captions'] = caption
     if (sr.Transcript) inspoFields['Transcript'] = sr.Transcript
+    if (engagementScore != null) inspoFields['Engagement Score'] = engagementScore
+    if (normalizedScore != null) inspoFields['Normalized Score'] = normalizedScore
     if (sr['Z Score'] != null) inspoFields['Z Score'] = sr['Z Score']
     if (sr.Grade) inspoFields['Grade'] = sr.Grade
-    if (sr['Normalized Score'] != null) inspoFields['Normalized Score'] = sr['Normalized Score']
 
     // Date: prioritize Posted At, fall back to Date Saved
-    const dateForInspo = sr['Posted At'] || sr['Date Saved']
+    const dateForInspo = postedAt || sr['Date Saved']
     if (dateForInspo) inspoFields['Creator Posted Date'] = dateForInspo
 
     // Review data
@@ -130,24 +271,12 @@ export async function PATCH(request) {
     if (creatorIds?.length) inspoFields['For Creator'] = creatorIds  // plain string array
     if (reviewerNotes) inspoFields['Reviewer Notes'] = reviewerNotes
 
-    // Calculate engagement score if we have views
-    if (sr.Views && sr.Views > 0) {
-      const likes = Math.max(sr.Likes || 0, 0)
-      const comments = sr.Comments || 0
-      const shares = sr.Shares || 0
-      const score = ((likes * 1 + comments * 3 + shares * 5) / sr.Views) * Math.log10(sr.Views)
-      inspoFields['Engagement Score'] = Math.round(score * 1000000) / 1000000
-    }
-
-    // Normalized score
-    if (sr.Views && sr['Follower Count'] && sr['Follower Count'] > 0) {
-      inspoFields['Normalized Score'] = Math.round((sr.Views / sr['Follower Count']) * 1000000) / 1000000
-    }
-
     const created = await batchCreateRecords('Inspiration', [{ fields: inspoFields }])
     const inspoRecordId = created[0]?.id
 
-    // 3. Mark Source Reel as imported
+    console.log(`[Review] Created Inspiration record ${inspoRecordId} with views=${views}, followers=${followerCount}, engScore=${engagementScore}`)
+
+    // 6. Update Source Reel with enriched data + mark as imported
     const srUpdateFields = {
       'Imported to Inspiration': 'Yes',
       'Review Status': 'Approved',
@@ -155,10 +284,17 @@ export async function PATCH(request) {
     if (rating != null) srUpdateFields['Rating'] = rating
     if (creatorIds?.length) srUpdateFields['For Creator'] = creatorIds
     if (reviewerNotes) srUpdateFields['Reviewer Notes'] = reviewerNotes
+    if (views != null && !sr.Views) srUpdateFields['Views'] = views
+    if (likes != null && sr.Likes == null) srUpdateFields['Likes'] = likes
+    if (comments != null && !sr.Comments) srUpdateFields['Comments'] = comments
+    if (followerCount && !sr['Follower Count']) srUpdateFields['Follower Count'] = followerCount
 
     await patchAirtableRecord('Source Reels', recordId, srUpdateFields)
 
-    return NextResponse.json({ ok: true, inspoRecordId })
+    // 7. Trigger GitHub Actions for OpenAI analysis
+    triggerAnalysis()
+
+    return NextResponse.json({ ok: true, inspoRecordId, enriched: { views, followerCount, engagementScore } })
   } catch (err) {
     console.error('[review] PATCH error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
