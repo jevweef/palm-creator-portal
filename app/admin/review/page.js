@@ -182,7 +182,6 @@ export default function AdminReview() {
   async function deleteRecord() {
     const record = queue[index]
     if (!record) return
-    if (!confirm('Reject this reel? It will be hidden from the queue.')) return
     setSaving(true)
     try {
       const res = await fetch('/api/admin/review', {
