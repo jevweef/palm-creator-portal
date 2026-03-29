@@ -64,9 +64,9 @@ export async function POST(request) {
       const lookbackDays = f['Lookback Days'] || 180
       const apifyLimit = f['Apify Limit'] || null
 
-      // Determine lookback
+      // Determine lookback — force=true uses full lookback (for limit changes)
       let onlyPostsNewerThan = `${lookbackDays} days`
-      if (f['Last Scraped At']) {
+      if (!force && f['Last Scraped At']) {
         try {
           const lastScrape = new Date(f['Last Scraped At'])
           const daysSince = Math.ceil((now - lastScrape) / 86400000) + 1
