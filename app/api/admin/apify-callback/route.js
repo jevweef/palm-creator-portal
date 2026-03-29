@@ -414,7 +414,9 @@ export async function POST(request) {
     }
 
     // Score and grade before writing
+    console.log(`[Apify Callback] Scoring ${newRecords.length} records, first has views: ${newRecords[0]?.fields?.Views}`)
     scoreAndGradeRecords(newRecords)
+    console.log(`[Apify Callback] After scoring, first record score: ${newRecords[0]?.fields?.['Performance Score']}, grade: ${newRecords[0]?.fields?.Grade}`)
 
     // Batch create
     if (newRecords.length > 0) {
