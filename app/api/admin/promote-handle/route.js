@@ -54,11 +54,22 @@ export async function POST(request) {
     const cutoff = new Date(now - LOOKBACK_DAYS * 86400000)
     const tooNew = new Date(now - MIN_AGE_DAYS * 86400000)
 
+    // Fetch only this handle's Source Reels, only this handle's Inspo Source, and existing Inspiration URLs for this username
     const [sourceReels, inspoRecords, inspoSources] = await Promise.all([
-      fetchAirtableRecords('Source Reels'),
-      fetchAirtableRecords('Inspiration', { fields: ['Content link'] }),
-      fetchAirtableRecords('Inspo Sources', { fields: ['Handle', 'Palm Creators', 'Follower Count'] }),
+      fetchAirtableRecords('Source Reels', {
+        filterByFormula: `{Source Handle} = "${handle}"`,
+      }),
+      fetchAirtableRecords('Inspiration', {
+        fields: ['Content link'],
+        filterByFormula: `{Username} = "${handle}"`,
+      }),
+      fetchAirtableRecords('Inspo Sources', {
+        fields: ['Handle', 'Palm Creators', 'Follower Count'],
+        filterByFormula: `LOWER({Handle}) = "${handle.toLowerCase()}"`,
+      }),
     ])
+
+    console.log(`[Promote-Handle] @${handle}: ${sourceReels.length} source reels, ${inspoRecords.length} existing inspo, ${inspoSources.length} source configs`)
 
     const existingInspoUrls = new Set()
     for (const rec of inspoRecords) {
@@ -76,12 +87,10 @@ export async function POST(request) {
       if (rec.fields?.['Follower Count']) followerMap[h] = rec.fields['Follower Count']
     }
 
-    // Filter eligible — only this handle's reels
+    // Filter eligible
     const eligible = []
     for (const rec of sourceReels) {
       const f = rec.fields || {}
-      const srcHandle = (f['Source Handle'] || '').trim().toLowerCase()
-      if (srcHandle !== handle.toLowerCase()) continue
       if (!f['Reel URL'] || !f.Views) continue
 
       const postedRaw = f['Posted At'] || ''
