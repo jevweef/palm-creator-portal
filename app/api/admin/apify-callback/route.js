@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { fetchAirtableRecords, batchCreateRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { fetchAirtableRecords, batchCreateRecords, batchUpdateRecords, patchAirtableRecord } from '@/lib/adminAuth'
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
@@ -207,25 +207,79 @@ export async function POST(request) {
 
     console.log(`[Apify Callback] @${handle}: added ${newRecords.length}, skipped ${tooNewSkipped} too new`)
 
-    // Chain: score the records (must await — Vercel kills process after response)
+    // --- INLINE SCORING (no self-referencing HTTP calls) ---
     let scored = 0
-    let promoted = 0
     if (newRecords.length > 0) {
-      const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
-
       try {
-        // Step 1: Score
-        const scoreRes = await fetch(`${baseUrl}/api/admin/score-reels?secret=${callbackSecret}`, {
+        // Fetch the just-created records that need scoring
+        const unscoredReels = await fetchAirtableRecords('Source Reels', {
+          filterByFormula: `AND({Source Handle} = "${handle}", {Views} > 0, {Performance Score} = BLANK())`,
+        })
+
+        console.log(`[Callback] Found ${unscoredReels.length} unscored reels for @${handle}`)
+
+        if (unscoredReels.length > 0) {
+          // Calculate engagement scores
+          const scoredItems = unscoredReels.map(r => {
+            const f = r.fields || {}
+            const views = f.Views || 0
+            const likes = Math.max(0, f.Likes || 0)
+            const comments = Math.max(0, f.Comments || 0)
+            const shares = Math.max(0, f.Shares || 0)
+            const weighted = views > 0 ? (likes * 1 + comments * 3 + shares * 5) / views : 0
+            const score = views > 0 ? weighted * Math.log10(Math.max(views, 10)) : 0
+            const fc = f['Follower Count'] || 0
+
+            const update = { 'Performance Score': Math.round(score * 1e6) / 1e6 }
+            if (fc > 0 && views > 0) update['Normalized Score'] = Math.round((views / fc) * 10000) / 10000
+
+            return { record: r, score, update }
+          })
+
+          // Z-scores across batch
+          const scores = scoredItems.map(s => s.score)
+          const mean = scores.reduce((a, b) => a + b, 0) / scores.length
+          const variance = scores.reduce((a, b) => a + (b - mean) ** 2, 0) / scores.length
+          const stdDev = Math.sqrt(variance) || 1
+
+          for (const s of scoredItems) {
+            const z = (s.score - mean) / stdDev
+            s.update['Z Score'] = Math.round(z * 1000) / 1000
+            if (z >= 2.0) s.update.Grade = 'A+'
+            else if (z >= 1.5) s.update.Grade = 'A'
+            else if (z >= 1.0) s.update.Grade = 'A-'
+            else if (z >= 0.5) s.update.Grade = 'B+'
+            else if (z >= 0.0) s.update.Grade = 'B'
+            else if (z >= -0.5) s.update.Grade = 'B-'
+            else if (z >= -1.0) s.update.Grade = 'C+'
+            else if (z >= -1.5) s.update.Grade = 'C'
+            else if (z >= -2.0) s.update.Grade = 'C-'
+            else s.update.Grade = 'D'
+          }
+
+          // Batch update scores
+          const updates = scoredItems.map(s => ({ id: s.record.id, fields: s.update }))
+          await batchUpdateRecords('Source Reels', updates)
+          scored = updates.length
+          console.log(`[Callback] Scored ${scored} reels. Grades: ${scoredItems.map(s => s.update.Grade).join(', ')}`)
+        }
+      } catch (err) {
+        console.error(`[Callback] Scoring error for @${handle}:`, err)
+      }
+
+      // --- INLINE PROMOTE ---
+      try {
+        const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
+        const promoteRes = await fetch(`${baseUrl}/api/admin/promote-handle?secret=${callbackSecret}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ handle }),
         })
-        const scoreData = await scoreRes.json()
-        scored = scoreData.scored || 0
-        console.log(`[Chain] Scored ${scored} reels for @${handle}`)
+        const promoteData = await promoteRes.json()
+        console.log(`[Callback] Promote result: ${JSON.stringify(promoteData)}`)
       } catch (err) {
-        console.error(`[Chain] Score failed for @${handle}:`, err)
+        console.error(`[Callback] Promote error for @${handle}:`, err)
       }
     }
 
