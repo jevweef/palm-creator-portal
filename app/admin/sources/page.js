@@ -201,24 +201,11 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
           Limit: <span style={{ color: '#71717a' }}>{oldLimit}</span> → <span style={{ color: '#a78bfa', fontWeight: 600 }}>{newLimit}</span> reels
         </p>
 
-        <div style={{ background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '12px', color: '#71717a' }}>Reels to scrape</span>
-            <span style={{ fontSize: '12px', color: '#d4d4d8', fontWeight: 600 }}>{newLimit}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '12px', color: '#71717a' }}>Already in Source Reels</span>
-            <span style={{ fontSize: '12px', color: '#22c55e' }}>skipped (free)</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #222', paddingTop: '6px' }}>
-            <span style={{ fontSize: '12px', color: '#71717a' }}>Est. Apify cost</span>
-            <span style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600 }}>~{estCost}</span>
-          </div>
+        <div style={{ background: '#1a1000', border: '1px solid #5c4b00', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '32px', fontWeight: 800, color: '#f59e0b', marginBottom: '4px' }}>~${estCost}</div>
+          <div style={{ fontSize: '12px', color: '#a3a3a3' }}>Estimated Apify cost for {newLimit} reels</div>
+          <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '8px' }}>Duplicates auto-skipped (free)</div>
         </div>
-
-        <p style={{ fontSize: '11px', color: '#555', marginBottom: '16px', lineHeight: 1.4 }}>
-          Duplicates are automatically skipped — you only pay for the Apify scrape, not for reels you already have.
-        </p>
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
