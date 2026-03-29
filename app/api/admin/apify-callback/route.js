@@ -128,6 +128,8 @@ function scoreAndGradeRecords(records) {
 async function fetchFollowerCount(username) {
   if (!RAPIDAPI_KEY) return null
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000) // 3s max
     const res = await fetch(`https://${RAPIDAPI_HOST}/ig_get_fb_profile_v3.php`, {
       method: 'POST',
       headers: {
@@ -136,11 +138,14 @@ async function fetchFollowerCount(username) {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: `username_or_url=${encodeURIComponent(username)}`,
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
     if (!res.ok) return null
     const data = await res.json()
     return data.follower_count || data.edge_followed_by?.count || null
   } catch {
+    console.log(`[Apify Callback] Follower count fetch timed out or failed for @${username}`)
     return null
   }
 }
@@ -374,16 +379,19 @@ export async function POST(request) {
 
     console.log(`[Apify Callback] @${handle}: ${items.length} items in dataset`)
 
-    // Load existing URLs for dedup
-    const existingReels = await fetchAirtableRecords('Source Reels', { fields: ['Reel URL'] })
+    // Load existing URLs for dedup — only this handle's reels
+    const [existingReels, followerCount] = await Promise.all([
+      fetchAirtableRecords('Source Reels', {
+        fields: ['Reel URL'],
+        filterByFormula: `{Source Handle} = "${handle}"`,
+      }),
+      fetchFollowerCount(handle),
+    ])
     const existingUrls = new Set()
     for (const rec of existingReels) {
       const url = rec.fields?.['Reel URL'] || ''
       if (url) existingUrls.add(normalizeUrl(url))
     }
-
-    // Fetch follower count
-    const followerCount = await fetchFollowerCount(handle)
 
     // Build records, dedup, filter too-new
     const newRecords = []
