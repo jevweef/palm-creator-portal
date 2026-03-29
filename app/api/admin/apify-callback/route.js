@@ -73,7 +73,56 @@ function buildSourceReelRecord(handle, item, runId, followerCount) {
   if (audioType) fields['Audio Type'] = audioType
   if (followerCount) fields['Follower Count'] = followerCount
 
+  // Engagement score
+  if (views && views > 0) {
+    const l = Math.max(0, likes || 0)
+    const c = Math.max(0, comments || 0)
+    const s = Math.max(0, shares || 0)
+    const weighted = (l * 1 + c * 3 + s * 5) / views
+    fields['Performance Score'] = Math.round(weighted * Math.log10(Math.max(views, 10)) * 1e6) / 1e6
+  }
+
+  // Normalized score (views / follower count)
+  if (views && followerCount && followerCount > 0) {
+    fields['Normalized Score'] = Math.round((views / followerCount) * 10000) / 10000
+  }
+
   return { fields }
+}
+
+function scoreAndGradeRecords(records) {
+  // Calculate z-scores across all records in this batch
+  const scored = records.filter(r => r.fields['Performance Score'] != null)
+  if (scored.length < 2) {
+    // Not enough data for z-score, assign flat grade
+    for (const r of scored) {
+      r.fields.Grade = 'B'
+      r.fields['Z Score'] = 0
+    }
+    return
+  }
+
+  const scores = scored.map(r => r.fields['Performance Score'])
+  const mean = scores.reduce((a, b) => a + b, 0) / scores.length
+  const variance = scores.reduce((a, b) => a + (b - mean) ** 2, 0) / scores.length
+  const stdDev = Math.sqrt(variance) || 1
+
+  for (const r of scored) {
+    const z = (r.fields['Performance Score'] - mean) / stdDev
+    r.fields['Z Score'] = Math.round(z * 1000) / 1000
+
+    // Grade based on z-score
+    if (z >= 2.0) r.fields.Grade = 'A+'
+    else if (z >= 1.5) r.fields.Grade = 'A'
+    else if (z >= 1.0) r.fields.Grade = 'A-'
+    else if (z >= 0.5) r.fields.Grade = 'B+'
+    else if (z >= 0.0) r.fields.Grade = 'B'
+    else if (z >= -0.5) r.fields.Grade = 'B-'
+    else if (z >= -1.0) r.fields.Grade = 'C+'
+    else if (z >= -1.5) r.fields.Grade = 'C'
+    else if (z >= -2.0) r.fields.Grade = 'C-'
+    else r.fields.Grade = 'D'
+  }
 }
 
 async function fetchFollowerCount(username) {
@@ -363,6 +412,9 @@ export async function POST(request) {
       existingUrls.add(urlKey) // prevent intra-batch dupes
       newRecords.push(record)
     }
+
+    // Score and grade before writing
+    scoreAndGradeRecords(newRecords)
 
     // Batch create
     if (newRecords.length > 0) {
