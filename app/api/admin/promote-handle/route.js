@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { fetchAirtableRecords, batchCreateRecords, batchUpdateRecords } from '@/lib/adminAuth'
 
-const MAKE_ANALYSIS_WEBHOOK_URL = process.env.MAKE_ANALYSIS_WEBHOOK_URL
+const GITHUB_PAT = process.env.GITHUB_PAT
+const GITHUB_REPO = 'jevweef/inspo-pipeline'
 const LOOKBACK_DAYS = 180
 const MIN_AGE_DAYS = 10
 const TOP_PERCENT = 0.25
@@ -201,19 +202,26 @@ export async function POST(request) {
 
     console.log(`[Promote-Handle] @${handle}: promoted ${created} reels`)
 
-    // Trigger analysis
+    // Trigger GitHub Actions analysis workflow
     let analysisTriggered = false
-    if (created > 0 && MAKE_ANALYSIS_WEBHOOK_URL) {
+    if (created > 0 && GITHUB_PAT) {
       try {
-        const res = await fetch(MAKE_ANALYSIS_WEBHOOK_URL, {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/dispatches`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trigger: 'auto-chain', handle, timestamp: new Date().toISOString() }),
+          headers: {
+            'Authorization': `token ${GITHUB_PAT}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            event_type: 'run-analysis',
+            client_payload: { handle, trigger: 'auto-chain', timestamp: new Date().toISOString() },
+          }),
         })
-        analysisTriggered = res.ok
-        console.log(`[Promote-Handle] Analysis webhook: ${res.status}`)
+        analysisTriggered = res.status === 204
+        console.log(`[Promote-Handle] GitHub Actions dispatch: ${res.status}`)
       } catch (err) {
-        console.error('[Promote-Handle] Analysis trigger failed:', err)
+        console.error('[Promote-Handle] GitHub Actions trigger failed:', err)
       }
     }
 
