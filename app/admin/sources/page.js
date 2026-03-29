@@ -399,7 +399,7 @@ export default function AdminSources() {
         {/* Table header */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 110px 70px 60px 80px 100px 80px 80px 90px',
+          gridTemplateColumns: '40px 1fr 100px 60px 55px 80px 100px 70px 60px 80px',
           padding: '10px 16px',
           borderBottom: '1px solid #222',
           fontSize: '11px',
@@ -427,7 +427,7 @@ export default function AdminSources() {
             key={source.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 110px 70px 60px 80px 100px 80px 80px 90px',
+              gridTemplateColumns: '40px 1fr 100px 60px 55px 80px 100px 70px 60px 80px',
               padding: '10px 16px',
               borderBottom: '1px solid #1a1a1a',
               alignItems: 'center',
@@ -478,21 +478,23 @@ export default function AdminSources() {
             {/* Lookback Days — inline editable */}
             <div style={{ textAlign: 'right' }}>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={source.lookbackDays || 180}
                 onChange={e => {
-                  const val = parseInt(e.target.value) || 180
+                  const val = parseInt(e.target.value.replace(/\D/g, '')) || ''
                   setSources(prev => prev.map(s => s.id === source.id ? { ...s, lookbackDays: val } : s))
                 }}
                 onBlur={e => {
                   const val = parseInt(e.target.value) || 180
+                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, lookbackDays: val } : s))
                   fetch('/api/admin/sources', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: source.id, fields: { 'Lookback Days': val } }),
                   })
                 }}
-                style={{ width: '50px', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
+                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
                 onFocus={e => e.target.style.borderColor = '#333'}
                 onBlurCapture={e => e.target.style.borderColor = 'transparent'}
               />
@@ -501,21 +503,23 @@ export default function AdminSources() {
             {/* Apify Limit — inline editable */}
             <div style={{ textAlign: 'right' }}>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={source.apifyLimit || 15}
                 onChange={e => {
-                  const val = parseInt(e.target.value) || 15
+                  const val = parseInt(e.target.value.replace(/\D/g, '')) || ''
                   setSources(prev => prev.map(s => s.id === source.id ? { ...s, apifyLimit: val } : s))
                 }}
                 onBlur={e => {
                   const val = parseInt(e.target.value) || 15
+                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, apifyLimit: val } : s))
                   fetch('/api/admin/sources', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: source.id, fields: { 'Apify Limit': val } }),
                   })
                 }}
-                style={{ width: '40px', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
+                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
                 onFocus={e => e.target.style.borderColor = '#333'}
                 onBlurCapture={e => e.target.style.borderColor = 'transparent'}
               />
