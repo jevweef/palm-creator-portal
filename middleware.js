@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks(.*)',
   '/api/admin/apify-callback(.*)',
   '/api/admin/promote-handle(.*)',
+  '/api/admin/score-reels(.*)',
 ])
 
 export default clerkMiddleware((auth, req) => {
