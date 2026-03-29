@@ -218,16 +218,16 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
   )
 }
 
-function EnableModal({ source, onClose, onConfirm }) {
+function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
   const [lookback, setLookback] = useState(source.lookbackDays || 180)
   const [limit, setLimit] = useState(source.apifyLimit || 15)
   const [saving, setSaving] = useState(false)
-  const [scrapeNow, setScrapeNow] = useState(true)
 
-  const confirm = async () => {
+  const estCost = (limit * COST_PER_REEL).toFixed(2)
+
+  const doEnable = async (scrapeNow) => {
     setSaving(true)
     try {
-      // Save settings + enable
       await fetch('/api/admin/sources', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -237,16 +237,34 @@ function EnableModal({ source, onClose, onConfirm }) {
         }),
       })
 
-      // Optionally trigger scrape for just this source
       if (scrapeNow) {
         await fetch('/api/admin/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ handles: [source.handle] }),
+          body: JSON.stringify({ handles: [source.handle], force: true }),
         })
       }
 
       onConfirm({ lookbackDays: lookback, apifyLimit: limit, scraping: scrapeNow })
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addToBatch = async () => {
+    setSaving(true)
+    try {
+      await fetch('/api/admin/sources', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: source.id,
+          fields: { Enabled: true, 'Lookback Days': lookback, 'Apify Limit': limit },
+        }),
+      })
+      onAddToBatch({ ...source, lookbackDays: lookback, apifyLimit: limit })
     } catch (err) {
       alert(err.message)
     } finally {
@@ -268,36 +286,37 @@ function EnableModal({ source, onClose, onConfirm }) {
       >
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>Enable @{source.handle}?</h3>
         <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '16px', lineHeight: 1.4 }}>
-          Adjust scrape settings, then choose whether to start scraping immediately.
+          Adjust scrape settings, then scrape now or add to batch.
         </p>
 
         <label style={labelStyle}>Lookback Days</label>
-        <input type="number" value={lookback} onChange={e => setLookback(parseInt(e.target.value) || 180)} style={inputStyle} />
+        <input type="text" inputMode="numeric" value={lookback} onChange={e => setLookback(parseInt(e.target.value.replace(/\D/g, '')) || '')} onBlur={e => { if (!e.target.value) setLookback(180) }} style={inputStyle} />
         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>How far back to scrape reels (from today)</div>
 
         <label style={labelStyle}>Max Reels to Scrape</label>
-        <input type="number" value={limit} onChange={e => setLimit(parseInt(e.target.value) || 15)} style={inputStyle} />
+        <input type="text" inputMode="numeric" value={limit} onChange={e => setLimit(parseInt(e.target.value.replace(/\D/g, '')) || '')} onBlur={e => { if (!e.target.value) setLimit(15) }} style={inputStyle} />
         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Limits the number of reels Apify will return</div>
 
-        {/* Scrape now checkbox */}
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={scrapeNow}
-            onChange={e => setScrapeNow(e.target.checked)}
-            style={{ accentColor: '#a78bfa', width: '16px', height: '16px' }}
-          />
-          <span style={{ fontSize: '13px', color: '#d4d4d8' }}>Scrape this account now</span>
-        </label>
+        <div style={{ background: '#1a1000', border: '1px solid #5c4b00', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#f59e0b' }}>~${estCost}</div>
+          <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Est. Apify cost for {limit} reels</div>
+        </div>
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
           <button
-            onClick={confirm}
+            onClick={addToBatch}
+            disabled={saving}
+            style={{ ...btnStyle, background: '#1a1a2e', border: '1px solid #a78bfa', color: '#a78bfa', opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? '...' : `Add to Batch${batchCount > 0 ? ` (${batchCount})` : ''}`}
+          </button>
+          <button
+            onClick={() => doEnable(true)}
             disabled={saving}
             style={{ ...btnStyle, background: '#a78bfa', opacity: saving ? 0.6 : 1 }}
           >
-            {saving ? 'Saving...' : scrapeNow ? 'Enable & Scrape' : 'Enable'}
+            {saving ? 'Saving...' : 'Enable & Scrape'}
           </button>
         </div>
       </div>
@@ -378,6 +397,8 @@ export default function AdminSources() {
   const [reelsSource, setReelsSource] = useState(null) // source for reels modal
   const [enableSource, setEnableSource] = useState(null) // source for enable confirmation modal
   const [rescrapeSource, setRescrapeSource] = useState(null) // { source, newLimit }
+  const [batch, setBatch] = useState([]) // queued sources for batch scrape
+  const [batchScraping, setBatchScraping] = useState(false)
 
 
   const fetchSources = useCallback(async () => {
@@ -422,6 +443,35 @@ export default function AdminSources() {
       ...(startedScrape ? { pipelineStatus: 'Processing' } : {}),
     } : s))
     setEnableSource(null)
+  }
+
+  const handleAddToBatch = (source) => {
+    setBatch(prev => {
+      if (prev.find(s => s.id === source.id)) return prev
+      return [...prev, source]
+    })
+    setSources(prev => prev.map(s => s.id === source.id ? { ...s, enabled: true, lookbackDays: source.lookbackDays, apifyLimit: source.apifyLimit } : s))
+    setEnableSource(null)
+  }
+
+  const scrapeBatch = async () => {
+    if (batch.length === 0) return
+    setBatchScraping(true)
+    const handles = batch.map(s => s.handle)
+    try {
+      const res = await fetch('/api/admin/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handles, force: true }),
+      })
+      if (!res.ok) throw new Error('Batch scrape failed')
+      setSources(prev => prev.map(s => handles.includes(s.handle) ? { ...s, pipelineStatus: 'Processing' } : s))
+      setBatch([])
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setBatchScraping(false)
+    }
   }
 
   const scrapeOne = async (source) => {
@@ -630,7 +680,7 @@ export default function AdminSources() {
 
       {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} />}
       {reelsSource && <ReelsModal source={reelsSource} onClose={() => setReelsSource(null)} />}
-      {enableSource && <EnableModal source={enableSource} onClose={() => setEnableSource(null)} onConfirm={handleEnableConfirm} />}
+      {enableSource && <EnableModal source={enableSource} onClose={() => setEnableSource(null)} onConfirm={handleEnableConfirm} onAddToBatch={handleAddToBatch} batchCount={batch.length} />}
       {rescrapeSource && (
         <RescrapeModal
           source={rescrapeSource.source}
@@ -643,6 +693,49 @@ export default function AdminSources() {
             setRescrapeSource(null)
           }}
         />
+      )}
+
+      {/* Floating batch bar */}
+      {batch.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+          background: 'linear-gradient(to top, #111 80%, transparent)',
+          padding: '16px 24px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
+        }}>
+          <div style={{
+            background: '#1a1a2e', border: '1px solid #a78bfa', borderRadius: '12px',
+            padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '16px',
+            boxShadow: '0 -4px 20px rgba(167, 139, 250, 0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#a78bfa' }}>{batch.length}</span>
+              <span style={{ fontSize: '13px', color: '#d4d4d8' }}>
+                {batch.length === 1 ? 'creator' : 'creators'} queued
+              </span>
+              <span style={{ fontSize: '12px', color: '#71717a' }}>
+                ({batch.map(s => `@${s.handle}`).join(', ')})
+              </span>
+            </div>
+            <div style={{ width: '1px', height: '20px', background: '#333' }} />
+            <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600 }}>
+              ~${batch.reduce((sum, s) => sum + (s.apifyLimit || 15) * COST_PER_REEL, 0).toFixed(2)}
+            </div>
+            <button
+              onClick={() => setBatch([])}
+              style={{ ...btnStyle, background: '#333', fontSize: '12px', padding: '6px 12px' }}
+            >
+              Clear
+            </button>
+            <button
+              onClick={scrapeBatch}
+              disabled={batchScraping}
+              style={{ ...btnStyle, background: '#a78bfa', fontSize: '13px', padding: '8px 20px', opacity: batchScraping ? 0.6 : 1 }}
+            >
+              {batchScraping ? 'Scraping...' : `Scrape All (${batch.length})`}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
