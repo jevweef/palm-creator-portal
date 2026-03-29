@@ -240,8 +240,7 @@ export async function PATCH(request) {
       'Content link': sc ? `https://www.instagram.com/reel/${sc}/` : sr['Reel URL'],
       'Username': username,
       'Status': 'Ready for Analysis',
-      'Ingestion Source': sr['Data Source'] || 'Manual',
-      'Data Source': sr['Data Source'] || 'Manual',
+      'Ingestion Source': 'Manual',
     }
 
     if (views != null) inspoFields['Views'] = views
