@@ -161,11 +161,12 @@ function EnableModal({ source, onClose, onConfirm }) {
   const [lookback, setLookback] = useState(source.lookbackDays || 180)
   const [limit, setLimit] = useState(source.apifyLimit || 15)
   const [saving, setSaving] = useState(false)
+  const [scrapeNow, setScrapeNow] = useState(true)
 
   const confirm = async () => {
     setSaving(true)
     try {
-      // Save settings first
+      // Save settings + enable
       await fetch('/api/admin/sources', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -174,7 +175,17 @@ function EnableModal({ source, onClose, onConfirm }) {
           fields: { Enabled: true, 'Lookback Days': lookback, 'Apify Limit': limit },
         }),
       })
-      onConfirm({ lookbackDays: lookback, apifyLimit: limit })
+
+      // Optionally trigger scrape for just this source
+      if (scrapeNow) {
+        await fetch('/api/admin/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handles: [source.handle] }),
+        })
+      }
+
+      onConfirm({ lookbackDays: lookback, apifyLimit: limit, scraping: scrapeNow })
     } catch (err) {
       alert(err.message)
     } finally {
@@ -196,7 +207,7 @@ function EnableModal({ source, onClose, onConfirm }) {
       >
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>Enable @{source.handle}?</h3>
         <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '16px', lineHeight: 1.4 }}>
-          This will enable scraping for this account. You can adjust the settings below before confirming.
+          Adjust scrape settings, then choose whether to start scraping immediately.
         </p>
 
         <label style={labelStyle}>Lookback Days</label>
@@ -207,6 +218,17 @@ function EnableModal({ source, onClose, onConfirm }) {
         <input type="number" value={limit} onChange={e => setLimit(parseInt(e.target.value) || 15)} style={inputStyle} />
         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Limits the number of reels Apify will return</div>
 
+        {/* Scrape now checkbox */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={scrapeNow}
+            onChange={e => setScrapeNow(e.target.checked)}
+            style={{ accentColor: '#a78bfa', width: '16px', height: '16px' }}
+          />
+          <span style={{ fontSize: '13px', color: '#d4d4d8' }}>Scrape this account now</span>
+        </label>
+
         <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
           <button
@@ -214,7 +236,7 @@ function EnableModal({ source, onClose, onConfirm }) {
             disabled={saving}
             style={{ ...btnStyle, background: '#a78bfa', opacity: saving ? 0.6 : 1 }}
           >
-            {saving ? 'Saving...' : 'Enable & Save'}
+            {saving ? 'Saving...' : scrapeNow ? 'Enable & Scrape' : 'Enable'}
           </button>
         </div>
       </div>
@@ -331,8 +353,11 @@ export default function AdminSources() {
     }
   }
 
-  const handleEnableConfirm = ({ lookbackDays, apifyLimit }) => {
-    setSources(prev => prev.map(s => s.id === enableSource.id ? { ...s, enabled: true, lookbackDays, apifyLimit } : s))
+  const handleEnableConfirm = ({ lookbackDays, apifyLimit, scraping: startedScrape }) => {
+    setSources(prev => prev.map(s => s.id === enableSource.id ? {
+      ...s, enabled: true, lookbackDays, apifyLimit,
+      ...(startedScrape ? { pipelineStatus: 'Processing' } : {}),
+    } : s))
     setEnableSource(null)
   }
 
