@@ -205,34 +205,33 @@ export async function POST(request) {
 
     console.log(`[Apify Callback] @${handle}: added ${newRecords.length}, skipped ${tooNewSkipped} too new`)
 
-    // Fire-and-forget chain: score → promote → analysis (each in its own serverless function)
+    // Chain: score the records (must await — Vercel kills process after response)
+    let scored = 0
+    let promoted = 0
     if (newRecords.length > 0) {
       const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
 
-      // Step 1: Score the newly created records
-      fetch(`${baseUrl}/api/admin/score-reels?secret=${callbackSecret}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle }),
-      })
-        .then(res => {
-          console.log(`[Chain] Score-reels response: ${res.status}`)
-          // Step 2: After scoring completes, promote
-          return fetch(`${baseUrl}/api/admin/promote-handle?secret=${callbackSecret}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ handle }),
-          })
+      try {
+        // Step 1: Score
+        const scoreRes = await fetch(`${baseUrl}/api/admin/score-reels?secret=${callbackSecret}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle }),
         })
-        .then(res => console.log(`[Chain] Promote response: ${res.status}`))
-        .catch(err => console.error(`[Chain] Error for @${handle}:`, err))
+        const scoreData = await scoreRes.json()
+        scored = scoreData.scored || 0
+        console.log(`[Chain] Scored ${scored} reels for @${handle}`)
+      } catch (err) {
+        console.error(`[Chain] Score failed for @${handle}:`, err)
+      }
     }
 
     return NextResponse.json({
       handled: true,
       handle,
       added: newRecords.length,
+      scored,
       tooNewSkipped,
       total: items.length,
     })

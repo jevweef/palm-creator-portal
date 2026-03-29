@@ -90,6 +90,21 @@ export async function POST(request) {
 
     console.log(`[Score-Reels] Scored ${updates.length} reels for @${handle}. Grades: ${scored.map(s => s.update.Grade).join(', ')}`)
 
+    // Trigger promote as a separate function (don't await — let it run independently)
+    const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
+    try {
+      const promoteRes = await fetch(`${baseUrl}/api/admin/promote-handle?secret=${callbackSecret}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle }),
+      })
+      const promoteData = await promoteRes.json()
+      console.log(`[Score-Reels] Promote result: ${promoteData.promoted || 0} promoted`)
+    } catch (err) {
+      console.error(`[Score-Reels] Promote trigger failed:`, err)
+    }
+
     return NextResponse.json({ scored: updates.length })
   } catch (err) {
     console.error('Score-reels error:', err)
