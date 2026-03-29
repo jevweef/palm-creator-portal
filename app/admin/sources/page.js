@@ -399,7 +399,7 @@ export default function AdminSources() {
         {/* Table header */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 100px 60px 55px 80px 100px 70px 60px 80px',
+          gridTemplateColumns: '40px 1fr 120px 80px 70px 90px 120px 90px 70px 90px',
           padding: '10px 16px',
           borderBottom: '1px solid #222',
           fontSize: '11px',
@@ -427,7 +427,7 @@ export default function AdminSources() {
             key={source.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 100px 60px 55px 80px 100px 70px 60px 80px',
+              gridTemplateColumns: '40px 1fr 120px 80px 70px 90px 120px 90px 70px 90px',
               padding: '10px 16px',
               borderBottom: '1px solid #1a1a1a',
               alignItems: 'center',
