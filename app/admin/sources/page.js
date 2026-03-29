@@ -157,6 +157,71 @@ function ReelsModal({ source, onClose }) {
   )
 }
 
+function EnableModal({ source, onClose, onConfirm }) {
+  const [lookback, setLookback] = useState(source.lookbackDays || 180)
+  const [limit, setLimit] = useState(source.apifyLimit || 15)
+  const [saving, setSaving] = useState(false)
+
+  const confirm = async () => {
+    setSaving(true)
+    try {
+      // Save settings first
+      await fetch('/api/admin/sources', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: source.id,
+          fields: { Enabled: true, 'Lookback Days': lookback, 'Apify Limit': limit },
+        }),
+      })
+      onConfirm({ lookbackDays: lookback, apifyLimit: limit })
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#111', border: '1px solid #333', borderRadius: '12px',
+          padding: '24px', width: '400px',
+        }}
+      >
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>Enable @{source.handle}?</h3>
+        <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '16px', lineHeight: 1.4 }}>
+          This will enable scraping for this account. You can adjust the settings below before confirming.
+        </p>
+
+        <label style={labelStyle}>Lookback Days</label>
+        <input type="number" value={lookback} onChange={e => setLookback(parseInt(e.target.value) || 180)} style={inputStyle} />
+        <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>How far back to scrape reels (from today)</div>
+
+        <label style={labelStyle}>Max Reels to Scrape</label>
+        <input type="number" value={limit} onChange={e => setLimit(parseInt(e.target.value) || 15)} style={inputStyle} />
+        <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Limits the number of reels Apify will return</div>
+
+        <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
+          <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
+          <button
+            onClick={confirm}
+            disabled={saving}
+            style={{ ...btnStyle, background: '#a78bfa', opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? 'Saving...' : 'Enable & Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AddSourceModal({ onClose, onAdd }) {
   const [handle, setHandle] = useState('')
   const [lookbackDays, setLookbackDays] = useState(180)
@@ -228,6 +293,7 @@ export default function AdminSources() {
   const [showAdd, setShowAdd] = useState(false)
   const [scraping, setScraping] = useState({}) // { sourceId: true }
   const [reelsSource, setReelsSource] = useState(null) // source for reels modal
+  const [enableSource, setEnableSource] = useState(null) // source for enable confirmation modal
 
   const fetchSources = useCallback(async () => {
     try {
@@ -245,20 +311,29 @@ export default function AdminSources() {
   useEffect(() => { fetchSources() }, [fetchSources])
 
   const toggleEnabled = async (source) => {
-    // Optimistic update
-    setSources(prev => prev.map(s => s.id === source.id ? { ...s, enabled: !s.enabled } : s))
+    if (!source.enabled) {
+      // Enabling — show confirmation modal
+      setEnableSource(source)
+      return
+    }
+    // Disabling — no confirmation needed
+    setSources(prev => prev.map(s => s.id === source.id ? { ...s, enabled: false } : s))
     try {
       const res = await fetch('/api/admin/sources', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: source.id, fields: { Enabled: !source.enabled } }),
+        body: JSON.stringify({ id: source.id, fields: { Enabled: false } }),
       })
       if (!res.ok) throw new Error('Toggle failed')
     } catch (err) {
-      // Revert on failure
-      setSources(prev => prev.map(s => s.id === source.id ? { ...s, enabled: source.enabled } : s))
+      setSources(prev => prev.map(s => s.id === source.id ? { ...s, enabled: true } : s))
       console.error(err)
     }
+  }
+
+  const handleEnableConfirm = ({ lookbackDays, apifyLimit }) => {
+    setSources(prev => prev.map(s => s.id === enableSource.id ? { ...s, enabled: true, lookbackDays, apifyLimit } : s))
+    setEnableSource(null)
   }
 
   const scrapeOne = async (source) => {
@@ -300,7 +375,7 @@ export default function AdminSources() {
         {/* Table header */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 110px 80px 100px 80px 80px 90px',
+          gridTemplateColumns: '40px 1fr 110px 70px 60px 80px 100px 80px 80px 90px',
           padding: '10px 16px',
           borderBottom: '1px solid #222',
           fontSize: '11px',
@@ -313,6 +388,8 @@ export default function AdminSources() {
           <div></div>
           <div>Handle</div>
           <div style={{ textAlign: 'right', paddingRight: '16px' }}>Followers</div>
+          <div style={{ textAlign: 'right' }}>Days</div>
+          <div style={{ textAlign: 'right' }}>Limit</div>
           <div>Status</div>
           <div>Last Scraped</div>
           <div style={{ textAlign: 'right' }}>Scraped</div>
@@ -326,7 +403,7 @@ export default function AdminSources() {
             key={source.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 110px 80px 100px 80px 80px 90px',
+              gridTemplateColumns: '40px 1fr 110px 70px 60px 80px 100px 80px 80px 90px',
               padding: '10px 16px',
               borderBottom: '1px solid #1a1a1a',
               alignItems: 'center',
@@ -374,6 +451,52 @@ export default function AdminSources() {
               ) : '—'}
             </div>
 
+            {/* Lookback Days — inline editable */}
+            <div style={{ textAlign: 'right' }}>
+              <input
+                type="number"
+                value={source.lookbackDays || 180}
+                onChange={e => {
+                  const val = parseInt(e.target.value) || 180
+                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, lookbackDays: val } : s))
+                }}
+                onBlur={e => {
+                  const val = parseInt(e.target.value) || 180
+                  fetch('/api/admin/sources', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: source.id, fields: { 'Lookback Days': val } }),
+                  })
+                }}
+                style={{ width: '50px', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor = '#333'}
+                onBlurCapture={e => e.target.style.borderColor = 'transparent'}
+              />
+            </div>
+
+            {/* Apify Limit — inline editable */}
+            <div style={{ textAlign: 'right' }}>
+              <input
+                type="number"
+                value={source.apifyLimit || 15}
+                onChange={e => {
+                  const val = parseInt(e.target.value) || 15
+                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, apifyLimit: val } : s))
+                }}
+                onBlur={e => {
+                  const val = parseInt(e.target.value) || 15
+                  fetch('/api/admin/sources', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: source.id, fields: { 'Apify Limit': val } }),
+                  })
+                }}
+                style={{ width: '40px', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor = '#333'}
+                onBlurCapture={e => e.target.style.borderColor = 'transparent'}
+              />
+            </div>
+
             {/* Status */}
             <div><StatusPill status={source.pipelineStatus} /></div>
 
@@ -414,6 +537,7 @@ export default function AdminSources() {
 
       {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} />}
       {reelsSource && <ReelsModal source={reelsSource} onClose={() => setReelsSource(null)} />}
+      {enableSource && <EnableModal source={enableSource} onClose={() => setEnableSource(null)} onConfirm={handleEnableConfirm} />}
     </div>
   )
 }
