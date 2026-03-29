@@ -367,11 +367,10 @@ export default function AdminSources() {
       const res = await fetch('/api/admin/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handles: [source.handle] }),
+        body: JSON.stringify({ handles: [source.handle], force: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Scrape failed')
-      // Update status optimistically
       setSources(prev => prev.map(s => s.id === source.id ? { ...s, pipelineStatus: 'Processing' } : s))
     } catch (err) {
       alert(err.message)

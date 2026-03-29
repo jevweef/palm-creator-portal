@@ -10,9 +10,11 @@ export async function POST(request) {
     await requireAdmin()
 
     let handles = null
+    let force = false
     try {
       const body = await request.json()
       handles = body.handles || null
+      force = body.force || false
     } catch {
       // No body = scrape all enabled
     }
@@ -47,8 +49,8 @@ export async function POST(request) {
       const f = source.fields
       const handle = f.Handle.trim()
 
-      // Check cooldown
-      if (f['Last Scraped At']) {
+      // Check cooldown (skip if force=true)
+      if (!force && f['Last Scraped At']) {
         try {
           const lastScrape = new Date(f['Last Scraped At'])
           const hoursSince = (now - lastScrape) / 3600000
