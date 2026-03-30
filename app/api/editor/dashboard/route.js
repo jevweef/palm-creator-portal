@@ -33,12 +33,11 @@ export async function GET() {
 
     // 2. Collect all linked task IDs from creator records
     const allTaskIds = [...new Set(creators.flatMap(c => c.fields?.Tasks || []))]
+    const creatorIdSet = new Set(creators.map(c => c.id))
 
-    // Build formula to find library assets for any of our creators directly
-    const creatorFindFormula = creators.map(c => `FIND('${c.id}',ARRAYJOIN({Palm Creators}))`).join(',')
-
-    // 3. Batch fetch tasks + library assets in parallel
-    // Library assets are fetched directly via Palm Creators field (not linked IDs) for reliability
+    // 3. Fetch tasks + all uploaded library assets in parallel
+    // Library assets: fetch all Uploaded non-inspo assets, filter by creator in memory
+    // (FIND+ARRAYJOIN on linked record fields matches display names not IDs — can't use in formula)
     const [tasks, libraryAssets] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
@@ -48,12 +47,15 @@ export async function GET() {
         ],
       }),
       fetchAirtableRecords('Assets', {
-        filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}!='Inspo Upload',OR(${creatorFindFormula}))`,
+        filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}!='Inspo Upload')`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week',
         ],
-      }),
+      }).then(assets => assets.filter(a => {
+        const creatorId = (a.fields?.['Palm Creators'] || [])[0]
+        return creatorId && creatorIdSet.has(creatorId)
+      })),
     ])
 
     // 4. Filter tasks to relevant statuses only
