@@ -197,10 +197,20 @@ export default function CreatorDashboard() {
               </a>
             </div>
 
-            {/* Pipeline stages */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: savedReels.length > 0 || (pipeline?.editing?.length > 0) ? '14px' : 0 }}>
+            {/* Pipeline stages — filter saved to exclude anything further along */}
+            {(() => {
+              const progressedInspoIds = new Set([
+                ...(pipeline?.uploaded || []).map(i => i.inspoId),
+                ...(pipeline?.editing || []).map(i => i.inspoId),
+                ...(pipeline?.scheduled || []).map(i => i.inspoId),
+                ...(pipeline?.posted || []).map(i => i.inspoId),
+              ].filter(Boolean))
+              const savedOnly = savedReels.filter(r => !progressedInspoIds.has(r.id))
+
+              return (<>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: savedOnly.length > 0 || (pipeline?.editing?.length > 0) ? '14px' : 0 }}>
               {[
-                { label: 'Saved', count: savedReels.length, color: '#a78bfa' },
+                { label: 'Saved', count: savedOnly.length, color: '#a78bfa' },
                 { label: 'Uploaded', count: pipeline?.uploaded?.length || 0, color: '#f59e0b' },
                 { label: 'Editing', count: pipeline?.editing?.length || 0, color: '#3b82f6' },
                 { label: 'Posted', count: pipeline?.posted?.length || 0, color: '#22c55e' },
@@ -213,11 +223,11 @@ export default function CreatorDashboard() {
             </div>
 
             {/* Saved inspo thumbnails */}
-            {savedReels.length > 0 ? (
+            {savedOnly.length > 0 ? (
               <div>
                 <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
-                  {savedReels.slice(0, 8).map((reel) => (
+                  {savedOnly.slice(0, 8).map((reel) => (
                     <a key={reel.id} href="/my-content" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a' }}>
                       <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
                         {reel.thumbnail ? (
