@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { EditorDashboardContent } from '@/components/EditorDashboard'
 
 const STATUS_COLORS = {
   'To Do': { bg: '#332b00', text: '#f59e0b', border: '#5c4b00' },
@@ -664,6 +665,359 @@ function UnreviewedCard({ asset }) {
   )
 }
 
+// ─── For Review Section (Admin) ───────────────────────────────────────────────
+
+function RevisionModal({ task, onClose, onSubmit }) {
+  const [feedback, setFeedback] = useState('')
+  const [screenshots, setScreenshots] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [error, setError] = useState('')
+  const fileRef = useRef(null)
+
+  const handleScreenshots = async (files) => {
+    if (!files.length) return
+    setUploading(true)
+    setProgress('Uploading screenshots...')
+    setError('')
+    try {
+      const tokenRes = await fetch('/api/editor-upload-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id }),
+      })
+      if (!tokenRes.ok) throw new Error('Failed to get upload credentials')
+      const { accessToken, rootNamespaceId } = await tokenRes.json()
+      const pathRoot = JSON.stringify({ '.tag': 'root', root: rootNamespaceId })
+
+      const uploaded = []
+      for (const file of Array.from(files)) {
+        const ext = file.name.includes('.') ? file.name.split('.').pop() : 'png'
+        const fileName = `revision_note_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+        const filePath = `/Palm Ops/Revision Notes/${fileName}`
+        const buffer = await file.arrayBuffer()
+
+        const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Dropbox-API-Arg': JSON.stringify({ path: filePath, mode: 'add', autorename: true, mute: true }),
+            'Dropbox-API-Path-Root': pathRoot,
+            'Content-Type': 'application/octet-stream',
+          },
+          body: buffer,
+        })
+        if (!dbxRes.ok) throw new Error(`Upload failed: ${await dbxRes.text()}`)
+        const result = await dbxRes.json()
+
+        let sharedLink = ''
+        try {
+          const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: result.path_display }),
+          })
+          if (linkRes.ok) {
+            const linkData = await linkRes.json()
+            // Use dl=1 so Airtable can fetch the image directly
+            sharedLink = (linkData.url || '').replace('?dl=0', '?dl=1')
+          }
+        } catch {}
+        if (sharedLink) uploaded.push(sharedLink)
+      }
+      setScreenshots(prev => [...prev, ...uploaded])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+      setProgress('')
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!feedback.trim()) { setError('Please enter feedback before sending'); return }
+    await onSubmit(task.id, feedback, screenshots)
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
+      <div style={{ background: '#111', border: '1px solid #333', borderRadius: '16px', padding: '28px', width: '500px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}>
+        <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#fff', margin: '0 0 4px' }}>Request Revision</h3>
+        <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '20px' }}>
+          {task.inspo.title} · {task.creator.name}
+        </p>
+
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Feedback</div>
+          <textarea
+            value={feedback}
+            onChange={e => setFeedback(e.target.value)}
+            placeholder="Describe what needs to change..."
+            autoFocus
+            style={{
+              width: '100%', padding: '10px 12px', background: '#0a0a0a',
+              border: '1px solid #333', borderRadius: '8px', color: '#d4d4d8',
+              fontSize: '13px', resize: 'vertical', minHeight: '100px',
+              fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5,
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+            Screenshots (optional)
+          </div>
+          {screenshots.length > 0 && (
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              {screenshots.map((url, i) => (
+                <div key={i} style={{ position: 'relative', width: '64px', height: '64px' }}>
+                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #333' }} />
+                  <button
+                    onClick={() => setScreenshots(prev => prev.filter((_, j) => j !== i))}
+                    style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', opacity: uploading ? 0.6 : 1 }}>
+            {uploading ? progress || 'Uploading...' : '+ Add Screenshots'}
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" multiple onChange={e => handleScreenshots(e.target.files)} style={{ display: 'none' }} />
+        </div>
+
+        {error && <p style={{ fontSize: '12px', color: '#ef4444', marginBottom: '12px' }}>{error}</p>}
+
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} disabled={uploading}
+            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#333' }}>
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={uploading || !feedback.trim()}
+            style={{
+              padding: '9px 22px', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: 600,
+              cursor: uploading || !feedback.trim() ? 'not-allowed' : 'pointer',
+              background: uploading || !feedback.trim() ? '#333' : '#ef4444', opacity: uploading ? 0.6 : 1,
+            }}>
+            Send Revision Request
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ForReview({ showToast }) {
+  const [tasks, setTasks] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(new Set())
+  const [updating, setUpdating] = useState(null)
+  const [revisionTask, setRevisionTask] = useState(null)
+
+  const fetchTasks = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/editor/review')
+      if (!res.ok) throw new Error('Failed to load review queue')
+      const data = await res.json()
+      setTasks(data.tasks || [])
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
+
+  useEffect(() => { fetchTasks() }, [fetchTasks])
+
+  const handleApprove = async (taskId) => {
+    setUpdating(taskId)
+    try {
+      const res = await fetch('/api/admin/editor', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, action: 'approve' }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Approve failed')
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+      showToast('Approved — Telegram send coming soon')
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  const handleRevision = async (taskId, adminFeedback, adminScreenshotUrls) => {
+    setUpdating(taskId)
+    try {
+      const res = await fetch('/api/admin/editor', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, action: 'requestRevision', adminFeedback, adminScreenshotUrls }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Revision request failed')
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+      setRevisionTask(null)
+      showToast('Revision sent back to editor')
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  if (loading) {
+    return <div style={{ color: '#555', fontSize: '14px', padding: '40px 0' }}>Loading review queue...</div>
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <p style={{ fontSize: '13px', color: '#71717a', margin: 0 }}>
+          {tasks.length} edit{tasks.length !== 1 ? 's' : ''} waiting for your review
+        </p>
+        <button onClick={fetchTasks}
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#111', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer' }}>
+          Refresh
+        </button>
+      </div>
+
+      {tasks.length === 0 ? (
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#111', borderRadius: '12px', border: '1px solid #1a1a1a' }}>
+          No edits waiting for review.
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 520px))', gap: '16px' }}>
+          {tasks.map(task => {
+            const isExpanded = expanded.has(task.id)
+            const fmtDate = task.completedAt
+              ? new Date(task.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+              : null
+
+            return (
+              <div key={task.id} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', overflow: 'hidden' }}>
+                {/* Thumbnail strip */}
+                <div style={{ display: 'flex', height: '200px', background: '#0a0a0a' }}>
+                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                    {task.inspo.thumbnail ? (
+                      <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '11px' }}>No thumbnail</div>
+                    )}
+                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#a78bfa', fontWeight: 600 }}>INSPO</div>
+                  </div>
+                  <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '18px', flexShrink: 0 }}>→</div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0a1a0a', gap: '6px' }}>
+                    {task.asset.editedFileLink ? (
+                      <a href={task.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', width: '100%', height: '100%', gap: '6px' }}>
+                        <svg style={{ width: '32px', height: '32px', color: '#22c55e' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 600 }}>Watch Edit ↗</span>
+                      </a>
+                    ) : (
+                      <div style={{ color: '#333', fontSize: '12px' }}>No file yet</div>
+                    )}
+                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>EDIT</div>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>{task.creator.name}</div>
+                      <div style={{ fontSize: '13px', color: '#a1a1aa', marginTop: '2px' }}>{task.inspo.title || task.name}</div>
+                    </div>
+                    {fmtDate && <span style={{ fontSize: '10px', color: '#52525b', whiteSpace: 'nowrap', marginTop: '2px' }}>Submitted {fmtDate}</span>}
+                  </div>
+
+                  {/* Quick links */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {task.asset.editedFileLink && (
+                      <a href={task.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '3px 8px', background: '#0a2e0a', borderRadius: '4px', border: '1px solid #1a5c1a' }}>
+                        Download Edit ↗
+                      </a>
+                    )}
+                    {task.inspo.contentLink && (
+                      <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px', background: '#1a1a2e', borderRadius: '4px', border: '1px solid #333' }}>
+                        Original Reel ↗
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Editor notes */}
+                  {task.editorNotes && (
+                    <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '10px' }}>
+                      <div style={{ fontSize: '10px', color: '#52525b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Editor Notes</div>
+                      <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4 }}>{task.editorNotes}</div>
+                    </div>
+                  )}
+
+                  {/* Inspo details toggle */}
+                  {task.inspo.notes && (
+                    <>
+                      <button onClick={() => setExpanded(prev => { const n = new Set(prev); n.has(task.id) ? n.delete(task.id) : n.add(task.id); return n })}
+                        style={{ background: 'none', border: 'none', color: '#71717a', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+                        {isExpanded ? '▾ Hide inspo' : '▸ View inspo direction'}
+                      </button>
+                      {isExpanded && (
+                        <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '12px' }}>
+                          <div style={{ fontSize: '12px', color: '#d4d4d8', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
+                          {task.inspo.onScreenText && (
+                            <div style={{ marginTop: '8px', fontSize: '12px', color: '#f59e0b', background: '#1a1500', border: '1px solid #332b00', borderRadius: '6px', padding: '8px 10px' }}>
+                              "{task.inspo.onScreenText}"
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      onClick={() => setRevisionTask(task)}
+                      disabled={updating === task.id}
+                      style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: '#2d1515', color: '#ef4444', border: '1px solid #5c2020', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                      Request Revision
+                    </button>
+                    <button
+                      onClick={() => handleApprove(task.id)}
+                      disabled={updating === task.id}
+                      style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                      {updating === task.id ? 'Saving...' : 'Approve ✓'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {revisionTask && (
+        <RevisionModal
+          task={revisionTask}
+          onClose={() => setRevisionTask(null)}
+          onSubmit={(taskId, feedback, screenshots) => handleRevision(taskId, feedback, screenshots)}
+        />
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function EditorQueue() {
@@ -674,6 +1028,13 @@ export default function EditorQueue() {
     setToast({ msg, error })
     setTimeout(() => setToast(null), 3000)
   }, [])
+
+  const TABS = [
+    { key: 'tasks', label: '✂️ Inspo Tasks' },
+    { key: 'review', label: '👁 For Review' },
+    { key: 'library', label: '📁 Unreviewed Library' },
+    { key: 'editorview', label: '👤 Editor View' },
+  ]
 
   return (
     <div>
@@ -687,35 +1048,28 @@ export default function EditorQueue() {
 
       {/* Section tabs */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: '#111', borderRadius: '8px', padding: '4px', width: 'fit-content', border: '1px solid #222' }}>
-        <button
-          onClick={() => setActiveSection('tasks')}
-          style={{
-            padding: '8px 20px', fontSize: '13px', fontWeight: 600,
-            background: activeSection === 'tasks' ? '#1a1a2e' : 'transparent',
-            color: activeSection === 'tasks' ? '#a78bfa' : '#71717a',
-            border: `1px solid ${activeSection === 'tasks' ? '#a78bfa30' : 'transparent'}`,
-            borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
-          }}
-        >
-          ✂️ Inspo Tasks
-        </button>
-        <button
-          onClick={() => setActiveSection('library')}
-          style={{
-            padding: '8px 20px', fontSize: '13px', fontWeight: 600,
-            background: activeSection === 'library' ? '#1a1a2e' : 'transparent',
-            color: activeSection === 'library' ? '#a78bfa' : '#71717a',
-            border: `1px solid ${activeSection === 'library' ? '#a78bfa30' : 'transparent'}`,
-            borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
-          }}
-        >
-          📁 Unreviewed Library
-        </button>
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveSection(tab.key)}
+            style={{
+              padding: '8px 20px', fontSize: '13px', fontWeight: 600,
+              background: activeSection === tab.key ? '#1a1a2e' : 'transparent',
+              color: activeSection === tab.key ? '#a78bfa' : '#71717a',
+              border: `1px solid ${activeSection === tab.key ? '#a78bfa30' : 'transparent'}`,
+              borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Section content */}
       {activeSection === 'tasks' && <InspoTasks showToast={showToast} />}
+      {activeSection === 'review' && <ForReview showToast={showToast} />}
       {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
+      {activeSection === 'editorview' && <EditorDashboardContent />}
 
       {/* Toast */}
       {toast && (

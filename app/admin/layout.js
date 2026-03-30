@@ -15,7 +15,7 @@ const ADMIN_NAV = [
 ]
 
 const EDITOR_NAV = [
-  { href: '/admin/editor', label: 'Editor Queue', icon: '✂️' },
+  { href: '/editor', label: 'My Dashboard', icon: '✂️' },
   { href: '/inspo', label: 'Inspo Board', icon: '🎬' },
 ]
 
@@ -33,9 +33,9 @@ export default function AdminLayout({ children }) {
     if (!isAdmin && !isEditor) {
       router.replace('/dashboard')
     }
-    // Editors can only access /admin/editor
-    if (isEditor && pathname !== '/admin/editor') {
-      router.replace('/admin/editor')
+    // Editors get redirected to their own dedicated dashboard
+    if (isEditor) {
+      router.replace('/editor')
     }
   }, [isLoaded, user, router, pathname, isAdmin, isEditor])
 
