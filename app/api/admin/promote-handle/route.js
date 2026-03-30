@@ -157,20 +157,20 @@ export async function POST(request) {
       const inspoFields = {
         'Content link': canonicalUrl(f['Reel URL'] || ''),
         Username: f.Username || '',
-        'Ingestion Source': dataSource,
+        'Ingestion Source': dataSource === 'RapidAPI' ? 'Apify' : dataSource,
         'Data Source': dataSource,
         Views: f.Views || 0,
         Likes: f.Likes || 0,
         Comments: f.Comments || 0,
         'Engagement Score': Math.round(item.score * 1e6) / 1e6,
         Captions: f.Caption || '',
-        'Creator Posted Date': f['Posted At'] || null,
         Duration: f['Duration Seconds'] || null,
         Status: 'Ready for Analysis',
       }
 
       if (f.Shares) inspoFields.Shares = f.Shares
       if (f['Audio Type']) inspoFields['Audio Type'] = f['Audio Type']
+      if (f['Posted At']) inspoFields['Creator Posted Date'] = f['Posted At']
       if (f.Transcript) inspoFields.Transcript = f.Transcript
       if (f['Z Score'] != null) inspoFields['Z Score'] = f['Z Score']
       if (f.Grade) inspoFields.Grade = f.Grade
