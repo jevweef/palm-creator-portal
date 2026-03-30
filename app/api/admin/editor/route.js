@@ -86,6 +86,7 @@ export async function GET() {
           name: asset['Asset Name'] || '',
           pipelineStatus: asset['Pipeline Status'] || '',
           dropboxLink: asset['Dropbox Shared Link'] || '',
+          dropboxLinks: (asset['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
           dropboxPath: asset['Dropbox Path (Current)'] || '',
           creatorNotes: asset['Creator Notes'] || '',
           sourceType: asset['Source Type'] || '',

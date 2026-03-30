@@ -249,12 +249,12 @@ export default function EditorQueue() {
                       Analyzed Video ↗
                     </a>
                   )}
-                  {task.asset.dropboxLink && (
-                    <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
+                  {(task.asset.dropboxLinks?.length > 0 ? task.asset.dropboxLinks : task.asset.dropboxLink ? [task.asset.dropboxLink] : []).map((link, i, arr) => (
+                    <a key={i} href={link} target="_blank" rel="noopener noreferrer"
                       style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '3px 8px', background: '#0a2e0a', borderRadius: '4px', border: '1px solid #1a5c1a' }}>
-                      Creator Clips ↗
+                      {arr.length > 1 ? `Clip ${i + 1} ↗` : 'Creator Clips ↗'}
                     </a>
-                  )}
+                  ))}
                 </div>
 
                 {/* Creator notes */}
