@@ -34,6 +34,55 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
 
   const slugify = (str) => str.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60)
 
+  // Extract a thumbnail frame from a video file at 1 second
+  const extractThumbnail = (file) => {
+    return new Promise((resolve) => {
+      try {
+        const video = document.createElement('video')
+        video.preload = 'metadata'
+        video.muted = true
+        video.playsInline = true
+
+        const url = URL.createObjectURL(file)
+        video.src = url
+
+        video.onloadeddata = () => {
+          video.currentTime = Math.min(1, video.duration * 0.25)
+        }
+
+        video.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas')
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(video, 0, 0)
+            canvas.toBlob((blob) => {
+              URL.revokeObjectURL(url)
+              resolve(blob)
+            }, 'image/jpeg', 0.85)
+          } catch {
+            URL.revokeObjectURL(url)
+            resolve(null)
+          }
+        }
+
+        video.onerror = () => {
+          URL.revokeObjectURL(url)
+          resolve(null)
+        }
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+          resolve(null)
+        }, 10000)
+      } catch {
+        resolve(null)
+      }
+    })
+  }
+
   const handleUpload = async () => {
     if (files.length === 0) return
     setUploading(true)
@@ -124,7 +173,21 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
         })
       }
 
-      // Step 3: Create Airtable records (Asset + Task) via our API
+      // Step 3: Extract thumbnail from first video
+      setProgress('Generating thumbnail...')
+      let thumbnailBase64 = null
+      try {
+        const thumbBlob = await extractThumbnail(files[0])
+        if (thumbBlob) {
+          const reader = new FileReader()
+          thumbnailBase64 = await new Promise((resolve) => {
+            reader.onload = () => resolve(reader.result.split(',')[1]) // strip data:image/jpeg;base64,
+            reader.readAsDataURL(thumbBlob)
+          })
+        }
+      } catch {}
+
+      // Step 4: Create Airtable records (Asset + Task) via our API
       setProgress('Creating records...')
       const recordRes = await fetch('/api/content-upload', {
         method: 'POST',
@@ -134,6 +197,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
           creatorOpsId,
           notes,
           uploadedFiles,
+          thumbnailBase64,
         }),
       })
 

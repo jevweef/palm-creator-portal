@@ -17,7 +17,7 @@ function getWeekStart() {
 
 export async function POST(request) {
   try {
-    const { inspoRecordId, creatorOpsId, notes, uploadedFiles } = await request.json()
+    const { inspoRecordId, creatorOpsId, notes, uploadedFiles, thumbnailBase64 } = await request.json()
 
     if (!inspoRecordId || !creatorOpsId || !uploadedFiles?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -68,6 +68,34 @@ export async function POST(request) {
 
     const assetData = await assetRes.json()
     const assetId = assetData.records[0].id
+
+    // Upload thumbnail to Asset record if provided
+    if (thumbnailBase64) {
+      try {
+        const thumbRes = await fetch(
+          `https://content.airtable.com/v0/${OPS_BASE}/${assetId}/Thumbnail/uploadAttachment`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${AIRTABLE_PAT}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contentType: 'image/jpeg',
+              filename: 'clip-thumbnail.jpg',
+              file: thumbnailBase64,
+            }),
+          }
+        )
+        if (!thumbRes.ok) {
+          console.warn('[content-upload] Thumbnail upload failed:', await thumbRes.text())
+        } else {
+          console.log(`[content-upload] Thumbnail uploaded for asset ${assetId}`)
+        }
+      } catch (err) {
+        console.warn('[content-upload] Thumbnail upload error:', err.message)
+      }
+    }
 
     // Create Task record for editor
     const taskRes = await fetch(

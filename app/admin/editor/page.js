@@ -191,9 +191,14 @@ export default function EditorQueue() {
                   <span style={{ color: '#333', fontSize: '18px' }}>→</span>
                 </div>
 
-                {/* Creator clip (right) — if no video preview, show download prompt */}
-                <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {task.asset.dropboxLink ? (
+                {/* Creator clip (right) — show thumbnail if available, otherwise download icon */}
+                <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                  {task.asset.thumbnail ? (
+                    <a href={task.asset.dropboxLink || '#'} target={task.asset.dropboxLink ? '_blank' : undefined} rel="noopener noreferrer"
+                      style={{ display: 'block', width: '100%', height: '100%' }}>
+                      <img src={task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </a>
+                  ) : task.asset.dropboxLink ? (
                     <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
                       style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', background: '#0f0f1a', transition: 'background 0.15s' }}
                       onMouseEnter={e => e.currentTarget.style.background = '#1a1a2e'}
@@ -205,9 +210,8 @@ export default function EditorQueue() {
                       <span style={{ color: '#a78bfa', fontSize: '12px', fontWeight: 600 }}>Download Clips</span>
                     </a>
                   ) : (
-                    <div style={{ color: '#333', fontSize: '12px', textAlign: 'center' }}>
-                      <div style={{ marginBottom: '4px' }}>No clip link</div>
-                      <div style={{ fontSize: '10px', color: '#555' }}>Upload may be pending</div>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', color: '#333', fontSize: '12px' }}>
+                      No clip yet
                     </div>
                   )}
                   <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>
