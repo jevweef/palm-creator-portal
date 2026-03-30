@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: '/admin/sources', label: 'Sources', icon: '📡' },
   { href: '/admin/review', label: 'Review', icon: '✅' },
   { href: '/admin/import', label: 'Import', icon: '📥' },
+  { href: '/admin/editor', label: 'Editor', icon: '✂️' },
   // Phase 2+
   // { href: '/admin/creators', label: 'Creators', icon: '👤' },
   // { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
