@@ -8,6 +8,18 @@ function recordIdFormula(ids) {
   return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
 }
 
+// Airtable GET URLs 414 when filterByFormula is too long — batch into chunks
+async function fetchByIds(table, ids, params) {
+  if (!ids.length) return []
+  const CHUNK = 20
+  const chunks = []
+  for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
+  const results = await Promise.all(
+    chunks.map(chunk => fetchAirtableRecords(table, { ...params, filterByFormula: recordIdFormula(chunk) }))
+  )
+  return results.flat()
+}
+
 export async function GET() {
   try { await requireAdminOrEditor() } catch (e) { return e }
 
@@ -25,21 +37,22 @@ export async function GET() {
 
     // 3. Batch fetch tasks + library assets in parallel
     const [tasks, libraryAssets] = await Promise.all([
-      allTaskIds.length ? fetchAirtableRecords('Tasks', {
-        filterByFormula: recordIdFormula(allTaskIds),
+      fetchByIds('Tasks', allTaskIds, {
         fields: [
           'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
           'Creator Notes', 'Editor Notes', 'Completed At',
           'Admin Review Status', 'Admin Feedback', 'Admin Screenshots',
         ],
-      }) : [],
-      allAssetIds.length ? fetchAirtableRecords('Assets', {
-        filterByFormula: `AND(${recordIdFormula(allAssetIds)},{Pipeline Status}='Uploaded',{Source Type}!='Inspo Upload')`,
+      }),
+      fetchByIds('Assets', allAssetIds, {
         fields: [
           'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week',
         ],
-      }) : [],
+      }).then(assets => assets.filter(a =>
+        a.fields?.['Pipeline Status'] === 'Uploaded' &&
+        a.fields?.['Source Type'] !== 'Inspo Upload'
+      )),
     ])
 
     // 4. Filter tasks to relevant statuses only
@@ -62,20 +75,18 @@ export async function GET() {
 
     // 6. Batch fetch task assets + inspo records
     const [taskAssets, inspoRecords] = await Promise.all([
-      taskAssetIds.length ? fetchAirtableRecords('Assets', {
-        filterByFormula: recordIdFormula(taskAssetIds),
+      fetchByIds('Assets', taskAssetIds, {
         fields: [
           'Asset Name', 'Pipeline Status', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Edited File Link',
         ],
-      }) : [],
-      inspoIds.length ? fetchAirtableRecords('Inspiration', {
-        filterByFormula: recordIdFormula(inspoIds),
+      }),
+      fetchByIds('Inspiration', inspoIds, {
         fields: [
           'Title', 'Notes', 'Tags', 'Film Format', 'Content link',
           'Thumbnail', 'Username', 'DB Share Link', 'On-Screen Text',
         ],
-      }) : [],
+      }),
     ])
 
     const assetMap = Object.fromEntries(taskAssets.map(r => [r.id, r.fields]))
