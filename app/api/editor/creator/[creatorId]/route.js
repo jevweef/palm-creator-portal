@@ -53,7 +53,7 @@ export async function GET(request, { params }) {
       fetchAirtableRecords('Assets', {
         filterByFormula: `AND({Pipeline Status}='Uploaded')`,
         fields: [
-          'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
+          'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators',
           'Upload Week', 'On Screen Text', 'Captions',
         ],
@@ -149,6 +149,7 @@ export async function GET(request, { params }) {
       creatorNotes: a.fields?.['Creator Notes'] || '',
       thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
       uploadWeek: a.fields?.['Upload Week'] || '',
+      assetType: a.fields?.['Asset Type'] || '',
       onScreenText: a.fields?.['On Screen Text'] || '',
       captions: a.fields?.['Captions'] || '',
       createdTime: a.createdTime || '',

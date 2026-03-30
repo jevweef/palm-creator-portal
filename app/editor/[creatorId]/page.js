@@ -83,19 +83,36 @@ function LibraryVideoCard({ asset, creatorId, onRefresh }) {
   )
 }
 
-function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
+function AssetSubGroup({ label, assets, creatorId, onRefresh }) {
   if (!assets.length) return null
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot }} />
-        <span style={{ fontSize: '12px', fontWeight: 700, color: '#d4d4d8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
-        <span style={{ fontSize: '11px', color: '#3f3f46' }}>({assets.length})</span>
+      <div style={{ fontSize: '11px', color: '#52525b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+        {label} <span style={{ color: '#3f3f46', fontWeight: 400 }}>({assets.length})</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
         {assets.map(asset => (
           <LibraryVideoCard key={asset.id} asset={asset} creatorId={creatorId} onRefresh={onRefresh} />
         ))}
+      </div>
+    </div>
+  )
+}
+
+function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
+  if (!assets.length) return null
+  const videos = assets.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
+  const photos = assets.filter(a => a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && !isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot }} />
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#d4d4d8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
+        <span style={{ fontSize: '11px', color: '#3f3f46' }}>({assets.length})</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        <AssetSubGroup label="Videos" assets={videos} creatorId={creatorId} onRefresh={onRefresh} />
+        <AssetSubGroup label="Photos" assets={photos} creatorId={creatorId} onRefresh={onRefresh} />
       </div>
     </div>
   )
