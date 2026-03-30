@@ -166,192 +166,172 @@ export default function EditorQueue() {
           {tasks.length === 0 ? 'No editing tasks in queue.' : 'No tasks match this filter.'}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))', gap: '16px' }}>
           {filtered.map(task => (
             <div key={task.id} style={{
-              background: '#111', border: '1px solid #222', borderRadius: '10px',
-              padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px',
+              background: '#111', border: '1px solid #222', borderRadius: '12px',
+              overflow: 'hidden', display: 'flex', flexDirection: 'column',
             }}>
-              {/* Top: Creator + Status */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>
-                  {task.creator.name || 'Unknown Creator'}
-                </div>
-                <StatusBadge status={task.status} />
-              </div>
-
-              {/* Task name */}
-              <div style={{ fontSize: '13px', color: '#a1a1aa' }}>
-                {task.name}
-              </div>
-
-              {/* Download Clips — prominent */}
-              {task.asset.dropboxLink && (
-                <a
-                  href={task.asset.dropboxLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'block', textAlign: 'center', padding: '10px',
-                    background: '#1a1a2e', color: '#a78bfa', fontWeight: 600, fontSize: '13px',
-                    border: '1px solid #a78bfa', borderRadius: '8px', textDecoration: 'none',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#2a2a4e'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#1a1a2e'}
-                >
-                  Download Clips
-                </a>
-              )}
-
-              {/* Creator notes */}
-              {(task.creatorNotes || task.asset.creatorNotes) && (
-                <div style={{
-                  background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '10px',
-                }}>
-                  <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                    Creator Notes
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4 }}>
-                    {task.creatorNotes || task.asset.creatorNotes}
+              {/* Visual header — inspo thumbnail + clip side by side */}
+              <div style={{ display: 'flex', height: '200px', background: '#0a0a0a' }}>
+                {/* Inspo thumbnail (left) */}
+                <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                  {task.inspo.thumbnail ? (
+                    <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '12px' }}>No thumbnail</div>
+                  )}
+                  <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#a78bfa', fontWeight: 600 }}>
+                    INSPO
                   </div>
                 </div>
-              )}
 
-              {/* Inspo toggle */}
-              {task.inspo.id && (
-                <>
-                  <button
-                    onClick={() => toggleExpand(task.id)}
-                    style={{
-                      background: 'none', border: 'none', color: '#71717a', fontSize: '12px',
-                      cursor: 'pointer', textAlign: 'left', padding: 0,
-                    }}
-                  >
-                    {expanded.has(task.id) ? '▾ Hide Inspo Details' : '▸ View Inspo Details'}
-                  </button>
+                {/* Divider arrow */}
+                <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', flexShrink: 0 }}>
+                  <span style={{ color: '#333', fontSize: '18px' }}>→</span>
+                </div>
 
-                  {expanded.has(task.id) && (
-                    <div style={{
-                      background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px',
-                      padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px',
-                    }}>
-                      {/* Thumbnail + Title */}
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                        {task.inspo.thumbnail && (
-                          <img
-                            src={task.inspo.thumbnail}
-                            alt=""
-                            style={{ width: '60px', height: '107px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }}
-                          />
+                {/* Creator clip (right) — if no video preview, show download prompt */}
+                <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {task.asset.dropboxLink ? (
+                    <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
+                      style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', background: '#0f0f1a', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#1a1a2e'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#0f0f1a'}
+                    >
+                      <svg style={{ width: '32px', height: '32px', color: '#a78bfa', marginBottom: '8px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      <span style={{ color: '#a78bfa', fontSize: '12px', fontWeight: 600 }}>Download Clips</span>
+                    </a>
+                  ) : (
+                    <div style={{ color: '#333', fontSize: '12px', textAlign: 'center' }}>
+                      <div style={{ marginBottom: '4px' }}>No clip link</div>
+                      <div style={{ fontSize: '10px', color: '#555' }}>Upload may be pending</div>
+                    </div>
+                  )}
+                  <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>
+                    CREATOR CLIP
+                  </div>
+                </div>
+              </div>
+
+              {/* Content area */}
+              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                {/* Creator + Status + Title */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>
+                      {task.creator.name || 'Unknown Creator'}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#a1a1aa', marginTop: '2px' }}>
+                      {task.inspo.title || task.name}
+                    </div>
+                  </div>
+                  <StatusBadge status={task.status} />
+                </div>
+
+                {/* Quick links */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {task.inspo.contentLink && (
+                    <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px', background: '#1a1a2e', borderRadius: '4px', border: '1px solid #333' }}>
+                      Original Reel ↗
+                    </a>
+                  )}
+                  {task.inspo.dbShareLink && (
+                    <a href={task.inspo.dbShareLink} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px', background: '#1a1a2e', borderRadius: '4px', border: '1px solid #333' }}>
+                      Analyzed Video ↗
+                    </a>
+                  )}
+                  {task.asset.dropboxLink && (
+                    <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '3px 8px', background: '#0a2e0a', borderRadius: '4px', border: '1px solid #1a5c1a' }}>
+                      Creator Clips ↗
+                    </a>
+                  )}
+                </div>
+
+                {/* Creator notes */}
+                {(task.creatorNotes || task.asset.creatorNotes) && (
+                  <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '10px' }}>
+                    <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                      Creator Notes
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4 }}>
+                      {task.creatorNotes || task.asset.creatorNotes}
+                    </div>
+                  </div>
+                )}
+
+                {/* Inspo details toggle */}
+                {task.inspo.id && (
+                  <>
+                    <button
+                      onClick={() => toggleExpand(task.id)}
+                      style={{ background: 'none', border: 'none', color: '#71717a', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                    >
+                      {expanded.has(task.id) ? '▾ Hide Inspo Details' : '▸ View Inspo Details'}
+                    </button>
+
+                    {expanded.has(task.id) && (
+                      <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {task.inspo.notes && (
+                          <div style={{ fontSize: '12px', color: '#d4d4d8', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                            {task.inspo.notes}
+                          </div>
                         )}
-                        <div>
-                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>
-                            {task.inspo.title}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#71717a', marginBottom: '6px' }}>
-                            @{task.inspo.username}
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {task.inspo.contentLink && (
-                              <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-                                style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none' }}>
-                                Original Reel
-                              </a>
-                            )}
-                            {task.inspo.dbShareLink && (
-                              <a href={task.inspo.dbShareLink} target="_blank" rel="noopener noreferrer"
-                                style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none' }}>
-                                Analyzed Video
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Inspo Direction + What Matters Most */}
-                      {task.inspo.notes && (
-                        <div style={{ fontSize: '12px', color: '#d4d4d8', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                          {task.inspo.notes}
-                        </div>
-                      )}
-
-                      {/* Tags */}
-                      {task.inspo.tags?.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Tags</div>
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            {task.inspo.tags.map((tag, i) => <TagPill key={i} tag={tag} index={i} />)}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Film Format + Audio Type */}
-                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                        {task.inspo.filmFormat?.length > 0 && (
+                        {task.inspo.tags?.length > 0 && (
                           <div>
-                            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Film Format</div>
+                            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Tags</div>
                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                              {task.inspo.filmFormat.map((fmt, i) => (
-                                <span key={i} style={{
-                                  padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
-                                  background: '#1a1a2e', color: '#a78bfa', border: '1px solid #333',
-                                }}>
-                                  {typeof fmt === 'object' ? fmt.name : fmt}
-                                </span>
-                              ))}
+                              {task.inspo.tags.map((tag, i) => <TagPill key={i} tag={tag} index={i} />)}
                             </div>
                           </div>
                         )}
-                        {task.inspo.audioType && (
-                          <div>
-                            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Audio</div>
-                            <span style={{
-                              padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
-                              background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333',
-                            }}>
-                              {typeof task.inspo.audioType === 'object' ? task.inspo.audioType.name : task.inspo.audioType}
-                            </span>
-                          </div>
-                        )}
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                          {task.inspo.filmFormat?.length > 0 && (
+                            <div>
+                              <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Film Format</div>
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                {task.inspo.filmFormat.map((fmt, i) => (
+                                  <span key={i} style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#1a1a2e', color: '#a78bfa', border: '1px solid #333' }}>
+                                    {typeof fmt === 'object' ? fmt.name : fmt}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {task.inspo.audioType && (
+                            <div>
+                              <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Audio</div>
+                              <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333' }}>
+                                {typeof task.inspo.audioType === 'object' ? task.inspo.audioType.name : task.inspo.audioType}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
+                    )}
+                  </>
+                )}
 
-              {/* Action button */}
-              <div style={{ marginTop: 'auto' }}>
-                {task.status === 'To Do' && (
-                  <button
-                    onClick={() => updateStatus(task.id, 'In Progress')}
-                    disabled={updating === task.id}
-                    style={{
-                      width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600,
-                      background: updating === task.id ? '#333' : '#0a2e0a',
-                      color: updating === task.id ? '#555' : '#22c55e',
-                      border: '1px solid #1a5c1a', borderRadius: '8px', cursor: 'pointer',
-                      opacity: updating === task.id ? 0.6 : 1,
-                    }}
-                  >
-                    {updating === task.id ? 'Updating...' : 'Start Editing'}
-                  </button>
-                )}
-                {task.status === 'In Progress' && (
-                  <button
-                    onClick={() => updateStatus(task.id, 'Done')}
-                    disabled={updating === task.id}
-                    style={{
-                      width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600,
-                      background: updating === task.id ? '#333' : '#1a1a2e',
-                      color: updating === task.id ? '#555' : '#a78bfa',
-                      border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer',
-                      opacity: updating === task.id ? 0.6 : 1,
-                    }}
-                  >
-                    {updating === task.id ? 'Submitting...' : 'Submit for Review'}
-                  </button>
-                )}
+                {/* Action button */}
+                <div style={{ marginTop: 'auto', paddingTop: '4px' }}>
+                  {task.status === 'To Do' && (
+                    <button onClick={() => updateStatus(task.id, 'In Progress')} disabled={updating === task.id}
+                      style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating === task.id ? '#333' : '#0a2e0a', color: updating === task.id ? '#555' : '#22c55e', border: '1px solid #1a5c1a', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                      {updating === task.id ? 'Updating...' : 'Start Editing'}
+                    </button>
+                  )}
+                  {task.status === 'In Progress' && (
+                    <button onClick={() => updateStatus(task.id, 'Done')} disabled={updating === task.id}
+                      style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating === task.id ? '#333' : '#1a1a2e', color: updating === task.id ? '#555' : '#a78bfa', border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                      {updating === task.id ? 'Submitting...' : 'Submit for Review'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
