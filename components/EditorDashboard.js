@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ─── Quota dots ────────────────────────────────────────────────────────────────
 
-function QuotaDots({ done, quota }) {
+export function QuotaDots({ done, quota }) {
   const over = done > quota
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -34,7 +34,7 @@ const SECTION = {
   inReview:      { dot: '#22c55e', label: 'Sent for Review' },
 }
 
-function SectionLabel({ type, count }) {
+export function SectionLabel({ type, count }) {
   const s = SECTION[type]
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
@@ -49,7 +49,7 @@ function SectionLabel({ type, count }) {
 
 // ─── Upload / Submit Modal ─────────────────────────────────────────────────────
 
-function SubmitModal({ task, creatorName, isRevision, onClose, onSubmit }) {
+export function SubmitModal({ task, creatorName, isRevision, onClose, onSubmit }) {
   const [file, setFile] = useState(null)
   const [notes, setNotes] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -203,7 +203,7 @@ function SubmitModal({ task, creatorName, isRevision, onClose, onSubmit }) {
 
 // ─── Task card ─────────────────────────────────────────────────────────────────
 
-function TaskCard({ task, type, creatorName, onAction, updating }) {
+export function TaskCard({ task, type, creatorName, onAction, updating }) {
   const [expanded, setExpanded] = useState(false)
   const borderColors = {
     needsRevision: '#5c2020',
@@ -717,9 +717,49 @@ export function EditorDashboardContent() {
           No creators assigned — toggle Social Media Editing on a creator to assign them.
         </div>
       ) : (
-        creators.map(creator => (
-          <CreatorSection key={creator.id} creator={creator} onRefresh={fetchData} />
-        ))
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+          {creators.map(creator => {
+            const totalActive = creator.needsRevision.length + creator.queue.length + creator.inProgress.length
+            return (
+              <a key={creator.id} href={`/editor/${creator.id}`}
+                style={{ display: 'block', background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', padding: '20px 24px', textDecoration: 'none', color: 'inherit', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#3f3f46'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#1e1e1e'}
+              >
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px' }}>{creator.name}</h2>
+                <QuotaDots done={creator.doneToday} quota={creator.quota} />
+                <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {creator.needsRevision.length > 0 && (
+                    <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #5c2020' }}>
+                      {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {creator.queue.length > 0 && (
+                    <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#13132e', color: '#a78bfa', border: '1px solid #2a2a5e' }}>
+                      {creator.queue.length} to edit
+                    </span>
+                  )}
+                  {creator.inProgress.length > 0 && (
+                    <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a1a3d', color: '#3b82f6', border: '1px solid #1a3a6d' }}>
+                      {creator.inProgress.length} in progress
+                    </span>
+                  )}
+                  {creator.inReview.length > 0 && (
+                    <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a1a0a', color: '#22c55e', border: '1px solid #1a3a1a' }}>
+                      {creator.inReview.length} in review
+                    </span>
+                  )}
+                  {totalActive === 0 && creator.inReview.length === 0 && (
+                    <span style={{ fontSize: '11px', color: '#3f3f46' }}>No active tasks</span>
+                  )}
+                </div>
+                <div style={{ marginTop: '12px', fontSize: '11px', color: '#3f3f46' }}>
+                  {creator.library.length} clip{creator.library.length !== 1 ? 's' : ''} in library &#8594;
+                </div>
+              </a>
+            )
+          })}
+        </div>
       )}
     </div>
   )
