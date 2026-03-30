@@ -271,6 +271,8 @@ export default function CreatorDashboard() {
                 </div>
               </div>
             )}
+              </>)
+            })()}
           </Card>
         </div>
 
