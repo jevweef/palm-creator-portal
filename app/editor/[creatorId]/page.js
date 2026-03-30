@@ -111,16 +111,37 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
   if (!assets.length) return null
   const videos = assets.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
   const photos = assets.filter(a => a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && !isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
+  const [activeTab, setActiveTab] = useState('videos')
+  const shown = activeTab === 'videos' ? videos : photos
+  const tabs = [
+    { key: 'videos', label: 'Videos', count: videos.length },
+    { key: 'photos', label: 'Photos', count: photos.length },
+  ].filter(t => t.count > 0)
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot }} />
-        <span style={{ fontSize: '12px', fontWeight: 700, color: '#d4d4d8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
-        <span style={{ fontSize: '11px', color: '#3f3f46' }}>({assets.length})</span>
+      {/* Section header + tabs */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot, flexShrink: 0 }} />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#d4d4d8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
+          <span style={{ fontSize: '11px', color: '#3f3f46' }}>({assets.length})</span>
+        </div>
+        <div style={{ display: 'flex', gap: '4px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '3px' }}>
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
+              style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                background: activeTab === t.key ? '#1e1e1e' : 'transparent',
+                color: activeTab === t.key ? '#d4d4d8' : '#52525b' }}>
+              {t.label} <span style={{ color: activeTab === t.key ? '#71717a' : '#3f3f46', fontWeight: 400 }}>{t.count}</span>
+            </button>
+          ))}
+        </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        <AssetSubGroup label="Videos" assets={videos} creatorId={creatorId} onRefresh={onRefresh} />
-        <AssetSubGroup label="Photos" assets={photos} creatorId={creatorId} onRefresh={onRefresh} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+        {shown.map(asset => (
+          <LibraryVideoCard key={asset.id} asset={asset} creatorId={creatorId} onRefresh={onRefresh} />
+        ))}
       </div>
     </div>
   )
