@@ -914,18 +914,23 @@ function ForReview({ showToast }) {
                     <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#a78bfa', fontWeight: 600 }}>INSPO</div>
                   </div>
                   <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '18px', flexShrink: 0 }}>→</div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0a1a0a', gap: '6px' }}>
+                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#0a1a0a' }}>
                     {task.asset.editedFileLink ? (
-                      <a href={task.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', width: '100%', height: '100%', gap: '6px' }}>
-                        <svg style={{ width: '32px', height: '32px', color: '#22c55e' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 600 }}>Watch Edit ↗</span>
-                      </a>
+                      <>
+                        <video
+                          src={task.asset.editedFileLink.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (task.asset.editedFileLink.includes('?') ? '&raw=1' : '?raw=1')}
+                          autoPlay muted loop playsInline preload="metadata"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+                          onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }}
+                        />
+                        <button
+                          onClick={e => { e.currentTarget.previousSibling.requestFullscreen?.() }}
+                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 8px', cursor: 'pointer' }}>
+                          ⛶ Full
+                        </button>
+                      </>
                     ) : (
-                      <div style={{ color: '#333', fontSize: '12px' }}>No file yet</div>
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '12px' }}>No file yet</div>
                     )}
                     <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>EDIT</div>
                   </div>
