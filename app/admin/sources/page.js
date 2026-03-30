@@ -577,6 +577,9 @@ export default function AdminSources() {
               onMouseLeave={e => e.currentTarget.style.color = '#fff'}
             >
               @{source.handle}
+              {source.ageRestricted && (
+                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#ef4444', background: '#2d1515', border: '1px solid #5c2020', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
+              )}
             </div>
 
             {/* Followers */}

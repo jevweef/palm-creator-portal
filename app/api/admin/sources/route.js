@@ -4,7 +4,7 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchCreateRec
 const SOURCE_FIELDS = [
   'Handle', 'Platform', 'Enabled', 'Pipeline Status', 'Last Scraped At',
   'Reels Scraped', 'Too New Skipped', 'Source Reels Added', 'Follower Count',
-  'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes',
+  'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Age Restricted',
 ]
 
 export async function GET() {
@@ -30,6 +30,7 @@ export async function GET() {
       apifyLimit: r.fields?.['Apify Limit'] || null,
       palmCreators: r.fields?.['Palm Creators'] || [],
       notes: r.fields?.Notes || '',
+      ageRestricted: !!r.fields?.['Age Restricted'],
     }))
 
     // Sort: enabled first, then by handle

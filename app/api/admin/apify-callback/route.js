@@ -277,6 +277,7 @@ export async function POST(request) {
         'Pipeline Status': 'Complete',
       }
       if (followerCount) sourceUpdate['Follower Count'] = followerCount
+      if (dataSource === 'rapidapi-fallback') sourceUpdate['Age Restricted'] = true
       await patchAirtableRecord('Inspo Sources', sourceId, sourceUpdate)
     }
 
