@@ -7,6 +7,9 @@ const TASK_TO_ASSET_STATUS = {
   'Done': 'In Review',
 }
 
+// Admin review actions
+const ADMIN_ACTIONS = ['approve', 'requestRevision']
+
 // Build OR formula for batch record lookup by ID
 function recordIdFormula(ids) {
   if (!ids.length) return ''
@@ -124,20 +127,18 @@ export async function GET() {
   }
 }
 
-// PATCH — update task + asset status
+// PATCH — update task + asset status, or admin review actions
 export async function PATCH(request) {
   try {
     await requireAdminOrEditor()
   } catch (e) { return e }
 
   try {
-    const { taskId, newStatus, editedFileLink, editedFilePath, editorNotes } = await request.json()
-    if (!taskId || !newStatus) {
-      return NextResponse.json({ error: 'taskId and newStatus required' }, { status: 400 })
-    }
+    const body = await request.json()
+    const { taskId, newStatus, editedFileLink, editedFilePath, editorNotes, isRevision, action, adminFeedback, adminScreenshotUrls } = body
 
-    if (!TASK_TO_ASSET_STATUS[newStatus]) {
-      return NextResponse.json({ error: `Invalid status: ${newStatus}` }, { status: 400 })
+    if (!taskId) {
+      return NextResponse.json({ error: 'taskId required' }, { status: 400 })
     }
 
     // Fetch the task to get linked Asset ID
@@ -147,18 +148,52 @@ export async function PATCH(request) {
     if (!tasks.length) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
-
     const assetId = (tasks[0].fields?.Asset || [])[0] || null
 
-    // Update Task status + editor notes
+    // ── Admin: Approve ──────────────────────────────────────────────────────────
+    if (action === 'approve') {
+      await patchAirtableRecord('Tasks', taskId, { 'Admin Review Status': 'Approved' })
+      // TODO: Telegram notification trigger goes here
+      console.log(`[Editor] Task ${taskId} approved`)
+      return NextResponse.json({ ok: true, action: 'approve' })
+    }
+
+    // ── Admin: Request Revision ─────────────────────────────────────────────────
+    if (action === 'requestRevision') {
+      const taskUpdate = {
+        'Admin Review Status': 'Needs Revision',
+        'Status': 'In Progress',
+      }
+      if (adminFeedback) taskUpdate['Admin Feedback'] = adminFeedback
+      if (adminScreenshotUrls?.length) {
+        taskUpdate['Admin Screenshots'] = adminScreenshotUrls.map(url => ({ url }))
+      }
+      await patchAirtableRecord('Tasks', taskId, taskUpdate)
+      if (assetId) {
+        await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'In Editing' })
+      }
+      console.log(`[Editor] Task ${taskId} sent back for revision`)
+      return NextResponse.json({ ok: true, action: 'requestRevision' })
+    }
+
+    // ── Editor: Start Editing / Submit ──────────────────────────────────────────
+    if (!newStatus) {
+      return NextResponse.json({ error: 'newStatus or action required' }, { status: 400 })
+    }
+    if (!TASK_TO_ASSET_STATUS[newStatus]) {
+      return NextResponse.json({ error: `Invalid status: ${newStatus}` }, { status: 400 })
+    }
+
     const taskUpdate = { Status: newStatus }
     if (newStatus === 'Done') {
       taskUpdate['Completed At'] = new Date().toISOString()
+      taskUpdate['Admin Review Status'] = 'Pending Review'
+      // Clear any previous revision feedback when resubmitting
+      if (isRevision) taskUpdate['Admin Feedback'] = ''
     }
     if (editorNotes) taskUpdate['Editor Notes'] = editorNotes
     await patchAirtableRecord('Tasks', taskId, taskUpdate)
 
-    // Update Asset: Pipeline Status + edited file info
     if (assetId) {
       const assetUpdate = { 'Pipeline Status': TASK_TO_ASSET_STATUS[newStatus] }
       if (editedFileLink) assetUpdate['Edited File Link'] = editedFileLink
@@ -167,7 +202,6 @@ export async function PATCH(request) {
     }
 
     console.log(`[Editor] Task ${taskId}: ${newStatus}, Asset ${assetId}: ${TASK_TO_ASSET_STATUS[newStatus]}`)
-
     return NextResponse.json({ ok: true, taskId, newStatus, assetPipelineStatus: TASK_TO_ASSET_STATUS[newStatus] })
   } catch (err) {
     console.error('[Editor] PATCH error:', err)
