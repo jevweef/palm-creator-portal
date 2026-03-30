@@ -19,7 +19,7 @@ function QuotaDots({ done, quota }) {
         ))}
       </div>
       <span style={{ fontSize: '12px', color: done >= quota ? '#22c55e' : '#52525b', fontWeight: 500 }}>
-        {done}/{quota} today
+        {done}/{quota} this week
       </span>
     </div>
   )

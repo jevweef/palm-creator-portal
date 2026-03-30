@@ -57,12 +57,20 @@ export async function GET() {
 
     // 4. Filter tasks to relevant statuses only
     const todayStr = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const dayOfWeek = now.getDay() // 0=Sun, 1=Mon...
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7))
+    monday.setHours(0, 0, 0, 0)
+    const weekStartStr = monday.toISOString().split('T')[0]
+
     const activeTasks = tasks.filter(t => {
       const s = t.fields?.Status
       const rev = t.fields?.['Admin Review Status']
       if (s === 'To Do' || s === 'In Progress') return true
       if (s === 'Done') {
-        return (t.fields?.['Completed At'] || '').startsWith(todayStr)
+        const completedAt = t.fields?.['Completed At'] || ''
+        return completedAt >= weekStartStr
           || rev === 'Pending Review'
           || rev === 'Needs Revision'
       }
@@ -167,9 +175,9 @@ export async function GET() {
       const ctasks = tasksByCreator[c.id] || []
       const library = libraryByCreator[c.id] || []
 
-      const doneToday = ctasks.filter(t =>
+      const doneThisWeek = ctasks.filter(t =>
         t.status === 'Done' &&
-        (t.completedAt || '').startsWith(todayStr) &&
+        (t.completedAt || '') >= weekStartStr &&
         t.adminReviewStatus !== 'Needs Revision'
       ).length
 
@@ -177,7 +185,7 @@ export async function GET() {
         id: c.id,
         name: f.AKA || f.Creator || '',
         quota: f['Weekly Reel Quota'] || 2,
-        doneToday,
+        doneToday: doneThisWeek,
         needsRevision: ctasks.filter(t => t.adminReviewStatus === 'Needs Revision'),
         queue: ctasks.filter(t => t.status === 'To Do'),
         inProgress: ctasks.filter(t => t.status === 'In Progress'),
