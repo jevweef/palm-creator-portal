@@ -31,11 +31,14 @@ export async function GET() {
     })
     if (!creators.length) return NextResponse.json({ creators: [] })
 
-    // 2. Collect all linked task + asset IDs from creator records
+    // 2. Collect all linked task IDs from creator records
     const allTaskIds = [...new Set(creators.flatMap(c => c.fields?.Tasks || []))]
-    const allAssetIds = [...new Set(creators.flatMap(c => c.fields?.Assets || []))]
+
+    // Build formula to find library assets for any of our creators directly
+    const creatorFindFormula = creators.map(c => `FIND('${c.id}',ARRAYJOIN({Palm Creators}))`).join(',')
 
     // 3. Batch fetch tasks + library assets in parallel
+    // Library assets are fetched directly via Palm Creators field (not linked IDs) for reliability
     const [tasks, libraryAssets] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
@@ -44,15 +47,13 @@ export async function GET() {
           'Admin Review Status', 'Admin Feedback', 'Admin Screenshots',
         ],
       }),
-      fetchByIds('Assets', allAssetIds, {
+      fetchAirtableRecords('Assets', {
+        filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}!='Inspo Upload',OR(${creatorFindFormula}))`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week',
         ],
-      }).then(assets => assets.filter(a =>
-        a.fields?.['Pipeline Status'] === 'Uploaded' &&
-        a.fields?.['Source Type'] !== 'Inspo Upload'
-      )),
+      }),
     ])
 
     // 4. Filter tasks to relevant statuses only
@@ -150,7 +151,7 @@ export async function GET() {
       })
     }
 
-    // 8. Group library assets by creator
+    // 8. Group library assets by creator, sorted newest first
     const libraryByCreator = {}
     for (const asset of libraryAssets) {
       const creatorId = (asset.fields?.['Palm Creators'] || [])[0]
@@ -166,7 +167,11 @@ export async function GET() {
         creatorNotes: asset.fields?.['Creator Notes'] || '',
         thumbnail: asset.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || asset.fields?.Thumbnail?.[0]?.url || '',
         uploadWeek: asset.fields?.['Upload Week'] || '',
+        createdTime: asset.createdTime || '',
       })
+    }
+    for (const id of Object.keys(libraryByCreator)) {
+      libraryByCreator[id].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
     }
 
     // 9. Assemble per-creator response

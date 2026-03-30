@@ -375,18 +375,27 @@ function TaskCard({ task, type, creatorName, onAction, updating }) {
 
 function LibraryCard({ asset }) {
   const links = asset.dropboxLinks?.length ? asset.dropboxLinks : asset.dropboxLink ? [asset.dropboxLink] : []
+  const uploadLabel = asset.uploadWeek || (asset.createdTime ? new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '')
   return (
     <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '10px', overflow: 'hidden' }}>
-      <div style={{ height: '110px', background: '#080808', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ height: '120px', background: '#080808', overflow: 'hidden', position: 'relative' }}>
         {asset.thumbnail ? (
           <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2a2a2a', fontSize: '22px' }}>🎬</div>
         )}
+        {uploadLabel && (
+          <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: '#71717a', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
+            {uploadLabel}
+          </div>
+        )}
       </div>
-      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {asset.name && (
+          <div style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
+        )}
         {asset.creatorNotes && (
-          <div style={{ fontSize: '11px', color: '#71717a', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
+          <div style={{ fontSize: '10px', color: '#52525b', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
         )}
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
           {links.length ? links.map((link, i, arr) => (
@@ -409,7 +418,7 @@ function CreatorSection({ creator, onRefresh }) {
   const [updating, setUpdating] = useState(null)
   const [submitModal, setSubmitModal] = useState(null)
   const [toast, setToast] = useState(null)
-  const [showLibrary, setShowLibrary] = useState(false)
+  const [showLibrary, setShowLibrary] = useState(true)
 
   const showToast = (msg, error = false) => {
     setToast({ msg, error })
@@ -487,9 +496,9 @@ function CreatorSection({ creator, onRefresh }) {
       </div>
 
       <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        {totalActive === 0 && creator.inReview.length === 0 && creator.library.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '36px', color: '#3f3f46', fontSize: '13px' }}>
-            Nothing in queue — check back after creator uploads
+        {totalActive === 0 && creator.inReview.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '20px 0 8px', color: '#3f3f46', fontSize: '13px' }}>
+            No active tasks — check the content library below
           </div>
         )}
 
@@ -541,20 +550,41 @@ function CreatorSection({ creator, onRefresh }) {
           </div>
         )}
 
-        {creator.library.length > 0 && (
-          <div>
-            <button onClick={() => setShowLibrary(p => !p)}
-              style={{ background: 'none', border: 'none', color: '#3f3f46', fontSize: '12px', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: showLibrary ? '12px' : 0 }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#2a2a2a' }} />
-              {showLibrary ? '▾' : '▸'} Library ({creator.library.length} unassigned clip{creator.library.length > 1 ? 's' : ''})
-            </button>
-            {showLibrary && (
+        {/* ── Content Library ── */}
+        <div>
+          <button onClick={() => setShowLibrary(p => !p)}
+            style={{ background: 'none', border: 'none', color: showLibrary ? '#d4d4d8' : '#52525b', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: showLibrary ? '14px' : 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#3f3f46', flexShrink: 0 }} />
+            Content Library
+            <span style={{ fontSize: '11px', color: '#3f3f46', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+              ({creator.library.length} clip{creator.library.length !== 1 ? 's' : ''})
+            </span>
+            <span style={{ fontSize: '11px', color: '#3f3f46' }}>{showLibrary ? '▾' : '▸'}</span>
+          </button>
+          {showLibrary && (
+            creator.library.length > 0 ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
                 {creator.library.map(asset => <LibraryCard key={asset.id} asset={asset} />)}
               </div>
-            )}
+            ) : (
+              <div style={{ padding: '20px', color: '#3f3f46', fontSize: '12px', textAlign: 'center', background: '#0a0a0a', borderRadius: '8px', border: '1px dashed #1a1a1a' }}>
+                No clips yet — content will appear here after creator uploads
+              </div>
+            )
+          )}
+        </div>
+
+        {/* ── AI Matching (coming soon) ── */}
+        <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#1a1a1a', flexShrink: 0 }} />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#2a2a2a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Inspo Matching</span>
+            <span style={{ fontSize: '10px', color: '#1e1e1e', background: '#141414', border: '1px solid #1e1e1e', borderRadius: '4px', padding: '2px 6px', fontWeight: 600 }}>Coming soon</span>
           </div>
-        )}
+          <div style={{ marginTop: '8px', fontSize: '11px', color: '#2a2a2a', lineHeight: 1.5 }}>
+            Automatic inspo suggestions for each uploaded clip — matched by visual content analysis
+          </div>
+        </div>
       </div>
 
       {toast && (
