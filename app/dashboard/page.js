@@ -54,6 +54,7 @@ export default function CreatorDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savedReels, setSavedReels] = useState([])
+  const [pipeline, setPipeline] = useState(null)
 
   const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK' // Default: Grace Collins
 
@@ -62,10 +63,12 @@ export default function CreatorDashboard() {
     Promise.all([
       fetch(`/api/creator-profile?hqId=${hqId}`).then((r) => r.json()),
       fetch(`/api/saved-inspo?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ records: [] })),
+      fetch(`/api/content-pipeline?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => null),
     ])
-      .then(([profileData, savedData]) => {
+      .then(([profileData, savedData, pipelineData]) => {
         setData(profileData)
         setSavedReels(savedData.records || [])
+        setPipeline(pipelineData)
         setLoading(false)
       })
       .catch((err) => { console.error(err); setLoading(false) })
@@ -185,41 +188,80 @@ export default function CreatorDashboard() {
             )}
           </Card>
 
-          {/* Saved Inspo — clickable card grid that links to My Content */}
-          <a href="/my-content" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-            <Card style={{ cursor: 'pointer', transition: 'border-color 0.2s' }}
-              className="hover:!border-[#444]"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: savedReels.length > 0 ? '14px' : 0 }}>
-                <Label>Saved Inspo ({savedReels.length})</Label>
-                <span style={{ color: '#a78bfa', fontSize: '12px', fontWeight: 500 }}>
-                  My Content →
-                </span>
-              </div>
-              {savedReels.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+          {/* Content Pipeline — shows saved, in progress, and completed content */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <Label>My Content</Label>
+              <a href="/my-content" style={{ color: '#a78bfa', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
+                View All →
+              </a>
+            </div>
+
+            {/* Pipeline stages */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: savedReels.length > 0 || (pipeline?.editing?.length > 0) ? '14px' : 0 }}>
+              {[
+                { label: 'Saved', count: savedReels.length, color: '#a78bfa' },
+                { label: 'Uploaded', count: pipeline?.uploaded?.length || 0, color: '#f59e0b' },
+                { label: 'Editing', count: pipeline?.editing?.length || 0, color: '#3b82f6' },
+                { label: 'Posted', count: pipeline?.posted?.length || 0, color: '#22c55e' },
+              ].map(stage => (
+                <div key={stage.label} style={{ textAlign: 'center', padding: '8px', background: '#0a0a0a', borderRadius: '8px', border: '1px solid #1a1a1a' }}>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : '#333' }}>{stage.count}</div>
+                  <div style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stage.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Saved inspo thumbnails */}
+            {savedReels.length > 0 ? (
+              <div>
+                <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {savedReels.slice(0, 8).map((reel) => (
-                    <div key={reel.id} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a' }}>
+                    <a key={reel.id} href="/my-content" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a' }}>
                       <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
                         {reel.thumbnail ? (
                           <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '24px' }}>🎬</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '20px' }}>🎬</div>
                         )}
                       </div>
-                      <div style={{ padding: '6px 8px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
+                      <div style={{ padding: '4px 6px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
                       </div>
-                    </div>
+                    </a>
                   ))}
                 </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '24px 0', color: '#52525b', fontSize: '13px' }}>
-                  Save reels from the Inspo Board to start creating content
+              </div>
+            ) : (pipeline?.editing?.length > 0 || pipeline?.uploaded?.length > 0) ? null : (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#52525b', fontSize: '13px' }}>
+                Save reels from the Inspo Board to start creating content
+              </div>
+            )}
+
+            {/* In progress content thumbnails */}
+            {pipeline?.editing?.length > 0 && (
+              <div style={{ marginTop: savedReels.length > 0 ? '12px' : 0 }}>
+                <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
+                  {pipeline.editing.slice(0, 4).map((item) => (
+                    <a key={item.assetId} href="/my-content" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1a3a6d', background: '#0a0a0a' }}>
+                      <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
+                        {item.inspoThumbnail ? (
+                          <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '20px' }}>✂️</div>
+                        )}
+                      </div>
+                      <div style={{ padding: '4px 6px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#3b82f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.inspoTitle || item.assetName}</div>
+                      </div>
+                    </a>
+                  ))}
                 </div>
-              )}
-            </Card>
-          </a>
+              </div>
+            )}
+          </Card>
         </div>
 
       </div>
