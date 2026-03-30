@@ -43,10 +43,13 @@ export async function POST(request) {
     const accessToken = await getDropboxAccessToken()
     const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
 
+    const aka = creator.fields['AKA'] || creatorName
+
     return NextResponse.json({
       accessToken,
       rootNamespaceId,
       uploadFolder: `${rootPath}/Social Media/20_NEEDS_EDIT`,
+      creatorName: aka,
     })
   } catch (err) {
     console.error('[upload-token] Error:', err.message)

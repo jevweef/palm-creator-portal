@@ -32,13 +32,15 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
+  const slugify = (str) => str.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60)
+
   const handleUpload = async () => {
     if (files.length === 0) return
     setUploading(true)
     setError('')
 
     try {
-      // Step 1: Get Dropbox token + folder path from server
+      // Step 1: Get Dropbox token + folder path + creator name from server
       setProgress('Preparing upload...')
       const tokenRes = await fetch('/api/upload-token', {
         method: 'POST',
@@ -51,16 +53,27 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
         throw new Error(err.error || 'Failed to get upload credentials')
       }
 
-      const { accessToken, rootNamespaceId, uploadFolder } = await tokenRes.json()
+      const { accessToken, rootNamespaceId, uploadFolder, creatorName } = await tokenRes.json()
+
+      // Build file names: {InspoTitle}_{CreatorName}_{timestamp}_{fileNumber}.ext
+      const titleSlug = slugify(record.title || 'untitled')
+      const nameSlug = slugify(creatorName || 'creator')
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+
+      const pathRoot = JSON.stringify({ '.tag': 'root', root: rootNamespaceId })
 
       // Step 2: Upload each file directly to Dropbox from browser
       const uploadedFiles = []
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
-        setProgress(`Uploading ${i + 1} of ${files.length}: ${file.name}...`)
+        const fileNum = String(i + 1).padStart(2, '0')
+        const ext = file.name.includes('.') ? file.name.split('.').pop() : 'mov'
+        const newName = `${titleSlug}_${nameSlug}_${timestamp}_${fileNum}.${ext}`
+
+        setProgress(`Uploading ${i + 1} of ${files.length}: ${newName}...`)
 
         const buffer = await file.arrayBuffer()
-        const filePath = `${uploadFolder}/${file.name}`
+        const filePath = `${uploadFolder}/${newName}`
 
         const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
           method: 'POST',
@@ -72,10 +85,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
               autorename: true,
               mute: true,
             }),
-            'Dropbox-API-Path-Root': JSON.stringify({
-              '.tag': 'root',
-              root: rootNamespaceId,
-            }),
+            'Dropbox-API-Path-Root': pathRoot,
             'Content-Type': 'application/octet-stream',
           },
           body: buffer,
@@ -83,14 +93,34 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
 
         if (!dbxRes.ok) {
           const errText = await dbxRes.text()
-          throw new Error(`Dropbox upload failed for ${file.name}: ${errText}`)
+          throw new Error(`Dropbox upload failed for ${newName}: ${errText}`)
         }
 
         const result = await dbxRes.json()
+
+        // Create shared link for the uploaded file
+        let sharedLink = ''
+        try {
+          const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Dropbox-API-Path-Root': pathRoot,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ path: result.path_display }),
+          })
+          if (linkRes.ok) {
+            const linkData = await linkRes.json()
+            sharedLink = linkData.url || ''
+          }
+        } catch {}
+
         uploadedFiles.push({
-          name: file.name,
+          name: newName,
           path: result.path_display,
           size: result.size,
+          sharedLink,
         })
       }
 
