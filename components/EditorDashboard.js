@@ -595,7 +595,10 @@ export function EditorDashboardContent() {
     setError(null)
     try {
       const res = await fetch('/api/editor/dashboard')
-      if (!res.ok) throw new Error('Failed to load dashboard')
+      if (!res.ok) {
+        const body = await res.text()
+        throw new Error(`${res.status}: ${body}`)
+      }
       const data = await res.json()
       setCreators(data.creators || [])
     } catch (err) {
