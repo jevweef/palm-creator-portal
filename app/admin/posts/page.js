@@ -147,41 +147,45 @@ function PostCard({ post, onRefresh, onSend }) {
   }
 
   return (
-    <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* Preview */}
-      {hasFile && (
-        <div style={{ background: '#080808', aspectRatio: isVideo(post.asset.editedFileLink) ? '9/16' : '4/3', maxHeight: '200px', overflow: 'hidden', position: 'relative' }}>
-          {isVideo(post.asset.editedFileLink) ? (
+    <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
+
+      {/* Left — video at 9:16 */}
+      <div style={{ width: '200px', flexShrink: 0, background: '#080808', position: 'relative', aspectRatio: '9/16' }}>
+        {hasFile ? (
+          isVideo(post.asset.editedFileLink) ? (
             <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer', display: 'block' }}
               onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
           ) : (
-            <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          )}
-        </div>
-      )}
-
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#d4d4d8' }}>{post.name}</div>
-            <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>{post.creator?.name}</div>
-          </div>
+            <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          )
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2a2a2a', fontSize: '11px' }}>No file</div>
+        )}
+        <div style={{ position: 'absolute', bottom: '6px', left: '6px' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, color: STATUS_COLORS[post.status] || '#71717a',
-            background: '#111', border: `1px solid ${STATUS_COLORS[post.status] || '#2a2a2a'}20`,
-            padding: '3px 8px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
+            background: 'rgba(0,0,0,0.8)', border: `1px solid ${STATUS_COLORS[post.status] || '#2a2a2a'}40`,
+            padding: '2px 7px', borderRadius: '20px' }}>
             {post.status}
           </div>
+        </div>
+      </div>
+
+      {/* Right — all fields */}
+      <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
+        {/* Header */}
+        <div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#d4d4d8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.name}</div>
+          <div style={{ fontSize: '11px', color: '#52525b', marginTop: '1px' }}>{post.creator?.name}</div>
         </div>
 
         {/* Platforms */}
         <div>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Platforms</div>
+          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Platforms</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
             {PLATFORMS.map(p => (
               <button key={p} onClick={() => togglePlatform(p)}
-                style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, border: '1px solid', cursor: 'pointer', transition: 'all 0.1s',
+                style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600, border: '1px solid', cursor: 'pointer',
                   background: platforms.includes(p) ? '#1a1a3e' : 'transparent',
                   color: platforms.includes(p) ? '#a78bfa' : '#3f3f46',
                   borderColor: platforms.includes(p) ? '#4a4a9e' : '#2a2a2a' }}>
@@ -192,31 +196,30 @@ function PostCard({ post, onRefresh, onSend }) {
         </div>
 
         {/* Caption */}
-        <div>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Caption</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
           <textarea value={caption} onChange={e => { setCaption(e.target.value); setEditing(true) }}
             placeholder="Add caption..." rows={3}
-            style={{ width: '100%', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', color: '#d4d4d8', fontSize: '12px', padding: '8px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            style={{ width: '100%', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', color: '#d4d4d8', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
 
         {/* Hashtags */}
         <div>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Hashtags</div>
+          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Hashtags</div>
           <textarea value={hashtags} onChange={e => { setHashtags(e.target.value); setEditing(true) }}
             placeholder="#hashtag1 #hashtag2..." rows={2}
-            style={{ width: '100%', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', color: '#a78bfa', fontSize: '12px', padding: '8px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            style={{ width: '100%', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', color: '#a78bfa', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
 
         {/* Scheduled Date */}
         <div>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Scheduled Date</div>
+          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Scheduled Date</div>
           <input type="datetime-local" value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setEditing(true) }}
-            style={{ width: '100%', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', color: '#d4d4d8', fontSize: '12px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
+            style={{ width: '100%', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', color: '#d4d4d8', fontSize: '12px', padding: '6px 10px', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
         </div>
 
-        {/* Telegram sent info */}
         {post.telegramSentAt && (
-          <div style={{ fontSize: '11px', color: '#3b82f6', background: '#0a1628', border: '1px solid #1a3d6a', borderRadius: '6px', padding: '6px 10px' }}>
+          <div style={{ fontSize: '11px', color: '#3b82f6', background: '#0a1628', border: '1px solid #1a3d6a', borderRadius: '6px', padding: '5px 10px' }}>
             ✈ Sent {new Date(post.telegramSentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
           </div>
         )}
@@ -225,21 +228,21 @@ function PostCard({ post, onRefresh, onSend }) {
         <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }}>
           {editing && (
             <button onClick={handleSave} disabled={saving}
-              style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: 700, background: saving ? '#0a1a0a' : '#0f2d0f', color: saving ? '#2d5c2d' : '#22c55e', border: '1px solid #1a5c1a', borderRadius: '6px', cursor: saving ? 'default' : 'pointer' }}>
+              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, background: saving ? '#0a1a0a' : '#0f2d0f', color: saving ? '#2d5c2d' : '#22c55e', border: '1px solid #1a5c1a', borderRadius: '6px', cursor: saving ? 'default' : 'pointer' }}>
               {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save'}
             </button>
           )}
           {post.status === 'Prepping' && (
             <button onClick={() => onSend(post)} disabled={!hasFile}
-              style={{ flex: editing ? 1 : 2, padding: '8px', fontSize: '12px', fontWeight: 700,
+              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700,
                 background: hasFile ? '#0d1a2e' : '#111', color: hasFile ? '#60a5fa' : '#2a2a2a',
                 border: `1px solid ${hasFile ? '#1a3d6a' : '#1a1a1a'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>
-              ✈ Send to Telegram
+              ✈ Telegram
             </button>
           )}
           {post.asset?.editedFileLink && (
             <a href={post.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
-              style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 600, background: '#1a1a1a', color: '#71717a', border: '1px solid #2a2a2a', borderRadius: '6px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: '#1a1a1a', color: '#71717a', border: '1px solid #2a2a2a', borderRadius: '6px', textDecoration: 'none' }}>
               View ↗
             </a>
           )}
@@ -324,7 +327,7 @@ export default function PostsPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))', gap: '16px' }}>
         {filtered.map(post => (
           <PostCard key={post.id} post={post} onRefresh={fetchData} onSend={p => setTelegramModal(p)} />
         ))}
