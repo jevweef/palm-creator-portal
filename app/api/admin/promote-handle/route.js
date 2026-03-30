@@ -55,7 +55,6 @@ export async function POST(request) {
 
     const now = new Date()
     const cutoff = new Date(now - LOOKBACK_DAYS * 86400000)
-    const tooNew = new Date(now - MIN_AGE_DAYS * 86400000)
 
     // Fetch only this handle's Source Reels, only this handle's Inspo Source, and existing Inspiration URLs for this username
     const [sourceReels, inspoRecords, inspoSources] = await Promise.all([
@@ -67,7 +66,7 @@ export async function POST(request) {
         filterByFormula: `{Username} = "${handle}"`,
       }),
       fetchAirtableRecords('Inspo Sources', {
-        fields: ['Handle', 'Palm Creators', 'Follower Count'],
+        fields: ['Handle', 'Palm Creators', 'Follower Count', 'Age Restricted'],
         filterByFormula: `LOWER({Handle}) = "${handle.toLowerCase()}"`,
       }),
     ])
@@ -82,12 +81,23 @@ export async function POST(request) {
 
     const palmCreatorMap = {}
     const followerMap = {}
+    let isAgeRestricted = false
     for (const rec of inspoSources) {
       const h = (rec.fields?.Handle || '').trim().toLowerCase()
       if (!h) continue
       const creators = rec.fields?.['Palm Creators'] || []
       if (creators.length) palmCreatorMap[h] = creators
       if (rec.fields?.['Follower Count']) followerMap[h] = rec.fields['Follower Count']
+      if (rec.fields?.['Age Restricted']) isAgeRestricted = true
+    }
+
+    // Age-restricted accounts: fewer reels available, so relax filters
+    const minAgeDays = isAgeRestricted ? 7 : MIN_AGE_DAYS
+    const topPercent = isAgeRestricted ? 0.35 : TOP_PERCENT
+    const tooNew = new Date(now - minAgeDays * 86400000)
+
+    if (isAgeRestricted) {
+      console.log(`[Promote-Handle] @${handle}: age-restricted — using ${minAgeDays}d min age, ${Math.round(topPercent * 100)}% top filter`)
     }
 
     // Filter eligible
@@ -110,7 +120,7 @@ export async function POST(request) {
     }
 
     eligible.sort((a, b) => b.score - a.score)
-    const target = Math.min(Math.max(1, Math.floor(eligible.length * TOP_PERCENT)), MAX_PER_CREATOR)
+    const target = Math.min(Math.max(1, Math.floor(eligible.length * topPercent)), MAX_PER_CREATOR)
 
     const toPromote = []
     const goldenSet = []
