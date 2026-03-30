@@ -106,7 +106,7 @@ function PostCard({ post, onRefresh, onSend }) {
   const [editing, setEditing] = useState(false)
   const [caption, setCaption] = useState(post.caption)
   const [hashtags, setHashtags] = useState(post.hashtags)
-  const [platforms, setPlatforms] = useState(post.platform || [])
+  const [platforms, setPlatforms] = useState(post.platform?.length ? post.platform : ['Instagram Reel'])
   const [scheduledDate, setScheduledDate] = useState(post.scheduledDate ? post.scheduledDate.slice(0, 16) : '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
