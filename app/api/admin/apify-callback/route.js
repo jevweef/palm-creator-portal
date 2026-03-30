@@ -78,52 +78,66 @@ function buildSourceReelRecord(handle, item, runId, followerCount) {
 async function fetchRapidApiReels(username, maxReels = 50) {
   if (!RAPIDAPI_KEY || !username) return []
   try {
-    const amount = Math.min(maxReels, 50)
-    const res = await fetch(`https://${RAPIDAPI_HOST}/get_ig_user_reels.php`, {
-      method: 'POST',
-      headers: {
-        'x-rapidapi-host': RAPIDAPI_HOST,
-        'x-rapidapi-key': RAPIDAPI_KEY,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: `username_or_url=${encodeURIComponent(username)}&amount=${amount}`,
-    })
-    if (!res.ok) {
-      console.log(`[Apify Callback] RapidAPI reels error ${res.status} for @${username}`)
-      return []
-    }
-    const data = await res.json()
-    if (data.error) {
-      console.log(`[Apify Callback] RapidAPI reels error for @${username}: ${data.error}`)
-      return []
-    }
-
     const items = []
-    for (const node of (data.reels || [])) {
-      const media = node?.node?.media || {}
-      const code = media.code
-      if (!code) continue
+    let paginationToken = null
+    const maxPages = Math.ceil(maxReels / 12) + 1 // ~12 per page
 
-      const takenAt = media.taken_at
-      const likes = media?.edge_media_preview_like?.count || media.like_count || 0
-      const comments = media?.edge_media_to_comment?.count || media.comment_count || 0
-      const caption = media?.caption?.text || media?.edge_media_to_caption?.edges?.[0]?.node?.text || ''
-      const playCount = media.play_count || 0
-      const duration = media.video_duration || null
+    for (let page = 0; page < maxPages; page++) {
+      let body = `username_or_url=${encodeURIComponent(username)}&amount=50`
+      if (paginationToken) body += `&pagination_token=${paginationToken}`
 
-      items.push({
-        url: `https://www.instagram.com/reel/${code}/`,
-        username,
-        timestamp: takenAt ? new Date(takenAt * 1000).toISOString() : '',
-        videoPlayCount: playCount,
-        likesCount: likes,
-        commentsCount: comments,
-        caption,
-        videoDuration: duration,
-        _rapidapi: true,
+      const res = await fetch(`https://${RAPIDAPI_HOST}/get_ig_user_reels.php`, {
+        method: 'POST',
+        headers: {
+          'x-rapidapi-host': RAPIDAPI_HOST,
+          'x-rapidapi-key': RAPIDAPI_KEY,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body,
       })
+      if (!res.ok) {
+        console.log(`[Apify Callback] RapidAPI reels error ${res.status} for @${username} (page ${page + 1})`)
+        break
+      }
+      const data = await res.json()
+      if (data.error) {
+        console.log(`[Apify Callback] RapidAPI reels error for @${username}: ${data.error}`)
+        break
+      }
+
+      const reels = data.reels || []
+      for (const node of reels) {
+        const media = node?.node?.media || {}
+        const code = media.code
+        if (!code) continue
+
+        const takenAt = media.taken_at
+        const likes = media?.edge_media_preview_like?.count || media.like_count || 0
+        const comments = media?.edge_media_to_comment?.count || media.comment_count || 0
+        const caption = media?.caption?.text || media?.edge_media_to_caption?.edges?.[0]?.node?.text || ''
+        const playCount = media.play_count || 0
+        const duration = media.video_duration || null
+
+        items.push({
+          url: `https://www.instagram.com/reel/${code}/`,
+          username,
+          timestamp: takenAt ? new Date(takenAt * 1000).toISOString() : '',
+          videoPlayCount: playCount,
+          likesCount: likes,
+          commentsCount: comments,
+          caption,
+          videoDuration: duration,
+          _rapidapi: true,
+        })
+      }
+
+      console.log(`[Apify Callback] RapidAPI page ${page + 1}: ${reels.length} reels (total: ${items.length})`)
+
+      paginationToken = data.pagination_token
+      if (!paginationToken || reels.length === 0 || items.length >= maxReels) break
     }
-    return items
+
+    return items.slice(0, maxReels)
   } catch (err) {
     console.log(`[Apify Callback] RapidAPI reels exception for @${username}: ${err.message}`)
     return []
