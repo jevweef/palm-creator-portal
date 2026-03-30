@@ -279,3 +279,21 @@ After doing this, you may fix the identity used for this commit with:
  1 file changed, 17 insertions(+)
 To https://github.com/jevweef/palm-creator-portal.git
    8d5eaed..7b99460  main -> main
+[main c30ad41] Auto-save: 2026-03-30 18:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 3 files changed, 195 insertions(+), 3 deletions(-)
+ create mode 100644 app/api/telegram/send/route.js
+To https://github.com/jevweef/palm-creator-portal.git
+   a71ea29..c30ad41  main -> main
