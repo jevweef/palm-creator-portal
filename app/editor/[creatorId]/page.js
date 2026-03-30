@@ -14,12 +14,18 @@ function isVideo(url) {
   return /\.(mp4|mov|avi|webm|mkv)/i.test(url)
 }
 
+function isPhoto(url) {
+  return /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url)
+}
+
 function LibraryVideoCard({ asset, creatorId, onRefresh }) {
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
   const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
-  const videoUrl = rawDropboxUrl(link)
+  const rawUrl = rawDropboxUrl(link)
+  const videoUrl = rawUrl
   const videoFile = isVideo(link)
+  const photoFile = isPhoto(link)
 
   const handleStart = async () => {
     setStarting(true)
@@ -40,10 +46,12 @@ function LibraryVideoCard({ asset, creatorId, onRefresh }) {
 
   return (
     <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ background: '#080808', position: 'relative', aspectRatio: '9/16', maxHeight: '260px', overflow: 'hidden' }}>
-        {videoFile && videoUrl ? (
-          <video src={videoUrl} autoPlay muted loop playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+      <div style={{ background: '#080808', position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '260px', overflow: 'hidden' }}>
+        {videoFile && rawUrl ? (
+          <video src={rawUrl} autoPlay muted loop playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
             onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+        ) : photoFile && rawUrl ? (
+          <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : asset.thumbnail ? (
           <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
