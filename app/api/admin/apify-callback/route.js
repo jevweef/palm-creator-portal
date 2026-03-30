@@ -75,6 +75,61 @@ function buildSourceReelRecord(handle, item, runId, followerCount) {
   return { fields }
 }
 
+async function fetchRapidApiReels(username, maxReels = 50) {
+  if (!RAPIDAPI_KEY || !username) return []
+  try {
+    const amount = Math.min(maxReels, 50)
+    const res = await fetch(`https://${RAPIDAPI_HOST}/get_ig_user_reels.php`, {
+      method: 'POST',
+      headers: {
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `username_or_url=${encodeURIComponent(username)}&amount=${amount}`,
+    })
+    if (!res.ok) {
+      console.log(`[Apify Callback] RapidAPI reels error ${res.status} for @${username}`)
+      return []
+    }
+    const data = await res.json()
+    if (data.error) {
+      console.log(`[Apify Callback] RapidAPI reels error for @${username}: ${data.error}`)
+      return []
+    }
+
+    const items = []
+    for (const node of (data.reels || [])) {
+      const media = node?.node?.media || {}
+      const code = media.code
+      if (!code) continue
+
+      const takenAt = media.taken_at
+      const likes = media?.edge_media_preview_like?.count || media.like_count || 0
+      const comments = media?.edge_media_to_comment?.count || media.comment_count || 0
+      const caption = media?.caption?.text || media?.edge_media_to_caption?.edges?.[0]?.node?.text || ''
+      const playCount = media.play_count || 0
+      const duration = media.video_duration || null
+
+      items.push({
+        url: `https://www.instagram.com/reel/${code}/`,
+        username,
+        timestamp: takenAt ? new Date(takenAt * 1000).toISOString() : '',
+        videoPlayCount: playCount,
+        likesCount: likes,
+        commentsCount: comments,
+        caption,
+        videoDuration: duration,
+        _rapidapi: true,
+      })
+    }
+    return items
+  } catch (err) {
+    console.log(`[Apify Callback] RapidAPI reels exception for @${username}: ${err.message}`)
+    return []
+  }
+}
+
 async function fetchFollowerCount(username) {
   if (!RAPIDAPI_KEY) return null
   try {
@@ -144,6 +199,26 @@ export async function POST(request) {
 
     console.log(`[Apify Callback] @${handle}: ${items.length} items in dataset`)
 
+    // Check if Apify returned real reels or just profile stubs (age-restricted accounts)
+    const realItems = items.filter(i =>
+      i.videoPlayCount || i.videoViewCount || i.playCount || i.views || i.viewsCount
+    )
+    let useItems = items
+    let dataSource = 'apify'
+
+    if (items.length > 0 && realItems.length === 0) {
+      // Age-restricted: Apify returned stubs with no engagement data — fall back to RapidAPI
+      console.log(`[Apify Callback] @${handle}: Apify returned ${items.length} stubs (age-restricted?) — falling back to RapidAPI`)
+      const rapidItems = await fetchRapidApiReels(handle, 50)
+      if (rapidItems.length > 0) {
+        useItems = rapidItems
+        dataSource = 'rapidapi-fallback'
+        console.log(`[Apify Callback] @${handle}: RapidAPI returned ${rapidItems.length} reels`)
+      } else {
+        console.log(`[Apify Callback] @${handle}: RapidAPI also returned nothing`)
+      }
+    }
+
     // Load existing URLs for dedup — only this handle's reels
     const [existingReels, followerCount] = await Promise.all([
       fetchAirtableRecords('Source Reels', {
@@ -164,7 +239,7 @@ export async function POST(request) {
     const tooNewCutoff = new Date(now - 14 * 86400000)
     let tooNewSkipped = 0
 
-    for (const item of items) {
+    for (const item of useItems) {
       const record = buildSourceReelRecord(handle, item, runId, followerCount)
       if (!record) continue
 
@@ -196,7 +271,7 @@ export async function POST(request) {
     if (sourceId) {
       const sourceUpdate = {
         'Last Scraped At': now.toISOString(),
-        'Reels Scraped': items.length,
+        'Reels Scraped': useItems.length,
         'Too New Skipped': tooNewSkipped,
         'Source Reels Added': newRecords.length,
         'Pipeline Status': 'Complete',
@@ -289,7 +364,8 @@ export async function POST(request) {
       added: newRecords.length,
       scored,
       tooNewSkipped,
-      total: items.length,
+      total: useItems.length,
+      dataSource,
     })
   } catch (err) {
     console.error('Apify callback error:', err)
