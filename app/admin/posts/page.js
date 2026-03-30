@@ -154,10 +154,10 @@ function PostCard({ post, onRefresh, onSend }) {
         {hasFile ? (
           isVideo(post.asset.editedFileLink) ? (
             <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
-              style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer', display: 'block' }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
               onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
           ) : (
-            <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           )
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2a2a2a', fontSize: '11px' }}>No file</div>
