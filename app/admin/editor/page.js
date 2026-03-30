@@ -282,6 +282,22 @@ export default function EditorQueue() {
                             {task.inspo.notes}
                           </div>
                         )}
+                        {task.inspo.onScreenText && (
+                          <div>
+                            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>On-Screen Text</div>
+                            <div style={{ fontSize: '12px', color: '#f59e0b', lineHeight: 1.4, background: '#1a1500', border: '1px solid #332b00', borderRadius: '6px', padding: '8px 10px' }}>
+                              {task.inspo.onScreenText}
+                            </div>
+                          </div>
+                        )}
+                        {task.inspo.transcript && (
+                          <div>
+                            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Transcript</div>
+                            <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4, fontStyle: 'italic' }}>
+                              {task.inspo.transcript}
+                            </div>
+                          </div>
+                        )}
                         {task.inspo.tags?.length > 0 && (
                           <div>
                             <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Tags</div>

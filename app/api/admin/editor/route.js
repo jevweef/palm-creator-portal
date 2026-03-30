@@ -51,7 +51,7 @@ export async function GET() {
         filterByFormula: recordIdFormula(inspoIds),
         fields: [
           'Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail',
-          'Username', 'Audio Type', 'DB Share Link', 'Rating',
+          'Username', 'Audio Type', 'DB Share Link', 'Rating', 'On-Screen Text', 'Transcript',
         ],
       }) : [],
     ])
@@ -102,6 +102,8 @@ export async function GET() {
           audioType: inspo['Audio Type'] || '',
           dbShareLink: inspo['DB Share Link'] || '',
           rating: inspo.Rating || null,
+          onScreenText: inspo['On-Screen Text'] || '',
+          transcript: inspo.Transcript || '',
         },
       }
     })
