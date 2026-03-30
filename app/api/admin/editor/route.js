@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 
 // Status mapping: Task Status → Asset Pipeline Status
 const TASK_TO_ASSET_STATUS = {
@@ -153,8 +153,40 @@ export async function PATCH(request) {
     // ── Admin: Approve ──────────────────────────────────────────────────────────
     if (action === 'approve') {
       await patchAirtableRecord('Tasks', taskId, { 'Admin Review Status': 'Approved' })
-      // TODO: Telegram notification trigger goes here
-      console.log(`[Editor] Task ${taskId} approved`)
+
+      // Auto-create a Post record for prep
+      try {
+        const task = tasks[0]
+        const creatorId = (task.fields?.Creator || [])[0] || null
+        const taskName = task.fields?.Name || ''
+        const assetName = taskName.replace(/^Edit:\s*/i, '')
+
+        // Fetch creator AKA for post name
+        let creatorAKA = ''
+        if (creatorId) {
+          const creators = await fetchAirtableRecords('Palm Creators', {
+            filterByFormula: `RECORD_ID()='${creatorId}'`,
+            fields: ['AKA', 'Creator'],
+          })
+          creatorAKA = creators[0]?.fields?.AKA || creators[0]?.fields?.Creator || ''
+        }
+
+        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        const postName = [creatorAKA, assetName || dateStr].filter(Boolean).join(' – ')
+
+        await createAirtableRecord('Posts', {
+          'Post Name': postName,
+          ...(creatorId ? { 'Creator': [creatorId] } : {}),
+          ...(assetId ? { 'Asset': [assetId] } : {}),
+          'Task': [taskId],
+          'Status': 'Prepping',
+        })
+        console.log(`[Editor] Post record created for task ${taskId}`)
+      } catch (postErr) {
+        console.error('[Editor] Failed to create Post record:', postErr.message)
+        // Don't fail the approval if post creation fails
+      }
+
       return NextResponse.json({ ok: true, action: 'approve' })
     }
 

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
@@ -34,7 +34,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { editedFileLink, threadId, caption, taskName } = await request.json()
+    const { editedFileLink, threadId, caption, taskName, postId } = await request.json()
 
     if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
     if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
@@ -78,6 +78,15 @@ export async function POST(request) {
         const text = [taskName && `*${taskName}*`, editedFileLink, caption].filter(Boolean).join('\n\n')
         result = await telegramRequest('sendMessage', { ...baseParams, text, parse_mode: 'Markdown' })
       }
+    }
+
+    // Stamp the Post record if one was provided
+    if (postId) {
+      await patchAirtableRecord('Posts', postId, {
+        'Status': 'Sent to Telegram',
+        'Telegram Sent At': new Date().toISOString(),
+        ...(caption ? { 'Caption': caption } : {}),
+      }).catch(err => console.error('[Telegram Send] Failed to update Post record:', err.message))
     }
 
     return NextResponse.json({ ok: true, messageId: result.result?.message_id })
