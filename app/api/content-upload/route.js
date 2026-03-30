@@ -83,10 +83,11 @@ export async function POST(request) {
           records: [{
             fields: {
               'Name': `Edit: ${inspoTitle}`,
-              'Description': `Creator uploaded ${uploadedFiles.length} clip(s) for inspo: "${inspoTitle}".${notes ? ` Creator notes: ${notes}` : ''}`,
               'Status': 'To Do',
-              'Asset': assetId,
-              'Related Creator': creatorOpsId,
+              'Asset': [assetId],
+              'Creator': [creatorOpsId],
+              'Inspiration': inspoRecordId ? [inspoRecordId] : [],
+              'Creator Notes': notes || '',
             },
           }],
         }),

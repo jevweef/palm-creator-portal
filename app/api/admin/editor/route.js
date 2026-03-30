@@ -20,7 +20,7 @@ export async function GET() {
   } catch (e) { return e }
 
   try {
-    // 1. Fetch active tasks
+    // 1. Fetch active tasks — now with proper linked record fields
     const tasks = await fetchAirtableRecords('Tasks', {
       filterByFormula: "OR({Status}='To Do',{Status}='In Progress')",
     })
@@ -29,82 +29,54 @@ export async function GET() {
       return NextResponse.json({ tasks: [], total: 0 })
     }
 
-    // 2. Collect Asset IDs (plain text field, not linked record)
-    const assetIds = [...new Set(
-      tasks.map(t => (t.fields?.Asset || '').trim()).filter(Boolean)
-    )]
+    // 2. Collect linked record IDs from tasks (proper linked records now)
+    const assetIds = [...new Set(tasks.flatMap(t => t.fields?.Asset || []).filter(Boolean))]
+    const creatorIds = [...new Set(tasks.flatMap(t => t.fields?.Creator || []).filter(Boolean))]
+    const inspoIds = [...new Set(tasks.flatMap(t => t.fields?.Inspiration || []).filter(Boolean))]
 
-    // 3. Collect Creator IDs (plain text field)
-    const creatorIds = [...new Set(
-      tasks.map(t => (t.fields?.['Related Creator'] || '').trim()).filter(Boolean)
-    )]
-
-    // 4. Batch-fetch Assets + Creators in parallel
-    const [assetRecords, creatorRecords] = await Promise.all([
+    // 3. Batch-fetch all linked records in parallel
+    const [assetRecords, creatorRecords, inspoRecords] = await Promise.all([
       assetIds.length ? fetchAirtableRecords('Assets', {
         filterByFormula: recordIdFormula(assetIds),
         fields: [
           'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Dropbox Path (Current)',
-          'Creator Notes', 'Inspiration Source', 'Source Type',
+          'Creator Notes', 'Source Type',
         ],
       }) : [],
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
         filterByFormula: recordIdFormula(creatorIds),
         fields: ['Creator', 'AKA'],
       }) : [],
+      inspoIds.length ? fetchAirtableRecords('Inspiration', {
+        filterByFormula: recordIdFormula(inspoIds),
+        fields: [
+          'Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail',
+          'Username', 'Audio Type', 'DB Share Link', 'Rating',
+        ],
+      }) : [],
     ])
 
-    // 5. Build asset + creator maps
-    const assetMap = {}
-    for (const r of assetRecords) {
-      assetMap[r.id] = r.fields
-    }
+    // 4. Build lookup maps
+    const assetMap = Object.fromEntries(assetRecords.map(r => [r.id, r.fields]))
+    const creatorMap = Object.fromEntries(creatorRecords.map(r => [r.id, r.fields]))
+    const inspoMap = Object.fromEntries(inspoRecords.map(r => [r.id, r.fields]))
 
-    const creatorMap = {}
-    for (const r of creatorRecords) {
-      creatorMap[r.id] = r.fields
-    }
-
-    // 6. Collect Inspiration IDs from assets (proper linked records)
-    const inspoIds = [...new Set(
-      assetRecords.flatMap(r => {
-        const src = r.fields?.['Inspiration Source'] || []
-        return Array.isArray(src) ? src : [src]
-      }).filter(Boolean)
-    )]
-
-    // 7. Batch-fetch Inspiration records
-    const inspoRecords = inspoIds.length ? await fetchAirtableRecords('Inspiration', {
-      filterByFormula: recordIdFormula(inspoIds),
-      fields: [
-        'Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail',
-        'Username', 'Audio Type', 'DB Share Link', 'Rating',
-      ],
-    }) : []
-
-    const inspoMap = {}
-    for (const r of inspoRecords) {
-      inspoMap[r.id] = r.fields
-    }
-
-    // 8. Assemble joined response
+    // 5. Assemble joined response
     const joinedTasks = tasks.map(t => {
       const f = t.fields || {}
-      const assetId = (f.Asset || '').trim()
-      const creatorId = (f['Related Creator'] || '').trim()
-      const asset = assetMap[assetId] || {}
-      const creator = creatorMap[creatorId] || {}
-
-      // Get first linked inspo record
-      const inspoSrcIds = Array.isArray(asset['Inspiration Source']) ? asset['Inspiration Source'] : []
-      const inspoId = inspoSrcIds[0] || null
+      const assetId = (f.Asset || [])[0] || null
+      const creatorId = (f.Creator || [])[0] || null
+      const inspoId = (f.Inspiration || [])[0] || null
+      const asset = assetId ? (assetMap[assetId] || {}) : {}
+      const creator = creatorId ? (creatorMap[creatorId] || {}) : {}
       const inspo = inspoId ? (inspoMap[inspoId] || {}) : {}
 
       return {
         id: t.id,
         name: f.Name || '',
-        description: f.Description || '',
         status: f.Status || 'To Do',
+        creatorNotes: f['Creator Notes'] || '',
+        editorNotes: f['Editor Notes'] || '',
         creator: {
           id: creatorId,
           name: creator.AKA || creator.Creator || '',
@@ -134,7 +106,7 @@ export async function GET() {
       }
     })
 
-    // Sort: In Progress first, then To Do, then by creation time
+    // Sort: In Progress first, then To Do
     joinedTasks.sort((a, b) => {
       const order = { 'In Progress': 0, 'To Do': 1 }
       return (order[a.status] ?? 2) - (order[b.status] ?? 2)
@@ -163,7 +135,7 @@ export async function PATCH(request) {
       return NextResponse.json({ error: `Invalid status: ${newStatus}` }, { status: 400 })
     }
 
-    // Fetch the task to get the Asset ID
+    // Fetch the task to get linked Asset ID
     const tasks = await fetchAirtableRecords('Tasks', {
       filterByFormula: `RECORD_ID()='${taskId}'`,
     })
@@ -171,10 +143,14 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    const assetId = (tasks[0].fields?.Asset || '').trim()
+    const assetId = (tasks[0].fields?.Asset || [])[0] || null
 
     // Update Task status
-    await patchAirtableRecord('Tasks', taskId, { Status: newStatus })
+    const taskUpdate = { Status: newStatus }
+    if (newStatus === 'Done') {
+      taskUpdate['Completed At'] = new Date().toISOString()
+    }
+    await patchAirtableRecord('Tasks', taskId, taskUpdate)
 
     // Update Asset Pipeline Status if we have an asset
     if (assetId) {

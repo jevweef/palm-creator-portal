@@ -205,7 +205,7 @@ export default function EditorQueue() {
               )}
 
               {/* Creator notes */}
-              {task.asset.creatorNotes && (
+              {(task.creatorNotes || task.asset.creatorNotes) && (
                 <div style={{
                   background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '10px',
                 }}>
@@ -213,7 +213,7 @@ export default function EditorQueue() {
                     Creator Notes
                   </div>
                   <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4 }}>
-                    {task.asset.creatorNotes}
+                    {task.creatorNotes || task.asset.creatorNotes}
                   </div>
                 </div>
               )}
