@@ -42,7 +42,8 @@ function LibraryVideoCard({ asset, creatorId, onRefresh }) {
     <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ background: '#080808', position: 'relative', aspectRatio: '9/16', maxHeight: '260px', overflow: 'hidden' }}>
         {videoFile && videoUrl ? (
-          <video src={videoUrl} controls preload="none" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <video src={videoUrl} autoPlay muted loop playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+            onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
         ) : asset.thumbnail ? (
           <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
