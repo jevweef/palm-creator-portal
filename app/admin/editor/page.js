@@ -813,10 +813,28 @@ function RevisionModal({ task, onClose, onSubmit }) {
   )
 }
 
+function VideoModal({ url, onClose }) {
+  const rawUrl = url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
+  return (
+    <div onClick={e => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ position: 'relative', maxHeight: '90vh', maxWidth: '420px', width: '100%' }}>
+        <video src={rawUrl} controls autoPlay playsInline
+          style={{ width: '100%', maxHeight: '90vh', borderRadius: '10px', display: 'block', background: '#000' }} />
+        <button onClick={onClose}
+          style={{ position: 'absolute', top: '-14px', right: '-14px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          ×
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ForReview({ showToast }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
+  const [videoModal, setVideoModal] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [revisionTask, setRevisionTask] = useState(null)
 
@@ -904,7 +922,7 @@ function ForReview({ showToast }) {
             return (
               <div key={task.id} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', overflow: 'hidden' }}>
                 {/* Thumbnail strip */}
-                <div style={{ display: 'flex', height: '200px', background: '#0a0a0a' }}>
+                <div style={{ display: 'flex', height: '220px', background: '#0a0a0a' }}>
                   <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                     {task.inspo.thumbnail ? (
                       <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -924,7 +942,7 @@ function ForReview({ showToast }) {
                           onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }}
                         />
                         <button
-                          onClick={e => { e.currentTarget.previousSibling.requestFullscreen?.() }}
+                          onClick={() => setVideoModal(task.asset.editedFileLink)}
                           style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 8px', cursor: 'pointer' }}>
                           ⛶ Full
                         </button>
@@ -1018,6 +1036,10 @@ function ForReview({ showToast }) {
           onClose={() => setRevisionTask(null)}
           onSubmit={(taskId, feedback, screenshots) => handleRevision(taskId, feedback, screenshots)}
         />
+      )}
+
+      {videoModal && (
+        <VideoModal url={videoModal} onClose={() => setVideoModal(null)} />
       )}
     </div>
   )
