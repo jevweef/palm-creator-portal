@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const STATUS_COLORS = {
   'To Do': { bg: '#332b00', text: '#f59e0b', border: '#5c4b00' },
@@ -36,6 +36,163 @@ function TagPill({ tag, index }) {
   )
 }
 
+function SubmitModal({ task, onClose, onSubmit }) {
+  const [file, setFile] = useState(null)
+  const [notes, setNotes] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [error, setError] = useState('')
+  const fileRef = useRef(null)
+
+  const handleSubmit = async () => {
+    if (!file) return
+    setUploading(true)
+    setError('')
+
+    try {
+      // Get Dropbox credentials — derive export folder from the raw clip path
+      setProgress('Preparing upload...')
+      const rawPath = task.asset.dropboxPath || ''
+      // Replace 20_NEEDS_EDIT with 30_EDITED_EXPORTS in the path
+      let exportFolder = ''
+      if (rawPath.includes('20_NEEDS_EDIT')) {
+        exportFolder = rawPath.substring(0, rawPath.indexOf('20_NEEDS_EDIT')) + '30_EDITED_EXPORTS'
+      } else {
+        // Fallback: just use a generic exports path
+        exportFolder = '/Palm Ops/Edited Exports'
+      }
+
+      const tokenRes = await fetch('/api/editor-upload-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id }),
+      })
+      if (!tokenRes.ok) throw new Error('Failed to get upload credentials')
+      const { accessToken, rootNamespaceId } = await tokenRes.json()
+
+      // Build filename
+      const titleSlug = (task.inspo.title || 'edit').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50)
+      const creatorSlug = (task.creator.name || 'creator').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '')
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const ext = file.name.includes('.') ? file.name.split('.').pop() : 'mp4'
+      const fileName = `${titleSlug}_${creatorSlug}_EDITED_${timestamp}.${ext}`
+
+      setProgress(`Uploading ${fileName}...`)
+      const buffer = await file.arrayBuffer()
+      const filePath = `${exportFolder}/${fileName}`
+      const pathRoot = JSON.stringify({ '.tag': 'root', root: rootNamespaceId })
+
+      const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: filePath, mode: 'add', autorename: true, mute: true }),
+          'Dropbox-API-Path-Root': pathRoot,
+          'Content-Type': 'application/octet-stream',
+        },
+        body: buffer,
+      })
+      if (!dbxRes.ok) throw new Error(`Dropbox upload failed: ${await dbxRes.text()}`)
+      const result = await dbxRes.json()
+
+      // Create shared link
+      setProgress('Creating link...')
+      let sharedLink = ''
+      try {
+        const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: result.path_display }),
+        })
+        if (linkRes.ok) sharedLink = (await linkRes.json()).url || ''
+      } catch {}
+
+      // Submit to API
+      setProgress('Submitting...')
+      await onSubmit(task.id, sharedLink, result.path_display, notes)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+      setProgress('')
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
+      <div style={{ background: '#111', border: '1px solid #333', borderRadius: '12px', padding: '24px', width: '440px', maxWidth: '95vw' }}
+        onClick={e => e.stopPropagation()}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>
+          Submit Edit for Review
+        </h3>
+        <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '16px' }}>
+          {task.inspo.title} — {task.creator.name}
+        </p>
+
+        {/* File drop zone */}
+        <div
+          onClick={() => fileRef.current?.click()}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f) }}
+          onDragOver={e => e.preventDefault()}
+          style={{
+            border: `2px dashed ${file ? '#22c55e' : '#333'}`, borderRadius: '10px',
+            padding: '24px', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.2s',
+            background: file ? '#0a2e0a' : 'transparent',
+          }}
+        >
+          {file ? (
+            <div>
+              <div style={{ fontSize: '13px', color: '#22c55e', fontWeight: 600 }}>{file.name}</div>
+              <div style={{ fontSize: '11px', color: '#71717a', marginTop: '4px' }}>
+                {(file.size / (1024 * 1024)).toFixed(1)} MB — click to change
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: '13px', color: '#a1a1aa' }}>Drop edited video here or click to browse</div>
+              <div style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>MP4, MOV</div>
+            </div>
+          )}
+          <input ref={fileRef} type="file" accept="video/*,.mp4,.mov" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+        </div>
+
+        {/* Editor notes */}
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Editor notes (optional)"
+          disabled={uploading}
+          style={{
+            width: '100%', marginTop: '12px', padding: '10px 12px',
+            background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px',
+            color: '#d4d4d8', fontSize: '13px', resize: 'vertical', minHeight: '60px',
+            fontFamily: 'inherit', boxSizing: 'border-box',
+          }}
+        />
+
+        {error && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '8px' }}>{error}</p>}
+        {progress && <p style={{ fontSize: '12px', color: '#a78bfa', marginTop: '8px' }}>{progress}</p>}
+
+        <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} disabled={uploading}
+            style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#333' }}>
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={!file || uploading}
+            style={{
+              padding: '8px 20px', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', fontWeight: 600,
+              cursor: !file || uploading ? 'not-allowed' : 'pointer',
+              background: !file || uploading ? '#333' : '#a78bfa', opacity: uploading ? 0.6 : 1,
+            }}>
+            {uploading ? 'Uploading...' : 'Submit for Review'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function EditorQueue() {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -43,6 +200,7 @@ export default function EditorQueue() {
   const [expanded, setExpanded] = useState(new Set())
   const [updating, setUpdating] = useState(null)
   const [toast, setToast] = useState(null)
+  const [submitTask, setSubmitTask] = useState(null)
 
   const showToast = (msg, error = false) => {
     setToast({ msg, error })
@@ -334,9 +492,9 @@ export default function EditorQueue() {
                     </button>
                   )}
                   {task.status === 'In Progress' && (
-                    <button onClick={() => updateStatus(task.id, 'Done')} disabled={updating === task.id}
-                      style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating === task.id ? '#333' : '#1a1a2e', color: updating === task.id ? '#555' : '#a78bfa', border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
-                      {updating === task.id ? 'Submitting...' : 'Submit for Review'}
+                    <button onClick={() => setSubmitTask(task)}
+                      style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: '#1a1a2e', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer' }}>
+                      Submit for Review
                     </button>
                   )}
                 </div>
@@ -344,6 +502,25 @@ export default function EditorQueue() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Submit Modal */}
+      {submitTask && (
+        <SubmitModal
+          task={submitTask}
+          onClose={() => setSubmitTask(null)}
+          onSubmit={async (taskId, editedFileLink, editedFilePath, editorNotes) => {
+            const res = await fetch('/api/admin/editor', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ taskId, newStatus: 'Done', editedFileLink, editedFilePath, editorNotes }),
+            })
+            if (!res.ok) throw new Error((await res.json()).error || 'Submit failed')
+            setTasks(prev => prev.filter(t => t.id !== taskId))
+            setSubmitTask(null)
+            showToast('Edit submitted for review')
+          }}
+        />
       )}
 
       {/* Toast */}

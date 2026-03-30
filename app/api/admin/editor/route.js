@@ -91,6 +91,7 @@ export async function GET() {
           creatorNotes: asset['Creator Notes'] || '',
           sourceType: asset['Source Type'] || '',
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
+          dropboxPath: asset['Dropbox Path (Current)'] || '',
         },
         inspo: {
           id: inspoId,
@@ -130,7 +131,7 @@ export async function PATCH(request) {
   } catch (e) { return e }
 
   try {
-    const { taskId, newStatus } = await request.json()
+    const { taskId, newStatus, editedFileLink, editedFilePath, editorNotes } = await request.json()
     if (!taskId || !newStatus) {
       return NextResponse.json({ error: 'taskId and newStatus required' }, { status: 400 })
     }
@@ -149,18 +150,20 @@ export async function PATCH(request) {
 
     const assetId = (tasks[0].fields?.Asset || [])[0] || null
 
-    // Update Task status
+    // Update Task status + editor notes
     const taskUpdate = { Status: newStatus }
     if (newStatus === 'Done') {
       taskUpdate['Completed At'] = new Date().toISOString()
     }
+    if (editorNotes) taskUpdate['Editor Notes'] = editorNotes
     await patchAirtableRecord('Tasks', taskId, taskUpdate)
 
-    // Update Asset Pipeline Status if we have an asset
+    // Update Asset: Pipeline Status + edited file info
     if (assetId) {
-      await patchAirtableRecord('Assets', assetId, {
-        'Pipeline Status': TASK_TO_ASSET_STATUS[newStatus],
-      })
+      const assetUpdate = { 'Pipeline Status': TASK_TO_ASSET_STATUS[newStatus] }
+      if (editedFileLink) assetUpdate['Edited File Link'] = editedFileLink
+      if (editedFilePath) assetUpdate['Edited File Path'] = editedFilePath
+      await patchAirtableRecord('Assets', assetId, assetUpdate)
     }
 
     console.log(`[Editor] Task ${taskId}: ${newStatus}, Asset ${assetId}: ${TASK_TO_ASSET_STATUS[newStatus]}`)
