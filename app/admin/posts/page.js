@@ -110,6 +110,8 @@ function PostCard({ post, onRefresh, onSend }) {
   const [scheduledDate, setScheduledDate] = useState(post.scheduledDate ? post.scheduledDate.slice(0, 16) : '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
+  const [uploading, setUploading] = useState(false)
 
   const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || '')
   const hasFile = !!post.asset?.editedFileLink
@@ -132,6 +134,7 @@ function PostCard({ post, onRefresh, onSend }) {
             'Hashtags': hashtags,
             'Platform': platforms,
             ...(scheduledDate ? { 'Scheduled Date': new Date(scheduledDate).toISOString() } : {}),
+            ...(thumbnailUrl ? { 'Thumbnail': [{ url: thumbnailUrl }] } : {}),
           },
         }),
       })
@@ -209,6 +212,41 @@ function PostCard({ post, onRefresh, onSend }) {
           <textarea value={hashtags} onChange={e => { setHashtags(e.target.value); setEditing(true) }}
             placeholder="#hashtag1 #hashtag2..." rows={2}
             style={{ width: '100%', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', color: '#a78bfa', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+        </div>
+
+        {/* Thumbnail */}
+        <div>
+          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+            {thumbnailUrl && (
+              <img src={rawDropboxUrl(thumbnailUrl)} alt="thumbnail"
+                style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #2a2a2a', flexShrink: 0 }} />
+            )}
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', padding: '6px 10px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', fontSize: '11px', color: '#71717a', cursor: 'pointer', textAlign: 'center' }}>
+                {uploading ? 'Uploading...' : thumbnailUrl ? 'Replace thumbnail' : '+ Upload thumbnail'}
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setUploading(true)
+                  try {
+                    const form = new FormData()
+                    form.append('file', file)
+                    form.append('postId', post.id)
+                    const res = await fetch('/api/admin/posts/thumbnail', { method: 'POST', body: form })
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error)
+                    setThumbnailUrl(data.url)
+                    setEditing(false)
+                  } catch (err) {
+                    console.error('Thumbnail upload failed:', err)
+                  } finally {
+                    setUploading(false)
+                  }
+                }} />
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* Scheduled Date */}
