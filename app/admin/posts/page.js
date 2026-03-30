@@ -25,6 +25,7 @@ function TelegramModal({ post, onClose, onSent }) {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const editedFileLink = post.asset?.editedFileLink || ''
+  const fullCaption = [caption, post.hashtags].filter(Boolean).join('\n\n')
 
   const handleSend = async () => {
     setSending(true)
@@ -36,7 +37,7 @@ function TelegramModal({ post, onClose, onSent }) {
         body: JSON.stringify({
           editedFileLink,
           threadId: post.creator?.telegramThreadId,
-          caption: caption.trim() || undefined,
+          caption: fullCaption.trim() || undefined,
           taskName: post.name,
           postId: post.id,
         }),
@@ -80,10 +81,15 @@ function TelegramModal({ post, onClose, onSent }) {
 
         <div>
           <div style={{ fontSize: '11px', color: '#52525b', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Caption <span style={{ color: '#3f3f46', fontWeight: 400, textTransform: 'none' }}>(optional)</span>
+            Caption + Hashtags <span style={{ color: '#3f3f46', fontWeight: 400, textTransform: 'none' }}>(will be sent together)</span>
           </div>
           <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="Add caption..."
-            rows={5} style={{ width: '100%', background: '#0d0d0d', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#d4d4d8', fontSize: '13px', padding: '10px 12px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            rows={3} style={{ width: '100%', background: '#0d0d0d', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#d4d4d8', fontSize: '13px', padding: '10px 12px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: '6px' }} />
+          {post.hashtags && (
+            <div style={{ background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#a78bfa' }}>
+              {post.hashtags}
+            </div>
+          )}
         </div>
 
         {error && <div style={{ fontSize: '12px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '8px 12px' }}>{error}</div>}
@@ -271,7 +277,7 @@ function PostCard({ post, onRefresh, onSend }) {
             </button>
           )}
           {post.status === 'Prepping' && (
-            <button onClick={() => onSend(post)} disabled={!hasFile}
+            <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms })} disabled={!hasFile}
               style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700,
                 background: hasFile ? '#0d1a2e' : '#111', color: hasFile ? '#60a5fa' : '#2a2a2a',
                 border: `1px solid ${hasFile ? '#1a3d6a' : '#1a1a1a'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>
