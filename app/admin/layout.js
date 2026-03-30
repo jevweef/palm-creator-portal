@@ -5,15 +5,17 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import Link from 'next/link'
 
-const NAV_ITEMS = [
+const ADMIN_NAV = [
   { href: '/admin', label: 'Pipeline', icon: '⚡' },
   { href: '/admin/sources', label: 'Sources', icon: '📡' },
   { href: '/admin/review', label: 'Review', icon: '✅' },
   { href: '/admin/import', label: 'Import', icon: '📥' },
   { href: '/admin/editor', label: 'Editor', icon: '✂️' },
-  // Phase 2+
-  // { href: '/admin/creators', label: 'Creators', icon: '👤' },
-  // { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
+]
+
+const EDITOR_NAV = [
+  { href: '/admin/editor', label: 'Editor Queue', icon: '✂️' },
+  { href: '/inspo', label: 'Inspo Board', icon: '🎬' },
 ]
 
 export default function AdminLayout({ children }) {
@@ -21,20 +23,30 @@ export default function AdminLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
 
+  const role = user?.publicMetadata?.role
+  const isAdmin = role === 'admin'
+  const isEditor = role === 'editor'
+
   useEffect(() => {
     if (!isLoaded) return
-    if (user?.publicMetadata?.role !== 'admin') {
+    if (!isAdmin && !isEditor) {
       router.replace('/dashboard')
     }
-  }, [isLoaded, user, router])
+    // Editors can only access /admin/editor
+    if (isEditor && pathname !== '/admin/editor') {
+      router.replace('/admin/editor')
+    }
+  }, [isLoaded, user, router, pathname, isAdmin, isEditor])
 
-  if (!isLoaded || user?.publicMetadata?.role !== 'admin') {
+  if (!isLoaded || (!isAdmin && !isEditor)) {
     return (
       <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: '#555', fontSize: '14px' }}>Loading...</div>
       </div>
     )
   }
+
+  const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
 
   return (
     <div style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#0a0a0a' }}>
@@ -46,7 +58,7 @@ export default function AdminLayout({ children }) {
         flexShrink: 0,
       }}>
         <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Admin
+          {isAdmin ? 'Admin' : 'Editor'}
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {NAV_ITEMS.map(item => {

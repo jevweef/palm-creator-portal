@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 
 // Status mapping: Task Status → Asset Pipeline Status
 const TASK_TO_ASSET_STATUS = {
@@ -16,7 +16,7 @@ function recordIdFormula(ids) {
 // GET — fetch editor task queue with joined inspo + creator + asset data
 export async function GET() {
   try {
-    await requireAdmin()
+    await requireAdminOrEditor()
   } catch (e) { return e }
 
   try {
@@ -127,7 +127,7 @@ export async function GET() {
 // PATCH — update task + asset status
 export async function PATCH(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrEditor()
   } catch (e) { return e }
 
   try {

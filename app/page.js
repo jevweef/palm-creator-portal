@@ -15,6 +15,8 @@ export default function Home() {
 
     if (role === 'admin') {
       router.replace('/admin')
+    } else if (role === 'editor') {
+      router.replace('/admin/editor')
     } else {
       router.replace('/dashboard')
     }
