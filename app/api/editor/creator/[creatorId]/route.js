@@ -26,7 +26,7 @@ export async function GET(request, { params }) {
   try {
     const creators = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID()='${creatorId}'`,
-      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks'],
+      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Telegram Thread ID'],
     })
     if (!creators.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const creator = creators[0]
@@ -166,6 +166,7 @@ export async function GET(request, { params }) {
         name: f.AKA || f.Creator || '',
         quota: f['Weekly Reel Quota'] || 2,
         doneThisWeek,
+        telegramThreadId: f['Telegram Thread ID'] || null,
       },
       needsRevision: activeTasks.filter(t => t.fields?.['Admin Review Status'] === 'Needs Revision').map(buildTask),
       queue: activeTasks.filter(t => t.fields?.Status === 'To Do').map(buildTask),

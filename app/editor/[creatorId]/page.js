@@ -147,6 +147,90 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
   )
 }
 
+function TelegramSendModal({ task, threadId, onClose, onSent }) {
+  const [caption, setCaption] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const editedFileLink = task.asset?.editedFileLink || ''
+
+  const handleSend = async () => {
+    setSending(true)
+    setError('')
+    try {
+      const res = await fetch('/api/telegram/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          editedFileLink,
+          threadId,
+          caption: caption.trim() || undefined,
+          taskName: task.name,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Send failed')
+      onSent()
+      onClose()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#d4d4d8' }}>Send to Telegram</div>
+            <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>{task.name}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}>×</button>
+        </div>
+
+        {editedFileLink ? (
+          <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '10px 14px' }}>
+            <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>File to send</div>
+            <a href={editedFileLink} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '12px', color: '#a78bfa', textDecoration: 'none', wordBreak: 'break-all' }}>
+              {editedFileLink}
+            </a>
+          </div>
+        ) : (
+          <div style={{ background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '8px', padding: '12px 14px', fontSize: '12px', color: '#ef4444' }}>
+            No edited file link on this task.
+          </div>
+        )}
+
+        <div>
+          <div style={{ fontSize: '11px', color: '#52525b', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Caption <span style={{ color: '#3f3f46', fontWeight: 400, textTransform: 'none' }}>(optional)</span></div>
+          <textarea
+            value={caption}
+            onChange={e => setCaption(e.target.value)}
+            placeholder="Add a caption for the post..."
+            rows={4}
+            style={{ width: '100%', background: '#0d0d0d', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#d4d4d8', fontSize: '13px', padding: '10px 12px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+          />
+        </div>
+
+        {error && <div style={{ fontSize: '12px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '8px 12px' }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#71717a', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+            Cancel
+          </button>
+          <button onClick={handleSend} disabled={sending || !editedFileLink}
+            style={{ flex: 2, padding: '10px', background: sending || !editedFileLink ? '#0d1a0d' : '#0f2d0f', border: `1px solid ${sending || !editedFileLink ? '#1a3d1a' : '#1a5c1a'}`, color: sending || !editedFileLink ? '#2d5c2d' : '#22c55e', borderRadius: '8px', cursor: sending || !editedFileLink ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
+            {sending ? 'Sending...' : '✈ Send to Telegram'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CreatorEditorPage() {
   const { creatorId } = useParams()
   const router = useRouter()
@@ -154,6 +238,7 @@ export default function CreatorEditorPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitModal, setSubmitModal] = useState(null)
+  const [telegramModal, setTelegramModal] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [toast, setToast] = useState(null)
 
@@ -278,8 +363,17 @@ export default function CreatorEditorPage() {
                 <SectionLabel type="inReview" count={data.inReview.length} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
                   {data.inReview.map(task => (
-                    <TaskCard key={task.id} task={task} type="inReview" creatorName={data.creator.name}
-                      onAction={handleAction} updating={false} />
+                    <div key={task.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <TaskCard task={task} type="inReview" creatorName={data.creator.name}
+                        onAction={handleAction} updating={false} />
+                      {task.asset?.editedFileLink && (
+                        <button
+                          onClick={() => setTelegramModal({ task, threadId: data.creator.telegramThreadId })}
+                          style={{ width: '100%', padding: '9px', fontSize: '12px', fontWeight: 700, background: '#0d1a0d', color: '#22c55e', border: '1px solid #1a3d1a', borderRadius: '8px', cursor: 'pointer', letterSpacing: '0.02em' }}>
+                          ✈ Send to Telegram
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -319,6 +413,15 @@ export default function CreatorEditorPage() {
           isRevision={submitModal.isRevision}
           onClose={() => setSubmitModal(null)}
           onSubmit={handleSubmit}
+        />
+      )}
+
+      {telegramModal && (
+        <TelegramSendModal
+          task={telegramModal.task}
+          threadId={telegramModal.threadId}
+          onClose={() => setTelegramModal(null)}
+          onSent={() => showToast('Sent to Telegram ✓')}
         />
       )}
     </div>
