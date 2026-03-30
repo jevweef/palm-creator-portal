@@ -228,7 +228,7 @@ export default function CreatorDashboard() {
                 <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {savedOnly.slice(0, 8).map((reel) => (
-                    <a key={reel.id} href="/my-content" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a' }}>
+                    <a key={reel.id} href="/my-content?tab=saved" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a' }}>
                       <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
                         {reel.thumbnail ? (
                           <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -255,7 +255,7 @@ export default function CreatorDashboard() {
                 <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {pipeline.editing.slice(0, 4).map((item) => (
-                    <a key={item.assetId} href="/my-content" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1a3a6d', background: '#0a0a0a' }}>
+                    <a key={item.assetId} href="/my-content?tab=editing" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1a3a6d', background: '#0a0a0a' }}>
                       <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
                         {item.inspoThumbnail ? (
                           <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

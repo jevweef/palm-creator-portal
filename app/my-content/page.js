@@ -2,6 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { tagStyle } from '@/lib/tagStyle'
 import QuotaBar from '@/components/QuotaBar'
 import InspoCard from '@/components/InspoCard'
@@ -101,7 +102,8 @@ function EmptyState({ tab }) {
 
 export default function MyContentPage() {
   const { user } = useUser()
-  const [activeTab, setActiveTab] = useState('saved')
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'saved')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [modalIndex, setModalIndex] = useState(null) // index into data.saved for InspoModal
