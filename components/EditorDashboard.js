@@ -373,9 +373,33 @@ function TaskCard({ task, type, creatorName, onAction, updating }) {
 
 // ─── Library clip card ─────────────────────────────────────────────────────────
 
-function LibraryCard({ asset }) {
+function LibraryCard({ asset, onRefresh }) {
+  const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState('')
   const links = asset.dropboxLinks?.length ? asset.dropboxLinks : asset.dropboxLink ? [asset.dropboxLink] : []
   const uploadLabel = asset.uploadWeek || (asset.createdTime ? new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '')
+
+  const handleStartEdit = async () => {
+    setStarting(true)
+    setStartError('')
+    try {
+      const res = await fetch('/api/editor/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: asset.id, creatorId: asset.creatorId }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to start edit')
+      }
+      onRefresh()
+    } catch (err) {
+      setStartError(err.message)
+    } finally {
+      setStarting(false)
+    }
+  }
+
   return (
     <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '10px', overflow: 'hidden' }}>
       <div style={{ height: '120px', background: '#080808', overflow: 'hidden', position: 'relative' }}>
@@ -407,6 +431,19 @@ function LibraryCard({ asset }) {
             <span style={{ fontSize: '11px', color: '#3f3f46', fontStyle: 'italic' }}>No link</span>
           )}
         </div>
+        <button
+          onClick={handleStartEdit}
+          disabled={starting}
+          style={{
+            width: '100%', background: '#13132e', color: '#a78bfa',
+            border: '1px solid #2a2a5e', borderRadius: '6px', padding: '7px',
+            fontSize: '12px', fontWeight: 600, cursor: starting ? 'not-allowed' : 'pointer',
+            opacity: starting ? 0.7 : 1,
+          }}
+        >
+          {starting ? 'Starting...' : 'Start Edit'}
+        </button>
+        {startError && <p style={{ fontSize: '11px', color: '#ef4444', margin: 0 }}>{startError}</p>}
       </div>
     </div>
   )
@@ -564,7 +601,7 @@ function CreatorSection({ creator, onRefresh }) {
           {showLibrary && (
             creator.library.length > 0 ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                {creator.library.map(asset => <LibraryCard key={asset.id} asset={asset} />)}
+                {creator.library.map(asset => <LibraryCard key={asset.id} asset={{...asset, creatorId: creator.id}} onRefresh={onRefresh} />)}
               </div>
             ) : (
               <div style={{ padding: '20px', color: '#3f3f46', fontSize: '12px', textAlign: 'center', background: '#0a0a0a', borderRadius: '8px', border: '1px dashed #1a1a1a' }}>
