@@ -166,7 +166,7 @@ export default function EditorQueue() {
           {tasks.length === 0 ? 'No editing tasks in queue.' : 'No tasks match this filter.'}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 520px))', gap: '16px' }}>
           {filtered.map(task => (
             <div key={task.id} style={{
               background: '#111', border: '1px solid #222', borderRadius: '12px',
@@ -282,14 +282,16 @@ export default function EditorQueue() {
                             {task.inspo.notes}
                           </div>
                         )}
-                        {task.inspo.onScreenText && (
-                          <div>
-                            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>On-Screen Text</div>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>On-Screen Text</div>
+                          {task.inspo.onScreenText ? (
                             <div style={{ fontSize: '12px', color: '#f59e0b', lineHeight: 1.4, background: '#1a1500', border: '1px solid #332b00', borderRadius: '6px', padding: '8px 10px' }}>
                               {task.inspo.onScreenText}
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <div style={{ fontSize: '12px', color: '#555', fontStyle: 'italic' }}>None</div>
+                          )}
+                        </div>
                         {task.inspo.transcript && (
                           <div>
                             <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Transcript</div>
@@ -306,28 +308,14 @@ export default function EditorQueue() {
                             </div>
                           </div>
                         )}
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                          {task.inspo.filmFormat?.length > 0 && (
-                            <div>
-                              <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Film Format</div>
-                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                {task.inspo.filmFormat.map((fmt, i) => (
-                                  <span key={i} style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#1a1a2e', color: '#a78bfa', border: '1px solid #333' }}>
-                                    {typeof fmt === 'object' ? fmt.name : fmt}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {task.inspo.audioType && (
-                            <div>
-                              <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Audio</div>
-                              <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333' }}>
-                                {typeof task.inspo.audioType === 'object' ? task.inspo.audioType.name : task.inspo.audioType}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                        {task.inspo.audioType && (
+                          <div>
+                            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Audio</div>
+                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333' }}>
+                              {typeof task.inspo.audioType === 'object' ? task.inspo.audioType.name : task.inspo.audioType}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </>
