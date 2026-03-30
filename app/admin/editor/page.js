@@ -921,24 +921,24 @@ function ForReview({ showToast }) {
 
             return (
               <div key={task.id} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', overflow: 'hidden' }}>
-                {/* Thumbnail strip */}
-                <div style={{ display: 'flex', height: '220px', background: '#0a0a0a' }}>
-                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                {/* Thumbnail strip — height driven by 9:16 video panel */}
+                <div style={{ display: 'flex', background: '#0a0a0a' }}>
+                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: '160px' }}>
                     {task.inspo.thumbnail ? (
-                      <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                     ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '11px' }}>No thumbnail</div>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '11px' }}>No thumbnail</div>
                     )}
                     <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#a78bfa', fontWeight: 600 }}>INSPO</div>
                   </div>
                   <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '18px', flexShrink: 0 }}>→</div>
-                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#0a1a0a' }}>
+                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#0a1a0a', aspectRatio: '9/16' }}>
                     {task.asset.editedFileLink ? (
                       <>
                         <video
                           src={task.asset.editedFileLink.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (task.asset.editedFileLink.includes('?') ? '&raw=1' : '?raw=1')}
                           autoPlay muted loop playsInline preload="metadata"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer', display: 'block' }}
                           onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }}
                         />
                         <button
