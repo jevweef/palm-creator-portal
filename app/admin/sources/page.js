@@ -61,12 +61,14 @@ function ReelsModal({ source, sources, onClose, onNavigate }) {
   const [reels, setReels] = useState(null)
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState({})
+  const [editMode, setEditMode] = useState(false)
 
   const currentIdx = sources.findIndex(s => s.id === source.id)
 
   useEffect(() => {
     setReels(null)
     setLoading(true)
+    setEditMode(false)
     fetch(`/api/admin/sources/reels?handle=${encodeURIComponent(source.handle)}`)
       .then(r => r.json())
       .then(d => setReels(d.reels || []))
@@ -126,6 +128,10 @@ function ReelsModal({ source, sources, onClose, onNavigate }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => setEditMode(m => !m)}
+              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: editMode ? '#450a0a' : 'none', color: editMode ? '#fca5a5' : '#71717a', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer' }}
+            >{editMode ? '✕ Done removing' : 'Remove reels'}</button>
             <a
               href={`https://instagram.com/${source.handle}`}
               target="_blank"
@@ -152,21 +158,23 @@ function ReelsModal({ source, sources, onClose, onNavigate }) {
                   grade={reel.grade}
                   onClick={() => window.open(reel.dbShareLink || reel.contentLink, '_blank')}
                 />
-                <button
-                  onClick={() => toggleHidden(reel)}
-                  disabled={toggling[reel.id]}
-                  style={{
-                    width: '100%', padding: '10px',
-                    fontSize: '12px', fontWeight: 700,
-                    border: 'none', cursor: 'pointer',
-                    background: reel.hidden ? '#14532d' : '#450a0a',
-                    color: reel.hidden ? '#4ade80' : '#fca5a5',
-                    opacity: toggling[reel.id] ? 0.5 : 1,
-                    letterSpacing: '0.02em',
-                  }}
-                >
-                  {reel.hidden ? '↩ Add back' : '✕ Remove'}
-                </button>
+                {editMode && (
+                  <button
+                    onClick={() => toggleHidden(reel)}
+                    disabled={toggling[reel.id]}
+                    style={{
+                      width: '100%', padding: '10px',
+                      fontSize: '12px', fontWeight: 700,
+                      border: 'none', cursor: 'pointer',
+                      background: reel.hidden ? '#14532d' : '#450a0a',
+                      color: reel.hidden ? '#4ade80' : '#fca5a5',
+                      opacity: toggling[reel.id] ? 0.5 : 1,
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    {reel.hidden ? '↩ Add back' : '✕ Remove'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
