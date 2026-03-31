@@ -107,20 +107,40 @@ function AssetSubGroup({ label, assets, creatorId, onRefresh }) {
   )
 }
 
+const PAGE_SIZE = 24
+
+function Paginator({ page, totalPages, onChange }) {
+  if (totalPages <= 1) return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <button onClick={() => onChange(page - 1)} disabled={page <= 1}
+        style={{ background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: page <= 1 ? '#333' : '#71717a', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
+      <span style={{ fontSize: '12px', color: '#52525b' }}>{page} / {totalPages}</span>
+      <button onClick={() => onChange(page + 1)} disabled={page >= totalPages}
+        style={{ background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: page >= totalPages ? '#333' : '#71717a', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
+    </div>
+  )
+}
+
 function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
   if (!assets.length) return null
   const videos = assets.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
   const photos = assets.filter(a => a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && !isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
   const [activeTab, setActiveTab] = useState('videos')
+  const [page, setPage] = useState(1)
   const shown = activeTab === 'videos' ? videos : photos
+  const totalPages = Math.ceil(shown.length / PAGE_SIZE)
+  const paged = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const tabs = [
     { key: 'videos', label: 'Videos', count: videos.length },
     { key: 'photos', label: 'Photos', count: photos.length },
   ].filter(t => t.count > 0)
 
+  const switchTab = (key) => { setActiveTab(key); setPage(1) }
+
   return (
     <div>
-      {/* Section header + tabs */}
+      {/* Section header + tabs + top paginator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot, flexShrink: 0 }} />
@@ -129,7 +149,7 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
         </div>
         <div style={{ display: 'flex', gap: '4px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '3px' }}>
           {tabs.map(t => (
-            <button key={t.key} onClick={() => setActiveTab(t.key)}
+            <button key={t.key} onClick={() => switchTab(t.key)}
               style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                 background: activeTab === t.key ? '#1e1e1e' : 'transparent',
                 color: activeTab === t.key ? '#d4d4d8' : '#52525b' }}>
@@ -137,12 +157,19 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
             </button>
           ))}
         </div>
+        <Paginator page={page} totalPages={totalPages} onChange={setPage} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-        {shown.map(asset => (
+        {paged.map(asset => (
           <LibraryVideoCard key={asset.id} asset={asset} creatorId={creatorId} onRefresh={onRefresh} forcePhoto={activeTab === 'photos'} />
         ))}
       </div>
+      {/* Bottom paginator */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+          <Paginator page={page} totalPages={totalPages} onChange={setPage} />
+        </div>
+      )}
     </div>
   )
 }

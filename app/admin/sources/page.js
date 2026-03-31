@@ -146,7 +146,7 @@ function ReelsModal({ source, sources, onClose, onNavigate }) {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px' }}>
             {reels.map(reel => (
-              <div key={reel.id} style={{ position: 'relative', opacity: reel.hidden ? 0.45 : 1, transition: 'opacity 0.2s' }}>
+              <div key={reel.id} style={{ opacity: reel.hidden ? 0.5 : 1, transition: 'opacity 0.2s', display: 'flex', flexDirection: 'column', borderRadius: '12px', overflow: 'hidden' }}>
                 <InspoCard
                   record={reel}
                   grade={reel.grade}
@@ -156,16 +156,16 @@ function ReelsModal({ source, sources, onClose, onNavigate }) {
                   onClick={() => toggleHidden(reel)}
                   disabled={toggling[reel.id]}
                   style={{
-                    position: 'absolute', bottom: '54px', left: '8px',
-                    fontSize: '10px', fontWeight: 700,
-                    padding: '3px 8px', borderRadius: '5px', border: 'none',
-                    cursor: 'pointer', zIndex: 10,
-                    background: reel.hidden ? '#166534' : '#7f1d1d',
-                    color: '#fff',
+                    width: '100%', padding: '10px',
+                    fontSize: '12px', fontWeight: 700,
+                    border: 'none', cursor: 'pointer',
+                    background: reel.hidden ? '#14532d' : '#450a0a',
+                    color: reel.hidden ? '#4ade80' : '#fca5a5',
                     opacity: toggling[reel.id] ? 0.5 : 1,
+                    letterSpacing: '0.02em',
                   }}
                 >
-                  {reel.hidden ? '+ Add back' : '— Remove'}
+                  {reel.hidden ? '↩ Add back' : '✕ Remove'}
                 </button>
               </div>
             ))}
