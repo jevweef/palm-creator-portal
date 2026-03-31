@@ -25,6 +25,11 @@ function TelegramModal({ post, onClose, onSent }) {
   const [error, setError] = useState('')
   const editedFileLink = post.asset?.editedFileLink || ''
   const fullCaption = [post.caption, post.hashtags].filter(Boolean).join('\n\n')
+  const videoRawUrl = rawDropboxUrl(editedFileLink)
+  const thumbRawUrl = post.thumbnailUrl ? rawDropboxUrl(post.thumbnailUrl) : ''
+  const scheduledDate = post.scheduledDate
+    ? new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : null
 
   const handleSend = async () => {
     setSending(true)
@@ -53,12 +58,12 @@ function TelegramModal({ post, onClose, onSent }) {
     }
   }
 
-  const fileName = editedFileLink.split('/').pop()?.split('?')[0] || editedFileLink
-
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '560px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#d4d4d8' }}>Send to Telegram?</div>
@@ -73,21 +78,36 @@ function TelegramModal({ post, onClose, onSent }) {
           </div>
         )}
 
+        {/* Video + Thumbnail side by side */}
+        {editedFileLink && (
+          <div style={{ display: 'grid', gridTemplateColumns: thumbRawUrl ? '1fr 1fr' : '1fr', gap: '8px' }}>
+            <div style={{ background: '#080808', borderRadius: '8px', overflow: 'hidden', aspectRatio: '9/16', border: '1px solid #1e1e1e' }}>
+              <video src={videoRawUrl} muted loop autoPlay playsInline
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </div>
+            {thumbRawUrl && (
+              <div style={{ background: '#080808', borderRadius: '8px', overflow: 'hidden', aspectRatio: '9/16', border: '1px solid #1e1e1e' }}>
+                <img src={thumbRawUrl} alt="thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Caption / hashtags / date */}
         <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '8px', overflow: 'hidden' }}>
-          {editedFileLink && (
-            <div style={{ padding: '10px 14px', borderBottom: fullCaption ? '1px solid #1a1a1a' : 'none', display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <span style={{ fontSize: '16px' }}>🎬</span>
-              <span style={{ fontSize: '12px', color: '#a78bfa', wordBreak: 'break-all' }}>{fileName}</span>
+          {fullCaption ? (
+            <div style={{ padding: '10px 14px', borderBottom: scheduledDate ? '1px solid #1a1a1a' : 'none' }}>
+              <div style={{ fontSize: '13px', color: '#d4d4d8', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fullCaption}</div>
             </div>
-          )}
-          {fullCaption && (
-            <div style={{ padding: '10px 14px' }}>
-              <div style={{ fontSize: '12px', color: '#d4d4d8', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{fullCaption}</div>
-            </div>
-          )}
-          {!fullCaption && editedFileLink && (
-            <div style={{ padding: '10px 14px' }}>
+          ) : (
+            <div style={{ padding: '10px 14px', borderBottom: scheduledDate ? '1px solid #1a1a1a' : 'none' }}>
               <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No caption or hashtags</div>
+            </div>
+          )}
+          {scheduledDate && (
+            <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', color: '#52525b' }}>📅</span>
+              <span style={{ fontSize: '12px', color: '#71717a' }}>Scheduled for {scheduledDate}</span>
             </div>
           )}
         </div>
@@ -373,7 +393,7 @@ function PostCard({ post, onRefresh, onSend }) {
             </button>
           )}
           {post.status === 'Prepping' && (
-            <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms, thumbnailUrl })} disabled={!hasFile}
+            <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms, thumbnailUrl, scheduledDate })} disabled={!hasFile}
               style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700,
                 background: hasFile ? '#0d1a2e' : '#111', color: hasFile ? '#60a5fa' : '#2a2a2a',
                 border: `1px solid ${hasFile ? '#1a3d6a' : '#1a1a1a'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>
