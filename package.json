@@ -17,7 +17,8 @@
     "airtable": "^0.12.2",
     "next": "^14.2.35",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.27",
