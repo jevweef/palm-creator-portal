@@ -13,11 +13,13 @@ export async function GET(request) {
 
   try {
     const imageExts = ['jpg','jpeg','png','gif','webp','heic','heif','bmp','tiff','tif']
-    const extFormula = `OR(${imageExts.map(e => `LOWER({File Extension})='${e}'`).join(',')})`
-    const baseFormula = `AND(NOT({Dropbox Shared Link}=''),${extFormula})`
+    const imageExtRegex = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i
+
+    // Fetch all assets for this creator with a Dropbox link — filter image types in memory
+    // (File Extension field is often unpopulated, so don't rely on it in the formula)
     const formula = forReel
-      ? `AND(${baseFormula},NOT({Used As Reel Thumbnail}))`
-      : baseFormula
+      ? `AND(NOT({Dropbox Shared Link}=''),NOT({Used As Reel Thumbnail}))`
+      : `NOT({Dropbox Shared Link}='')`
 
     const assets = await fetchAirtableRecords('Assets', {
       filterByFormula: formula,
@@ -26,9 +28,16 @@ export async function GET(request) {
       maxRecords: 500,
     })
 
-    // Filter in memory for this creator
+    const isImageAsset = (a) => {
+      const ext = (a.fields?.['File Extension'] || '').toLowerCase()
+      const link = a.fields?.['Dropbox Shared Link'] || ''
+      const type = (a.fields?.['Asset Type'] || '').toLowerCase()
+      return imageExts.includes(ext) || imageExtRegex.test(link) || type === 'photo' || type === 'image'
+    }
+
+    // Filter in memory for this creator + image type
     const photos = assets
-      .filter(a => (a.fields?.['Palm Creators'] || []).includes(creatorId))
+      .filter(a => (a.fields?.['Palm Creators'] || []).includes(creatorId) && isImageAsset(a))
       .map(a => ({
         id: a.id,
         name: a.fields['Asset Name'] || '',
