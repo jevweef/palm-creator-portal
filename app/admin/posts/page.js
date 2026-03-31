@@ -21,11 +21,10 @@ function isVideo(url) {
 }
 
 function TelegramModal({ post, onClose, onSent }) {
-  const [caption, setCaption] = useState(post.caption || '')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const editedFileLink = post.asset?.editedFileLink || ''
-  const fullCaption = [caption, post.hashtags].filter(Boolean).join('\n\n')
+  const fullCaption = [post.caption, post.hashtags].filter(Boolean).join('\n\n')
 
   const handleSend = async () => {
     setSending(true)
@@ -53,41 +52,41 @@ function TelegramModal({ post, onClose, onSent }) {
     }
   }
 
+  const fileName = editedFileLink.split('/').pop()?.split('?')[0] || editedFileLink
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#d4d4d8' }}>Send to Telegram</div>
-            <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>{post.creator?.name} · {post.name}</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#d4d4d8' }}>Send to Telegram?</div>
+            <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>{post.creator?.name}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
 
-        {editedFileLink ? (
-          <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '10px 14px' }}>
-            <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>File</div>
-            <a href={editedFileLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '12px', color: '#a78bfa', textDecoration: 'none', wordBreak: 'break-all' }}>
-              {editedFileLink}
-            </a>
-          </div>
-        ) : (
-          <div style={{ background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '8px', padding: '12px', fontSize: '12px', color: '#ef4444' }}>
+        {!editedFileLink && (
+          <div style={{ background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#ef4444' }}>
             No edited file link on this post.
           </div>
         )}
 
-        <div>
-          <div style={{ fontSize: '11px', color: '#52525b', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Caption + Hashtags <span style={{ color: '#3f3f46', fontWeight: 400, textTransform: 'none' }}>(will be sent together)</span>
-          </div>
-          <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="Add caption..."
-            rows={3} style={{ width: '100%', background: '#0d0d0d', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#d4d4d8', fontSize: '13px', padding: '10px 12px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: '6px' }} />
-          {post.hashtags && (
-            <div style={{ background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#a78bfa' }}>
-              {post.hashtags}
+        <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '8px', overflow: 'hidden' }}>
+          {editedFileLink && (
+            <div style={{ padding: '10px 14px', borderBottom: fullCaption ? '1px solid #1a1a1a' : 'none', display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <span style={{ fontSize: '16px' }}>🎬</span>
+              <span style={{ fontSize: '12px', color: '#a78bfa', wordBreak: 'break-all' }}>{fileName}</span>
+            </div>
+          )}
+          {fullCaption && (
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontSize: '12px', color: '#d4d4d8', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{fullCaption}</div>
+            </div>
+          )}
+          {!fullCaption && editedFileLink && (
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No caption or hashtags</div>
             </div>
           )}
         </div>
@@ -100,7 +99,7 @@ function TelegramModal({ post, onClose, onSent }) {
           </button>
           <button onClick={handleSend} disabled={sending || !editedFileLink}
             style={{ flex: 2, padding: '10px', background: sending || !editedFileLink ? '#0d1a0d' : '#0f2d0f', border: `1px solid ${sending || !editedFileLink ? '#1a3d1a' : '#1a5c1a'}`, color: sending || !editedFileLink ? '#2d5c2d' : '#22c55e', borderRadius: '8px', cursor: sending || !editedFileLink ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
-            {sending ? 'Sending...' : '✈ Send to Telegram'}
+            {sending ? 'Sending...' : '✈ Confirm & Send'}
           </button>
         </div>
       </div>
@@ -113,6 +112,7 @@ const REEL_PLATFORMS = ['Instagram Reel', 'TikTok', 'YouTube Shorts']
 function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [preview, setPreview] = useState(null) // photo being previewed
   const isReel = (platforms || []).some(p => REEL_PLATFORMS.includes(p))
 
   useEffect(() => {
@@ -122,6 +122,50 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
       .catch(() => setLoading(false))
   }, [creatorId, isReel])
 
+  const handleUse = async (photo) => {
+    if (isReel) {
+      await fetch('/api/admin/posts/photos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: photo.id }),
+      })
+    }
+    onSelect(photo.dropboxLink)
+  }
+
+  // Preview mode
+  if (preview) {
+    const rawUrl = rawDropboxUrl(preview.dropboxLink)
+    return (
+      <div onClick={e => e.target === e.currentTarget && onClose()}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <button onClick={() => setPreview(null)}
+              style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
+              ← Back
+            </button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          </div>
+          <div style={{ background: '#080808', aspectRatio: '4/3', overflow: 'hidden' }}>
+            <img src={rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+          </div>
+          <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
+            <button onClick={() => setPreview(null)}
+              style={{ flex: 1, padding: '10px', background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#71717a', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+              Choose different
+            </button>
+            <button onClick={() => handleUse(preview)}
+              style={{ flex: 2, padding: '10px', background: '#1a1a3e', border: '1px solid #4a4a9e', color: '#a78bfa', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+              Use this photo
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Grid mode
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -146,17 +190,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
             {photos.map(photo => {
               const rawUrl = rawDropboxUrl(photo.dropboxLink)
               return (
-                <div key={photo.id} onClick={async () => {
-                  if (isReel) {
-                    // Mark as used as reel thumbnail
-                    await fetch('/api/admin/posts/photos', {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ assetId: photo.id }),
-                    })
-                  }
-                  onSelect(photo.dropboxLink)
-                }}
+                <div key={photo.id} onClick={() => setPreview(photo)}
                   style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s' }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = '#a78bfa'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
