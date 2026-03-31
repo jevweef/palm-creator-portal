@@ -31,6 +31,15 @@ export async function GET(request) {
       return imageExts.includes(ext) || imageExtRegex.test(link) || type === 'photo' || type === 'image'
     }
 
+    // Debug: log first few assets to inspect structure
+    if (assets.length > 0) {
+      const sample = assets[0]
+      console.log('[Photos] total assets fetched:', assets.length)
+      console.log('[Photos] creatorId:', creatorId)
+      console.log('[Photos] sample Palm Creators field:', JSON.stringify(sample.fields?.['Palm Creators']))
+      console.log('[Photos] sample Asset Type field:', JSON.stringify(sample.fields?.['Asset Type']))
+    }
+
     // Filter in memory for this creator + image type + reel thumbnail flag
     const photos = assets
       .filter(a => {
