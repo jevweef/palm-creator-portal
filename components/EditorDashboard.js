@@ -649,7 +649,7 @@ function CreatorSection({ creator, onRefresh }) {
   const allDone = doneToday >= dailyQuota
 
   return (
-    <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', overflow: 'hidden', marginBottom: '16px' }}>
+    <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', overflow: 'hidden' }}>
       {/* Header */}
       <div style={{ padding: '18px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
@@ -923,13 +923,10 @@ export function EditorDashboardContent() {
           No creators assigned — toggle Social Media Editing on a creator to assign them.
         </div>
       ) : (
-        <div>
-          {creators.map(creator => {
-            const totalActive = creator.needsRevision.length + creator.queue.length + creator.inProgress.length
-            return (
-              <CreatorSection key={creator.id} creator={creator} onRefresh={fetchData} />
-            )
-          })}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'start' }}>
+          {creators.map(creator => (
+            <CreatorSection key={creator.id} creator={creator} onRefresh={fetchData} />
+          ))}
         </div>
       )}
     </div>
