@@ -104,50 +104,67 @@ function ReelsModal({ source, onClose }) {
         ) : reels?.length === 0 ? (
           <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '40px' }}>No reels scraped yet for this account.</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px' }}>
             {reels.map(reel => (
               <a
                 key={reel.id}
                 href={reel.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ textDecoration: 'none', display: 'block', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '12px', transition: 'border-color 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#a78bfa'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = '#222'}
+                style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', background: '#111', border: '1px solid #222', borderRadius: '12px', overflow: 'hidden', transition: 'border-color 0.15s, transform 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.transform = 'scale(1.01)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#222'; e.currentTarget.style.transform = 'scale(1)' }}
               >
-                {/* Top row: shortcode + grade */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '11px', color: '#555', fontFamily: 'monospace' }}>{shortcode(reel.url)}</span>
+                {/* Thumbnail area — 9:16 portrait */}
+                <div style={{ position: 'relative', aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
+                  {/* Placeholder icon */}
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#3f3f46" strokeWidth={1}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+
+                  {/* Grade badge */}
                   {reel.grade && (
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: GRADE_COLORS[reel.grade] || '#fff' }}>{reel.grade}</span>
+                    <div style={{
+                      position: 'absolute', top: '8px', right: '8px',
+                      background: GRADE_COLORS[reel.grade] || '#52525b',
+                      color: '#000', borderRadius: '6px',
+                      fontSize: '11px', fontWeight: 800,
+                      padding: '2px 6px', lineHeight: 1.5,
+                    }}>
+                      {reel.grade}
+                    </div>
+                  )}
+
+                  {/* Stats overlay at bottom */}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)', padding: '12px 10px 8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#fff' }}>
+                      {reel.views != null && (
+                        <span>{formatNum(reel.views)}</span>
+                      )}
+                      {reel.likes != null && (
+                        <span style={{ color: '#f87171' }}>♥ {formatNum(reel.likes)}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card body */}
+                <div style={{ padding: '10px', flex: 1 }}>
+                  {reel.caption ? (
+                    <div style={{ fontSize: '11px', color: '#a1a1aa', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4 }}>
+                      {reel.caption}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '10px', color: '#3f3f46', fontFamily: 'monospace' }}>{shortcode(reel.url)}</div>
+                  )}
+                  {reel.postedAt && (
+                    <div style={{ fontSize: '10px', color: '#52525b', marginTop: '6px' }}>
+                      {new Date(reel.postedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                    </div>
                   )}
                 </div>
-
-                {/* Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
-                  {[
-                    { label: 'Views', value: formatNum(reel.views) },
-                    { label: 'Likes', value: formatNum(reel.likes) },
-                    { label: 'Comments', value: formatNum(reel.comments) },
-                  ].map(({ label, value }) => (
-                    <div key={label}>
-                      <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{label}</div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#d4d4d8' }}>{value}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Footer: date + audio type */}
-                {(reel.postedAt || reel.audioType) && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #1a1a1a' }}>
-                    <span style={{ fontSize: '11px', color: '#555' }}>
-                      {reel.postedAt ? new Date(reel.postedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : ''}
-                    </span>
-                    {reel.audioType && (
-                      <span style={{ fontSize: '10px', color: '#555', background: '#1a1a1a', padding: '1px 6px', borderRadius: '3px' }}>{reel.audioType}</span>
-                    )}
-                  </div>
-                )}
               </a>
             ))}
           </div>
