@@ -99,7 +99,22 @@ export async function POST(request) {
       const filename = getFilename(editedFileLink)
       const mimeType = getMimeType(editedFileLink)
 
-      if (isVideo(editedFileLink)) {
+      if (isVideo(editedFileLink) && thumbnailUrl) {
+        // Send video + photo as a media group (shows side by side like native Telegram media)
+        const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
+        if (!thumbRes.ok) throw new Error('Failed to download thumbnail from Dropbox')
+        const thumbBuffer = await thumbRes.arrayBuffer()
+
+        const mediaGroup = [
+          { type: 'video', media: 'attach://video_file', supports_streaming: true, ...(caption ? { caption } : {}) },
+          { type: 'photo', media: 'attach://photo_file' },
+        ]
+        form.append('media', JSON.stringify(mediaGroup))
+        form.append('video_file', new Blob([fileBuffer], { type: mimeType }), filename)
+        form.append('photo_file', new Blob([thumbBuffer], { type: getMimeType(thumbnailUrl) }), getFilename(thumbnailUrl))
+        result = await telegramUpload('sendMediaGroup', form)
+      } else if (isVideo(editedFileLink)) {
+        // No thumbnail — send video only
         form.append('video', new Blob([fileBuffer], { type: mimeType }), filename)
         form.append('supports_streaming', 'true')
         try {
@@ -119,26 +134,6 @@ export async function POST(request) {
       } else {
         form.append('document', new Blob([fileBuffer], { type: mimeType }), filename)
         result = await telegramUpload('sendDocument', form)
-      }
-
-      // Send thumbnail as a separate photo message if provided
-      if (thumbnailUrl) {
-        try {
-          console.log('[Telegram Send] Sending thumbnail photo...')
-          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
-          if (thumbRes.ok) {
-            const thumbBuffer = await thumbRes.arrayBuffer()
-            const thumbForm = new FormData()
-            thumbForm.append('chat_id', String(chatId))
-            thumbForm.append('message_thread_id', String(threadId))
-            thumbForm.append('caption', 'IG Thumbnail')
-            thumbForm.append('photo', new Blob([thumbBuffer], { type: getMimeType(thumbnailUrl) }), getFilename(thumbnailUrl))
-            await telegramUpload('sendPhoto', thumbForm)
-            console.log('[Telegram Send] Thumbnail photo sent')
-          }
-        } catch (e) {
-          console.warn('[Telegram Send] Could not send thumbnail photo:', e.message)
-        }
       }
     }
 

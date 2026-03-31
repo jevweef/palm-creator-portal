@@ -24,12 +24,12 @@ function TelegramModal({ post, onClose, onSent }) {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const editedFileLink = post.asset?.editedFileLink || ''
-  const fullCaption = [post.caption, post.hashtags].filter(Boolean).join('\n\n')
-  const videoRawUrl = rawDropboxUrl(editedFileLink)
-  const thumbRawUrl = post.thumbnailUrl ? rawDropboxUrl(post.thumbnailUrl) : ''
   const scheduledDate = post.scheduledDate
     ? new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
     : null
+  const fullCaption = [post.caption, post.hashtags, scheduledDate ? `📅 ${scheduledDate}` : null].filter(Boolean).join('\n\n')
+  const videoRawUrl = rawDropboxUrl(editedFileLink)
+  const thumbRawUrl = post.thumbnailUrl ? rawDropboxUrl(post.thumbnailUrl) : ''
 
   const handleSend = async () => {
     setSending(true)
@@ -96,18 +96,12 @@ function TelegramModal({ post, onClose, onSent }) {
         {/* Caption / hashtags / date */}
         <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '8px', overflow: 'hidden' }}>
           {fullCaption ? (
-            <div style={{ padding: '10px 14px', borderBottom: scheduledDate ? '1px solid #1a1a1a' : 'none' }}>
+            <div style={{ padding: '10px 14px' }}>
               <div style={{ fontSize: '13px', color: '#d4d4d8', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fullCaption}</div>
             </div>
           ) : (
-            <div style={{ padding: '10px 14px', borderBottom: scheduledDate ? '1px solid #1a1a1a' : 'none' }}>
-              <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No caption or hashtags</div>
-            </div>
-          )}
-          {scheduledDate && (
-            <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', color: '#52525b' }}>📅</span>
-              <span style={{ fontSize: '12px', color: '#71717a' }}>Scheduled for {scheduledDate}</span>
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No caption, hashtags, or date set</div>
             </div>
           )}
         </div>
