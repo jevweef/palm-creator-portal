@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // extend Vercel function timeout for file uploads
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdmin, patchAirtableRecord, fetchAirtableRecords } from '@/lib/adminAuth'
 import ffmpegStatic from 'ffmpeg-static'
 import ffmpeg from 'fluent-ffmpeg'
 import { writeFile, readFile, unlink } from 'fs/promises'
@@ -30,6 +30,77 @@ async function remuxToMp4(inputBuffer, inputName) {
   await unlink(inputPath).catch(() => {})
   await unlink(outputPath).catch(() => {})
   return outputBuffer
+}
+
+async function getDropboxAccessToken() {
+  const res = await fetch('https://api.dropbox.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
+      client_id: process.env.DROPBOX_APP_KEY,
+      client_secret: process.env.DROPBOX_APP_SECRET,
+    }),
+  })
+  if (!res.ok) throw new Error(`Dropbox token refresh failed: ${await res.text()}`)
+  const { access_token } = await res.json()
+  return access_token
+}
+
+// Move file to next pipeline stage and update Airtable asset record
+async function moveToNextStage(assetId, targetFolder) {
+  const records = await fetchAirtableRecords('Assets', {
+    filterByFormula: `RECORD_ID()='${assetId}'`,
+    fields: ['Dropbox Path (Current)', 'Edited File Link'],
+  })
+  const asset = records[0]
+  if (!asset) { console.warn('[Dropbox Move] Asset not found:', assetId); return }
+
+  // Path may be newline-joined if multiple files — take the first
+  const rawPath = asset.fields?.['Dropbox Path (Current)']
+  const currentPath = (rawPath || '').split('\n')[0].trim()
+  if (!currentPath) { console.warn('[Dropbox Move] No Dropbox Path (Current) on asset'); return }
+
+  // Replace the numbered stage folder (e.g. 30_EDITED_EXPORTS) with the target
+  const newPath = currentPath.replace(/\/\d+_[^/]+\//i, `/${targetFolder}/`)
+  if (newPath === currentPath) { console.warn('[Dropbox Move] Path did not change — folder pattern not matched:', currentPath); return }
+
+  console.log(`[Dropbox Move] ${currentPath} → ${newPath}`)
+  const token = await getDropboxAccessToken()
+
+  // Move the file
+  const moveRes = await fetch('https://api.dropboxapi.com/2/files/move_v2', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from_path: currentPath, to_path: newPath, autorename: false }),
+  })
+  if (!moveRes.ok) throw new Error(`Dropbox move failed: ${await moveRes.text()}`)
+
+  // Get new shared link
+  let sharedUrl
+  const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: newPath, settings: { requested_visibility: 'public' } }),
+  })
+  if (linkRes.ok) {
+    sharedUrl = (await linkRes.json()).url?.replace('dl=0', 'raw=1')
+  } else {
+    const existRes = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: newPath }),
+    })
+    sharedUrl = (await existRes.json()).links?.[0]?.url?.replace('dl=0', 'raw=1')
+  }
+
+  // Update asset record
+  await patchAirtableRecord('Assets', assetId, {
+    'Dropbox Path (Current)': newPath,
+    ...(sharedUrl ? { 'Edited File Link': sharedUrl } : {}),
+  })
+  console.log(`[Dropbox Move] Done — new link: ${sharedUrl?.slice(0, 60)}`)
 }
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
@@ -86,7 +157,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl } = await request.json()
+    const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId } = await request.json()
 
     if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
     if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
@@ -189,6 +260,13 @@ export async function POST(request) {
         'Telegram Sent At': new Date().toISOString(),
         ...(messageId ? { 'Telegram Message ID': String(messageId) } : {}),
       }).catch(err => console.error('[Telegram Send] Failed to update Post record:', err.message))
+    }
+
+    // Move file to 40_READY_TO_POST in Dropbox
+    if (assetId) {
+      moveToNextStage(assetId, '40_READY_TO_POST').catch(err =>
+        console.error('[Telegram Send] Dropbox move failed (non-fatal):', err.message)
+      )
     }
 
     return NextResponse.json({ ok: true, messageId })

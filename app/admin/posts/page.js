@@ -45,6 +45,7 @@ function TelegramModal({ post, onClose, onSent }) {
           taskName: post.name,
           postId: post.id,
           thumbnailUrl: post.thumbnailUrl || undefined,
+          assetId: post.asset?.id || undefined,
         }),
       })
       const data = await res.json()
