@@ -100,7 +100,7 @@ function EmptyState({ tab }) {
   )
 }
 
-export default function MyContentPage() {
+export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
   const { user } = useUser()
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'saved')
@@ -109,8 +109,8 @@ export default function MyContentPage() {
   const [modalIndex, setModalIndex] = useState(null) // index into data.saved for InspoModal
   const [uploadRecord, setUploadRecord] = useState(null) // inspo record for upload modal
 
-  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK' // Default: Grace Collins
-  const creatorHqId = user?.publicMetadata?.airtableHqId || 'recYyxrPm6BWd3FSB' // Default: Grace Collins
+  const creatorOpsId = opsIdOverride || user?.publicMetadata?.airtableOpsId || null
+  const creatorHqId = hqIdOverride || user?.publicMetadata?.airtableHqId || null
 
   const fetchData = useCallback(async () => {
     try {
