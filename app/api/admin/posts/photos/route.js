@@ -24,26 +24,22 @@ export async function GET(request) {
       sort: [{ field: 'Created Time', direction: 'desc' }],
     })
 
+    // Airtable REST API may return linked records as string IDs OR as {id, name} objects
+    const getLinkedIds = (val) => (val || []).map(c => typeof c === 'string' ? c : c?.id).filter(Boolean)
+    // Single select may return a string OR {id, name, color} object
+    const getSelectName = (val) => (typeof val === 'string' ? val : val?.name || '').toLowerCase()
+
     const isImageAsset = (a) => {
       const ext = (a.fields?.['File Extension'] || '').toLowerCase()
       const link = a.fields?.['Dropbox Shared Link'] || ''
-      const type = (a.fields?.['Asset Type'] || '').toLowerCase()
+      const type = getSelectName(a.fields?.['Asset Type'])
       return imageExts.includes(ext) || imageExtRegex.test(link) || type === 'photo' || type === 'image'
-    }
-
-    // Debug: log first few assets to inspect structure
-    if (assets.length > 0) {
-      const sample = assets[0]
-      console.log('[Photos] total assets fetched:', assets.length)
-      console.log('[Photos] creatorId:', creatorId)
-      console.log('[Photos] sample Palm Creators field:', JSON.stringify(sample.fields?.['Palm Creators']))
-      console.log('[Photos] sample Asset Type field:', JSON.stringify(sample.fields?.['Asset Type']))
     }
 
     // Filter in memory for this creator + image type + reel thumbnail flag
     const photos = assets
       .filter(a => {
-        if (!(a.fields?.['Palm Creators'] || []).includes(creatorId)) return false
+        if (!getLinkedIds(a.fields?.['Palm Creators']).includes(creatorId)) return false
         if (!isImageAsset(a)) return false
         if (forReel && a.fields?.['Used As Reel Thumbnail']) return false
         return true
