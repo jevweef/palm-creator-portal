@@ -1,7 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { EditorDashboardContent } from '@/components/EditorDashboard'
+import { EditorDashboardContent, getSlotLabel } from '@/components/EditorDashboard'
+
+function formatSlot(isoDate) {
+  const label = getSlotLabel(isoDate)
+  const d = new Date(isoDate)
+  const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York' })
+  return `${label} · ${dateStr}`
+}
 
 const STATUS_COLORS = {
   'To Do': { bg: '#332b00', text: '#f59e0b', border: '#5c4b00' },
@@ -855,9 +862,11 @@ function ForReview({ showToast }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, action: 'approve' }),
       })
-      if (!res.ok) throw new Error((await res.json()).error || 'Approve failed')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Approve failed')
       setTasks(prev => prev.filter(t => t.id !== taskId))
-      showToast('Approved — Telegram send coming soon')
+      const slotLabel = data.scheduledDate ? formatSlot(data.scheduledDate) : null
+      showToast(slotLabel ? `Approved — ${slotLabel}` : 'Approved')
     } catch (err) {
       showToast(err.message, true)
     } finally {

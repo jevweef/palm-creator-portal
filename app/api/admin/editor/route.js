@@ -230,7 +230,7 @@ export async function PATCH(request) {
         // Don't fail the approval if post creation fails
       }
 
-      return NextResponse.json({ ok: true, action: 'approve' })
+      return NextResponse.json({ ok: true, action: 'approve', scheduledDate: scheduledDate?.toISOString() || null })
     }
 
     // ── Admin: Request Revision ─────────────────────────────────────────────────
