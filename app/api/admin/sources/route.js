@@ -4,7 +4,7 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchCreateRec
 const SOURCE_FIELDS = [
   'Handle', 'Platform', 'Enabled', 'Pipeline Status', 'Last Scraped At',
   'Reels Scraped', 'Too New Skipped', 'Source Reels Added', 'Follower Count',
-  'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Age Restricted',
+  'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Age Restricted', 'Added By',
 ]
 
 export async function GET() {
@@ -31,6 +31,7 @@ export async function GET() {
       palmCreators: r.fields?.['Palm Creators'] || [],
       notes: r.fields?.Notes || '',
       ageRestricted: !!r.fields?.['Age Restricted'],
+      addedBy: r.fields?.['Added By'] || '',
     }))
 
     // Sort: enabled first, then by handle
@@ -49,7 +50,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    await requireAdmin()
+    const user = await requireAdmin()
 
     const body = await request.json()
     const { handle, platform, lookbackDays, apifyLimit, palmCreators } = body
@@ -58,11 +59,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Handle is required' }, { status: 400 })
     }
 
+    const addedBy = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.emailAddresses?.[0]?.emailAddress || ''
+
     const fields = {
       Handle: handle.trim().toLowerCase(),
       Platform: platform || 'Instagram',
       Enabled: true,
       'Lookback Days': lookbackDays || 180,
+      'Added By': addedBy,
     }
     if (apifyLimit) fields['Apify Limit'] = apifyLimit
     if (palmCreators?.length) fields['Palm Creators'] = palmCreators

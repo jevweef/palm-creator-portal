@@ -410,11 +410,16 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
   )
 }
 
-function AddSourceModal({ onClose, onAdd }) {
+function AddSourceModal({ onClose, onAdd, allCreators }) {
   const [handle, setHandle] = useState('')
   const [lookbackDays, setLookbackDays] = useState(180)
   const [apifyLimit, setApifyLimit] = useState('')
+  const [selectedCreators, setSelectedCreators] = useState([])
   const [saving, setSaving] = useState(false)
+
+  const toggleCreator = (id) => setSelectedCreators(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+  )
 
   const submit = async (e) => {
     e.preventDefault()
@@ -428,6 +433,7 @@ function AddSourceModal({ onClose, onAdd }) {
           handle: handle.trim(),
           lookbackDays,
           apifyLimit: apifyLimit ? parseInt(apifyLimit) : null,
+          palmCreators: selectedCreators,
         }),
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
@@ -460,6 +466,32 @@ function AddSourceModal({ onClose, onAdd }) {
         <input type="number" value={lookbackDays} onChange={e => setLookbackDays(parseInt(e.target.value) || 180)} style={inputStyle} />
         <label style={labelStyle}>Apify Limit (optional)</label>
         <input type="number" value={apifyLimit} onChange={e => setApifyLimit(e.target.value)} placeholder="No limit" style={inputStyle} />
+        {allCreators?.length > 0 && (
+          <>
+            <label style={labelStyle}>For Creator (optional)</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+              {allCreators.map(c => {
+                const selected = selectedCreators.includes(c.id)
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCreator(c.id)}
+                    style={{
+                      padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                      borderRadius: '20px', cursor: 'pointer', border: 'none',
+                      background: selected ? '#1e1b4b' : '#1c1c1c',
+                      color: selected ? '#a78bfa' : '#52525b',
+                      outline: selected ? '1px solid #4c1d95' : '1px solid #27272a',
+                    }}
+                  >
+                    {c.aka || c.name}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
           <button type="submit" disabled={saving} style={{ ...btnStyle, background: '#a78bfa', opacity: saving ? 0.6 : 1 }}>
@@ -673,6 +705,9 @@ export default function AdminSources() {
               {source.ageRestricted && (
                 <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#ef4444', background: '#2d1515', border: '1px solid #5c2020', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
               )}
+              {source.addedBy && (
+                <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 500, color: '#52525b', verticalAlign: 'middle' }}>by {source.addedBy}</span>
+              )}
             </div>
 
             {/* Followers */}
@@ -774,7 +809,7 @@ export default function AdminSources() {
         )}
       </div>
 
-      {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} />}
+      {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} allCreators={allCreators} />}
       {reelsSource && <ReelsModal source={reelsSource} sources={sources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} />}
       {enableSource && <EnableModal source={enableSource} onClose={() => setEnableSource(null)} onConfirm={handleEnableConfirm} onAddToBatch={handleAddToBatch} batchCount={batch.length} />}
       {rescrapeSource && (
