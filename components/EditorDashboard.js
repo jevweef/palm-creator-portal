@@ -550,7 +550,7 @@ function VideoSlot({ number, slot, creator, onAction, updating, onRefresh }) {
   }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
 
   return (
-    <div style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', minHeight: '140px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', height: '175px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#111', border: `1.5px solid ${typeStyle.dotColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, color: typeStyle.dotColor, flexShrink: 0 }}>
           {number}
