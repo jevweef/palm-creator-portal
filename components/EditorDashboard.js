@@ -534,15 +534,9 @@ function InspoClipSlot({ clip, creator, onRefresh }) {
   )
 }
 
-function EmptySlot({ creator }) {
+function EmptySlot() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <div style={{ fontSize: '13px', color: '#3f3f46' }}>No clip assigned yet</div>
-      <Link href={`/editor/${creator.id}`}
-        style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: '#0d0d0d', color: '#71717a', border: '1px solid #2a2a2a', borderRadius: '7px', textDecoration: 'none', display: 'inline-block' }}>
-        Browse library →
-      </Link>
-    </div>
+    <div style={{ fontSize: '13px', color: '#3f3f46' }}>No clip assigned yet</div>
   )
 }
 
@@ -572,7 +566,7 @@ function VideoSlot({ number, slot, creator, onAction, updating, onRefresh }) {
       {slot.type === 'inProgress' && <ActiveTaskSlot task={slot.task} type="inProgress" creator={creator} onAction={onAction} updating={updating === slot.task?.id} />}
       {slot.type === 'toDo' && <ActiveTaskSlot task={slot.task} type="toDo" creator={creator} onAction={onAction} updating={updating === slot.task?.id} />}
       {slot.type === 'inspoClip' && <InspoClipSlot clip={slot.clip} creator={creator} onRefresh={onRefresh} />}
-      {slot.type === 'empty' && <EmptySlot creator={creator} />}
+      {slot.type === 'empty' && <EmptySlot />}
     </div>
   )
 }
@@ -583,6 +577,7 @@ function CreatorSection({ creator, onRefresh }) {
   const [updating, setUpdating] = useState(null)
   const [submitModal, setSubmitModal] = useState(null)
   const [toast, setToast] = useState(null)
+  const [showDetails, setShowDetails] = useState(false)
 
   const showToast = (msg, error = false) => {
     setToast({ msg, error })
@@ -667,6 +662,11 @@ function CreatorSection({ creator, onRefresh }) {
               {creator.inReview.length} in review
             </span>
           )}
+          <button
+            onClick={() => setShowDetails(p => !p)}
+            style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: showDetails ? '#1a1a2e' : 'transparent', color: showDetails ? '#a78bfa' : '#52525b', border: `1px solid ${showDetails ? '#a78bfa40' : '#2a2a2a'}`, cursor: 'pointer' }}>
+            {showDetails ? 'Hide details ▴' : 'Details ▾'}
+          </button>
           {allDone && (
             <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a' }}>
               ✓ Today done
@@ -744,6 +744,73 @@ function CreatorSection({ creator, onRefresh }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Details panel — library, inspo clips, done this week */}
+      {showDetails && (
+        <div style={{ borderTop: '1px solid #1a1a1a', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          {/* Inspo Clips — creator uploads tied to inspo */}
+          {(creator.inspoClips || []).length > 0 && (
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+                Creator Clips Uploaded ({creator.inspoClips.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {creator.inspoClips.map(clip => (
+                  <div key={clip.id} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#0d0900', border: '1px solid #2a2000', borderRadius: '8px', padding: '10px 12px' }}>
+                    {(clip.thumbnail || clip.inspo?.thumbnail) && (
+                      <img src={clip.thumbnail || clip.inspo?.thumbnail} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{clip.inspo?.title || clip.name}</div>
+                      {clip.inspo?.username && <div style={{ fontSize: '11px', color: '#52525b' }}>@{clip.inspo.username}</div>}
+                    </div>
+                    {clip.dropboxLink && (
+                      <a href={clip.dropboxLink} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '2px 8px', background: '#0a1a0a', borderRadius: '4px', border: '1px solid #1a4a1a', flexShrink: 0 }}>
+                        Clip ↗
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Unreviewed Library */}
+          {(creator.library || []).length > 0 && (
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+                Unreviewed Library ({creator.library.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {creator.library.map(asset => (
+                  <div key={asset.id} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#0d0d1a', border: '1px solid #1a1a3d', borderRadius: '8px', padding: '10px 12px' }}>
+                    {asset.thumbnail && (
+                      <img src={asset.thumbnail} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</div>
+                      {asset.sourceType && <div style={{ fontSize: '11px', color: '#52525b' }}>{asset.sourceType}</div>}
+                    </div>
+                    {asset.dropboxLink && (
+                      <a href={asset.dropboxLink} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '2px 8px', background: '#0d0a2e', borderRadius: '4px', border: '1px solid #2a1a5e', flexShrink: 0 }}>
+                        View ↗
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Done this week */}
+          {(creator.doneTodayList || []).length === 0 && (creator.inspoClips || []).length === 0 && (creator.library || []).length === 0 && (
+            <div style={{ fontSize: '13px', color: '#3f3f46', textAlign: 'center', padding: '12px 0' }}>No additional details yet.</div>
+          )}
         </div>
       )}
 
