@@ -108,16 +108,19 @@ function TelegramModal({ post, onClose, onSent }) {
   )
 }
 
-function PhotoPickerModal({ creatorId, onSelect, onClose }) {
+const REEL_PLATFORMS = ['Instagram Reel', 'TikTok', 'YouTube Shorts']
+
+function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
+  const isReel = (platforms || []).some(p => REEL_PLATFORMS.includes(p))
 
   useEffect(() => {
-    fetch(`/api/admin/posts/photos?creatorId=${creatorId}`)
+    fetch(`/api/admin/posts/photos?creatorId=${creatorId}&forReel=${isReel}`)
       .then(r => r.json())
       .then(d => { setPhotos(d.photos || []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [creatorId])
+  }, [creatorId, isReel])
 
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
@@ -128,16 +131,33 @@ function PhotoPickerModal({ creatorId, onSelect, onClose }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+          {isReel && (
+            <div style={{ fontSize: '11px', color: '#52525b', marginBottom: '12px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', padding: '6px 10px' }}>
+              Showing unused photos only — photos already used as reel thumbnails are hidden.
+            </div>
+          )}
           {loading && <div style={{ color: '#3f3f46', textAlign: 'center', padding: '40px' }}>Loading photos...</div>}
           {!loading && photos.length === 0 && (
-            <div style={{ color: '#3f3f46', textAlign: 'center', padding: '40px', fontSize: '13px' }}>No photos in library for this creator.</div>
+            <div style={{ color: '#3f3f46', textAlign: 'center', padding: '40px', fontSize: '13px' }}>
+              {isReel ? 'No unused photos left — all have been used as reel thumbnails.' : 'No photos in library for this creator.'}
+            </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
             {photos.map(photo => {
               const rawUrl = rawDropboxUrl(photo.dropboxLink)
               return (
-                <div key={photo.id} onClick={() => onSelect(photo.dropboxLink)}
-                  style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s', position: 'relative' }}
+                <div key={photo.id} onClick={async () => {
+                  if (isReel) {
+                    // Mark as used as reel thumbnail
+                    await fetch('/api/admin/posts/photos', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ assetId: photo.id }),
+                    })
+                  }
+                  onSelect(photo.dropboxLink)
+                }}
+                  style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s' }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = '#a78bfa'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
                   <img src={rawUrl} alt={photo.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -282,6 +302,7 @@ function PostCard({ post, onRefresh, onSend }) {
         {showPhotoPicker && (
           <PhotoPickerModal
             creatorId={post.creator?.id}
+            platforms={platforms}
             onSelect={async (url) => {
               setThumbnailUrl(url)
               setShowPhotoPicker(false)

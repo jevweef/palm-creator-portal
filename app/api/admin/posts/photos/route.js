@@ -1,19 +1,24 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 
 export async function GET(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   const { searchParams } = new URL(request.url)
   const creatorId = searchParams.get('creatorId')
+  const forReel = searchParams.get('forReel') === 'true'
   if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
 
   try {
+    const formula = forReel
+      ? `AND({Asset Type}='Photo',NOT({Dropbox Shared Link}=''),NOT({Used As Reel Thumbnail}))`
+      : `AND({Asset Type}='Photo',NOT({Dropbox Shared Link}=''))`
+
     const assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: `AND({Asset Type}='Photo',NOT({Dropbox Shared Link}=''))`,
-      fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status'],
+      filterByFormula: formula,
+      fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status', 'Used As Reel Thumbnail'],
       sort: [{ field: 'Created Time', direction: 'desc' }],
       maxRecords: 200,
     })
@@ -31,6 +36,19 @@ export async function GET(request) {
     return NextResponse.json({ photos })
   } catch (err) {
     console.error('[Photos] GET error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// PATCH — mark an asset as used as reel thumbnail
+export async function PATCH(request) {
+  try { await requireAdmin() } catch (e) { return e }
+  try {
+    const { assetId } = await request.json()
+    if (!assetId) return NextResponse.json({ error: 'assetId required' }, { status: 400 })
+    await patchAirtableRecord('Assets', assetId, { 'Used As Reel Thumbnail': true })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
