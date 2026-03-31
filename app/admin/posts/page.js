@@ -108,6 +108,49 @@ function TelegramModal({ post, onClose, onSent }) {
   )
 }
 
+function PhotoPickerModal({ creatorId, onSelect, onClose }) {
+  const [photos, setPhotos] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/admin/posts/photos?creatorId=${creatorId}`)
+      .then(r => r.json())
+      .then(d => { setPhotos(d.photos || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [creatorId])
+
+  return (
+    <div onClick={e => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', width: '100%', maxWidth: '640px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#d4d4d8' }}>Choose Thumbnail</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+        </div>
+        <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+          {loading && <div style={{ color: '#3f3f46', textAlign: 'center', padding: '40px' }}>Loading photos...</div>}
+          {!loading && photos.length === 0 && (
+            <div style={{ color: '#3f3f46', textAlign: 'center', padding: '40px', fontSize: '13px' }}>No photos in library for this creator.</div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
+            {photos.map(photo => {
+              const rawUrl = rawDropboxUrl(photo.dropboxLink)
+              return (
+                <div key={photo.id} onClick={() => onSelect(photo.dropboxLink)}
+                  style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s', position: 'relative' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = '#a78bfa'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+                  <img src={rawUrl} alt={photo.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PostCard({ post, onRefresh, onSend }) {
   const [editing, setEditing] = useState(false)
   const [caption, setCaption] = useState(post.caption)
@@ -117,7 +160,7 @@ function PostCard({ post, onRefresh, onSend }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
-  const [uploading, setUploading] = useState(false)
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false)
 
   const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || '')
   const hasFile = !!post.asset?.editedFileLink
@@ -223,37 +266,34 @@ function PostCard({ post, onRefresh, onSend }) {
         {/* Thumbnail */}
         <div>
           <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-            {thumbnailUrl && (
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {thumbnailUrl ? (
               <img src={rawDropboxUrl(thumbnailUrl)} alt="thumbnail"
-                style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #2a2a2a', flexShrink: 0 }} />
-            )}
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', padding: '6px 10px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', fontSize: '11px', color: '#71717a', cursor: 'pointer', textAlign: 'center' }}>
-                {uploading ? 'Uploading...' : thumbnailUrl ? 'Replace thumbnail' : '+ Upload thumbnail'}
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async e => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  setUploading(true)
-                  try {
-                    const form = new FormData()
-                    form.append('file', file)
-                    form.append('postId', post.id)
-                    const res = await fetch('/api/admin/posts/thumbnail', { method: 'POST', body: form })
-                    const data = await res.json()
-                    if (!res.ok) throw new Error(data.error)
-                    setThumbnailUrl(data.url)
-                    setEditing(false)
-                  } catch (err) {
-                    console.error('Thumbnail upload failed:', err)
-                  } finally {
-                    setUploading(false)
-                  }
-                }} />
-              </label>
-            </div>
+                style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #2a2a2a', flexShrink: 0, cursor: 'pointer' }}
+                onClick={() => setShowPhotoPicker(true)} />
+            ) : null}
+            <button onClick={() => setShowPhotoPicker(true)}
+              style={{ flex: 1, padding: '6px 10px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', fontSize: '11px', color: '#71717a', cursor: 'pointer', textAlign: 'center' }}>
+              {thumbnailUrl ? 'Change thumbnail' : '+ Choose from library'}
+            </button>
           </div>
         </div>
+
+        {showPhotoPicker && (
+          <PhotoPickerModal
+            creatorId={post.creator?.id}
+            onSelect={async (url) => {
+              setThumbnailUrl(url)
+              setShowPhotoPicker(false)
+              await fetch('/api/admin/posts', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId: post.id, fields: { 'Thumbnail': [{ url }] } }),
+              })
+            }}
+            onClose={() => setShowPhotoPicker(false)}
+          />
+        )}
 
         {/* Scheduled Date */}
         <div>
