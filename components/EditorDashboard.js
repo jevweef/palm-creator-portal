@@ -381,6 +381,83 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
   )
 }
 
+// ─── Library Picker Modal (for empty slots) ────────────────────────────────────
+
+function LibraryPickerModal({ creator, onClose, onRefresh }) {
+  const [assets, setAssets] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [assigning, setAssigning] = useState(null)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    fetch(`/api/editor/creator/${creator.id}`)
+      .then(r => r.json())
+      .then(d => { setAssets(d.library || []); setLoading(false) })
+      .catch(() => { setErr('Failed to load library'); setLoading(false) })
+  }, [creator.id])
+
+  const handleAssign = async (asset) => {
+    setAssigning(asset.id)
+    setErr('')
+    try {
+      const res = await fetch('/api/editor/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: asset.id, creatorId: creator.id }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      onRefresh()
+      onClose()
+    } catch (e) {
+      setErr(e.message)
+      setAssigning(null)
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', width: '100%', maxWidth: '520px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', margin: '0 16px', overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Assign from Library</div>
+            <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>{creator.name} · unreviewed clips</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ overflowY: 'auto', padding: '16px 24px', flex: 1 }}>
+          {loading && <div style={{ color: '#52525b', fontSize: '13px', textAlign: 'center', padding: '32px 0' }}>Loading library…</div>}
+          {err && <div style={{ color: '#ef4444', fontSize: '13px' }}>{err}</div>}
+          {!loading && !err && assets?.length === 0 && (
+            <div style={{ color: '#3f3f46', fontSize: '13px', textAlign: 'center', padding: '32px 0' }}>No unreviewed clips in library.</div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {assets?.map(asset => (
+              <div key={asset.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '12px 14px' }}>
+                {asset.thumbnail && (
+                  <img src={asset.thumbnail} alt="" style={{ width: '48px', height: '48px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name || 'Untitled'}</div>
+                  {asset.uploadWeek && <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>Week of {asset.uploadWeek}</div>}
+                  {asset.dropboxLink && (
+                    <a href={asset.dropboxLink} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                      style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none' }}>View clip ↗</a>
+                  )}
+                </div>
+                <button onClick={() => handleAssign(asset)} disabled={!!assigning}
+                  style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '6px', cursor: assigning ? 'not-allowed' : 'pointer', opacity: assigning ? 0.6 : 1, flexShrink: 0 }}>
+                  {assigning === asset.id ? 'Assigning…' : 'Assign'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Task Detail Modal ─────────────────────────────────────────────────────────
 
 function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, onClose }) {
@@ -391,6 +468,8 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const [startErr, setStartErr] = useState('')
 
   const inspo = task?.inspo || clip?.inspo || {}
+  const assetThumb = task?.asset?.thumbnail || clip?.thumbnail || ''
+  const inspoThumb = inspo.thumbnail || ''
   const links = task?.asset?.dropboxLinks?.length
     ? task.asset.dropboxLinks
     : task?.asset?.dropboxLink ? [task.asset.dropboxLink]
@@ -411,51 +490,69 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
   const title = inspo.title || task?.name || clip?.inspo?.title || 'Edit task'
   const username = inspo.username || ''
+  const hasMedia = assetThumb || inspoThumb
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', width: '100%', maxWidth: '560px', maxHeight: '85vh', overflow: 'auto', padding: '28px', position: 'relative', margin: '0 16px' }}>
+      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', width: '100%', maxWidth: '600px', maxHeight: '85vh', overflow: 'auto', padding: '28px', position: 'relative', margin: '0 16px' }}>
         {/* Close */}
         <button onClick={onClose} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#52525b', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
 
-        {/* Header */}
-        <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '20px' }}>
-          {(inspo.thumbnail) && (
-            <img src={inspo.thumbnail} alt="" style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
-          )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>{title}</div>
-            {username && <div style={{ fontSize: '13px', color: '#52525b', marginBottom: '6px' }}>@{username}</div>}
+        {/* Title row */}
+        <div style={{ marginBottom: '20px', paddingRight: '24px' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>{title}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {username && <span style={{ fontSize: '13px', color: '#52525b' }}>@{username}</span>}
             {slot.type === 'done' && (
               <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: '#0a2e0a', border: '1px solid #1a4a1a', borderRadius: '4px', padding: '2px 8px' }}>Submitted · In Review</span>
             )}
           </div>
         </div>
 
+        {/* Side-by-side media */}
+        {hasMedia && (
+          <div style={{ display: 'grid', gridTemplateColumns: assetThumb && inspoThumb ? '1fr 1fr' : '1fr', gap: '10px', marginBottom: '20px' }}>
+            {assetThumb && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                  {isClip ? 'Creator Upload' : 'Creator Clip'}
+                </div>
+                <a href={links[0] || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', borderRadius: '10px', overflow: 'hidden', position: 'relative', aspectRatio: '9/16', maxHeight: '220px', background: '#0a0a0a' }}>
+                  <img src={assetThumb} alt="Creator clip" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {links[0] && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', color: '#22c55e', fontWeight: 600 }}>Open ↗</div>}
+                </a>
+              </div>
+            )}
+            {inspoThumb && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Inspo</div>
+                <a href={inspo.contentLink || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', borderRadius: '10px', overflow: 'hidden', position: 'relative', aspectRatio: '9/16', maxHeight: '220px', background: '#0a0a0a' }}>
+                  <img src={inspoThumb} alt="Inspo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {inspo.contentLink && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', color: '#a78bfa', fontWeight: 600 }}>Open ↗</div>}
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Link buttons for multiple clips */}
+        {links.length > 1 && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            {links.map((link, i) => (
+              <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: '12px', fontWeight: 600, color: '#22c55e', textDecoration: 'none', padding: '6px 14px', background: '#0a1a0a', borderRadius: '6px', border: '1px solid #1a4a1a' }}>
+                Clip {i + 1} ↗
+              </a>
+            ))}
+          </div>
+        )}
+
         {/* Admin feedback (revision) */}
         {task?.adminFeedback && (
           <div style={{ background: '#1a0a0a', border: '1px solid #5c2020', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
             <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Admin Feedback</div>
             <div style={{ fontSize: '13px', color: '#fca5a5', lineHeight: 1.5 }}>{task.adminFeedback}</div>
-          </div>
-        )}
-
-        {/* Links */}
-        {(links.length > 0 || inspo.contentLink) && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-            {links.map((link, i) => (
-              <a key={i} href={link} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: '12px', fontWeight: 600, color: '#22c55e', textDecoration: 'none', padding: '6px 14px', background: '#0a1a0a', borderRadius: '6px', border: '1px solid #1a4a1a' }}>
-                {links.length > 1 ? `Creator clip ${i + 1} ↗` : 'Creator clip ↗'}
-              </a>
-            ))}
-            {inspo.contentLink && (
-              <a href={inspo.contentLink} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: '12px', fontWeight: 600, color: '#a78bfa', textDecoration: 'none', padding: '6px 14px', background: '#0d0a2e', borderRadius: '6px', border: '1px solid #2a1a5e' }}>
-                View inspo ↗
-              </a>
-            )}
           </div>
         )}
 
@@ -527,7 +624,7 @@ function SlotContent({ slot }) {
   const username = inspo.username || ''
 
   if (slot.type === 'empty') {
-    return <div style={{ fontSize: '12px', color: '#2a2a2a' }}>No clip assigned yet</div>
+    return <div style={{ fontSize: '12px', color: '#2a2a2a' }}>+ Assign from library</div>
   }
 
   return (
@@ -556,14 +653,14 @@ function VideoSlot({ number, slot, creator, onAction, updating, onRefresh, onSlo
     empty:      { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: 'Open slot' },
   }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
 
-  const clickable = slot.type !== 'empty'
+  const isEmpty = slot.type === 'empty'
 
   return (
     <div
-      onClick={clickable ? () => onSlotClick(slot) : undefined}
-      style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', height: '100px', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: clickable ? 'pointer' : 'default', transition: 'border-color 0.15s' }}
-      onMouseEnter={e => { if (clickable) e.currentTarget.style.borderColor = typeStyle.dotColor }}
-      onMouseLeave={e => { if (clickable) e.currentTarget.style.borderColor = typeStyle.borderColor }}
+      onClick={() => onSlotClick(slot)}
+      style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', height: '100px', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'border-color 0.15s' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = isEmpty ? '#2a2a2a' : typeStyle.dotColor }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = typeStyle.borderColor }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#111', border: `1.5px solid ${typeStyle.dotColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, color: typeStyle.dotColor, flexShrink: 0 }}>
@@ -587,6 +684,7 @@ function CreatorSection({ creator, onRefresh }) {
   const [updating, setUpdating] = useState(null)
   const [submitModal, setSubmitModal] = useState(null)
   const [taskModal, setTaskModal] = useState(null)
+  const [libraryModal, setLibraryModal] = useState(false)
   const [toast, setToast] = useState(null)
 
   const showToast = (msg, error = false) => {
@@ -739,7 +837,7 @@ function CreatorSection({ creator, onRefresh }) {
               onAction={handleAction}
               updating={updating}
               onRefresh={onRefresh}
-              onSlotClick={setTaskModal}
+              onSlotClick={slot => slot.type === 'empty' ? setLibraryModal(true) : setTaskModal(slot)}
             />
           ))}
         </div>
@@ -753,6 +851,14 @@ function CreatorSection({ creator, onRefresh }) {
           onInspoClipStart={handleInspoClipStart}
           updating={updating}
           onClose={() => setTaskModal(null)}
+        />
+      )}
+
+      {libraryModal && (
+        <LibraryPickerModal
+          creator={creator}
+          onClose={() => setLibraryModal(false)}
+          onRefresh={onRefresh}
         />
       )}
 
