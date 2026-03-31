@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 
 // ─── Slot label helper ─────────────────────────────────────────────────────────
@@ -862,6 +863,11 @@ function BufferOverview({ creators }) {
 // ─── Main exported component ───────────────────────────────────────────────────
 
 export function EditorDashboardContent() {
+  const { user } = useUser()
+  const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'there'
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -899,10 +905,13 @@ export function EditorDashboardContent() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+        <div>
+          <span style={{ fontSize: '13px', color: '#52525b' }}>{greeting}, </span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#a1a1aa' }}>{firstName}</span>
+        </div>
         <button onClick={fetchData}
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#111', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer' }}>
+          style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: '#111', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
