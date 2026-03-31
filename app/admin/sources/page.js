@@ -57,13 +57,41 @@ const GRADE_COLORS = {
   D: '#ef4444', F: '#ef4444',
 }
 
-function ReelsModal({ source, sources, onClose, onNavigate }) {
+function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreatorsChange }) {
   const [reels, setReels] = useState(null)
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState({})
   const [editMode, setEditMode] = useState(false)
+  const [assignedCreators, setAssignedCreators] = useState(source.palmCreators || [])
+  const [savingCreators, setSavingCreators] = useState(false)
 
   const currentIdx = sources.findIndex(s => s.id === source.id)
+
+  useEffect(() => {
+    setAssignedCreators(source.palmCreators || [])
+  }, [source.id])
+
+  const toggleCreator = async (creatorId) => {
+    const current = assignedCreators
+    const next = current.includes(creatorId)
+      ? current.filter(id => id !== creatorId)
+      : [...current, creatorId]
+    setAssignedCreators(next)
+    setSavingCreators(true)
+    try {
+      await fetch('/api/admin/sources', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        // Plain string array — REST API, not Airtable.js SDK
+        body: JSON.stringify({ id: source.id, fields: { 'Palm Creators': next } }),
+      })
+      onCreatorsChange(source.id, next)
+    } catch {
+      setAssignedCreators(current) // revert
+    } finally {
+      setSavingCreators(false)
+    }
+  }
 
   useEffect(() => {
     setReels(null)
@@ -143,6 +171,37 @@ function ReelsModal({ source, sources, onClose, onNavigate }) {
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#71717a', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
         </div>
+
+        {/* Creator Assignment */}
+        {allCreators.length > 0 && (
+          <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#0a0a0a', borderRadius: '8px', border: '1px solid #222' }}>
+            <div style={{ fontSize: '11px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+              Assigned to creators {savingCreators && <span style={{ color: '#3f3f46' }}>saving...</span>}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {allCreators.map(c => {
+                const assigned = assignedCreators.includes(c.id)
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => toggleCreator(c.id)}
+                    disabled={savingCreators}
+                    style={{
+                      padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                      borderRadius: '20px', cursor: 'pointer', border: 'none',
+                      background: assigned ? '#1e1b4b' : '#1c1c1c',
+                      color: assigned ? '#a78bfa' : '#52525b',
+                      outline: assigned ? '1px solid #4c1d95' : '1px solid #27272a',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {c.aka || c.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Grid */}
         {loading ? (
@@ -426,7 +485,14 @@ export default function AdminSources() {
   const [rescrapeSource, setRescrapeSource] = useState(null) // { source, newLimit }
   const [batch, setBatch] = useState([]) // queued sources for batch scrape
   const [batchScraping, setBatchScraping] = useState(false)
+  const [allCreators, setAllCreators] = useState([])
 
+  useEffect(() => {
+    fetch('/api/admin/palm-creators')
+      .then(r => r.json())
+      .then(d => setAllCreators(d.creators || []))
+      .catch(() => {})
+  }, [])
 
   const fetchSources = useCallback(async () => {
     try {
@@ -709,7 +775,7 @@ export default function AdminSources() {
       </div>
 
       {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} />}
-      {reelsSource && <ReelsModal source={reelsSource} sources={sources} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} />}
+      {reelsSource && <ReelsModal source={reelsSource} sources={sources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} />}
       {enableSource && <EnableModal source={enableSource} onClose={() => setEnableSource(null)} onConfirm={handleEnableConfirm} onAddToBatch={handleAddToBatch} batchCount={batch.length} />}
       {rescrapeSource && (
         <RescrapeModal
