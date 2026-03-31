@@ -242,10 +242,16 @@ const PAGE_SIZE = 24
 
 function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
   if (!assets.length) return null
-  const videos = assets.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
-  const photos = assets.filter(a => a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && !isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '') && isPhoto(a.dropboxLinks?.[0] || a.dropboxLink || '')))
   const [activeTab, setActiveTab] = useState('videos')
   const [page, setPage] = useState(1)
+  const [sortOrder, setSortOrder] = useState('newest')
+
+  const sorted = [...assets].sort((a, b) => {
+    const da = new Date(a.createdAt || 0), db = new Date(b.createdAt || 0)
+    return sortOrder === 'newest' ? db - da : da - db
+  })
+  const videos = sorted.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
+  const photos = sorted.filter(a => a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && !isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '') && isPhoto(a.dropboxLinks?.[0] || a.dropboxLink || '')))
   const shown = activeTab === 'videos' ? videos : photos
   const totalPages = Math.ceil(shown.length / PAGE_SIZE)
   const paged = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -276,6 +282,16 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
             ))}
           </div>
         )}
+        <div style={{ display: 'flex', gap: '4px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '3px' }}>
+          {[{ key: 'newest', label: 'Newest' }, { key: 'oldest', label: 'Oldest' }].map(s => (
+            <button key={s.key} onClick={() => { setSortOrder(s.key); setPage(1) }}
+              style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                background: sortOrder === s.key ? '#1e1e1e' : 'transparent',
+                color: sortOrder === s.key ? '#d4d4d8' : '#52525b' }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
         <Paginator page={page} totalPages={totalPages} onChange={setPage} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>

@@ -465,6 +465,7 @@ function LibraryPickerModal({ creator, onClose, onRefresh }) {
   const [err, setErr] = useState('')
   const [activeTab, setActiveTab] = useState('videos')
   const [page, setPage] = useState(1)
+  const [sortOrder, setSortOrder] = useState('newest')
 
   useEffect(() => {
     fetch(`/api/editor/creator/${creator.id}`)
@@ -491,8 +492,12 @@ function LibraryPickerModal({ creator, onClose, onRefresh }) {
     }
   }
 
-  const videos = library?.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || ''))) || []
-  const photos = library?.filter(a => a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && isPhoto(a.dropboxLinks?.[0] || a.dropboxLink || ''))) || []
+  const sortedLibrary = library ? [...library].sort((a, b) => {
+    const da = new Date(a.createdAt || 0), db = new Date(b.createdAt || 0)
+    return sortOrder === 'newest' ? db - da : da - db
+  }) : []
+  const videos = sortedLibrary.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
+  const photos = sortedLibrary.filter(a => a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && isPhoto(a.dropboxLinks?.[0] || a.dropboxLink || '')))
   const tabs = [
     { key: 'videos', label: 'Videos', count: videos.length },
     { key: 'photos', label: 'Photos', count: photos.length },
@@ -522,6 +527,18 @@ function LibraryPickerModal({ creator, onClose, onRefresh }) {
                     background: activeTab === t.key ? '#1e1e1e' : 'transparent',
                     color: activeTab === t.key ? '#d4d4d8' : '#52525b' }}>
                   {t.label} <span style={{ color: activeTab === t.key ? '#71717a' : '#3f3f46', fontWeight: 400 }}>{t.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {!loading && (
+            <div style={{ display: 'flex', gap: '4px', background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '3px' }}>
+              {[{ key: 'newest', label: 'Newest' }, { key: 'oldest', label: 'Oldest' }].map(s => (
+                <button key={s.key} onClick={() => { setSortOrder(s.key); setPage(1) }}
+                  style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                    background: sortOrder === s.key ? '#1e1e1e' : 'transparent',
+                    color: sortOrder === s.key ? '#d4d4d8' : '#52525b' }}>
+                  {s.label}
                 </button>
               ))}
             </div>
