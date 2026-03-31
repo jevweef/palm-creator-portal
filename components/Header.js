@@ -10,6 +10,7 @@ export default function Header() {
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin'
   const isEditor = role === 'editor'
+  const isEditorPath = pathname?.startsWith('/editor')
 
   // Don't show header on sign-in/sign-up pages
   if (pathname?.startsWith('/sign-')) return null
@@ -29,7 +30,7 @@ export default function Header() {
           />
         </Link>
         <nav style={{ display: 'flex', gap: '20px' }}>
-          {isEditor ? (
+          {isEditor || isEditorPath ? (
             <>
               <Link
                 href="/admin/editor"
