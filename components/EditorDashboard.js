@@ -618,6 +618,18 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const assetRawUrl = rawDropboxUrl(assetLink)
   const inspoLink = inspo.dbShareLink || inspo.contentLink || ''
   const inspoRawUrl = inspo.dbShareLink ? rawDropboxUrl(inspo.dbShareLink) : ''
+  const editedLink = task?.asset?.editedFileLink || ''
+  const editedRawUrl = rawDropboxUrl(editedLink)
+
+  // Compute actual status badge from task data
+  const adminStatus = task?.adminReviewStatus || ''
+  const statusBadge = adminStatus === 'Approved'
+    ? { label: 'Approved', color: '#22c55e', bg: '#0a2e0a', border: '#1a5c1a' }
+    : adminStatus === 'Pending Review'
+    ? { label: 'In Review', color: '#22c55e', bg: '#0a2e0a', border: '#1a4a1a' }
+    : adminStatus === 'Needs Revision'
+    ? { label: 'Needs Revision', color: '#ef4444', bg: '#2d1515', border: '#5c2020' }
+    : null
 
   const handleClipStart = async () => {
     setStarting(true)
@@ -646,8 +658,8 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
             {username && <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>@{username}</div>}
           </div>
-          {slot.type === 'done' && (
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: '#0a2e0a', border: '1px solid #1a4a1a', borderRadius: '4px', padding: '3px 10px', flexShrink: 0 }}>In Review</span>
+          {statusBadge && (
+            <span style={{ fontSize: '11px', fontWeight: 700, color: statusBadge.color, background: statusBadge.bg, border: `1px solid ${statusBadge.border}`, borderRadius: '4px', padding: '3px 10px', flexShrink: 0 }}>{statusBadge.label}</span>
           )}
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', fontSize: '22px', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
@@ -657,20 +669,41 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
           {/* LEFT — media panels */}
           <div style={{ width: '50%', padding: '20px', borderRight: '1px solid #1a1a1a', display: 'flex', gap: '12px', overflow: 'hidden' }}>
-            <MediaPanel
-              label={isClip ? 'Creator Upload' : 'Creator Clip'}
-              link={assetLink}
-              rawUrl={assetRawUrl}
-              fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
-              accentColor="#22c55e"
-            />
-            <MediaPanel
-              label="Inspo"
-              link={inspoLink}
-              rawUrl={inspoRawUrl}
-              fallbackThumb={inspo.thumbnail || ''}
-              accentColor="#a78bfa"
-            />
+            {editedLink ? (
+              <>
+                <MediaPanel
+                  label="Submitted Edit"
+                  link={editedLink}
+                  rawUrl={editedRawUrl}
+                  fallbackThumb={task?.asset?.thumbnail || ''}
+                  accentColor="#a78bfa"
+                />
+                <MediaPanel
+                  label="Raw Clip"
+                  link={assetLink}
+                  rawUrl={assetRawUrl}
+                  fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
+                  accentColor="#52525b"
+                />
+              </>
+            ) : (
+              <>
+                <MediaPanel
+                  label={isClip ? 'Creator Upload' : 'Creator Clip'}
+                  link={assetLink}
+                  rawUrl={assetRawUrl}
+                  fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
+                  accentColor="#22c55e"
+                />
+                <MediaPanel
+                  label="Inspo"
+                  link={inspoLink}
+                  rawUrl={inspoRawUrl}
+                  fallbackThumb={inspo.thumbnail || ''}
+                  accentColor="#a78bfa"
+                />
+              </>
+            )}
           </div>
 
           {/* RIGHT — info + action */}
@@ -890,10 +923,9 @@ function CreatorSection({ creator, onRefresh }) {
     ...(creator.inspoClips || []).map(c => ({ type: 'inspoClip', clip: c })),
   ]
 
+  // Done tasks are excluded from slots — editors focus on active/queued work only
   const slots = []
-  doneTodayList.forEach(t => slots.push({ type: 'done', task: t }))
-  const remaining = Math.max(0, dailyQuota - slots.length)
-  activeFillItems.slice(0, remaining).forEach(item => slots.push(item))
+  activeFillItems.slice(0, dailyQuota).forEach(item => slots.push(item))
   while (slots.length < dailyQuota) slots.push({ type: 'empty' })
 
   const today = new Date()
