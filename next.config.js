@@ -3,9 +3,15 @@ const nextConfig = {
   images: {
     domains: ['dl.airtable.com', 'v5.airtableusercontent.com', 'www.dropbox.com'],
   },
-  // Treat ffmpeg packages as external — they contain native binaries and
-  // must not be bundled by webpack. Vercel will load them at runtime.
+  // Prevent webpack from bundling ffmpeg packages — they contain native binaries
+  // that must be loaded from node_modules at runtime, not embedded in chunks.
   serverExternalPackages: ['fluent-ffmpeg', 'ffmpeg-static'],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = [...(config.externals || []), 'ffmpeg-static', 'fluent-ffmpeg']
+    }
+    return config
+  },
 }
 
 module.exports = nextConfig
