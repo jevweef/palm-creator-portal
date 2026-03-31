@@ -1,11 +1,12 @@
 'use client'
 
 import { UserButton, useUser } from '@clerk/nextjs'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function Header() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { user } = useUser()
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin'
@@ -14,6 +15,9 @@ export default function Header() {
   const isCreatorPath = pathname?.startsWith('/creator')
   // Extract creatorId from creator paths: /creator/[id]/...
   const creatorIdFromPath = isCreatorPath ? pathname?.split('/')?.[2] : null
+  // Preserve hqId across creator nav so dashboard always knows which creator
+  const hqId = searchParams?.get('hqId')
+  const hqSuffix = hqId ? `?hqId=${hqId}` : ''
 
   // Don't show header on sign-in/sign-up pages
   if (pathname?.startsWith('/sign-')) return null
@@ -25,7 +29,7 @@ export default function Header() {
     }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="px-4 md:px-8 py-3">
       <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-        <Link href={isEditor ? '/admin/editor' : isCreatorPath ? `/creator/${creatorIdFromPath}/dashboard` : '/dashboard'}>
+        <Link href={isEditor ? '/admin/editor' : isCreatorPath ? `/creator/${creatorIdFromPath}/dashboard${hqSuffix}` : '/dashboard'}>
           <img
             src="/palm-logo.png"
             alt="Palm Management"
@@ -63,7 +67,7 @@ export default function Header() {
           ) : isCreatorPath ? (
             <>
               <Link
-                href={`/creator/${creatorIdFromPath}/dashboard`}
+                href={`/creator/${creatorIdFromPath}/dashboard${hqSuffix}`}
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.endsWith('/dashboard') ? 600 : 400,
@@ -75,7 +79,7 @@ export default function Header() {
                 Dashboard
               </Link>
               <Link
-                href={`/creator/${creatorIdFromPath}/my-content`}
+                href={`/creator/${creatorIdFromPath}/my-content${hqSuffix}`}
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.includes('/my-content') ? 600 : 400,
@@ -87,7 +91,7 @@ export default function Header() {
                 My Content
               </Link>
               <Link
-                href={`/creator/${creatorIdFromPath}/inspo`}
+                href={`/creator/${creatorIdFromPath}/inspo${hqSuffix}`}
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.includes('/inspo') ? 600 : 400,
@@ -99,7 +103,7 @@ export default function Header() {
                 Inspo Board
               </Link>
               <Link
-                href={`/creator/${creatorIdFromPath}/vault`}
+                href={`/creator/${creatorIdFromPath}/vault${hqSuffix}`}
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.includes('/vault') ? 600 : 400,
