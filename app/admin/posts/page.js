@@ -240,14 +240,25 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
     setCapturing(true)
     setError('')
     try {
-      const res = await fetch('/api/admin/posts/thumbnail/frame', {
+      // Step 1: extract the frame from the video server-side
+      const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl, timestamp: currentTime, postId }),
+        body: JSON.stringify({ videoUrl, timestamp: currentTime }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Capture failed')
-      setCapturedUrl(data.url)
+      const frameData = await frameRes.json()
+      if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
+
+      // Step 2: upload the JPEG to Dropbox via the existing thumbnail endpoint
+      const blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+      const form = new FormData()
+      form.append('file', blob, `frame_${Date.now()}.jpg`)
+      form.append('postId', postId)
+      const uploadRes = await fetch('/api/admin/posts/thumbnail', { method: 'POST', body: form })
+      const uploadData = await uploadRes.json()
+      if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload failed')
+
+      setCapturedUrl(uploadData.url)
     } catch (err) {
       setError(err.message)
     } finally {
