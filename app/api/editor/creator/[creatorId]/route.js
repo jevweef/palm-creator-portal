@@ -181,6 +181,7 @@ export async function GET(request, { params }) {
         thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
         creatorNotes: a.fields?.['Creator Notes'] || '',
         uploadWeek: a.fields?.['Upload Week'] || '',
+        createdAt: a.createdTime || '',
       }))
 
     // 8. Buffer
