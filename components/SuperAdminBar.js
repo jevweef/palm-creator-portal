@@ -20,7 +20,7 @@ export default function SuperAdminBar() {
   const isSuperAdmin = isLoaded && (role === 'super_admin' || SUPER_ADMIN_EMAILS.includes(email))
 
   // Determine active tab from pathname
-  const isCreatorTab = pathname === '/dashboard' || pathname?.startsWith('/inspo') || pathname?.startsWith('/my-content') || pathname?.startsWith('/creator')
+  const isCreatorTab = pathname?.startsWith('/creator')
   const isEditorTab = pathname?.startsWith('/editor')
   const isAdminTab = !isCreatorTab && !isEditorTab
 
@@ -75,7 +75,8 @@ export default function SuperAdminBar() {
     setSelectedCreator(creator)
     localStorage.setItem('superadmin_creator', JSON.stringify(creator))
     setDropdownOpen(false)
-    router.push(`/dashboard?opsId=${creator.id}&hqId=${creator.hqId}`)
+    const hqParam = creator.hqId ? `?hqId=${creator.hqId}` : ''
+    router.push(`/creator/${creator.id}/dashboard${hqParam}`)
   }
 
   const creatorLabel = selectedCreator?.aka || selectedCreator?.name || 'Select creator'
@@ -109,7 +110,8 @@ export default function SuperAdminBar() {
             if (isCreatorTab) {
               setDropdownOpen(o => !o)
             } else if (selectedCreator) {
-              router.push(`/dashboard?opsId=${selectedCreator.id}&hqId=${selectedCreator.hqId}`)
+              const hqParam = selectedCreator.hqId ? `?hqId=${selectedCreator.hqId}` : ''
+              router.push(`/creator/${selectedCreator.id}/dashboard${hqParam}`)
             } else {
               setDropdownOpen(true)
             }
