@@ -32,8 +32,8 @@ async function remuxToMp4(inputBuffer, inputName) {
   return outputBuffer
 }
 
-async function getDropboxAccessToken() {
-  const res = await fetch('https://api.dropbox.com/oauth2/token', {
+async function getDropboxCredentials() {
+  const tokenRes = await fetch('https://api.dropbox.com/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -43,36 +43,43 @@ async function getDropboxAccessToken() {
       client_secret: process.env.DROPBOX_APP_SECRET,
     }),
   })
-  if (!res.ok) throw new Error(`Dropbox token refresh failed: ${await res.text()}`)
-  const { access_token } = await res.json()
-  return access_token
+  if (!tokenRes.ok) throw new Error(`Dropbox token refresh failed: ${await tokenRes.text()}`)
+  const { access_token } = await tokenRes.json()
+
+  const acctRes = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${access_token}` },
+  })
+  const { root_info } = await acctRes.json()
+  const pathRoot = JSON.stringify({ '.tag': 'root', root: root_info.root_namespace_id })
+
+  return { token: access_token, pathRoot }
 }
 
-// Move file to next pipeline stage and update Airtable asset record
+// Move edited file to next pipeline stage and update Airtable asset record
 async function moveToNextStage(assetId, targetFolder) {
   const records = await fetchAirtableRecords('Assets', {
     filterByFormula: `RECORD_ID()='${assetId}'`,
-    fields: ['Dropbox Path (Current)', 'Edited File Link'],
+    fields: ['Edited File Path', 'Edited File Link'],
   })
   const asset = records[0]
   if (!asset) { console.warn('[Dropbox Move] Asset not found:', assetId); return }
 
-  // Path may be newline-joined if multiple files — take the first
-  const rawPath = asset.fields?.['Dropbox Path (Current)']
-  const currentPath = (rawPath || '').split('\n')[0].trim()
-  if (!currentPath) { console.warn('[Dropbox Move] No Dropbox Path (Current) on asset'); return }
+  const currentPath = (asset.fields?.['Edited File Path'] || '').trim()
+  if (!currentPath) { console.warn('[Dropbox Move] No Edited File Path on asset'); return }
 
-  // Replace the numbered stage folder (e.g. 30_EDITED_EXPORTS) with the target
+  // Replace the numbered stage folder (e.g. /30_EDITED_EXPORTS/) with the target
   const newPath = currentPath.replace(/\/\d+_[^/]+\//i, `/${targetFolder}/`)
   if (newPath === currentPath) { console.warn('[Dropbox Move] Path did not change — folder pattern not matched:', currentPath); return }
 
   console.log(`[Dropbox Move] ${currentPath} → ${newPath}`)
-  const token = await getDropboxAccessToken()
+  const { token, pathRoot } = await getDropboxCredentials()
+  const dbxHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Dropbox-API-Path-Root': pathRoot }
 
   // Move the file
   const moveRes = await fetch('https://api.dropboxapi.com/2/files/move_v2', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: dbxHeaders,
     body: JSON.stringify({ from_path: currentPath, to_path: newPath, autorename: false }),
   })
   if (!moveRes.ok) throw new Error(`Dropbox move failed: ${await moveRes.text()}`)
@@ -81,7 +88,7 @@ async function moveToNextStage(assetId, targetFolder) {
   let sharedUrl
   const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: dbxHeaders,
     body: JSON.stringify({ path: newPath, settings: { requested_visibility: 'public' } }),
   })
   if (linkRes.ok) {
@@ -89,15 +96,15 @@ async function moveToNextStage(assetId, targetFolder) {
   } else {
     const existRes = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: dbxHeaders,
       body: JSON.stringify({ path: newPath }),
     })
     sharedUrl = (await existRes.json()).links?.[0]?.url?.replace('dl=0', 'raw=1')
   }
 
-  // Update asset record
+  // Update asset record with new path and link
   await patchAirtableRecord('Assets', assetId, {
-    'Dropbox Path (Current)': newPath,
+    'Edited File Path': newPath,
     ...(sharedUrl ? { 'Edited File Link': sharedUrl } : {}),
   })
   console.log(`[Dropbox Move] Done — new link: ${sharedUrl?.slice(0, 60)}`)

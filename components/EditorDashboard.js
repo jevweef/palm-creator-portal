@@ -49,7 +49,7 @@ export function SectionLabel({ type, count }) {
 
 // ─── Upload / Submit Modal ─────────────────────────────────────────────────────
 
-export function SubmitModal({ task, creatorName, isRevision, onClose, onSubmit }) {
+export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose, onSubmit }) {
   const [file, setFile] = useState(null)
   const [notes, setNotes] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -63,19 +63,15 @@ export function SubmitModal({ task, creatorName, isRevision, onClose, onSubmit }
     setError('')
     try {
       setProgress('Preparing upload...')
-      const rawPath = task.asset.dropboxPath || ''
-      let exportFolder = '/Palm Ops/Edited Exports'
-      if (rawPath.includes('20_NEEDS_EDIT')) {
-        exportFolder = rawPath.substring(0, rawPath.indexOf('20_NEEDS_EDIT')) + '30_EDITED_EXPORTS'
-      }
 
       const tokenRes = await fetch('/api/editor-upload-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: task.id }),
+        body: JSON.stringify({ taskId: task.id, creatorId }),
       })
       if (!tokenRes.ok) throw new Error('Failed to get upload credentials')
-      const { accessToken, rootNamespaceId } = await tokenRes.json()
+      const { accessToken, rootNamespaceId, uploadFolder } = await tokenRes.json()
+      const exportFolder = uploadFolder
 
       const titleSlug = (task.inspo.title || 'edit').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50)
       const creatorSlug = (creatorName || 'creator').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -641,6 +637,7 @@ function CreatorSection({ creator, onRefresh }) {
         <SubmitModal
           task={submitModal.task}
           creatorName={creator.name}
+          creatorId={creator.id}
           isRevision={submitModal.isRevision}
           onClose={() => setSubmitModal(null)}
           onSubmit={handleSubmit}
