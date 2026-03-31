@@ -35,8 +35,11 @@ export async function GET(request, { params }) {
     const f = creator.fields || {}
 
     const allTaskIds = f.Tasks || []
+    const creatorName = f.AKA || f.Creator || ''
+    // Folder path used in Dropbox Parent Folder field for unreviewed library assets
+    const unreviewedFolderPath = `/Palm Ops/Creators/${creatorName}/Social Media/10_UNREVIEWED_LIBRARY`
 
-    // 2. Fetch in parallel: all tasks, library assets, inspo-linked assets, future posts
+    // 2. Fetch in parallel: all tasks, library assets (by folder path), inspo-linked assets, future posts
     const [tasks, libraryAssets, inspoLinkedAssets, futurePosts] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
@@ -45,18 +48,20 @@ export async function GET(request, { params }) {
           'Admin Review Status', 'Admin Feedback', 'Admin Screenshots',
         ],
       }),
-      fetchAirtableRecords('Assets', {
-        filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}!='Inspo Upload',FIND('${creatorId}',ARRAYJOIN({Palm Creators})))`,
+      creatorName ? fetchAirtableRecords('Assets', {
+        filterByFormula: `AND({Pipeline Status}='Uploaded',{Dropbox Parent Folder}='${unreviewedFolderPath}')`,
         fields: [
-          'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
-          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week',
+          'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
+          'Dropbox Path (Current)', 'Dropbox Parent Folder', 'Creator Notes', 'Thumbnail', 'Upload Week',
         ],
-      }),
+      }) : [],
+      // Inspo-linked assets: fetch by Source Type, then filter in-memory by creator ID
+      // (FIND+ARRAYJOIN on linked record fields returns names, not IDs — unreliable)
       fetchAirtableRecords('Assets', {
-        filterByFormula: `AND({Pipeline Status}='Uploaded',NOT({Inspiration Source}=''),FIND('${creatorId}',ARRAYJOIN({Palm Creators})))`,
+        filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}='Inspo Upload',NOT({Inspiration Source}=''))`,
         fields: [
-          'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Dropbox Path (Current)',
-          'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week', 'Inspiration Source',
+          'Asset Name', 'Pipeline Status', 'Asset Type', 'Dropbox Shared Link', 'Dropbox Path (Current)',
+          'Creator Notes', 'Thumbnail', 'Upload Week', 'Inspiration Source', 'Palm Creators',
         ],
       }),
       fetchAirtableRecords('Posts', {
@@ -138,8 +143,10 @@ export async function GET(request, { params }) {
       .filter(t => t.status === 'Done' && t.adminReviewStatus !== 'Pending Review' && t.adminReviewStatus !== 'Approved' && t.adminReviewStatus !== 'Needs Revision')
       .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
 
-    // 6. Inspo clips
-    const inspoClips = inspoLinkedAssets.map(a => {
+    // 6. Inspo clips — filter to this creator only (in-memory, since ARRAYJOIN formula can't match record IDs)
+    const inspoClips = inspoLinkedAssets
+      .filter(a => (a.fields?.['Palm Creators'] || []).includes(creatorId))
+      .map(a => {
       const inspoId = (a.fields?.['Inspiration Source'] || [])[0]
       const inspo = inspoId ? (inspoMap[inspoId] || {}) : {}
       return {
@@ -160,13 +167,14 @@ export async function GET(request, { params }) {
       }
     })
 
-    // 7. Library assets, newest first
+    // 7. Library assets, newest first — include assetType for Videos/Photos split
     const library = libraryAssets
       .sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0))
       .map(a => ({
         id: a.id,
         name: a.fields?.['Asset Name'] || '',
         sourceType: a.fields?.['Source Type'] || '',
+        assetType: a.fields?.['Asset Type'] || '',
         dropboxLink: a.fields?.['Dropbox Shared Link'] || '',
         dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
         thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
