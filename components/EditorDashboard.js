@@ -381,166 +381,173 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
   )
 }
 
-// ─── Today's Work slot components ─────────────────────────────────────────────
+// ─── Task Detail Modal ─────────────────────────────────────────────────────────
 
-function DoneSlotContent({ task }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      {task.inspo?.thumbnail && (
-        <img src={task.inspo.thumbnail} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', opacity: 0.5 }} />
-      )}
-      <div>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#3f3f46' }}>{task.inspo?.title || task.name}</div>
-        <div style={{ fontSize: '11px', color: '#2a2a2a', marginTop: '2px' }}>Submitted for review</div>
-      </div>
-    </div>
-  )
-}
-
-function ActiveTaskSlot({ task, type, creator, onAction, updating }) {
-  const [expanded, setExpanded] = useState(false)
-  const links = task.asset?.dropboxLinks?.length ? task.asset.dropboxLinks : task.asset?.dropboxLink ? [task.asset.dropboxLink] : []
-
-  return (
-    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-      {task.inspo?.thumbnail && (
-        <img src={task.inspo.thumbnail} alt="" style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {task.inspo?.title || task.name || 'Edit task'}
-        </div>
-        {task.inspo?.username && (
-          <div style={{ fontSize: '11px', color: '#52525b', marginBottom: '6px' }}>@{task.inspo.username}</div>
-        )}
-        {task.adminFeedback && type === 'needsRevision' && (
-          <div style={{ fontSize: '11px', color: '#fca5a5', background: '#1a0a0a', border: '1px solid #5c2020', borderRadius: '6px', padding: '6px 8px', marginBottom: '8px', lineHeight: 1.4 }}>
-            {task.adminFeedback}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-          {links.map((link, i) => (
-            <a key={i} href={link} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '2px 8px', background: '#0a1a0a', borderRadius: '4px', border: '1px solid #1a4a1a' }}>
-              {links.length > 1 ? `Clip ${i + 1} ↗` : 'Creator clip ↗'}
-            </a>
-          ))}
-          {task.inspo?.contentLink && (
-            <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '2px 8px', background: '#0d0a2e', borderRadius: '4px', border: '1px solid #2a1a5e' }}>
-              Inspo ↗
-            </a>
-          )}
-        </div>
-        {task.inspo?.notes && (
-          <div style={{ marginBottom: '8px' }}>
-            <button onClick={() => setExpanded(p => !p)}
-              style={{ background: 'none', border: 'none', color: '#3f3f46', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
-              {expanded ? '▾ Hide direction' : '▸ View direction'}
-            </button>
-            {expanded && (
-              <div style={{ marginTop: '6px', fontSize: '11px', color: '#d4d4d8', lineHeight: 1.6, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '8px 10px', whiteSpace: 'pre-wrap' }}>
-                {task.inspo.notes}
-                {task.inspo.onScreenText && (
-                  <div style={{ marginTop: '6px', color: '#f59e0b', background: '#1a1500', border: '1px solid #332b00', borderRadius: '4px', padding: '4px 6px' }}>
-                    "{task.inspo.onScreenText}"
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        <div>
-          {type === 'toDo' && (
-            <button onClick={() => onAction('startEditing', task)} disabled={updating}
-              style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '7px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
-              {updating ? 'Starting...' : 'Start Editing →'}
-            </button>
-          )}
-          {type === 'inProgress' && (
-            <button onClick={() => onAction('submit', task)}
-              style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, background: '#0a0a3d', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '7px', cursor: 'pointer' }}>
-              Submit for Review ↑
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function InspoClipSlot({ clip, creator, onRefresh }) {
+function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, onClose }) {
+  const task = slot.task || null
+  const clip = slot.clip || null
+  const isClip = slot.type === 'inspoClip'
   const [starting, setStarting] = useState(false)
-  const [error, setError] = useState('')
+  const [startErr, setStartErr] = useState('')
 
-  const handleStart = async () => {
+  const inspo = task?.inspo || clip?.inspo || {}
+  const links = task?.asset?.dropboxLinks?.length
+    ? task.asset.dropboxLinks
+    : task?.asset?.dropboxLink ? [task.asset.dropboxLink]
+    : clip?.dropboxLink ? [clip.dropboxLink]
+    : []
+
+  const handleClipStart = async () => {
     setStarting(true)
-    setError('')
+    setStartErr('')
     try {
-      const res = await fetch('/api/editor/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: clip.id, creatorId: creator.id }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
-      onRefresh()
+      await onInspoClipStart(clip)
+      onClose()
     } catch (err) {
-      setError(err.message)
+      setStartErr(err.message)
       setStarting(false)
     }
   }
 
+  const title = inspo.title || task?.name || clip?.inspo?.title || 'Edit task'
+  const username = inspo.username || ''
+
   return (
-    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-      {(clip.thumbnail || clip.inspo?.thumbnail) && (
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <img src={clip.thumbnail || clip.inspo?.thumbnail} alt="" style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover' }} />
-          {clip.inspo?.thumbnail && clip.thumbnail && (
-            <img src={clip.inspo.thumbnail} alt="" style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '28px', height: '28px', borderRadius: '4px', objectFit: 'cover', border: '2px solid #0a0a0a' }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', width: '100%', maxWidth: '560px', maxHeight: '85vh', overflow: 'auto', padding: '28px', position: 'relative', margin: '0 16px' }}>
+        {/* Close */}
+        <button onClick={onClose} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#52525b', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+
+        {/* Header */}
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '20px' }}>
+          {(inspo.thumbnail) && (
+            <img src={inspo.thumbnail} alt="" style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
           )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>{title}</div>
+            {username && <div style={{ fontSize: '13px', color: '#52525b', marginBottom: '6px' }}>@{username}</div>}
+            {slot.type === 'done' && (
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: '#0a2e0a', border: '1px solid #1a4a1a', borderRadius: '4px', padding: '2px 8px' }}>Submitted · In Review</span>
+            )}
+          </div>
         </div>
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {clip.inspo?.title || 'Recreate this inspo'}
-        </div>
-        {clip.inspo?.username && (
-          <div style={{ fontSize: '11px', color: '#52525b', marginBottom: '6px' }}>@{clip.inspo.username}</div>
+
+        {/* Admin feedback (revision) */}
+        {task?.adminFeedback && (
+          <div style={{ background: '#1a0a0a', border: '1px solid #5c2020', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Admin Feedback</div>
+            <div style={{ fontSize: '13px', color: '#fca5a5', lineHeight: 1.5 }}>{task.adminFeedback}</div>
+          </div>
         )}
-        {clip.creatorNotes && (
-          <div style={{ fontSize: '11px', color: '#71717a', marginBottom: '6px' }}>{clip.creatorNotes}</div>
+
+        {/* Links */}
+        {(links.length > 0 || inspo.contentLink) && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            {links.map((link, i) => (
+              <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: '12px', fontWeight: 600, color: '#22c55e', textDecoration: 'none', padding: '6px 14px', background: '#0a1a0a', borderRadius: '6px', border: '1px solid #1a4a1a' }}>
+                {links.length > 1 ? `Creator clip ${i + 1} ↗` : 'Creator clip ↗'}
+              </a>
+            ))}
+            {inspo.contentLink && (
+              <a href={inspo.contentLink} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: '12px', fontWeight: 600, color: '#a78bfa', textDecoration: 'none', padding: '6px 14px', background: '#0d0a2e', borderRadius: '6px', border: '1px solid #2a1a5e' }}>
+                View inspo ↗
+              </a>
+            )}
+          </div>
         )}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-          {clip.dropboxLink && (
-            <a href={clip.dropboxLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '2px 8px', background: '#0a1a0a', borderRadius: '4px', border: '1px solid #1a4a1a' }}>
-              Creator clip ↗
-            </a>
+
+        {/* Inspo direction / notes */}
+        {inspo.notes && (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Direction</div>
+            <div style={{ fontSize: '13px', color: '#d4d4d8', lineHeight: 1.6, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '12px 14px', whiteSpace: 'pre-wrap' }}>
+              {inspo.notes}
+            </div>
+          </div>
+        )}
+
+        {/* On-screen text */}
+        {inspo.onScreenText && (
+          <div style={{ background: '#1a1500', border: '1px solid #332b00', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>On-Screen Text</div>
+            <div style={{ fontSize: '13px', color: '#fde68a' }}>"{inspo.onScreenText}"</div>
+          </div>
+        )}
+
+        {/* Creator notes from asset */}
+        {(task?.asset?.creatorNotes || clip?.creatorNotes) && (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Creator Notes</div>
+            <div style={{ fontSize: '13px', color: '#a1a1aa', lineHeight: 1.5, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '10px 14px' }}>
+              {task?.asset?.creatorNotes || clip?.creatorNotes}
+            </div>
+          </div>
+        )}
+
+        {/* Action */}
+        <div style={{ marginTop: '8px' }}>
+          {slot.type === 'toDo' && (
+            <button onClick={() => { onAction('startEditing', task); onClose() }} disabled={updating}
+              style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
+              {updating ? 'Starting...' : 'Start Editing →'}
+            </button>
           )}
-          {clip.inspo?.contentLink && (
-            <a href={clip.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '2px 8px', background: '#0d0a2e', borderRadius: '4px', border: '1px solid #2a1a5e' }}>
-              Inspo ↗
-            </a>
+          {slot.type === 'inProgress' && (
+            <button onClick={() => { onAction('submit', task); onClose() }}
+              style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 700, background: '#0a0a3d', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer' }}>
+              Submit for Review ↑
+            </button>
+          )}
+          {isClip && (
+            <>
+              <button onClick={handleClipStart} disabled={starting}
+                style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 700, background: '#1a1000', color: '#f59e0b', border: '1px solid #5c4000', borderRadius: '8px', cursor: starting ? 'not-allowed' : 'pointer', opacity: starting ? 0.6 : 1 }}>
+                {starting ? 'Starting...' : 'Start Edit →'}
+              </button>
+              {startErr && <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '8px' }}>{startErr}</div>}
+            </>
           )}
         </div>
-        <button onClick={handleStart} disabled={starting}
-          style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, background: '#1a1000', color: '#f59e0b', border: '1px solid #5c4000', borderRadius: '7px', cursor: starting ? 'not-allowed' : 'pointer', opacity: starting ? 0.6 : 1 }}>
-          {starting ? 'Starting...' : 'Start Edit →'}
-        </button>
-        {error && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{error}</div>}
       </div>
     </div>
   )
 }
 
-function EmptySlot() {
+// ─── Today's Work slot components ─────────────────────────────────────────────
+
+function SlotContent({ slot }) {
+  const task = slot.task
+  const clip = slot.clip
+  const inspo = task?.inspo || clip?.inspo || {}
+  const thumb = inspo.thumbnail || clip?.thumbnail || task?.asset?.thumbnail || ''
+  const title = inspo.title || task?.name || clip?.inspo?.title || ''
+  const username = inspo.username || ''
+
+  if (slot.type === 'empty') {
+    return <div style={{ fontSize: '12px', color: '#2a2a2a' }}>No clip assigned yet</div>
+  }
+
   return (
-    <div style={{ fontSize: '13px', color: '#3f3f46' }}>No clip assigned yet</div>
+    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      {thumb && (
+        <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, opacity: slot.type === 'done' ? 0.5 : 1 }} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: slot.type === 'done' ? '#3f3f46' : '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {title || 'Edit task'}
+        </div>
+        {username && (
+          <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '2px' }}>@{username}</div>
+        )}
+      </div>
+    </div>
   )
 }
 
-function VideoSlot({ number, slot, creator, onAction, updating, onRefresh }) {
+function VideoSlot({ number, slot, creator, onAction, updating, onRefresh, onSlotClick }) {
   const typeStyle = {
     done:       { borderColor: '#1a2e1a', bg: '#050f05', dotColor: '#22c55e', label: 'Done ✓' },
     inProgress: { borderColor: '#1a3a6d', bg: '#03071a', dotColor: '#3b82f6', label: 'In editing' },
@@ -549,10 +556,17 @@ function VideoSlot({ number, slot, creator, onAction, updating, onRefresh }) {
     empty:      { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: 'Open slot' },
   }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
 
+  const clickable = slot.type !== 'empty'
+
   return (
-    <div style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', height: '200px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div
+      onClick={clickable ? () => onSlotClick(slot) : undefined}
+      style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', height: '100px', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: clickable ? 'pointer' : 'default', transition: 'border-color 0.15s' }}
+      onMouseEnter={e => { if (clickable) e.currentTarget.style.borderColor = typeStyle.dotColor }}
+      onMouseLeave={e => { if (clickable) e.currentTarget.style.borderColor = typeStyle.borderColor }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#111', border: `1.5px solid ${typeStyle.dotColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, color: typeStyle.dotColor, flexShrink: 0 }}>
+        <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#111', border: `1.5px solid ${typeStyle.dotColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, color: typeStyle.dotColor, flexShrink: 0 }}>
           {number}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -562,11 +576,7 @@ function VideoSlot({ number, slot, creator, onAction, updating, onRefresh }) {
           </span>
         </div>
       </div>
-      {slot.type === 'done' && <DoneSlotContent task={slot.task} />}
-      {slot.type === 'inProgress' && <ActiveTaskSlot task={slot.task} type="inProgress" creator={creator} onAction={onAction} updating={updating === slot.task?.id} />}
-      {slot.type === 'toDo' && <ActiveTaskSlot task={slot.task} type="toDo" creator={creator} onAction={onAction} updating={updating === slot.task?.id} />}
-      {slot.type === 'inspoClip' && <InspoClipSlot clip={slot.clip} creator={creator} onRefresh={onRefresh} />}
-      {slot.type === 'empty' && <EmptySlot />}
+      <SlotContent slot={slot} />
     </div>
   )
 }
@@ -576,6 +586,7 @@ function VideoSlot({ number, slot, creator, onAction, updating, onRefresh }) {
 function CreatorSection({ creator, onRefresh }) {
   const [updating, setUpdating] = useState(null)
   const [submitModal, setSubmitModal] = useState(null)
+  const [taskModal, setTaskModal] = useState(null)
   const [toast, setToast] = useState(null)
 
   const showToast = (msg, error = false) => {
@@ -605,6 +616,16 @@ function CreatorSection({ creator, onRefresh }) {
     } else if (type === 'revision') {
       setSubmitModal({ task, isRevision: true })
     }
+  }
+
+  const handleInspoClipStart = async (clip) => {
+    const res = await fetch('/api/editor/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assetId: clip.id, creatorId: creator.id }),
+    })
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+    onRefresh()
   }
 
   const handleSubmit = async (taskId, editedFileLink, editedFilePath, editorNotes) => {
@@ -718,31 +739,21 @@ function CreatorSection({ creator, onRefresh }) {
               onAction={handleAction}
               updating={updating}
               onRefresh={onRefresh}
+              onSlotClick={setTaskModal}
             />
           ))}
         </div>
       </div>
 
-      {/* In Review — below the fold */}
-      {creator.inReview.length > 0 && (
-        <div style={{ padding: '0 24px 16px' }}>
-          <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '14px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-              Submitted · Awaiting Review
-            </div>
-            {creator.inReview.map(task => (
-              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0' }}>
-                {task.inspo?.thumbnail && (
-                  <img src={task.inspo.thumbnail} alt="" style={{ width: '32px', height: '32px', borderRadius: '5px', objectFit: 'cover', opacity: 0.6 }} />
-                )}
-                <div style={{ fontSize: '12px', color: '#3f3f46', flex: 1 }}>{task.inspo?.title || task.name}</div>
-                <div style={{ fontSize: '11px', color: '#22c55e', background: '#0a1a0a', border: '1px solid #1a3a1a', borderRadius: '4px', padding: '2px 8px' }}>
-                  In review
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {taskModal && (
+        <TaskDetailModal
+          slot={taskModal}
+          creator={creator}
+          onAction={handleAction}
+          onInspoClipStart={handleInspoClipStart}
+          updating={updating}
+          onClose={() => setTaskModal(null)}
+        />
       )}
 
       {submitModal && (
