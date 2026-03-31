@@ -33,11 +33,11 @@ export default function Header() {
           {isEditor || isEditorPath ? (
             <>
               <Link
-                href="/admin/editor"
+                href="/editor"
                 style={{
                   fontSize: '13px',
-                  fontWeight: pathname === '/admin/editor' ? 600 : 400,
-                  color: pathname === '/admin/editor' ? '#fff' : '#71717a',
+                  fontWeight: pathname?.startsWith('/editor') ? 600 : 400,
+                  color: pathname?.startsWith('/editor') ? '#fff' : '#71717a',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
