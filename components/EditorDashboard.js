@@ -4,6 +4,80 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 
+// ─── Library helpers ───────────────────────────────────────────────────────────
+
+function rawDropboxUrl(url) {
+  if (!url) return ''
+  return url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
+}
+function isVideo(url) { return !!url && /\.(mp4|mov|avi|webm|mkv)/i.test(url) }
+function isPhoto(url) { return !!url && /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url) }
+
+const LIB_PAGE_SIZE = 24
+
+function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
+  const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
+  const rawUrl = rawDropboxUrl(link)
+  const videoFile = !forcePhoto && isVideo(link)
+  const photoFile = forcePhoto || isPhoto(link)
+
+  return (
+    <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '240px', overflow: 'hidden', background: '#080808' }}>
+        {videoFile && rawUrl ? (
+          <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+            onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+        ) : photoFile && rawUrl ? (
+          <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : asset.thumbnail ? (
+          <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2a2a2a', fontSize: '28px' }}>&#127916;</div>
+        )}
+        {asset.uploadWeek && (
+          <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: '#71717a', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
+            {asset.uploadWeek}
+          </div>
+        )}
+      </div>
+      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+        {asset.name && (
+          <div style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
+        )}
+        {asset.creatorNotes && (
+          <div style={{ fontSize: '10px', color: '#52525b', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
+        )}
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {link && (
+            <a href={link} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+              style={{ textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: '#1a1a1a', color: '#71717a', border: '1px solid #2a2a2a', borderRadius: '6px', textDecoration: 'none' }}>
+              View ↗
+            </a>
+          )}
+          <button onClick={() => onAssign(asset)} disabled={!!assigning}
+            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: assigning === asset.id ? '#0a0a1a' : '#13132e', color: assigning === asset.id ? '#4a4a6e' : '#a78bfa', border: '1px solid #2a2a5e', borderRadius: '6px', cursor: assigning ? 'default' : 'pointer', opacity: assigning && assigning !== asset.id ? 0.5 : 1 }}>
+            {assigning === asset.id ? 'Starting…' : 'Start Edit'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LibPickerPaginator({ page, totalPages, onChange }) {
+  if (totalPages <= 1) return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <button onClick={() => onChange(page - 1)} disabled={page <= 1}
+        style={{ background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: page <= 1 ? '#333' : '#71717a', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
+      <span style={{ fontSize: '12px', color: '#52525b' }}>{page} / {totalPages}</span>
+      <button onClick={() => onChange(page + 1)} disabled={page >= totalPages}
+        style={{ background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: page >= totalPages ? '#333' : '#71717a', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
+    </div>
+  )
+}
+
 // ─── Slot label helper ─────────────────────────────────────────────────────────
 // 15 UTC = Morning Post (~10 AM EST / 11 AM EDT)
 // 23 UTC = Evening Post (~6 PM EST / 7 PM EDT)
@@ -384,15 +458,17 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
 // ─── Library Picker Modal (for empty slots) ────────────────────────────────────
 
 function LibraryPickerModal({ creator, onClose, onRefresh }) {
-  const [assets, setAssets] = useState(null)
+  const [library, setLibrary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [assigning, setAssigning] = useState(null)
   const [err, setErr] = useState('')
+  const [activeTab, setActiveTab] = useState('videos')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     fetch(`/api/editor/creator/${creator.id}`)
       .then(r => r.json())
-      .then(d => { setAssets(d.library || []); setLoading(false) })
+      .then(d => { setLibrary(d.library || []); setLoading(false) })
       .catch(() => { setErr('Failed to load library'); setLoading(false) })
   }, [creator.id])
 
@@ -414,44 +490,66 @@ function LibraryPickerModal({ creator, onClose, onRefresh }) {
     }
   }
 
+  const videos = library?.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || ''))) || []
+  const photos = library?.filter(a => a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && isPhoto(a.dropboxLinks?.[0] || a.dropboxLink || ''))) || []
+  const tabs = [
+    { key: 'videos', label: 'Videos', count: videos.length },
+    { key: 'photos', label: 'Photos', count: photos.length },
+  ].filter(t => t.count > 0)
+  const shown = activeTab === 'videos' ? videos : photos
+  const totalPages = Math.ceil(shown.length / LIB_PAGE_SIZE)
+  const paged = shown.slice((page - 1) * LIB_PAGE_SIZE, page * LIB_PAGE_SIZE)
+
+  const switchTab = key => { setActiveTab(key); setPage(1) }
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)' }}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', padding: '20px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', width: '100%', maxWidth: '520px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', margin: '0 16px', overflow: 'hidden' }}>
-        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Assign from Library</div>
-            <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>{creator.name} · unreviewed clips</div>
+      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Unreviewed Library</div>
+            <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>{creator.name}</div>
           </div>
+          {tabs.length > 1 && !loading && (
+            <div style={{ display: 'flex', gap: '4px', background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '3px' }}>
+              {tabs.map(t => (
+                <button key={t.key} onClick={() => switchTab(t.key)}
+                  style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                    background: activeTab === t.key ? '#1e1e1e' : 'transparent',
+                    color: activeTab === t.key ? '#d4d4d8' : '#52525b' }}>
+                  {t.label} <span style={{ color: activeTab === t.key ? '#71717a' : '#3f3f46', fontWeight: 400 }}>{t.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {!loading && totalPages > 1 && (
+            <LibPickerPaginator page={page} totalPages={totalPages} onChange={setPage} />
+          )}
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
-        <div style={{ overflowY: 'auto', padding: '16px 24px', flex: 1 }}>
-          {loading && <div style={{ color: '#52525b', fontSize: '13px', textAlign: 'center', padding: '32px 0' }}>Loading library…</div>}
-          {err && <div style={{ color: '#ef4444', fontSize: '13px' }}>{err}</div>}
-          {!loading && !err && assets?.length === 0 && (
-            <div style={{ color: '#3f3f46', fontSize: '13px', textAlign: 'center', padding: '32px 0' }}>No unreviewed clips in library.</div>
+
+        {/* Body */}
+        <div style={{ overflowY: 'auto', padding: '20px 28px', flex: 1 }}>
+          {loading && <div style={{ color: '#52525b', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>Loading library…</div>}
+          {err && <div style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>{err}</div>}
+          {!loading && !err && library?.length === 0 && (
+            <div style={{ color: '#3f3f46', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>No unreviewed clips found for {creator.name}.</div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {assets?.map(asset => (
-              <div key={asset.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '12px 14px' }}>
-                {asset.thumbnail && (
-                  <img src={asset.thumbnail} alt="" style={{ width: '48px', height: '48px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name || 'Untitled'}</div>
-                  {asset.uploadWeek && <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>Week of {asset.uploadWeek}</div>}
-                  {asset.dropboxLink && (
-                    <a href={asset.dropboxLink} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                      style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none' }}>View clip ↗</a>
-                  )}
-                </div>
-                <button onClick={() => handleAssign(asset)} disabled={!!assigning}
-                  style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '6px', cursor: assigning ? 'not-allowed' : 'pointer', opacity: assigning ? 0.6 : 1, flexShrink: 0 }}>
-                  {assigning === asset.id ? 'Assigning…' : 'Assign'}
-                </button>
-              </div>
-            ))}
-          </div>
+          {!loading && paged.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+              {paged.map(asset => (
+                <LibraryCard key={asset.id} asset={asset} onAssign={handleAssign} assigning={assigning} forcePhoto={activeTab === 'photos'} />
+              ))}
+            </div>
+          )}
+          {!loading && totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+              <LibPickerPaginator page={page} totalPages={totalPages} onChange={setPage} />
+            </div>
+          )}
         </div>
       </div>
     </div>
