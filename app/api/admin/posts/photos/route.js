@@ -12,15 +12,18 @@ export async function GET(request) {
   if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
 
   try {
+    const imageExts = ['jpg','jpeg','png','gif','webp','heic','heif','bmp','tiff','tif']
+    const extFormula = `OR(${imageExts.map(e => `LOWER({File Extension})='${e}'`).join(',')})`
+    const baseFormula = `AND(NOT({Dropbox Shared Link}=''),${extFormula})`
     const formula = forReel
-      ? `AND({Asset Type}='Photo',NOT({Dropbox Shared Link}=''),NOT({Used As Reel Thumbnail}))`
-      : `AND({Asset Type}='Photo',NOT({Dropbox Shared Link}=''))`
+      ? `AND(${baseFormula},NOT({Used As Reel Thumbnail}))`
+      : baseFormula
 
     const assets = await fetchAirtableRecords('Assets', {
       filterByFormula: formula,
-      fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status', 'Used As Reel Thumbnail'],
+      fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status', 'Used As Reel Thumbnail', 'File Extension'],
       sort: [{ field: 'Created Time', direction: 'desc' }],
-      maxRecords: 200,
+      maxRecords: 500,
     })
 
     // Filter in memory for this creator
