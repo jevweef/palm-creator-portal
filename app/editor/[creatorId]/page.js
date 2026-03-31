@@ -18,14 +18,14 @@ function isPhoto(url) {
   return /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url)
 }
 
-function LibraryVideoCard({ asset, creatorId, onRefresh }) {
+function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
   const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
   const rawUrl = rawDropboxUrl(link)
   const videoUrl = rawUrl
-  const videoFile = isVideo(link)
-  const photoFile = isPhoto(link)
+  const videoFile = !forcePhoto && isVideo(link)
+  const photoFile = forcePhoto || isPhoto(link)
 
   const handleStart = async () => {
     setStarting(true)
@@ -140,7 +140,7 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
         {shown.map(asset => (
-          <LibraryVideoCard key={asset.id} asset={asset} creatorId={creatorId} onRefresh={onRefresh} />
+          <LibraryVideoCard key={asset.id} asset={asset} creatorId={creatorId} onRefresh={onRefresh} forcePhoto={activeTab === 'photos'} />
         ))}
       </div>
     </div>
