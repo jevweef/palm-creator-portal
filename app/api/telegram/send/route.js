@@ -3,6 +3,34 @@ export const maxDuration = 60 // extend Vercel function timeout for file uploads
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
+import ffmpeg from 'fluent-ffmpeg'
+import { writeFile, readFile, unlink } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path)
+
+// Remux MOV → MP4 using -c copy (zero quality loss, just container change)
+async function remuxToMp4(inputBuffer, inputName) {
+  const id = Date.now()
+  const ext = inputName.split('.').pop().toLowerCase()
+  const inputPath = join(tmpdir(), `tg_in_${id}.${ext}`)
+  const outputPath = join(tmpdir(), `tg_out_${id}.mp4`)
+  await writeFile(inputPath, Buffer.from(inputBuffer))
+  await new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions(['-c copy', '-movflags +faststart'])
+      .output(outputPath)
+      .on('end', resolve)
+      .on('error', reject)
+      .run()
+  })
+  const outputBuffer = await readFile(outputPath)
+  await unlink(inputPath).catch(() => {})
+  await unlink(outputPath).catch(() => {})
+  return outputBuffer
+}
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
@@ -99,6 +127,18 @@ export async function POST(request) {
       const filename = getFilename(editedFileLink)
       const mimeType = getMimeType(editedFileLink)
 
+      // Remux MOV → MP4 for better Telegram compatibility (zero quality loss)
+      let uploadBuffer = fileBuffer
+      let uploadFilename = filename
+      let uploadMime = mimeType
+      if (/\.mov$/i.test(editedFileLink)) {
+        console.log('[Telegram Send] Remuxing MOV → MP4...')
+        uploadBuffer = await remuxToMp4(fileBuffer, filename)
+        uploadFilename = filename.replace(/\.mov$/i, '.mp4')
+        uploadMime = 'video/mp4'
+        console.log(`[Telegram Send] Remux done, size: ${(uploadBuffer.length / 1024 / 1024).toFixed(1)}MB`)
+      }
+
       if (isVideo(editedFileLink) && thumbnailUrl) {
         // Send video + photo as a media group (shows side by side like native Telegram media)
         const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
@@ -110,12 +150,12 @@ export async function POST(request) {
           { type: 'photo', media: 'attach://photo_file' },
         ]
         form.append('media', JSON.stringify(mediaGroup))
-        form.append('video_file', new Blob([fileBuffer], { type: mimeType }), filename)
+        form.append('video_file', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
         form.append('photo_file', new Blob([thumbBuffer], { type: getMimeType(thumbnailUrl) }), getFilename(thumbnailUrl))
         result = await telegramUpload('sendMediaGroup', form)
       } else if (isVideo(editedFileLink)) {
         // No thumbnail — send video only
-        form.append('video', new Blob([fileBuffer], { type: mimeType }), filename)
+        form.append('video', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
         form.append('supports_streaming', 'true')
         try {
           result = await telegramUpload('sendVideo', form)
@@ -125,7 +165,7 @@ export async function POST(request) {
           fallbackForm.append('chat_id', String(chatId))
           fallbackForm.append('message_thread_id', String(threadId))
           if (caption) fallbackForm.append('caption', caption)
-          fallbackForm.append('document', new Blob([fileBuffer], { type: mimeType }), filename)
+          fallbackForm.append('document', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
           result = await telegramUpload('sendDocument', fallbackForm)
         }
       } else if (isPhoto(editedFileLink)) {
