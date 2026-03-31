@@ -3,13 +3,13 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
+import ffmpegStatic from 'ffmpeg-static'
 import ffmpeg from 'fluent-ffmpeg'
 import { readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path)
+ffmpeg.setFfmpegPath(ffmpegStatic)
 
 const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN
 

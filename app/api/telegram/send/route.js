@@ -3,13 +3,13 @@ export const maxDuration = 60 // extend Vercel function timeout for file uploads
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
+import ffmpegStatic from 'ffmpeg-static'
 import ffmpeg from 'fluent-ffmpeg'
 import { writeFile, readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path)
+ffmpeg.setFfmpegPath(ffmpegStatic)
 
 // Remux MOV → MP4 using -c copy (zero quality loss, just container change)
 async function remuxToMp4(inputBuffer, inputName) {

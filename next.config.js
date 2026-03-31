@@ -5,7 +5,7 @@ const nextConfig = {
   },
   // Treat ffmpeg packages as external — they contain native binaries and
   // must not be bundled by webpack. Vercel will load them at runtime.
-  serverExternalPackages: ['fluent-ffmpeg', '@ffmpeg-installer/ffmpeg'],
+  serverExternalPackages: ['fluent-ffmpeg', 'ffmpeg-static'],
 }
 
 module.exports = nextConfig
