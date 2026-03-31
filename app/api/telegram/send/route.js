@@ -3,7 +3,6 @@ export const maxDuration = 60 // extend Vercel function timeout for file uploads
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
-import sharp from 'sharp'
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
@@ -100,24 +99,6 @@ export async function POST(request) {
       const filename = getFilename(editedFileLink)
       const mimeType = getMimeType(editedFileLink)
 
-      // Optionally attach thumbnail for videos — resize to ≤320px JPEG (Telegram limit: 200KB, 320x320)
-      if (isVideo(editedFileLink) && thumbnailUrl) {
-        try {
-          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
-          if (thumbRes.ok) {
-            const thumbBuffer = await thumbRes.arrayBuffer()
-            const resized = await sharp(Buffer.from(thumbBuffer))
-              .resize(320, 320, { fit: 'inside', withoutEnlargement: true })
-              .jpeg({ quality: 80 })
-              .toBuffer()
-            form.append('thumbnail', new Blob([resized], { type: 'image/jpeg' }), 'thumbnail.jpg')
-            console.log(`[Telegram Send] Thumbnail attached (${(resized.length / 1024).toFixed(0)}KB)`)
-          }
-        } catch (e) {
-          console.warn('[Telegram Send] Could not attach thumbnail:', e.message)
-        }
-      }
-
       if (isVideo(editedFileLink)) {
         form.append('video', new Blob([fileBuffer], { type: mimeType }), filename)
         form.append('supports_streaming', 'true')
@@ -138,6 +119,26 @@ export async function POST(request) {
       } else {
         form.append('document', new Blob([fileBuffer], { type: mimeType }), filename)
         result = await telegramUpload('sendDocument', form)
+      }
+
+      // Send thumbnail as a separate photo message if provided
+      if (thumbnailUrl) {
+        try {
+          console.log('[Telegram Send] Sending thumbnail photo...')
+          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
+          if (thumbRes.ok) {
+            const thumbBuffer = await thumbRes.arrayBuffer()
+            const thumbForm = new FormData()
+            thumbForm.append('chat_id', String(chatId))
+            thumbForm.append('message_thread_id', String(threadId))
+            thumbForm.append('caption', 'IG Thumbnail')
+            thumbForm.append('photo', new Blob([thumbBuffer], { type: getMimeType(thumbnailUrl) }), getFilename(thumbnailUrl))
+            await telegramUpload('sendPhoto', thumbForm)
+            console.log('[Telegram Send] Thumbnail photo sent')
+          }
+        } catch (e) {
+          console.warn('[Telegram Send] Could not send thumbnail photo:', e.message)
+        }
       }
     }
 
