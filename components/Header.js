@@ -75,11 +75,11 @@ export default function Header() {
                 Dashboard
               </Link>
               <Link
-                href="/my-content"
+                href={`/creator/${creatorIdFromPath}/my-content`}
                 style={{
                   fontSize: '13px',
-                  fontWeight: pathname === '/my-content' ? 600 : 400,
-                  color: pathname === '/my-content' ? '#fff' : '#71717a',
+                  fontWeight: pathname?.includes('/my-content') ? 600 : 400,
+                  color: pathname?.includes('/my-content') ? '#fff' : '#71717a',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
