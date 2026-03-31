@@ -15,11 +15,12 @@ export async function GET(request) {
     const imageExts = ['jpg','jpeg','png','gif','webp','heic','heif','bmp','tiff','tif']
     const imageExtRegex = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i
 
-    // Fetch all assets for this creator with a Dropbox link — filter image types in memory
-    // (File Extension field is often unpopulated, so don't rely on it in the formula)
+    // Filter by creator in Airtable formula so we don't hit maxRecords across all creators
+    const creatorFilter = `FIND('${creatorId}', ARRAYJOIN({Palm Creators}))`
+    const baseFilter = `AND(NOT({Dropbox Shared Link}=''),${creatorFilter})`
     const formula = forReel
-      ? `AND(NOT({Dropbox Shared Link}=''),NOT({Used As Reel Thumbnail}))`
-      : `NOT({Dropbox Shared Link}='')`
+      ? `AND(${baseFilter},NOT({Used As Reel Thumbnail}))`
+      : baseFilter
 
     const assets = await fetchAirtableRecords('Assets', {
       filterByFormula: formula,
