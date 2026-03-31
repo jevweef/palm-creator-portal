@@ -103,26 +103,26 @@ function ReelsModal({ source, sources, onClose, onNavigate }) {
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Prev / Next */}
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button
-                onClick={() => currentIdx > 0 && onNavigate(sources[currentIdx - 1])}
-                disabled={currentIdx <= 0}
-                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: currentIdx <= 0 ? '#333' : '#71717a', fontSize: '16px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '2px 10px', lineHeight: 1.5 }}
-              >‹</button>
-              <button
-                onClick={() => currentIdx < sources.length - 1 && onNavigate(sources[currentIdx + 1])}
-                disabled={currentIdx >= sources.length - 1}
-                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#333' : '#71717a', fontSize: '16px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '2px 10px', lineHeight: 1.5 }}
-              >›</button>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div>
               <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>@{source.handle}</div>
               <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
                 {loading ? 'Loading...' : `${reels?.length || 0} reels on inspo board`}
                 {sources.length > 1 && <span style={{ color: '#3f3f46', marginLeft: '8px' }}>{currentIdx + 1} / {sources.length}</span>}
               </div>
+            </div>
+            {/* Prev / Next with handle labels */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                onClick={() => currentIdx > 0 && onNavigate(sources[currentIdx - 1])}
+                disabled={currentIdx <= 0}
+                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: currentIdx <= 0 ? '#3f3f46' : '#71717a', fontSize: '12px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
+              >{currentIdx > 0 ? `‹ @${sources[currentIdx - 1].handle}` : '‹'}</button>
+              <button
+                onClick={() => currentIdx < sources.length - 1 && onNavigate(sources[currentIdx + 1])}
+                disabled={currentIdx >= sources.length - 1}
+                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#3f3f46' : '#71717a', fontSize: '12px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
+              >{currentIdx < sources.length - 1 ? `@${sources[currentIdx + 1].handle} ›` : '›'}</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
