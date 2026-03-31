@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Link from 'next/link'
 
 // ─── Quota dots ────────────────────────────────────────────────────────────────
 
@@ -367,80 +368,198 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
   )
 }
 
-// ─── Library clip card ─────────────────────────────────────────────────────────
+// ─── Today's Work slot components ─────────────────────────────────────────────
 
-function LibraryCard({ asset, onRefresh }) {
+function DoneSlotContent({ task }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {task.inspo?.thumbnail && (
+        <img src={task.inspo.thumbnail} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', opacity: 0.5 }} />
+      )}
+      <div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#3f3f46' }}>{task.inspo?.title || task.name}</div>
+        <div style={{ fontSize: '11px', color: '#2a2a2a', marginTop: '2px' }}>Submitted for review</div>
+      </div>
+    </div>
+  )
+}
+
+function ActiveTaskSlot({ task, type, creator, onAction, updating }) {
+  const [expanded, setExpanded] = useState(false)
+  const links = task.asset?.dropboxLinks?.length ? task.asset.dropboxLinks : task.asset?.dropboxLink ? [task.asset.dropboxLink] : []
+
+  return (
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+      {task.inspo?.thumbnail && (
+        <img src={task.inspo.thumbnail} alt="" style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {task.inspo?.title || task.name || 'Edit task'}
+        </div>
+        {task.inspo?.username && (
+          <div style={{ fontSize: '11px', color: '#52525b', marginBottom: '6px' }}>@{task.inspo.username}</div>
+        )}
+        {task.adminFeedback && type === 'needsRevision' && (
+          <div style={{ fontSize: '11px', color: '#fca5a5', background: '#1a0a0a', border: '1px solid #5c2020', borderRadius: '6px', padding: '6px 8px', marginBottom: '8px', lineHeight: 1.4 }}>
+            {task.adminFeedback}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+          {links.map((link, i) => (
+            <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '2px 8px', background: '#0a1a0a', borderRadius: '4px', border: '1px solid #1a4a1a' }}>
+              {links.length > 1 ? `Clip ${i + 1} ↗` : 'Creator clip ↗'}
+            </a>
+          ))}
+          {task.inspo?.contentLink && (
+            <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '2px 8px', background: '#0d0a2e', borderRadius: '4px', border: '1px solid #2a1a5e' }}>
+              Inspo ↗
+            </a>
+          )}
+        </div>
+        {task.inspo?.notes && (
+          <div style={{ marginBottom: '8px' }}>
+            <button onClick={() => setExpanded(p => !p)}
+              style={{ background: 'none', border: 'none', color: '#3f3f46', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
+              {expanded ? '▾ Hide direction' : '▸ View direction'}
+            </button>
+            {expanded && (
+              <div style={{ marginTop: '6px', fontSize: '11px', color: '#d4d4d8', lineHeight: 1.6, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '8px 10px', whiteSpace: 'pre-wrap' }}>
+                {task.inspo.notes}
+                {task.inspo.onScreenText && (
+                  <div style={{ marginTop: '6px', color: '#f59e0b', background: '#1a1500', border: '1px solid #332b00', borderRadius: '4px', padding: '4px 6px' }}>
+                    "{task.inspo.onScreenText}"
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        <div>
+          {type === 'toDo' && (
+            <button onClick={() => onAction('startEditing', task)} disabled={updating}
+              style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '7px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
+              {updating ? 'Starting...' : 'Start Editing →'}
+            </button>
+          )}
+          {type === 'inProgress' && (
+            <button onClick={() => onAction('submit', task)}
+              style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, background: '#0a0a3d', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '7px', cursor: 'pointer' }}>
+              Submit for Review ↑
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InspoClipSlot({ clip, creator, onRefresh }) {
   const [starting, setStarting] = useState(false)
-  const [startError, setStartError] = useState('')
-  const links = asset.dropboxLinks?.length ? asset.dropboxLinks : asset.dropboxLink ? [asset.dropboxLink] : []
-  const uploadLabel = asset.uploadWeek || (asset.createdTime ? new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '')
+  const [error, setError] = useState('')
 
-  const handleStartEdit = async () => {
+  const handleStart = async () => {
     setStarting(true)
-    setStartError('')
+    setError('')
     try {
       const res = await fetch('/api/editor/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: asset.id, creatorId: asset.creatorId }),
+        body: JSON.stringify({ assetId: clip.id, creatorId: creator.id }),
       })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Failed to start edit')
-      }
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       onRefresh()
     } catch (err) {
-      setStartError(err.message)
-    } finally {
+      setError(err.message)
       setStarting(false)
     }
   }
 
   return (
-    <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '10px', overflow: 'hidden' }}>
-      <div style={{ height: '120px', background: '#080808', overflow: 'hidden', position: 'relative' }}>
-        {asset.thumbnail ? (
-          <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2a2a2a', fontSize: '22px' }}>🎬</div>
-        )}
-        {uploadLabel && (
-          <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: '#71717a', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
-            {uploadLabel}
-          </div>
-        )}
-      </div>
-      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {asset.name && (
-          <div style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
-        )}
-        {asset.creatorNotes && (
-          <div style={{ fontSize: '10px', color: '#52525b', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
-        )}
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-          {links.length ? links.map((link, i, arr) => (
-            <a key={i} href={link} target="_blank" rel="noopener noreferrer"
-              style={{ flex: 1, textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: '#1a1a1a', color: '#71717a', border: '1px solid #2a2a2a', borderRadius: '6px', textDecoration: 'none' }}>
-              {arr.length > 1 ? `Clip ${i + 1} ↗` : 'View ↗'}
-            </a>
-          )) : (
-            <span style={{ fontSize: '11px', color: '#3f3f46', fontStyle: 'italic' }}>No link</span>
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+      {(clip.thumbnail || clip.inspo?.thumbnail) && (
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <img src={clip.thumbnail || clip.inspo?.thumbnail} alt="" style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover' }} />
+          {clip.inspo?.thumbnail && clip.thumbnail && (
+            <img src={clip.inspo.thumbnail} alt="" style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '28px', height: '28px', borderRadius: '4px', objectFit: 'cover', border: '2px solid #0a0a0a' }} />
           )}
         </div>
-        <button
-          onClick={handleStartEdit}
-          disabled={starting}
-          style={{
-            width: '100%', background: '#13132e', color: '#a78bfa',
-            border: '1px solid #2a2a5e', borderRadius: '6px', padding: '7px',
-            fontSize: '12px', fontWeight: 600, cursor: starting ? 'not-allowed' : 'pointer',
-            opacity: starting ? 0.7 : 1,
-          }}
-        >
-          {starting ? 'Starting...' : 'Start Edit'}
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {clip.inspo?.title || 'Recreate this inspo'}
+        </div>
+        {clip.inspo?.username && (
+          <div style={{ fontSize: '11px', color: '#52525b', marginBottom: '6px' }}>@{clip.inspo.username}</div>
+        )}
+        {clip.creatorNotes && (
+          <div style={{ fontSize: '11px', color: '#71717a', marginBottom: '6px' }}>{clip.creatorNotes}</div>
+        )}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+          {clip.dropboxLink && (
+            <a href={clip.dropboxLink} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '2px 8px', background: '#0a1a0a', borderRadius: '4px', border: '1px solid #1a4a1a' }}>
+              Creator clip ↗
+            </a>
+          )}
+          {clip.inspo?.contentLink && (
+            <a href={clip.inspo.contentLink} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '2px 8px', background: '#0d0a2e', borderRadius: '4px', border: '1px solid #2a1a5e' }}>
+              Inspo ↗
+            </a>
+          )}
+        </div>
+        <button onClick={handleStart} disabled={starting}
+          style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, background: '#1a1000', color: '#f59e0b', border: '1px solid #5c4000', borderRadius: '7px', cursor: starting ? 'not-allowed' : 'pointer', opacity: starting ? 0.6 : 1 }}>
+          {starting ? 'Starting...' : 'Start Edit →'}
         </button>
-        {startError && <p style={{ fontSize: '11px', color: '#ef4444', margin: 0 }}>{startError}</p>}
+        {error && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{error}</div>}
       </div>
+    </div>
+  )
+}
+
+function EmptySlot({ creator }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ fontSize: '13px', color: '#3f3f46' }}>No clip assigned yet</div>
+      <Link href={`/editor/${creator.id}`}
+        style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: '#0d0d0d', color: '#71717a', border: '1px solid #2a2a2a', borderRadius: '7px', textDecoration: 'none', display: 'inline-block' }}>
+        Browse library →
+      </Link>
+    </div>
+  )
+}
+
+function VideoSlot({ number, slot, creator, onAction, updating, onRefresh }) {
+  const typeStyle = {
+    done:       { borderColor: '#1a2e1a', bg: '#050f05', dotColor: '#22c55e', label: 'Done ✓' },
+    inProgress: { borderColor: '#1a3a6d', bg: '#03071a', dotColor: '#3b82f6', label: 'In editing' },
+    toDo:       { borderColor: '#2a1a5e', bg: '#05030f', dotColor: '#a78bfa', label: 'Ready to edit' },
+    inspoClip:  { borderColor: '#5c4000', bg: '#0d0900', dotColor: '#f59e0b', label: 'Creator clip uploaded' },
+    empty:      { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: 'Open slot' },
+  }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
+
+  return (
+    <div style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#111', border: `1.5px solid ${typeStyle.dotColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, color: typeStyle.dotColor, flexShrink: 0 }}>
+          {number}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: typeStyle.dotColor }} />
+          <span style={{ fontSize: '10px', fontWeight: 700, color: typeStyle.dotColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            {typeStyle.label}
+          </span>
+        </div>
+      </div>
+      {slot.type === 'done' && <DoneSlotContent task={slot.task} />}
+      {slot.type === 'inProgress' && <ActiveTaskSlot task={slot.task} type="inProgress" creator={creator} onAction={onAction} updating={updating === slot.task?.id} />}
+      {slot.type === 'toDo' && <ActiveTaskSlot task={slot.task} type="toDo" creator={creator} onAction={onAction} updating={updating === slot.task?.id} />}
+      {slot.type === 'inspoClip' && <InspoClipSlot clip={slot.clip} creator={creator} onRefresh={onRefresh} />}
+      {slot.type === 'empty' && <EmptySlot creator={creator} />}
     </div>
   )
 }
@@ -451,7 +570,6 @@ function CreatorSection({ creator, onRefresh }) {
   const [updating, setUpdating] = useState(null)
   const [submitModal, setSubmitModal] = useState(null)
   const [toast, setToast] = useState(null)
-  const [showLibrary, setShowLibrary] = useState(true)
 
   const showToast = (msg, error = false) => {
     setToast({ msg, error })
@@ -491,33 +609,44 @@ function CreatorSection({ creator, onRefresh }) {
     })
     if (!res.ok) throw new Error((await res.json()).error || 'Submit failed')
     setSubmitModal(null)
-    showToast(isRevision ? 'Revision submitted for review' : 'Edit submitted for review')
+    showToast(isRevision ? 'Revision submitted' : 'Edit submitted for review')
     onRefresh()
   }
 
-  const totalActive = creator.needsRevision.length + creator.queue.length + creator.inProgress.length
+  const dailyQuota = creator.dailyQuota || 2
+  const doneTodayList = creator.doneTodayList || []
+
+  // Build today's slots in priority order
+  const activeFillItems = [
+    // Needs Revision tasks are shown separately as urgent — skip from slots
+    ...creator.inProgress.map(t => ({ type: 'inProgress', task: t })),
+    ...creator.queue.map(t => ({ type: 'toDo', task: t })),
+    ...(creator.inspoClips || []).map(c => ({ type: 'inspoClip', clip: c })),
+  ]
+
+  const slots = []
+  doneTodayList.forEach(t => slots.push({ type: 'done', task: t }))
+  const remaining = Math.max(0, dailyQuota - slots.length)
+  activeFillItems.slice(0, remaining).forEach(item => slots.push(item))
+  while (slots.length < dailyQuota) slots.push({ type: 'empty' })
+
+  const today = new Date()
+  const dayLabel = today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const doneToday = doneTodayList.length
+  const allDone = doneToday >= dailyQuota
 
   return (
     <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', overflow: 'hidden', marginBottom: '16px' }}>
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+      {/* Header */}
+      <div style={{ padding: '18px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h2 style={{ fontSize: '19px', fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>{creator.name}</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: '0 0 5px' }}>{creator.name}</h2>
           <QuotaDots done={creator.doneToday} quota={creator.quota} />
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           {creator.needsRevision.length > 0 && (
             <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #5c2020' }}>
-              {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''}
-            </span>
-          )}
-          {creator.queue.length > 0 && (
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#13132e', color: '#a78bfa', border: '1px solid #2a2a5e' }}>
-              {creator.queue.length} ready to edit
-            </span>
-          )}
-          {creator.inProgress.length > 0 && (
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a1a3d', color: '#3b82f6', border: '1px solid #1a3a6d' }}>
-              {creator.inProgress.length} in progress
+              ⚠ {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''}
             </span>
           )}
           {creator.inReview.length > 0 && (
@@ -525,111 +654,83 @@ function CreatorSection({ creator, onRefresh }) {
               {creator.inReview.length} in review
             </span>
           )}
-        </div>
-      </div>
-
-      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        {totalActive === 0 && creator.inReview.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '20px 0 8px', color: '#3f3f46', fontSize: '13px' }}>
-            No active tasks — check the content library below
-          </div>
-        )}
-
-        {creator.needsRevision.length > 0 && (
-          <div>
-            <SectionLabel type="needsRevision" count={creator.needsRevision.length} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-              {creator.needsRevision.map(task => (
-                <TaskCard key={task.id} task={task} type="needsRevision" creatorName={creator.name}
-                  onAction={handleAction} updating={updating === task.id} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {creator.queue.length > 0 && (
-          <div>
-            <SectionLabel type="queue" count={creator.queue.length} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-              {creator.queue.map(task => (
-                <TaskCard key={task.id} task={task} type="queue" creatorName={creator.name}
-                  onAction={handleAction} updating={updating === task.id} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {creator.inProgress.length > 0 && (
-          <div>
-            <SectionLabel type="inProgress" count={creator.inProgress.length} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-              {creator.inProgress.map(task => (
-                <TaskCard key={task.id} task={task} type="inProgress" creatorName={creator.name}
-                  onAction={handleAction} updating={updating === task.id} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {creator.inReview.length > 0 && (
-          <div>
-            <SectionLabel type="inReview" count={creator.inReview.length} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-              {creator.inReview.map(task => (
-                <TaskCard key={task.id} task={task} type="inReview" creatorName={creator.name}
-                  onAction={handleAction} updating={false} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Content Library ── */}
-        <div>
-          <button onClick={() => setShowLibrary(p => !p)}
-            style={{ background: 'none', border: 'none', color: showLibrary ? '#d4d4d8' : '#52525b', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: showLibrary ? '14px' : 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#3f3f46', flexShrink: 0 }} />
-            Content Library
-            <span style={{ fontSize: '11px', color: '#3f3f46', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-              ({creator.library.length} clip{creator.library.length !== 1 ? 's' : ''})
+          {allDone && (
+            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a' }}>
+              ✓ Today done
             </span>
-            <span style={{ fontSize: '11px', color: '#3f3f46' }}>{showLibrary ? '▾' : '▸'}</span>
-          </button>
-          {showLibrary && (
-            creator.library.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                {creator.library.map(asset => <LibraryCard key={asset.id} asset={{...asset, creatorId: creator.id}} onRefresh={onRefresh} />)}
-              </div>
-            ) : (
-              <div style={{ padding: '20px', color: '#3f3f46', fontSize: '12px', textAlign: 'center', background: '#0a0a0a', borderRadius: '8px', border: '1px dashed #1a1a1a' }}>
-                No clips yet — content will appear here after creator uploads
-              </div>
-            )
           )}
         </div>
+      </div>
 
-        {/* ── AI Matching (coming soon) ── */}
-        <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#1a1a1a', flexShrink: 0 }} />
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#2a2a2a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Inspo Matching</span>
-            <span style={{ fontSize: '10px', color: '#1e1e1e', background: '#141414', border: '1px solid #1e1e1e', borderRadius: '4px', padding: '2px 6px', fontWeight: 600 }}>Coming soon</span>
+      {/* Needs Revision — urgent, above slots */}
+      {creator.needsRevision.length > 0 && (
+        <div style={{ padding: '14px 24px', background: '#0d0505', borderBottom: '1px solid #2d1515' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+            ⚠ Needs Revision
           </div>
-          <div style={{ marginTop: '8px', fontSize: '11px', color: '#2a2a2a', lineHeight: 1.5 }}>
-            Automatic inspo suggestions for each uploaded clip — matched by visual content analysis
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {creator.needsRevision.map(task => (
+              <div key={task.id} style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  {task.inspo?.thumbnail && (
+                    <img src={task.inspo.thumbnail} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }} />
+                  )}
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#fca5a5' }}>{task.inspo?.title || task.name}</div>
+                    {task.adminFeedback && (
+                      <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => handleAction('revision', task)}
+                  style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '7px', cursor: 'pointer', flexShrink: 0 }}>
+                  Upload Revision
+                </button>
+              </div>
+            ))}
           </div>
+        </div>
+      )}
+
+      {/* Today's Work Slots */}
+      <div style={{ padding: '16px 24px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+          Today · {dayLabel}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {slots.map((slot, i) => (
+            <VideoSlot
+              key={i}
+              number={i + 1}
+              slot={slot}
+              creator={creator}
+              onAction={handleAction}
+              updating={updating}
+              onRefresh={onRefresh}
+            />
+          ))}
         </div>
       </div>
 
-      {toast && (
-        <div style={{
-          position: 'fixed', bottom: '24px', right: '24px', zIndex: 300,
-          padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-          background: toast.error ? '#2d1515' : '#0a2e0a',
-          color: toast.error ? '#ef4444' : '#22c55e',
-          border: `1px solid ${toast.error ? '#5c2020' : '#1a5c1a'}`,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-        }}>
-          {toast.msg}
+      {/* In Review — below the fold */}
+      {creator.inReview.length > 0 && (
+        <div style={{ padding: '0 24px 16px' }}>
+          <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+              Submitted · Awaiting Review
+            </div>
+            {creator.inReview.map(task => (
+              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0' }}>
+                {task.inspo?.thumbnail && (
+                  <img src={task.inspo.thumbnail} alt="" style={{ width: '32px', height: '32px', borderRadius: '5px', objectFit: 'cover', opacity: 0.6 }} />
+                )}
+                <div style={{ fontSize: '12px', color: '#3f3f46', flex: 1 }}>{task.inspo?.title || task.name}</div>
+                <div style={{ fontSize: '11px', color: '#22c55e', background: '#0a1a0a', border: '1px solid #1a3a1a', borderRadius: '4px', padding: '2px 8px' }}>
+                  In review
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -642,6 +743,19 @@ function CreatorSection({ creator, onRefresh }) {
           onClose={() => setSubmitModal(null)}
           onSubmit={handleSubmit}
         />
+      )}
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 300,
+          padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+          background: toast.error ? '#2d1515' : '#0a2e0a',
+          color: toast.error ? '#ef4444' : '#22c55e',
+          border: `1px solid ${toast.error ? '#5c2020' : '#1a5c1a'}`,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+        }}>
+          {toast.msg}
+        </div>
       )}
     </div>
   )

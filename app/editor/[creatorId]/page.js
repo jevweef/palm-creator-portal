@@ -19,6 +19,7 @@ function isPhoto(url) {
 }
 
 function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
+  const router = useRouter()
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
   const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
@@ -38,6 +39,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       onRefresh()
+      router.push('/admin/editor')
     } catch (err) {
       setError(err.message)
       setStarting(false)

@@ -28,6 +28,7 @@ export async function POST(req) {
     const assetRecord = await assetRes.json()
     const assetName = assetRecord.fields?.['fldRYYzl5OjSMnSBt'] || assetRecord.fields?.['Asset Name'] || 'Untitled'
     const existingTasks = assetRecord.fields?.['fld4CCeJODpSsV9Fs'] || assetRecord.fields?.['Tasks'] || []
+    const inspoSourceIds = assetRecord.fields?.['fld5CDjdr9Xy0tQyw'] || assetRecord.fields?.['Inspiration Source'] || []
 
     // Create a new Task record
     const createRes = await fetch(
@@ -41,6 +42,7 @@ export async function POST(req) {
             fldCSCps8fliHfmZV: 'To Do',
             fldtRiiDWYBuQFetr: [creatorId],
             fldUGXeqxXMvedl9z: [assetId],
+            ...(inspoSourceIds.length ? { fldGcodJMsxLA9uvT: inspoSourceIds } : {}),
           },
         }),
       }

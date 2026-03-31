@@ -8,7 +8,6 @@ function recordIdFormula(ids) {
   return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
 }
 
-// Airtable GET URLs 414 when filterByFormula is too long — batch into chunks
 async function fetchByIds(table, ids, params) {
   if (!ids.length) return []
   const CHUNK = 20
@@ -24,21 +23,25 @@ export async function GET() {
   try { await requireAdminOrEditor() } catch (e) { return e }
 
   try {
-    // 1. Fetch creators assigned to editor (Social Media Editing = true)
     const creators = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: '{Social Media Editing}=1',
       fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Assets'],
     })
     if (!creators.length) return NextResponse.json({ creators: [] })
 
-    // 2. Collect all linked task IDs from creator records
     const allTaskIds = [...new Set(creators.flatMap(c => c.fields?.Tasks || []))]
     const creatorIdSet = new Set(creators.map(c => c.id))
 
-    // 3. Fetch tasks + all uploaded library assets in parallel
-    // Library assets: fetch all Uploaded non-inspo assets, filter by creator in memory
-    // (FIND+ARRAYJOIN on linked record fields matches display names not IDs — can't use in formula)
-    const [tasks, libraryAssets] = await Promise.all([
+    const todayStr = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const dayOfWeek = now.getDay()
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7))
+    monday.setHours(0, 0, 0, 0)
+    const weekStartStr = monday.toISOString().split('T')[0]
+
+    // Fetch tasks + library assets + inspo-linked creator clips in parallel
+    const [tasks, libraryAssets, inspoLinkedAssets] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
           'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
@@ -56,16 +59,18 @@ export async function GET() {
         const creatorId = (a.fields?.['Palm Creators'] || [])[0]
         return creatorId && creatorIdSet.has(creatorId)
       })),
+      // Creator-uploaded clips tied to a specific inspo record (priority fills)
+      fetchAirtableRecords('Assets', {
+        filterByFormula: `AND({Pipeline Status}='Uploaded', NOT({Inspiration Source}=''))`,
+        fields: [
+          'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Dropbox Path (Current)',
+          'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week', 'Inspiration Source',
+        ],
+      }).then(assets => assets.filter(a => {
+        const creatorId = (a.fields?.['Palm Creators'] || [])[0]
+        return creatorId && creatorIdSet.has(creatorId)
+      })),
     ])
-
-    // 4. Filter tasks to relevant statuses only
-    const todayStr = new Date().toISOString().split('T')[0]
-    const now = new Date()
-    const dayOfWeek = now.getDay() // 0=Sun, 1=Mon...
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7))
-    monday.setHours(0, 0, 0, 0)
-    const weekStartStr = monday.toISOString().split('T')[0]
 
     const activeTasks = tasks.filter(t => {
       const s = t.fields?.Status
@@ -80,11 +85,15 @@ export async function GET() {
       return false
     })
 
-    // 5. Collect linked record IDs from tasks
     const taskAssetIds = [...new Set(activeTasks.flatMap(t => t.fields?.Asset || []))]
     const inspoIds = [...new Set(activeTasks.flatMap(t => t.fields?.Inspiration || []))]
 
-    // 6. Batch fetch task assets + inspo records
+    // Collect inspo IDs from inspo-linked creator assets too
+    const inspoLinkedInspoIds = [...new Set(
+      inspoLinkedAssets.flatMap(a => a.fields?.['Inspiration Source'] || [])
+    )]
+    const allInspoIds = [...new Set([...inspoIds, ...inspoLinkedInspoIds])]
+
     const [taskAssets, inspoRecords] = await Promise.all([
       fetchByIds('Assets', taskAssetIds, {
         fields: [
@@ -92,7 +101,7 @@ export async function GET() {
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Edited File Link',
         ],
       }),
-      fetchByIds('Inspiration', inspoIds, {
+      fetchByIds('Inspiration', allInspoIds, {
         fields: [
           'Title', 'Notes', 'Tags', 'Film Format', 'Content link',
           'Thumbnail', 'Username', 'DB Share Link', 'On-Screen Text',
@@ -103,7 +112,6 @@ export async function GET() {
     const assetMap = Object.fromEntries(taskAssets.map(r => [r.id, r.fields]))
     const inspoMap = Object.fromEntries(inspoRecords.map(r => [r.id, r.fields]))
 
-    // 7. Group tasks by creator
     const tasksByCreator = {}
     for (const task of activeTasks) {
       const creatorId = (task.fields?.Creator || [])[0]
@@ -153,7 +161,36 @@ export async function GET() {
       })
     }
 
-    // 8. Group library assets by creator, sorted newest first
+    // Group inspo-linked creator assets by creator
+    const inspoClipsByCreator = {}
+    for (const asset of inspoLinkedAssets) {
+      const creatorId = (asset.fields?.['Palm Creators'] || [])[0]
+      if (!creatorId) continue
+      if (!inspoClipsByCreator[creatorId]) inspoClipsByCreator[creatorId] = []
+      const inspoId = (asset.fields?.['Inspiration Source'] || [])[0]
+      const inspo = inspoId ? (inspoMap[inspoId] || {}) : {}
+      inspoClipsByCreator[creatorId].push({
+        id: asset.id,
+        name: asset.fields?.['Asset Name'] || '',
+        dropboxLink: asset.fields?.['Dropbox Shared Link'] || '',
+        dropboxLinks: (asset.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
+        dropboxPath: asset.fields?.['Dropbox Path (Current)'] || '',
+        creatorNotes: asset.fields?.['Creator Notes'] || '',
+        thumbnail: asset.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || asset.fields?.Thumbnail?.[0]?.url || '',
+        uploadWeek: asset.fields?.['Upload Week'] || '',
+        inspo: {
+          id: inspoId,
+          title: inspo.Title || '',
+          thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
+          username: inspo.Username || '',
+          tags: inspo.Tags || [],
+          notes: inspo.Notes || '',
+          contentLink: inspo['Content link'] || '',
+          onScreenText: inspo['On-Screen Text'] || '',
+        },
+      })
+    }
+
     const libraryByCreator = {}
     for (const asset of libraryAssets) {
       const creatorId = (asset.fields?.['Palm Creators'] || [])[0]
@@ -176,11 +213,13 @@ export async function GET() {
       libraryByCreator[id].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
     }
 
-    // 9. Assemble per-creator response
     const result = creators.map(c => {
       const f = c.fields || {}
       const ctasks = tasksByCreator[c.id] || []
       const library = libraryByCreator[c.id] || []
+      const inspoClips = inspoClipsByCreator[c.id] || []
+      const weeklyQuota = f['Weekly Reel Quota'] || 14
+      const dailyQuota = Math.ceil(weeklyQuota / 7)
 
       const doneThisWeek = ctasks.filter(t =>
         t.status === 'Done' &&
@@ -188,16 +227,25 @@ export async function GET() {
         t.adminReviewStatus !== 'Needs Revision'
       ).length
 
+      const doneTodayList = ctasks.filter(t =>
+        t.status === 'Done' &&
+        (t.completedAt || '').startsWith(todayStr) &&
+        t.adminReviewStatus !== 'Needs Revision'
+      )
+
       return {
         id: c.id,
         name: f.AKA || f.Creator || '',
-        quota: f['Weekly Reel Quota'] || 2,
+        quota: weeklyQuota,
+        dailyQuota,
         doneToday: doneThisWeek,
+        doneTodayList,
         needsRevision: ctasks.filter(t => t.adminReviewStatus === 'Needs Revision'),
         queue: ctasks.filter(t => t.status === 'To Do'),
         inProgress: ctasks.filter(t => t.status === 'In Progress'),
         inReview: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Pending Review'),
         library,
+        inspoClips,
       }
     })
 
