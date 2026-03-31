@@ -2,6 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0) }
 function fmtPct(val) { return `${Math.round((val || 0) * 100)}%` }
@@ -51,15 +52,20 @@ function ActionCard({ href, icon, title, subtitle }) {
 
 export default function CreatorDashboard() {
   const { user, isLoaded } = useUser()
+  const searchParams = useSearchParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savedReels, setSavedReels] = useState([])
   const [pipeline, setPipeline] = useState(null)
 
-  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK' // Default: Grace Collins
+  const isSuperAdmin = user?.primaryEmailAddress?.emailAddress === 'evan@flylisted.com'
+  const previewOpsId = isSuperAdmin ? searchParams.get('opsId') : null
+  const previewHqId = isSuperAdmin ? searchParams.get('hqId') : null
+
+  const creatorOpsId = previewOpsId || user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK' // Default: Grace Collins
 
   useEffect(() => {
-    const hqId = user?.publicMetadata?.airtableHqId || 'recYyxrPm6BWd3FSB' // Default: Grace Collins
+    const hqId = previewHqId || user?.publicMetadata?.airtableHqId || 'recYyxrPm6BWd3FSB' // Default: Grace Collins
     Promise.all([
       fetch(`/api/creator-profile?hqId=${hqId}`).then((r) => r.json()),
       fetch(`/api/saved-inspo?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ records: [] })),

@@ -12,7 +12,6 @@ const ADMIN_NAV = [
   { href: '/admin/import', label: 'Import', icon: '📥' },
   { href: '/admin/editor', label: 'Editor', icon: '✂️' },
   { href: '/admin/posts', label: 'Post Prep', icon: '✈️' },
-  { href: '/dashboard', label: 'Creator View', icon: '👤' },
 ]
 
 const EDITOR_NAV = [

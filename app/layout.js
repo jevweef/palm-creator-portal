@@ -1,6 +1,7 @@
 import './globals.css'
 import { ClerkProvider } from '@clerk/nextjs'
 import Header from '@/components/Header'
+import SuperAdminBar from '@/components/SuperAdminBar'
 
 export const metadata = {
   title: 'Palm Management',
@@ -25,6 +26,7 @@ export default function RootLayout({ children }) {
     <ClerkProvider>
       <html lang="en">
         <body>
+          <SuperAdminBar />
           <Header />
           {children}
         </body>
