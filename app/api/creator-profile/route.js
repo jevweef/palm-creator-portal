@@ -14,7 +14,7 @@ const headers = {
 async function fetchAirtable(base, table, params = '') {
   const res = await fetch(
     `https://api.airtable.com/v0/${base}/${table}${params}`,
-    { headers, next: { revalidate: 300 } }
+    { headers, next: { revalidate: 0 } }
   )
   if (!res.ok) throw new Error(`Airtable ${res.status}: ${await res.text()}`)
   return res.json()
@@ -23,8 +23,10 @@ async function fetchAirtable(base, table, params = '') {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
-    // For testing, allow passing a record ID. In production, this comes from Clerk metadata.
-    const hqId = searchParams.get('hqId') || 'recYyxrPm6BWd3FSB' // Default: Grace Collins
+    const hqId = searchParams.get('hqId')
+    if (!hqId) {
+      return NextResponse.json({ error: 'hqId is required' }, { status: 400 })
+    }
 
     // Step 1: Fetch creator profile to get their name (needed for linked record filters)
     const creatorData = await fetchAirtable(HQ_BASE, HQ_CREATORS, `/${hqId}`)
