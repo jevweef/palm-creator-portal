@@ -44,7 +44,7 @@ export async function POST(request) {
     return NextResponse.json({
       accessToken,
       rootNamespaceId,
-      uploadFolder: `${rootPath}/Social Media/30_EDITED_EXPORTS`,
+      uploadFolder: `${rootPath}/Social Media/35_FINALS_FOR_REVIEW`,
     })
   } catch (err) {
     console.error('[editor-upload-token] Error:', err.message)

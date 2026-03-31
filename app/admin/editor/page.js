@@ -52,21 +52,14 @@ function SubmitModal({ task, onClose, onSubmit }) {
 
     try {
       setProgress('Preparing upload...')
-      const rawPath = task.asset.dropboxPath || ''
-      let exportFolder = ''
-      if (rawPath.includes('20_NEEDS_EDIT')) {
-        exportFolder = rawPath.substring(0, rawPath.indexOf('20_NEEDS_EDIT')) + '30_EDITED_EXPORTS'
-      } else {
-        exportFolder = '/Palm Ops/Edited Exports'
-      }
 
       const tokenRes = await fetch('/api/editor-upload-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: task.id }),
+        body: JSON.stringify({ taskId: task.id, creatorId: task.creator.id }),
       })
       if (!tokenRes.ok) throw new Error('Failed to get upload credentials')
-      const { accessToken, rootNamespaceId } = await tokenRes.json()
+      const { accessToken, rootNamespaceId, uploadFolder: exportFolder } = await tokenRes.json()
 
       const titleSlug = (task.inspo.title || 'edit').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50)
       const creatorSlug = (task.creator.name || 'creator').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '')
