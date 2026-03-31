@@ -57,17 +57,40 @@ const GRADE_COLORS = {
   D: '#ef4444', F: '#ef4444',
 }
 
-function ReelsModal({ source, onClose }) {
+function ReelsModal({ source, sources, onClose, onNavigate }) {
   const [reels, setReels] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [toggling, setToggling] = useState({})
+
+  const currentIdx = sources.findIndex(s => s.id === source.id)
 
   useEffect(() => {
+    setReels(null)
+    setLoading(true)
     fetch(`/api/admin/sources/reels?handle=${encodeURIComponent(source.handle)}`)
       .then(r => r.json())
       .then(d => setReels(d.reels || []))
       .catch(() => setReels([]))
       .finally(() => setLoading(false))
   }, [source.handle])
+
+  const toggleHidden = async (reel) => {
+    const newHidden = !reel.hidden
+    setToggling(t => ({ ...t, [reel.id]: true }))
+    setReels(prev => prev.map(r => r.id === reel.id ? { ...r, hidden: newHidden } : r))
+    try {
+      await fetch('/api/admin/sources/reels', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId: reel.id, hidden: newHidden }),
+      })
+    } catch {
+      // revert on error
+      setReels(prev => prev.map(r => r.id === reel.id ? { ...r, hidden: !newHidden } : r))
+    } finally {
+      setToggling(t => ({ ...t, [reel.id]: false }))
+    }
+  }
 
   return (
     <div
@@ -80,10 +103,26 @@ function ReelsModal({ source, onClose }) {
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>@{source.handle}</div>
-            <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
-              {loading ? 'Loading...' : `${reels?.length || 0} reels on inspo board`}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Prev / Next */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button
+                onClick={() => currentIdx > 0 && onNavigate(sources[currentIdx - 1])}
+                disabled={currentIdx <= 0}
+                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: currentIdx <= 0 ? '#333' : '#71717a', fontSize: '16px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '2px 10px', lineHeight: 1.5 }}
+              >‹</button>
+              <button
+                onClick={() => currentIdx < sources.length - 1 && onNavigate(sources[currentIdx + 1])}
+                disabled={currentIdx >= sources.length - 1}
+                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#333' : '#71717a', fontSize: '16px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '2px 10px', lineHeight: 1.5 }}
+              >›</button>
+            </div>
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>@{source.handle}</div>
+              <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
+                {loading ? 'Loading...' : `${reels?.length || 0} reels on inspo board`}
+                {sources.length > 1 && <span style={{ color: '#3f3f46', marginLeft: '8px' }}>{currentIdx + 1} / {sources.length}</span>}
+              </div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -107,12 +146,28 @@ function ReelsModal({ source, onClose }) {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px' }}>
             {reels.map(reel => (
-              <InspoCard
-                key={reel.id}
-                record={reel}
-                grade={reel.grade}
-                onClick={() => window.open(reel.dbShareLink || reel.contentLink, '_blank')}
-              />
+              <div key={reel.id} style={{ position: 'relative', opacity: reel.hidden ? 0.45 : 1, transition: 'opacity 0.2s' }}>
+                <InspoCard
+                  record={reel}
+                  grade={reel.grade}
+                  onClick={() => window.open(reel.dbShareLink || reel.contentLink, '_blank')}
+                />
+                <button
+                  onClick={() => toggleHidden(reel)}
+                  disabled={toggling[reel.id]}
+                  style={{
+                    position: 'absolute', bottom: '54px', left: '8px',
+                    fontSize: '10px', fontWeight: 700,
+                    padding: '3px 8px', borderRadius: '5px', border: 'none',
+                    cursor: 'pointer', zIndex: 10,
+                    background: reel.hidden ? '#166534' : '#7f1d1d',
+                    color: '#fff',
+                    opacity: toggling[reel.id] ? 0.5 : 1,
+                  }}
+                >
+                  {reel.hidden ? '+ Add back' : '— Remove'}
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -646,7 +701,7 @@ export default function AdminSources() {
       </div>
 
       {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} />}
-      {reelsSource && <ReelsModal source={reelsSource} onClose={() => setReelsSource(null)} />}
+      {reelsSource && <ReelsModal source={reelsSource} sources={sources} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} />}
       {enableSource && <EnableModal source={enableSource} onClose={() => setEnableSource(null)} onConfirm={handleEnableConfirm} onAddToBatch={handleAddToBatch} batchCount={batch.length} />}
       {rescrapeSource && (
         <RescrapeModal

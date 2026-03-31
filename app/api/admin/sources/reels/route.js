@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 
 export async function GET(request) {
   try {
@@ -20,7 +20,7 @@ export async function GET(request) {
         'Views', 'Likes', 'Comments', 'Shares',
         'Grade', 'Normalized Score', 'Rating',
         'Audio Type', 'Creator Posted Date',
-        'Notes', 'On-Screen Text', 'DB Share Link',
+        'Notes', 'On-Screen Text', 'DB Share Link', 'Hidden from Board',
       ],
       sort: [{ field: 'Views', direction: 'desc' }],
     })
@@ -48,6 +48,7 @@ export async function GET(request) {
         postedAt: f['Creator Posted Date'] || null,
         notes: f.Notes || '',
         onScreenText: f['On-Screen Text'] || '',
+        hidden: f['Hidden from Board'] || false,
       }
     })
 
@@ -55,6 +56,20 @@ export async function GET(request) {
   } catch (err) {
     if (err instanceof Response) return err
     console.error('Source reels GET error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+export async function PATCH(request) {
+  try { await requireAdmin() } catch (e) { return e }
+  try {
+    const { recordId, hidden } = await request.json()
+    if (!recordId) return NextResponse.json({ error: 'recordId required' }, { status: 400 })
+    await patchAirtableRecord('Inspiration', recordId, { 'Hidden from Board': hidden })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    if (err instanceof Response) return err
+    console.error('Source reels PATCH error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
