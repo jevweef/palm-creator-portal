@@ -3,7 +3,21 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
 
-const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN
+async function getDropboxAccessToken() {
+  const res = await fetch('https://api.dropbox.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
+      client_id: process.env.DROPBOX_APP_KEY,
+      client_secret: process.env.DROPBOX_APP_SECRET,
+    }),
+  })
+  if (!res.ok) throw new Error(`Dropbox token refresh failed: ${await res.text()}`)
+  const data = await res.json()
+  return data.access_token
+}
 
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
@@ -20,11 +34,13 @@ export async function POST(request) {
     const fileName = `thumbnail_${postId}_${Date.now()}.${file.name.split('.').pop()}`
     const dropboxPath = `/Palm Ops/Thumbnails/${fileName}`
 
+    const token = await getDropboxAccessToken()
+
     // Upload to Dropbox
     const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${DROPBOX_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/octet-stream',
         'Dropbox-API-Arg': JSON.stringify({
           path: dropboxPath,
@@ -44,7 +60,7 @@ export async function POST(request) {
     const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${DROPBOX_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ path: dropboxPath, settings: { requested_visibility: 'public' } }),
@@ -55,10 +71,9 @@ export async function POST(request) {
       const linkData = await linkRes.json()
       sharedUrl = linkData.url?.replace('dl=0', 'raw=1')
     } else {
-      // Try get existing link
       const existRes = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${DROPBOX_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: dropboxPath }),
       })
       const existData = await existRes.json()
