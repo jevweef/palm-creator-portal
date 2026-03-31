@@ -148,7 +148,7 @@ function TagPill({ tag, active, onClick, size = 'sm' }) {
   )
 }
 
-export default function InspoBoard() {
+export default function InspoBoard({ opsIdOverride } = {}) {
   const { user } = useUser()
   const [records, setRecords] = useState([])
   const [filtered, setFiltered] = useState([])
@@ -168,7 +168,7 @@ export default function InspoBoard() {
   const [allFormats, setAllFormats] = useState([])
   const [savedIds, setSavedIds] = useState(new Set())
 
-  const creatorOpsId = user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK' // Default: Grace Collins
+  const creatorOpsId = opsIdOverride || user?.publicMetadata?.airtableOpsId || null
 
   useEffect(() => {
     async function load() {
