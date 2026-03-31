@@ -15,18 +15,13 @@ export async function GET(request) {
     const imageExts = ['jpg','jpeg','png','gif','webp','heic','heif','bmp','tiff','tif']
     const imageExtRegex = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i
 
-    // Filter by creator in Airtable formula so we don't hit maxRecords across all creators
-    const creatorFilter = `FIND('${creatorId}', ARRAYJOIN({Palm Creators}))`
-    const baseFilter = `AND(NOT({Dropbox Shared Link}=''),${creatorFilter})`
-    const formula = forReel
-      ? `AND(${baseFilter},NOT({Used As Reel Thumbnail}))`
-      : baseFilter
-
+    // Fetch all assets with a Dropbox link — paginated, no maxRecords cap
+    // Filter by creator, image type, and reel thumbnail flag in memory
+    // (ARRAYJOIN on linked records returns display names not IDs, so can't filter creator in formula)
     const assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: formula,
+      filterByFormula: `NOT({Dropbox Shared Link}='')`,
       fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status', 'Used As Reel Thumbnail', 'File Extension'],
       sort: [{ field: 'Created Time', direction: 'desc' }],
-      maxRecords: 500,
     })
 
     const isImageAsset = (a) => {
@@ -36,9 +31,14 @@ export async function GET(request) {
       return imageExts.includes(ext) || imageExtRegex.test(link) || type === 'photo' || type === 'image'
     }
 
-    // Filter in memory for this creator + image type
+    // Filter in memory for this creator + image type + reel thumbnail flag
     const photos = assets
-      .filter(a => (a.fields?.['Palm Creators'] || []).includes(creatorId) && isImageAsset(a))
+      .filter(a => {
+        if (!(a.fields?.['Palm Creators'] || []).includes(creatorId)) return false
+        if (!isImageAsset(a)) return false
+        if (forReel && a.fields?.['Used As Reel Thumbnail']) return false
+        return true
+      })
       .map(a => ({
         id: a.id,
         name: a.fields['Asset Name'] || '',
