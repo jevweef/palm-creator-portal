@@ -7,6 +7,31 @@ const TASK_TO_ASSET_STATUS = {
   'Done': 'In Review',
 }
 
+// Posting slots: ~10 AM and ~7 PM Eastern (15:00 / 23:00 UTC)
+// 15 UTC = 10 AM EST / 11 AM EDT — 23 UTC = 6 PM EST / 7 PM EDT
+const SLOT_HOURS_UTC = [15, 23]
+
+// Returns the next available 12 PM / 9 PM UTC slot after latestSlotISO (or now)
+function getNextPostingSlot(latestSlotISO) {
+  const now = new Date()
+  const searchFrom = latestSlotISO
+    ? new Date(Math.max(now.getTime(), new Date(latestSlotISO).getTime()))
+    : now
+
+  const startDay = new Date(searchFrom)
+  startDay.setUTCHours(0, 0, 0, 0)
+
+  for (let dayOffset = 0; dayOffset <= 365; dayOffset++) {
+    for (const hour of SLOT_HOURS_UTC) {
+      const candidate = new Date(startDay)
+      candidate.setUTCDate(startDay.getUTCDate() + dayOffset)
+      candidate.setUTCHours(hour, 0, 0, 0)
+      if (candidate > searchFrom) return candidate
+    }
+  }
+  return null
+}
+
 // Admin review actions
 const ADMIN_ACTIONS = ['approve', 'requestRevision']
 
@@ -174,12 +199,30 @@ export async function PATCH(request) {
         const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         const postName = [creatorAKA, assetName || dateStr].filter(Boolean).join(' – ')
 
+        // Find the latest future posting slot for this creator
+        let scheduledDate = null
+        try {
+          const futurePosts = await fetchAirtableRecords('Posts', {
+            filterByFormula: `IS_AFTER({Scheduled Date}, NOW())`,
+            fields: ['Scheduled Date', 'Creator'],
+            sort: [{ field: 'Scheduled Date', direction: 'desc' }],
+          })
+          const creatorFuturePosts = futurePosts.filter(p =>
+            (p.fields?.Creator || []).includes(creatorId)
+          )
+          const latestSlot = creatorFuturePosts[0]?.fields?.['Scheduled Date'] || null
+          scheduledDate = getNextPostingSlot(latestSlot)
+        } catch (slotErr) {
+          console.error('[Editor] Failed to compute posting slot:', slotErr.message)
+        }
+
         await createAirtableRecord('Posts', {
           'Post Name': postName,
           ...(creatorId ? { 'Creator': [creatorId] } : {}),
           ...(assetId ? { 'Asset': [assetId] } : {}),
           'Task': [taskId],
           'Status': 'Prepping',
+          ...(scheduledDate ? { 'Scheduled Date': scheduledDate.toISOString() } : {}),
         })
         console.log(`[Editor] Post record created for task ${taskId}`)
       } catch (postErr) {

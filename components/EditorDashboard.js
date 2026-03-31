@@ -3,6 +3,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 
+// ─── Slot label helper ─────────────────────────────────────────────────────────
+// 15 UTC = Morning Post (~10 AM EST / 11 AM EDT)
+// 23 UTC = Evening Post (~6 PM EST / 7 PM EDT)
+export function getSlotLabel(isoDateString) {
+  if (!isoDateString) return ''
+  const d = new Date(isoDateString)
+  const utcHour = d.getUTCHours()
+  if (utcHour === 15) return 'Morning Post'
+  if (utcHour === 23) return 'Evening Post'
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', hour12: true, timeZone: 'America/New_York' })
+}
+
 // ─── Quota dots ────────────────────────────────────────────────────────────────
 
 export function QuotaDots({ done, quota }) {
@@ -761,83 +773,88 @@ function CreatorSection({ creator, onRefresh }) {
   )
 }
 
-// ─── Today's Tasks strip ───────────────────────────────────────────────────────
+// ─── Buffer Overview strip ─────────────────────────────────────────────────────
 
-function TodayCreatorCard({ creator }) {
-  const dailyQuota = creator.dailyQuota || 2
-  const doneToday = creator.doneToday || 0
-  const remaining = dailyQuota - doneToday
+function BufferCreatorCard({ creator }) {
+  const bufferDays = creator.bufferDays ?? 0
+  const approvedBuffer = creator.approvedBuffer ?? 0
+  const pendingEdit = creator.queue.length + creator.inProgress.length + creator.needsRevision.length
 
-  const pendingItems = [
-    ...creator.inProgress.map(t => ({ kind: 'inProgress', label: t.inspo?.title || t.name || 'In progress' })),
-    ...creator.queue.map(t => ({ kind: 'toDo', label: t.inspo?.title || t.name || 'Ready to edit' })),
-    ...(creator.inspoClips || []).map(c => ({ kind: 'inspoClip', label: c.inspoTitle || 'Creator upload' })),
-  ]
-  while (pendingItems.length < remaining) pendingItems.push({ kind: 'empty', label: 'No clip yet' })
-  const slots = pendingItems.slice(0, remaining)
+  const isRed = bufferDays < 1
+  const isYellow = bufferDays >= 1 && bufferDays < 2
+  const isGreen = bufferDays >= 2
 
-  const dotColor = { inProgress: '#3b82f6', toDo: '#a78bfa', inspoClip: '#f59e0b', empty: '#2a2a2a' }
-  const rowBg = { inProgress: '#0d1020', toDo: '#0d0d1a', inspoClip: '#1a1200', empty: '#0a0a0a' }
-  const rowBorder = { inProgress: '#1e2a50', toDo: '#1a1a30', inspoClip: '#2a2000', empty: '#141414' }
+  const color = isGreen ? '#22c55e' : isYellow ? '#f59e0b' : '#ef4444'
+  const bg = isGreen ? '#050f05' : isYellow ? '#0d0a00' : '#100505'
+  const border = isGreen ? '#1a3a1a' : isYellow ? '#3d2e00' : '#3d1515'
+  const barBg = isGreen ? '#0a2e0a' : isYellow ? '#1a1400' : '#1a0808'
 
   return (
-    <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '12px', padding: '16px' }}>
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '16px 18px' }}>
+      {/* Name + buffer days */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{creator.name}</span>
-        <span style={{ fontSize: '11px', color: doneToday > 0 ? '#22c55e' : '#52525b', fontWeight: 500 }}>
-          {doneToday}/{dailyQuota} done
-        </span>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
+          <span style={{ fontSize: '22px', fontWeight: 800, color, lineHeight: 1 }}>{bufferDays}</span>
+          <span style={{ fontSize: '11px', color, fontWeight: 600 }}>d runway</span>
+        </div>
       </div>
+
+      {/* Buffer bar */}
+      <div style={{ height: '4px', background: '#1a1a1a', borderRadius: '2px', marginBottom: '10px', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', borderRadius: '2px', background: color,
+          width: `${Math.min(100, (bufferDays / 7) * 100)}%`,
+          transition: 'width 0.3s',
+        }} />
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
+        <span style={{ color: '#52525b' }}>
+          <span style={{ color: color, fontWeight: 600 }}>{approvedBuffer}</span> posts scheduled
+        </span>
+        {pendingEdit > 0 && (
+          <span style={{ color: '#52525b' }}>
+            <span style={{ color: '#a78bfa', fontWeight: 600 }}>{pendingEdit}</span> to edit
+          </span>
+        )}
+      </div>
+
+      {/* Revision warning */}
       {creator.needsRevision.length > 0 && (
-        <div style={{ marginBottom: '8px', fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>
+        <div style={{ marginTop: '8px', fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>
           ⚠ {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''} needed
         </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        {slots.map((item, i) => (
-          <div key={i} style={{
-            padding: '7px 10px', borderRadius: '7px',
-            background: rowBg[item.kind], border: `1px solid ${rowBorder[item.kind]}`,
-            display: 'flex', alignItems: 'center', gap: '8px',
-          }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor[item.kind], flexShrink: 0 }} />
-            <span style={{ fontSize: '12px', color: item.kind === 'empty' ? '#3f3f46' : '#a1a1aa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {doneToday + i + 1}. {item.label}
-            </span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
 
-function TodayTasksStrip({ creators }) {
-  const incomplete = creators.filter(c => (c.doneToday || 0) < (c.dailyQuota || 2))
-  const totalRemaining = incomplete.reduce((sum, c) => sum + ((c.dailyQuota || 2) - (c.doneToday || 0)), 0)
+function BufferOverview({ creators }) {
+  const sorted = [...creators].sort((a, b) => (a.bufferDays ?? 0) - (b.bufferDays ?? 0))
+  const redCount = creators.filter(c => (c.bufferDays ?? 0) < 1).length
+  const allHealthy = redCount === 0 && creators.every(c => (c.bufferDays ?? 0) >= 2)
 
   return (
     <div style={{ marginBottom: '32px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '14px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#fff', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Today's Tasks
+          Content Buffer
         </h2>
-        {incomplete.length > 0 ? (
-          <span style={{ fontSize: '12px', color: '#52525b' }}>{totalRemaining} remaining</span>
+        {allHealthy ? (
+          <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 600 }}>All creators healthy ✓</span>
+        ) : redCount > 0 ? (
+          <span style={{ fontSize: '12px', color: '#ef4444', fontWeight: 600 }}>{redCount} creator{redCount > 1 ? 's' : ''} need content</span>
         ) : (
-          <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 600 }}>All done ✓</span>
+          <span style={{ fontSize: '12px', color: '#f59e0b' }}>Some creators running low</span>
         )}
       </div>
-      {incomplete.length === 0 ? (
-        <div style={{ padding: '20px 24px', background: '#050f05', border: '1px solid #1a3a1a', borderRadius: '12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#22c55e' }}>Every creator is done for today.</div>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
-          {incomplete.map(creator => (
-            <TodayCreatorCard key={creator.id} creator={creator} />
-          ))}
-        </div>
-      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+        {sorted.map(creator => (
+          <BufferCreatorCard key={creator.id} creator={creator} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -890,7 +907,7 @@ export function EditorDashboardContent() {
         </button>
       </div>
 
-      <TodayTasksStrip creators={creators} />
+      <BufferOverview creators={creators} />
 
       {creators.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: '#3f3f46', fontSize: '14px', background: '#0d0d0d', borderRadius: '12px', border: '1px solid #1a1a1a' }}>

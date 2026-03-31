@@ -40,8 +40,8 @@ export async function GET() {
     monday.setHours(0, 0, 0, 0)
     const weekStartStr = monday.toISOString().split('T')[0]
 
-    // Fetch tasks + library assets + inspo-linked creator clips in parallel
-    const [tasks, libraryAssets, inspoLinkedAssets] = await Promise.all([
+    // Fetch tasks + library assets + inspo-linked creator clips + future posts in parallel
+    const [tasks, libraryAssets, inspoLinkedAssets, futurePosts] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
           'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
@@ -70,6 +70,11 @@ export async function GET() {
         const creatorId = (a.fields?.['Palm Creators'] || [])[0]
         return creatorId && creatorIdSet.has(creatorId)
       })),
+      // Future scheduled posts — drives buffer calculation
+      fetchAirtableRecords('Posts', {
+        filterByFormula: `IS_AFTER({Scheduled Date}, NOW())`,
+        fields: ['Creator', 'Scheduled Date'],
+      }),
     ])
 
     const activeTasks = tasks.filter(t => {
@@ -213,6 +218,17 @@ export async function GET() {
       libraryByCreator[id].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
     }
 
+    // Group future posts by creator
+    const futurePostsByCreator = {}
+    for (const post of futurePosts) {
+      const creatorId = (post.fields?.Creator || [])[0]
+      if (!creatorId) continue
+      if (!futurePostsByCreator[creatorId]) futurePostsByCreator[creatorId] = 0
+      futurePostsByCreator[creatorId]++
+    }
+
+    const POSTS_PER_DAY = 2 // 12 PM and 9 PM slots
+
     const result = creators.map(c => {
       const f = c.fields || {}
       const ctasks = tasksByCreator[c.id] || []
@@ -220,6 +236,8 @@ export async function GET() {
       const inspoClips = inspoClipsByCreator[c.id] || []
       const weeklyQuota = f['Weekly Reel Quota'] || 14
       const dailyQuota = Math.ceil(weeklyQuota / 7)
+      const approvedBuffer = futurePostsByCreator[c.id] || 0
+      const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
       const doneThisWeek = ctasks.filter(t =>
         t.status === 'Done' &&
@@ -240,6 +258,8 @@ export async function GET() {
         dailyQuota,
         doneToday: doneThisWeek,
         doneTodayList,
+        approvedBuffer,
+        bufferDays,
         needsRevision: ctasks.filter(t => t.adminReviewStatus === 'Needs Revision'),
         queue: ctasks.filter(t => t.status === 'To Do'),
         inProgress: ctasks.filter(t => t.status === 'In Progress'),
