@@ -126,6 +126,7 @@ export async function GET(request, { params }) {
           notes: inspo.Notes || '',
           tags: inspo.Tags || [],
           contentLink: inspo['Content link'] || '',
+          dbShareLink: inspo['DB Share Link'] || '',
           thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
           username: inspo.Username || '',
           onScreenText: inspo['On-Screen Text'] || '',

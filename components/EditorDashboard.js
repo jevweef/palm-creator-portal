@@ -8,7 +8,8 @@ import Link from 'next/link'
 
 function rawDropboxUrl(url) {
   if (!url) return ''
-  return url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
+  const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
+  return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
 function isVideo(url) { return !!url && /\.(mp4|mov|avi|webm|mkv)/i.test(url) }
 function isPhoto(url) { return !!url && /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url) }
@@ -558,6 +559,36 @@ function LibraryPickerModal({ creator, onClose, onRefresh }) {
 
 // ─── Task Detail Modal ─────────────────────────────────────────────────────────
 
+function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#71717a' }) {
+  const videoSrc = rawUrl && isVideo(link) ? rawUrl : null
+  const photoSrc = rawUrl && isPhoto(link) ? rawUrl : null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+      <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', background: '#080808', aspectRatio: '9/16', flex: 1 }}>
+        {videoSrc ? (
+          <video src={videoSrc} autoPlay muted loop playsInline preload="metadata"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+            onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+        ) : photoSrc ? (
+          <img src={photoSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : fallbackThumb ? (
+          <img src={fallbackThumb} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2a2a2a', fontSize: '32px' }}>&#127916;</div>
+        )}
+      </div>
+      {link && (
+        <a href={link} target="_blank" rel="noopener noreferrer"
+          style={{ display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: '#0d0d0d', color: accentColor, border: `1px solid #2a2a2a`, borderRadius: '7px', textDecoration: 'none' }}>
+          Open ↗
+        </a>
+      )}
+    </div>
+  )
+}
+
 function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, onClose }) {
   const task = slot.task || null
   const clip = slot.clip || null
@@ -566,13 +597,10 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const [startErr, setStartErr] = useState('')
 
   const inspo = task?.inspo || clip?.inspo || {}
-  const assetThumb = task?.asset?.thumbnail || clip?.thumbnail || ''
-  const inspoThumb = inspo.thumbnail || ''
-  const links = task?.asset?.dropboxLinks?.length
-    ? task.asset.dropboxLinks
-    : task?.asset?.dropboxLink ? [task.asset.dropboxLink]
-    : clip?.dropboxLink ? [clip.dropboxLink]
-    : []
+  const assetLink = task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || clip?.dropboxLink || ''
+  const assetRawUrl = rawDropboxUrl(assetLink)
+  const inspoLink = inspo.dbShareLink || inspo.contentLink || ''
+  const inspoRawUrl = inspo.dbShareLink ? rawDropboxUrl(inspo.dbShareLink) : ''
 
   const handleClipStart = async () => {
     setStarting(true)
@@ -588,123 +616,120 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
   const title = inspo.title || task?.name || clip?.inspo?.title || 'Edit task'
   const username = inspo.username || ''
-  const hasMedia = assetThumb || inspoThumb
+  const creatorNotes = task?.asset?.creatorNotes || clip?.creatorNotes || task?.creatorNotes || ''
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)' }}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', padding: '24px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', width: '100%', maxWidth: '600px', maxHeight: '85vh', overflow: 'auto', padding: '28px', position: 'relative', margin: '0 16px' }}>
-        {/* Close */}
-        <button onClick={onClose} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#52525b', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', width: '100%', maxWidth: '1050px', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* Title row */}
-        <div style={{ marginBottom: '20px', paddingRight: '24px' }}>
-          <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>{title}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {username && <span style={{ fontSize: '13px', color: '#52525b' }}>@{username}</span>}
-            {slot.type === 'done' && (
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: '#0a2e0a', border: '1px solid #1a4a1a', borderRadius: '4px', padding: '2px 8px' }}>Submitted · In Review</span>
-            )}
+        {/* Header bar */}
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+            {username && <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>@{username}</div>}
           </div>
+          {slot.type === 'done' && (
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: '#0a2e0a', border: '1px solid #1a4a1a', borderRadius: '4px', padding: '3px 10px', flexShrink: 0 }}>In Review</span>
+          )}
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', fontSize: '22px', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
 
-        {/* Side-by-side media */}
-        {hasMedia && (
-          <div style={{ display: 'grid', gridTemplateColumns: assetThumb && inspoThumb ? '1fr 1fr' : '1fr', gap: '10px', marginBottom: '20px' }}>
-            {assetThumb && (
+        {/* Body — two columns */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+          {/* LEFT — media panels */}
+          <div style={{ width: '50%', padding: '20px', borderRight: '1px solid #1a1a1a', display: 'flex', gap: '12px', overflow: 'hidden' }}>
+            <MediaPanel
+              label={isClip ? 'Creator Upload' : 'Creator Clip'}
+              link={assetLink}
+              rawUrl={assetRawUrl}
+              fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
+              accentColor="#22c55e"
+            />
+            <MediaPanel
+              label="Inspo"
+              link={inspoLink}
+              rawUrl={inspoRawUrl}
+              fallbackThumb={inspo.thumbnail || ''}
+              accentColor="#a78bfa"
+            />
+          </div>
+
+          {/* RIGHT — info + action */}
+          <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+
+            {/* Admin feedback */}
+            {task?.adminFeedback && (
+              <div style={{ background: '#1a0a0a', border: '1px solid #5c2020', borderRadius: '8px', padding: '10px 14px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px' }}>Admin Feedback</div>
+                <div style={{ fontSize: '12px', color: '#fca5a5', lineHeight: 1.5 }}>{task.adminFeedback}</div>
+              </div>
+            )}
+
+            {/* Direction */}
+            {inspo.notes && (
               <div>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                  {isClip ? 'Creator Upload' : 'Creator Clip'}
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Direction</div>
+                <div style={{ fontSize: '12px', color: '#d4d4d8', lineHeight: 1.6, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '10px 12px', whiteSpace: 'pre-wrap' }}>
+                  {inspo.notes}
                 </div>
-                <a href={links[0] || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', borderRadius: '10px', overflow: 'hidden', position: 'relative', aspectRatio: '9/16', maxHeight: '220px', background: '#0a0a0a' }}>
-                  <img src={assetThumb} alt="Creator clip" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {links[0] && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', color: '#22c55e', fontWeight: 600 }}>Open ↗</div>}
-                </a>
               </div>
             )}
-            {inspoThumb && (
+
+            {/* On-screen text */}
+            {inspo.onScreenText && (
+              <div style={{ background: '#1a1500', border: '1px solid #332b00', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>On-Screen Text</div>
+                <div style={{ fontSize: '12px', color: '#fde68a' }}>"{inspo.onScreenText}"</div>
+              </div>
+            )}
+
+            {/* Creator notes */}
+            {creatorNotes && (
               <div>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Inspo</div>
-                <a href={inspo.contentLink || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', borderRadius: '10px', overflow: 'hidden', position: 'relative', aspectRatio: '9/16', maxHeight: '220px', background: '#0a0a0a' }}>
-                  <img src={inspoThumb} alt="Inspo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {inspo.contentLink && <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', color: '#a78bfa', fontWeight: 600 }}>Open ↗</div>}
-                </a>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Creator Notes</div>
+                <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.5, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '10px 12px' }}>
+                  {creatorNotes}
+                </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Link buttons for multiple clips */}
-        {links.length > 1 && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-            {links.map((link, i) => (
-              <a key={i} href={link} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: '12px', fontWeight: 600, color: '#22c55e', textDecoration: 'none', padding: '6px 14px', background: '#0a1a0a', borderRadius: '6px', border: '1px solid #1a4a1a' }}>
-                Clip {i + 1} ↗
-              </a>
-            ))}
-          </div>
-        )}
+            {/* Tags */}
+            {inspo.tags?.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {inspo.tags.map(tag => (
+                  <span key={tag} style={{ fontSize: '11px', color: '#52525b', background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: '4px', padding: '2px 8px' }}>{tag}</span>
+                ))}
+              </div>
+            )}
 
-        {/* Admin feedback (revision) */}
-        {task?.adminFeedback && (
-          <div style={{ background: '#1a0a0a', border: '1px solid #5c2020', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Admin Feedback</div>
-            <div style={{ fontSize: '13px', color: '#fca5a5', lineHeight: 1.5 }}>{task.adminFeedback}</div>
-          </div>
-        )}
+            {/* Spacer */}
+            <div style={{ flex: 1 }} />
 
-        {/* Inspo direction / notes */}
-        {inspo.notes && (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Direction</div>
-            <div style={{ fontSize: '13px', color: '#d4d4d8', lineHeight: 1.6, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '12px 14px', whiteSpace: 'pre-wrap' }}>
-              {inspo.notes}
-            </div>
-          </div>
-        )}
-
-        {/* On-screen text */}
-        {inspo.onScreenText && (
-          <div style={{ background: '#1a1500', border: '1px solid #332b00', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>On-Screen Text</div>
-            <div style={{ fontSize: '13px', color: '#fde68a' }}>"{inspo.onScreenText}"</div>
-          </div>
-        )}
-
-        {/* Creator notes from asset */}
-        {(task?.asset?.creatorNotes || clip?.creatorNotes) && (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Creator Notes</div>
-            <div style={{ fontSize: '13px', color: '#a1a1aa', lineHeight: 1.5, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '10px 14px' }}>
-              {task?.asset?.creatorNotes || clip?.creatorNotes}
-            </div>
-          </div>
-        )}
-
-        {/* Action */}
-        <div style={{ marginTop: '8px' }}>
-          {slot.type === 'toDo' && (
-            <button onClick={() => { onAction('startEditing', task); onClose() }} disabled={updating}
-              style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
-              {updating ? 'Starting...' : 'Start Editing →'}
-            </button>
-          )}
-          {slot.type === 'inProgress' && (
-            <button onClick={() => { onAction('submit', task); onClose() }}
-              style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 700, background: '#0a0a3d', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer' }}>
-              Submit for Review ↑
-            </button>
-          )}
-          {isClip && (
-            <>
-              <button onClick={handleClipStart} disabled={starting}
-                style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 700, background: '#1a1000', color: '#f59e0b', border: '1px solid #5c4000', borderRadius: '8px', cursor: starting ? 'not-allowed' : 'pointer', opacity: starting ? 0.6 : 1 }}>
-                {starting ? 'Starting...' : 'Start Edit →'}
+            {/* Action button */}
+            {slot.type === 'toDo' && (
+              <button onClick={() => { onAction('startEditing', task); onClose() }} disabled={updating}
+                style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
+                {updating ? 'Starting...' : 'Start Editing →'}
               </button>
-              {startErr && <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '8px' }}>{startErr}</div>}
-            </>
-          )}
+            )}
+            {slot.type === 'inProgress' && (
+              <button onClick={() => { onAction('submit', task); onClose() }}
+                style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: '#0a0a3d', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer' }}>
+                Submit for Review ↑
+              </button>
+            )}
+            {isClip && (
+              <>
+                <button onClick={handleClipStart} disabled={starting}
+                  style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: '#1a1000', color: '#f59e0b', border: '1px solid #5c4000', borderRadius: '8px', cursor: starting ? 'not-allowed' : 'pointer', opacity: starting ? 0.6 : 1 }}>
+                  {starting ? 'Starting...' : 'Start Edit →'}
+                </button>
+                {startErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{startErr}</div>}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
