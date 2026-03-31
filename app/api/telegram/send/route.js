@@ -137,16 +137,22 @@ export async function POST(request) {
       }
     }
 
+    // Extract message ID (sendMediaGroup returns array, others return single message)
+    const messageId = Array.isArray(result.result)
+      ? result.result[0]?.message_id
+      : result.result?.message_id
+
     // Stamp the Post record
     if (postId) {
       await patchAirtableRecord('Posts', postId, {
         'Status': 'Sent to Telegram',
         'Telegram Sent At': new Date().toISOString(),
         ...(caption ? { 'Caption': caption } : {}),
+        ...(messageId ? { 'Telegram Message ID': String(messageId) } : {}),
       }).catch(err => console.error('[Telegram Send] Failed to update Post record:', err.message))
     }
 
-    return NextResponse.json({ ok: true, messageId: result.result?.message_id })
+    return NextResponse.json({ ok: true, messageId })
   } catch (err) {
     console.error('[Telegram Send] error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
