@@ -817,14 +817,21 @@ function SlotContent({ slot }) {
   )
 }
 
+function doneSlotStyle(task) {
+  const s = task?.adminReviewStatus || ''
+  if (s === 'Approved') return { borderColor: '#1a3a1a', bg: '#030f03', dotColor: '#22c55e', label: 'Approved ✓' }
+  return { borderColor: '#1a2e1a', bg: '#050f05', dotColor: '#4a8a4a', label: 'In Review' }
+}
+
 function VideoSlot({ number, slot, creator, onAction, updating, onRefresh, onSlotClick }) {
-  const typeStyle = {
-    done:       { borderColor: '#1a2e1a', bg: '#050f05', dotColor: '#22c55e', label: 'Done ✓' },
-    inProgress: { borderColor: '#1a3a6d', bg: '#03071a', dotColor: '#3b82f6', label: 'In editing' },
-    toDo:       { borderColor: '#2a1a5e', bg: '#05030f', dotColor: '#a78bfa', label: 'Ready to edit' },
-    inspoClip:  { borderColor: '#5c4000', bg: '#0d0900', dotColor: '#f59e0b', label: 'Creator clip uploaded' },
-    empty:      { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: 'Open slot' },
-  }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
+  const typeStyle = slot.type === 'done'
+    ? doneSlotStyle(slot.task)
+    : {
+        inProgress: { borderColor: '#1a3a6d', bg: '#03071a', dotColor: '#3b82f6', label: 'In editing' },
+        toDo:       { borderColor: '#2a1a5e', bg: '#05030f', dotColor: '#a78bfa', label: 'Ready to edit' },
+        inspoClip:  { borderColor: '#5c4000', bg: '#0d0900', dotColor: '#f59e0b', label: 'Creator clip uploaded' },
+        empty:      { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: 'Open slot' },
+      }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
 
   const isEmpty = slot.type === 'empty'
 
@@ -923,9 +930,11 @@ function CreatorSection({ creator, onRefresh }) {
     ...(creator.inspoClips || []).map(c => ({ type: 'inspoClip', clip: c })),
   ]
 
-  // Done tasks are excluded from slots — editors focus on active/queued work only
+  // Done tasks fill quota slots first — they represent buffer coverage for today
   const slots = []
-  activeFillItems.slice(0, dailyQuota).forEach(item => slots.push(item))
+  doneTodayList.forEach(t => slots.push({ type: 'done', task: t }))
+  const remaining = Math.max(0, dailyQuota - slots.length)
+  activeFillItems.slice(0, remaining).forEach(item => slots.push(item))
   while (slots.length < dailyQuota) slots.push({ type: 'empty' })
 
   const today = new Date()
