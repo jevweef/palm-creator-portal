@@ -3,11 +3,11 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 
-// Batch fetch by IDs (max 20 per request to avoid 414)
 function recordIdFormula(ids) {
   if (!ids.length) return 'FALSE()'
   return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
 }
+
 async function fetchByIds(table, ids, params) {
   if (!ids.length) return []
   const CHUNK = 20
@@ -21,28 +21,23 @@ async function fetchByIds(table, ids, params) {
 
 export async function GET(request, { params }) {
   try { await requireAdminOrEditor() } catch (e) { return e }
-  const { creatorId } = params
+
+  const creatorId = params.creatorId
 
   try {
+    // 1. Fetch creator record to get all task + asset IDs
     const creators = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID()='${creatorId}'`,
-      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Telegram Thread ID'],
+      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Assets'],
     })
-    if (!creators.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!creators.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
     const creator = creators[0]
     const f = creator.fields || {}
 
     const allTaskIds = f.Tasks || []
 
-    const now = new Date()
-    const dayOfWeek = now.getDay()
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7))
-    monday.setHours(0, 0, 0, 0)
-    const weekStartStr = monday.toISOString().split('T')[0]
-
-    // Fetch tasks + assets for this creator in parallel
-    const [tasks, allAssets] = await Promise.all([
+    // 2. Fetch in parallel: all tasks, library assets, inspo-linked assets, future posts
+    const [tasks, libraryAssets, inspoLinkedAssets, futurePosts] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
           'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
@@ -51,35 +46,38 @@ export async function GET(request, { params }) {
         ],
       }),
       fetchAirtableRecords('Assets', {
-        filterByFormula: `AND({Pipeline Status}='Uploaded')`,
+        filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}!='Inspo Upload',FIND('${creatorId}',ARRAYJOIN({Palm Creators})))`,
         fields: [
-          'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
-          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators',
-          'Upload Week', 'On Screen Text', 'Captions',
+          'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
+          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week',
         ],
-      }).then(assets => assets.filter(a => (a.fields?.['Palm Creators'] || [])[0] === creatorId)),
+      }),
+      fetchAirtableRecords('Assets', {
+        filterByFormula: `AND({Pipeline Status}='Uploaded',NOT({Inspiration Source}=''),FIND('${creatorId}',ARRAYJOIN({Palm Creators})))`,
+        fields: [
+          'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Dropbox Path (Current)',
+          'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week', 'Inspiration Source',
+        ],
+      }),
+      fetchAirtableRecords('Posts', {
+        filterByFormula: `IS_AFTER({Scheduled Date}, NOW())`,
+        fields: ['Creator', 'Scheduled Date'],
+      }),
     ])
 
-    // Filter tasks to active ones
-    const activeTasks = tasks.filter(t => {
-      const s = t.fields?.Status
-      const rev = t.fields?.['Admin Review Status']
-      if (s === 'To Do' || s === 'In Progress') return true
-      if (s === 'Done') {
-        return (t.fields?.['Completed At'] || '') >= weekStartStr
-          || rev === 'Pending Review'
-          || rev === 'Needs Revision'
-      }
-      return false
-    })
-
-    // Fetch linked inspo + task assets
-    const taskAssetIds = [...new Set(activeTasks.flatMap(t => t.fields?.Asset || []))]
-    const inspoIds = [...new Set(activeTasks.flatMap(t => t.fields?.Inspiration || []))]
+    // 3. Collect linked IDs from tasks
+    const assetIds = [...new Set(tasks.flatMap(t => t.fields?.Asset || []))]
+    const inspoIds = [...new Set([
+      ...tasks.flatMap(t => t.fields?.Inspiration || []),
+      ...inspoLinkedAssets.flatMap(a => a.fields?.['Inspiration Source'] || []),
+    ])]
 
     const [taskAssets, inspoRecords] = await Promise.all([
-      fetchByIds('Assets', taskAssetIds, {
-        fields: ['Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Edited File Link'],
+      fetchByIds('Assets', assetIds, {
+        fields: [
+          'Asset Name', 'Pipeline Status', 'Dropbox Shared Link',
+          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Edited File Link',
+        ],
       }),
       fetchByIds('Inspiration', inspoIds, {
         fields: ['Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail', 'Username', 'DB Share Link', 'On-Screen Text'],
@@ -89,94 +87,113 @@ export async function GET(request, { params }) {
     const assetMap = Object.fromEntries(taskAssets.map(r => [r.id, r.fields]))
     const inspoMap = Object.fromEntries(inspoRecords.map(r => [r.id, r.fields]))
 
-    // Build task objects
-    const buildTask = (task) => {
-      const assetId = (task.fields?.Asset || [])[0]
-      const inspoId = (task.fields?.Inspiration || [])[0]
+    // 4. Build full task list
+    const allTasks = tasks.map(t => {
+      const tf = t.fields || {}
+      const assetId = (tf.Asset || [])[0]
+      const inspoId = (tf.Inspiration || [])[0]
       const asset = assetId ? (assetMap[assetId] || {}) : {}
       const inspo = inspoId ? (inspoMap[inspoId] || {}) : {}
-      const screenshots = (task.fields?.['Admin Screenshots'] || []).map(s => s.thumbnails?.large?.url || s.url)
+      const screenshots = (tf['Admin Screenshots'] || []).map(s => s.thumbnails?.large?.url || s.url)
+
       return {
-        id: task.id,
-        name: task.fields?.Name || '',
-        status: task.fields?.Status || '',
-        adminReviewStatus: task.fields?.['Admin Review Status'] || '',
-        adminFeedback: task.fields?.['Admin Feedback'] || '',
+        id: t.id,
+        name: tf.Name || '',
+        status: tf.Status || '',
+        adminReviewStatus: tf['Admin Review Status'] || '',
+        adminFeedback: tf['Admin Feedback'] || '',
         adminScreenshots: screenshots,
-        creatorNotes: task.fields?.['Creator Notes'] || '',
-        editorNotes: task.fields?.['Editor Notes'] || '',
-        completedAt: task.fields?.['Completed At'] || null,
+        creatorNotes: tf['Creator Notes'] || '',
+        editorNotes: tf['Editor Notes'] || '',
+        completedAt: tf['Completed At'] || null,
         asset: {
-          id: assetId,
+          id: assetId || null,
           name: asset['Asset Name'] || '',
           pipelineStatus: asset['Pipeline Status'] || '',
           dropboxLink: asset['Dropbox Shared Link'] || '',
           dropboxLinks: (asset['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
-          dropboxPath: asset['Dropbox Path (Current)'] || '',
-          creatorNotes: asset['Creator Notes'] || '',
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
           editedFileLink: asset['Edited File Link'] || '',
         },
         inspo: {
-          id: inspoId,
+          id: inspoId || null,
           title: inspo.Title || '',
           notes: inspo.Notes || '',
           tags: inspo.Tags || [],
-          filmFormat: inspo['Film Format'] || [],
           contentLink: inspo['Content link'] || '',
           thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
           username: inspo.Username || '',
-          dbShareLink: inspo['DB Share Link'] || '',
           onScreenText: inspo['On-Screen Text'] || '',
         },
       }
-    }
-
-    const doneThisWeek = activeTasks.filter(t =>
-      t.fields?.Status === 'Done' &&
-      (t.fields?.['Completed At'] || '') >= weekStartStr &&
-      t.fields?.['Admin Review Status'] !== 'Needs Revision'
-    ).length
-
-    // Split library assets: inspo uploads vs file request
-    const mapAsset = (a) => ({
-      id: a.id,
-      name: a.fields?.['Asset Name'] || '',
-      sourceType: a.fields?.['Source Type'] || '',
-      dropboxLink: a.fields?.['Dropbox Shared Link'] || '',
-      dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
-      dropboxPath: a.fields?.['Dropbox Path (Current)'] || '',
-      creatorNotes: a.fields?.['Creator Notes'] || '',
-      thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
-      uploadWeek: a.fields?.['Upload Week'] || '',
-      assetType: a.fields?.['Asset Type'] || '',
-      onScreenText: a.fields?.['On Screen Text'] || '',
-      captions: a.fields?.['Captions'] || '',
-      createdTime: a.createdTime || '',
     })
 
-    const inspoUploads = allAssets.filter(a => a.fields?.['Source Type'] === 'Inspo Upload').map(mapAsset)
-    const libraryClips = allAssets.filter(a => a.fields?.['Source Type'] !== 'Inspo Upload').map(mapAsset)
-    inspoUploads.sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
-    libraryClips.sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
+    // 5. Bucket tasks by status
+    const needsRevision = allTasks.filter(t => t.adminReviewStatus === 'Needs Revision')
+    const inProgress = allTasks.filter(t => t.status === 'In Progress' && t.adminReviewStatus !== 'Needs Revision')
+    const queue = allTasks.filter(t => t.status === 'To Do')
+    const inReview = allTasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Pending Review')
+    const approved = allTasks.filter(t => t.adminReviewStatus === 'Approved')
+    const history = allTasks
+      .filter(t => t.status === 'Done' && t.adminReviewStatus !== 'Pending Review' && t.adminReviewStatus !== 'Approved' && t.adminReviewStatus !== 'Needs Revision')
+      .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+
+    // 6. Inspo clips
+    const inspoClips = inspoLinkedAssets.map(a => {
+      const inspoId = (a.fields?.['Inspiration Source'] || [])[0]
+      const inspo = inspoId ? (inspoMap[inspoId] || {}) : {}
+      return {
+        id: a.id,
+        name: a.fields?.['Asset Name'] || '',
+        dropboxLink: a.fields?.['Dropbox Shared Link'] || '',
+        dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
+        thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
+        creatorNotes: a.fields?.['Creator Notes'] || '',
+        inspo: {
+          id: inspoId || null,
+          title: inspo.Title || '',
+          thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
+          username: inspo.Username || '',
+          contentLink: inspo['Content link'] || '',
+          onScreenText: inspo['On-Screen Text'] || '',
+        },
+      }
+    })
+
+    // 7. Library assets, newest first
+    const library = libraryAssets
+      .sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0))
+      .map(a => ({
+        id: a.id,
+        name: a.fields?.['Asset Name'] || '',
+        sourceType: a.fields?.['Source Type'] || '',
+        dropboxLink: a.fields?.['Dropbox Shared Link'] || '',
+        dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
+        thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
+        creatorNotes: a.fields?.['Creator Notes'] || '',
+        uploadWeek: a.fields?.['Upload Week'] || '',
+      }))
+
+    // 8. Buffer
+    const approvedBuffer = futurePosts.filter(p => (p.fields?.Creator || []).includes(creatorId)).length
+    const bufferDays = parseFloat((approvedBuffer / 2).toFixed(1))
+
+    const weeklyQuota = f['Weekly Reel Quota'] || 14
 
     return NextResponse.json({
       creator: {
         id: creator.id,
         name: f.AKA || f.Creator || '',
-        quota: f['Weekly Reel Quota'] || 2,
-        doneThisWeek,
-        telegramThreadId: f['Telegram Thread ID'] || null,
+        quota: weeklyQuota,
+        approvedBuffer,
+        bufferDays,
       },
-      needsRevision: activeTasks.filter(t => t.fields?.['Admin Review Status'] === 'Needs Revision').map(buildTask),
-      queue: activeTasks.filter(t => t.fields?.Status === 'To Do').map(buildTask),
-      inProgress: activeTasks.filter(t => t.fields?.Status === 'In Progress').map(buildTask),
-      inReview: activeTasks.filter(t => t.fields?.Status === 'Done' && t.fields?.['Admin Review Status'] === 'Pending Review').map(buildTask),
-      inspoUploads,
-      libraryClips,
+      tasks: { needsRevision, inProgress, queue, inReview, approved, history },
+      inspoClips,
+      library,
     })
   } catch (err) {
-    console.error('[Creator Detail] GET error:', err)
+    console.error('[Editor Creator] GET error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
