@@ -9,28 +9,47 @@ export async function GET(request) {
     const handle = searchParams.get('handle')
     if (!handle) return NextResponse.json({ error: 'handle required' }, { status: 400 })
 
-    const records = await fetchAirtableRecords('Source Reels', {
-      filterByFormula: `{Source Handle} = "${handle}"`,
-      fields: ['Reel URL', 'Views', 'Likes', 'Comments', 'Shares', 'Posted At', 'Grade', 'Z Score', 'Normalized Score', 'Data Source', 'Audio Type', 'Caption'],
+    // Strip leading @ for matching against Username field
+    const username = handle.replace(/^@/, '')
+
+    const records = await fetchAirtableRecords('Inspiration', {
+      filterByFormula: `{Username} = "${username}"`,
+      fields: [
+        'Title', 'Username', 'Content link', 'Thumbnail',
+        'Tags', 'Suggested Tags', 'Film Format',
+        'Views', 'Likes', 'Comments', 'Shares',
+        'Grade', 'Normalized Score', 'Rating',
+        'Audio Type', 'Creator Posted Date',
+        'Notes', 'On-Screen Text', 'DB Share Link',
+      ],
       sort: [{ field: 'Views', direction: 'desc' }],
-      maxRecords: 100,
     })
 
-    const reels = records.map(r => ({
-      id: r.id,
-      url: r.fields?.['Reel URL'] || '',
-      views: r.fields?.Views || null,
-      likes: r.fields?.Likes || null,
-      comments: r.fields?.Comments || null,
-      shares: r.fields?.Shares || null,
-      postedAt: r.fields?.['Posted At'] || null,
-      grade: r.fields?.Grade || null,
-      zScore: r.fields?.['Z Score'] || null,
-      normalizedScore: r.fields?.['Normalized Score'] || null,
-      dataSource: r.fields?.['Data Source'] || null,
-      audioType: r.fields?.['Audio Type'] || null,
-      caption: r.fields?.['Caption'] || null,
-    }))
+    const reels = records.map(r => {
+      const f = r.fields || {}
+      const thumb = f.Thumbnail?.[0]
+      return {
+        id: r.id,
+        title: f.Title || '',
+        username: f.Username || '',
+        contentLink: f['Content link'] || '',
+        dbShareLink: f['DB Share Link'] || '',
+        thumbnail: thumb?.thumbnails?.large?.url || thumb?.url || '',
+        tags: [...(f.Tags || []), ...(f['Suggested Tags'] || [])],
+        filmFormat: f['Film Format'] || [],
+        views: f.Views || null,
+        likes: f.Likes || null,
+        comments: f.Comments || null,
+        shares: f.Shares || null,
+        grade: f.Grade || null,
+        normalizedScore: f['Normalized Score'] || null,
+        rating: f.Rating || null,
+        audioType: f['Audio Type'] || null,
+        postedAt: f['Creator Posted Date'] || null,
+        notes: f.Notes || '',
+        onScreenText: f['On-Screen Text'] || '',
+      }
+    })
 
     return NextResponse.json({ reels })
   } catch (err) {
