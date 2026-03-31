@@ -39,6 +39,7 @@ function TelegramModal({ post, onClose, onSent }) {
           caption: fullCaption.trim() || undefined,
           taskName: post.name,
           postId: post.id,
+          thumbnailUrl: post.thumbnailUrl || undefined,
         }),
       })
       const data = await res.json()
@@ -372,7 +373,7 @@ function PostCard({ post, onRefresh, onSend }) {
             </button>
           )}
           {post.status === 'Prepping' && (
-            <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms })} disabled={!hasFile}
+            <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms, thumbnailUrl })} disabled={!hasFile}
               style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700,
                 background: hasFile ? '#0d1a2e' : '#111', color: hasFile ? '#60a5fa' : '#2a2a2a',
                 border: `1px solid ${hasFile ? '#1a3d6a' : '#1a1a1a'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>

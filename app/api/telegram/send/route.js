@@ -1,10 +1,13 @@
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // extend Vercel function timeout for file uploads
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
+
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 // 50MB Telegram bot upload limit
 
 function rawDropboxUrl(url) {
   if (!url) return ''
@@ -19,7 +22,28 @@ function isPhoto(url) {
   return /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url || '')
 }
 
-async function telegramRequest(method, body) {
+function getMimeType(url) {
+  const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase()
+  const map = { mp4: 'video/mp4', mov: 'video/quicktime', avi: 'video/x-msvideo', webm: 'video/webm', mkv: 'video/x-matroska',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' }
+  return map[ext] || 'application/octet-stream'
+}
+
+function getFilename(url) {
+  return url.split('/').pop()?.split('?')[0] || 'file'
+}
+
+async function telegramUpload(method, form) {
+  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
+    method: 'POST',
+    body: form,
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(`Telegram ${method} failed: ${data.description}`)
+  return data
+}
+
+async function telegramJson(method, body) {
   const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -34,7 +58,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { editedFileLink, threadId, caption, taskName, postId } = await request.json()
+    const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl } = await request.json()
 
     if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
     if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
@@ -43,44 +67,77 @@ export async function POST(request) {
 
     const rawUrl = rawDropboxUrl(editedFileLink)
     const chatId = parseInt(TELEGRAM_CHAT_ID)
-    const baseParams = {
-      chat_id: chatId,
-      message_thread_id: threadId,
-      ...(caption ? { caption } : {}),
-    }
+
+    // Download the file from Dropbox
+    console.log('[Telegram Send] Downloading file from Dropbox...')
+    const fileRes = await fetch(rawUrl)
+    if (!fileRes.ok) throw new Error(`Failed to download file from Dropbox: ${fileRes.status}`)
+    const fileBuffer = await fileRes.arrayBuffer()
+    const fileSize = fileBuffer.byteLength
+    console.log(`[Telegram Send] File size: ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
 
     let result
 
-    if (isVideo(editedFileLink)) {
-      try {
-        result = await telegramRequest('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
-      } catch (err) {
-        // Fallback: send as document
-        try {
-          result = await telegramRequest('sendDocument', { ...baseParams, document: rawUrl })
-        } catch {
-          // Final fallback: send link as message
-          const text = [taskName && `*${taskName}*`, editedFileLink, caption].filter(Boolean).join('\n\n')
-          result = await telegramRequest('sendMessage', { ...baseParams, text, parse_mode: 'Markdown' })
-        }
-      }
-    } else if (isPhoto(editedFileLink)) {
-      try {
-        result = await telegramRequest('sendPhoto', { ...baseParams, photo: rawUrl })
-      } catch {
-        const text = [taskName && `*${taskName}*`, editedFileLink, caption].filter(Boolean).join('\n\n')
-        result = await telegramRequest('sendMessage', { ...baseParams, text, parse_mode: 'Markdown' })
+    if (fileSize > MAX_UPLOAD_BYTES) {
+      // Over 50MB — fall back to URL method
+      console.log('[Telegram Send] File too large for upload, falling back to URL method')
+      const baseParams = { chat_id: chatId, message_thread_id: threadId, ...(caption ? { caption } : {}) }
+      if (isVideo(editedFileLink)) {
+        result = await telegramJson('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
+      } else if (isPhoto(editedFileLink)) {
+        result = await telegramJson('sendPhoto', { ...baseParams, photo: rawUrl })
+      } else {
+        result = await telegramJson('sendDocument', { ...baseParams, document: rawUrl })
       }
     } else {
-      try {
-        result = await telegramRequest('sendDocument', { ...baseParams, document: rawUrl })
-      } catch {
-        const text = [taskName && `*${taskName}*`, editedFileLink, caption].filter(Boolean).join('\n\n')
-        result = await telegramRequest('sendMessage', { ...baseParams, text, parse_mode: 'Markdown' })
+      // Under 50MB — upload directly as multipart
+      const form = new FormData()
+      form.append('chat_id', String(chatId))
+      form.append('message_thread_id', String(threadId))
+      if (caption) form.append('caption', caption)
+
+      const filename = getFilename(editedFileLink)
+      const mimeType = getMimeType(editedFileLink)
+
+      // Optionally attach thumbnail for videos
+      if (isVideo(editedFileLink) && thumbnailUrl) {
+        try {
+          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
+          if (thumbRes.ok) {
+            const thumbBuffer = await thumbRes.arrayBuffer()
+            const thumbMime = getMimeType(thumbnailUrl)
+            form.append('thumbnail', new Blob([thumbBuffer], { type: thumbMime }), getFilename(thumbnailUrl))
+            console.log('[Telegram Send] Thumbnail attached')
+          }
+        } catch (e) {
+          console.warn('[Telegram Send] Could not attach thumbnail:', e.message)
+        }
+      }
+
+      if (isVideo(editedFileLink)) {
+        form.append('video', new Blob([fileBuffer], { type: mimeType }), filename)
+        form.append('supports_streaming', 'true')
+        try {
+          result = await telegramUpload('sendVideo', form)
+        } catch (err) {
+          console.warn('[Telegram Send] sendVideo failed, trying sendDocument:', err.message)
+          const fallbackForm = new FormData()
+          fallbackForm.append('chat_id', String(chatId))
+          fallbackForm.append('message_thread_id', String(threadId))
+          if (caption) fallbackForm.append('caption', caption)
+          fallbackForm.append('document', new Blob([fileBuffer], { type: mimeType }), filename)
+          result = await telegramUpload('sendDocument', fallbackForm)
+        }
+      } else if (isPhoto(editedFileLink)) {
+        form.append('photo', new Blob([fileBuffer], { type: mimeType }), filename)
+        result = await telegramUpload('sendPhoto', form)
+      } else {
+        form.append('document', new Blob([fileBuffer], { type: mimeType }), filename)
+        result = await telegramUpload('sendDocument', form)
       }
     }
 
-    // Stamp the Post record if one was provided
+    // Stamp the Post record
     if (postId) {
       await patchAirtableRecord('Posts', postId, {
         'Status': 'Sent to Telegram',
