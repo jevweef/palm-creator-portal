@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const PLATFORMS = ['Instagram Reel', 'Instagram Story', 'TikTok', 'YouTube Shorts', 'X', 'OFTV']
 const STATUS_COLORS = {
@@ -220,6 +220,132 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   )
 }
 
+function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
+  const videoRef = useRef(null)
+  const [duration, setDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [capturing, setCapturing] = useState(false)
+  const [capturedUrl, setCapturedUrl] = useState(null)
+  const [error, setError] = useState('')
+
+  const rawUrl = rawDropboxUrl(videoUrl)
+
+  const handleScrub = (e) => {
+    const t = parseFloat(e.target.value)
+    setCurrentTime(t)
+    if (videoRef.current) videoRef.current.currentTime = t
+  }
+
+  const handleCapture = async () => {
+    setCapturing(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/posts/thumbnail/frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl, timestamp: currentTime, postId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Capture failed')
+      setCapturedUrl(data.url)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60).toString().padStart(2, '0')
+    return `${m}:${sec}`
+  }
+
+  // Preview mode — frame captured, confirm or try again
+  if (capturedUrl) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+        onClick={e => e.target === e.currentTarget && onClose()}>
+        <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#d4d4d8' }}>Frame captured</div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          </div>
+          <div style={{ background: '#080808', aspectRatio: '9/16', overflow: 'hidden' }}>
+            <img src={rawDropboxUrl(capturedUrl)} alt="captured frame" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          </div>
+          <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
+            <button onClick={() => setCapturedUrl(null)}
+              style={{ flex: 1, padding: '10px', background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#71717a', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+              Try another
+            </button>
+            <button onClick={() => { onCapture(capturedUrl); onClose() }}
+              style={{ flex: 2, padding: '10px', background: '#1a1a3e', border: '1px solid #4a4a9e', color: '#a78bfa', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+              Use this frame
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Scrubber mode
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#d4d4d8' }}>Pick a frame</div>
+            <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>Scrub to position — original file, no text overlays</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+        </div>
+
+        {/* Video preview */}
+        <div style={{ background: '#080808', aspectRatio: '9/16', overflow: 'hidden' }}>
+          <video
+            ref={videoRef}
+            src={rawUrl}
+            muted
+            playsInline
+            preload="metadata"
+            onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+            onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        </div>
+
+        {/* Scrubber + capture */}
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '11px', color: '#71717a', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 100}
+              step={0.05}
+              value={currentTime}
+              onChange={handleScrub}
+              style={{ flex: 1, accentColor: '#a78bfa', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '11px', color: '#52525b', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
+          </div>
+
+          {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
+
+          <button
+            onClick={handleCapture}
+            disabled={capturing || !duration}
+            style={{ padding: '10px', background: capturing || !duration ? '#0d0d0d' : '#1a1a3e', border: '1px solid #4a4a9e', color: capturing || !duration ? '#3f3f46' : '#a78bfa', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
+            {capturing ? 'Capturing...' : '📸 Capture this frame'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PostCard({ post, onRefresh, onSend }) {
   const [editing, setEditing] = useState(false)
   const [caption, setCaption] = useState(post.caption)
@@ -230,9 +356,13 @@ function PostCard({ post, onRefresh, onSend }) {
   const [saved, setSaved] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
   const [showPhotoPicker, setShowPhotoPicker] = useState(false)
+  const [showFramePicker, setShowFramePicker] = useState(false)
 
   const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || '')
   const hasFile = !!post.asset?.editedFileLink
+  // For frame picker: prefer original dropboxLink, fall back to editedFileLink
+  const sourceVideoUrl = post.asset?.dropboxLink || post.asset?.editedFileLink || ''
+  const canPickFrame = hasFile && isVideo(post.asset?.editedFileLink || '')
 
   const togglePlatform = (p) => {
     setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
@@ -335,18 +465,38 @@ function PostCard({ post, onRefresh, onSend }) {
         {/* Thumbnail */}
         <div>
           <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
             {thumbnailUrl ? (
               <img src={rawDropboxUrl(thumbnailUrl)} alt="thumbnail"
                 style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #2a2a2a', flexShrink: 0, cursor: 'pointer' }}
                 onClick={() => setShowPhotoPicker(true)} />
             ) : null}
-            <button onClick={() => setShowPhotoPicker(true)}
-              style={{ flex: 1, padding: '6px 10px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', fontSize: '11px', color: '#71717a', cursor: 'pointer', textAlign: 'center' }}>
-              {thumbnailUrl ? 'Change thumbnail' : '+ Choose from library'}
-            </button>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <button onClick={() => setShowPhotoPicker(true)}
+                style={{ width: '100%', padding: '5px 10px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', fontSize: '11px', color: '#71717a', cursor: 'pointer', textAlign: 'center' }}>
+                {thumbnailUrl ? 'Change — from library' : '+ Choose from library'}
+              </button>
+              {canPickFrame && (
+                <button onClick={() => setShowFramePicker(true)}
+                  style={{ width: '100%', padding: '5px 10px', background: '#0d0d1a', border: '1px solid #1e1e3e', borderRadius: '6px', fontSize: '11px', color: '#7c7cb8', cursor: 'pointer', textAlign: 'center' }}>
+                  🎞 Pick from video
+                </button>
+              )}
+            </div>
           </div>
         </div>
+
+        {showFramePicker && (
+          <VideoFramePicker
+            videoUrl={sourceVideoUrl}
+            postId={post.id}
+            onCapture={(url) => {
+              setThumbnailUrl(url)
+              setEditing(false) // already saved to Airtable by the frame API
+            }}
+            onClose={() => setShowFramePicker(false)}
+          />
+        )}
 
         {showPhotoPicker && (
           <PhotoPickerModal
