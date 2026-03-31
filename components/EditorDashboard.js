@@ -761,6 +761,87 @@ function CreatorSection({ creator, onRefresh }) {
   )
 }
 
+// ─── Today's Tasks strip ───────────────────────────────────────────────────────
+
+function TodayCreatorCard({ creator }) {
+  const dailyQuota = creator.dailyQuota || 2
+  const doneToday = creator.doneToday || 0
+  const remaining = dailyQuota - doneToday
+
+  const pendingItems = [
+    ...creator.inProgress.map(t => ({ kind: 'inProgress', label: t.inspo?.title || t.name || 'In progress' })),
+    ...creator.queue.map(t => ({ kind: 'toDo', label: t.inspo?.title || t.name || 'Ready to edit' })),
+    ...(creator.inspoClips || []).map(c => ({ kind: 'inspoClip', label: c.inspoTitle || 'Creator upload' })),
+  ]
+  while (pendingItems.length < remaining) pendingItems.push({ kind: 'empty', label: 'No clip yet' })
+  const slots = pendingItems.slice(0, remaining)
+
+  const dotColor = { inProgress: '#3b82f6', toDo: '#a78bfa', inspoClip: '#f59e0b', empty: '#2a2a2a' }
+  const rowBg = { inProgress: '#0d1020', toDo: '#0d0d1a', inspoClip: '#1a1200', empty: '#0a0a0a' }
+  const rowBorder = { inProgress: '#1e2a50', toDo: '#1a1a30', inspoClip: '#2a2000', empty: '#141414' }
+
+  return (
+    <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '12px', padding: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{creator.name}</span>
+        <span style={{ fontSize: '11px', color: doneToday > 0 ? '#22c55e' : '#52525b', fontWeight: 500 }}>
+          {doneToday}/{dailyQuota} done
+        </span>
+      </div>
+      {creator.needsRevision.length > 0 && (
+        <div style={{ marginBottom: '8px', fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>
+          ⚠ {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''} needed
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        {slots.map((item, i) => (
+          <div key={i} style={{
+            padding: '7px 10px', borderRadius: '7px',
+            background: rowBg[item.kind], border: `1px solid ${rowBorder[item.kind]}`,
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor[item.kind], flexShrink: 0 }} />
+            <span style={{ fontSize: '12px', color: item.kind === 'empty' ? '#3f3f46' : '#a1a1aa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {doneToday + i + 1}. {item.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TodayTasksStrip({ creators }) {
+  const incomplete = creators.filter(c => (c.doneToday || 0) < (c.dailyQuota || 2))
+  const totalRemaining = incomplete.reduce((sum, c) => sum + ((c.dailyQuota || 2) - (c.doneToday || 0)), 0)
+
+  return (
+    <div style={{ marginBottom: '32px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '14px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#fff', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Today's Tasks
+        </h2>
+        {incomplete.length > 0 ? (
+          <span style={{ fontSize: '12px', color: '#52525b' }}>{totalRemaining} remaining</span>
+        ) : (
+          <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 600 }}>All done ✓</span>
+        )}
+      </div>
+      {incomplete.length === 0 ? (
+        <div style={{ padding: '20px 24px', background: '#050f05', border: '1px solid #1a3a1a', borderRadius: '12px', textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: '#22c55e' }}>Every creator is done for today.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+          {incomplete.map(creator => (
+            <TodayCreatorCard key={creator.id} creator={creator} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main exported component ───────────────────────────────────────────────────
 
 export function EditorDashboardContent() {
@@ -801,27 +882,15 @@ export function EditorDashboardContent() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {totalRevisions > 0 && (
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #5c2020' }}>
-              {totalRevisions} revision{totalRevisions > 1 ? 's' : ''} needed
-            </span>
-          )}
-          {totalQueue > 0 && (
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, background: '#13132e', color: '#a78bfa', border: '1px solid #2a2a5e' }}>
-              {totalQueue} in queue
-            </span>
-          )}
-          {totalRevisions === 0 && totalQueue === 0 && (
-            <span style={{ fontSize: '13px', color: '#52525b' }}>Queue is clear</span>
-          )}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div />
         <button onClick={fetchData}
           style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#111', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
+
+      <TodayTasksStrip creators={creators} />
 
       {creators.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: '#3f3f46', fontSize: '14px', background: '#0d0d0d', borderRadius: '12px', border: '1px solid #1a1a1a' }}>
