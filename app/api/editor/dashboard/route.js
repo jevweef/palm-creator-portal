@@ -33,6 +33,8 @@ export async function GET() {
     const creatorIdSet = new Set(creators.map(c => c.id))
 
     const todayStr = new Date().toISOString().split('T')[0]
+    const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+    const twoWeeksAgoStr = twoWeeksAgo.toISOString().split('T')[0]
     const now = new Date()
     const dayOfWeek = now.getDay()
     const monday = new Date(now)
@@ -251,6 +253,13 @@ export async function GET() {
         t.adminReviewStatus !== 'Needs Revision'
       )
 
+      // All done tasks from the past 14 days for date navigation
+      const recentDone = ctasks.filter(t =>
+        t.status === 'Done' &&
+        t.adminReviewStatus !== 'Needs Revision' &&
+        (t.completedAt || '') >= twoWeeksAgoStr
+      )
+
       return {
         id: c.id,
         name: f.AKA || f.Creator || '',
@@ -258,6 +267,7 @@ export async function GET() {
         dailyQuota,
         doneToday: doneThisWeek,
         doneTodayList,
+        recentDone,
         approvedBuffer,
         bufferDays,
         needsRevision: ctasks.filter(t => t.adminReviewStatus === 'Needs Revision'),

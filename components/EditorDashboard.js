@@ -920,27 +920,44 @@ function CreatorSection({ creator, onRefresh }) {
   }
 
   const dailyQuota = creator.dailyQuota || 2
-  const doneTodayList = creator.doneTodayList || []
+  const todayDateStr = new Date().toISOString().split('T')[0]
+  const [selectedDate, setSelectedDate] = useState(todayDateStr)
+  const [showDatePicker, setShowDatePicker] = useState(false)
 
-  // Build today's slots in priority order
+  const isToday = selectedDate === todayDateStr
+
+  const shiftDate = (days) => {
+    const d = new Date(selectedDate + 'T12:00:00')
+    d.setDate(d.getDate() + days)
+    setSelectedDate(d.toISOString().split('T')[0])
+  }
+
+  const selectedDayLabel = (() => {
+    const d = new Date(selectedDate + 'T12:00:00')
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  })()
+
+  // Done tasks for selected date (from recentDone for history, doneTodayList for today)
+  const selectedDoneList = isToday
+    ? (creator.doneTodayList || [])
+    : (creator.recentDone || []).filter(t => (t.completedAt || '').startsWith(selectedDate))
+
+  // Active fill items only apply to today (past days show history, future shows queue)
   const activeFillItems = [
-    // Needs Revision tasks are shown separately as urgent — skip from slots
     ...creator.inProgress.map(t => ({ type: 'inProgress', task: t })),
     ...creator.queue.map(t => ({ type: 'toDo', task: t })),
     ...(creator.inspoClips || []).map(c => ({ type: 'inspoClip', clip: c })),
   ]
 
-  // Done tasks fill quota slots first — they represent buffer coverage for today
   const slots = []
-  doneTodayList.forEach(t => slots.push({ type: 'done', task: t }))
-  const remaining = Math.max(0, dailyQuota - slots.length)
-  activeFillItems.slice(0, remaining).forEach(item => slots.push(item))
+  selectedDoneList.forEach(t => slots.push({ type: 'done', task: t }))
+  if (isToday) {
+    const remaining = Math.max(0, dailyQuota - slots.length)
+    activeFillItems.slice(0, remaining).forEach(item => slots.push(item))
+  }
   while (slots.length < dailyQuota) slots.push({ type: 'empty' })
 
-  const today = new Date()
-  const dayLabel = today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const doneToday = doneTodayList.length
-  const allDone = doneToday >= dailyQuota
+  const allDone = selectedDoneList.length >= dailyQuota
 
   return (
     <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', overflow: 'hidden' }}>
@@ -965,7 +982,7 @@ function CreatorSection({ creator, onRefresh }) {
             style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'transparent', color: '#52525b', border: '1px solid #2a2a2a', textDecoration: 'none' }}>
             Details →
           </Link>
-          {allDone && (
+          {allDone && isToday && (
             <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a' }}>
               ✓ Today done
             </span>
@@ -1003,10 +1020,34 @@ function CreatorSection({ creator, onRefresh }) {
         </div>
       )}
 
-      {/* Today's Work Slots */}
+      {/* Daily Work Slots */}
       <div style={{ padding: '16px 24px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
-          Today · {dayLabel}
+        {/* Date navigation */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <button onClick={() => shiftDate(-1)}
+            style={{ background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: '#52525b', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setShowDatePicker(p => !p)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: isToday ? '#a78bfa' : '#71717a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                {isToday ? 'Today · ' : ''}{selectedDayLabel}
+              </span>
+              <span style={{ fontSize: '10px', color: '#3f3f46' }}>▾</span>
+            </button>
+            {showDatePicker && (
+              <input type="date" value={selectedDate}
+                onChange={e => { setSelectedDate(e.target.value); setShowDatePicker(false) }}
+                onBlur={() => setShowDatePicker(false)}
+                autoFocus
+                style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: '4px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '6px', color: '#d4d4d8', padding: '4px 8px', fontSize: '12px', cursor: 'pointer' }} />
+            )}
+          </div>
+          <button onClick={() => shiftDate(1)}
+            style={{ background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: '#52525b', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>›</button>
+          {!isToday && (
+            <button onClick={() => setSelectedDate(todayDateStr)}
+              style={{ background: 'none', border: 'none', color: '#3f3f46', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}>Today</button>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {slots.map((slot, i) => (
