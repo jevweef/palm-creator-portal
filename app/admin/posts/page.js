@@ -222,7 +222,7 @@ function PostCard({ post, onRefresh, onSend }) {
     <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
       {/* Left — video at 9:16 */}
-      <div style={{ width: '200px', flexShrink: 0, background: '#080808', position: 'relative', aspectRatio: '9/16' }}>
+      <div style={{ width: '300px', flexShrink: 0, background: '#080808', position: 'relative', aspectRatio: '9/16' }}>
         {hasFile ? (
           isVideo(post.asset.editedFileLink) ? (
             <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
