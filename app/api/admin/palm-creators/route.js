@@ -18,21 +18,26 @@ export async function GET() {
       fetchHqCreators(),
     ])
 
-    // Build name → hqId map (case-insensitive)
+    // Build name + AKA → hqId map (case-insensitive, try both fields)
     const hqMap = {}
     for (const r of hqRecords) {
       const name = (r.fields?.Creator || '').toLowerCase().trim()
+      const aka = (r.fields?.AKA || '').toLowerCase().trim()
       if (name) hqMap[name] = r.id
+      if (aka) hqMap[aka] = r.id
     }
 
     const creators = opsRecords.map(r => {
       const name = r.fields?.Creator || ''
-      const hqId = hqMap[name.toLowerCase().trim()] || null
+      const aka = r.fields?.AKA || ''
+      const hqId = hqMap[name.toLowerCase().trim()]
+        || hqMap[aka.toLowerCase().trim()]
+        || null
       return {
         id: r.id,
         hqId,
         name,
-        aka: r.fields?.AKA || '',
+        aka,
         status: r.fields?.Status?.name || r.fields?.Status || '',
       }
     })
@@ -47,7 +52,7 @@ export async function GET() {
 
 async function fetchHqCreators() {
   const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
-  const url = `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}?fields%5B%5D=Creator&pageSize=100`
+  const url = `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}?fields%5B%5D=Creator&fields%5B%5D=AKA&pageSize=100`
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
     next: { revalidate: 0 },

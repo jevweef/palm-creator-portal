@@ -60,12 +60,12 @@ export default function CreatorDashboard() {
   const [pipeline, setPipeline] = useState(null)
 
   // id from URL param is the opsId
-  const creatorOpsId = params?.id || 'recFusZAbRapOGblK'
+  const creatorOpsId = params?.id
 
-  // hqId: prefer searchParam (admin preview), then Clerk metadata
+  // hqId: prefer searchParam (admin preview), then Clerk metadata — no hardcoded fallback
   const hqIdFromParam = searchParams.get('hqId')
   const hqIdFromClerk = user?.publicMetadata?.airtableHqId
-  const hqId = hqIdFromParam || hqIdFromClerk || 'recYyxrPm6BWd3FSB'
+  const hqId = hqIdFromParam || hqIdFromClerk || null
 
   // inspo board path for this creator
   const inspoPath = `/creator/${creatorOpsId}/inspo`
