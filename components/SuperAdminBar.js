@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 
-const SUPER_ADMIN_EMAIL = 'evan@flylisted.com'
+const SUPER_ADMIN_EMAILS = ['evan@flylisted.com', 'evan@palm-mgmt.com']
 
 export default function SuperAdminBar() {
   const { user, isLoaded } = useUser()
@@ -16,7 +16,8 @@ export default function SuperAdminBar() {
   const dropdownRef = useRef(null)
 
   const email = user?.primaryEmailAddress?.emailAddress
-  const isSuperAdmin = isLoaded && email === SUPER_ADMIN_EMAIL
+  const role = user?.publicMetadata?.role
+  const isSuperAdmin = isLoaded && (role === 'super_admin' || SUPER_ADMIN_EMAILS.includes(email))
 
   // Determine active tab from pathname
   const isCreatorTab = pathname === '/dashboard' || pathname?.startsWith('/inspo') || pathname?.startsWith('/my-content') || pathname?.startsWith('/creator')

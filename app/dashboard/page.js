@@ -58,7 +58,8 @@ export default function CreatorDashboard() {
   const [savedReels, setSavedReels] = useState([])
   const [pipeline, setPipeline] = useState(null)
 
-  const isSuperAdmin = user?.primaryEmailAddress?.emailAddress === 'evan@flylisted.com'
+  const _email = user?.primaryEmailAddress?.emailAddress
+  const isSuperAdmin = user?.publicMetadata?.role === 'super_admin' || ['evan@flylisted.com', 'evan@palm-mgmt.com'].includes(_email)
   const previewOpsId = isSuperAdmin ? searchParams.get('opsId') : null
   const previewHqId = isSuperAdmin ? searchParams.get('hqId') : null
 
