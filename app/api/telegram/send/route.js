@@ -147,7 +147,6 @@ export async function POST(request) {
       await patchAirtableRecord('Posts', postId, {
         'Status': 'Sent to Telegram',
         'Telegram Sent At': new Date().toISOString(),
-        ...(caption ? { 'Caption': caption } : {}),
         ...(messageId ? { 'Telegram Message ID': String(messageId) } : {}),
       }).catch(err => console.error('[Telegram Send] Failed to update Post record:', err.message))
     }
