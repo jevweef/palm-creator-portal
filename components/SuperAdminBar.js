@@ -24,12 +24,29 @@ export default function SuperAdminBar() {
   const isEditorTab = pathname?.startsWith('/editor')
   const isAdminTab = !isCreatorTab && !isEditorTab
 
-  // Fetch creators for picker
+  // Fetch creators for picker, then reconcile with stored selection
   useEffect(() => {
     if (!isSuperAdmin) return
     fetch('/api/admin/palm-creators')
       .then(r => r.json())
-      .then(data => setCreators(data.creators || []))
+      .then(data => {
+        const list = data.creators || []
+        setCreators(list)
+        // Reconcile localStorage with fresh data so hqId is always current
+        try {
+          const stored = localStorage.getItem('superadmin_creator')
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            const fresh = list.find(c => c.id === parsed.id)
+            if (fresh) {
+              setSelectedCreator(fresh)
+              localStorage.setItem('superadmin_creator', JSON.stringify(fresh))
+            } else {
+              setSelectedCreator(parsed)
+            }
+          }
+        } catch {}
+      })
       .catch(() => {})
   }, [isSuperAdmin])
 
@@ -43,15 +60,6 @@ export default function SuperAdminBar() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
-
-  // Restore selected creator from localStorage
-  useEffect(() => {
-    if (!isSuperAdmin) return
-    try {
-      const stored = localStorage.getItem('superadmin_creator')
-      if (stored) setSelectedCreator(JSON.parse(stored))
-    } catch {}
-  }, [isSuperAdmin])
 
   if (!isSuperAdmin) return null
 
