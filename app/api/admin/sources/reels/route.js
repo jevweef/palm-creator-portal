@@ -11,7 +11,7 @@ export async function GET(request) {
 
     const records = await fetchAirtableRecords('Source Reels', {
       filterByFormula: `{Source Handle} = "${handle}"`,
-      fields: ['Reel URL', 'Views', 'Likes', 'Comments', 'Shares', 'Posted At', 'Grade', 'Z Score', 'Normalized Score', 'Data Source', 'Audio Type'],
+      fields: ['Reel URL', 'Views', 'Likes', 'Comments', 'Shares', 'Posted At', 'Grade', 'Z Score', 'Normalized Score', 'Data Source', 'Audio Type', 'Caption'],
       sort: [{ field: 'Views', direction: 'desc' }],
       maxRecords: 100,
     })
@@ -29,6 +29,7 @@ export async function GET(request) {
       normalizedScore: r.fields?.['Normalized Score'] || null,
       dataSource: r.fields?.['Data Source'] || null,
       audioType: r.fields?.['Audio Type'] || null,
+      caption: r.fields?.['Caption'] || null,
     }))
 
     return NextResponse.json({ reels })

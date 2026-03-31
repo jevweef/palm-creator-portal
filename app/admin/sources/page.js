@@ -70,12 +70,12 @@ function ReelsModal({ source, onClose }) {
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '60px', overflowY: 'auto' }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '60px', overflowY: 'auto', paddingBottom: '60px' }}
       onClick={onClose}
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: '#111', border: '1px solid #333', borderRadius: '12px', width: '860px', maxWidth: '95vw', padding: '24px', marginBottom: '60px' }}
+        style={{ background: '#111', border: '1px solid #333', borderRadius: '12px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
