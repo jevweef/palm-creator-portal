@@ -23,7 +23,7 @@ function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
 
   return (
     <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '240px', overflow: 'hidden', background: '#080808' }}>
+      <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '3/4', maxHeight: '320px', overflow: 'hidden', background: '#080808' }}>
         {videoFile && rawUrl ? (
           <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
