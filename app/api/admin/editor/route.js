@@ -1,3 +1,5 @@
+export const maxDuration = 60
+
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { sendPushToAdmins } from '@/lib/sendPushNotifications'
@@ -42,6 +44,7 @@ const EDITOR_THREAD_ID = 2
 async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback, screenshotUrls }) {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) { console.warn('[Revision Telegram] TELEGRAM_BOT_TOKEN not set'); return }
+  console.log('[Revision Telegram] Sending to chat_id:', EDITOR_CHAT_ID, 'thread:', EDITOR_THREAD_ID, 'token_prefix:', token.slice(0, 8))
 
   const assetName = (taskName || '').replace(/^Edit:\s*/i, '')
   const title = inspoTitle || assetName || 'Unknown task'
@@ -59,6 +62,7 @@ async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedbac
 
   try {
     // Send text message — check Telegram JSON body, not just HTTP status (Telegram always returns HTTP 200)
+    console.log('[Revision Telegram] Calling sendMessage...')
     const msgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -96,7 +100,7 @@ async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedbac
       }
     }
   } catch (e) {
-    console.warn('[Revision Telegram] Non-fatal error:', e.message)
+    console.error('[Revision Telegram] FAILED:', e.name, '|', e.message, '|', e.stack?.split('\n')[1]?.trim())
   }
 }
 
