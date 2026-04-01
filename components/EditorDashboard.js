@@ -848,11 +848,16 @@ function SlotContent({ slot }) {
   // Editing with only inspo (no clip yet) or only a library asset
   if (isEditing) {
     const thumb = task?.inspo?.thumbnail || task?.asset?.thumbnail || ''
+    const rawClipUrl = !thumb ? rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '') : ''
     const title = task?.inspo?.title || task?.name || ''
     const username = task?.inspo?.username || ''
     return (
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />}
+        {thumb ? (
+          <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
+        ) : rawClipUrl ? (
+          <video src={rawClipUrl} muted playsInline style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
+        ) : null}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
           {username && <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '2px' }}>@{username}</div>}
