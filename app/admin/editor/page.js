@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { EditorDashboardContent, getSlotLabel } from '@/components/EditorDashboard'
+import PostsPage from '@/app/admin/posts/page'
 
 function formatSlot(isoDate) {
   const label = getSlotLabel(isoDate)
@@ -1050,7 +1051,7 @@ function ForReview({ showToast }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function EditorQueue() {
-  const [activeSection, setActiveSection] = useState('tasks')
+  const [activeSection, setActiveSection] = useState('editorview')
   const [toast, setToast] = useState(null)
 
   const showToast = useCallback((msg, error = false) => {
@@ -1059,10 +1060,10 @@ export default function EditorQueue() {
   }, [])
 
   const TABS = [
-    { key: 'tasks', label: '✂️ Inspo Tasks' },
+    { key: 'editorview', label: '📋 Dashboard' },
     { key: 'review', label: '👁 For Review' },
-    { key: 'library', label: '📁 Unreviewed Library' },
-    { key: 'editorview', label: '👤 Editor View' },
+    { key: 'postprep', label: '✈️ Post Prep' },
+    { key: 'library', label: '📁 Creator Library' },
   ]
 
   return (
@@ -1095,10 +1096,10 @@ export default function EditorQueue() {
       </div>
 
       {/* Section content */}
-      {activeSection === 'tasks' && <InspoTasks showToast={showToast} />}
-      {activeSection === 'review' && <ForReview showToast={showToast} />}
-      {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
       {activeSection === 'editorview' && <EditorDashboardContent />}
+      {activeSection === 'review' && <ForReview showToast={showToast} />}
+      {activeSection === 'postprep' && <PostsPage />}
+      {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
 
       {/* Toast */}
       {toast && (
