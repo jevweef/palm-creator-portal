@@ -323,7 +323,7 @@ export async function PATCH(request) {
       } catch (e) {
         console.warn('[Revision Telegram] Failed to fetch creator/inspo names:', e.message)
       }
-      sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls }).catch(() => {})
+      await sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls })
 
       return NextResponse.json({ ok: true, action: 'requestRevision' })
     }
@@ -360,11 +360,11 @@ export async function PATCH(request) {
     if (newStatus === 'Done') {
       const taskName = tasks[0]?.fields?.Name || ''
       const assetName = taskName.replace(/^Edit:\s*/i, '')
-      sendPushToAdmins({
+      await sendPushToAdmins({
         title: 'New Edit Ready for Review',
         body: assetName,
         url: '/admin/editor',
-      }).catch(() => {})
+      })
     }
 
     console.log(`[Editor] Task ${taskId}: ${newStatus}, Asset ${assetId}: ${TASK_TO_ASSET_STATUS[newStatus]}`)
