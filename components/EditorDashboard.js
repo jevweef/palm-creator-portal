@@ -96,6 +96,7 @@ export function getSlotLabel(isoDateString) {
 export function QuotaDots({ slotColors, quota, done }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+      <span style={{ fontSize: '9px', fontWeight: 700, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0 }}>Weekly</span>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
         {Array.from({ length: quota }).map((_, i) => {
           const color = slotColors?.[i] || '#1a1a1a'
@@ -1197,6 +1198,7 @@ function CreatorSection({ creator, onRefresh }) {
       <div style={{ padding: '16px 24px' }}>
         {/* Date navigation */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <span style={{ fontSize: '9px', fontWeight: 700, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0 }}>Daily</span>
           <button onClick={() => shiftDate(-1)}
             style={{ background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: '#52525b', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
           <div style={{ position: 'relative' }}>
