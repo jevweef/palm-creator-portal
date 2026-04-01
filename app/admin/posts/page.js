@@ -574,7 +574,7 @@ export default function PostsPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filter, setFilter] = useState('All')
+  const [filter, setFilter] = useState('Prepping')
   const [telegramModal, setTelegramModal] = useState(null)
   const [toast, setToast] = useState(null)
 
