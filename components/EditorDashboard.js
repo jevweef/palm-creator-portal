@@ -14,7 +14,7 @@ function rawDropboxUrl(url) {
 function isVideo(url) { return !!url && /\.(mp4|mov|avi|webm|mkv)/i.test(url) }
 function isPhoto(url) { return !!url && /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url) }
 
-const LIB_PAGE_SIZE = 24
+const LIB_PAGE_SIZE = 15
 
 function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
   const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
