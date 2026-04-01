@@ -7,6 +7,7 @@ import Link from 'next/link'
 
 const ADMIN_NAV = [
   { href: '/admin', label: 'Pipeline', icon: '⚡' },
+  { href: '/admin/invoicing', label: 'Invoicing', icon: '💸' },
   { href: '/admin/sources', label: 'Sources', icon: '📡' },
   { href: '/admin/review', label: 'Review', icon: '✅' },
   { href: '/admin/import', label: 'Import', icon: '📥' },
