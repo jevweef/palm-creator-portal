@@ -35,6 +35,63 @@ function getNextPostingSlot(latestSlotISO) {
 // Admin review actions
 const ADMIN_ACTIONS = ['approve', 'requestRevision']
 
+const EDITOR_CHAT_ID = -1003779148361
+const EDITOR_THREAD_ID = 2
+
+async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback, screenshotUrls }) {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) { console.warn('[Revision Telegram] TELEGRAM_BOT_TOKEN not set'); return }
+
+  const assetName = (taskName || '').replace(/^Edit:\s*/i, '')
+  const title = inspoTitle || assetName || 'Unknown task'
+
+  const text = [
+    `⚠️ *Revision Needed*`,
+    ``,
+    `*${title}*`,
+    `Creator: ${creatorName || 'Unknown'}`,
+    `File: ${assetName}`,
+    ``,
+    `*Feedback:*`,
+    feedback,
+  ].join('\n')
+
+  try {
+    // Send text message
+    const msgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: EDITOR_CHAT_ID,
+        message_thread_id: EDITOR_THREAD_ID,
+        text,
+        parse_mode: 'Markdown',
+      }),
+    })
+    if (!msgRes.ok) console.warn('[Revision Telegram] sendMessage failed:', await msgRes.text())
+
+    // Send each screenshot as a photo
+    for (const url of (screenshotUrls || [])) {
+      try {
+        const rawUrl = url.replace('?dl=0', '?raw=1').replace('?dl=1', '?raw=1')
+        const imgRes = await fetch(rawUrl)
+        if (!imgRes.ok) continue
+        const buffer = await imgRes.arrayBuffer()
+        const form = new FormData()
+        form.append('chat_id', String(EDITOR_CHAT_ID))
+        form.append('message_thread_id', String(EDITOR_THREAD_ID))
+        form.append('photo', new Blob([buffer], { type: 'image/png' }), 'screenshot.png')
+        const photoRes = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form })
+        if (!photoRes.ok) console.warn('[Revision Telegram] sendPhoto failed:', await photoRes.text())
+      } catch (e) {
+        console.warn('[Revision Telegram] Screenshot failed (non-fatal):', e.message)
+      }
+    }
+  } catch (e) {
+    console.warn('[Revision Telegram] Non-fatal error:', e.message)
+  }
+}
+
 // Build OR formula for batch record lookup by ID
 function recordIdFormula(ids) {
   if (!ids.length) return ''
@@ -248,6 +305,25 @@ export async function PATCH(request) {
         await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'In Editing' })
       }
       console.log(`[Editor] Task ${taskId} sent back for revision`)
+
+      // Send Telegram notification to editor (non-blocking)
+      const task = tasks[0]
+      const creatorId = (task.fields?.Creator || [])[0] || null
+      const inspoId = (task.fields?.Inspiration || [])[0] || null
+      const taskName = task.fields?.Name || ''
+      let creatorName = '', inspoTitle = ''
+      try {
+        const [creatorRecs, inspoRecs] = await Promise.all([
+          creatorId ? fetchAirtableRecords('Palm Creators', { filterByFormula: `RECORD_ID()='${creatorId}'`, fields: ['AKA', 'Creator'] }) : [],
+          inspoId ? fetchAirtableRecords('Inspiration', { filterByFormula: `RECORD_ID()='${inspoId}'`, fields: ['Title'] }) : [],
+        ])
+        creatorName = creatorRecs[0]?.fields?.AKA || creatorRecs[0]?.fields?.Creator || ''
+        inspoTitle = inspoRecs[0]?.fields?.Title || ''
+      } catch (e) {
+        console.warn('[Revision Telegram] Failed to fetch creator/inspo names:', e.message)
+      }
+      sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls }).catch(() => {})
+
       return NextResponse.json({ ok: true, action: 'requestRevision' })
     }
 

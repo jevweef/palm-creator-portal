@@ -668,18 +668,161 @@ function UnreviewedCard({ asset }) {
 
 // ─── For Review Section (Admin) ───────────────────────────────────────────────
 
+// ── CropperModal ──────────────────────────────────────────────────────────────
+function CropperModal({ file, onCrop, onSkip }) {
+  const canvasRef = useRef(null)
+  const imgRef = useRef(null)
+  const scaleRef = useRef(1)
+  const dragging = useRef(false)
+  const startPos = useRef(null)
+  const [sel, setSel] = useState(null)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const image = new Image()
+      image.onload = () => {
+        imgRef.current = image
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const maxW = 580, maxH = 460
+        const scale = Math.min(maxW / image.width, maxH / image.height, 1)
+        scaleRef.current = scale
+        canvas.width = Math.round(image.width * scale)
+        canvas.height = Math.round(image.height * scale)
+        draw(null)
+        setReady(true)
+      }
+      image.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }, [file])
+
+  function draw(selection) {
+    const canvas = canvasRef.current
+    const image = imgRef.current
+    if (!canvas || !image) return
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+    if (selection) {
+      const x = Math.min(selection.x1, selection.x2)
+      const y = Math.min(selection.y1, selection.y2)
+      const w = Math.abs(selection.x2 - selection.x1)
+      const h = Math.abs(selection.y2 - selection.y1)
+      // dim everything outside selection
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      // redraw selected region clearly
+      ctx.drawImage(image, x / scaleRef.current, y / scaleRef.current, w / scaleRef.current, h / scaleRef.current, x, y, w, h)
+      // selection border
+      ctx.strokeStyle = '#a78bfa'
+      ctx.lineWidth = 2
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2)
+      // corner handles
+      const hs = 6
+      ctx.fillStyle = '#a78bfa'
+      ;[[x, y], [x+w, y], [x, y+h], [x+w, y+h]].forEach(([cx, cy]) => {
+        ctx.fillRect(cx - hs/2, cy - hs/2, hs, hs)
+      })
+    }
+  }
+
+  function getPos(e) {
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: Math.max(0, Math.min(canvas.width, (e.clientX - rect.left) * (canvas.width / rect.width))),
+      y: Math.max(0, Math.min(canvas.height, (e.clientY - rect.top) * (canvas.height / rect.height))),
+    }
+  }
+
+  function onMouseDown(e) {
+    e.preventDefault()
+    dragging.current = true
+    const pos = getPos(e)
+    startPos.current = pos
+    const newSel = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y }
+    setSel(newSel)
+    draw(newSel)
+  }
+
+  function onMouseMove(e) {
+    if (!dragging.current) return
+    const pos = getPos(e)
+    const newSel = { x1: startPos.current.x, y1: startPos.current.y, x2: pos.x, y2: pos.y }
+    setSel(newSel)
+    draw(newSel)
+  }
+
+  function onMouseUp() { dragging.current = false }
+
+  const selW = sel ? Math.abs(sel.x2 - sel.x1) : 0
+  const selH = sel ? Math.abs(sel.y2 - sel.y1) : 0
+  const canCrop = selW > 15 && selH > 15
+
+  const handleCrop = () => {
+    if (!canCrop || !imgRef.current || !sel) return
+    const scale = scaleRef.current
+    const x = Math.min(sel.x1, sel.x2)
+    const y = Math.min(sel.y1, sel.y2)
+    const cropCanvas = document.createElement('canvas')
+    cropCanvas.width = Math.round(selW / scale)
+    cropCanvas.height = Math.round(selH / scale)
+    const ctx = cropCanvas.getContext('2d')
+    ctx.drawImage(imgRef.current, x / scale, y / scale, selW / scale, selH / scale, 0, 0, cropCanvas.width, cropCanvas.height)
+    cropCanvas.toBlob(blob => {
+      const name = file.name.replace(/\.[^.]+$/, '') + '_crop.png'
+      onCrop(new File([blob], name, { type: 'image/png' }))
+    }, 'image/png', 0.95)
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '16px', padding: '20px', maxWidth: '95vw', display: 'flex', flexDirection: 'column', gap: '12px' }}
+        onClick={e => e.stopPropagation()}>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Crop Screenshot</div>
+          <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>Drag to select what to send · or skip to use the full image</div>
+        </div>
+        {!ready && <div style={{ width: '200px', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#52525b', fontSize: '13px' }}>Loading...</div>}
+        <canvas
+          ref={canvasRef}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={onMouseUp}
+          style={{ display: ready ? 'block' : 'none', cursor: 'crosshair', maxWidth: '100%', borderRadius: '8px', border: '1px solid #2a2a2a', userSelect: 'none' }}
+        />
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={() => onSkip(file)}
+            style={{ padding: '8px 16px', border: '1px solid #333', borderRadius: '8px', color: '#a1a1aa', fontSize: '12px', fontWeight: 600, cursor: 'pointer', background: 'transparent' }}>
+            Use Full Image
+          </button>
+          <button onClick={handleCrop} disabled={!canCrop}
+            style={{ padding: '8px 18px', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: canCrop ? 'pointer' : 'not-allowed', background: canCrop ? '#a78bfa' : '#333', opacity: canCrop ? 1 : 0.5 }}>
+            Crop & Add
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function RevisionModal({ task, onClose, onSubmit }) {
   const [feedback, setFeedback] = useState('')
   const [screenshots, setScreenshots] = useState([])
+  const [cropQueue, setCropQueue] = useState([])
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
   const fileRef = useRef(null)
 
-  const handleScreenshots = async (files) => {
+  const uploadFiles = async (files) => {
     if (!files.length) return
     setUploading(true)
-    setProgress('Uploading screenshots...')
+    setProgress('Uploading...')
     setError('')
     try {
       const tokenRes = await fetch('/api/editor-upload-token', {
@@ -692,7 +835,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
       const pathRoot = JSON.stringify({ '.tag': 'root', root: rootNamespaceId })
 
       const uploaded = []
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         const ext = file.name.includes('.') ? file.name.split('.').pop() : 'png'
         const fileName = `revision_note_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
         const filePath = `/Palm Ops/Revision Notes/${fileName}`
@@ -718,11 +861,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
             headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
             body: JSON.stringify({ path: result.path_display }),
           })
-          if (linkRes.ok) {
-            const linkData = await linkRes.json()
-            // Use dl=1 so Airtable can fetch the image directly
-            sharedLink = (linkData.url || '').replace('?dl=0', '?dl=1')
-          }
+          if (linkRes.ok) sharedLink = ((await linkRes.json()).url || '').replace('?dl=0', '?dl=1')
         } catch {}
         if (sharedLink) uploaded.push(sharedLink)
       }
@@ -733,6 +872,28 @@ function RevisionModal({ task, onClose, onSubmit }) {
       setUploading(false)
       setProgress('')
     }
+  }
+
+  const handleFileSelect = (files) => {
+    if (!files.length) return
+    setCropQueue(Array.from(files))
+  }
+
+  const handleCropDone = (croppedFile) => {
+    setCropQueue(prev => {
+      const remaining = prev.slice(1)
+      if (!remaining.length) uploadFiles([croppedFile])
+      else uploadFiles([croppedFile]) // upload immediately, show next cropper
+      return remaining
+    })
+  }
+
+  const handleSkip = (originalFile) => {
+    setCropQueue(prev => {
+      const remaining = prev.slice(1)
+      uploadFiles([originalFile])
+      return remaining
+    })
   }
 
   const handleSubmit = async () => {
@@ -747,7 +908,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
         onClick={e => e.stopPropagation()}>
         <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#fff', margin: '0 0 4px' }}>Request Revision</h3>
         <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '20px' }}>
-          {task.inspo.title} · {task.creator.name}
+          {task.inspo.title || task.name} · {task.creator.name}
         </p>
 
         <div style={{ marginBottom: '14px' }}>
@@ -768,13 +929,13 @@ function RevisionModal({ task, onClose, onSubmit }) {
 
         <div style={{ marginBottom: '16px' }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
-            Screenshots (optional)
+            Screenshots <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#3f3f46' }}>— drag to crop after selecting</span>
           </div>
           {screenshots.length > 0 && (
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
               {screenshots.map((url, i) => (
-                <div key={i} style={{ position: 'relative', width: '64px', height: '64px' }}>
-                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #333' }} />
+                <div key={i} style={{ position: 'relative', width: '72px', height: '72px' }}>
+                  <img src={url.replace('?dl=1', '?raw=1')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #333' }} />
                   <button
                     onClick={() => setScreenshots(prev => prev.filter((_, j) => j !== i))}
                     style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
@@ -786,11 +947,11 @@ function RevisionModal({ task, onClose, onSubmit }) {
           )}
           <button
             onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', opacity: uploading ? 0.6 : 1 }}>
-            {uploading ? progress || 'Uploading...' : '+ Add Screenshots'}
+            disabled={uploading || cropQueue.length > 0}
+            style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', opacity: (uploading || cropQueue.length > 0) ? 0.6 : 1 }}>
+            {uploading ? progress || 'Uploading...' : '+ Add Screenshot'}
           </button>
-          <input ref={fileRef} type="file" accept="image/*" multiple onChange={e => handleScreenshots(e.target.files)} style={{ display: 'none' }} />
+          <input ref={fileRef} type="file" accept="image/*" multiple onChange={e => handleFileSelect(e.target.files)} style={{ display: 'none' }} />
         </div>
 
         {error && <p style={{ fontSize: '12px', color: '#ef4444', marginBottom: '12px' }}>{error}</p>}
@@ -810,6 +971,15 @@ function RevisionModal({ task, onClose, onSubmit }) {
           </button>
         </div>
       </div>
+
+      {/* Crop modal — shown on top when there are files queued */}
+      {cropQueue.length > 0 && (
+        <CropperModal
+          file={cropQueue[0]}
+          onCrop={handleCropDone}
+          onSkip={handleSkip}
+        />
+      )}
     </div>
   )
 }
