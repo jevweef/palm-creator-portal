@@ -115,7 +115,7 @@ export function QuotaDots({ slotColors, quota, done }) {
         })}
       </div>
       <span style={{ fontSize: '12px', color: done >= quota ? '#22c55e' : '#52525b', fontWeight: 500, flexShrink: 0 }}>
-        {done}/{quota} this week
+        {done}/{quota}
       </span>
     </div>
   )
