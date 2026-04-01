@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 
 function recordIdFormula(ids) {
   if (!ids.length) return 'FALSE()'
@@ -76,9 +76,43 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({ posts: result, total: result.length })
+    // Fetch all active creators for the historical post form
+    const allCreators = await fetchAirtableRecords('Palm Creators', {
+      filterByFormula: '{Social Media Editing}=1',
+      fields: ['Creator', 'AKA'],
+      sort: [{ field: 'AKA', direction: 'asc' }],
+    })
+    const creators = allCreators.map(c => ({ id: c.id, name: c.fields?.AKA || c.fields?.Creator || '' }))
+
+    return NextResponse.json({ posts: result, total: result.length, creators })
   } catch (err) {
     console.error('[Posts] GET error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// POST — create a historical post record
+export async function POST(request) {
+  try { await requireAdmin() } catch (e) { return e }
+
+  try {
+    const { creatorId, postName, date, slot } = await request.json()
+    if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 })
+
+    const [year, month, day] = date.split('-').map(Number)
+    const hour = slot === 'evening' ? 23 : 15
+    const scheduledDate = new Date(Date.UTC(year, month - 1, day, hour, 0, 0))
+
+    await createAirtableRecord('Posts', {
+      'Post Name': postName || `Historical post – ${date}`,
+      ...(creatorId ? { 'Creator': [creatorId] } : {}),
+      'Status': 'Posted',
+      'Scheduled Date': scheduledDate.toISOString(),
+    })
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('[Posts] POST error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

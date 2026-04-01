@@ -80,3 +80,35 @@ export async function POST(req) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
+
+export async function DELETE(req) {
+  try { await requireAdminOrEditor() } catch (e) { return e }
+  try {
+    const { taskId, assetId } = await req.json()
+    if (!taskId) return NextResponse.json({ error: 'taskId required' }, { status: 400 })
+
+    // Delete the task record
+    const delRes = await fetch(
+      `https://api.airtable.com/v0/${OPS_BASE}/${TASKS_TABLE}/${taskId}`,
+      { method: 'DELETE', headers: airtableHeaders }
+    )
+    if (!delRes.ok) throw new Error(`Failed to delete task: ${await delRes.text()}`)
+
+    // Reset asset pipeline status back to Uploaded
+    if (assetId) {
+      await fetch(
+        `https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`,
+        {
+          method: 'PATCH',
+          headers: airtableHeaders,
+          body: JSON.stringify({ fields: { fld96IKrBmR1d5qdz: 'Uploaded' } }),
+        }
+      )
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('[Editor Tasks] DELETE error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}

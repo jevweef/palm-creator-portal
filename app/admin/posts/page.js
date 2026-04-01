@@ -582,6 +582,94 @@ function PostCard({ post, onRefresh, onSend }) {
   )
 }
 
+function LogHistoricalPostModal({ creators, onClose, onSaved }) {
+  const [creatorId, setCreatorId] = useState('')
+  const [postName, setPostName] = useState('')
+  const [date, setDate] = useState('')
+  const [slot, setSlot] = useState('morning')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async () => {
+    if (!date) { setError('Date is required'); return }
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: creatorId || null, postName, date, slot }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = { width: '100%', background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: '#e4e4e7', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
+  const labelStyle = { fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', display: 'block' }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#d4d4d8' }}>Log Historical Post</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Creator</label>
+          <select value={creatorId} onChange={e => setCreatorId(e.target.value)} style={{ ...inputStyle, appearance: 'none' }}>
+            <option value="">— Select creator —</option>
+            {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Post Name (optional)</label>
+          <input value={postName} onChange={e => setPostName(e.target.value)} placeholder="e.g. Gracie – Gym set" style={inputStyle} />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Post Date</label>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Slot</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {['morning', 'evening'].map(s => (
+              <button key={s} onClick={() => setSlot(s)}
+                style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: 700, borderRadius: '7px', cursor: 'pointer', textTransform: 'capitalize',
+                  background: slot === s ? '#1a1a2e' : '#0a0a0a',
+                  color: slot === s ? '#a78bfa' : '#52525b',
+                  border: `1px solid ${slot === s ? '#3a3a6e' : '#2a2a2a'}` }}>
+                {s === 'morning' ? '☀ Morning (~10am)' : '🌙 Evening (~7pm)'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error && <div style={{ fontSize: '12px', color: '#ef4444' }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600, background: '#111', color: '#71717a', border: '1px solid #2a2a2a', borderRadius: '8px', cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={saving || !date}
+            style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saving || !date ? '#111' : '#0a2e0a', color: saving || !date ? '#3f3f46' : '#22c55e', border: `1px solid ${saving || !date ? '#1a1a1a' : '#1a5c1a'}`, borderRadius: '8px', cursor: saving || !date ? 'default' : 'pointer' }}>
+            {saving ? 'Saving...' : 'Log Post'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const STATUS_FILTERS = ['All', 'Prepping', 'Sent to Telegram', 'Ready to Post']
 
 export default function PostsPage() {
@@ -591,6 +679,7 @@ export default function PostsPage() {
   const [filter, setFilter] = useState('Prepping')
   const [telegramModal, setTelegramModal] = useState(null)
   const [toast, setToast] = useState(null)
+  const [logModal, setLogModal] = useState(false)
 
   const showToast = (msg, isError = false) => {
     setToast({ msg, isError })
@@ -626,9 +715,14 @@ export default function PostsPage() {
             {posts.length} post{posts.length !== 1 ? 's' : ''} in queue
           </div>
         </div>
-        <button onClick={fetchData} style={{ background: 'none', border: '1px solid #2a2a2a', color: '#52525b', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
-          Refresh
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => setLogModal(true)} style={{ background: '#0a2e0a', border: '1px solid #1a5c1a', color: '#22c55e', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+            + Log Historical Post
+          </button>
+          <button onClick={fetchData} style={{ background: 'none', border: '1px solid #2a2a2a', color: '#52525b', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter tabs */}
@@ -676,6 +770,14 @@ export default function PostsPage() {
           post={telegramModal}
           onClose={() => setTelegramModal(null)}
           onSent={() => { showToast('Sent to Telegram ✓'); fetchData() }}
+        />
+      )}
+
+      {logModal && (
+        <LogHistoricalPostModal
+          creators={data?.creators || []}
+          onClose={() => setLogModal(false)}
+          onSaved={() => { showToast('Historical post logged ✓'); fetchData() }}
         />
       )}
     </div>

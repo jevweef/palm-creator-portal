@@ -613,12 +613,32 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#71717a
   )
 }
 
-function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, onClose, onSaved }) {
+function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, onClose, onSaved, onRefresh }) {
   const task = slot.task || null
   const clip = slot.clip || null
   const isClip = slot.type === 'inspoClip'
   const [starting, setStarting] = useState(false)
   const [startErr, setStartErr] = useState('')
+
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+
+  const handleCancelEdit = async () => {
+    setCancelling(true)
+    try {
+      const res = await fetch('/api/editor/tasks', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task?.id, assetId: task?.asset?.id }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      onClose()
+      onRefresh?.()
+    } catch (err) {
+      setCancelling(false)
+      setConfirmCancel(false)
+    }
+  }
 
   // Editor submit tool state
   const [editorTab, setEditorTab] = useState('upload') // 'create' | 'upload'
@@ -1077,6 +1097,30 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 </button>
                 {startErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{startErr}</div>}
               </>
+            )}
+
+            {/* Remove from queue — for active tasks only */}
+            {(slot.type === 'toDo' || slot.type === 'inProgress') && task?.id && (
+              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '12px', marginTop: '4px' }}>
+                {!confirmCancel ? (
+                  <button onClick={() => setConfirmCancel(true)}
+                    style={{ background: 'none', border: 'none', color: '#52525b', fontSize: '11px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                    Remove from queue
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', color: '#a1a1aa' }}>Remove this task and reset the clip?</span>
+                    <button onClick={handleCancelEdit} disabled={cancelling}
+                      style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444', background: '#1a0505', border: '1px solid #5c1a1a', borderRadius: '5px', padding: '3px 10px', cursor: cancelling ? 'default' : 'pointer' }}>
+                      {cancelling ? 'Removing...' : 'Yes, remove'}
+                    </button>
+                    <button onClick={() => setConfirmCancel(false)}
+                      style={{ fontSize: '11px', color: '#52525b', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1611,6 +1655,7 @@ function CreatorSection({ creator, onRefresh }) {
           onInspoClipStart={handleInspoClipStart}
           updating={updating}
           onClose={() => setTaskModal(null)}
+          onRefresh={onRefresh}
         />
       )}
 
