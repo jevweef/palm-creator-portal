@@ -820,7 +820,7 @@ function SlotContent({ slot }) {
 function doneSlotStyle(task) {
   const s = task?.adminReviewStatus || ''
   if (s === 'Approved') return { borderColor: '#1a3a1a', bg: '#030f03', dotColor: '#22c55e', label: 'Approved ✓' }
-  return { borderColor: '#1a2e1a', bg: '#050f05', dotColor: '#4a8a4a', label: 'In Review' }
+  return { borderColor: '#2a3a10', bg: '#0a0f02', dotColor: '#a3e635', label: 'In Review' }
 }
 
 function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors = {} }) {
