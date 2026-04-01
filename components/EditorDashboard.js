@@ -823,7 +823,63 @@ function doneSlotStyle(task) {
   return { borderColor: '#1a2e1a', bg: '#050f05', dotColor: '#4a8a4a', label: 'In Review' }
 }
 
-function VideoSlot({ number, slot, creator, onAction, updating, onRefresh, onSlotClick }) {
+function CustomCalendar({ selectedDate, todayStr, onSelect, onClose }) {
+  const initDate = new Date(selectedDate + 'T12:00:00')
+  const [calYear, setCalYear] = useState(initDate.getFullYear())
+  const [calMonth, setCalMonth] = useState(initDate.getMonth())
+
+  const shiftMonth = (delta) => {
+    let m = calMonth + delta, y = calYear
+    if (m < 0) { m = 11; y-- }
+    if (m > 11) { m = 0; y++ }
+    setCalMonth(m); setCalYear(y)
+  }
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
+  const firstDay = new Date(calYear, calMonth, 1).getDay()
+  const cells = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
+
+  const navBtn = { background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: '#71717a', fontSize: '14px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: '6px', background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '14px', width: '228px', boxShadow: '0 8px 32px rgba(0,0,0,0.8)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <button onClick={() => shiftMonth(-1)} style={navBtn}>‹</button>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#d4d4d8' }}>{monthNames[calMonth]} {calYear}</span>
+          <button onClick={() => shiftMonth(1)} style={navBtn}>›</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '4px' }}>
+          {['S','M','T','W','T','F','S'].map((d, i) => (
+            <div key={i} style={{ textAlign: 'center', fontSize: '10px', color: '#52525b', fontWeight: 600, padding: '3px 0' }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+          {cells.map((day, i) => {
+            if (!day) return <div key={i} />
+            const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            const isSel = ds === selectedDate
+            const isToday = ds === todayStr
+            return (
+              <button key={i} onClick={() => { onSelect(ds); onClose() }}
+                style={{ background: isSel ? '#7c3aed' : isToday ? '#1e1a2e' : 'transparent', border: isToday && !isSel ? '1px solid #4c3a8a' : '1px solid transparent', borderRadius: '6px', color: isSel ? '#fff' : isToday ? '#a78bfa' : '#a1a1aa', fontSize: '12px', fontWeight: isSel || isToday ? 700 : 400, padding: '5px 0', cursor: 'pointer', textAlign: 'center' }}>
+                {day}
+              </button>
+            )
+          })}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #1e1e1e' }}>
+          <button onClick={() => { onSelect(todayStr); onClose() }}
+            style={{ fontSize: '11px', fontWeight: 700, color: '#a78bfa', background: 'none', border: 'none', cursor: 'pointer' }}>Today</button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updating, onRefresh, onSlotClick }) {
   const typeStyle = slot.type === 'done'
     ? doneSlotStyle(slot.task)
     : {
@@ -833,25 +889,27 @@ function VideoSlot({ number, slot, creator, onAction, updating, onRefresh, onSlo
         empty:      { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: 'Open slot' },
       }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
 
-  const isEmpty = slot.type === 'empty'
+  const isDone = slot.type === 'done'
+  const clickable = isDone || isNext
+  const opacity = isLocked ? 0.35 : 1
 
   return (
     <div
-      onClick={() => onSlotClick(slot)}
-      style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', height: '100px', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'border-color 0.15s' }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = isEmpty ? '#2a2a2a' : typeStyle.dotColor }}
+      onClick={clickable ? () => onSlotClick(slot) : undefined}
+      style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', height: '100px', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: clickable ? 'pointer' : 'default', transition: 'border-color 0.15s', opacity }}
+      onMouseEnter={e => { if (clickable) e.currentTarget.style.borderColor = typeStyle.dotColor }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = typeStyle.borderColor }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-        <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#111', border: `1.5px solid ${typeStyle.dotColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, color: typeStyle.dotColor, flexShrink: 0 }}>
-          {number}
-        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: typeStyle.dotColor }} />
+          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: typeStyle.dotColor, flexShrink: 0 }} />
           <span style={{ fontSize: '10px', fontWeight: 700, color: typeStyle.dotColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {typeStyle.label}
           </span>
         </div>
+        {slotLabel && (
+          <span style={{ fontSize: '10px', color: '#3f3f46', marginLeft: 'auto' }}>{slotLabel}</span>
+        )}
       </div>
       <SlotContent slot={slot} />
     </div>
@@ -1035,11 +1093,12 @@ function CreatorSection({ creator, onRefresh }) {
               <span style={{ fontSize: '10px', color: '#3f3f46' }}>▾</span>
             </button>
             {showDatePicker && (
-              <input type="date" value={selectedDate}
-                onChange={e => { setSelectedDate(e.target.value); setShowDatePicker(false) }}
-                onBlur={() => setShowDatePicker(false)}
-                autoFocus
-                style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: '4px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '6px', color: '#d4d4d8', padding: '4px 8px', fontSize: '12px', cursor: 'pointer' }} />
+              <CustomCalendar
+                selectedDate={selectedDate}
+                todayStr={todayDateStr}
+                onSelect={setSelectedDate}
+                onClose={() => setShowDatePicker(false)}
+              />
             )}
           </div>
           <button onClick={() => shiftDate(1)}
@@ -1050,18 +1109,33 @@ function CreatorSection({ creator, onRefresh }) {
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {slots.map((slot, i) => (
-            <VideoSlot
-              key={i}
-              number={i + 1}
-              slot={slot}
-              creator={creator}
-              onAction={handleAction}
-              updating={updating}
-              onRefresh={onRefresh}
-              onSlotClick={slot => slot.type === 'empty' ? setLibraryModal(true) : setTaskModal(slot)}
-            />
-          ))}
+          {(() => {
+            const slotNames = dailyQuota === 1 ? ['Morning'] :
+              dailyQuota === 2 ? ['Morning', 'Evening'] :
+              dailyQuota === 3 ? ['Morning', 'Afternoon', 'Evening'] :
+              Array.from({ length: dailyQuota }, (_, i) => `Slot ${i + 1}`)
+            const d = new Date(selectedDate + 'T12:00:00')
+            const dateLabel = `${d.getMonth() + 1}/${d.getDate()}`
+            const nextActionableIndex = slots.findIndex(s => s.type !== 'done')
+            return slots.map((slot, i) => {
+              const isNext = i === nextActionableIndex
+              const isLocked = slot.type !== 'done' && !isNext
+              return (
+                <VideoSlot
+                  key={i}
+                  slotLabel={`${dateLabel} / ${slotNames[i] || `Slot ${i + 1}`}`}
+                  slot={slot}
+                  isNext={isNext}
+                  isLocked={isLocked}
+                  creator={creator}
+                  onAction={handleAction}
+                  updating={updating}
+                  onRefresh={onRefresh}
+                  onSlotClick={slot => slot.type === 'empty' ? setLibraryModal(true) : setTaskModal(slot)}
+                />
+              )
+            })
+          })()}
         </div>
       </div>
 
