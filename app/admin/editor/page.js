@@ -669,6 +669,131 @@ function UnreviewedCard({ asset }) {
 
 // ─── For Review Section (Admin) ───────────────────────────────────────────────
 
+// ── RevisionFramePicker ───────────────────────────────────────────────────────
+function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
+  const videoRef = useRef(null)
+  const [duration, setDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [capturing, setCapturing] = useState(false)
+  const [error, setError] = useState('')
+
+  const rawUrl = videoUrl.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (videoUrl.includes('?') ? '&raw=1' : '?raw=1')
+
+  const handleScrub = (e) => {
+    const t = parseFloat(e.target.value)
+    setCurrentTime(t)
+    if (videoRef.current) videoRef.current.currentTime = t
+  }
+
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60).toString().padStart(2, '0')
+    return `${m}:${sec}`
+  }
+
+  const handleCapture = async () => {
+    setCapturing(true)
+    setError('')
+    try {
+      // Extract frame server-side (reuses the same endpoint as post prep)
+      const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl, timestamp: currentTime }),
+      })
+      const frameData = await frameRes.json()
+      if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
+
+      // Upload to Dropbox revision notes folder
+      const tokenRes = await fetch('/api/editor-upload-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+      })
+      if (!tokenRes.ok) throw new Error('Failed to get upload credentials')
+      const { accessToken, rootNamespaceId } = await tokenRes.json()
+      const pathRoot = JSON.stringify({ '.tag': 'root', root: rootNamespaceId })
+
+      const blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+      const fileName = `revision_frame_${Date.now()}.jpg`
+      const filePath = `/Palm Ops/Revision Notes/${fileName}`
+
+      const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: filePath, mode: 'add', autorename: true, mute: true }),
+          'Dropbox-API-Path-Root': pathRoot,
+          'Content-Type': 'application/octet-stream',
+        },
+        body: blob,
+      })
+      if (!dbxRes.ok) throw new Error(`Upload failed: ${await dbxRes.text()}`)
+      const result = await dbxRes.json()
+
+      let sharedLink = ''
+      try {
+        const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: result.path_display }),
+        })
+        if (linkRes.ok) sharedLink = ((await linkRes.json()).url || '').replace('?dl=0', '?dl=1')
+      } catch {}
+
+      if (!sharedLink) throw new Error('Failed to create shared link')
+      onCapture(sharedLink)
+      onClose()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#d4d4d8' }}>Pick a frame</div>
+            <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>Scrub to the moment you want to flag</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+        </div>
+
+        <div style={{ background: '#080808', aspectRatio: '9/16', overflow: 'hidden' }}>
+          <video
+            ref={videoRef}
+            src={rawUrl}
+            muted
+            playsInline
+            preload="metadata"
+            onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+            onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        </div>
+
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '11px', color: '#71717a', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
+            <input type="range" min={0} max={duration || 100} step={0.05} value={currentTime} onChange={handleScrub}
+              style={{ flex: 1, accentColor: '#a78bfa', cursor: 'pointer' }} />
+            <span style={{ fontSize: '11px', color: '#52525b', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
+          </div>
+          {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
+          <button onClick={handleCapture} disabled={capturing || !duration}
+            style={{ padding: '10px', background: capturing || !duration ? '#0d0d0d' : '#1a0a0a', border: '1px solid #5c2020', color: capturing || !duration ? '#3f3f46' : '#ef4444', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
+            {capturing ? 'Capturing...' : '📸 Capture this frame'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── CropperModal ──────────────────────────────────────────────────────────────
 function CropperModal({ file, onCrop, onSkip }) {
   const canvasRef = useRef(null)
@@ -815,10 +940,14 @@ function RevisionModal({ task, onClose, onSubmit }) {
   const [feedback, setFeedback] = useState('')
   const [screenshots, setScreenshots] = useState([])
   const [cropQueue, setCropQueue] = useState([])
+  const [showFramePicker, setShowFramePicker] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
   const fileRef = useRef(null)
+
+  const videoUrl = task?.asset?.editedFileLink || ''
+  const hasVideo = !!videoUrl
 
   const uploadFiles = async (files) => {
     if (!files.length) return
@@ -939,12 +1068,22 @@ function RevisionModal({ task, onClose, onSubmit }) {
               ))}
             </div>
           )}
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading || cropQueue.length > 0}
-            style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', opacity: (uploading || cropQueue.length > 0) ? 0.6 : 1 }}>
-            {uploading ? progress || 'Uploading...' : '+ Add Screenshot'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading || cropQueue.length > 0}
+              style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', opacity: (uploading || cropQueue.length > 0) ? 0.6 : 1 }}>
+              {uploading ? progress || 'Uploading...' : '+ Add Screenshot'}
+            </button>
+            {hasVideo && (
+              <button
+                onClick={() => setShowFramePicker(true)}
+                disabled={uploading || cropQueue.length > 0}
+                style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#1a0a0a', color: '#ef4444', border: '1px solid #5c2020', borderRadius: '6px', cursor: 'pointer', opacity: (uploading || cropQueue.length > 0) ? 0.6 : 1 }}>
+                📸 Pick frame from video
+              </button>
+            )}
+          </div>
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={e => handleFileSelect(e.target.files)} style={{ display: 'none' }} />
         </div>
 
@@ -966,12 +1105,23 @@ function RevisionModal({ task, onClose, onSubmit }) {
         </div>
       </div>
 
-      {/* Crop modal — rendered at document.body level via portal so it's never trapped in a stacking context */}
+      {/* Crop modal portal */}
       {cropQueue.length > 0 && typeof document !== 'undefined' && createPortal(
         <CropperModal
           file={cropQueue[0]}
           onCrop={handleCropDone}
           onSkip={handleSkip}
+        />,
+        document.body
+      )}
+
+      {/* Frame picker portal */}
+      {showFramePicker && hasVideo && typeof document !== 'undefined' && createPortal(
+        <RevisionFramePicker
+          videoUrl={videoUrl}
+          taskId={task.id}
+          onCapture={(url) => setScreenshots(prev => [...prev, url])}
+          onClose={() => setShowFramePicker(false)}
         />,
         document.body
       )}
