@@ -1115,40 +1115,49 @@ function CreatorSection({ creator, onRefresh }) {
     <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', height: '100%' }}>
       {/* Header */}
       <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1a1a1a' }}>
-        {/* Row 1: name + pills */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+        {/* Row 1: name + See More */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0 }}>{creator.name}</h2>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {creator.needsRevision.length > 0 && (
-              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #5c2020' }}>
-                ⚠ {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''}
+          <Link href={`/editor/${creator.id}`}
+            style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'transparent', color: '#52525b', border: '1px solid #2a2a2a', textDecoration: 'none', flexShrink: 0 }}>
+            See More →
+          </Link>
+        </div>
+        {/* Row 2: status pills — always has at least the 'needed' pill */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+          {creator.needsRevision.length > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #5c2020' }}>
+              ⚠ {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''}
+            </span>
+          )}
+          {creator.queue.length > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#1a0f3a', color: '#a78bfa', border: '1px solid #3a1f8a' }}>
+              {creator.queue.length} queued
+            </span>
+          )}
+          {creator.inProgress.length > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#03071a', color: '#60a5fa', border: '1px solid #1a3a6d' }}>
+              {creator.inProgress.length} editing
+            </span>
+          )}
+          {creator.inReview.length > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a0f02', color: '#a3e635', border: '1px solid #2a3a10' }}>
+              {creator.inReview.length} in review
+            </span>
+          )}
+          {(creator.approved || []).length > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a' }}>
+              {creator.approved.length} approved
+            </span>
+          )}
+          {(() => {
+            const needed = Math.max(0, creator.quota - creator.doneToday)
+            return needed > 0 ? (
+              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#111', color: '#3f3f46', border: '1px solid #2a2a2a' }}>
+                {needed} needed
               </span>
-            )}
-            {creator.queue.length > 0 && (
-              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#1a0f3a', color: '#a78bfa', border: '1px solid #3a1f8a' }}>
-                {creator.queue.length} queued
-              </span>
-            )}
-            {creator.inProgress.length > 0 && (
-              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#03071a', color: '#60a5fa', border: '1px solid #1a3a6d' }}>
-                {creator.inProgress.length} editing
-              </span>
-            )}
-            {creator.inReview.length > 0 && (
-              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a0f02', color: '#a3e635', border: '1px solid #2a3a10' }}>
-                {creator.inReview.length} in review
-              </span>
-            )}
-            {(creator.approved || []).length > 0 && (
-              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a' }}>
-                {creator.approved.length} approved
-              </span>
-            )}
-            <Link href={`/editor/${creator.id}`}
-              style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'transparent', color: '#52525b', border: '1px solid #2a2a2a', textDecoration: 'none' }}>
-              Details →
-            </Link>
-          </div>
+            ) : null
+          })()}
         </div>
         {/* Row 2: quota dots full width */}
         <QuotaDots slotColors={slotColors} quota={creator.quota} done={creator.doneToday} />
