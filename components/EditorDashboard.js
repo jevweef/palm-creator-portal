@@ -1295,8 +1295,8 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
       }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
 
   const isDone = slot.type === 'done'
-  const clickable = isDone || isNext
-  const opacity = isLocked ? 0.35 : 1
+  const clickable = slot.type !== 'empty'
+  const opacity = 1
 
   return (
     <div
