@@ -38,8 +38,9 @@ function getNextPostingSlot(latestSlotISO) {
 // Admin review actions
 const ADMIN_ACTIONS = ['approve', 'requestRevision']
 
-const EDITOR_CHAT_ID = -1003779148361
-const EDITOR_THREAD_ID = 2
+// Use the same group as delivery — bot is already a member there
+const EDITOR_CHAT_ID = parseInt(process.env.TELEGRAM_CHAT_ID)
+const EDITOR_THREAD_ID = parseInt(process.env.EDITOR_THREAD_ID || '2')
 
 async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback, screenshotUrls }) {
   const token = process.env.TELEGRAM_BOT_TOKEN
