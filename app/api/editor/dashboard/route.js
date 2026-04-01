@@ -35,13 +35,6 @@ export async function GET() {
     const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
     const pad = n => String(n).padStart(2, '0')
     const estDateStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
-    // Returns the ET date string for a task, preferring the post's scheduled date over completedAt
-    const taskEtDate = t => {
-      const src = t.postScheduledDate || t.completedAt
-      if (!src) return ''
-      const d = new Date(new Date(src).toLocaleString('en-US', { timeZone: 'America/New_York' }))
-      return estDateStr(d)
-    }
     const todayStr = estDateStr(estNow)
     const twoWeeksAgo = new Date(estNow); twoWeeksAgo.setDate(estNow.getDate() - 14)
     const twoWeeksAgoStr = estDateStr(twoWeeksAgo)
@@ -273,13 +266,13 @@ export async function GET() {
 
       const doneThisWeek = ctasks.filter(t =>
         t.status === 'Done' &&
-        taskEtDate(t) >= weekStartStr &&
+        (t.completedAt || '') >= weekStartStr &&
         t.adminReviewStatus !== 'Needs Revision'
       ).length
 
       const doneTodayList = ctasks.filter(t =>
         t.status === 'Done' &&
-        taskEtDate(t) === todayStr &&
+        (t.completedAt || '').startsWith(todayStr) &&
         t.adminReviewStatus !== 'Needs Revision'
       )
 
@@ -287,7 +280,7 @@ export async function GET() {
       const recentDone = ctasks.filter(t =>
         t.status === 'Done' &&
         t.adminReviewStatus !== 'Needs Revision' &&
-        taskEtDate(t) >= twoWeeksAgoStr
+        (t.completedAt || '') >= twoWeeksAgoStr
       )
 
       return {
