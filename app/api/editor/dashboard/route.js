@@ -283,6 +283,7 @@ export async function GET() {
         queue: ctasks.filter(t => t.status === 'To Do'),
         inProgress: ctasks.filter(t => t.status === 'In Progress'),
         inReview: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Pending Review'),
+        approved: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Approved' && (t.completedAt || '') >= weekStartStr),
         library,
         inspoClips,
         postsByDate: postsByDateByCreator[c.id] || {},

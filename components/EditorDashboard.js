@@ -1074,26 +1074,36 @@ function CreatorSection({ creator, onRefresh }) {
           <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: '0 0 5px' }}>{creator.name}</h2>
           <QuotaDots done={creator.doneToday} quota={creator.quota} />
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
           {creator.needsRevision.length > 0 && (
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #5c2020' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #5c2020' }}>
               ⚠ {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''}
             </span>
           )}
+          {creator.queue.length > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#1a0f3a', color: '#a78bfa', border: '1px solid #3a1f8a' }}>
+              {creator.queue.length} queued
+            </span>
+          )}
+          {creator.inProgress.length > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#03071a', color: '#60a5fa', border: '1px solid #1a3a6d' }}>
+              {creator.inProgress.length} editing
+            </span>
+          )}
           {creator.inReview.length > 0 && (
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a1a0a', color: '#22c55e', border: '1px solid #1a3a1a' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a0f02', color: '#a3e635', border: '1px solid #2a3a10' }}>
               {creator.inReview.length} in review
             </span>
           )}
-          <Link href={`/editor/${creator.id}`}
-            style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'transparent', color: '#52525b', border: '1px solid #2a2a2a', textDecoration: 'none' }}>
-            Details →
-          </Link>
-          {allDone && isToday && (
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a' }}>
-              ✓ Today done
+          {(creator.approved || []).length > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a' }}>
+              {creator.approved.length} approved
             </span>
           )}
+          <Link href={`/editor/${creator.id}`}
+            style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'transparent', color: '#52525b', border: '1px solid #2a2a2a', textDecoration: 'none' }}>
+            Details →
+          </Link>
         </div>
       </div>
 
