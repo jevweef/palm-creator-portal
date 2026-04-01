@@ -120,6 +120,15 @@ export async function GET() {
     const assetMap = Object.fromEntries(taskAssets.map(r => [r.id, r.fields]))
     const inspoMap = Object.fromEntries(inspoRecords.map(r => [r.id, r.fields]))
 
+    // Build taskId → telegramSentAt map from posts
+    const taskTelegramMap = {}
+    for (const post of allPosts) {
+      const sentAt = post.fields?.['Telegram Sent At']
+      if (!sentAt) continue
+      const taskId = (post.fields?.Task || [])[0]
+      if (taskId) taskTelegramMap[taskId] = sentAt
+    }
+
     const tasksByCreator = {}
     for (const task of activeTasks) {
       const creatorId = (task.fields?.Creator || [])[0]
@@ -220,15 +229,6 @@ export async function GET() {
     }
     for (const id of Object.keys(libraryByCreator)) {
       libraryByCreator[id].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
-    }
-
-    // Build taskId → telegramSentAt map from posts
-    const taskTelegramMap = {}
-    for (const post of allPosts) {
-      const sentAt = post.fields?.['Telegram Sent At']
-      if (!sentAt) continue
-      const taskId = (post.fields?.Task || [])[0]
-      if (taskId) taskTelegramMap[taskId] = sentAt
     }
 
     // Group posts by creator: total future count + per-date breakdown (past 60 days + future)
