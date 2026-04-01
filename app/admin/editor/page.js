@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { EditorDashboardContent, getSlotLabel } from '@/components/EditorDashboard'
 import PostsPage from '@/app/admin/posts/page'
 
@@ -880,20 +881,13 @@ function RevisionModal({ task, onClose, onSubmit }) {
   }
 
   const handleCropDone = (croppedFile) => {
-    setCropQueue(prev => {
-      const remaining = prev.slice(1)
-      if (!remaining.length) uploadFiles([croppedFile])
-      else uploadFiles([croppedFile]) // upload immediately, show next cropper
-      return remaining
-    })
+    uploadFiles([croppedFile])
+    setCropQueue(prev => prev.slice(1))
   }
 
   const handleSkip = (originalFile) => {
-    setCropQueue(prev => {
-      const remaining = prev.slice(1)
-      uploadFiles([originalFile])
-      return remaining
-    })
+    uploadFiles([originalFile])
+    setCropQueue(prev => prev.slice(1))
   }
 
   const handleSubmit = async () => {
@@ -972,13 +966,14 @@ function RevisionModal({ task, onClose, onSubmit }) {
         </div>
       </div>
 
-      {/* Crop modal — shown on top when there are files queued */}
-      {cropQueue.length > 0 && (
+      {/* Crop modal — rendered at document.body level via portal so it's never trapped in a stacking context */}
+      {cropQueue.length > 0 && typeof document !== 'undefined' && createPortal(
         <CropperModal
           file={cropQueue[0]}
           onCrop={handleCropDone}
           onSkip={handleSkip}
-        />
+        />,
+        document.body
       )}
     </div>
   )
