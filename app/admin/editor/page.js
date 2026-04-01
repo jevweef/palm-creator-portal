@@ -1390,46 +1390,73 @@ function ForReview({ showToast }) {
           No edits waiting for review.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 520px))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(600px, 700px))', gap: '16px' }}>
           {tasks.map(task => {
             const isExpanded = expanded.has(task.id)
             const fmtDate = task.completedAt
               ? new Date(task.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
               : null
 
+            const toRawUrl = url => url ? url.replace(/([?&])dl=[01]/, '$1raw=1').replace(/^(https:\/\/www\.dropbox\.com\/.+)(?<![?&]raw=1)$/, (m) => m.includes('?') ? m + '&raw=1' : m + '?raw=1') : ''
+            const rawClipUrl = toRawUrl((task.asset.dropboxLink || '').split('\n').filter(Boolean)[0] || '')
+            const editUrl = task.asset.editedFileLink ? task.asset.editedFileLink.replace(/([?&])dl=[01]/, '$1raw=1') : ''
+            const inspoVideoUrl = task.inspo.dbShareLink ? toRawUrl(task.inspo.dbShareLink) : ''
+            const hasInspo = !!(inspoVideoUrl || task.inspo.thumbnail)
+
             return (
               <div key={task.id} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', overflow: 'hidden' }}>
-                {/* Thumbnail strip — height driven by 9:16 video panel */}
-                <div style={{ display: 'flex', background: '#0a0a0a' }}>
-                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: '160px' }}>
-                    {task.inspo.thumbnail ? (
-                      <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-                    ) : (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '11px' }}>No thumbnail</div>
-                    )}
-                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#a78bfa', fontWeight: 600 }}>INSPO</div>
-                  </div>
-                  <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '18px', flexShrink: 0 }}>→</div>
-                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#0a1a0a', aspectRatio: '9/16' }}>
-                    {task.asset.editedFileLink ? (
+                {/* Video strip — RAW | EDIT | INSPO */}
+                <div style={{ display: 'flex', background: '#0a0a0a', gap: '2px' }}>
+
+                  {/* RAW clip */}
+                  <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a0a14' }}>
+                    {rawClipUrl ? (
                       <>
-                        <video
-                          src={task.asset.editedFileLink.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (task.asset.editedFileLink.includes('?') ? '&raw=1' : '?raw=1')}
-                          autoPlay muted loop playsInline preload="metadata"
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer', display: 'block' }}
-                          onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }}
-                        />
-                        <button
-                          onClick={() => setVideoModal(task.asset.editedFileLink)}
-                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 8px', cursor: 'pointer' }}>
-                          ⛶ Full
+                        <video src={rawClipUrl} autoPlay muted loop playsInline preload="metadata"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                          onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+                        <button onClick={() => setVideoModal(task.asset.dropboxLink.split('\n').filter(Boolean)[0])}
+                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                          ⛶
                         </button>
                       </>
                     ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '12px' }}>No file yet</div>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '11px' }}>No raw clip</div>
+                    )}
+                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#3b82f6', fontWeight: 600 }}>RAW</div>
+                  </div>
+
+                  {/* EDIT clip */}
+                  <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a1a0a' }}>
+                    {editUrl ? (
+                      <>
+                        <video src={editUrl} autoPlay muted loop playsInline preload="metadata"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                          onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+                        <button onClick={() => setVideoModal(task.asset.editedFileLink)}
+                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                          ⛶
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '11px' }}>No edit yet</div>
                     )}
                     <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>EDIT</div>
                   </div>
+
+                  {/* INSPO clip — only if available */}
+                  {hasInspo && (
+                    <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#14000a' }}>
+                      {inspoVideoUrl ? (
+                        <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                          onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+                      ) : task.inspo.thumbnail ? (
+                        <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                      ) : null}
+                      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#a78bfa', fontWeight: 600 }}>INSPO</div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
