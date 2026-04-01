@@ -148,7 +148,7 @@ function TagPill({ tag, active, onClick, size = 'sm' }) {
   )
 }
 
-export default function InspoBoard({ opsIdOverride } = {}) {
+export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const { user } = useUser()
   const [records, setRecords] = useState([])
   const [filtered, setFiltered] = useState([])
@@ -163,6 +163,7 @@ export default function InspoBoard({ opsIdOverride } = {}) {
   const [sort, setSort] = useState('recent') // 'top' | 'recent' | 'viral'
   const [search, setSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [textOnly, setTextOnly] = useState(false)
 
   const [allTags, setAllTags] = useState([])
   const [allFormats, setAllFormats] = useState([])
@@ -277,6 +278,10 @@ export default function InspoBoard({ opsIdOverride } = {}) {
       )
     }
 
+    if (textOnly) {
+      result = result.filter((r) => r.onScreenText && r.onScreenText.trim().length > 0)
+    }
+
     // Sort
     if (sort === 'top') {
       result.sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0))
@@ -287,7 +292,7 @@ export default function InspoBoard({ opsIdOverride } = {}) {
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -368,6 +373,23 @@ export default function InspoBoard({ opsIdOverride } = {}) {
               <SortBtn value="viral" label="Viral" />
               <SortBtn value="recent" label="Recent" />
             </div>
+
+            {/* Editor-only: Text on screen filter */}
+            {isEditor && (
+              <button
+                onClick={() => setTextOnly(v => !v)}
+                style={{
+                  fontSize: '11px', padding: '3px 10px', borderRadius: '9999px', flexShrink: 0,
+                  border: textOnly ? '1px solid #f59e0b' : '1px solid #2a2a2a',
+                  cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+                  background: textOnly ? '#1a1200' : 'transparent',
+                  color: textOnly ? '#f59e0b' : '#71717a',
+                  fontWeight: textOnly ? 700 : 400,
+                }}
+              >
+                {textOnly ? '✕ ' : ''}Text on screen
+              </button>
+            )}
 
             {/* Divider */}
             <div style={{width:'1px', height:'20px', background:'#27272a', flexShrink:0}} />
