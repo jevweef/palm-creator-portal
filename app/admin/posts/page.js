@@ -24,9 +24,14 @@ function TelegramModal({ post, onClose, onSent }) {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const editedFileLink = post.asset?.editedFileLink || ''
-  const scheduledDate = post.scheduledDate
-    ? new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-    : null
+  const scheduledDate = (() => {
+    if (!post.scheduledDate) return null
+    const d = new Date(post.scheduledDate)
+    const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()]
+    const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]
+    const slot = d.getUTCHours() < 20 ? 'Morning' : 'Evening'
+    return `${day} · ${month} ${d.getUTCDate()} · ${slot}`
+  })()
   const fullCaption = [post.caption, post.hashtags, scheduledDate ? `📅 ${scheduledDate}` : null].filter(Boolean).join('\n\n')
   const videoRawUrl = rawDropboxUrl(editedFileLink)
   const thumbRawUrl = post.thumbnailUrl ? rawDropboxUrl(post.thumbnailUrl) : ''
