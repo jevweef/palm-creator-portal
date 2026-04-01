@@ -1443,7 +1443,9 @@ export function EditorDashboardContent() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'start' }}>
           {creators.map(creator => (
-            <CreatorSection key={creator.id} creator={creator} onRefresh={fetchData} />
+            <div key={creator.id} style={{ minWidth: 0 }}>
+              <CreatorSection creator={creator} onRefresh={fetchData} />
+            </div>
           ))}
         </div>
       )}
