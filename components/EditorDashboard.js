@@ -829,14 +829,8 @@ function SlotContent({ slot }) {
   if (isEditing && task?.inspo?.thumbnail && task?.asset?.thumbnail) {
     return (
       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <img src={task.inspo.thumbnail} alt="" style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'cover' }} />
-          <span style={{ position: 'absolute', bottom: '2px', left: '2px', fontSize: '8px', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '1px 3px', borderRadius: '2px' }}>INSPO</span>
-        </div>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <img src={task.asset.thumbnail} alt="" style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'cover' }} />
-          <span style={{ position: 'absolute', bottom: '2px', left: '2px', fontSize: '8px', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '1px 3px', borderRadius: '2px' }}>CLIP</span>
-        </div>
+        <img src={task.inspo.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
+        <img src={task.asset.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.inspo.title || task.name}</div>
           {task.inspo.username && <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '2px' }}>@{task.inspo.username}</div>}
