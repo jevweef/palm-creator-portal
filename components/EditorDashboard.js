@@ -806,13 +806,13 @@ function SlotContent({ slot }) {
     return <div style={{ fontSize: '12px', color: '#2a2a2a' }}>+ Assign from library</div>
   }
 
-  // Done/submitted: show only the asset thumbnail (submitted edit)
+  // Done/submitted: show asset thumbnail, fall back to inspo thumbnail
   if (isDone) {
-    const thumb = task?.asset?.thumbnail || ''
+    const thumb = task?.asset?.thumbnail || task?.inspo?.thumbnail || ''
     const title = task?.inspo?.title || task?.name || ''
     return (
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, opacity: 0.5 }} />}
+        {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, opacity: 0.6 }} />}
         <div style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 600, color: '#3f3f46', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {title || 'Edit task'}
         </div>
