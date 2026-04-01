@@ -920,10 +920,10 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {/* Tab switcher */}
                 <div style={{ display: 'flex', background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '3px', gap: '3px' }}>
-                  {['create', 'upload'].map(tab => (
+                  {['create', 'upload', 'asis'].map(tab => (
                     <button key={tab} onClick={() => setEditorTab(tab)}
-                      style={{ flex: 1, padding: '7px', fontSize: '12px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: editorTab === tab ? '#1e1e1e' : 'transparent', color: editorTab === tab ? '#fff' : '#52525b', textTransform: 'capitalize' }}>
-                      {tab === 'create' ? 'Create in Creatomate' : 'Upload / Paste Link'}
+                      style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: editorTab === tab ? '#1e1e1e' : 'transparent', color: editorTab === tab ? '#fff' : '#52525b' }}>
+                      {tab === 'create' ? 'Creatomate' : tab === 'upload' ? 'Upload' : 'Post As Is'}
                     </button>
                   ))}
                 </div>
@@ -1046,6 +1046,22 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                       disabled={saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress}
                       style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#0a2e0a' : '#0a0a3d', color: saved ? '#22c55e' : '#a78bfa', border: `1px solid ${saved ? '#1a5c1a' : '#a78bfa'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
                       {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : 'Save & Submit ↑'}
+                    </button>
+                  </div>
+                )}
+
+                {/* POST AS IS tab */}
+                {editorTab === 'asis' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ fontSize: '12px', color: '#71717a', lineHeight: 1.5, background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '10px 12px' }}>
+                      Sends the raw clip for review with no edits. Use this when the clip doesn't need a caption or any changes.
+                    </div>
+                    {saveErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{saveErr}</div>}
+                    <button
+                      onClick={() => handleSave(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '')}
+                      disabled={saving || saved}
+                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#0a2e0a' : '#111', color: saved ? '#22c55e' : '#71717a', border: `1px solid ${saved ? '#1a5c1a' : '#2a2a2a'}`, borderRadius: '8px', cursor: (saving || saved) ? 'not-allowed' : 'pointer' }}>
+                      {saved ? 'Submitted ✓' : saving ? 'Submitting...' : 'Submit Raw Clip for Review ↑'}
                     </button>
                   </div>
                 )}
