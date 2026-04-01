@@ -39,6 +39,7 @@ export async function GET() {
 
   do {
     const params = new URLSearchParams()
+    params.set('returnFieldsByFieldId', 'true')
     FIELDS.forEach(f => params.append('fields[]', f))
     params.set('sort[0][field]', 'fldeucG0jEvjem841')
     params.set('sort[0][direction]', 'desc')

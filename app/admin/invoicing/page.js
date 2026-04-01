@@ -93,8 +93,8 @@ function EarningsCell({ record, onSave, saving }) {
           borderRadius: '4px',
           color: '#fff',
           fontSize: '13px',
-          padding: '3px 8px',
-          width: '110px',
+          padding: '4px 8px',
+          width: '130px',
           outline: 'none',
         }}
       />
@@ -105,22 +105,26 @@ function EarningsCell({ record, onSave, saving }) {
     <button
       onClick={startEdit}
       disabled={saving}
-      title="Click to edit earnings"
+      title="Click to edit"
       style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
         background: 'transparent',
         border: '1px solid transparent',
         borderRadius: '4px',
-        color: record.earnings > 0 ? '#fff' : '#555',
+        color: record.earnings > 0 ? '#e4e4e7' : '#555',
         fontSize: '13px',
         cursor: 'pointer',
-        padding: '3px 8px',
+        padding: '4px 8px',
         fontFamily: 'inherit',
-        transition: 'border-color 0.15s',
+        transition: 'all 0.15s',
       }}
-      onMouseEnter={e => e.currentTarget.style.borderColor = '#444'}
-      onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.background = '#1a1a1a' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
     >
-      {record.earnings > 0 ? fmt(record.earnings) : '+ Add'}
+      {record.earnings > 0 ? fmt(record.earnings) : <span style={{ color: '#444' }}>—</span>}
+      <span style={{ fontSize: '10px', color: '#444', lineHeight: 1 }}>✎</span>
     </button>
   )
 }
@@ -238,7 +242,7 @@ function CreatorGroup({ aka, rows, onSave, saving, savingId }) {
               key={record.id}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '180px 1fr 120px 120px 120px 100px 80px',
+                gridTemplateColumns: '160px 150px 130px 130px 130px 90px 50px',
                 alignItems: 'center',
                 gap: '12px',
                 padding: '10px 20px',
@@ -316,7 +320,7 @@ function TableHeader() {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: '180px 1fr 120px 120px 120px 100px 80px',
+      gridTemplateColumns: '160px 150px 130px 130px 130px 90px 50px',
       gap: '12px',
       padding: '6px 20px',
       marginBottom: '4px',
