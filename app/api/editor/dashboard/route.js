@@ -39,9 +39,9 @@ export async function GET() {
     const twoWeeksAgo = new Date(estNow); twoWeeksAgo.setDate(estNow.getDate() - 14)
     const twoWeeksAgoStr = estDateStr(twoWeeksAgo)
     const dayOfWeek = estNow.getDay()
-    const monday = new Date(estNow)
-    monday.setDate(estNow.getDate() - ((dayOfWeek + 6) % 7))
-    const weekStartStr = estDateStr(monday)
+    const sunday = new Date(estNow)
+    sunday.setDate(estNow.getDate() - dayOfWeek)
+    const weekStartStr = estDateStr(sunday)
 
     // Fetch tasks + library assets + inspo-linked creator clips + future posts in parallel
     const [tasks, libraryAssets, inspoLinkedAssets, allPosts] = await Promise.all([
