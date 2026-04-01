@@ -528,11 +528,18 @@ function PostCard({ post, onRefresh, onSend }) {
         )}
 
         {/* Scheduled Date */}
-        <div>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Scheduled Date</div>
-          <input type="datetime-local" value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setEditing(true) }}
-            style={{ width: '100%', background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', color: '#d4d4d8', fontSize: '12px', padding: '6px 10px', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
-        </div>
+        {scheduledDate && (() => {
+          const d = new Date(scheduledDate)
+          const utcH = d.getUTCHours()
+          const slot = utcH < 20 ? 'Morning' : 'Evening'
+          const label = `${d.getUTCDate()}/${String(d.getUTCMonth() + 1).padStart(2, '0')} · ${slot}`
+          return (
+            <div>
+              <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Scheduled</div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#a1a1aa' }}>{label}</div>
+            </div>
+          )
+        })()}
 
         {post.telegramSentAt && (
           <div style={{ fontSize: '11px', color: '#3b82f6', background: '#0a1628', border: '1px solid #1a3d6a', borderRadius: '6px', padding: '5px 10px' }}>
