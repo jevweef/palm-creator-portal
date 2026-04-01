@@ -102,7 +102,7 @@ export function QuotaDots({ slotColors, quota, done }) {
           const lit = color !== '#1a1a1a'
           const isNewDay = i > 0 && i % 2 === 0
           return (
-            <React.Fragment key={i}>
+            <div key={i} style={{ display: 'contents' }}>
               {isNewDay && <div style={{ width: '1px', height: '8px', background: '#2a2a2a', flexShrink: 0 }} />}
               <div style={{
                 width: '11px', height: '11px', borderRadius: '50%', flexShrink: 0,
@@ -110,7 +110,7 @@ export function QuotaDots({ slotColors, quota, done }) {
                 border: `1.5px solid ${lit ? color : '#2a2a2a'}`,
                 transition: 'all 0.2s',
               }} />
-            </React.Fragment>
+            </div>
           )
         })}
       </div>
