@@ -96,7 +96,6 @@ export function getSlotLabel(isoDateString) {
 export function QuotaDots({ slotColors, quota, done }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
-      <span style={{ fontSize: '9px', fontWeight: 700, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0 }}>Weekly</span>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
         {Array.from({ length: quota }).map((_, i) => {
           const color = slotColors?.[i] || '#1a1a1a'
@@ -1116,13 +1115,16 @@ function CreatorSection({ creator, onRefresh }) {
     <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', height: '100%' }}>
       {/* Header */}
       <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1a1a1a' }}>
-        {/* Row 1: name + See More */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0 }}>{creator.name}</h2>
-          <Link href={`/editor/${creator.id}`}
-            style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'transparent', color: '#52525b', border: '1px solid #2a2a2a', textDecoration: 'none', flexShrink: 0 }}>
-            See More →
-          </Link>
+        {/* Row 1: name + See More inline left, Weekly label top right */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0 }}>{creator.name}</h2>
+            <Link href={`/editor/${creator.id}`}
+              style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: '#52525b', border: '1px solid #2a2a2a', textDecoration: 'none', flexShrink: 0 }}>
+              See More →
+            </Link>
+          </div>
+          <span style={{ fontSize: '9px', fontWeight: 700, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0, paddingTop: '4px' }}>Weekly</span>
         </div>
         {/* Row 2: status pills — always has at least the 'needed' pill */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
@@ -1198,7 +1200,6 @@ function CreatorSection({ creator, onRefresh }) {
       <div style={{ padding: '16px 24px' }}>
         {/* Date navigation */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <span style={{ fontSize: '9px', fontWeight: 700, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0 }}>Daily</span>
           <button onClick={() => shiftDate(-1)}
             style={{ background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: '#52525b', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
           <div style={{ position: 'relative' }}>
@@ -1225,6 +1226,7 @@ function CreatorSection({ creator, onRefresh }) {
             <button onClick={() => setSelectedDate(todayDateStr)}
               style={{ background: 'none', border: 'none', color: '#3f3f46', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}>Today</button>
           )}
+          <span style={{ marginLeft: 'auto', fontSize: '9px', fontWeight: 700, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Daily</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {(() => {
