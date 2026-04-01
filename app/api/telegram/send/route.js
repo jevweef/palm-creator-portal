@@ -227,7 +227,7 @@ export async function POST(request) {
         const thumbFilename = getFilename(thumbnailUrl)
 
         const mediaGroup = [
-          { type: 'video', media: 'attach://video_file', thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
+          { type: 'video', media: 'attach://video_file', thumbnail: 'attach://thumb_file', supports_streaming: true, width: 1080, height: 1920, ...(caption ? { caption } : {}) },
           { type: 'photo', media: 'attach://photo_file' },
         ]
         form.append('media', JSON.stringify(mediaGroup))

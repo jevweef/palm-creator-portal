@@ -1435,13 +1435,23 @@ function CreatorSection({ creator, onRefresh }) {
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   })()
 
+  // Returns the date string (YYYY-MM-DD) for a task, preferring postScheduledDate over completedAt
+  const taskDateKey = t => ((t.postScheduledDate || t.completedAt || '')).split('T')[0]
+  // Sort done tasks: by scheduled UTC hour (15 Morning before 23 Evening), fallback to completedAt
+  const sortBySlot = arr => [...arr].sort((a, b) => {
+    const aH = new Date(a.postScheduledDate || a.completedAt || 0).getUTCHours()
+    const bH = new Date(b.postScheduledDate || b.completedAt || 0).getUTCHours()
+    return aH - bH
+  })
+
   // Build per-date color map for calendar dots
   const dateColors = (() => {
     const colors = {}
+
     // Past dates: use completed task data (14-day window)
     const byDate = {}
     for (const t of (creator.recentDone || [])) {
-      const d = (t.completedAt || '').split('T')[0]
+      const d = taskDateKey(t)
       if (!d) continue
       if (!byDate[d]) byDate[d] = []
       byDate[d].push(t)
@@ -1495,9 +1505,8 @@ function CreatorSection({ creator, onRefresh }) {
       const ds = estDs(dayDate)
       const isToday = ds === todayDateStr
       const isFuture = ds > todayDateStr
-      const doneTasks = (creator.recentDone || [])
-        .filter(t => (t.completedAt || '').startsWith(ds))
-        .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt))
+      const doneTasks = sortBySlot((creator.recentDone || [])
+        .filter(t => taskDateKey(t) === ds))
       const ipTasks = isToday ? (creator.inProgress || []) : []
       const qTasks = isToday ? (creator.queue || []) : []
       for (let s = 0; s < dailyQuota; s++) {
@@ -1516,10 +1525,12 @@ function CreatorSection({ creator, onRefresh }) {
     return colors
   })()
 
-  // Done tasks for selected date (from recentDone for history, doneTodayList for today)
-  const selectedDoneList = isToday
-    ? (creator.doneTodayList || [])
-    : (creator.recentDone || []).filter(t => (t.completedAt || '').startsWith(selectedDate))
+  // Done tasks for selected date, sorted by scheduled slot (Morning before Evening)
+  const selectedDoneList = sortBySlot(
+    isToday
+      ? (creator.doneTodayList || [])
+      : (creator.recentDone || []).filter(t => taskDateKey(t) === selectedDate)
+  )
 
   // Active fill items only apply to today (past days show history, future shows queue)
   const activeFillItems = [

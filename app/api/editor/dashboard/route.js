@@ -35,6 +35,13 @@ export async function GET() {
     const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
     const pad = n => String(n).padStart(2, '0')
     const estDateStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+    // Returns the ET date string for a task, preferring the post's scheduled date over completedAt
+    const taskEtDate = t => {
+      const src = t.postScheduledDate || t.completedAt
+      if (!src) return ''
+      const d = new Date(new Date(src).toLocaleString('en-US', { timeZone: 'America/New_York' }))
+      return estDateStr(d)
+    }
     const todayStr = estDateStr(estNow)
     const twoWeeksAgo = new Date(estNow); twoWeeksAgo.setDate(estNow.getDate() - 14)
     const twoWeeksAgoStr = estDateStr(twoWeeksAgo)
@@ -122,11 +129,14 @@ export async function GET() {
 
     // Build taskId → telegramSentAt map from posts
     const taskTelegramMap = {}
+    const taskScheduledDateMap = {}
     for (const post of allPosts) {
       const sentAt = post.fields?.['Telegram Sent At']
-      if (!sentAt) continue
+      const scheduledDate = post.fields?.['Scheduled Date']
       const taskId = (post.fields?.Task || [])[0]
-      if (taskId) taskTelegramMap[taskId] = sentAt
+      if (!taskId) continue
+      if (sentAt) taskTelegramMap[taskId] = sentAt
+      if (scheduledDate) taskScheduledDateMap[taskId] = scheduledDate
     }
 
     const tasksByCreator = {}
@@ -153,6 +163,7 @@ export async function GET() {
         editorNotes: task.fields?.['Editor Notes'] || '',
         completedAt: task.fields?.['Completed At'] || null,
         telegramSentAt: taskTelegramMap[task.id] || null,
+        postScheduledDate: taskScheduledDateMap[task.id] || null,
         asset: {
           id: assetId,
           name: asset['Asset Name'] || '',
@@ -262,13 +273,13 @@ export async function GET() {
 
       const doneThisWeek = ctasks.filter(t =>
         t.status === 'Done' &&
-        (t.completedAt || '') >= weekStartStr &&
+        taskEtDate(t) >= weekStartStr &&
         t.adminReviewStatus !== 'Needs Revision'
       ).length
 
       const doneTodayList = ctasks.filter(t =>
         t.status === 'Done' &&
-        (t.completedAt || '').startsWith(todayStr) &&
+        taskEtDate(t) === todayStr &&
         t.adminReviewStatus !== 'Needs Revision'
       )
 
@@ -276,7 +287,7 @@ export async function GET() {
       const recentDone = ctasks.filter(t =>
         t.status === 'Done' &&
         t.adminReviewStatus !== 'Needs Revision' &&
-        (t.completedAt || '') >= twoWeeksAgoStr
+        taskEtDate(t) >= twoWeeksAgoStr
       )
 
       return {
