@@ -38,71 +38,67 @@ function getNextPostingSlot(latestSlotISO) {
 // Admin review actions
 const ADMIN_ACTIONS = ['approve', 'requestRevision']
 
-// Use the same group as delivery — bot is already a member there
-const EDITOR_CHAT_ID = parseInt(process.env.TELEGRAM_CHAT_ID)
+// Editor group — set EDITOR_CHAT_ID and EDITOR_THREAD_ID in Vercel env vars
+const EDITOR_CHAT_ID = parseInt(process.env.EDITOR_CHAT_ID || '-1003779148361')
 const EDITOR_THREAD_ID = parseInt(process.env.EDITOR_THREAD_ID || '2')
 
 async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback, screenshotUrls }) {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) { console.warn('[Revision Telegram] TELEGRAM_BOT_TOKEN not set'); return }
-  console.log('[Revision Telegram] Sending to chat_id:', EDITOR_CHAT_ID, 'thread:', EDITOR_THREAD_ID, 'token_prefix:', token.slice(0, 8))
 
   const assetName = (taskName || '').replace(/^Edit:\s*/i, '')
   const title = inspoTitle || assetName || 'Unknown task'
 
-  const text = [
-    `⚠️ *Revision Needed*`,
+  const caption = [
+    `⚠️ Revision Needed`,
     ``,
-    `*${title}*`,
+    title,
     `Creator: ${creatorName || 'Unknown'}`,
     `File: ${assetName}`,
     ``,
-    `*Feedback:*`,
+    `Feedback:`,
     feedback,
   ].join('\n')
 
   try {
-    // Send text message — check Telegram JSON body, not just HTTP status (Telegram always returns HTTP 200)
-    console.log('[Revision Telegram] Calling sendMessage...')
-    const msgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: EDITOR_CHAT_ID,
-        message_thread_id: EDITOR_THREAD_ID,
-        text,
-        parse_mode: 'Markdown',
-      }),
-    })
-    const msgData = await msgRes.json()
-    if (!msgData.ok) {
-      console.warn('[Revision Telegram] sendMessage failed:', msgData.description, '| chat_id:', EDITOR_CHAT_ID, 'thread:', EDITOR_THREAD_ID)
-    } else {
-      console.log('[Revision Telegram] Text message sent OK')
-    }
+    const photoUrl = (screenshotUrls || [])[0]
 
-    // Send each screenshot as a photo
-    for (const url of (screenshotUrls || [])) {
-      try {
-        const rawUrl = url.replace(/([?&])dl=[01]/, '$1raw=1')
-        const imgRes = await fetch(rawUrl)
-        if (!imgRes.ok) { console.warn('[Revision Telegram] Could not fetch screenshot:', rawUrl); continue }
-        const buffer = await imgRes.arrayBuffer()
-        const form = new FormData()
-        form.append('chat_id', String(EDITOR_CHAT_ID))
-        form.append('message_thread_id', String(EDITOR_THREAD_ID))
-        form.append('photo', new Blob([buffer], { type: 'image/jpeg' }), 'screenshot.jpg')
-        const photoRes = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form })
-        const photoData = await photoRes.json()
-        if (!photoData.ok) console.warn('[Revision Telegram] sendPhoto failed:', photoData.description)
-        else console.log('[Revision Telegram] Photo sent OK')
-      } catch (e) {
-        console.warn('[Revision Telegram] Screenshot failed (non-fatal):', e.message)
+    if (photoUrl) {
+      // Send screenshot as photo with revision text as caption — one clean message
+      const rawUrl = photoUrl.replace(/([?&])dl=[01]/, '$1raw=1')
+      const imgRes = await fetch(rawUrl)
+      if (!imgRes.ok) throw new Error(`Could not fetch screenshot: ${imgRes.status}`)
+      const buffer = await imgRes.arrayBuffer()
+      const form = new FormData()
+      form.append('chat_id', String(EDITOR_CHAT_ID))
+      form.append('message_thread_id', String(EDITOR_THREAD_ID))
+      form.append('caption', caption.slice(0, 1024))
+      form.append('photo', new Blob([buffer], { type: 'image/jpeg' }), 'screenshot.jpg')
+      const photoRes = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form })
+      const photoData = await photoRes.json()
+      if (!photoData.ok) {
+        console.warn('[Revision Telegram] sendPhoto failed:', photoData.description, '— falling back to text only')
+        await sendRevisionText(token, EDITOR_CHAT_ID, EDITOR_THREAD_ID, caption)
+      } else {
+        console.log('[Revision Telegram] Photo + caption sent OK')
       }
+    } else {
+      await sendRevisionText(token, EDITOR_CHAT_ID, EDITOR_THREAD_ID, caption)
     }
   } catch (e) {
-    console.error('[Revision Telegram] FAILED:', e.name, '|', e.message, '|', e.stack?.split('\n')[1]?.trim())
+    console.error('[Revision Telegram] FAILED:', e.name, '|', e.message)
   }
+}
+
+async function sendRevisionText(token, chatId, threadId, text) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_thread_id: threadId, text }),
+  })
+  const data = await res.json()
+  if (!data.ok) console.warn('[Revision Telegram] sendMessage failed:', data.description)
+  else console.log('[Revision Telegram] Text sent OK')
 }
 
 // Build OR formula for batch record lookup by ID
