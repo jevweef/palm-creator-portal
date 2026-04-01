@@ -1112,7 +1112,7 @@ function CreatorSection({ creator, onRefresh }) {
   const allDone = selectedDoneList.length >= dailyQuota
 
   return (
-    <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px' }}>
+    <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', height: '100%' }}>
       {/* Header */}
       <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1a1a1a' }}>
         {/* Row 1: name + pills */}
@@ -1441,7 +1441,7 @@ export function EditorDashboardContent() {
           No creators assigned — toggle Social Media Editing on a creator to assign them.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           {creators.map(creator => (
             <div key={creator.id} style={{ minWidth: 0 }}>
               <CreatorSection creator={creator} onRefresh={fetchData} />
