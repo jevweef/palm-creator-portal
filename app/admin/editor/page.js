@@ -831,7 +831,7 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
           headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: result.path_display }),
         })
-        if (linkRes.ok) sharedLink = ((await linkRes.json()).url || '').replace('?dl=0', '?dl=1')
+        if (linkRes.ok) sharedLink = ((await linkRes.json()).url || '').replace(/([?&])dl=0/, '$1raw=1')
       } catch {}
 
       if (!sharedLink) throw new Error('Failed to create shared link')
@@ -1151,7 +1151,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
             headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
             body: JSON.stringify({ path: result.path_display }),
           })
-          if (linkRes.ok) sharedLink = ((await linkRes.json()).url || '').replace('?dl=0', '?dl=1')
+          if (linkRes.ok) sharedLink = ((await linkRes.json()).url || '').replace(/([?&])dl=0/, '$1raw=1')
         } catch {}
         if (sharedLink) uploaded.push(sharedLink)
       }
@@ -1218,7 +1218,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
               {screenshots.map((url, i) => (
                 <div key={i} style={{ position: 'relative', width: '72px', height: '72px' }}>
-                  <img src={url.replace('?dl=1', '?raw=1')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #333' }} />
+                  <img src={url.replace(/([?&])dl=[01]/, '$1raw=1')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #333' }} />
                   <button
                     onClick={() => setScreenshots(prev => prev.filter((_, j) => j !== i))}
                     style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
