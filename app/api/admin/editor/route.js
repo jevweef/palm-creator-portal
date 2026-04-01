@@ -180,6 +180,7 @@ export async function PATCH(request) {
       await patchAirtableRecord('Tasks', taskId, { 'Admin Review Status': 'Approved' })
 
       // Auto-create a Post record for prep
+      let scheduledDate = null
       try {
         const task = tasks[0]
         const creatorId = (task.fields?.Creator || [])[0] || null
@@ -200,7 +201,6 @@ export async function PATCH(request) {
         const postName = [creatorAKA, assetName || dateStr].filter(Boolean).join(' – ')
 
         // Find the latest future posting slot for this creator
-        let scheduledDate = null
         try {
           const futurePosts = await fetchAirtableRecords('Posts', {
             filterByFormula: `IS_AFTER({Scheduled Date}, NOW())`,
