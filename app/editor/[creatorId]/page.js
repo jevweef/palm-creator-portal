@@ -117,6 +117,71 @@ function TaskRow({ task, type }) {
   )
 }
 
+// ── CompactThumbCard (for approved + history columns) ─────────────────────────
+
+function CompactThumbCard({ task, type }) {
+  const m = STATUS_META[type]
+  const thumb = task.inspo?.thumbnail || task.asset?.thumbnail || ''
+  const title = task.inspo?.title || task.name || 'Untitled'
+  return (
+    <div style={{ background: m.bg, border: `1px solid ${m.border}`, borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+      {thumb && (
+        <img src={thumb} alt="" style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+        {task.completedAt && (
+          <div style={{ fontSize: '10px', color: '#52525b', marginTop: '2px' }}>
+            {new Date(task.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+        {task.asset?.editedFileLink && (
+          <a href={task.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: '10px', color: '#22c55e', textDecoration: 'none', padding: '2px 6px', background: '#0a1a0a', borderRadius: '4px', border: '1px solid #1a4a1a' }}>
+            File ↗
+          </a>
+        )}
+        {task.inspo?.contentLink && (
+          <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: '10px', color: '#a78bfa', textDecoration: 'none', padding: '2px 6px', background: '#0d0a2e', borderRadius: '4px', border: '1px solid #2a1a5e' }}>
+            Inspo ↗
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const COLLAPSED_LIMIT = 4
+
+function CollapsibleColumn({ sectionKey, items }) {
+  const [expanded, setExpanded] = useState(false)
+  const m = STATUS_META[sectionKey]
+  const shown = expanded ? items : items.slice(0, COLLAPSED_LIMIT)
+  const hasMore = items.length > COLLAPSED_LIMIT
+
+  return (
+    <div style={{ background: '#0d0d0d', border: `1px solid ${m.border}`, borderRadius: '12px', padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: m.dot }} />
+        <span style={{ fontSize: '11px', fontWeight: 700, color: m.dot, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}</span>
+        <span style={{ fontSize: '11px', color: '#3f3f46' }}>({items.length})</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {shown.map(task => <CompactThumbCard key={task.id} task={task} type={sectionKey} />)}
+      </div>
+      {hasMore && (
+        <button onClick={() => setExpanded(p => !p)}
+          style={{ marginTop: '10px', width: '100%', background: 'none', border: 'none', color: '#52525b', fontSize: '11px', cursor: 'pointer', textAlign: 'center', padding: '4px 0' }}>
+          {expanded ? '▴ Show less' : `▾ Show ${items.length - COLLAPSED_LIMIT} more`}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── InspoClipRow ───────────────────────────────────────────────────────────────
 
 function InspoClipRow({ clip }) {
@@ -353,9 +418,8 @@ export default function CreatorDetailPage() {
     { key: 'inProgress',    items: tasks.inProgress },
     { key: 'queue',         items: tasks.queue },
     { key: 'inReview',      items: tasks.inReview },
-    { key: 'approved',      items: tasks.approved },
-    { key: 'history',       items: tasks.history },
   ]
+  const hasApprovedOrHistory = tasks.approved.length > 0 || tasks.history.length > 0
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -390,6 +454,14 @@ export default function CreatorDetailPage() {
           </div>
         ))}
 
+        {/* Approved + History side by side */}
+        {hasApprovedOrHistory && (
+          <div style={{ display: 'grid', gridTemplateColumns: tasks.approved.length && tasks.history.length ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '28px' }}>
+            {tasks.approved.length > 0 && <CollapsibleColumn sectionKey="approved" items={tasks.approved} />}
+            {tasks.history.length > 0 && <CollapsibleColumn sectionKey="history" items={tasks.history} />}
+          </div>
+        )}
+
         {/* Inspo clips uploaded by creator */}
         {inspoClips.length > 0 && (
           <div style={{ marginBottom: '28px' }}>
@@ -412,7 +484,7 @@ export default function CreatorDetailPage() {
         )}
 
         {/* Empty state */}
-        {taskSections.every(s => s.items.length === 0) && inspoClips.length === 0 && library.length === 0 && (
+        {taskSections.every(s => s.items.length === 0) && !hasApprovedOrHistory && inspoClips.length === 0 && library.length === 0 && (
           <div style={{ textAlign: 'center', padding: '60px', color: '#3f3f46', fontSize: '14px', background: '#0d0d0d', borderRadius: '12px', border: '1px solid #1a1a1a' }}>
             No editing activity yet for {creator.name}.
           </div>
