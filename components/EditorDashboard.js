@@ -621,7 +621,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const [startErr, setStartErr] = useState('')
 
   // Editor submit tool state
-  const [editorTab, setEditorTab] = useState('create') // 'create' | 'upload'
+  const [editorTab, setEditorTab] = useState('upload') // 'create' | 'upload'
   const [caption, setCaption] = useState('')
   const [yPosition, setYPosition] = useState(75)
   const [rendering, setRendering] = useState(false)
