@@ -205,14 +205,16 @@ export async function POST(request) {
       const filename = getFilename(editedFileLink)
       const mimeType = getMimeType(editedFileLink)
 
-      // Remux MOV → MP4 for better Telegram compatibility (zero quality loss)
+      // Always remux video to MP4 with faststart — ensures Telegram can render inline
+      // preview and show the correct thumbnail. Without faststart the moov atom is at
+      // the end of the file and Telegram can't seek to generate a preview frame.
       let uploadBuffer = fileBuffer
       let uploadFilename = filename
       let uploadMime = mimeType
-      if (/\.mov$/i.test(editedFileLink)) {
-        console.log('[Telegram Send] Remuxing MOV → MP4...')
+      if (isVideo(editedFileLink)) {
+        console.log('[Telegram Send] Remuxing to MP4 with faststart...')
         uploadBuffer = await remuxToMp4(fileBuffer, filename)
-        uploadFilename = filename.replace(/\.mov$/i, '.mp4')
+        uploadFilename = filename.replace(/\.[^.]+$/, '.mp4')
         uploadMime = 'video/mp4'
         console.log(`[Telegram Send] Remux done, size: ${(uploadBuffer.length / 1024 / 1024).toFixed(1)}MB`)
       }
