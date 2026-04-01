@@ -1182,6 +1182,21 @@ function SlotContent({ slot }) {
     )
   }
 
+  // Needs Revision: show red title + feedback snippet
+  if (isEditing && task?.adminReviewStatus === 'Needs Revision') {
+    const thumb = task?.inspo?.thumbnail || task?.asset?.thumbnail || ''
+    const title = task?.inspo?.title || task?.name || ''
+    return (
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, border: '1px solid #5c2020' }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#fca5a5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
+          {task.adminFeedback && <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>}
+        </div>
+      </div>
+    )
+  }
+
   // Editing with inspo: show inspo thumbnail + creator clip thumbnail side by side
   if (isEditing && task?.inspo?.thumbnail && task?.asset?.thumbnail) {
     return (
@@ -1299,7 +1314,10 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
 }
 
 function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updating, onRefresh, onSlotClick }) {
-  const typeStyle = slot.type === 'done'
+  const isNeedsRevision = slot.type === 'inProgress' && slot.task?.adminReviewStatus === 'Needs Revision'
+  const typeStyle = isNeedsRevision
+    ? { borderColor: '#5c2020', bg: '#0d0505', dotColor: '#ef4444', label: 'Needs Revision' }
+    : slot.type === 'done'
     ? doneSlotStyle(slot.task)
     : {
         inProgress: { borderColor: '#1a3a6d', bg: '#03071a', dotColor: '#3b82f6', label: 'In editing' },
@@ -1574,40 +1592,6 @@ function CreatorSection({ creator, onRefresh }) {
         {/* Row 2: quota dots full width */}
         <QuotaDots slotColors={slotColors} quota={creator.quota} done={creator.doneToday} />
       </div>
-
-      {/* Needs Revision — urgent, above slots */}
-      {creator.needsRevision.length > 0 && (
-        <div style={{ padding: '14px 24px', background: '#0d0505', borderBottom: '1px solid #2d1515' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
-            ⚠ Needs Revision
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {creator.needsRevision.map(task => (
-              <div key={task.id}
-                onClick={() => setTaskModal({ type: 'inProgress', task })}
-                style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: '#1a0808', border: '1px solid #3d1212', transition: 'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#260d0d'}
-                onMouseLeave={e => e.currentTarget.style.background = '#1a0808'}
-              >
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0 }}>
-                  {task.inspo?.thumbnail && (
-                    <img src={task.inspo.thumbnail} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
-                  )}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#fca5a5' }}>{task.inspo?.title || task.name}</div>
-                    {task.adminFeedback && (
-                      <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '11px', color: '#ef4444', opacity: 0.7 }}>View feedback →</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Daily Work Slots */}
       <div style={{ padding: '16px 24px' }}>
