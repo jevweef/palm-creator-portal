@@ -630,9 +630,13 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const [renderUrl, setRenderUrl] = useState(null)
   const [renderErr, setRenderErr] = useState('')
   const [uploadUrl, setUploadUrl] = useState('')
+  const [uploadFile, setUploadFile] = useState(null)
+  const [uploadProgress, setUploadProgress] = useState('')
+  const [uploadError, setUploadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveErr, setSaveErr] = useState('')
   const [saved, setSaved] = useState(false)
+  const fileInputRef = useRef(null)
 
   const inspo = task?.inspo || clip?.inspo || {}
   const assetLink = task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || clip?.dropboxLink || ''
@@ -685,6 +689,61 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
     return () => clearInterval(interval)
   }, [renderId, renderStatus])
 
+  const handleFileUpload = async (file) => {
+    if (!file) return
+    setUploadProgress('Preparing upload...')
+    setUploadError('')
+    try {
+      const tokenRes = await fetch('/api/editor-upload-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: creator?.id }),
+      })
+      if (!tokenRes.ok) throw new Error('Failed to get upload credentials')
+      const { accessToken, rootNamespaceId, uploadFolder } = await tokenRes.json()
+
+      const ext = file.name.includes('.') ? file.name.split('.').pop() : 'mp4'
+      const taskSlug = (task?.name || 'edit').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 40)
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const fileName = `${taskSlug}_EDITED_${timestamp}.${ext}`
+      const filePath = `${uploadFolder}/${fileName}`
+
+      setUploadProgress(`Uploading ${fileName}...`)
+      const buffer = await file.arrayBuffer()
+      const pathRoot = JSON.stringify({ '.tag': 'root', root: rootNamespaceId })
+
+      const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: filePath, mode: 'add', autorename: true, mute: true }),
+          'Dropbox-API-Path-Root': pathRoot,
+          'Content-Type': 'application/octet-stream',
+        },
+        body: buffer,
+      })
+      if (!dbxRes.ok) throw new Error(`Dropbox upload failed: ${await dbxRes.text()}`)
+      const result = await dbxRes.json()
+
+      setUploadProgress('Creating share link...')
+      let sharedLink = ''
+      try {
+        const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: result.path_display }),
+        })
+        if (linkRes.ok) sharedLink = (await linkRes.json()).url || ''
+      } catch {}
+
+      await handleSave(sharedLink || filePath)
+    } catch (err) {
+      setUploadError(err.message)
+    } finally {
+      setUploadProgress('')
+    }
+  }
+
   const handleRender = async () => {
     const clipUrl = rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '')
     if (!clipUrl) { setRenderErr('No clip URL found'); return }
@@ -697,7 +756,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
       const res = await fetch('/api/editor/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clipUrl, caption: caption.trim(), yPosition }),
+        body: JSON.stringify({ clipUrl, caption: caption.trim(), yPosition, safeZone: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Render failed')
@@ -882,12 +941,35 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                         style={{ width: '100%', background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: '#e4e4e7', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                       />
                     </div>
+
+                    {/* Vertical position picker */}
                     <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                        Position — {yPosition <= 30 ? 'Top' : yPosition <= 60 ? 'Middle' : 'Lower Third'} ({yPosition}%)
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                        Position — {yPosition <= 25 ? 'Top' : yPosition <= 55 ? 'Middle' : 'Lower Third'}
                       </div>
-                      <input type="range" min={5} max={95} value={yPosition} onChange={e => setYPosition(Number(e.target.value))}
-                        style={{ width: '100%', accentColor: '#a78bfa' }} />
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        {/* Frame preview */}
+                        <div style={{ position: 'relative', width: '54px', height: '96px', background: '#000', borderRadius: '5px', overflow: 'hidden', flexShrink: 0, border: '1px solid #2a2a2a' }}>
+                          {task?.asset?.thumbnail && (
+                            <img src={task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.35 }} />
+                          )}
+                          {/* Safe zone guides */}
+                          <div style={{ position: 'absolute', inset: '8% 8%', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '2px', pointerEvents: 'none' }} />
+                          {/* Text bar indicator */}
+                          <div style={{ position: 'absolute', left: '8%', right: '8%', top: `${yPosition}%`, transform: 'translateY(-50%)', background: 'rgba(167,139,250,0.85)', borderRadius: '2px', padding: '2px 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '10px' }}>
+                            <span style={{ fontSize: '5px', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                              {caption || 'TEXT'}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Vertical slider */}
+                        <input
+                          type="range" min={5} max={95} value={yPosition}
+                          onChange={e => setYPosition(Number(e.target.value))}
+                          style={{ writingMode: 'vertical-lr', height: '96px', width: '20px', accentColor: '#a78bfa', cursor: 'pointer', flexShrink: 0 }}
+                        />
+                        <div style={{ fontSize: '11px', color: '#52525b' }}>{yPosition}%</div>
+                      </div>
                     </div>
 
                     {/* Render result */}
@@ -926,20 +1008,44 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 {/* UPLOAD tab */}
                 {editorTab === 'upload' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Dropbox or Drive Link</div>
-                      <input
-                        type="url"
-                        value={uploadUrl}
-                        onChange={e => setUploadUrl(e.target.value)}
-                        placeholder="Paste shared link..."
-                        style={{ width: '100%', background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: '7px', padding: '9px 10px', fontSize: '13px', color: '#e4e4e7', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                      />
+                    {/* Drag-and-drop zone */}
+                    <div
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setUploadFile(f) }}
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ border: `2px dashed ${uploadFile ? '#a78bfa' : '#2a2a2a'}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: '#0a0a0a', transition: 'border-color 0.2s' }}
+                    >
+                      <input ref={fileInputRef} type="file" accept="video/*,.mov,.mp4,.m4v" style={{ display: 'none' }}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) setUploadFile(f) }} />
+                      {uploadFile ? (
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#a78bfa' }}>{uploadFile.name}</div>
+                          <div style={{ fontSize: '11px', color: '#52525b', marginTop: '4px' }}>{(uploadFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: '24px', marginBottom: '6px' }}>⬆</div>
+                          <div style={{ fontSize: '13px', color: '#52525b' }}>Drop video here or click to browse</div>
+                          <div style={{ fontSize: '11px', color: '#3a3a3a', marginTop: '4px' }}>MP4, MOV supported</div>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Or paste link */}
+                    <div style={{ fontSize: '11px', color: '#3a3a3a', textAlign: 'center' }}>— or paste a Dropbox link —</div>
+                    <input type="url" value={uploadUrl} onChange={e => setUploadUrl(e.target.value)}
+                      placeholder="https://www.dropbox.com/..."
+                      style={{ width: '100%', background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: '7px', padding: '8px 10px', fontSize: '12px', color: '#e4e4e7', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+
+                    {uploadProgress && <div style={{ fontSize: '12px', color: '#a78bfa' }}>{uploadProgress}</div>}
+                    {uploadError && <div style={{ fontSize: '12px', color: '#ef4444' }}>{uploadError}</div>}
                     {saveErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{saveErr}</div>}
-                    <button onClick={() => handleSave(uploadUrl)} disabled={saving || saved || !uploadUrl.trim()}
-                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#0a2e0a' : '#0a0a3d', color: saved ? '#22c55e' : '#a78bfa', border: `1px solid ${saved ? '#1a5c1a' : '#a78bfa'}`, borderRadius: '8px', cursor: (saving || saved || !uploadUrl.trim()) ? 'not-allowed' : 'pointer', opacity: (!uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
-                      {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save & Submit ↑'}
+
+                    <button
+                      onClick={() => uploadFile ? handleFileUpload(uploadFile) : handleSave(uploadUrl)}
+                      disabled={saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress}
+                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#0a2e0a' : '#0a0a3d', color: saved ? '#22c55e' : '#a78bfa', border: `1px solid ${saved ? '#1a5c1a' : '#a78bfa'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
+                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : 'Save & Submit ↑'}
                     </button>
                   </div>
                 )}

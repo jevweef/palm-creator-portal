@@ -38,14 +38,15 @@ export async function POST(req) {
         track: 2,
         text: caption,
         y: `${y}%`,
-        width: '100%',
+        width: '84%',       // safe zone: ~8% margin each side
         x_alignment: '50%',
-        font_size: '7 vw',
+        font_size: '6.5 vw',
         font_weight: '700',
         color: '#ffffff',
-        background_color: 'rgba(0,0,0,0.65)',
-        x_padding: '0%',
-        y_padding: '3%',
+        background_color: 'rgba(0,0,0,0.68)',
+        x_padding: '4%',
+        y_padding: '2.5%',
+        x_anchor: '50%',    // center horizontally
       },
     ],
   }
