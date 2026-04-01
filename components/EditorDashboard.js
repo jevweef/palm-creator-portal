@@ -827,7 +827,14 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
         {/* Header bar */}
         <div style={{ padding: '16px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+              {creator?.name && (
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#a78bfa', background: '#0d0a2e', border: '1px solid #2a1a5e', borderRadius: '4px', padding: '2px 8px', flexShrink: 0 }}>
+                  {creator.name}
+                </span>
+              )}
+            </div>
             {username && <div style={{ fontSize: '12px', color: '#52525b', marginTop: '2px' }}>@{username}</div>}
           </div>
           {statusBadge && (
