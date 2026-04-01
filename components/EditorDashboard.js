@@ -823,7 +823,7 @@ function doneSlotStyle(task) {
   return { borderColor: '#1a2e1a', bg: '#050f05', dotColor: '#4a8a4a', label: 'In Review' }
 }
 
-function CustomCalendar({ selectedDate, todayStr, onSelect, onClose }) {
+function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors = {} }) {
   const initDate = new Date(selectedDate + 'T12:00:00')
   const [calYear, setCalYear] = useState(initDate.getFullYear())
   const [calMonth, setCalMonth] = useState(initDate.getMonth())
@@ -841,6 +841,7 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose }) {
   const cells = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
 
   const navBtn = { background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: '#71717a', fontSize: '14px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }
+  const dotColors = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' }
 
   return (
     <>
@@ -862,10 +863,12 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose }) {
             const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
             const isSel = ds === selectedDate
             const isToday = ds === todayStr
+            const color = dateColors[ds]
             return (
               <button key={i} onClick={() => { onSelect(ds); onClose() }}
-                style={{ background: isSel ? '#7c3aed' : isToday ? '#1e1a2e' : 'transparent', border: isToday && !isSel ? '1px solid #4c3a8a' : '1px solid transparent', borderRadius: '6px', color: isSel ? '#fff' : isToday ? '#a78bfa' : '#a1a1aa', fontSize: '12px', fontWeight: isSel || isToday ? 700 : 400, padding: '5px 0', cursor: 'pointer', textAlign: 'center' }}>
-                {day}
+                style={{ background: isSel ? '#7c3aed' : isToday ? '#1e1a2e' : 'transparent', border: isToday && !isSel ? '1px solid #4c3a8a' : '1px solid transparent', borderRadius: '6px', color: isSel ? '#fff' : isToday ? '#a78bfa' : '#a1a1aa', fontSize: '12px', fontWeight: isSel || isToday ? 700 : 400, padding: '4px 0 2px', cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                <span>{day}</span>
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: color ? dotColors[color] : 'transparent', flexShrink: 0 }} />
               </button>
             )
           })}
@@ -995,6 +998,34 @@ function CreatorSection({ creator, onRefresh }) {
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   })()
 
+  // Build per-date color map for calendar dots
+  const dateColors = (() => {
+    const colors = {}
+    // Group recentDone by date
+    const byDate = {}
+    for (const t of (creator.recentDone || [])) {
+      const d = (t.completedAt || '').split('T')[0]
+      if (!d) continue
+      if (!byDate[d]) byDate[d] = []
+      byDate[d].push(t)
+    }
+    for (const [date, tasks] of Object.entries(byDate)) {
+      const allApproved = tasks.length >= dailyQuota && tasks.every(t => t.adminReviewStatus === 'Approved')
+      colors[date] = allApproved ? 'green' : 'yellow'
+    }
+    // Today: factor in inProgress too
+    const todayDone = creator.doneTodayList || []
+    const todayIP = creator.inProgress || []
+    if (todayDone.length >= dailyQuota) {
+      colors[todayDateStr] = todayDone.every(t => t.adminReviewStatus === 'Approved') ? 'green' : 'yellow'
+    } else if (todayDone.length > 0 || todayIP.length > 0) {
+      colors[todayDateStr] = 'yellow'
+    } else {
+      colors[todayDateStr] = 'red'
+    }
+    return colors
+  })()
+
   // Done tasks for selected date (from recentDone for history, doneTodayList for today)
   const selectedDoneList = isToday
     ? (creator.doneTodayList || [])
@@ -1098,6 +1129,7 @@ function CreatorSection({ creator, onRefresh }) {
                 todayStr={todayDateStr}
                 onSelect={setSelectedDate}
                 onClose={() => setShowDatePicker(false)}
+                dateColors={dateColors}
               />
             )}
           </div>
