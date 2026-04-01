@@ -532,9 +532,9 @@ function PostCard({ post, onRefresh, onSend }) {
           />
         )}
 
-        {/* Scheduled Date */}
+        {/* Scheduled Date — use post.scheduledDate (has timezone Z) not state (stripped) */}
         {scheduledDate && (() => {
-          const d = new Date(scheduledDate)
+          const d = new Date(post.scheduledDate || (scheduledDate + ':00Z'))
           const utcH = d.getUTCHours()
           const slot = utcH < 20 ? 'Morning' : 'Evening'
           const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()]
