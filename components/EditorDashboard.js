@@ -841,7 +841,7 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
   const cells = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
 
   const navBtn = { background: 'none', border: '1px solid #2a2a2a', borderRadius: '6px', color: '#71717a', fontSize: '14px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }
-  const dotColors = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' }
+  const dotColors = { green: '#22c55e', yellow: '#facc15', red: '#ef4444' }
 
   return (
     <>
