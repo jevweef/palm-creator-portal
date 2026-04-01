@@ -260,6 +260,9 @@ export async function PATCH(request) {
     }
 
     const taskUpdate = { Status: newStatus }
+    if (newStatus === 'In Progress') {
+      taskUpdate['Started At'] = new Date().toISOString()
+    }
     if (newStatus === 'Done') {
       taskUpdate['Completed At'] = new Date().toISOString()
       taskUpdate['Admin Review Status'] = 'Pending Review'
