@@ -1067,7 +1067,7 @@ function CreatorSection({ creator, onRefresh }) {
   const allDone = selectedDoneList.length >= dailyQuota
 
   return (
-    <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px', overflow: 'hidden' }}>
+    <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px' }}>
       {/* Header */}
       <div style={{ padding: '18px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
