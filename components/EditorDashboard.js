@@ -1154,7 +1154,7 @@ function CreatorSection({ creator, onRefresh }) {
             const needed = Math.max(0, creator.quota - creator.doneToday)
             return needed > 0 ? (
               <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#111', color: '#3f3f46', border: '1px solid #2a2a2a' }}>
-                {needed} needed
+                {needed} open
               </span>
             ) : null
           })()}
