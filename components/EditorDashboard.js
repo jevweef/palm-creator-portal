@@ -1001,7 +1001,7 @@ function CreatorSection({ creator, onRefresh }) {
   // Build per-date color map for calendar dots
   const dateColors = (() => {
     const colors = {}
-    // Group recentDone by date
+    // Past dates: use completed task data (14-day window)
     const byDate = {}
     for (const t of (creator.recentDone || [])) {
       const d = (t.completedAt || '').split('T')[0]
@@ -1022,6 +1022,19 @@ function CreatorSection({ creator, onRefresh }) {
       colors[todayDateStr] = 'yellow'
     } else {
       colors[todayDateStr] = 'red'
+    }
+    // Future dates: color based on scheduled posts in Posts table
+    // dates with posts scheduled = green (quota met) or yellow (partial); no posts = red
+    const futurePostsByDate = creator.futurePostsByDate || {}
+    // Enumerate next 60 days so unscheduled dates show red
+    for (let i = 1; i <= 60; i++) {
+      const d = new Date(todayDateStr + 'T12:00:00')
+      d.setDate(d.getDate() + i)
+      const ds = d.toISOString().split('T')[0]
+      const count = futurePostsByDate[ds] || 0
+      if (count >= dailyQuota) colors[ds] = 'green'
+      else if (count > 0) colors[ds] = 'yellow'
+      else colors[ds] = 'red'
     }
     return colors
   })()

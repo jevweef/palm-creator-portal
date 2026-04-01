@@ -220,13 +220,18 @@ export async function GET() {
       libraryByCreator[id].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
     }
 
-    // Group future posts by creator
+    // Group future posts by creator (total count + per-date breakdown)
     const futurePostsByCreator = {}
+    const futurePostDatesByCreator = {}
     for (const post of futurePosts) {
       const creatorId = (post.fields?.Creator || [])[0]
       if (!creatorId) continue
-      if (!futurePostsByCreator[creatorId]) futurePostsByCreator[creatorId] = 0
-      futurePostsByCreator[creatorId]++
+      futurePostsByCreator[creatorId] = (futurePostsByCreator[creatorId] || 0) + 1
+      const date = (post.fields?.['Scheduled Date'] || '').split('T')[0]
+      if (date) {
+        if (!futurePostDatesByCreator[creatorId]) futurePostDatesByCreator[creatorId] = {}
+        futurePostDatesByCreator[creatorId][date] = (futurePostDatesByCreator[creatorId][date] || 0) + 1
+      }
     }
 
     const POSTS_PER_DAY = 2 // 12 PM and 9 PM slots
@@ -276,6 +281,7 @@ export async function GET() {
         inReview: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Pending Review'),
         library,
         inspoClips,
+        futurePostsByDate: futurePostDatesByCreator[c.id] || {},
       }
     })
 
