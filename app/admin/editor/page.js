@@ -1223,11 +1223,49 @@ function ForReview({ showToast }) {
 export default function EditorQueue() {
   const [activeSection, setActiveSection] = useState('editorview')
   const [toast, setToast] = useState(null)
+  const [notifStatus, setNotifStatus] = useState('idle') // 'idle' | 'subscribed' | 'denied'
 
   const showToast = useCallback((msg, error = false) => {
     setToast({ msg, error })
     setTimeout(() => setToast(null), 3000)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission === 'granted' && localStorage.getItem('pushSubscribed') === '1') {
+      setNotifStatus('subscribed')
+    } else if (Notification.permission === 'denied') {
+      setNotifStatus('denied')
+    }
+  }, [])
+
+  const handleEnableNotifications = async () => {
+    try {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') { setNotifStatus('denied'); return }
+
+      const reg = await navigator.serviceWorker.register('/sw.js')
+      await navigator.serviceWorker.ready
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      })
+
+      const res = await fetch('/api/admin/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub.toJSON()),
+      })
+      if (!res.ok) throw new Error('Failed to save subscription')
+
+      localStorage.setItem('pushSubscribed', '1')
+      setNotifStatus('subscribed')
+      showToast('Notifications enabled')
+    } catch (err) {
+      showToast(err.message, true)
+    }
+  }
 
   const TABS = [
     { key: 'editorview', label: '📋 Dashboard' },
@@ -1239,11 +1277,32 @@ export default function EditorQueue() {
   return (
     <div>
       {/* Page header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>Editor Dashboard</h1>
-        <p style={{ fontSize: '13px', color: '#71717a', marginTop: '4px' }}>
-          Manage editing tasks and review uploaded clips
-        </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>Editor Dashboard</h1>
+          <p style={{ fontSize: '13px', color: '#71717a', marginTop: '4px' }}>
+            Manage editing tasks and review uploaded clips
+          </p>
+        </div>
+        {/* Notification opt-in */}
+        {'Notification' in (typeof window !== 'undefined' ? window : {}) && (
+          <div style={{ flexShrink: 0, marginTop: '4px' }}>
+            {notifStatus === 'idle' && (
+              <button onClick={handleEnableNotifications}
+                style={{ fontSize: '12px', fontWeight: 600, padding: '6px 14px', borderRadius: '8px', border: '1px solid #2a2a2a', background: 'transparent', color: '#71717a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🔔 Enable review notifications
+              </button>
+            )}
+            {notifStatus === 'subscribed' && (
+              <span style={{ fontSize: '11px', color: '#22c55e', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                🔔 Notifications on
+              </span>
+            )}
+            {notifStatus === 'denied' && (
+              <span style={{ fontSize: '11px', color: '#52525b' }}>Notifications blocked in browser</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Section tabs */}

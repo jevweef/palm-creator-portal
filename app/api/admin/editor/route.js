@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
+import { sendPushToAdmins } from '@/lib/sendPushNotifications'
 
 // Status mapping: Task Status → Asset Pipeline Status
 const TASK_TO_ASSET_STATUS = {
@@ -353,6 +354,17 @@ export async function PATCH(request) {
       if (editedFileLink) assetUpdate['Edited File Link'] = editedFileLink
       if (editedFilePath) assetUpdate['Edited File Path'] = editedFilePath
       await patchAirtableRecord('Assets', assetId, assetUpdate)
+    }
+
+    // Push notification to admin when editor submits for review
+    if (newStatus === 'Done') {
+      const taskName = tasks[0]?.fields?.Name || ''
+      const assetName = taskName.replace(/^Edit:\s*/i, '')
+      sendPushToAdmins({
+        title: 'New Edit Ready for Review',
+        body: assetName,
+        url: '/admin/editor',
+      }).catch(() => {})
     }
 
     console.log(`[Editor] Task ${taskId}: ${newStatus}, Asset ${assetId}: ${TASK_TO_ASSET_STATUS[newStatus]}`)
