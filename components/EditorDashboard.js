@@ -93,21 +93,29 @@ export function getSlotLabel(isoDateString) {
 
 // ─── Quota dots ────────────────────────────────────────────────────────────────
 
-export function QuotaDots({ done, quota }) {
-  const over = done > quota
+export function QuotaDots({ slotColors, quota, done }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{ display: 'flex', gap: '5px' }}>
-        {Array.from({ length: quota }).map((_, i) => (
-          <div key={i} style={{
-            width: '11px', height: '11px', borderRadius: '50%',
-            background: i < done ? '#22c55e' : '#1a1a1a',
-            border: `1.5px solid ${i < done ? '#22c55e' : '#2a2a2a'}`,
-            transition: 'all 0.2s',
-          }} />
-        ))}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+      <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+        {Array.from({ length: quota }).map((_, i) => {
+          const color = slotColors?.[i] || '#1a1a1a'
+          const lit = color !== '#1a1a1a'
+          // pair separator: slightly larger gap every dailyQuota slots
+          const isNewDay = i > 0 && i % 2 === 0
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '4px' }}>
+              {isNewDay && <div style={{ width: '1px', height: '8px', background: '#2a2a2a', flexShrink: 0 }} />}
+              <div style={{
+                flex: 1, height: '11px', borderRadius: '3px',
+                background: color,
+                border: `1.5px solid ${lit ? color : '#2a2a2a'}`,
+                transition: 'all 0.2s',
+              }} />
+            </div>
+          )
+        })}
       </div>
-      <span style={{ fontSize: '12px', color: done >= quota ? '#22c55e' : '#52525b', fontWeight: 500 }}>
+      <span style={{ fontSize: '12px', color: done >= quota ? '#22c55e' : '#52525b', fontWeight: 500, flexShrink: 0 }}>
         {done}/{quota} this week
       </span>
     </div>
@@ -983,7 +991,8 @@ function CreatorSection({ creator, onRefresh }) {
   const dailyQuota = creator.dailyQuota || 2
   const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
   const pad = n => String(n).padStart(2, '0')
-  const todayDateStr = `${estNow.getFullYear()}-${pad(estNow.getMonth()+1)}-${pad(estNow.getDate())}`
+  const estDs = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+  const todayDateStr = estDs(estNow)
   const [selectedDate, setSelectedDate] = useState(todayDateStr)
   const [showDatePicker, setShowDatePicker] = useState(false)
 
@@ -1044,6 +1053,43 @@ function CreatorSection({ creator, onRefresh }) {
     return colors
   })()
 
+  // Per-slot colors for quota dots: Sun morning, Sun evening, Mon morning, Mon evening...
+  const slotColors = (() => {
+    const statusColor = s => {
+      if (s === 'Approved') return '#22c55e'
+      if (s === 'Pending Review') return '#a3e635'
+      if (s === 'Needs Revision') return '#ef4444'
+      return '#22c55e'
+    }
+    const sun = new Date(todayDateStr + 'T12:00:00')
+    sun.setDate(sun.getDate() - sun.getDay())
+    const colors = []
+    for (let d = 0; d < 7; d++) {
+      const dayDate = new Date(sun); dayDate.setDate(sun.getDate() + d)
+      const ds = estDs(dayDate)
+      const isToday = ds === todayDateStr
+      const isFuture = ds > todayDateStr
+      const doneTasks = (creator.recentDone || [])
+        .filter(t => (t.completedAt || '').startsWith(ds))
+        .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt))
+      const ipTasks = isToday ? (creator.inProgress || []) : []
+      const qTasks = isToday ? (creator.queue || []) : []
+      for (let s = 0; s < dailyQuota; s++) {
+        if (s < doneTasks.length) {
+          colors.push(statusColor(doneTasks[s].adminReviewStatus))
+        } else if (isToday) {
+          const ipIdx = s - doneTasks.length
+          if (ipIdx < ipTasks.length) colors.push('#60a5fa')
+          else if (ipIdx - ipTasks.length < qTasks.length) colors.push('#a78bfa')
+          else colors.push('#1a1a1a')
+        } else {
+          colors.push('#1a1a1a')
+        }
+      }
+    }
+    return colors
+  })()
+
   // Done tasks for selected date (from recentDone for history, doneTodayList for today)
   const selectedDoneList = isToday
     ? (creator.doneTodayList || [])
@@ -1070,9 +1116,9 @@ function CreatorSection({ creator, onRefresh }) {
     <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '16px' }}>
       {/* Header */}
       <div style={{ padding: '18px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: '0 0 5px' }}>{creator.name}</h2>
-          <QuotaDots done={creator.doneToday} quota={creator.quota} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>{creator.name}</h2>
+          <QuotaDots slotColors={slotColors} quota={creator.quota} done={creator.doneToday} />
         </div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
           {creator.needsRevision.length > 0 && (
