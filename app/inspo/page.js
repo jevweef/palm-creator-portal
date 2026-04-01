@@ -307,8 +307,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const goPrev = useCallback(() => setSelectedIdx((i) => (i > 0 ? i - 1 : i)), [])
   const goNext = useCallback(() => setSelectedIdx((i) => (i < filtered.length - 1 ? i + 1 : i)), [filtered.length])
 
-  const tagGroups = groupTags(allTags)
-  const pinnedAvailable = PINNED_TAGS.filter((t) => allTags.includes(t))
+  const allKnownTags = [...new Set([...Object.keys(TAG_CATEGORY_MAP), ...allTags])]
+  const tagGroups = groupTags(allKnownTags)
+  const pinnedAvailable = PINNED_TAGS.filter((t) => allKnownTags.includes(t))
   const hasActiveFilters = activeTags.length > 0 || activeFormats.length > 0
   const getGrade = records.length > 0 ? computeGradeFn(records) : () => null
 
