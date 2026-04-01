@@ -798,27 +798,74 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 function SlotContent({ slot }) {
   const task = slot.task
   const clip = slot.clip
-  const inspo = task?.inspo || clip?.inspo || {}
-  const thumb = inspo.thumbnail || clip?.thumbnail || task?.asset?.thumbnail || ''
-  const title = inspo.title || task?.name || clip?.inspo?.title || ''
-  const username = inspo.username || ''
+  const isDone = slot.type === 'done'
+  const isEditing = slot.type === 'inProgress' || slot.type === 'toDo'
+  const isClipSlot = slot.type === 'inspoClip'
 
   if (slot.type === 'empty') {
     return <div style={{ fontSize: '12px', color: '#2a2a2a' }}>+ Assign from library</div>
   }
 
-  return (
-    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-      {thumb && (
-        <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, opacity: slot.type === 'done' ? 0.5 : 1 }} />
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: slot.type === 'done' ? '#3f3f46' : '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+  // Done/submitted: show only the asset thumbnail (submitted edit)
+  if (isDone) {
+    const thumb = task?.asset?.thumbnail || ''
+    const title = task?.inspo?.title || task?.name || ''
+    return (
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, opacity: 0.5 }} />}
+        <div style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 600, color: '#3f3f46', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {title || 'Edit task'}
         </div>
-        {username && (
-          <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '2px' }}>@{username}</div>
-        )}
+      </div>
+    )
+  }
+
+  // Editing with inspo: show inspo thumbnail + creator clip thumbnail side by side
+  if (isEditing && task?.inspo?.thumbnail && task?.asset?.thumbnail) {
+    return (
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <img src={task.inspo.thumbnail} alt="" style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'cover' }} />
+          <span style={{ position: 'absolute', bottom: '2px', left: '2px', fontSize: '8px', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '1px 3px', borderRadius: '2px' }}>INSPO</span>
+        </div>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <img src={task.asset.thumbnail} alt="" style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'cover' }} />
+          <span style={{ position: 'absolute', bottom: '2px', left: '2px', fontSize: '8px', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '1px 3px', borderRadius: '2px' }}>CLIP</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.inspo.title || task.name}</div>
+          {task.inspo.username && <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '2px' }}>@{task.inspo.username}</div>}
+        </div>
+      </div>
+    )
+  }
+
+  // Editing with only inspo (no clip yet) or only a library asset
+  if (isEditing) {
+    const thumb = task?.inspo?.thumbnail || task?.asset?.thumbnail || ''
+    const title = task?.inspo?.title || task?.name || ''
+    const username = task?.inspo?.username || ''
+    return (
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
+          {username && <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '2px' }}>@{username}</div>}
+        </div>
+      </div>
+    )
+  }
+
+  // inspoClip slot
+  const thumb = clip?.thumbnail || clip?.inspo?.thumbnail || ''
+  const title = clip?.inspo?.title || clip?.name || ''
+  const username = clip?.inspo?.username || ''
+  return (
+    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Creator clip'}</div>
+        {username && <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '2px' }}>@{username}</div>}
       </div>
     </div>
   )
