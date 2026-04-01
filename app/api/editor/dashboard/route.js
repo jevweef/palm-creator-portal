@@ -32,18 +32,19 @@ export async function GET() {
     const allTaskIds = [...new Set(creators.flatMap(c => c.fields?.Tasks || []))]
     const creatorIdSet = new Set(creators.map(c => c.id))
 
-    const todayStr = new Date().toISOString().split('T')[0]
-    const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
-    const twoWeeksAgoStr = twoWeeksAgo.toISOString().split('T')[0]
-    const now = new Date()
-    const dayOfWeek = now.getDay()
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7))
-    monday.setHours(0, 0, 0, 0)
-    const weekStartStr = monday.toISOString().split('T')[0]
+    const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+    const pad = n => String(n).padStart(2, '0')
+    const estDateStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+    const todayStr = estDateStr(estNow)
+    const twoWeeksAgo = new Date(estNow); twoWeeksAgo.setDate(estNow.getDate() - 14)
+    const twoWeeksAgoStr = estDateStr(twoWeeksAgo)
+    const dayOfWeek = estNow.getDay()
+    const monday = new Date(estNow)
+    monday.setDate(estNow.getDate() - ((dayOfWeek + 6) % 7))
+    const weekStartStr = estDateStr(monday)
 
     // Fetch tasks + library assets + inspo-linked creator clips + future posts in parallel
-    const [tasks, libraryAssets, inspoLinkedAssets, futurePosts] = await Promise.all([
+    const [tasks, libraryAssets, inspoLinkedAssets, allPosts] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
           'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
@@ -72,9 +73,9 @@ export async function GET() {
         const creatorId = (a.fields?.['Palm Creators'] || [])[0]
         return creatorId && creatorIdSet.has(creatorId)
       })),
-      // Future scheduled posts — drives buffer calculation
+      // Posts from last 60 days + all future — drives buffer + calendar coloring
       fetchAirtableRecords('Posts', {
-        filterByFormula: `IS_AFTER({Scheduled Date}, NOW())`,
+        filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -60, 'days'))`,
         fields: ['Creator', 'Scheduled Date'],
       }),
     ])
@@ -220,17 +221,20 @@ export async function GET() {
       libraryByCreator[id].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
     }
 
-    // Group future posts by creator (total count + per-date breakdown)
+    // Group posts by creator: total future count + per-date breakdown (past 60 days + future)
     const futurePostsByCreator = {}
-    const futurePostDatesByCreator = {}
-    for (const post of futurePosts) {
+    const postsByDateByCreator = {}
+    for (const post of allPosts) {
       const creatorId = (post.fields?.Creator || [])[0]
       if (!creatorId) continue
-      futurePostsByCreator[creatorId] = (futurePostsByCreator[creatorId] || 0) + 1
       const date = (post.fields?.['Scheduled Date'] || '').split('T')[0]
       if (date) {
-        if (!futurePostDatesByCreator[creatorId]) futurePostDatesByCreator[creatorId] = {}
-        futurePostDatesByCreator[creatorId][date] = (futurePostDatesByCreator[creatorId][date] || 0) + 1
+        if (!postsByDateByCreator[creatorId]) postsByDateByCreator[creatorId] = {}
+        postsByDateByCreator[creatorId][date] = (postsByDateByCreator[creatorId][date] || 0) + 1
+      }
+      // Only count future posts toward buffer
+      if (date && date > todayStr) {
+        futurePostsByCreator[creatorId] = (futurePostsByCreator[creatorId] || 0) + 1
       }
     }
 
@@ -281,7 +285,7 @@ export async function GET() {
         inReview: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Pending Review'),
         library,
         inspoClips,
-        futurePostsByDate: futurePostDatesByCreator[c.id] || {},
+        postsByDate: postsByDateByCreator[c.id] || {},
       }
     })
 

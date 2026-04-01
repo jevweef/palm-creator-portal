@@ -981,7 +981,9 @@ function CreatorSection({ creator, onRefresh }) {
   }
 
   const dailyQuota = creator.dailyQuota || 2
-  const todayDateStr = new Date().toISOString().split('T')[0]
+  const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+  const pad = n => String(n).padStart(2, '0')
+  const todayDateStr = `${estNow.getFullYear()}-${pad(estNow.getMonth()+1)}-${pad(estNow.getDate())}`
   const [selectedDate, setSelectedDate] = useState(todayDateStr)
   const [showDatePicker, setShowDatePicker] = useState(false)
 
@@ -1023,18 +1025,21 @@ function CreatorSection({ creator, onRefresh }) {
     } else {
       colors[todayDateStr] = 'red'
     }
-    // Future dates: color based on scheduled posts in Posts table
-    // dates with posts scheduled = green (quota met) or yellow (partial); no posts = red
-    const futurePostsByDate = creator.futurePostsByDate || {}
-    // Enumerate next 60 days so unscheduled dates show red
-    for (let i = 1; i <= 60; i++) {
+    // All dates: overlay post schedule data (past 60 days + future)
+    // Task completion data (recentDone) takes precedence where it exists
+    const postsByDate = creator.postsByDate || {}
+    // Enumerate 60 days back + 60 days forward
+    for (let i = -60; i <= 60; i++) {
+      if (i === 0) continue // today handled above
       const d = new Date(todayDateStr + 'T12:00:00')
       d.setDate(d.getDate() + i)
-      const ds = d.toISOString().split('T')[0]
-      const count = futurePostsByDate[ds] || 0
+      const ds = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+      if (colors[ds]) continue // already set by recentDone task data
+      const count = postsByDate[ds] || 0
       if (count >= dailyQuota) colors[ds] = 'green'
       else if (count > 0) colors[ds] = 'yellow'
-      else colors[ds] = 'red'
+      else if (i < 0) colors[ds] = 'red' // past date with no posts = missed
+      else colors[ds] = 'red' // future date with no posts scheduled
     }
     return colors
   })()
