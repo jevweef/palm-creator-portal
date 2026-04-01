@@ -58,7 +58,7 @@ async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedbac
   ].join('\n')
 
   try {
-    // Send text message
+    // Send text message — check Telegram JSON body, not just HTTP status (Telegram always returns HTTP 200)
     const msgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -69,21 +69,28 @@ async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedbac
         parse_mode: 'Markdown',
       }),
     })
-    if (!msgRes.ok) console.warn('[Revision Telegram] sendMessage failed:', await msgRes.text())
+    const msgData = await msgRes.json()
+    if (!msgData.ok) {
+      console.warn('[Revision Telegram] sendMessage failed:', msgData.description, '| chat_id:', EDITOR_CHAT_ID, 'thread:', EDITOR_THREAD_ID)
+    } else {
+      console.log('[Revision Telegram] Text message sent OK')
+    }
 
     // Send each screenshot as a photo
     for (const url of (screenshotUrls || [])) {
       try {
-        const rawUrl = url.replace('?dl=0', '?raw=1').replace('?dl=1', '?raw=1')
+        const rawUrl = url.replace(/([?&])dl=[01]/, '$1raw=1')
         const imgRes = await fetch(rawUrl)
-        if (!imgRes.ok) continue
+        if (!imgRes.ok) { console.warn('[Revision Telegram] Could not fetch screenshot:', rawUrl); continue }
         const buffer = await imgRes.arrayBuffer()
         const form = new FormData()
         form.append('chat_id', String(EDITOR_CHAT_ID))
         form.append('message_thread_id', String(EDITOR_THREAD_ID))
-        form.append('photo', new Blob([buffer], { type: 'image/png' }), 'screenshot.png')
+        form.append('photo', new Blob([buffer], { type: 'image/jpeg' }), 'screenshot.jpg')
         const photoRes = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form })
-        if (!photoRes.ok) console.warn('[Revision Telegram] sendPhoto failed:', await photoRes.text())
+        const photoData = await photoRes.json()
+        if (!photoData.ok) console.warn('[Revision Telegram] sendPhoto failed:', photoData.description)
+        else console.log('[Revision Telegram] Photo sent OK')
       } catch (e) {
         console.warn('[Revision Telegram] Screenshot failed (non-fatal):', e.message)
       }
