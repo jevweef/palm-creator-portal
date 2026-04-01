@@ -1579,9 +1579,10 @@ export default function EditorQueue() {
       const reg = await navigator.serviceWorker.register('/sw.js')
       await navigator.serviceWorker.ready
 
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BBAmRh4Y45N-wv0Xpj3kf0scyA0dCt-nJFhurWAM69kqcRarLkdrz9ttIZT4K-isDyN0Zm_vLtVJiLGQwMdGIZk'
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        applicationServerKey: vapidKey,
       })
 
       const res = await fetch('/api/admin/push-subscribe', {

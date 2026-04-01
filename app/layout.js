@@ -6,6 +6,7 @@ import SuperAdminBar from '@/components/SuperAdminBar'
 export const metadata = {
   title: 'Palm Management',
   description: 'Creator portal',
+  manifest: '/manifest.json',
   openGraph: {
     title: 'Palm Management',
     description: 'Creator portal',
