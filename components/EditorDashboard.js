@@ -896,6 +896,20 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
               </div>
             )}
 
+            {/* Admin screenshots */}
+            {task?.adminScreenshots?.length > 0 && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Reference Screenshots</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {task.adminScreenshots.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', flexShrink: 0 }}>
+                      <img src={url} alt={`Screenshot ${i + 1}`} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #2a2a2a', cursor: 'pointer' }} />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Direction */}
             {inspo.notes && (
               <div>
@@ -1295,7 +1309,7 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
       }[slot.type] || { borderColor: '#1a1a1a', bg: '#080808', dotColor: '#3f3f46', label: '' }
 
   const isDone = slot.type === 'done'
-  const clickable = slot.type !== 'empty'
+  const clickable = true
   const opacity = 1
 
   return (
@@ -1567,24 +1581,28 @@ function CreatorSection({ creator, onRefresh }) {
           <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
             ⚠ Needs Revision
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {creator.needsRevision.map(task => (
-              <div key={task.id} style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div key={task.id}
+                onClick={() => setTaskModal({ type: 'inProgress', task })}
+                style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: '#1a0808', border: '1px solid #3d1212', transition: 'background 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#260d0d'}
+                onMouseLeave={e => e.currentTarget.style.background = '#1a0808'}
+              >
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0 }}>
                   {task.inspo?.thumbnail && (
-                    <img src={task.inspo.thumbnail} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }} />
+                    <img src={task.inspo.thumbnail} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
                   )}
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#fca5a5' }}>{task.inspo?.title || task.name}</div>
                     {task.adminFeedback && (
                       <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>
                     )}
                   </div>
                 </div>
-                <button onClick={() => handleAction('revision', task)}
-                  style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, background: '#2d1515', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '7px', cursor: 'pointer', flexShrink: 0 }}>
-                  Upload Revision
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '11px', color: '#ef4444', opacity: 0.7 }}>View feedback →</span>
+                </div>
               </div>
             ))}
           </div>
