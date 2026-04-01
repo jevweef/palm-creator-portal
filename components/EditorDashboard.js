@@ -613,12 +613,26 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#71717a
   )
 }
 
-function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, onClose }) {
+function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, onClose, onSaved }) {
   const task = slot.task || null
   const clip = slot.clip || null
   const isClip = slot.type === 'inspoClip'
   const [starting, setStarting] = useState(false)
   const [startErr, setStartErr] = useState('')
+
+  // Editor submit tool state
+  const [editorTab, setEditorTab] = useState('create') // 'create' | 'upload'
+  const [caption, setCaption] = useState('')
+  const [yPosition, setYPosition] = useState(75)
+  const [rendering, setRendering] = useState(false)
+  const [renderId, setRenderId] = useState(null)
+  const [renderStatus, setRenderStatus] = useState('idle') // idle | rendering | succeeded | failed
+  const [renderUrl, setRenderUrl] = useState(null)
+  const [renderErr, setRenderErr] = useState('')
+  const [uploadUrl, setUploadUrl] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveErr, setSaveErr] = useState('')
+  const [saved, setSaved] = useState(false)
 
   const inspo = task?.inspo || clip?.inspo || {}
   const assetLink = task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || clip?.dropboxLink || ''
@@ -647,6 +661,78 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
     } catch (err) {
       setStartErr(err.message)
       setStarting(false)
+    }
+  }
+
+  // Poll for render completion
+  useEffect(() => {
+    if (!renderId || renderStatus !== 'rendering') return
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/editor/render/${renderId}`)
+        const data = await res.json()
+        if (data.status === 'succeeded') {
+          setRenderStatus('succeeded')
+          setRenderUrl(data.url)
+          clearInterval(interval)
+        } else if (data.status === 'failed') {
+          setRenderStatus('failed')
+          setRenderErr(data.errorMessage || 'Render failed')
+          clearInterval(interval)
+        }
+      } catch {}
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [renderId, renderStatus])
+
+  const handleRender = async () => {
+    const clipUrl = rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '')
+    if (!clipUrl) { setRenderErr('No clip URL found'); return }
+    if (!caption.trim()) { setRenderErr('Enter a caption first'); return }
+    setRendering(true)
+    setRenderErr('')
+    setRenderUrl(null)
+    setRenderStatus('rendering')
+    try {
+      const res = await fetch('/api/editor/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clipUrl, caption: caption.trim(), yPosition }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Render failed')
+      setRenderId(data.renderId)
+    } catch (err) {
+      setRenderStatus('failed')
+      setRenderErr(err.message)
+    } finally {
+      setRendering(false)
+    }
+  }
+
+  const handleSave = async (url) => {
+    if (!url) return
+    setSaving(true)
+    setSaveErr('')
+    try {
+      const res = await fetch('/api/editor/save-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: task?.asset?.id || null,
+          taskId: task?.id || null,
+          editedFileLink: url,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      setSaved(true)
+      if (onSaved) onSaved()
+      setTimeout(onClose, 1200)
+    } catch (err) {
+      setSaveErr(err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -772,10 +858,94 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
               </button>
             )}
             {slot.type === 'inProgress' && (
-              <button onClick={() => { onAction('submit', task); onClose() }}
-                style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: '#0a0a3d', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer' }}>
-                Submit for Review ↑
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Tab switcher */}
+                <div style={{ display: 'flex', background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: '8px', padding: '3px', gap: '3px' }}>
+                  {['create', 'upload'].map(tab => (
+                    <button key={tab} onClick={() => setEditorTab(tab)}
+                      style={{ flex: 1, padding: '7px', fontSize: '12px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: editorTab === tab ? '#1e1e1e' : 'transparent', color: editorTab === tab ? '#fff' : '#52525b', textTransform: 'capitalize' }}>
+                      {tab === 'create' ? 'Create in Creatomate' : 'Upload / Paste Link'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* CREATE tab */}
+                {editorTab === 'create' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Caption Text</div>
+                      <textarea
+                        value={caption}
+                        onChange={e => setCaption(e.target.value)}
+                        placeholder="Type the on-screen text..."
+                        rows={2}
+                        style={{ width: '100%', background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: '#e4e4e7', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                        Position — {yPosition <= 30 ? 'Top' : yPosition <= 60 ? 'Middle' : 'Lower Third'} ({yPosition}%)
+                      </div>
+                      <input type="range" min={5} max={95} value={yPosition} onChange={e => setYPosition(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: '#a78bfa' }} />
+                    </div>
+
+                    {/* Render result */}
+                    {renderUrl && (
+                      <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #1e1e1e' }}>
+                        <video src={renderUrl} controls muted loop playsInline style={{ width: '100%', display: 'block', maxHeight: '180px', objectFit: 'contain', background: '#000' }} />
+                      </div>
+                    )}
+
+                    {renderErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{renderErr}</div>}
+
+                    {renderStatus === 'rendering' && (
+                      <div style={{ fontSize: '12px', color: '#a78bfa', textAlign: 'center' }}>Rendering... this takes ~30–40s</div>
+                    )}
+
+                    {!renderUrl ? (
+                      <button onClick={handleRender} disabled={rendering || renderStatus === 'rendering' || !caption.trim()}
+                        style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: '#1a0a2e', color: '#a78bfa', border: '1px solid #5c2a8c', borderRadius: '8px', cursor: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 'not-allowed' : 'pointer', opacity: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 0.5 : 1 }}>
+                        {rendering ? 'Starting...' : renderStatus === 'rendering' ? 'Rendering...' : 'Render ↗'}
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => { setRenderUrl(null); setRenderId(null); setRenderStatus('idle') }}
+                          style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: '#52525b', border: '1px solid #1e1e1e', borderRadius: '8px', cursor: 'pointer' }}>
+                          Re-render
+                        </button>
+                        <button onClick={() => handleSave(renderUrl)} disabled={saving || saved}
+                          style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saved ? '#0a2e0a' : '#0a0a3d', color: saved ? '#22c55e' : '#a78bfa', border: `1px solid ${saved ? '#1a5c1a' : '#a78bfa'}`, borderRadius: '8px', cursor: (saving || saved) ? 'not-allowed' : 'pointer' }}>
+                          {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save & Submit ↑'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* UPLOAD tab */}
+                {editorTab === 'upload' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Dropbox or Drive Link</div>
+                      <input
+                        type="url"
+                        value={uploadUrl}
+                        onChange={e => setUploadUrl(e.target.value)}
+                        placeholder="Paste shared link..."
+                        style={{ width: '100%', background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: '7px', padding: '9px 10px', fontSize: '13px', color: '#e4e4e7', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                      />
+                    </div>
+                    {saveErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{saveErr}</div>}
+                    <button onClick={() => handleSave(uploadUrl)} disabled={saving || saved || !uploadUrl.trim()}
+                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#0a2e0a' : '#0a0a3d', color: saved ? '#22c55e' : '#a78bfa', border: `1px solid ${saved ? '#1a5c1a' : '#a78bfa'}`, borderRadius: '8px', cursor: (saving || saved || !uploadUrl.trim()) ? 'not-allowed' : 'pointer', opacity: (!uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
+                      {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save & Submit ↑'}
+                    </button>
+                  </div>
+                )}
+
+                {saveErr && editorTab === 'create' && <div style={{ fontSize: '12px', color: '#ef4444' }}>{saveErr}</div>}
+              </div>
             )}
             {isClip && (
               <>
