@@ -53,7 +53,7 @@ export default function AdminLayout({ children }) {
     <div style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#0a0a0a' }}>
       {/* Sidebar */}
       <aside style={{
-        width: '200px',
+        width: '160px',
         borderRight: '1px solid #222',
         padding: '20px 0',
         flexShrink: 0,
@@ -91,7 +91,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main content */}
-      <main style={{ flex: 1, padding: '24px 32px', maxWidth: '1200px' }}>
+      <main style={{ flex: 1, padding: '24px 32px', minWidth: 0, maxWidth: 'calc(1400px - 160px)' }}>
         {children}
       </main>
     </div>
