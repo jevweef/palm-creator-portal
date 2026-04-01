@@ -670,20 +670,25 @@ function UnreviewedCard({ asset }) {
 // ─── For Review Section (Admin) ───────────────────────────────────────────────
 
 // ── RevisionFramePicker ───────────────────────────────────────────────────────
+// Two modes: 'scrub' (pick the frame) → 'crop' (drag corners to crop it)
 function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
   const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const imgRef = useRef(null)
+  const scaleRef = useRef(1)
+  const dragging = useRef(false)
+  const startPos = useRef(null)
+  const capturedJpegRef = useRef(null)
+
+  const [mode, setMode] = useState('scrub') // 'scrub' | 'crop'
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [capturing, setCapturing] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [sel, setSel] = useState(null)
   const [error, setError] = useState('')
 
   const rawUrl = videoUrl.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (videoUrl.includes('?') ? '&raw=1' : '?raw=1')
-
-  const handleScrub = (e) => {
-    const t = parseFloat(e.target.value)
-    setCurrentTime(t)
-    if (videoRef.current) videoRef.current.currentTime = t
-  }
 
   const formatTime = (s) => {
     const m = Math.floor(s / 60)
@@ -691,11 +696,87 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
     return `${m}:${sec}`
   }
 
+  // ── Crop canvas helpers ──────────────────────────────────────────────────────
+  function drawCrop(selection) {
+    const canvas = canvasRef.current
+    const image = imgRef.current
+    if (!canvas || !image) return
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+    if (!selection) return
+    const x = Math.min(selection.x1, selection.x2)
+    const y = Math.min(selection.y1, selection.y2)
+    const w = Math.abs(selection.x2 - selection.x1)
+    const h = Math.abs(selection.y2 - selection.y1)
+    // dim outside
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(image, x / scaleRef.current, y / scaleRef.current, w / scaleRef.current, h / scaleRef.current, x, y, w, h)
+    // border
+    ctx.strokeStyle = '#ef4444'
+    ctx.lineWidth = 2
+    ctx.strokeRect(x + 1, y + 1, w - 2, h - 2)
+    // corner handles
+    const hs = 8
+    ctx.fillStyle = '#ef4444'
+    ;[[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(([cx, cy]) => {
+      ctx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs)
+    })
+  }
+
+  function getCanvasPos(e) {
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: Math.max(0, Math.min(canvas.width, (e.clientX - rect.left) * (canvas.width / rect.width))),
+      y: Math.max(0, Math.min(canvas.height, (e.clientY - rect.top) * (canvas.height / rect.height))),
+    }
+  }
+
+  const onMouseDown = (e) => {
+    e.preventDefault()
+    dragging.current = true
+    const pos = getCanvasPos(e)
+    startPos.current = pos
+    const newSel = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y }
+    setSel(newSel)
+    drawCrop(newSel)
+  }
+
+  const onMouseMove = (e) => {
+    if (!dragging.current) return
+    const pos = getCanvasPos(e)
+    const newSel = { x1: startPos.current.x, y1: startPos.current.y, x2: pos.x, y2: pos.y }
+    setSel(newSel)
+    drawCrop(newSel)
+  }
+
+  const onMouseUp = () => { dragging.current = false }
+
+  // ── Load captured JPEG onto crop canvas ──────────────────────────────────────
+  useEffect(() => {
+    if (mode !== 'crop' || !capturedJpegRef.current) return
+    const image = new Image()
+    image.onload = () => {
+      imgRef.current = image
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const maxW = 340, maxH = 500
+      const scale = Math.min(maxW / image.width, maxH / image.height, 1)
+      scaleRef.current = scale
+      canvas.width = Math.round(image.width * scale)
+      canvas.height = Math.round(image.height * scale)
+      drawCrop(null)
+    }
+    image.src = `data:image/jpeg;base64,${capturedJpegRef.current}`
+  }, [mode])
+
+  // ── Capture frame (server-side FFmpeg) ───────────────────────────────────────
   const handleCapture = async () => {
     setCapturing(true)
     setError('')
     try {
-      // Extract frame server-side (reuses the same endpoint as post prep)
       const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -703,8 +784,21 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
       })
       const frameData = await frameRes.json()
       if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
+      capturedJpegRef.current = frameData.jpeg
+      setSel(null)
+      setMode('crop')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setCapturing(false)
+    }
+  }
 
-      // Upload to Dropbox revision notes folder
+  // ── Upload blob to Dropbox and call onCapture ────────────────────────────────
+  const uploadBlob = async (blob) => {
+    setUploading(true)
+    setError('')
+    try {
       const tokenRes = await fetch('/api/editor-upload-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -714,7 +808,6 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
       const { accessToken, rootNamespaceId } = await tokenRes.json()
       const pathRoot = JSON.stringify({ '.tag': 'root', root: rootNamespaceId })
 
-      const blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
       const fileName = `revision_frame_${Date.now()}.jpg`
       const filePath = `/Palm Ops/Revision Notes/${fileName}`
 
@@ -746,49 +839,116 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
       onClose()
     } catch (err) {
       setError(err.message)
-    } finally {
-      setCapturing(false)
+      setUploading(false)
     }
   }
 
+  const handleCropAndAdd = () => {
+    if (!sel || !imgRef.current) return
+    const selW = Math.abs(sel.x2 - sel.x1)
+    const selH = Math.abs(sel.y2 - sel.y1)
+    if (selW < 10 || selH < 10) return
+    const x = Math.min(sel.x1, sel.x2)
+    const y = Math.min(sel.y1, sel.y2)
+    const scale = scaleRef.current
+    const crop = document.createElement('canvas')
+    crop.width = Math.round(selW / scale)
+    crop.height = Math.round(selH / scale)
+    crop.getContext('2d').drawImage(imgRef.current, x / scale, y / scale, selW / scale, selH / scale, 0, 0, crop.width, crop.height)
+    crop.toBlob(blob => uploadBlob(blob), 'image/jpeg', 0.92)
+  }
+
+  const handleUseFullFrame = () => {
+    const blob = new Blob([Uint8Array.from(atob(capturedJpegRef.current), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+    uploadBlob(blob)
+  }
+
+  const selW = sel ? Math.abs(sel.x2 - sel.x1) : 0
+  const selH = sel ? Math.abs(sel.y2 - sel.y1) : 0
+  const canCrop = selW > 10 && selH > 10
+
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
+      onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
       <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header */}
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#d4d4d8' }}>Pick a frame</div>
-            <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>Scrub to the moment you want to flag</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#d4d4d8' }}>
+              {mode === 'scrub' ? 'Pick a frame' : 'Crop frame'}
+            </div>
+            <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>
+              {mode === 'scrub' ? 'Scrub to the moment you want to flag' : 'Drag to select — adjust corners to isolate the issue'}
+            </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {mode === 'crop' && (
+              <button onClick={() => { setMode('scrub'); setSel(null) }}
+                style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                ← Back
+              </button>
+            )}
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          </div>
         </div>
 
-        <div style={{ background: '#080808', aspectRatio: '9/16', overflow: 'hidden' }}>
-          <video
-            ref={videoRef}
-            src={rawUrl}
-            muted
-            playsInline
-            preload="metadata"
-            onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
-            onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        </div>
+        {/* Scrub mode: video player */}
+        {mode === 'scrub' && (
+          <>
+            <div style={{ background: '#080808', aspectRatio: '9/16', overflow: 'hidden' }}>
+              <video ref={videoRef} src={rawUrl} muted playsInline preload="metadata"
+                onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+                onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </div>
+            <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '11px', color: '#71717a', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
+                <input type="range" min={0} max={duration || 100} step={0.05} value={currentTime}
+                  onChange={e => { const t = parseFloat(e.target.value); setCurrentTime(t); if (videoRef.current) videoRef.current.currentTime = t }}
+                  style={{ flex: 1, accentColor: '#ef4444', cursor: 'pointer' }} />
+                <span style={{ fontSize: '11px', color: '#52525b', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
+              </div>
+              {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
+              <button onClick={handleCapture} disabled={capturing || !duration}
+                style={{ padding: '10px', background: capturing || !duration ? '#0d0d0d' : '#1a0a0a', border: '1px solid #5c2020', color: capturing || !duration ? '#3f3f46' : '#ef4444', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
+                {capturing ? 'Extracting frame...' : '📸 Capture this frame'}
+              </button>
+            </div>
+          </>
+        )}
 
-        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '11px', color: '#71717a', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
-            <input type="range" min={0} max={duration || 100} step={0.05} value={currentTime} onChange={handleScrub}
-              style={{ flex: 1, accentColor: '#a78bfa', cursor: 'pointer' }} />
-            <span style={{ fontSize: '11px', color: '#52525b', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
+        {/* Crop mode: canvas with drag selection */}
+        {mode === 'crop' && (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ background: '#080808', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '8px' }}>
+              <canvas
+                ref={canvasRef}
+                onMouseDown={onMouseDown}
+                onMouseMove={onMouseMove}
+                onMouseUp={onMouseUp}
+                onMouseLeave={onMouseUp}
+                style={{ display: 'block', cursor: 'crosshair', maxWidth: '100%', borderRadius: '4px', userSelect: 'none' }}
+              />
+            </div>
+            <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={handleUseFullFrame} disabled={uploading}
+                  style={{ flex: 1, padding: '9px', background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#71717a', borderRadius: '8px', cursor: uploading ? 'default' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: uploading ? 0.5 : 1 }}>
+                  Use full frame
+                </button>
+                <button onClick={handleCropAndAdd} disabled={!canCrop || uploading}
+                  style={{ flex: 2, padding: '9px', background: canCrop && !uploading ? '#1a0a0a' : '#0d0d0d', border: '1px solid #5c2020', color: canCrop && !uploading ? '#ef4444' : '#3f3f46', borderRadius: '8px', cursor: canCrop && !uploading ? 'pointer' : 'default', fontSize: '12px', fontWeight: 700 }}>
+                  {uploading ? 'Uploading...' : 'Crop & Add'}
+                </button>
+              </div>
+              {!canCrop && <div style={{ fontSize: '10px', color: '#3f3f46', textAlign: 'center' }}>Drag on the image to select an area</div>}
+            </div>
           </div>
-          {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
-          <button onClick={handleCapture} disabled={capturing || !duration}
-            style={{ padding: '10px', background: capturing || !duration ? '#0d0d0d' : '#1a0a0a', border: '1px solid #5c2020', color: capturing || !duration ? '#3f3f46' : '#ef4444', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
-            {capturing ? 'Capturing...' : '📸 Capture this frame'}
-          </button>
-        </div>
+        )}
       </div>
     </div>
   )
