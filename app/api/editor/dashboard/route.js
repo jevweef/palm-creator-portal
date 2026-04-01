@@ -73,10 +73,10 @@ export async function GET() {
         const creatorId = (a.fields?.['Palm Creators'] || [])[0]
         return creatorId && creatorIdSet.has(creatorId)
       })),
-      // Posts from last 60 days + all future — drives buffer + calendar coloring
+      // Posts from last 60 days + all future — drives buffer + calendar coloring + telegram sent status
       fetchAirtableRecords('Posts', {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -60, 'days'))`,
-        fields: ['Creator', 'Scheduled Date'],
+        fields: ['Creator', 'Scheduled Date', 'Task', 'Telegram Sent At'],
       }),
     ])
 
@@ -143,6 +143,7 @@ export async function GET() {
         creatorNotes: task.fields?.['Creator Notes'] || '',
         editorNotes: task.fields?.['Editor Notes'] || '',
         completedAt: task.fields?.['Completed At'] || null,
+        telegramSentAt: taskTelegramMap[task.id] || null,
         asset: {
           id: assetId,
           name: asset['Asset Name'] || '',
@@ -219,6 +220,15 @@ export async function GET() {
     }
     for (const id of Object.keys(libraryByCreator)) {
       libraryByCreator[id].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
+    }
+
+    // Build taskId → telegramSentAt map from posts
+    const taskTelegramMap = {}
+    for (const post of allPosts) {
+      const sentAt = post.fields?.['Telegram Sent At']
+      if (!sentAt) continue
+      const taskId = (post.fields?.Task || [])[0]
+      if (taskId) taskTelegramMap[taskId] = sentAt
     }
 
     // Group posts by creator: total future count + per-date breakdown (past 60 days + future)

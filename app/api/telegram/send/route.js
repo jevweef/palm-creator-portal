@@ -219,17 +219,21 @@ export async function POST(request) {
 
       if (isVideo(editedFileLink) && thumbnailUrl) {
         // Send video + photo as a media group (shows side by side like native Telegram media)
+        // Set thumbnail on the video so it shows a preview frame instead of black
         const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
         if (!thumbRes.ok) throw new Error('Failed to download thumbnail from Dropbox')
         const thumbBuffer = await thumbRes.arrayBuffer()
+        const thumbMime = getMimeType(thumbnailUrl)
+        const thumbFilename = getFilename(thumbnailUrl)
 
         const mediaGroup = [
-          { type: 'video', media: 'attach://video_file', supports_streaming: true, ...(caption ? { caption } : {}) },
+          { type: 'video', media: 'attach://video_file', thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
           { type: 'photo', media: 'attach://photo_file' },
         ]
         form.append('media', JSON.stringify(mediaGroup))
         form.append('video_file', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
-        form.append('photo_file', new Blob([thumbBuffer], { type: getMimeType(thumbnailUrl) }), getFilename(thumbnailUrl))
+        form.append('thumb_file', new Blob([thumbBuffer], { type: thumbMime }), thumbFilename)
+        form.append('photo_file', new Blob([thumbBuffer], { type: thumbMime }), thumbFilename)
         result = await telegramUpload('sendMediaGroup', form)
       } else if (isVideo(editedFileLink)) {
         // No thumbnail — send video only

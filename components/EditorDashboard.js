@@ -1169,6 +1169,7 @@ function SlotContent({ slot }) {
 
 function doneSlotStyle(task) {
   const s = task?.adminReviewStatus || ''
+  if (task?.telegramSentAt) return { borderColor: '#1a3a2e', bg: '#020f08', dotColor: '#4ade80', label: 'Sent ✈' }
   if (s === 'Approved') return { borderColor: '#1a3a1a', bg: '#030f03', dotColor: '#22c55e', label: 'Approved ✓' }
   return { borderColor: '#2a3a10', bg: '#0a0f02', dotColor: '#a3e635', label: 'In Review' }
 }
