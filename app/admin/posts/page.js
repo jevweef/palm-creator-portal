@@ -532,7 +532,7 @@ function PostCard({ post, onRefresh, onSend }) {
           const d = new Date(scheduledDate)
           const utcH = d.getUTCHours()
           const slot = utcH < 20 ? 'Morning' : 'Evening'
-          const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getUTCDay()]
+          const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()]
           const monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]
           const label = `${dayName} · ${monthName} ${d.getUTCDate()} · ${slot}`
           return (
