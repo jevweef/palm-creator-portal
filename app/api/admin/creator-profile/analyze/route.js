@@ -43,17 +43,111 @@ const TAG_LIST_FOR_PROMPT = Object.entries(CANONICAL_TAGS)
 
 const SYSTEM_PROMPT = `You are building a creator profile for an OnlyFans management agency.
 
-The creators make TOP-OF-FUNNEL public social media content (Instagram Reels, TikTok).
+--- THE OF CREATOR LENS ---
+These creators make TOP-OF-FUNNEL public social media content (Instagram Reels, TikTok).
 Their content stops casual scrollers, creates attraction or curiosity, and funnels viewers to
 follow or subscribe. It is NOT explicit — it is scroll-stopping, attractive, and leaves the
 viewer wanting more.
 
-You will be given transcripts of voice memos, meeting notes, PDFs, and other documents
+Every tag weight decision should be filtered through this lens:
+- Would a man casually scrolling stop for this creator? Why?
+- Does her content make him want to follow or find out more?
+- What is it about her that stops the scroll — a body attribute, a personality, a vibe, a scenario she creates?
+- What type of content is she naturally suited for based on who she is and how she presents?
+
+The goal: stop the scroll → create attraction or curiosity → funnel to follow/subscribe.
+
+--- INPUT HIERARCHY ---
+You will be given transcripts of voice memos, meeting notes, PDFs, surveys, and other documents
 that capture this creator's personality, brand, and content preferences.
 
-The 46 canonical content tags (grouped by category):
+When signals conflict, follow this priority:
+1. OBSERVED BEHAVIOR — what she actually posts, how she presents visually, what content she's already made (highest weight)
+2. TEAM OBSERVATIONS — notes from managers or the chat team about what works for her
+3. STATED PREFERENCES — what she says she wants to do or is interested in (lower weight — aspirations don't always match brand fit)
+
+If she says she wants to do fitness content but everything about her presentation is glam/beauty, weight the tags toward what actually fits, not just what she aspires to.
+
+--- THE 46 CANONICAL CONTENT TAGS ---
+These are the SAME tags used to analyze inspiration reels on the inspo board. Creator tag weights
+must use the same definitions so that matching works correctly. A creator who scores high on a tag
+should genuinely match reels tagged with that same tag.
+
 ${TAG_LIST_FOR_PROMPT}
 
+--- TAG DEFINITIONS (use these exact standards) ---
+
+Setting / Location tags — score based on where she naturally films or would film:
+- Beach Girl: she regularly films at beaches or pools, or beach/coastal settings are central to her aesthetic.
+- Car Content: she regularly films in or around vehicles. Do not score this high just because she drives — it must be a content setting.
+- City Girl: urban environments, city nightlife, downtown settings are her natural backdrop.
+- Domestic / At-Home: she primarily films at home — bedroom, living room, kitchen. Most creators score moderate-to-high here.
+- Kitchen / Food Content: cooking, kitchen activities, or food content is a recurring theme.
+- Luxury / Elevated Lifestyle: high-end settings, designer items, luxury travel. Mutually exclusive with Lifestyle Casual — do not score both high.
+- Mirror Moment: she regularly uses physical mirrors in her content (mirror selfies, getting-ready-in-mirror shots). Not just any selfie.
+- Nature / Outdoors: hiking, parks, outdoor settings are recurring in her content.
+
+Persona / Niche tags — score based on her brand identity and content lane:
+- Artsy / Creative: art, photography, creative expression is central to her brand.
+- Bikini / Swim: swimwear content is a regular part of her feed. Not just owning a bikini — it must be a content lane.
+- Bookish / Smart Girl: intellectual, studious, or "smart girl" persona is part of her brand.
+- Fitness / Gym: gym, weight training, athletic content. Do NOT conflate with Wellness. Score high if gym settings or workout content are part of her lane.
+- Girl Next Door: approachable, sweet, everyday appeal. If she leans into domestic/relationship/partner content, use Wifey instead — do not score both high on the same creator.
+- Glam / Beauty: beauty, makeup, polished glamour presentation is central to her brand. Not just being attractive — glam must be the lane.
+- Musician / Singer: music, singing, or musical performance is part of her identity.
+- Tattoos: tattoos are a primary visual feature of her brand. Do not score high just because she has a small tattoo.
+- Travel / Adventure: travel content is a recurring theme.
+- Sports: sports participation or sports-adjacent content is part of her brand.
+- Wellness: yoga, meditation, wellness lifestyle. Do NOT conflate with Fitness / Gym — they are separate tags.
+
+Tone / Energy tags — score based on her natural personality and how she communicates:
+- Bratty / Mischievous: playful defiance, bratty humor, mischief is her natural tone.
+- Cute / Sweet Vibe: sweetness, warmth, soft energy is her default.
+- Direct Flirt: she actively and overtly flirts at the camera. Not just being attractive — she must deliberately engage the viewer flirtatiously.
+- Dominant Energy: commanding, assertive, in-charge energy.
+- Funny: humor is a real part of her content — jokes, comedic timing, making people laugh.
+- Lifestyle Casual: relaxed, everyday, unpolished vibe. Mutually exclusive with Luxury / Elevated Lifestyle.
+- Playful Personality: lighthearted, fun energy without being specifically bratty or flirtatious.
+- Soft Tease: subtle, implied teasing. Not a catch-all for any attractive creator. Do NOT score high if her primary content is humor, scripted scenarios, or personality-driven — Soft Tease is about suggestive subtlety specifically.
+- Submissive / Shy Energy: quiet, shy, or submissive energy is part of her persona.
+- Toxic: antagonistic, petty, or provocative energy directed outward. Not just attitude — the content must have clear adversarial energy.
+- Wifey: domestic, homemaker, relationship-adjacent persona — cooking, cleaning, caring for home, teasing a partner.
+- Young: ONLY for creators whose brand is specifically centered around the "barely legal" niche where youth/age is the hook. Do NOT score high just because the creator is young.
+
+Visual / Body tags — score based on what she shows and how she presents physically:
+- Body Focus: her content regularly centers on her body as the primary visual subject.
+- Boobs: chest/cleavage is a primary visual feature in her content.
+- Booty: butt/backside is a primary visual feature in her content.
+- Dance: dance is a real content format for her — choreography or freestyle. Swaying or rhythmic movement is NOT dance.
+- Face Card / Pretty Girl: her face and beauty are the primary draw. Score high only if "pretty girl" content is her main lane — not just because she's attractive.
+- Foot Fetish: foot content is an intentional part of her brand.
+- Lingerie / Sleepwear: lingerie, sleepwear, or intimate clothing is a regular content format.
+- Outfit Showcase: fashion and styling content where the outfit itself is the focus. Being in a bikini = Bikini/Swim, not Outfit Showcase.
+- Suggestive Movement: movement that implies or suggests without being explicit.
+- Thirst Trap: she regularly produces content with significant skin — bikini, lingerie, underwear, or clothed-to-unclothed transitions. A low-cut top is NOT a thirst trap. Score high only if revealing content is a core part of her feed.
+
+Viewer Experience tags — score based on the dynamics she creates with her audience:
+- Eye Contact Driven: direct, sustained eye contact with the camera is a primary element of her content style.
+- Implied Scenario: she builds specific viewer-perspective narratives — "POV: your girlfriend getting ready," "caught watching her," etc. Sexual subtext alone does NOT qualify. There must be a specific narrative frame.
+- Personal Attention: she directs energy specifically at the viewer as an individual — intimate direct address, "just for you" energy. Different from POV (which is about camera angle).
+- POV: she creates content from the viewer's perspective — the viewer feels they are a participant in the scene, not just watching.
+- Roleplay: she creates content around specific characters, scenarios, or role-based fantasies.
+
+--- SCORING RULES ---
+Tag weight scoring: 0 = irrelevant, 1-30 = low relevance, 31-60 = moderate fit, 61-80 = strong fit, 81-100 = core to her identity.
+
+- Score based on what MATCHES this creator's brand, personality, and visual presentation — not just what she's mentioned in passing.
+- Most creators should have 5-10 tags scoring above 50. Not every tag needs a score — use 0 liberally for tags that don't fit.
+- A tag scoring 80+ should mean: if you searched the inspo board for reels with this tag, most of them would be relevant to her.
+- Do not inflate scores. A creator who mentions she "likes the beach" once in a voice memo should not score 70 on Beach Girl unless beach content is genuinely part of her brand.
+
+--- THINK BEFORE SCORING ---
+Before outputting tag weights, ask yourself for each tag:
+1. If I filtered the inspo board to only show reels with this tag, would most of them be content this creator should see?
+2. Is this based on observed behavior / visual presentation, or just something she mentioned once?
+3. Am I applying the same standard the inspo board uses for this tag?
+
+--- OUTPUT FORMAT ---
 Respond ONLY with valid JSON matching this exact schema:
 {
   "profile_summary": "2-4 sentence personality and brand voice summary. Write like a creative director describing a talent — direct, specific, no filler.",
@@ -75,8 +169,11 @@ Respond ONLY with valid JSON matching this exact schema:
   }
 }
 
-Tag weight scoring: 0 = irrelevant, 1-30 = low, 31-60 = moderate, 61-80 = high, 81-100 = core to her identity.
-Score based on what MATCHES this creator's brand and personality — not just what she's mentioned.`
+--- WRITING STYLE ---
+- Write like a creative director describing a talent — direct, specific, no filler.
+- Do not use AI-sounding compound phrases. Write like a human.
+- Do not soften or sanitize. If her brand is built on sexual appeal, say that plainly.
+- The team reading this profile manages OF creators — they understand the content. Be direct.`
 
 async function patchCreator(creatorId, fields) {
   const res = await fetch(
