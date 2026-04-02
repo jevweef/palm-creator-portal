@@ -130,10 +130,13 @@ function TelegramModal({ post, onClose, onSent }) {
 
 const REEL_PLATFORMS = ['Instagram Reel', 'TikTok', 'YouTube Shorts']
 
+const PHOTO_PAGE_SIZE = 12
+
 function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
   const [preview, setPreview] = useState(null) // photo being previewed
+  const [page, setPage] = useState(0)
   const isReel = (platforms || []).some(p => REEL_PLATFORMS.includes(p))
 
   useEffect(() => {
@@ -207,19 +210,40 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
               {isReel ? 'No unused photos left — all have been used as reel thumbnails.' : 'No photos in library for this creator.'}
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
-            {photos.map(photo => {
-              const rawUrl = rawDropboxUrl(photo.dropboxLink)
-              return (
-                <div key={photo.id} onClick={() => setPreview(photo)}
-                  style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s' }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = '#a78bfa'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
-                  <img src={rawUrl} alt={photo.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          {(() => {
+            const totalPages = Math.ceil(photos.length / PHOTO_PAGE_SIZE)
+            const pagePhotos = photos.slice(page * PHOTO_PAGE_SIZE, (page + 1) * PHOTO_PAGE_SIZE)
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
+                  {pagePhotos.map(photo => {
+                    const rawUrl = rawDropboxUrl(photo.dropboxLink)
+                    return (
+                      <div key={photo.id} onClick={() => setPreview(photo)}
+                        style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s' }}
+                        onMouseEnter={e => e.currentTarget.style.borderColor = '#a78bfa'}
+                        onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+                        <img src={rawUrl} alt={photo.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      </div>
+                    )
+                  })}
                 </div>
-              )
-            })}
-          </div>
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '16px' }}>
+                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                      style={{ padding: '6px 14px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '6px', color: page === 0 ? '#3f3f46' : '#a1a1aa', cursor: page === 0 ? 'default' : 'pointer', fontSize: '13px' }}>
+                      ← Prev
+                    </button>
+                    <span style={{ fontSize: '12px', color: '#52525b' }}>{page + 1} / {totalPages}</span>
+                    <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
+                      style={{ padding: '6px 14px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '6px', color: page === totalPages - 1 ? '#3f3f46' : '#a1a1aa', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: '13px' }}>
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       </div>
     </div>
