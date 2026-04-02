@@ -29,25 +29,21 @@ function etToUTC(etDateStr, etHour) {
   return new Date(Date.UTC(year, month - 1, day, etHour + offset))
 }
 
-// Returns the next available posting slot after latestSlotISO (or now).
-// Iterates over ET calendar days so slots are always 11 AM / 7 PM ET regardless of DST.
-// Uses a 6-hour lookback so approvals after 7 PM still land on today's evening slot.
-function getNextPostingSlot(latestSlotISO) {
-  const now = new Date()
-  const SIX_HOURS = 6 * 60 * 60 * 1000
-  const floor = new Date(Math.max(
-    now.getTime() - SIX_HOURS,
-    latestSlotISO ? new Date(latestSlotISO).getTime() : 0
-  ))
+// Returns the next available posting slot starting from the ET day the editor submitted.
+// existingSlotISOs: all Scheduled Date ISO strings already claimed for this creator.
+// submissionISO: task's Completed At (when editor submitted) — determines the target ET day.
+// Checks exact slot times so a far-future post doesn't block filling today's empty slots.
+function getNextPostingSlot(existingSlotISOs, submissionISO) {
+  const existingSet = new Set((existingSlotISOs || []).map(s => new Date(s).toISOString()))
 
-  // Get the ET calendar date for the floor to start iterating from
+  // Start from the ET calendar day the editor submitted the task
+  const targetDate = submissionISO ? new Date(submissionISO) : new Date()
   const startDateStr = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/New_York',
-  }).format(floor)
+  }).format(targetDate)
   const [sy, sm, sd] = startDateStr.split('-').map(Number)
 
   for (let dayOffset = 0; dayOffset <= 365; dayOffset++) {
-    // Advance by dayOffset ET calendar days
     const iterDate = new Date(Date.UTC(sy, sm - 1, sd + dayOffset))
     const etDateStr = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/New_York',
@@ -55,7 +51,7 @@ function getNextPostingSlot(latestSlotISO) {
 
     for (const etHour of SLOT_HOURS_ET) {
       const candidate = etToUTC(etDateStr, etHour)
-      if (candidate > floor) return candidate
+      if (!existingSet.has(candidate.toISOString())) return candidate
     }
   }
   return null
@@ -294,18 +290,20 @@ export async function PATCH(request) {
         const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         const postName = [creatorAKA, assetName || dateStr].filter(Boolean).join(' – ')
 
-        // Find the latest future posting slot for this creator
+        // Find next open posting slot for this creator, anchored to submission ET day
         try {
-          const futurePosts = await fetchAirtableRecords('Posts', {
-            filterByFormula: `IS_AFTER({Scheduled Date}, NOW())`,
+          const allRecentPosts = await fetchAirtableRecords('Posts', {
+            filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -30, 'days'))`,
             fields: ['Scheduled Date', 'Creator'],
-            sort: [{ field: 'Scheduled Date', direction: 'desc' }],
           })
-          const creatorFuturePosts = futurePosts.filter(p =>
+          const creatorPosts = allRecentPosts.filter(p =>
             (p.fields?.Creator || []).includes(creatorId)
           )
-          const latestSlot = creatorFuturePosts[0]?.fields?.['Scheduled Date'] || null
-          scheduledDate = getNextPostingSlot(latestSlot)
+          const existingSlotISOs = creatorPosts
+            .map(p => p.fields?.['Scheduled Date'])
+            .filter(Boolean)
+          const submissionISO = tasks[0].fields?.['Completed At'] || null
+          scheduledDate = getNextPostingSlot(existingSlotISOs, submissionISO)
         } catch (slotErr) {
           console.error('[Editor] Failed to compute posting slot:', slotErr.message)
         }
