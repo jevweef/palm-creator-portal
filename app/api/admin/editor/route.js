@@ -42,12 +42,13 @@ const ADMIN_ACTIONS = ['approve', 'requestRevision']
 const EDITOR_CHAT_ID = parseInt(process.env.EDITOR_CHAT_ID || '-1003779148361')
 const EDITOR_THREAD_ID = parseInt(process.env.EDITOR_THREAD_ID || '2')
 
-async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback, screenshotUrls }) {
+async function sendRevisionTelegram({ creatorName, creatorId, inspoTitle, taskName, feedback, screenshotUrls }) {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) { console.warn('[Revision Telegram] TELEGRAM_BOT_TOKEN not set'); return }
 
   const assetName = (taskName || '').replace(/^Edit:\s*/i, '')
   const title = inspoTitle || assetName || 'Unknown task'
+  const portalLink = creatorId ? `https://app.palm-mgmt.com/editor/${creatorId}` : null
 
   const caption = [
     `⚠️ Revision Needed`,
@@ -58,6 +59,7 @@ async function sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedbac
     ``,
     `Feedback:`,
     feedback,
+    ...(portalLink ? [``, portalLink] : []),
   ].join('\n')
 
   try {
@@ -331,7 +333,7 @@ export async function PATCH(request) {
       } catch (e) {
         console.warn('[Revision Telegram] Failed to fetch creator/inspo names:', e.message)
       }
-      await sendRevisionTelegram({ creatorName, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls })
+      await sendRevisionTelegram({ creatorName, creatorId, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls })
 
       return NextResponse.json({ ok: true, action: 'requestRevision' })
     }
