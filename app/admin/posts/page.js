@@ -374,6 +374,8 @@ function PostCard({ post, onRefresh, onSend }) {
   const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
   const [showPhotoPicker, setShowPhotoPicker] = useState(false)
   const [showFramePicker, setShowFramePicker] = useState(false)
+  const [thumbUploading, setThumbUploading] = useState(false)
+  const thumbFileRef = useRef(null)
 
   const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || '')
   const hasFile = !!post.asset?.editedFileLink
@@ -499,6 +501,30 @@ function PostCard({ post, onRefresh, onSend }) {
                   🎞 Pick from video
                 </button>
               )}
+              <input ref={thumbFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setThumbUploading(true)
+                  try {
+                    const form = new FormData()
+                    form.append('file', file)
+                    form.append('postId', post.id)
+                    const res = await fetch('/api/admin/posts/thumbnail', { method: 'POST', body: form })
+                    const data = await res.json()
+                    if (data.url) setThumbnailUrl(data.url)
+                  } catch (err) {
+                    console.error('Thumbnail upload failed:', err)
+                  } finally {
+                    setThumbUploading(false)
+                    e.target.value = ''
+                  }
+                }}
+              />
+              <button onClick={() => thumbFileRef.current?.click()} disabled={thumbUploading}
+                style={{ width: '100%', padding: '5px 10px', background: '#0d1a0d', border: '1px solid #1e3e1e', borderRadius: '6px', fontSize: '11px', color: '#6db86d', cursor: 'pointer', textAlign: 'center', opacity: thumbUploading ? 0.6 : 1 }}>
+                {thumbUploading ? 'Uploading…' : '📁 Upload from device'}
+              </button>
             </div>
           </div>
         </div>
