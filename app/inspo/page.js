@@ -160,10 +160,11 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [activeFormats, setActiveFormats] = useState([])
   const [tagMode, setTagMode] = useState('any')
   const [showMobileFilters, setShowMobileFilters] = useState(false)
-  const [sort, setSort] = useState('recent') // 'top' | 'recent' | 'viral'
+  const [sort, setSort] = useState('recent') // 'top' | 'recent' | 'viral' | 'foryou'
   const [search, setSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [textOnly, setTextOnly] = useState(false)
+  const [creatorTagWeights, setCreatorTagWeights] = useState({}) // { tag: weight }
 
   const [allTags, setAllTags] = useState([])
   const [allFormats, setAllFormats] = useState([])
@@ -203,6 +204,19 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     }
     load()
   }, [])
+
+  // Fetch tag weights for this creator and auto-switch to "For You" if weights exist
+  useEffect(() => {
+    if (!creatorOpsId) return
+    fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`)
+      .then(r => r.json())
+      .then(data => {
+        const weights = data.tagWeights || {}
+        setCreatorTagWeights(weights)
+        if (Object.keys(weights).length > 0) setSort('foryou')
+      })
+      .catch(() => {})
+  }, [creatorOpsId])
 
   const handleSave = useCallback(async (recordId) => {
     const isSaved = savedIds.has(recordId)
@@ -289,10 +303,16 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       result.sort((a, b) => (b.views || 0) - (a.views || 0))
     } else if (sort === 'recent') {
       result.sort((a, b) => new Date(b.creatorPostedDate || 0) - new Date(a.creatorPostedDate || 0))
+    } else if (sort === 'foryou' && Object.keys(creatorTagWeights).length > 0) {
+      result.sort((a, b) => {
+        const scoreA = [...(a.tags || []), ...(a.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
+        const scoreB = [...(b.tags || []), ...(b.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
+        return scoreB - scoreA
+      })
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, creatorTagWeights])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -370,6 +390,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
           <div className="hidden md:flex items-center gap-2" style={{flexWrap:'nowrap'}}>
             {/* Sort toggle */}
             <div style={{display:'flex', alignItems:'center', background:'#111', border:'1px solid #222', borderRadius:'9999px', padding:'2px', gap:'1px', flexShrink:0}}>
+              {creatorOpsId && Object.keys(creatorTagWeights).length > 0 && (
+                <SortBtn value="foryou" label="For You" />
+              )}
               <SortBtn value="top" label="Top" />
               <SortBtn value="viral" label="Viral" />
               <SortBtn value="recent" label="Recent" />
@@ -579,7 +602,10 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               {/* Sort */}
               <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#52525b', marginBottom:'8px'}}>Sort by</p>
               <div style={{display:'flex', gap:'8px', marginBottom:'20px'}}>
-                {[['recent','Recent'],['top','Top'],['viral','Viral']].map(([val, label]) => (
+                {[
+                  ...(creatorOpsId && Object.keys(creatorTagWeights).length > 0 ? [['foryou','For You']] : []),
+                  ['recent','Recent'],['top','Top'],['viral','Viral']
+                ].map(([val, label]) => (
                   <button key={val} onClick={() => setSort(val)} style={{
                     flex:1, padding:'10px', borderRadius:'10px', border:'1px solid #222', cursor:'pointer',
                     background: sort === val ? '#fff' : '#1a1a1a',

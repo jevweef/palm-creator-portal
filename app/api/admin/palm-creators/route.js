@@ -7,7 +7,7 @@ export async function GET() {
 
     const opsRecords = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `OR({Status} = 'Active', {Status} = 'Onboarding')`,
-      fields: ['Creator', 'AKA', 'Status', 'HQ Record ID'],
+      fields: ['Creator', 'AKA', 'Status', 'HQ Record ID', 'Profile Analysis Status'],
       sort: [{ field: 'Creator', direction: 'asc' }],
     })
 
@@ -17,6 +17,7 @@ export async function GET() {
       name: r.fields?.Creator || '',
       aka: r.fields?.AKA || '',
       status: r.fields?.Status?.name || r.fields?.Status || '',
+      profileAnalysisStatus: r.fields?.['Profile Analysis Status'] || 'Not Started',
     }))
 
     return NextResponse.json({ creators })
