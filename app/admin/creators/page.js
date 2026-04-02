@@ -356,7 +356,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const c = profile?.creator || {}
 
   const status = getDisplayStatus(c.profileAnalysisStatus, documents, c.profileLastAnalyzed, analyzing)
-  const topTags = [...tagWeights].sort((a, b) => b.weight - a.weight).slice(0, 3)
+  const topTags = [...tagWeights].filter(tw => tw.weight > 0).sort((a, b) => b.weight - a.weight).slice(0, 5)
 
   return (
     <div>
@@ -431,7 +431,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       {/* Profile tab */}
       {activeTab === 'profile' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {!c.profileSummary && status !== 'Complete' && (
+          {!c.profileSummary && status !== 'Analyzed' && status !== 'Reanalyze' && (
             <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#111', borderRadius: '8px', border: '1px solid #222' }}>
               No profile yet. Upload documents and run analysis to generate.
             </div>
