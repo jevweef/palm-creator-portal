@@ -14,14 +14,19 @@ const TASK_TO_ASSET_STATUS = {
 // 15 UTC = 10 AM EST / 11 AM EDT — 23 UTC = 6 PM EST / 7 PM EDT
 const SLOT_HOURS_UTC = [15, 23]
 
-// Returns the next available 12 PM / 9 PM UTC slot after latestSlotISO (or now)
+// Returns the next available posting slot after latestSlotISO (or now).
+// Uses a 6-hour lookback so approvals after 7 PM still land on today's evening
+// slot rather than being pushed to tomorrow — the slot label reflects the
+// intended posting day, not the exact approval time.
 function getNextPostingSlot(latestSlotISO) {
   const now = new Date()
-  const searchFrom = latestSlotISO
-    ? new Date(Math.max(now.getTime(), new Date(latestSlotISO).getTime()))
-    : now
+  const SIX_HOURS = 6 * 60 * 60 * 1000
+  const floor = new Date(Math.max(
+    now.getTime() - SIX_HOURS,
+    latestSlotISO ? new Date(latestSlotISO).getTime() : 0
+  ))
 
-  const startDay = new Date(searchFrom)
+  const startDay = new Date(floor)
   startDay.setUTCHours(0, 0, 0, 0)
 
   for (let dayOffset = 0; dayOffset <= 365; dayOffset++) {
@@ -29,7 +34,7 @@ function getNextPostingSlot(latestSlotISO) {
       const candidate = new Date(startDay)
       candidate.setUTCDate(startDay.getUTCDate() + dayOffset)
       candidate.setUTCHours(hour, 0, 0, 0)
-      if (candidate > searchFrom) return candidate
+      if (candidate > floor) return candidate
     }
   }
   return null
