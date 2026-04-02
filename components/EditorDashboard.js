@@ -1651,10 +1651,25 @@ function CreatorSection({ creator, onRefresh }) {
             return slots.map((slot, i) => {
               const isNext = i === nextActionableIndex
               const isLocked = slot.type !== 'done' && !isNext
+              // For done tasks: show actual scheduled posting date/slot from the Post record.
+              // For active/empty slots: show positional label based on the viewed date.
+              let slotLabel
+              if (slot.type === 'done' && slot.task?.postScheduledDate) {
+                const etH = getETHour(slot.task.postScheduledDate)
+                const slotName = etH < 15 ? 'Morning' : 'Evening'
+                const etParts = new Intl.DateTimeFormat('en-US', {
+                  timeZone: 'America/New_York', month: 'numeric', day: 'numeric',
+                }).formatToParts(new Date(slot.task.postScheduledDate))
+                const m = etParts.find(p => p.type === 'month')?.value || ''
+                const dy = etParts.find(p => p.type === 'day')?.value || ''
+                slotLabel = `${m}/${dy} / ${slotName}`
+              } else {
+                slotLabel = `${dateLabel} / ${slotNames[i] || `Slot ${i + 1}`}`
+              }
               return (
                 <VideoSlot
                   key={i}
-                  slotLabel={`${dateLabel} / ${slotNames[i] || `Slot ${i + 1}`}`}
+                  slotLabel={slotLabel}
                   slot={slot}
                   isNext={isNext}
                   isLocked={isLocked}
