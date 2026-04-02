@@ -42,10 +42,14 @@ export async function GET(request) {
     }
 
     // Fetch documents for this creator
-    const docRecords = await fetchAirtableRecords('Creator Profile Documents', {
-      filterByFormula: `FIND("${creatorId}", ARRAYJOIN({Creator}))`,
+    // Note: filterByFormula on linked record fields matches primary field value (name), not record ID.
+    // Fetch all and filter in JS by record ID instead.
+    const allDocRecords = await fetchAirtableRecords('Creator Profile Documents', {
       sort: [{ field: 'Upload Date', direction: 'desc' }],
     })
+    const docRecords = allDocRecords.filter(r =>
+      (r.fields['Creator'] || []).some(c => (c.id || c) === creatorId)
+    )
     const documents = docRecords.map(r => ({
       id: r.id,
       fileName: r.fields['File Name'] || '',
@@ -58,10 +62,12 @@ export async function GET(request) {
     }))
 
     // Fetch tag weights for this creator
-    const weightRecords = await fetchAirtableRecords('Creator Tag Weights', {
-      filterByFormula: `FIND("${creatorId}", ARRAYJOIN({Creator}))`,
+    const allWeightRecords = await fetchAirtableRecords('Creator Tag Weights', {
       sort: [{ field: 'Weight', direction: 'desc' }],
     })
+    const weightRecords = allWeightRecords.filter(r =>
+      (r.fields['Creator'] || []).some(c => (c.id || c) === creatorId)
+    )
     const tagWeights = weightRecords.map(r => ({
       id: r.id,
       tag: r.fields['Tag'] || '',

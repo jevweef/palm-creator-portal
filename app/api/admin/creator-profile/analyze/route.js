@@ -96,9 +96,10 @@ async function patchCreator(creatorId, fields) {
 
 async function upsertTagWeights(creatorId, tagWeights) {
   // Fetch existing weight records for this creator
-  const existing = await fetchAirtableRecords('Creator Tag Weights', {
-    filterByFormula: `FIND("${creatorId}", ARRAYJOIN({Creator}))`,
-  })
+  const allWeights = await fetchAirtableRecords('Creator Tag Weights', {})
+  const existing = allWeights.filter(r =>
+    (r.fields['Creator'] || []).some(c => (c.id || c) === creatorId)
+  )
   const existingByTag = {}
   existing.forEach(r => { existingByTag[r.fields['Tag']] = r.id })
 
@@ -168,10 +169,11 @@ export async function POST(request) {
     // Mark as analyzing
     await patchCreator(creatorId, { 'Profile Analysis Status': 'Analyzing' })
 
-    // Fetch all documents
-    const docRecords = await fetchAirtableRecords('Creator Profile Documents', {
-      filterByFormula: `FIND("${creatorId}", ARRAYJOIN({Creator}))`,
-    })
+    // Fetch all documents for this creator
+    const allDocRecords = await fetchAirtableRecords('Creator Profile Documents', {})
+    const docRecords = allDocRecords.filter(r =>
+      (r.fields['Creator'] || []).some(c => (c.id || c) === creatorId)
+    )
 
     // Transcribe any audio docs that don't yet have extracted text
     const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.webm'])
