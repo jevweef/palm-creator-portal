@@ -1648,11 +1648,23 @@ function CreatorSection({ creator, onRefresh }) {
             const d = new Date(selectedDate + 'T12:00:00')
             const dateLabel = `${d.getMonth() + 1}/${d.getDate()}`
             const nextActionableIndex = slots.findIndex(s => s.type !== 'done')
+            // Track which named slots are already claimed by done tasks so open slots
+            // get the correct remaining name (e.g. Morning when Evening is filled).
+            const takenSlotNames = new Set(
+              slots
+                .filter(s => s.type === 'done' && s.task?.postScheduledDate)
+                .map(s => {
+                  const etH = getETHour(s.task.postScheduledDate)
+                  return etH < 15 ? 'Morning' : etH < 17 ? 'Afternoon' : 'Evening'
+                })
+            )
+            const openSlotNames = slotNames.filter(n => !takenSlotNames.has(n))
+            let openSlotIdx = 0
             return slots.map((slot, i) => {
               const isNext = i === nextActionableIndex
               const isLocked = slot.type !== 'done' && !isNext
               // For done tasks: show actual scheduled posting date/slot from the Post record.
-              // For active/empty slots: show positional label based on the viewed date.
+              // For active/empty slots: use next available slot name (skipping taken ones).
               let slotLabel
               if (slot.type === 'done' && slot.task?.postScheduledDate) {
                 const etH = getETHour(slot.task.postScheduledDate)
@@ -1664,7 +1676,8 @@ function CreatorSection({ creator, onRefresh }) {
                 const dy = etParts.find(p => p.type === 'day')?.value || ''
                 slotLabel = `${m}/${dy} / ${slotName}`
               } else {
-                slotLabel = `${dateLabel} / ${slotNames[i] || `Slot ${i + 1}`}`
+                const name = openSlotNames[openSlotIdx++] || `Slot ${i + 1}`
+                slotLabel = `${dateLabel} / ${name}`
               }
               return (
                 <VideoSlot
