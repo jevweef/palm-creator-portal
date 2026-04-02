@@ -307,14 +307,25 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     } else if (sort === 'recent') {
       result.sort((a, b) => new Date(b.creatorPostedDate || 0) - new Date(a.creatorPostedDate || 0))
     } else if (sort === 'foryou' && Object.keys(creatorTagWeights).length > 0) {
+      // Hybrid scoring: 70% creator profile match + 30% normalized z-score
+      // Profile match = content tags (full) + film format (0.5x), then normalize to 0-1
+      const profileScores = result.map(r => {
+        const tagScore = [...(r.tags || []), ...(r.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
+        const fmtScore = (r.filmFormat || []).reduce((s, f) => s + (creatorFormatWeights[f] || 0), 0) * 0.5
+        return tagScore + fmtScore
+      })
+      const maxProfile = Math.max(...profileScores, 1)
+
+      // Z-scores: normalize to 0-1 range
+      const zScores = result.map(r => r.zScore || 0)
+      const maxZ = Math.max(...zScores.map(Math.abs), 1)
+
       result.sort((a, b) => {
-        // Content tags at full weight
-        const tagScoreA = [...(a.tags || []), ...(a.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
-        const tagScoreB = [...(b.tags || []), ...(b.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
-        // Film format at 0.5x weight — important but secondary to content tags
-        const fmtScoreA = (a.filmFormat || []).reduce((s, f) => s + (creatorFormatWeights[f] || 0), 0) * 0.5
-        const fmtScoreB = (b.filmFormat || []).reduce((s, f) => s + (creatorFormatWeights[f] || 0), 0) * 0.5
-        return (tagScoreB + fmtScoreB) - (tagScoreA + fmtScoreA)
+        const idxA = result.indexOf(a)
+        const idxB = result.indexOf(b)
+        const hybridA = 0.7 * (profileScores[idxA] / maxProfile) + 0.3 * ((zScores[idxA] + maxZ) / (2 * maxZ))
+        const hybridB = 0.7 * (profileScores[idxB] / maxProfile) + 0.3 * ((zScores[idxB] + maxZ) / (2 * maxZ))
+        return hybridB - hybridA
       })
     }
 
