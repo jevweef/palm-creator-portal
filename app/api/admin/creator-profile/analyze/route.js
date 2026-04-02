@@ -271,9 +271,14 @@ export async function POST(request) {
 
     // Fetch all documents for this creator
     const allDocRecords = await fetchAirtableRecords('Creator Profile Documents', {})
+    console.log(`[analyze] creatorId: ${creatorId}, total docs: ${allDocRecords.length}`)
+    if (allDocRecords.length > 0) {
+      console.log(`[analyze] sample doc Creator field:`, JSON.stringify(allDocRecords[0].fields['Creator']))
+    }
     const docRecords = allDocRecords.filter(r =>
       (r.fields['Creator'] || []).some(c => (c.id || c) === creatorId)
     )
+    console.log(`[analyze] matched docs: ${docRecords.length}`)
 
     // Transcribe any audio docs that don't yet have extracted text
     const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.webm'])
