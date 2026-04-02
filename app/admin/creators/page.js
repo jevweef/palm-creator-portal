@@ -11,9 +11,27 @@ const TAG_CATEGORIES = [
 ]
 
 const STATUS_STYLES = {
-  'Not Started': { bg: '#1a1a1a', text: '#71717a', border: '#333' },
-  'Analyzing':   { bg: '#332b00', text: '#f59e0b', border: '#5c4b00' },
-  'Complete':    { bg: '#0a2e0a', text: '#22c55e', border: '#1a5c1a' },
+  'Not Started':       { bg: '#1a1a1a', text: '#71717a', border: '#333' },
+  'Ready to Analyze':  { bg: '#0a1e3d', text: '#60a5fa', border: '#1e3a5f' },
+  'Analyzing':         { bg: '#332b00', text: '#f59e0b', border: '#5c4b00' },
+  'Analyzed':          { bg: '#0a2e0a', text: '#22c55e', border: '#1a5c1a' },
+  'Reanalyze':         { bg: '#2d1f00', text: '#fb923c', border: '#5c3d00' },
+}
+
+// Derive display status from analysis status + documents + dates
+function getDisplayStatus(profileAnalysisStatus, documents, profileLastAnalyzed, analyzing) {
+  if (analyzing) return 'Analyzing'
+  if (profileAnalysisStatus === 'Analyzing') return 'Analyzing'
+  if (profileAnalysisStatus === 'Complete') {
+    // Check if any doc was uploaded after the last analysis
+    if (profileLastAnalyzed && documents.length > 0) {
+      const hasNewDocs = documents.some(d => d.uploadDate > profileLastAnalyzed)
+      if (hasNewDocs) return 'Reanalyze'
+    }
+    return 'Analyzed'
+  }
+  if (documents.length > 0) return 'Ready to Analyze'
+  return 'Not Started'
 }
 
 function StatusPill({ status }) {
@@ -337,7 +355,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const { documents = [], tagWeights = [] } = profile || {}
   const c = profile?.creator || {}
 
-  const status = analyzing ? 'Analyzing' : (c.profileAnalysisStatus || 'Not Started')
+  const status = getDisplayStatus(c.profileAnalysisStatus, documents, c.profileLastAnalyzed, analyzing)
   const topTags = [...tagWeights].sort((a, b) => b.weight - a.weight).slice(0, 3)
 
   return (
@@ -359,7 +377,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             style={{ background: '#1a1a1a', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
             + Upload
           </button>
-          {status !== 'Not Started' && (
+          {(status === 'Analyzed' || status === 'Reanalyze' || status === 'Analyzing') && (
             <button onClick={resetAnalysis} disabled={resetting}
               style={{
                 background: '#1a1a1a', color: '#71717a', border: '1px solid #333',
@@ -375,7 +393,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
               borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
               cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.7 : 1,
             }}>
-            {analyzing ? 'Analyzing...' : (status === 'Complete' ? 'Re-analyze' : 'Run Analysis')}
+            {analyzing ? 'Analyzing...' : (status === 'Analyzed' || status === 'Reanalyze' ? 'Reanalyze' : 'Run Analysis')}
           </button>
         </div>
       </div>
@@ -543,7 +561,7 @@ export default function CreatorsPage() {
                   <div style={{ fontSize: '11px', color: '#555', marginTop: '1px' }}>{c.aka}</div>
                 )}
                 <div style={{ marginTop: '4px' }}>
-                  <StatusPill status={c.profileAnalysisStatus || 'Not Started'} />
+                  <StatusPill status={c.profileAnalysisStatus === 'Complete' ? 'Analyzed' : (c.profileAnalysisStatus || 'Not Started')} />
                 </div>
               </button>
             ))}
