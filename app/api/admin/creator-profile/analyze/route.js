@@ -280,61 +280,86 @@ export async function POST(request) {
     )
     console.log(`[analyze] matched docs: ${docRecords.length}`)
 
-    // Transcribe any audio docs that don't yet have extracted text
+    // Extract text from docs that don't yet have it
     const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.webm'])
+    const TEXT_EXTENSIONS = new Set(['.txt', '.md', '.csv'])
     const TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe'
-    const { getDropboxAccessToken } = await import('@/lib/dropbox')
+    const { getDropboxAccessToken, getDropboxRootNamespaceId } = await import('@/lib/dropbox')
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     let dropboxToken = null
+    let namespaceId = null
 
     for (const doc of docRecords) {
       const fields = doc.fields
       const existingText = (fields['Extracted Text'] || '').trim()
-      if (existingText) continue // already transcribed
+      if (existingText) continue // already extracted
 
       const fileName = fields['File Name'] || ''
       const fileType = fields['File Type'] || ''
       const dropboxPath = (fields['Dropbox Path'] || '').trim()
+      if (!dropboxPath) continue
+
       const ext = fileName.lastIndexOf('.') >= 0 ? fileName.slice(fileName.lastIndexOf('.')).toLowerCase() : ''
       const isAudio = fileType === 'Audio' || AUDIO_EXTENSIONS.has(ext)
 
-      if (!isAudio || !dropboxPath) continue
-
       try {
-        if (!dropboxToken) dropboxToken = await getDropboxAccessToken()
+        if (!dropboxToken) {
+          dropboxToken = await getDropboxAccessToken()
+          namespaceId = await getDropboxRootNamespaceId(dropboxToken)
+        }
 
-        // Download audio from Dropbox
+        // Download from Dropbox (with namespace header to match how files were uploaded)
+        const dlHeaders = {
+          'Authorization': `Bearer ${dropboxToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath }),
+        }
+        if (namespaceId) {
+          dlHeaders['Dropbox-API-Path-Root'] = JSON.stringify({ '.tag': 'root', root: namespaceId })
+        }
         const dlRes = await fetch('https://content.dropboxapi.com/2/files/download', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${dropboxToken}`,
-            'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath }),
-          },
+          headers: dlHeaders,
         })
-        if (!dlRes.ok) { console.error(`Dropbox download failed for ${fileName}: ${dlRes.status}`); continue }
+        if (!dlRes.ok) { console.error(`Dropbox download failed for ${fileName}: ${dlRes.status} ${await dlRes.text()}`); continue }
 
-        const audioBuffer = await dlRes.arrayBuffer()
-        const audioFile = new File([audioBuffer], fileName, { type: `audio/${ext.replace('.', '') || 'mpeg'}` })
+        const fileBuffer = await dlRes.arrayBuffer()
+        let text = ''
 
-        const transcript = await openai.audio.transcriptions.create({
-          model: TRANSCRIPTION_MODEL,
-          file: audioFile,
-          response_format: 'text',
-        })
-        const text = typeof transcript === 'string' ? transcript.trim() : (transcript.text || '').trim()
+        if (isAudio) {
+          // Transcribe audio via Whisper
+          const audioFile = new File([fileBuffer], fileName, { type: `audio/${ext.replace('.', '') || 'mpeg'}` })
+          const transcript = await openai.audio.transcriptions.create({
+            model: TRANSCRIPTION_MODEL,
+            file: audioFile,
+            response_format: 'text',
+          })
+          text = typeof transcript === 'string' ? transcript.trim() : (transcript.text || '').trim()
+          console.log(`Transcribed ${fileName}: ${text.length} chars`)
+        } else {
+          // Non-audio: extract as plain text (works for .txt, .docx partial, .md, etc.)
+          try {
+            text = new TextDecoder('utf-8', { fatal: false }).decode(fileBuffer).trim()
+            // For .docx, strip XML tags to get readable text
+            if (ext === '.docx') {
+              // Extract text between XML tags (rough but functional for getting content)
+              text = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+            }
+          } catch { text = '' }
+          console.log(`Extracted text from ${fileName}: ${text.length} chars`)
+        }
 
-        // Store transcript back to Airtable
-        await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Creator%20Profile%20Documents/${doc.id}`, {
-          method: 'PATCH',
-          headers: airtableHeaders,
-          body: JSON.stringify({ fields: { 'Extracted Text': text, 'Analysis Status': 'Analyzed' } }),
-        })
-        // Update the in-memory record so it's included in the prompt below
-        doc.fields['Extracted Text'] = text
-        console.log(`Transcribed ${fileName}: ${text.length} chars`)
+        if (text) {
+          // Store extracted text back to Airtable
+          await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Creator%20Profile%20Documents/${doc.id}`, {
+            method: 'PATCH',
+            headers: airtableHeaders,
+            body: JSON.stringify({ fields: { 'Extracted Text': text, 'Analysis Status': 'Analyzed' } }),
+          })
+          doc.fields['Extracted Text'] = text
+        }
       } catch (e) {
-        console.error(`Transcription failed for ${fileName}:`, e.message)
+        console.error(`Extraction failed for ${fileName}:`, e.message)
       }
     }
 
