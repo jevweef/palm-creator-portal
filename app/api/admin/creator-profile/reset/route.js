@@ -25,7 +25,7 @@ export async function POST(request) {
             'Profile Summary': '',
             'Brand Voice Notes': '',
             'Content Direction Notes': '',
-            'Do / Don\'t Notes': '',
+            'Dos and Donts': '',
             'Profile Analysis Status': 'Not Started',
             'Profile Last Analyzed': null,
           },

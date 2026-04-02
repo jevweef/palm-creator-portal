@@ -36,7 +36,7 @@ export async function GET(request) {
       profileSummary: f['Profile Summary'] || '',
       brandVoiceNotes: f['Brand Voice Notes'] || '',
       contentDirectionNotes: f['Content Direction Notes'] || '',
-      dosDonts: f['Do / Don\'t Notes'] || '',
+      dosDonts: f['Dos and Donts'] || '',
       profileAnalysisStatus: f['Profile Analysis Status'] || 'Not Started',
       profileLastAnalyzed: f['Profile Last Analyzed'] || null,
     }

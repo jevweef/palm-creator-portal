@@ -374,7 +374,7 @@ export async function POST(request) {
       'Profile Summary': profile.profile_summary || '',
       'Brand Voice Notes': profile.brand_voice_notes || '',
       'Content Direction Notes': profile.content_direction_notes || '',
-      'Do / Don\'t Notes': profile.do_dont_notes || '',
+      'Dos and Donts': profile.do_dont_notes || '',
       'Profile Analysis Status': 'Complete',
       'Profile Last Analyzed': today,
     })
