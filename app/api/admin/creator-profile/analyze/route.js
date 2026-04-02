@@ -61,12 +61,15 @@ The goal: stop the scroll → create attraction or curiosity → funnel to follo
 You will be given transcripts of voice memos, meeting notes, PDFs, surveys, and other documents
 that capture this creator's personality, brand, and content preferences.
 
-When signals conflict, follow this priority:
-1. OBSERVED BEHAVIOR — what she actually posts, how she presents visually, what content she's already made (highest weight)
-2. TEAM OBSERVATIONS — notes from managers or the chat team about what works for her
-3. STATED PREFERENCES — what she says she wants to do or is interested in (lower weight — aspirations don't always match brand fit)
+Weight each document type differently:
 
-If she says she wants to do fitness content but everything about her presentation is glam/beauty, weight the tags toward what actually fits, not just what she aspires to.
+1. VOICE MEMO TRANSCRIPTS (highest weight) — The creator's own words about herself, her brand, comfort level, and preferences. These are typically responses to an intake questionnaire and are the most authentic signal of who she actually is. If multiple voice memos exist (e.g., Part 1 and Part 2), treat them as one continuous response in chronological order.
+
+2. INSTAGRAM / VISUAL ANALYSIS (medium weight) — What she actually looks like and how she presents visually. Establishes her visual identity, body attributes, and overall aesthetic. This is the ground truth for Visual/Body tags.
+
+3. MEETING NOTES / STRATEGY CALLS (lowest weight) — Supplemental context from team check-ins. These reflect the team's perspective and strategy decisions, not necessarily her natural brand. Use as supporting context only — do not let meeting notes override what the creator herself said in her voice memo or what her visual identity shows.
+
+When signals conflict, trust the creator's own words (voice memos) first, then visual evidence (Instagram), then team observations (meeting notes). If she says she wants to do fitness content but everything about her visual presentation is glam/beauty, weight the tags toward what actually fits, not just what she aspires to.
 
 --- THE 46 CANONICAL CONTENT TAGS ---
 These are the SAME tags used to analyze inspiration reels on the inspo board. Creator tag weights
