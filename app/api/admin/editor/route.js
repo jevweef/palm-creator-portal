@@ -375,7 +375,12 @@ export async function PATCH(request) {
       taskUpdate['Started At'] = new Date().toISOString()
     }
     if (newStatus === 'Done') {
-      taskUpdate['Completed At'] = new Date().toISOString()
+      // Write the ET calendar date so the task lands on the correct editor day.
+      // Airtable's dateTime field truncates to date-only — if we write a raw UTC ISO
+      // string after midnight UTC (= after 8 PM ET), Airtable sees "next day" in UTC
+      // and stores midnight ET on the wrong day. Sending just the ET date avoids this.
+      const etDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
+      taskUpdate['Completed At'] = etDate
       taskUpdate['Admin Review Status'] = 'Pending Review'
       // Clear any previous revision feedback when resubmitting
       if (isRevision) taskUpdate['Admin Feedback'] = ''
