@@ -309,19 +309,41 @@ export async function POST(request) {
           namespaceId = await getDropboxRootNamespaceId(dropboxToken)
         }
 
-        // Download from Dropbox (with namespace header to match how files were uploaded)
-        const dlHeaders = {
+        // Get or create a shared link, then download via direct URL
+        // (the Dropbox app doesn't have files.content.read scope, but has sharing scope)
+        let shareUrl = null
+        const shareHeaders = {
           'Authorization': `Bearer ${dropboxToken}`,
-          'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath }),
+          'Content-Type': 'application/json',
         }
         if (namespaceId) {
-          dlHeaders['Dropbox-API-Path-Root'] = JSON.stringify({ '.tag': 'root', root: namespaceId })
+          shareHeaders['Dropbox-API-Path-Root'] = JSON.stringify({ '.tag': 'root', root: namespaceId })
         }
-        const dlRes = await fetch('https://content.dropboxapi.com/2/files/download', {
+        const shareRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
           method: 'POST',
-          headers: dlHeaders,
+          headers: shareHeaders,
+          body: JSON.stringify({ path: dropboxPath, settings: { requested_visibility: 'public' } }),
         })
-        if (!dlRes.ok) { console.error(`Dropbox download failed for ${fileName}: ${dlRes.status} ${await dlRes.text()}`); continue }
+        if (shareRes.ok) {
+          shareUrl = (await shareRes.json()).url
+        } else if (shareRes.status === 409) {
+          // Link already exists — fetch it
+          const listRes = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
+            method: 'POST',
+            headers: shareHeaders,
+            body: JSON.stringify({ path: dropboxPath, direct_only: true }),
+          })
+          if (listRes.ok) {
+            const links = (await listRes.json()).links || []
+            if (links.length > 0) shareUrl = links[0].url
+          }
+        }
+        if (!shareUrl) { console.error(`Could not get shared link for ${fileName}`); continue }
+
+        // Convert shared link to direct download URL
+        const directUrl = shareUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('dl=0', 'dl=1')
+        const dlRes = await fetch(directUrl)
+        if (!dlRes.ok) { console.error(`Download failed for ${fileName}: ${dlRes.status}`); continue }
 
         const fileBuffer = await dlRes.arrayBuffer()
         let text = ''
