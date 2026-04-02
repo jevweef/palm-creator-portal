@@ -127,16 +127,37 @@ function UploadModal({ creator, onClose, onUploaded }) {
     setError('')
     try {
       const fd = new FormData()
-      fd.append('creatorId', creator.id)
-      fd.append('creatorName', creator.name || creator.aka)
-      fd.append('fileType', fileType)
-      fd.append('notes', notes)
-      fd.append('file', file)
+      // Step 1: get a short-lived Dropbox token + upload path from the server
+      const tokenRes = await fetch(`/api/admin/creator-profile/upload-token?creatorName=${encodeURIComponent(creator.name || creator.aka)}`)
+      const tokenData = await tokenRes.json()
+      if (!tokenRes.ok) throw new Error(tokenData.error || 'Failed to get upload token')
+      const { accessToken, namespaceId, uploadPathPrefix } = tokenData
+      const dropboxPath = `${uploadPathPrefix}/${file.name}`
 
-      const res = await fetch('/api/admin/creator-profile/upload', { method: 'POST', body: fd })
+      // Step 2: upload directly to Dropbox from the browser (bypasses Vercel body limit)
+      const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath, mode: 'add', autorename: true, mute: true }),
+          'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: namespaceId }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: file,
+      })
+      const uploadData = await uploadRes.json()
+      if (!uploadRes.ok) throw new Error(uploadData.error_summary || 'Dropbox upload failed')
+      const storedPath = uploadData.path_display || dropboxPath
+
+      // Step 3: register the Airtable record (lightweight JSON, no file)
+      const res = await fetch('/api/admin/creator-profile/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: creator.id, fileType, notes, fileName: file.name, dropboxPath: storedPath }),
+      })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upload failed')
-      setResult(data)
+      if (!res.ok) throw new Error(data.error || 'Failed to register document')
+      setResult({ ...data, fileName: file.name })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -157,7 +178,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
         {result ? (
           <div>
             <div style={{ color: '#22c55e', fontSize: '14px', marginBottom: '12px' }}>
-              Uploaded successfully.{result.transcribed ? ` Transcribed (${result.extractedLength.toLocaleString()} chars).` : ''}
+              Uploaded successfully.{result.isAudio ? ' Audio will be transcribed when you run analysis.' : ''}
             </div>
             <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '20px' }}>{result.fileName}</div>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -213,7 +234,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
 
             {fileType === 'Audio' && (
               <div style={{ fontSize: '11px', color: '#71717a', marginBottom: '16px', padding: '8px 10px', background: '#0a0a0a', border: '1px solid #222', borderRadius: '6px' }}>
-                Audio files will be transcribed automatically via Whisper during upload.
+                Audio uploads directly to Dropbox. Whisper transcription runs when you hit "Run Analysis."
               </div>
             )}
 

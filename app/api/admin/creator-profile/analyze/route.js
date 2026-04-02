@@ -168,10 +168,68 @@ export async function POST(request) {
     // Mark as analyzing
     await patchCreator(creatorId, { 'Profile Analysis Status': 'Analyzing' })
 
-    // Fetch all documents with extracted text
+    // Fetch all documents
     const docRecords = await fetchAirtableRecords('Creator Profile Documents', {
       filterByFormula: `FIND("${creatorId}", ARRAYJOIN({Creator}))`,
     })
+
+    // Transcribe any audio docs that don't yet have extracted text
+    const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.webm'])
+    const TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe'
+    const { getDropboxAccessToken } = await import('@/lib/dropbox')
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    let dropboxToken = null
+
+    for (const doc of docRecords) {
+      const fields = doc.fields
+      const existingText = (fields['Extracted Text'] || '').trim()
+      if (existingText) continue // already transcribed
+
+      const fileName = fields['File Name'] || ''
+      const fileType = fields['File Type'] || ''
+      const dropboxPath = (fields['Dropbox Path'] || '').trim()
+      const ext = fileName.lastIndexOf('.') >= 0 ? fileName.slice(fileName.lastIndexOf('.')).toLowerCase() : ''
+      const isAudio = fileType === 'Audio' || AUDIO_EXTENSIONS.has(ext)
+
+      if (!isAudio || !dropboxPath) continue
+
+      try {
+        if (!dropboxToken) dropboxToken = await getDropboxAccessToken()
+
+        // Download audio from Dropbox
+        const dlRes = await fetch('https://content.dropboxapi.com/2/files/download', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${dropboxToken}`,
+            'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath }),
+          },
+        })
+        if (!dlRes.ok) { console.error(`Dropbox download failed for ${fileName}: ${dlRes.status}`); continue }
+
+        const audioBuffer = await dlRes.arrayBuffer()
+        const audioFile = new File([audioBuffer], fileName, { type: `audio/${ext.replace('.', '') || 'mpeg'}` })
+
+        const transcript = await openai.audio.transcriptions.create({
+          model: TRANSCRIPTION_MODEL,
+          file: audioFile,
+          response_format: 'text',
+        })
+        const text = typeof transcript === 'string' ? transcript.trim() : (transcript.text || '').trim()
+
+        // Store transcript back to Airtable
+        await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Creator%20Profile%20Documents/${doc.id}`, {
+          method: 'PATCH',
+          headers: airtableHeaders,
+          body: JSON.stringify({ fields: { 'Extracted Text': text, 'Analysis Status': 'Analyzed' } }),
+        })
+        // Update the in-memory record so it's included in the prompt below
+        doc.fields['Extracted Text'] = text
+        console.log(`Transcribed ${fileName}: ${text.length} chars`)
+      } catch (e) {
+        console.error(`Transcription failed for ${fileName}:`, e.message)
+      }
+    }
 
     const documents = docRecords
       .map(r => ({
@@ -196,7 +254,6 @@ export async function POST(request) {
       })
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const response = await openai.chat.completions.create({
       model: ANALYSIS_MODEL,
       messages: [
