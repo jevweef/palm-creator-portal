@@ -165,6 +165,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [textOnly, setTextOnly] = useState(false)
   const [creatorTagWeights, setCreatorTagWeights] = useState({}) // { tag: weight }
+  const [creatorFormatWeights, setCreatorFormatWeights] = useState({}) // { format: weight }
 
   const [allTags, setAllTags] = useState([])
   const [allFormats, setAllFormats] = useState([])
@@ -212,7 +213,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       .then(r => r.json())
       .then(data => {
         const weights = data.tagWeights || {}
+        const fmtWeights = data.filmFormatWeights || {}
         setCreatorTagWeights(weights)
+        setCreatorFormatWeights(fmtWeights)
         if (Object.keys(weights).length > 0) setSort('foryou')
       })
       .catch(() => {})
@@ -305,14 +308,18 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       result.sort((a, b) => new Date(b.creatorPostedDate || 0) - new Date(a.creatorPostedDate || 0))
     } else if (sort === 'foryou' && Object.keys(creatorTagWeights).length > 0) {
       result.sort((a, b) => {
-        const scoreA = [...(a.tags || []), ...(a.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
-        const scoreB = [...(b.tags || []), ...(b.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
-        return scoreB - scoreA
+        // Content tags at full weight
+        const tagScoreA = [...(a.tags || []), ...(a.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
+        const tagScoreB = [...(b.tags || []), ...(b.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
+        // Film format at 0.5x weight — important but secondary to content tags
+        const fmtScoreA = (a.filmFormat || []).reduce((s, f) => s + (creatorFormatWeights[f] || 0), 0) * 0.5
+        const fmtScoreB = (b.filmFormat || []).reduce((s, f) => s + (creatorFormatWeights[f] || 0), 0) * 0.5
+        return (tagScoreB + fmtScoreB) - (tagScoreA + fmtScoreA)
       })
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, creatorTagWeights])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, creatorTagWeights, creatorFormatWeights])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]

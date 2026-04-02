@@ -17,19 +17,29 @@ export async function GET(request) {
       return NextResponse.json({ tagWeights: {} })
     }
 
-    const records = await fetchAirtableRecords('Creator Tag Weights', {
-      filterByFormula: `FIND("${creatorOpsId}", ARRAYJOIN({Creator}))`,
-    })
+    // Fetch all and filter in JS — filterByFormula on linked record fields
+    // matches by primary field value (name), not record ID
+    const allRecords = await fetchAirtableRecords('Creator Tag Weights', {})
+    const records = allRecords.filter(r =>
+      (r.fields['Creator'] || []).some(c => (c.id || c) === creatorOpsId)
+    )
 
-    // Return as a plain { tag: weight } map for easy lookup
+    // Return as { tag: weight } map + separate film format weights
     const tagWeights = {}
+    const filmFormatWeights = {}
     records.forEach(r => {
       const tag = r.fields['Tag']
       const weight = r.fields['Weight'] ?? 0
-      if (tag) tagWeights[tag] = weight
+      const category = r.fields['Tag Category'] || ''
+      if (!tag) return
+      if (category === 'Film Format') {
+        filmFormatWeights[tag] = weight
+      } else {
+        tagWeights[tag] = weight
+      }
     })
 
-    return NextResponse.json({ tagWeights })
+    return NextResponse.json({ tagWeights, filmFormatWeights })
   } catch (err) {
     console.error('Tag weights GET error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
