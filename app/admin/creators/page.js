@@ -263,6 +263,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [analyzeResult, setAnalyzeResult] = useState(null)
   const [analyzeError, setAnalyzeError] = useState('')
   const [showUpload, setShowUpload] = useState(false)
@@ -282,6 +283,27 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   }
 
   useEffect(() => { load() }, [creator.id])
+
+  const resetAnalysis = async () => {
+    setResetting(true)
+    setAnalyzeResult(null)
+    setAnalyzeError('')
+    try {
+      const res = await fetch('/api/admin/creator-profile/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: creator.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Reset failed')
+      load()
+      onProfileUpdated(creator.id, 'Not Started')
+    } catch (e) {
+      setAnalyzeError(e.message)
+    } finally {
+      setResetting(false)
+    }
+  }
 
   const runAnalysis = async () => {
     setAnalyzing(true)
@@ -337,6 +359,16 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             style={{ background: '#1a1a1a', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
             + Upload
           </button>
+          {status === 'Complete' && (
+            <button onClick={resetAnalysis} disabled={resetting}
+              style={{
+                background: '#1a1a1a', color: '#71717a', border: '1px solid #333',
+                borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500,
+                cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.5 : 1,
+              }}>
+              {resetting ? 'Resetting...' : 'Reset'}
+            </button>
+          )}
           <button onClick={runAnalysis} disabled={analyzing}
             style={{
               background: analyzing ? '#333' : '#a78bfa', color: '#fff', border: 'none',
