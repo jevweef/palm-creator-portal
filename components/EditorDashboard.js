@@ -1509,7 +1509,7 @@ function CreatorSection({ creator, onRefresh }) {
       const isToday = ds === todayDateStr
       const isFuture = ds > todayDateStr
       const doneTasks = sortBySlot((creator.recentDone || [])
-        .filter(t => (t.completedAt || '').startsWith(ds)))
+        .filter(t => t.etCompletedDate === ds))
       const ipTasks = isToday ? (creator.inProgress || []) : []
       const qTasks = isToday ? (creator.queue || []) : []
       for (let s = 0; s < dailyQuota; s++) {
@@ -1532,7 +1532,7 @@ function CreatorSection({ creator, onRefresh }) {
   const selectedDoneList = sortBySlot(
     isToday
       ? (creator.doneTodayList || [])
-      : (creator.recentDone || []).filter(t => (t.completedAt || '').startsWith(selectedDate))
+      : (creator.recentDone || []).filter(t => t.etCompletedDate === selectedDate)
   )
 
   // Active fill items only apply to today (past days show history, future shows queue)

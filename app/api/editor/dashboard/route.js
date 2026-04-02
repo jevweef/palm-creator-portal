@@ -8,6 +8,14 @@ function recordIdFormula(ids) {
   return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
 }
 
+// Convert a UTC ISO string to its Eastern Time calendar date (YYYY-MM-DD)
+function toETDateStr(isoStr) {
+  if (!isoStr) return ''
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+  }).format(new Date(isoStr))
+}
+
 async function fetchByIds(table, ids, params) {
   if (!ids.length) return []
   const CHUNK = 20
@@ -155,6 +163,7 @@ export async function GET() {
         creatorNotes: task.fields?.['Creator Notes'] || '',
         editorNotes: task.fields?.['Editor Notes'] || '',
         completedAt: task.fields?.['Completed At'] || null,
+        etCompletedDate: toETDateStr(task.fields?.['Completed At'] || ''),
         telegramSentAt: taskTelegramMap[task.id] || null,
         postScheduledDate: taskScheduledDateMap[task.id] || null,
         asset: {
@@ -236,12 +245,13 @@ export async function GET() {
     }
 
     // Group posts by creator: total future count + per-date breakdown (past 60 days + future)
+    // Use ET date for all grouping so evening posts (23:00 UTC = 7 PM ET) land on the correct day
     const futurePostsByCreator = {}
     const postsByDateByCreator = {}
     for (const post of allPosts) {
       const creatorId = (post.fields?.Creator || [])[0]
       if (!creatorId) continue
-      const date = (post.fields?.['Scheduled Date'] || '').split('T')[0]
+      const date = toETDateStr(post.fields?.['Scheduled Date'] || '')
       if (date) {
         if (!postsByDateByCreator[creatorId]) postsByDateByCreator[creatorId] = {}
         postsByDateByCreator[creatorId][date] = (postsByDateByCreator[creatorId][date] || 0) + 1
@@ -266,13 +276,13 @@ export async function GET() {
 
       const doneThisWeek = ctasks.filter(t =>
         t.status === 'Done' &&
-        (t.completedAt || '') >= weekStartStr &&
+        t.etCompletedDate >= weekStartStr &&
         t.adminReviewStatus !== 'Needs Revision'
       ).length
 
       const doneTodayList = ctasks.filter(t =>
         t.status === 'Done' &&
-        (t.completedAt || '').startsWith(todayStr) &&
+        t.etCompletedDate === todayStr &&
         t.adminReviewStatus !== 'Needs Revision'
       )
 
@@ -280,7 +290,7 @@ export async function GET() {
       const recentDone = ctasks.filter(t =>
         t.status === 'Done' &&
         t.adminReviewStatus !== 'Needs Revision' &&
-        (t.completedAt || '') >= twoWeeksAgoStr
+        t.etCompletedDate >= twoWeeksAgoStr
       )
 
       return {
