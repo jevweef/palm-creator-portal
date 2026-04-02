@@ -1442,9 +1442,9 @@ function CreatorSection({ creator, onRefresh }) {
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   })()
 
-  // Sort done tasks by ET slot hour so Morning (11 AM ET) comes before Evening (7 PM ET)
+  // Sort done tasks by when the editor actually completed them (earliest = Morning slot)
   const sortBySlot = arr => [...arr].sort((a, b) =>
-    getETHour(a.postScheduledDate || a.completedAt) - getETHour(b.postScheduledDate || b.completedAt)
+    new Date(a.completedAt || 0) - new Date(b.completedAt || 0)
   )
 
   // Build per-date color map for calendar dots
@@ -1528,7 +1528,7 @@ function CreatorSection({ creator, onRefresh }) {
     return colors
   })()
 
-  // Done tasks for selected date, sorted by scheduled slot (Morning before Evening)
+  // Done tasks for selected date, sorted by completion time (earliest = Morning slot)
   const selectedDoneList = sortBySlot(
     isToday
       ? (creator.doneTodayList || [])
@@ -1648,36 +1648,20 @@ function CreatorSection({ creator, onRefresh }) {
             const d = new Date(selectedDate + 'T12:00:00')
             const dateLabel = `${d.getMonth() + 1}/${d.getDate()}`
             const nextActionableIndex = slots.findIndex(s => s.type !== 'done')
-            // Track which named slots are already claimed by done tasks so open slots
-            // get the correct remaining name (e.g. Morning when Evening is filled).
-            const takenSlotNames = new Set(
-              slots
-                .filter(s => s.type === 'done' && s.task?.postScheduledDate)
-                .map(s => {
-                  const etH = getETHour(s.task.postScheduledDate)
-                  return etH < 15 ? 'Morning' : etH < 17 ? 'Afternoon' : 'Evening'
-                })
-            )
-            const openSlotNames = slotNames.filter(n => !takenSlotNames.has(n))
-            let openSlotIdx = 0
             return slots.map((slot, i) => {
               const isNext = i === nextActionableIndex
               const isLocked = slot.type !== 'done' && !isNext
-              // For done tasks: show actual scheduled posting date/slot from the Post record.
-              // For active/empty slots: use next available slot name (skipping taken ones).
+              // All slots use positional labels. Done tasks use the ET date they were
+              // completed on (editor's work day), not the Post's scheduled date.
               let slotLabel
-              if (slot.type === 'done' && slot.task?.postScheduledDate) {
-                const etH = getETHour(slot.task.postScheduledDate)
-                const slotName = etH < 15 ? 'Morning' : 'Evening'
-                const etParts = new Intl.DateTimeFormat('en-US', {
-                  timeZone: 'America/New_York', month: 'numeric', day: 'numeric',
-                }).formatToParts(new Date(slot.task.postScheduledDate))
-                const m = etParts.find(p => p.type === 'month')?.value || ''
-                const dy = etParts.find(p => p.type === 'day')?.value || ''
-                slotLabel = `${m}/${dy} / ${slotName}`
+              if (slot.type === 'done') {
+                // Use the ET calendar date of completion + position-based slot name
+                const etDate = slot.task?.etCompletedDate || selectedDate
+                const [ey, em, ed] = etDate.split('-').map(Number)
+                const completionDateLabel = `${em}/${ed}`
+                slotLabel = `${completionDateLabel} / ${slotNames[i] || `Slot ${i + 1}`}`
               } else {
-                const name = openSlotNames[openSlotIdx++] || `Slot ${i + 1}`
-                slotLabel = `${dateLabel} / ${name}`
+                slotLabel = `${dateLabel} / ${slotNames[i] || `Slot ${i + 1}`}`
               }
               return (
                 <VideoSlot
