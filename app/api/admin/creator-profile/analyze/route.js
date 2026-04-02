@@ -252,7 +252,7 @@ async function upsertTagWeights(creatorId, tagWeights) {
       {
         method: 'POST',
         headers: airtableHeaders,
-        body: JSON.stringify({ records: chunk }),
+        body: JSON.stringify({ records: chunk, typecast: true }),
       }
     )
     if (!res.ok) {
@@ -269,7 +269,7 @@ async function upsertTagWeights(creatorId, tagWeights) {
       {
         method: 'PATCH',
         headers: airtableHeaders,
-        body: JSON.stringify({ records: chunk }),
+        body: JSON.stringify({ records: chunk, typecast: true }),
       }
     )
     if (!res.ok) {
