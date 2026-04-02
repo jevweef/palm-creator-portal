@@ -89,6 +89,11 @@ function TelegramModal({ post, onClose, onSent }) {
           postId: post.id,
           thumbnailUrl: post.thumbnailUrl || undefined,
           assetId: post.asset?.id || undefined,
+          // Save these fields to Airtable on send (in case user didn't explicitly Save first)
+          rawCaption: post.caption || undefined,
+          rawHashtags: post.hashtags || undefined,
+          platform: post.platform?.length ? post.platform : undefined,
+          scheduledDate: post.scheduledDate ? etLocalToUTC(post.scheduledDate) : undefined,
         }),
       })
       const data = await res.json()

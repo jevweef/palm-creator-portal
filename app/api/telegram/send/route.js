@@ -164,7 +164,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId } = await request.json()
+    const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = await request.json()
 
     if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
     if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
@@ -266,12 +266,16 @@ export async function POST(request) {
       ? result.result[0]?.message_id
       : result.result?.message_id
 
-    // Stamp the Post record
+    // Stamp the Post record — also save caption/hashtags/platform/date in case user didn't Save first
     if (postId) {
       await patchAirtableRecord('Posts', postId, {
         'Status': 'Sent to Telegram',
         'Telegram Sent At': new Date().toISOString(),
         ...(messageId ? { 'Telegram Message ID': String(messageId) } : {}),
+        ...(rawCaption ? { 'Caption': rawCaption } : {}),
+        ...(rawHashtags ? { 'Hashtags': rawHashtags } : {}),
+        ...(platform?.length ? { 'Platform': platform } : {}),
+        ...(scheduledDate ? { 'Scheduled Date': scheduledDate } : {}),
       }).catch(err => console.error('[Telegram Send] Failed to update Post record:', err.message))
     }
 
