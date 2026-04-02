@@ -368,13 +368,18 @@ export async function POST(request) {
 
     const profile = JSON.parse(response.choices[0].message.content)
 
+    // Normalize do_dont_notes — OpenAI sometimes returns an array instead of a string
+    const dosDonts = Array.isArray(profile.do_dont_notes)
+      ? profile.do_dont_notes.join('\n')
+      : (profile.do_dont_notes || '')
+
     // Write profile back to Palm Creators
     const today = new Date().toISOString().split('T')[0]
     await patchCreator(creatorId, {
       'Profile Summary': profile.profile_summary || '',
       'Brand Voice Notes': profile.brand_voice_notes || '',
       'Content Direction Notes': profile.content_direction_notes || '',
-      'Dos and Donts': profile.do_dont_notes || '',
+      'Dos and Donts': dosDonts,
       'Profile Analysis Status': 'Complete',
       'Profile Last Analyzed': today,
     })
