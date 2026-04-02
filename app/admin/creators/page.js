@@ -8,6 +8,7 @@ const TAG_CATEGORIES = [
   'Tone / Energy',
   'Visual / Body',
   'Viewer Experience',
+  'Film Format',
 ]
 
 const STATUS_STYLES = {
@@ -53,6 +54,7 @@ function WeightBar({ tag, weight, category }) {
     'Tone / Energy':      '#f472b6',
     'Visual / Body':      '#fb923c',
     'Viewer Experience':  '#60a5fa',
+    'Film Format':        '#34d399',
   }
   const color = catColors[category] || '#a78bfa'
   return (

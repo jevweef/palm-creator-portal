@@ -30,6 +30,11 @@ const CANONICAL_TAGS = {
   'Viewer Experience': [
     'Eye Contact Driven', 'Implied Scenario', 'Personal Attention', 'POV', 'Roleplay',
   ],
+  'Film Format': [
+    'Selfie', 'Tripod/Static', 'Filmed By Someone Else', 'Lip Sync',
+    'Talking to Camera', 'Mirror', 'Dance', '2 or more people',
+    'Voice Behind the Camera', 'POV',
+  ],
 }
 
 const TAG_TO_CATEGORY = Object.entries(CANONICAL_TAGS).reduce((acc, [cat, tags]) => {
@@ -136,6 +141,20 @@ Viewer Experience tags — score based on the dynamics she creates with her audi
 - POV: she creates content from the viewer's perspective — the viewer feels they are a participant in the scene, not just watching.
 - Roleplay: she creates content around specific characters, scenarios, or role-based fantasies.
 
+Film Format tags — score based on how she films and what formats she can produce:
+- Selfie: she regularly films herself holding the camera (arm/hand visible, phone-in-hand angle).
+- Tripod/Static: she uses a fixed camera on a tripod or surface. Key question: can she film alone?
+- Filmed By Someone Else: she has someone else film her (camera follows/moves, no visible arm). This means she has access to a filming partner.
+- Lip Sync: she regularly mouths words to songs or trending audio tracks. Only for actual lip sync — making expressions or reacting is NOT lip sync.
+- Talking to Camera: she speaks directly to the camera — storytelling, fun facts, vlogs, rants.
+- Mirror: she uses physical mirrors for content (mirror selfies, getting-ready shots). Must involve an actual mirror.
+- Dance: dance is a real format for her — choreography or freestyle. Swaying or rhythmic movement is NOT dance.
+- 2 or more people: she regularly creates content with other people (friends, other creators, filming partner visible on screen).
+- Voice Behind the Camera: someone off-screen speaks to or directs her during filming.
+- POV: she creates content where the camera represents the viewer's perspective — the viewer is a participant, not a bystander.
+
+Note: Film format tags that are purely about editing (Multi-Clip, Single-Clip, Reveal, Transition, Viral Cut-In, Meme Insert) are NOT scored here — those are editor decisions, not creator attributes.
+
 --- SCORING RULES ---
 Tag weight scoring: 0 = irrelevant, 1-30 = low relevance, 31-60 = moderate fit, 61-80 = strong fit, 81-100 = core to her identity.
 
@@ -169,6 +188,11 @@ Respond ONLY with valid JSON matching this exact schema:
     "Body Focus": 0, "Boobs": 0, "Booty": 0, "Dance": 0, "Face Card / Pretty Girl": 0,
     "Foot Fetish": 0, "Lingerie / Sleepwear": 0, "Outfit Showcase": 0, "Suggestive Movement": 0, "Thirst Trap": 0,
     "Eye Contact Driven": 0, "Implied Scenario": 0, "Personal Attention": 0, "POV": 0, "Roleplay": 0
+  },
+  "film_format_weights": {
+    "Selfie": 0, "Tripod/Static": 0, "Filmed By Someone Else": 0, "Lip Sync": 0,
+    "Talking to Camera": 0, "Mirror": 0, "Dance": 0, "2 or more people": 0,
+    "Voice Behind the Camera": 0, "POV": 0
   }
 }
 
@@ -436,9 +460,12 @@ export async function POST(request) {
       'Profile Last Analyzed': today,
     })
 
-    // Upsert tag weights
+    // Upsert tag weights (content tags + film format)
     if (profile.tag_weights) {
       await upsertTagWeights(creatorId, profile.tag_weights)
+    }
+    if (profile.film_format_weights) {
+      await upsertTagWeights(creatorId, profile.film_format_weights)
     }
 
     // Build top tags summary for response
