@@ -359,7 +359,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             style={{ background: '#1a1a1a', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
             + Upload
           </button>
-          {status === 'Complete' && (
+          {status !== 'Not Started' && (
             <button onClick={resetAnalysis} disabled={resetting}
               style={{
                 background: '#1a1a1a', color: '#71717a', border: '1px solid #333',
