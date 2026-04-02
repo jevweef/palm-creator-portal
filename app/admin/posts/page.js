@@ -20,18 +20,56 @@ function isVideo(url) {
   return /\.(mp4|mov|avi|webm|mkv)/i.test(url || '')
 }
 
+// Convert UTC ISO string to ET local datetime string for <input type="datetime-local">
+function utcToETLocal(isoStr) {
+  if (!isoStr) return ''
+  const d = new Date(isoStr)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d)
+  const get = type => parts.find(p => p.type === type)?.value || '00'
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
+}
+
+// Convert ET local datetime string (from datetime-local input) to UTC ISO
+function etLocalToUTC(localStr) {
+  if (!localStr) return ''
+  const [datePart, timePart] = localStr.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, min] = timePart.split(':').map(Number)
+  const noonUTC = new Date(Date.UTC(year, month - 1, day, 12))
+  const etHourAtNoon = parseInt(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: '2-digit',
+      hour12: false,
+    }).format(noonUTC)
+  )
+  const offset = 12 - etHourAtNoon // 4 for EDT, 5 for EST
+  return new Date(Date.UTC(year, month - 1, day, hour + offset, min)).toISOString()
+}
+
+// Format a UTC ISO string as "Day · Mon D · Morning/Evening" in ET
+function formatScheduledLabel(isoStr) {
+  if (!isoStr) return null
+  const d = new Date(isoStr)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', hour12: false,
+  }).formatToParts(d)
+  const get = type => parts.find(p => p.type === type)?.value || ''
+  const etHour = parseInt(get('hour'))
+  const slot = etHour < 15 ? 'Morning' : 'Evening'
+  return `${get('weekday')} · ${get('month')} ${get('day')} · ${slot}`
+}
+
 function TelegramModal({ post, onClose, onSent }) {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const editedFileLink = post.asset?.editedFileLink || ''
-  const scheduledDate = (() => {
-    if (!post.scheduledDate) return null
-    const d = new Date(post.scheduledDate)
-    const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()]
-    const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]
-    const slot = d.getUTCHours() < 20 ? 'Morning' : 'Evening'
-    return `${day} · ${month} ${d.getUTCDate()} · ${slot}`
-  })()
+  const scheduledDate = formatScheduledLabel(post.scheduledDate)
   const fullCaption = [post.caption, post.hashtags, scheduledDate ? `📅 ${scheduledDate}` : null].filter(Boolean).join('\n\n')
   const videoRawUrl = rawDropboxUrl(editedFileLink)
   const thumbRawUrl = post.thumbnailUrl ? rawDropboxUrl(post.thumbnailUrl) : ''
@@ -392,7 +430,7 @@ function PostCard({ post, onRefresh, onSend }) {
   const [caption, setCaption] = useState(post.caption)
   const [hashtags, setHashtags] = useState(post.hashtags)
   const [platforms, setPlatforms] = useState(post.platform?.length ? post.platform : ['Instagram Reel'])
-  const [scheduledDate, setScheduledDate] = useState(post.scheduledDate ? post.scheduledDate.slice(0, 16) : '')
+  const [scheduledDate, setScheduledDate] = useState(utcToETLocal(post.scheduledDate))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
@@ -424,7 +462,7 @@ function PostCard({ post, onRefresh, onSend }) {
             'Caption': caption,
             'Hashtags': hashtags,
             'Platform': platforms,
-            ...(scheduledDate ? { 'Scheduled Date': new Date(scheduledDate).toISOString() } : {}),
+            ...(scheduledDate ? { 'Scheduled Date': etLocalToUTC(scheduledDate) } : {}),
             ...(thumbnailUrl ? { 'Thumbnail': [{ url: thumbnailUrl }] } : {}),
           },
         }),
@@ -582,20 +620,15 @@ function PostCard({ post, onRefresh, onSend }) {
           />
         )}
 
-        {/* Scheduled Date — use post.scheduledDate (has timezone Z) not state (stripped) */}
+        {/* Scheduled Date — always display in Eastern Time */}
         {scheduledDate && (() => {
-          const d = new Date(post.scheduledDate || (scheduledDate + ':00Z'))
-          const utcH = d.getUTCHours()
-          const slot = utcH < 20 ? 'Morning' : 'Evening'
-          const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()]
-          const monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]
-          const label = `${dayName} · ${monthName} ${d.getUTCDate()} · ${slot}`
-          return (
+          const label = formatScheduledLabel(post.scheduledDate || etLocalToUTC(scheduledDate))
+          return label ? (
             <div>
               <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Scheduled</div>
               <div style={{ fontSize: '13px', fontWeight: 600, color: '#a1a1aa' }}>{label}</div>
             </div>
-          )
+          ) : null
         })()}
 
         {post.telegramSentAt && (

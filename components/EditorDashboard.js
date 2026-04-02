@@ -80,15 +80,22 @@ function LibPickerPaginator({ page, totalPages, onChange }) {
 }
 
 // ─── Slot label helper ─────────────────────────────────────────────────────────
-// 15 UTC = Morning Post (~10 AM EST / 11 AM EDT)
-// 23 UTC = Evening Post (~6 PM EST / 7 PM EDT)
+// 11 AM ET = Morning Post, 7 PM ET = Evening Post (DST-aware)
+function getETHour(isoDateString) {
+  if (!isoDateString) return -1
+  return parseInt(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    hour12: false,
+  }).format(new Date(isoDateString)))
+}
+
 export function getSlotLabel(isoDateString) {
   if (!isoDateString) return ''
-  const d = new Date(isoDateString)
-  const utcHour = d.getUTCHours()
-  if (utcHour === 15) return 'Morning Post'
-  if (utcHour === 23) return 'Evening Post'
-  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', hour12: true, timeZone: 'America/New_York' })
+  const etHour = getETHour(isoDateString)
+  if (etHour === 11) return 'Morning Post'
+  if (etHour === 19) return 'Evening Post'
+  return new Date(isoDateString).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', hour12: true, timeZone: 'America/New_York' })
 }
 
 // ─── Quota dots ────────────────────────────────────────────────────────────────
@@ -1435,12 +1442,10 @@ function CreatorSection({ creator, onRefresh }) {
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   })()
 
-  // Sort done tasks by scheduled slot hour so Morning (15 UTC) comes before Evening (23 UTC)
-  const sortBySlot = arr => [...arr].sort((a, b) => {
-    const aH = new Date(a.postScheduledDate || a.completedAt || 0).getUTCHours()
-    const bH = new Date(b.postScheduledDate || b.completedAt || 0).getUTCHours()
-    return aH - bH
-  })
+  // Sort done tasks by ET slot hour so Morning (11 AM ET) comes before Evening (7 PM ET)
+  const sortBySlot = arr => [...arr].sort((a, b) =>
+    getETHour(a.postScheduledDate || a.completedAt) - getETHour(b.postScheduledDate || b.completedAt)
+  )
 
   // Build per-date color map for calendar dots
   const dateColors = (() => {

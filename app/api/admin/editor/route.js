@@ -10,14 +10,28 @@ const TASK_TO_ASSET_STATUS = {
   'Done': 'In Review',
 }
 
-// Posting slots: ~10 AM and ~7 PM Eastern (15:00 / 23:00 UTC)
-// 15 UTC = 10 AM EST / 11 AM EDT — 23 UTC = 6 PM EST / 7 PM EDT
-const SLOT_HOURS_UTC = [15, 23]
+// Posting slots: 11 AM and 7 PM Eastern (DST-aware)
+const SLOT_HOURS_ET = [11, 19]
+
+// Convert an ET date string + ET hour to a UTC Date, accounting for DST
+function etToUTC(etDateStr, etHour) {
+  const [year, month, day] = etDateStr.split('-').map(Number)
+  // Use noon UTC on that day as a DST-safe reference point
+  const noonUTC = new Date(Date.UTC(year, month - 1, day, 12))
+  const etHourAtNoon = parseInt(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: '2-digit',
+      hour12: false,
+    }).format(noonUTC)
+  )
+  const offset = 12 - etHourAtNoon // 4 for EDT, 5 for EST
+  return new Date(Date.UTC(year, month - 1, day, etHour + offset))
+}
 
 // Returns the next available posting slot after latestSlotISO (or now).
-// Uses a 6-hour lookback so approvals after 7 PM still land on today's evening
-// slot rather than being pushed to tomorrow — the slot label reflects the
-// intended posting day, not the exact approval time.
+// Iterates over ET calendar days so slots are always 11 AM / 7 PM ET regardless of DST.
+// Uses a 6-hour lookback so approvals after 7 PM still land on today's evening slot.
 function getNextPostingSlot(latestSlotISO) {
   const now = new Date()
   const SIX_HOURS = 6 * 60 * 60 * 1000
@@ -26,14 +40,21 @@ function getNextPostingSlot(latestSlotISO) {
     latestSlotISO ? new Date(latestSlotISO).getTime() : 0
   ))
 
-  const startDay = new Date(floor)
-  startDay.setUTCHours(0, 0, 0, 0)
+  // Get the ET calendar date for the floor to start iterating from
+  const startDateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+  }).format(floor)
+  const [sy, sm, sd] = startDateStr.split('-').map(Number)
 
   for (let dayOffset = 0; dayOffset <= 365; dayOffset++) {
-    for (const hour of SLOT_HOURS_UTC) {
-      const candidate = new Date(startDay)
-      candidate.setUTCDate(startDay.getUTCDate() + dayOffset)
-      candidate.setUTCHours(hour, 0, 0, 0)
+    // Advance by dayOffset ET calendar days
+    const iterDate = new Date(Date.UTC(sy, sm - 1, sd + dayOffset))
+    const etDateStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+    }).format(iterDate)
+
+    for (const etHour of SLOT_HOURS_ET) {
+      const candidate = etToUTC(etDateStr, etHour)
       if (candidate > floor) return candidate
     }
   }
