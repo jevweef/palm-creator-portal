@@ -45,13 +45,15 @@ export default clerkMiddleware((auth, req) => {
     return
   }
 
-  const role = sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role
-  const userType = sessionClaims?.publicMetadata?.userType || sessionClaims?.metadata?.userType
+  const role = sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role || sessionClaims?.public_metadata?.role
+  const userType = sessionClaims?.publicMetadata?.userType || sessionClaims?.metadata?.userType || sessionClaims?.public_metadata?.userType
+  const email = sessionClaims?.email || sessionClaims?.primaryEmail || ''
 
   const url = req.nextUrl
 
-  // Admin can access everything
-  if (role === 'admin' || role === 'super_admin') return
+  // Super admin by email or role — can access everything
+  const SUPER_ADMIN_EMAILS = ['evan@flylisted.com', 'evan@palm-mgmt.com']
+  if (role === 'admin' || role === 'super_admin' || SUPER_ADMIN_EMAILS.includes(email)) return
 
   // Editor can access editor routes + shared routes, not admin
   if (role === 'editor') {
