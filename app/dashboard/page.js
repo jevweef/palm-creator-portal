@@ -9,15 +9,16 @@ export default function DashboardRedirect() {
 
   useEffect(() => {
     if (!isLoaded) return
-    const opsId = user?.publicMetadata?.airtableOpsId || 'recFusZAbRapOGblK'
-    const hqId = user?.publicMetadata?.airtableHqId || 'recYyxrPm6BWd3FSB'
+    const opsId = user?.publicMetadata?.airtableOpsId
+    const hqId = user?.publicMetadata?.airtableHqId
     const role = user?.publicMetadata?.role
     if (role === 'admin' || role === 'super_admin') {
-      // Admin going to /dashboard - redirect to admin
       router.replace('/admin')
       return
     }
-    router.replace(`/creator/${opsId}/dashboard?hqId=${hqId}`)
+    if (opsId && opsId !== 'undefined') {
+      router.replace(`/creator/${opsId}/dashboard?hqId=${hqId}`)
+    }
   }, [isLoaded, user, router])
 
   return (
