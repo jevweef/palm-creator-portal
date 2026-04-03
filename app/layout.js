@@ -43,6 +43,8 @@ const clerkAppearance = {
     borderRadius: '8px',
   },
   elements: {
+    logoBox: { height: '60px' },
+    logoImage: { height: '60px' },
     card: { backgroundColor: '#fff', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
     formButtonPrimary: { backgroundColor: '#E88FAC', color: '#fff', fontWeight: '600', fontSize: '14px', '&:hover': { backgroundColor: '#d4789a' } },
     footerActionLink: { color: '#E88FAC', fontWeight: '500' },
