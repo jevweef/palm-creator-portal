@@ -45,9 +45,15 @@ export default clerkMiddleware((auth, req) => {
     return
   }
 
+  // Debug: log sessionClaims keys to find correct paths
+  if (req.nextUrl.pathname === '/admin') {
+    console.log('[middleware] sessionClaims keys:', JSON.stringify(Object.keys(sessionClaims || {})))
+    console.log('[middleware] sessionClaims:', JSON.stringify(sessionClaims))
+  }
+
   const role = sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role || sessionClaims?.public_metadata?.role
   const userType = sessionClaims?.publicMetadata?.userType || sessionClaims?.metadata?.userType || sessionClaims?.public_metadata?.userType
-  const email = sessionClaims?.email || sessionClaims?.primaryEmail || ''
+  const email = sessionClaims?.email || sessionClaims?.primaryEmail || sessionClaims?.emailAddresses?.[0] || ''
 
   const url = req.nextUrl
 
