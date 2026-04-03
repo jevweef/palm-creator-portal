@@ -673,8 +673,8 @@ export default function InvoicingPage() {
                   This will email all {combinedSendModal.ids.length} account invoices and mark them as Sent.
                 </div>
                 {[
-                  { label: 'To', value: `josh@palmmanagement.com (test)` },
-                  { label: 'From', value: 'evan@palmmanagement.com' },
+                  { label: 'To', value: `josh@palm-mgmt.com (test)` },
+                  { label: 'From', value: 'evan@palm-mgmt.com' },
                   { label: 'Period', value: `${fmtDate(combinedSendModal.data.periodStart)} – ${fmtDate(combinedSendModal.data.periodEnd)}` },
                   { label: 'Accounts', value: combinedSendModal.data.invoices?.map(i => i.accountName).join(', ') },
                   { label: 'Mgmt Fee', value: fmt(combinedSendModal.data.totalCommission) },

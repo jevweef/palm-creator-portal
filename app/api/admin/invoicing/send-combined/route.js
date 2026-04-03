@@ -145,7 +145,7 @@ export async function POST(request) {
   }
 
   // TESTING: hardcode recipient
-  const recipient = 'josh@palmmanagement.com'
+  const recipient = 'josh@palm-mgmt.com'
 
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
 
@@ -241,7 +241,7 @@ export async function POST(request) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Evan <evan@palmmanagement.com>',
+      from: 'Evan <evan@palm-mgmt.com>',
       to: [recipient],
       subject,
       html,
