@@ -63,7 +63,7 @@ function WeightBar({ tag, weight, category }) {
         <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
         <span style={{ fontSize: '12px', fontWeight: 600, color, minWidth: '28px', textAlign: 'right' }}>{weight}</span>
       </div>
-      <div style={{ height: '4px', background: '#F0D0D8', borderRadius: '2px', overflow: 'hidden' }}>
+      <div style={{ height: '4px', background: 'rgba(0,0,0,0.04)', borderRadius: '2px', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${weight}%`, background: color, borderRadius: '2px', transition: 'width 0.4s ease' }} />
       </div>
     </div>
@@ -110,7 +110,7 @@ function DocumentRow({ doc, onDelete }) {
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px',
       padding: '10px 12px', background: '#ffffff', borderRadius: '8px',
-      border: '1px solid #222',
+      border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
     }}>
       <span style={{ fontSize: '11px', fontWeight: 600, color, background: '#FFF0F3', border: `1px solid ${color}30`, padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
         {doc.fileType}
@@ -190,7 +190,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', padding: '28px', width: '480px', maxWidth: '95vw' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '28px', width: '480px', maxWidth: '95vw' }}>
         <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '20px' }}>
           Upload Document — {creator.name || creator.aka}
         </div>
@@ -253,7 +253,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
             {error && <div style={{ color: '#ef4444', fontSize: '12px', marginBottom: '12px' }}>{error}</div>}
 
             {fileType === 'Audio' && (
-              <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px', padding: '8px 10px', background: '#FFF5F7', border: '1px solid #222', borderRadius: '6px' }}>
+              <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px', padding: '8px 10px', background: '#FFF5F7', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '6px' }}>
                 Audio uploads directly to Dropbox. Whisper transcription runs when you hit "Run Analysis."
               </div>
             )}
@@ -416,7 +416,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid #222', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
         {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights']].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
@@ -434,7 +434,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       {activeTab === 'profile' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {!c.profileSummary && status !== 'Analyzed' && status !== 'Reanalyze' && (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #222' }}>
+            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
               No profile yet. Upload documents and run analysis to generate.
             </div>
           )}
@@ -457,7 +457,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
               <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Tags</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {topTags.map(tw => (
-                  <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #F0D0D8' }}>
+                  <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid rgba(0,0,0,0.04)' }}>
                     {tw.tag} · {tw.weight}
                   </span>
                 ))}
@@ -471,7 +471,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       {activeTab === 'documents' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {documents.length === 0 && (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #222' }}>
+            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
               No documents yet. Click "+ Upload" to add voice memos, transcripts, or notes.
             </div>
           )}
@@ -508,7 +508,7 @@ function ProfileSection({ label, text, mono }) {
       <div style={{
         fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', whiteSpace: 'pre-wrap',
         fontFamily: mono ? 'monospace' : 'inherit', background: '#ffffff',
-        borderRadius: '8px', padding: '12px 14px', border: '1px solid #222',
+        borderRadius: '8px', padding: '12px 14px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
       }}>
         {text}
       </div>
@@ -553,7 +553,7 @@ export default function CreatorsPage() {
                 style={{
                   width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '8px',
                   background: selected?.id === c.id ? '#FFF0F3' : '#FFF5F7',
-                  border: selected?.id === c.id ? '1px solid #F0D0D8' : '1px solid #F0D0D8',
+                  border: 'none', boxShadow: selected?.id === c.id ? '0 2px 12px rgba(0,0,0,0.06)' : '0 1px 4px rgba(0,0,0,0.04)',
                   cursor: 'pointer', transition: 'all 0.15s',
                 }}>
                 <div style={{ fontSize: '13px', fontWeight: selected?.id === c.id ? 600 : 400, color: '#1a1a1a' }}>
@@ -571,7 +571,7 @@ export default function CreatorsPage() {
         </div>
 
         {/* Detail panel */}
-        <div style={{ flex: 1, minWidth: 0, background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ flex: 1, minWidth: 0, background: '#FFF5F7', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '24px' }}>
           {!selected ? (
             <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '60px 0' }}>
               Select a creator to view or build their profile.

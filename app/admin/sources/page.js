@@ -129,7 +129,7 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
+        style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -174,7 +174,7 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
 
         {/* Creator Assignment */}
         {allCreators.length > 0 && (
-          <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#FFF5F7', borderRadius: '8px', border: '1px solid #222' }}>
+          <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#FFF5F7', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
             <div style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
               Assigned to creators {savingCreators && <span style={{ color: '#3f3f46' }}>saving...</span>}
             </div>
@@ -277,7 +277,7 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px',
+        background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '24px', width: '380px',
       }}>
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
@@ -366,7 +366,7 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px',
+          background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
           padding: '24px', width: '400px',
         }}
       >
@@ -455,7 +455,7 @@ function AddSourceModal({ onClose, onAdd, allCreators }) {
         onClick={e => e.stopPropagation()}
         onSubmit={submit}
         style={{
-          background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px',
+          background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
           padding: '24px', width: '400px',
         }}
       >
@@ -630,8 +630,9 @@ export default function AdminSources() {
 
       <div style={{
         background: '#ffffff',
-        border: '1px solid #222',
-        borderRadius: '10px',
+        border: 'none',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        borderRadius: '18px',
         overflow: 'hidden',
       }}>
         {/* Table header */}
@@ -639,7 +640,7 @@ export default function AdminSources() {
           display: 'grid',
           gridTemplateColumns: '40px 1fr 120px 80px 70px 90px 120px 90px 70px 90px',
           padding: '10px 16px',
-          borderBottom: '1px solid #222',
+          borderBottom: '1px solid rgba(0,0,0,0.04)',
           fontSize: '11px',
           fontWeight: 600,
           color: '#999',
@@ -667,7 +668,7 @@ export default function AdminSources() {
               display: 'grid',
               gridTemplateColumns: '40px 1fr 120px 80px 70px 90px 120px 90px 70px 90px',
               padding: '10px 16px',
-              borderBottom: '1px solid #F0D0D8',
+              borderBottom: '1px solid rgba(0,0,0,0.04)',
               alignItems: 'center',
               fontSize: '13px',
               gap: '8px',

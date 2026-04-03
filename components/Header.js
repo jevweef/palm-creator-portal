@@ -24,7 +24,8 @@ export default function Header() {
 
   return (
     <header style={{
-      borderBottom: '1px solid #F0D0D8',
+      border: 'none',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
       background: '#ffffff',
     }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="px-4 md:px-8 py-3">

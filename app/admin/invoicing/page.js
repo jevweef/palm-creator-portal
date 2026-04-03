@@ -39,7 +39,7 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
-        background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '14px',
+        background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '28px 32px', width: '440px', maxWidth: '90vw',
       }}>
         <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>
@@ -57,7 +57,7 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
         ].map(row => (
           <div key={row.label} style={{
             display: 'flex', gap: '16px', padding: '8px 0',
-            borderBottom: '1px solid #F0D0D8', alignItems: 'center',
+            borderBottom: '1px solid rgba(0,0,0,0.04)', alignItems: 'center',
           }}>
             <span style={{ fontSize: '12px', color: '#999', width: '56px', flexShrink: 0 }}>{row.label}</span>
             <span style={{ fontSize: '13px', color: '#4a4a4a' }}>{row.value}</span>
@@ -183,7 +183,7 @@ function SummaryBar({ records }) {
         { label: 'Net Profit', value: fmt(total.net), color: '#22c55e' },
       ].map(s => (
         <div key={s.label} style={{
-          background: '#ffffff', border: '1px solid #222', borderRadius: '10px',
+          background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
           padding: '14px 18px', minWidth: '130px', flex: '1 1 0',
         }}>
           <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>
@@ -192,7 +192,7 @@ function SummaryBar({ records }) {
           <div style={{ fontSize: '20px', fontWeight: 700, color: s.color }}>{s.value}</div>
         </div>
       ))}
-      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '14px 18px', minWidth: '110px' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '14px 18px', minWidth: '110px' }}>
         <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Status</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {Object.entries(STATUS_CONFIG).map(([s, cfg]) => (
@@ -214,7 +214,7 @@ function TableHeader() {
       background: '#FFF5F7',
       display: 'grid', gridTemplateColumns: COLS, gap: '12px',
       padding: '6px 20px 8px', marginBottom: '4px',
-      borderBottom: '1px solid #F0D0D8',
+      borderBottom: '1px solid rgba(0,0,0,0.04)',
     }}>
       {[
         { label: 'Account', align: 'left' },
@@ -246,13 +246,13 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
 
   return (
     <div style={{
-      background: '#ffffff', border: '1px solid #222', borderRadius: '10px',
+      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       marginBottom: '10px', overflow: 'hidden',
     }}>
       {/* Creator header row */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '11px 20px', borderBottom: '1px solid #F0D0D8', background: '#fafafa',
+        padding: '11px 20px', borderBottom: '1px solid rgba(0,0,0,0.04)', background: '#fafafa',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</span>
@@ -284,7 +284,7 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
             style={{
               display: 'grid', gridTemplateColumns: COLS,
               alignItems: 'center', gap: '12px', padding: '10px 20px',
-              borderTop: i === 0 ? 'none' : '1px solid #F0D0D8', transition: 'background 0.1s',
+              borderTop: i === 0 ? 'none' : '1px solid rgba(0,0,0,0.04)', transition: 'background 0.1s',
             }}
             onMouseEnter={e => e.currentTarget.style.background = '#161616'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -556,7 +556,7 @@ export default function InvoicingPage() {
             return (
               <button key={p.key} onClick={() => setSelectedPeriod(p.key)} style={{
                 background: active ? '#FFF0F3' : '#ffffff',
-                border: `1px solid ${active ? '#E88FAC' : '#F0D0D8'}`,
+                border: active ? '1px solid #E88FAC' : 'none', boxShadow: active ? 'none' : '0 1px 4px rgba(0,0,0,0.04)',
                 borderRadius: '6px', color: active ? '#E88FAC' : '#999',
                 padding: '6px 14px', fontSize: '12px', fontWeight: active ? 600 : 400,
                 cursor: 'pointer', transition: 'all 0.15s',
@@ -566,7 +566,7 @@ export default function InvoicingPage() {
             )
           })}
           <button onClick={load} style={{
-            marginLeft: 'auto', background: 'transparent', border: '1px solid #F0D0D8',
+            marginLeft: 'auto', background: 'transparent', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
             borderRadius: '6px', color: '#3f3f46', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
           }}>
             ↺

@@ -56,7 +56,7 @@ export default function AdminLayout({ children }) {
       {/* Sidebar */}
       <aside style={{
         width: '160px',
-        borderRight: '1px solid #F0D0D8',
+        boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
         padding: '20px 0',
         flexShrink: 0,
         background: '#ffffff',
@@ -82,7 +82,7 @@ export default function AdminLayout({ children }) {
                   background: isActive ? '#FFF0F3' : 'transparent',
                   borderLeft: isActive ? '2px solid #E88FAC' : '2px solid transparent',
                   textDecoration: 'none',
-                  transition: 'all 0.15s',
+                  transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
                 }}
               >
                 <span>{item.icon}</span>

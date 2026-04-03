@@ -127,8 +127,8 @@ export default function AdminImport() {
           onClick={() => fileRef.current?.click()}
           style={{
             background: dragOver ? '#FFF0F3' : '#ffffff',
-            border: `2px dashed ${dragOver ? '#E88FAC' : '#E8C4CC'}`,
-            borderRadius: '12px',
+            border: `2px dashed ${dragOver ? '#E88FAC' : 'rgba(0,0,0,0.08)'}`,
+            borderRadius: '18px',
             padding: '60px 20px',
             textAlign: 'center',
             cursor: 'pointer',
@@ -154,7 +154,7 @@ export default function AdminImport() {
 
       {/* Preview */}
       {preview && !result && (
-        <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '20px' }}>
+        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px' }}>
           <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
             📄 {preview.fileName}
           </div>
@@ -198,7 +198,7 @@ export default function AdminImport() {
 
       {/* Result */}
       {result && (
-        <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '20px' }}>
+        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700, color: '#22c55e', marginBottom: '16px' }}>
             ✓ Import Complete
           </div>

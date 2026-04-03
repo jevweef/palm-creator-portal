@@ -282,12 +282,12 @@ export default function AdminReview() {
       </div>
 
       {/* Progress bar */}
-      <div style={{ height: '3px', background: '#F0D0D8', borderRadius: '2px', marginBottom: '20px' }}>
+      <div style={{ height: '3px', background: 'rgba(0,0,0,0.04)', borderRadius: '2px', marginBottom: '20px' }}>
         <div style={{ height: '100%', background: '#E88FAC', borderRadius: '2px', width: `${((index) / queue.length) * 100}%`, transition: 'width 0.3s' }} />
       </div>
 
       {/* Record card */}
-      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '20px', marginBottom: '16px' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px', marginBottom: '16px' }}>
         {/* Identity row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div>
@@ -361,7 +361,7 @@ export default function AdminReview() {
       )}
 
       {/* Voice note */}
-      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px', marginBottom: '16px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Reviewer Notes
         </div>
@@ -401,7 +401,7 @@ export default function AdminReview() {
       </div>
 
       {/* Creator pills */}
-      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px', marginBottom: '16px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Assign to Creators
         </div>
@@ -432,7 +432,7 @@ export default function AdminReview() {
       </div>
 
       {/* Rating + approve */}
-      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '16px' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Rate & Approve → sets Ready for Analysis
         </div>
@@ -481,14 +481,14 @@ export default function AdminReview() {
           <button
             onClick={() => setIndex(i => Math.max(0, i - 1))}
             disabled={index === 0}
-            style={{ padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.4 : 1 }}
+            style={{ padding: '6px 14px', background: '#FFF0F3', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.4 : 1, transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}
           >
             ← Prev
           </button>
           <button
             onClick={() => setIndex(i => Math.min(queue.length - 1, i + 1))}
             disabled={index >= queue.length - 1}
-            style={{ padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index >= queue.length - 1 ? 'not-allowed' : 'pointer', opacity: index >= queue.length - 1 ? 0.4 : 1 }}
+            style={{ padding: '6px 14px', background: '#FFF0F3', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index >= queue.length - 1 ? 'not-allowed' : 'pointer', opacity: index >= queue.length - 1 ? 0.4 : 1, transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}
           >
             Skip →
           </button>

@@ -6,8 +6,9 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div style={{
       background: '#ffffff',
-      border: '1px solid #F0D0D8',
-      borderRadius: '10px',
+      border: 'none',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      borderRadius: '18px',
       padding: '20px',
       flex: '1 1 0',
       minWidth: '140px',
@@ -29,8 +30,9 @@ function ActionButton({ label, description, onClick, loading, result, color = '#
   return (
     <div style={{
       background: '#ffffff',
-      border: '1px solid #F0D0D8',
-      borderRadius: '10px',
+      border: 'none',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      borderRadius: '18px',
       padding: '20px',
       flex: '1 1 0',
       minWidth: '200px',
@@ -218,8 +220,9 @@ export default function AdminPipeline() {
       {/* Status Breakdown */}
       <div style={{
         background: '#ffffff',
-        border: '1px solid #F0D0D8',
-        borderRadius: '10px',
+        border: 'none',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        borderRadius: '18px',
         padding: '20px',
         marginBottom: '24px',
       }}>

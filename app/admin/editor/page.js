@@ -118,7 +118,7 @@ function SubmitModal({ task, onClose, onSubmit }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', padding: '24px', width: '440px', maxWidth: '95vw' }}
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '440px', maxWidth: '95vw' }}
         onClick={e => e.stopPropagation()}>
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
           Submit Edit for Review
@@ -132,7 +132,7 @@ function SubmitModal({ task, onClose, onSubmit }) {
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f) }}
           onDragOver={e => e.preventDefault()}
           style={{
-            border: `2px dashed ${file ? '#22c55e' : '#E8C4CC'}`, borderRadius: '10px',
+            border: `2px dashed ${file ? '#22c55e' : 'rgba(0,0,0,0.08)'}`, borderRadius: '18px',
             padding: '24px', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.2s',
             background: file ? '#dcfce7' : 'transparent',
           }}
@@ -299,7 +299,7 @@ function InspoTasks({ showToast }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '12px', border: '1px solid #F0D0D8' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           {tasks.length === 0 ? 'No editing tasks in queue.' : 'No tasks match this filter.'}
         </div>
       ) : (
@@ -342,7 +342,7 @@ function InspoTasks({ showToast }) {
 function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, updating }) {
   return (
     <div style={{
-      background: '#ffffff', border: '1px solid #222', borderRadius: '12px',
+      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
     }}>
       {/* Visual header */}
@@ -431,7 +431,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
 
         {/* Creator notes */}
         {(task.creatorNotes || task.asset.creatorNotes) && (
-          <div style={{ background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '6px', padding: '10px' }}>
+          <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '10px' }}>
             <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
               Creator Notes
             </div>
@@ -452,7 +452,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
             </button>
 
             {expanded && (
-              <div style={{ background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {task.inspo.notes && (
                   <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                     {task.inspo.notes}
@@ -563,7 +563,7 @@ function UnreviewedLibrary({ showToast }) {
       </div>
 
       {assets.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '12px', border: '1px solid #F0D0D8' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           No unreviewed clips in library.
         </div>
       ) : (
@@ -588,7 +588,7 @@ function UnreviewedCard({ asset }) {
 
   return (
     <div style={{
-      background: '#ffffff', border: '1px solid #222', borderRadius: '12px',
+      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
     }}>
       {/* Thumbnail */}
@@ -639,7 +639,7 @@ function UnreviewedCard({ asset }) {
 
         {/* Creator notes */}
         {asset.creatorNotes && (
-          <div style={{ background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '6px', padding: '8px 10px' }}>
+          <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '8px 10px' }}>
             <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Notes</div>
             <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.4 }}>{asset.creatorNotes}</div>
           </div>
@@ -871,7 +871,7 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1386,7 +1386,7 @@ function ForReview({ showToast }) {
       </div>
 
       {tasks.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '12px', border: '1px solid #F0D0D8' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           No edits waiting for review.
         </div>
       ) : (
@@ -1404,7 +1404,7 @@ function ForReview({ showToast }) {
             const hasInspo = !!(inspoVideoUrl || task.inspo.thumbnail)
 
             return (
-              <div key={task.id} style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '12px', overflow: 'hidden' }}>
+              <div key={task.id} style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden' }}>
                 {/* Video strip — RAW | EDIT | INSPO */}
                 <div style={{ display: 'flex', background: '#FFF5F7', gap: '2px' }}>
 
@@ -1487,7 +1487,7 @@ function ForReview({ showToast }) {
 
                   {/* Editor notes */}
                   {task.editorNotes && (
-                    <div style={{ background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '6px', padding: '10px' }}>
+                    <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '10px' }}>
                       <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Editor Notes</div>
                       <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.4 }}>{task.editorNotes}</div>
                     </div>
@@ -1501,7 +1501,7 @@ function ForReview({ showToast }) {
                         {isExpanded ? '▾ Hide inspo' : '▸ View inspo direction'}
                       </button>
                       {isExpanded && (
-                        <div style={{ background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '12px' }}>
                           <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
                           {task.inspo.onScreenText && (
                             <div style={{ marginTop: '8px', fontSize: '12px', color: '#f59e0b', background: '#1a1500', border: '1px solid #fef3c7', borderRadius: '6px', padding: '8px 10px' }}>
@@ -1639,7 +1639,7 @@ export default function EditorQueue() {
       </div>
 
       {/* Section tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: '#ffffff', borderRadius: '8px', padding: '4px', width: 'fit-content', border: '1px solid #222' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: '#ffffff', borderRadius: '8px', padding: '4px', width: 'fit-content', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}

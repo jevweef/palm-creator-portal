@@ -373,7 +373,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   return (
     <div className="min-h-screen bg-[#FFF5F7]">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-[#FFF5F7]/95 backdrop-blur border-b border-[#F0D0D8]">
+      <div className="sticky top-0 z-40 bg-[#FFF5F7]/95 backdrop-blur" style={{boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
         <div style={{maxWidth:'1400px', margin:'0 auto', padding:'12px 32px'}}>
 
           {/* Mobile: title + filter button */}
@@ -388,7 +388,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               onClick={() => setShowMobileFilters(true)}
               style={{
                 display:'flex', alignItems:'center', gap:'6px',
-                background:'#fff', border:'1px solid #F0D0D8', borderRadius:'9999px',
+                background:'#fff', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px',
                 padding:'7px 14px', fontSize:'12px', fontWeight:500, color:'#666', cursor:'pointer',
               }}
             >
@@ -407,7 +407,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
           {/* Desktop: single row — sort + tags + search — NO wrap */}
           <div className="hidden md:flex items-center gap-2" style={{flexWrap:'nowrap'}}>
             {/* Sort toggle */}
-            <div style={{display:'flex', alignItems:'center', background:'#fff', border:'1px solid #F0D0D8', borderRadius:'9999px', padding:'2px', gap:'1px', flexShrink:0}}>
+            <div style={{display:'flex', alignItems:'center', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', border:'none', borderRadius:'9999px', padding:'2px', gap:'1px', flexShrink:0}}>
               {creatorOpsId && Object.keys(creatorTagWeights).length > 0 && (
                 <SortBtn value="foryou" label="For You" />
               )}
@@ -422,7 +422,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 onClick={() => setTextOnly(v => !v)}
                 style={{
                   fontSize: '11px', padding: '3px 10px', borderRadius: '9999px', flexShrink: 0,
-                  border: textOnly ? '1px solid #f59e0b' : '1px solid #E8C4CC',
+                  border: textOnly ? '1px solid #f59e0b' : 'none',
+                  boxShadow: textOnly ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
                   cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
                   background: textOnly ? '#fffbe6' : 'transparent',
                   color: textOnly ? '#f59e0b' : '#999',
@@ -434,7 +435,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
             )}
 
             {/* Divider */}
-            <div style={{width:'1px', height:'20px', background:'#E8C4CC', flexShrink:0}} />
+            <div style={{width:'1px', height:'20px', background:'rgba(0,0,0,0.06)', flexShrink:0}} />
 
             {/* Tag pills — scroll horizontally if needed */}
             <div style={{display:'flex', gap:'6px', overflowX:'auto', flexShrink:1, minWidth:0, scrollbarWidth:'none', msOverflowStyle:'none', WebkitOverflowScrolling:'touch'}}>
@@ -447,7 +448,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
             <button
               onClick={() => setShowAdvanced((v) => !v)}
               style={{
-                fontSize:'11px', padding:'3px 10px', borderRadius:'9999px', border:'1px solid #E8C4CC',
+                fontSize:'11px', padding:'3px 10px', borderRadius:'9999px', border:'none', boxShadow:'0 1px 3px rgba(0,0,0,0.06)',
                 cursor:'pointer', background: showAdvanced ? '#FFF0F3' : 'transparent',
                 color: showAdvanced ? '#E88FAC' : '#999',
                 display:'flex', alignItems:'center', gap:'4px', transition:'all 0.15s', flexShrink:0, whiteSpace:'nowrap',
@@ -463,7 +464,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
 
             {/* ANY/ALL — only when 2+ tags */}
             {activeTags.length >= 2 && (
-              <div style={{display:'flex', alignItems:'center', background:'#fff', border:'1px solid #F0D0D8', borderRadius:'9999px', padding:'2px', flexShrink:0}}>
+              <div style={{display:'flex', alignItems:'center', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', border:'none', borderRadius:'9999px', padding:'2px', flexShrink:0}}>
                 {['any','all'].map((m) => (
                   <button key={m} onClick={() => setTagMode(m)} style={{
                     fontSize:'11px', fontWeight:500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
@@ -503,7 +504,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
-                  width:'200px', background:'#fff', border:'1px solid #F0D0D8', borderRadius:'8px',
+                  width:'200px', background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:'8px',
                   paddingLeft:'30px', paddingRight:'12px', paddingTop:'6px', paddingBottom:'6px',
                   fontSize:'13px', color:'#1a1a1a', outline:'none',
                 }}
@@ -513,13 +514,13 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
 
           {/* Advanced panel */}
           {showAdvanced && (
-            <div style={{marginTop:'10px', paddingTop:'10px', borderTop:'1px solid #F0D0D8'}}>
+            <div style={{marginTop:'10px', paddingTop:'10px', borderTop:'1px solid rgba(0,0,0,0.04)'}}>
               {tagGroups.map((group, gi) => (
                 <div key={group.label} style={{display:'flex', alignItems:'center', gap:'8px', marginBottom: gi < tagGroups.length - 1 ? '6px' : '0'}}>
                   <span style={{fontSize:'9px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#999', whiteSpace:'nowrap', width:'80px', flexShrink:0, textAlign:'right'}}>
                     {group.label}
                   </span>
-                  <div style={{width:'1px', height:'14px', background:'#E8C4CC', flexShrink:0}} />
+                  <div style={{width:'1px', height:'14px', background:'rgba(0,0,0,0.06)', flexShrink:0}} />
                   <div style={{display:'flex', gap:'5px', flexWrap:'wrap'}}>
                     {group.tags.map((tag) => (
                       <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
@@ -533,7 +534,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   <span style={{fontSize:'9px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#999', whiteSpace:'nowrap', width:'80px', flexShrink:0, textAlign:'right'}}>
                     Format
                   </span>
-                  <div style={{width:'1px', height:'14px', background:'#E8C4CC', flexShrink:0}} />
+                  <div style={{width:'1px', height:'14px', background:'rgba(0,0,0,0.06)', flexShrink:0}} />
                   <div style={{display:'flex', gap:'5px', flexWrap:'wrap'}}>
                     {allFormats.map((fmt) => (
                       <button
@@ -545,7 +546,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                           fontWeight: activeFormats.includes(fmt) ? 600 : 400,
                           background: activeFormats.includes(fmt) ? '#E88FAC' : '#FFF0F3',
                           color: activeFormats.includes(fmt) ? '#fff' : '#888',
-                          outline: activeFormats.includes(fmt) ? '2px solid #E88FAC' : '1px solid #E8C4CC',
+                          outline: activeFormats.includes(fmt) ? '2px solid #E88FAC' : 'none',
+                          boxShadow: activeFormats.includes(fmt) ? 'none' : '0 1px 3px rgba(0,0,0,0.04)',
                           outlineOffset: activeFormats.includes(fmt) ? '1px' : '0',
                         }}
                       >
@@ -566,7 +568,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
             {Array.from({ length: 24 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl overflow-hidden animate-pulse border border-[#F0D0D8]">
+              <div key={i} className="bg-white rounded-xl overflow-hidden animate-pulse">
                 <div className="aspect-[9/16] bg-[#FFF0F3]" />
                 <div className="p-3 space-y-2">
                   <div className="h-3 bg-[#FFF0F3] rounded w-3/4" />
@@ -607,9 +609,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setShowMobileFilters(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl border-t border-[#F0D0D8] max-h-[80vh] overflow-y-auto"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
-            style={{WebkitOverflowScrolling:'touch'}}
+            style={{boxShadow:'0 -4px 20px rgba(0,0,0,0.08)', WebkitOverflowScrolling:'touch'}}
           >
             {/* Handle bar */}
             <div style={{display:'flex', justifyContent:'center', padding:'10px 0 6px'}}>
@@ -625,7 +627,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   ['recent','Recent'],['top','Top'],['viral','Viral']
                 ].map(([val, label]) => (
                   <button key={val} onClick={() => setSort(val)} style={{
-                    flex:1, padding:'10px', borderRadius:'10px', border:'1px solid #F0D0D8', cursor:'pointer',
+                    flex:1, padding:'10px', borderRadius:'10px', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', cursor:'pointer',
                     background: sort === val ? '#E88FAC' : '#FFF5F7',
                     color: sort === val ? '#fff' : '#888',
                     fontSize:'13px', fontWeight: sort === val ? 600 : 400,
@@ -642,7 +644,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
-                  width:'100%', background:'#fff', border:'1px solid #F0D0D8', borderRadius:'10px',
+                  width:'100%', background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:'10px',
                   padding:'10px 14px', fontSize:'14px', color:'#1a1a1a', outline:'none', marginBottom:'20px',
                   boxSizing:'border-box',
                 }}
@@ -667,7 +669,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                         onClick={() => toggleFormat(fmt)}
                         style={{
                           fontSize:'11px', padding:'5px 10px', borderRadius:'9999px', cursor:'pointer',
-                          border: activeFormats.includes(fmt) ? '1px solid #E88FAC' : '1px solid #E8C4CC',
+                          border: activeFormats.includes(fmt) ? '1px solid #E88FAC' : 'none',
+                          boxShadow: activeFormats.includes(fmt) ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
                           background: activeFormats.includes(fmt) ? '#FFF0F3' : 'transparent',
                           color: activeFormats.includes(fmt) ? '#E88FAC' : '#999',
                         }}
@@ -680,7 +683,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               {/* Actions */}
               <div style={{display:'flex', gap:'10px'}}>
                 {hasActiveFilters && (
-                  <button onClick={clearAll} style={{flex:1, padding:'12px', borderRadius:'10px', border:'1px solid #F0D0D8', background:'transparent', color:'#888', fontSize:'14px', cursor:'pointer'}}>
+                  <button onClick={clearAll} style={{flex:1, padding:'12px', borderRadius:'10px', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', background:'transparent', color:'#888', fontSize:'14px', cursor:'pointer'}}>
                     Clear all
                   </button>
                 )}

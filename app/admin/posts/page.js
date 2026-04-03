@@ -110,7 +110,7 @@ function TelegramModal({ post, onClose, onSent }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '560px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '100%', maxWidth: '560px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -143,7 +143,7 @@ function TelegramModal({ post, onClose, onSent }) {
         )}
 
         {/* Caption / hashtags / date */}
-        <div style={{ background: '#0d0d0d', border: '1px solid #F0D0D8', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ background: '#0d0d0d', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', overflow: 'hidden' }}>
           {fullCaption ? (
             <div style={{ padding: '10px 14px' }}>
               <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fullCaption}</div>
@@ -206,7 +206,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
     return (
       <div onClick={e => e.target === e.currentTarget && onClose()}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button onClick={() => setPreview(null)}
               style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
@@ -236,7 +236,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', width: '100%', maxWidth: '640px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '640px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#4a4a4a' }}>Choose Thumbnail</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
@@ -350,7 +350,7 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
         onClick={e => e.target === e.currentTarget && onClose()}>
-        <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: '14px', fontWeight: 700, color: '#4a4a4a' }}>Frame captured</div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
@@ -377,7 +377,7 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: 700, color: '#4a4a4a' }}>Pick a frame</div>
@@ -484,7 +484,7 @@ function PostCard({ post, onRefresh, onSend }) {
   }
 
   return (
-    <div style={{ background: '#0d0d0d', border: '1px solid #F0D0D8', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
+    <div style={{ background: '#0d0d0d', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
       {/* Left — video at 9:16 */}
       <div style={{ width: '300px', flexShrink: 0, background: '#080808', position: 'relative', aspectRatio: '9/16' }}>
@@ -703,7 +703,7 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#4a4a4a' }}>Log Historical Post</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
@@ -749,7 +749,7 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={saving || !date}
-            style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saving || !date ? '#ffffff' : '#dcfce7', color: saving || !date ? '#3f3f46' : '#22c55e', border: `1px solid ${saving || !date ? '#F0D0D8' : '#bbf7d0'}`, borderRadius: '8px', cursor: saving || !date ? 'default' : 'pointer' }}>
+            style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saving || !date ? '#ffffff' : '#dcfce7', color: saving || !date ? '#3f3f46' : '#22c55e', border: `1px solid ${saving || !date ? 'rgba(0,0,0,0.04)' : '#bbf7d0'}`, borderRadius: '8px', cursor: saving || !date ? 'default' : 'pointer' }}>
             {saving ? 'Saving...' : 'Log Post'}
           </button>
         </div>

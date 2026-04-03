@@ -222,11 +222,11 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && !uploading && onClose()}
     >
-      <div className="relative w-full max-w-lg mx-4 md:mx-0 bg-white border border-[#F0D0D8] rounded-2xl overflow-hidden" style={{boxShadow:'0 8px 40px rgba(0,0,0,0.15)'}}>
+      <div className="relative w-full max-w-lg mx-4 md:mx-0 bg-white overflow-hidden" style={{boxShadow:'0 8px 40px rgba(0,0,0,0.15)', borderRadius:'18px', border:'none'}}>
         {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '16px 22px', borderBottom: '1px solid #F0D0D8',
+          padding: '16px 22px', borderBottom: '1px solid rgba(0,0,0,0.04)',
         }}>
           <div>
             <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
@@ -280,15 +280,15 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 onDragOver={(e) => e.preventDefault()}
                 onClick={() => fileInputRef.current?.click()}
                 style={{
-                  border: '2px dashed #E8C4CC',
+                  border: '2px dashed rgba(0,0,0,0.08)',
                   borderRadius: '12px',
                   padding: '32px 20px',
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'border-color 0.2s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#E88FAC'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#E8C4CC'}
+                onMouseEnter={(e) => e.currentTarget.style.border = '2px dashed #E88FAC'}
+                onMouseLeave={(e) => e.currentTarget.style.border = '2px dashed rgba(0,0,0,0.08)'}
               >
                 <svg style={{ width: '32px', height: '32px', margin: '0 auto 12px', color: '#D4A0B0' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -315,7 +315,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                   {files.map((file, i) => (
                     <div key={i} style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '8px 12px', background: '#FFF5F7', borderRadius: '8px', border: '1px solid #F0D0D8',
+                      padding: '8px 12px', background: '#FFF5F7', borderRadius: '8px', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                     }}>
                       <div style={{ minWidth: 0 }}>
                         <p style={{ fontSize: '12px', color: '#4a4a4a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -345,7 +345,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 disabled={uploading}
                 style={{
                   width: '100%', marginTop: '16px', padding: '10px 12px',
-                  background: '#fff', border: '1px solid #E8C4CC', borderRadius: '8px',
+                  background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '8px',
                   color: '#333', fontSize: '13px', resize: 'vertical', minHeight: '60px',
                   fontFamily: 'inherit',
                 }}

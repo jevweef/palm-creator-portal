@@ -28,7 +28,7 @@ const STATUS_META = {
   queue:         { dot: '#E88FAC', label: 'Queue',                bg: '#fdf4ff', border: '#E8C4CC' },
   inReview:      { dot: '#22c55e', label: 'Submitted for Review', bg: '#f0fdf4', border: '#bbf7d0' },
   approved:      { dot: '#f59e0b', label: 'Approved',             bg: '#fffbeb', border: '#fde68a' },
-  history:       { dot: '#aaa', label: 'History',              bg: '#f5f5f5', border: '#F0D0D8' },
+  history:       { dot: '#aaa', label: 'History',              bg: '#f5f5f5', border: 'rgba(0,0,0,0.04)' },
 }
 
 // ── SectionLabel ──────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ function TaskRow({ task, type }) {
   const m = STATUS_META[type]
 
   return (
-    <div style={{ background: m.bg, border: `1px solid ${m.border}`, borderRadius: '10px', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div style={{ background: m.bg, border: `1px solid ${m.border}`, borderRadius: '18px', padding: '12px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
         {task.inspo?.thumbnail && (
           <img src={task.inspo.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
@@ -102,7 +102,7 @@ function TaskRow({ task, type }) {
             {expanded ? '▾ Hide direction' : '▸ View direction'}
           </button>
           {expanded && (
-            <div style={{ fontSize: '11px', color: '#4a4a4a', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+            <div style={{ fontSize: '11px', color: '#4a4a4a', background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
               {task.inspo.notes}
               {task.inspo.onScreenText && (
                 <div style={{ marginTop: '6px', color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '4px 6px' }}>
@@ -186,7 +186,7 @@ function CollapsibleColumn({ sectionKey, items }) {
 
 function InspoClipRow({ clip }) {
   return (
-    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '18px', padding: '12px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', display: 'flex', gap: '12px', alignItems: 'center' }}>
       {(clip.thumbnail || clip.inspo?.thumbnail) && (
         <img src={clip.thumbnail || clip.inspo?.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
       )}
@@ -242,7 +242,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
   }
 
   return (
-    <div style={{ background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ background: '#FFF5F7', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ background: '#FFF5F7', position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '260px', overflow: 'hidden' }}>
         {videoFile && rawUrl ? (
           <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
@@ -271,7 +271,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
         <div style={{ display: 'flex', gap: '4px', marginTop: 'auto' }}>
           {link && (
             <a href={link} target="_blank" rel="noopener noreferrer"
-              style={{ flex: 1, textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: '#F0D0D8', color: '#999', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}>
+              style={{ flex: 1, textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: '#999', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}>
               View ↗
             </a>
           )}
@@ -336,7 +336,7 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
           <span style={{ fontSize: '11px', color: '#aaa' }}>({assets.length})</span>
         </div>
         {tabs.length > 1 && (
-          <div style={{ display: 'flex', gap: '4px', background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px' }}>
+          <div style={{ display: 'flex', gap: '4px', background: '#ffffff', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '3px' }}>
             {tabs.map(t => (
               <button key={t.key} onClick={() => switchTab(t.key)}
                 style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
@@ -347,7 +347,7 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
             ))}
           </div>
         )}
-        <div style={{ display: 'flex', gap: '4px', background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px' }}>
+        <div style={{ display: 'flex', gap: '4px', background: '#ffffff', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '3px' }}>
           {[{ key: 'newest', label: 'Newest' }, { key: 'oldest', label: 'Oldest' }].map(s => (
             <button key={s.key} onClick={() => { setSortOrder(s.key); setPage(1) }}
               style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
@@ -478,14 +478,14 @@ export default function CreatorDetailPage() {
 
         {/* Unreviewed library */}
         {library.length > 0 && (
-          <div style={{ borderTop: '1px solid #F0D0D8', paddingTop: '32px', marginBottom: '28px' }}>
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '32px', marginBottom: '28px' }}>
             <LibrarySection title="Unreviewed Library" dot="#E88FAC" assets={library} creatorId={id} onRefresh={fetchData} />
           </div>
         )}
 
         {/* Empty state */}
         {taskSections.every(s => s.items.length === 0) && !hasApprovedOrHistory && inspoClips.length === 0 && library.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px', color: '#aaa', fontSize: '14px', background: '#FFF5F7', borderRadius: '12px', border: '1px solid #F0D0D8' }}>
+          <div style={{ textAlign: 'center', padding: '60px', color: '#aaa', fontSize: '14px', background: '#FFF5F7', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
             No editing activity yet for {creator.name}.
           </div>
         )}

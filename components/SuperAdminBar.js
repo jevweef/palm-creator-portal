@@ -92,7 +92,7 @@ export default function SuperAdminBar() {
   return (
     <div style={{
       background: '#FFF0F3',
-      borderBottom: '1px solid #F0D0D8',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       padding: '6px 24px',
       display: 'flex',
       alignItems: 'center',
@@ -140,12 +140,12 @@ export default function SuperAdminBar() {
             top: 'calc(100% + 6px)',
             left: 0,
             background: '#fff',
-            border: '1px solid #F0D0D8',
+            border: 'none',
             borderRadius: '8px',
             minWidth: '180px',
             zIndex: 1000,
             overflow: 'hidden',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
           }}>
             {creators.length === 0 && (
               <div style={{ padding: '10px 14px', fontSize: '12px', color: '#999' }}>Loading...</div>
@@ -161,7 +161,7 @@ export default function SuperAdminBar() {
                   textAlign: 'left',
                   background: selectedCreator?.id === c.id ? '#FFF0F3' : 'transparent',
                   border: 'none',
-                  borderBottom: '1px solid #F0D0D8',
+                  borderBottom: '1px solid rgba(0,0,0,0.04)',
                   color: selectedCreator?.id === c.id ? '#E88FAC' : '#4a4a4a',
                   fontSize: '13px',
                   cursor: 'pointer',

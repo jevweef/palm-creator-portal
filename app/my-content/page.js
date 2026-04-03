@@ -31,8 +31,9 @@ function PipelineCard({ item }) {
   return (
     <div style={{
       background: '#ffffff',
-      border: '1px solid #F0D0D8',
-      borderRadius: '12px',
+      border: 'none',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      borderRadius: '18px',
       overflow: 'hidden',
     }}>
       {item.inspoThumbnail && (
@@ -205,7 +206,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
       <div style={{
         display: 'flex',
         gap: '4px',
-        borderBottom: '1px solid #F0D0D8',
+        borderBottom: '1px solid rgba(0,0,0,0.04)',
         marginBottom: '24px',
         overflowX: 'auto',
       }}>
