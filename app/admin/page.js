@@ -184,7 +184,7 @@ export default function AdminPipeline() {
   return (
     <div>
       <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '24px' }}>
-        Pipeline Control Center
+        TEST Pipeline Control Center
       </h1>
 
       {/* Stats Row */}
