@@ -33,7 +33,7 @@ const clerkAppearance = {
   },
   variables: {
     colorPrimary: '#E88FAC',
-    colorBackground: '#FFECF7',
+    colorBackground: '#F8D7DD',
     colorText: '#1a1a1a',
     colorTextSecondary: '#666',
     colorInputBackground: '#fff',
