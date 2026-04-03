@@ -27,7 +27,7 @@ export const metadata = {
 
 const clerkAppearance = {
   layout: {
-    logoImageUrl: '/palm-logo.png',
+    logoImageUrl: '/sign-in-logo.png',
     logoLinkUrl: '',
     socialButtonsVariant: 'iconButton',
   },
