@@ -52,6 +52,155 @@ function StatBox({ value, label, color }) {
   )
 }
 
+function formatPeriod(start, end) {
+  if (!start || !end) return '—'
+  const s = new Date(start + 'T00:00:00')
+  const e = new Date(end + 'T00:00:00')
+  const sMonth = s.toLocaleDateString('en-US', { month: 'long' })
+  const eMonth = e.toLocaleDateString('en-US', { month: 'long' })
+  const sDay = s.getDate()
+  const eDay = e.getDate()
+  const eYear = e.getFullYear()
+  if (sMonth === eMonth) {
+    return `${sMonth} ${sDay} – ${eDay}, ${eYear}`
+  }
+  return `${sMonth} ${sDay} – ${eMonth} ${eDay}, ${eYear}`
+}
+
+function groupInvoicesByPeriod(invoices) {
+  const groups = {}
+  for (const inv of invoices) {
+    const key = `${inv.periodStart}|${inv.periodEnd}`
+    if (!groups[key]) {
+      groups[key] = {
+        periodStart: inv.periodStart,
+        periodEnd: inv.periodEnd,
+        dueDate: inv.dueDate,
+        totalEarnings: 0,
+        totalCommission: 0,
+        invoices: [],
+      }
+    }
+    groups[key].totalEarnings += inv.earnings || 0
+    groups[key].totalCommission += inv.totalCommission || 0
+    groups[key].invoices.push(inv)
+    if (inv.dueDate && !groups[key].dueDate) groups[key].dueDate = inv.dueDate
+  }
+  return Object.values(groups)
+}
+
+function InvoiceModal({ group, onClose }) {
+  const [pdfUrl, setPdfUrl] = useState(null)
+
+  if (!group) return null
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: pdfUrl ? '900px' : '520px',
+        maxHeight: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        display: 'flex', flexDirection: 'column', transition: 'max-width 0.3s ease',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: '#1a1a1a' }}>
+                {formatPeriod(group.periodStart, group.periodEnd)}
+              </div>
+              <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
+                {group.invoices.length} account{group.invoices.length !== 1 ? 's' : ''} · Due {fmtDate(group.dueDate)}
+              </div>
+            </div>
+            <button onClick={onClose} style={{
+              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '30px', height: '30px',
+              cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>✕</button>
+          </div>
+          {/* Combined totals */}
+          <div style={{ display: 'flex', gap: '24px', marginTop: '14px', padding: '12px 16px', background: '#FFF8FA', borderRadius: '12px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(group.totalEarnings)}</div>
+              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#4ade80' }}>{fmt$(group.totalCommission)}</div>
+              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Your Commission</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content area */}
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {pdfUrl ? (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '70vh' }}>
+              <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => setPdfUrl(null)} style={{
+                  background: '#f5f5f5', border: 'none', borderRadius: '8px', padding: '5px 12px',
+                  cursor: 'pointer', fontSize: '12px', color: '#666', fontWeight: 500,
+                }}>← Back</button>
+                <span style={{ fontSize: '11px', color: '#aaa' }}>Invoice PDF</span>
+              </div>
+              <iframe src={pdfUrl} style={{ flex: 1, border: 'none', width: '100%' }} title="Invoice PDF" />
+            </div>
+          ) : (
+            <div style={{ padding: '16px 24px 24px' }}>
+              {group.invoices.map((inv) => {
+                const acctLabel = Array.isArray(inv.accountName) ? inv.accountName.join(', ') : (inv.accountName || 'Account')
+                return (
+                  <div key={inv.id} style={{
+                    padding: '14px 16px', marginBottom: '8px',
+                    background: '#FAFAFA', borderRadius: '14px',
+                    border: '1px solid rgba(0,0,0,0.04)',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{acctLabel}</div>
+                        {inv.invoiceStatus && (
+                          <span style={{
+                            fontSize: '10px', fontWeight: 500, marginTop: '4px', display: 'inline-block',
+                            padding: '2px 8px', borderRadius: '6px',
+                            background: inv.invoiceStatus === 'Paid' ? '#dcfce7' : inv.invoiceStatus === 'Sent' ? '#fef3c7' : '#f3f4f6',
+                            color: inv.invoiceStatus === 'Paid' ? '#16a34a' : inv.invoiceStatus === 'Sent' ? '#d97706' : '#6b7280',
+                          }}>{inv.invoiceStatus}</span>
+                        )}
+                      </div>
+                      {inv.invoicePdfUrl && (
+                        <button onClick={() => setPdfUrl(inv.invoicePdfUrl)} style={{
+                          fontSize: '11px', color: '#E88FAC', background: '#FFF0F3', border: 'none',
+                          padding: '5px 14px', borderRadius: '8px', fontWeight: 500, cursor: 'pointer',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: '0.2s',
+                        }}>View PDF</button>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '20px', fontSize: '12px' }}>
+                      <div>
+                        <span style={{ color: '#aaa' }}>Revenue </span>
+                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>{fmt$(inv.earnings)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#aaa' }}>Commission </span>
+                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>{fmt$(inv.totalCommission)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#aaa' }}>Rate </span>
+                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>{fmtPct(inv.commissionPct)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ActionCard({ href, icon, title, subtitle }) {
   return (
     <a href={href} target={href.startsWith('/') ? undefined : '_blank'} rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
@@ -86,6 +235,7 @@ export default function CreatorDashboard() {
 
   const [creatorProfile, setCreatorProfile] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [invoiceModal, setInvoiceModal] = useState(null)
 
   useEffect(() => {
     if (!isLoaded) return
@@ -198,31 +348,50 @@ export default function CreatorDashboard() {
           <Card>
             <Label>Invoices</Label>
             {invoices && invoices.length > 0 ? (
-              invoices.map((inv) => (
-                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#4a4a4a' }}>{inv.label || `${fmtDate(inv.periodStart)} – ${fmtDate(inv.periodEnd)}`}</div>
-                    <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>
-                      {fmt$(inv.earnings)} earned · {fmt$(inv.totalCommission)} commission
+              groupInvoicesByPeriod(invoices).map((group) => {
+                const hasPdf = group.invoices.some(inv => inv.invoicePdfUrl)
+                const allPaid = group.invoices.every(inv => inv.invoiceStatus === 'Paid')
+                return (
+                  <div
+                    key={`${group.periodStart}|${group.periodEnd}`}
+                    onClick={() => setInvoiceModal(group)}
+                    className="card-hover"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 14px', marginBottom: '6px', cursor: 'pointer',
+                      borderRadius: '12px', background: '#FAFAFA',
+                      border: '1px solid rgba(0,0,0,0.04)',
+                      transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
+                        {formatPeriod(group.periodStart, group.periodEnd)}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>
+                        {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} commission
+                        {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      {allPaid && (
+                        <span style={{ fontSize: '10px', fontWeight: 500, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '6px' }}>Paid</span>
+                      )}
+                      {group.dueDate && !allPaid && (
+                        <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
+                      )}
+                      <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {inv.dueDate && <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(inv.dueDate)}</span>}
-                    {inv.invoicePdfUrl && (
-                      <a href={inv.invoicePdfUrl} target="_blank" rel="noopener noreferrer" style={{
-                        fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 10px',
-                        background: '#FFF0F3', borderRadius: '8px', fontWeight: 500,
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                        transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
-                      }}>PDF</a>
-                    )}
-                  </div>
-                </div>
-              ))
+                )
+              })
             ) : (
               <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No invoices yet</div>
             )}
           </Card>
+
+          {/* Invoice detail modal */}
+          {invoiceModal && <InvoiceModal group={invoiceModal} onClose={() => setInvoiceModal(null)} />}
 
           {/* Content Pipeline — shows saved, in progress, and completed content */}
           <Card>
