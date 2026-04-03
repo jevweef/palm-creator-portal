@@ -70,17 +70,24 @@ export default function CreatorDashboard() {
   // inspo board path for this creator
   const inspoPath = `/creator/${creatorOpsId}/inspo`
 
+  const [creatorProfile, setCreatorProfile] = useState(null)
+
   useEffect(() => {
     if (!isLoaded) return
     Promise.all([
       fetch(`/api/creator-profile?hqId=${hqId}`).then((r) => r.json()),
       fetch(`/api/saved-inspo?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ records: [] })),
       fetch(`/api/content-pipeline?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/creator/profile?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ tagWeights: {} })),
     ])
-      .then(([profileData, savedData, pipelineData]) => {
+      .then(([profileData, savedData, pipelineData, cpData, tagData]) => {
         setData(profileData)
         setSavedReels(savedData.records || [])
         setPipeline(pipelineData)
+        if (cpData && cpData.profileAnalysisStatus === 'Complete') {
+          setCreatorProfile({ ...cpData, tagWeights: tagData.tagWeights || {} })
+        }
         setLoading(false)
       })
       .catch((err) => { console.error(err); setLoading(false) })
@@ -168,6 +175,61 @@ export default function CreatorDashboard() {
             </Card>
           </div>
         </div>
+
+        {/* ── Creator Profile (AI-Generated) ── */}
+        {creatorProfile && (
+          <div style={{ display: 'grid', gap: '12px', marginBottom: '12px' }} className="grid-cols-1 md:grid-cols-2">
+            <Card>
+              <Label>Your Creator Profile</Label>
+              {creatorProfile.profileSummary && (
+                <div style={{ fontSize: '13px', color: '#d4d4d8', lineHeight: '1.6', marginBottom: '16px' }}>
+                  {creatorProfile.profileSummary}
+                </div>
+              )}
+              {creatorProfile.contentDirectionNotes && (
+                <>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '4px' }}>Content Direction</div>
+                  <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: '1.6' }}>
+                    {creatorProfile.contentDirectionNotes}
+                  </div>
+                </>
+              )}
+            </Card>
+            <Card>
+              <Label>Your Top Tags</Label>
+              {(() => {
+                const topTags = Object.entries(creatorProfile.tagWeights || {})
+                  .filter(([, w]) => w > 0)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 10)
+                if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No tags yet</div>
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {topTags.map(([tag, weight]) => (
+                      <div key={tag}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                          <span style={{ fontSize: '12px', color: '#d4d4d8' }}>{tag}</span>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#a78bfa' }}>{weight}</span>
+                        </div>
+                        <div style={{ height: '4px', background: '#222', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${weight}%`, background: '#a78bfa', borderRadius: '2px' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+              {creatorProfile.dosDonts && (
+                <>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
+                  <div style={{ fontSize: '11px', color: '#a1a1aa', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#0a0a0a', borderRadius: '6px', padding: '10px', border: '1px solid #1a1a1a' }}>
+                    {creatorProfile.dosDonts}
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+        )}
 
         {/* ── Row 2: Invoices + Saved Inspo ── */}
         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px' }}>
