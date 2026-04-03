@@ -43,10 +43,13 @@ function Row({ label, value, href, mono }) {
   )
 }
 
-function StatBox({ value, label, color }) {
+function StatBox({ value, label, color, gradient }) {
+  const textStyle = gradient
+    ? { fontSize: '22px', fontWeight: 700, background: gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
+    : { fontSize: '22px', fontWeight: 700, color: color || '#1a1a1a' }
   return (
     <div style={{ flex: 1, minWidth: '120px' }}>
-      <div style={{ fontSize: '22px', fontWeight: 700, color: color || '#1a1a1a' }}>{value}</div>
+      <div style={textStyle}>{value}</div>
       <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>{label}</div>
     </div>
   )
@@ -94,21 +97,24 @@ function InvoiceModal({ group, onClose }) {
 
   if (!group) return null
 
+  const hasPdfs = group.invoices.some(inv => inv.invoicePdfUrl || inv.invoiceDropboxUrl)
+  const allPaid = group.invoices.every(inv => inv.invoiceStatus === 'Paid')
+
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: pdfUrl ? '900px' : '520px',
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: pdfUrl ? '1000px' : '640px',
         maxHeight: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         display: 'flex', flexDirection: 'column', transition: 'max-width 0.3s ease',
       }}>
         {/* Header */}
-        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+        <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: '17px', fontWeight: 700, color: '#1a1a1a' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
                 {formatPeriod(group.periodStart, group.periodEnd)}
               </div>
               <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
@@ -116,19 +122,23 @@ function InvoiceModal({ group, onClose }) {
               </div>
             </div>
             <button onClick={onClose} style={{
-              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '30px', height: '30px',
+              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
               cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>✕</button>
           </div>
           {/* Combined totals */}
-          <div style={{ display: 'flex', gap: '24px', marginTop: '14px', padding: '12px 16px', background: '#FFF8FA', borderRadius: '12px' }}>
-            <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(group.totalEarnings)}</div>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</div>
+          <div style={{ display: 'flex', marginTop: '16px', padding: '18px 24px', background: '#FFF8FA', borderRadius: '14px' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(group.totalEarnings)}</div>
+              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Total Revenue</div>
             </div>
-            <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#4ade80' }}>{fmt$(group.totalCommission)}</div>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Your Commission</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(group.totalEarnings - group.totalCommission)}</div>
+              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Your Take Home</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: '#E88FAC' }}>{fmt$(group.totalCommission)}</div>
+              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Management Fee</div>
             </div>
           </div>
         </div>
@@ -136,8 +146,8 @@ function InvoiceModal({ group, onClose }) {
         {/* Content area */}
         <div style={{ flex: 1, overflow: 'auto' }}>
           {pdfUrl ? (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '70vh' }}>
-              <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '75vh' }}>
+              <div style={{ padding: '12px 28px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button onClick={() => setPdfUrl(null)} style={{
                   background: '#f5f5f5', border: 'none', borderRadius: '8px', padding: '5px 12px',
                   cursor: 'pointer', fontSize: '12px', color: '#666', fontWeight: 500,
@@ -147,52 +157,71 @@ function InvoiceModal({ group, onClose }) {
               <iframe src={pdfUrl} style={{ flex: 1, border: 'none', width: '100%' }} title="Invoice PDF" />
             </div>
           ) : (
-            <div style={{ padding: '16px 24px 24px' }}>
+            <div style={{ padding: '20px 28px 28px' }}>
+              {/* Account line items */}
               {group.invoices.map((inv) => {
                 const acctLabel = Array.isArray(inv.accountName) ? inv.accountName.join(', ') : (inv.accountName || 'Account')
+                const pdfLink = inv.invoicePdfUrl || inv.invoiceDropboxUrl
                 return (
                   <div key={inv.id} style={{
-                    padding: '14px 16px', marginBottom: '8px',
-                    background: '#FAFAFA', borderRadius: '14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', marginBottom: '6px',
+                    background: '#FAFAFA', borderRadius: '12px',
                     border: '1px solid rgba(0,0,0,0.04)',
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{acctLabel}</div>
-                        {inv.invoiceStatus && (
-                          <span style={{
-                            fontSize: '10px', fontWeight: 500, marginTop: '4px', display: 'inline-block',
-                            padding: '2px 8px', borderRadius: '6px',
-                            background: inv.invoiceStatus === 'Paid' ? '#dcfce7' : inv.invoiceStatus === 'Sent' ? '#fef3c7' : '#f3f4f6',
-                            color: inv.invoiceStatus === 'Paid' ? '#16a34a' : inv.invoiceStatus === 'Sent' ? '#d97706' : '#6b7280',
-                          }}>{inv.invoiceStatus}</span>
-                        )}
-                      </div>
-                      {inv.invoicePdfUrl && (
-                        <button onClick={() => setPdfUrl(inv.invoicePdfUrl)} style={{
-                          fontSize: '11px', color: '#E88FAC', background: '#FFF0F3', border: 'none',
-                          padding: '5px 14px', borderRadius: '8px', fontWeight: 500, cursor: 'pointer',
-                          boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: '0.2s',
-                        }}>View PDF</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', minWidth: '70px' }}>{acctLabel}</div>
+                      {inv.invoiceStatus && (
+                        <span style={{
+                          fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '5px',
+                          background: inv.invoiceStatus === 'Paid' ? '#dcfce7' : inv.invoiceStatus === 'Sent' ? '#fef3c7' : '#f3f4f6',
+                          color: inv.invoiceStatus === 'Paid' ? '#16a34a' : inv.invoiceStatus === 'Sent' ? '#d97706' : '#6b7280',
+                        }}>{inv.invoiceStatus}</span>
                       )}
+                      <span style={{ fontSize: '12px', color: '#666' }}>{fmt$(inv.earnings)}</span>
+                      <span style={{ fontSize: '12px', color: '#ccc' }}>·</span>
+                      <span style={{ fontSize: '12px', color: '#999' }}>{fmtPct(inv.commissionPct)} fee</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '20px', fontSize: '12px' }}>
-                      <div>
-                        <span style={{ color: '#aaa' }}>Revenue </span>
-                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>{fmt$(inv.earnings)}</span>
-                      </div>
-                      <div>
-                        <span style={{ color: '#aaa' }}>Commission </span>
-                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>{fmt$(inv.totalCommission)}</span>
-                      </div>
-                      <div>
-                        <span style={{ color: '#aaa' }}>Rate </span>
-                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>{fmtPct(inv.commissionPct)}</span>
-                      </div>
-                    </div>
+                    {pdfLink && (
+                      <button onClick={() => setPdfUrl(pdfLink)} style={{
+                        fontSize: '11px', color: '#E88FAC', background: '#FFF0F3', border: 'none',
+                        padding: '5px 12px', borderRadius: '8px', fontWeight: 500, cursor: 'pointer',
+                        flexShrink: 0,
+                      }}>View PDF</button>
+                    )}
                   </div>
                 )
               })}
+
+              {/* Zelle payment section */}
+              {!allPaid && (
+                <div style={{
+                  marginTop: '20px', padding: '20px', background: '#FAFAFA', borderRadius: '14px',
+                  border: '1px solid rgba(0,0,0,0.04)', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Pay via Zelle</div>
+                  <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '14px' }}>Scan the QR code or send to the info below</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
+                    <img src="/zelle-qr.png" alt="Zelle QR Code" style={{ width: '120px', height: '120px', borderRadius: '10px', objectFit: 'contain' }} />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                        <span style={{ display: 'inline-block', width: '50px' }}>To</span>
+                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>Palm Digital Management LLC</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                        <span style={{ display: 'inline-block', width: '50px' }}>Bank</span>
+                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>Chase</span>
+                      </div>
+                      <div style={{
+                        marginTop: '12px', padding: '10px 20px', background: '#6d28d9', color: '#fff',
+                        borderRadius: '10px', fontSize: '13px', fontWeight: 600, display: 'inline-block',
+                      }}>
+                        {fmt$(group.totalCommission)} due
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -292,7 +321,7 @@ export default function CreatorDashboard() {
             <Label>Profile</Label>
             <Row label="Name" value={p.name} />
             <Row label="Stage Name" value={p.aka} />
-            <Row label="Commission" value={fmtPct(p.commission)} />
+            <Row label="Management Fee" value={fmtPct(p.commission)} />
             <Row label="Started" value={fmtDate(p.managementStartDate)} />
             <Row label="OnlyFans" value={p.onlyfansUrl?.replace('https://', '')} href={p.onlyfansUrl} />
             {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
@@ -308,10 +337,15 @@ export default function CreatorDashboard() {
             {/* Earnings row */}
             <Card>
               <Label>Last Month</Label>
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                <StatBox value={fmt$(p.previousMonthTR)} label="Total Revenue" />
-                <StatBox value={fmt$(p.previousMonthTR * (p.commission || 0))} label={`Your Commission (${fmtPct(p.commission)})`} color="#4ade80" />
-                <StatBox value={fmtPct(p.commission)} label="Commission Rate" color="#E88FAC" />
+              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0' }}>
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(p.previousMonthTR * (1 - (p.commission || 0)))}</div>
+                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
+                </div>
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(p.previousMonthTR)}</div>
+                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
+                </div>
               </div>
             </Card>
 
