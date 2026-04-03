@@ -6,7 +6,11 @@ import { useSearchParams, useParams } from 'next/navigation'
 
 function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0) }
 function fmtPct(val) { return `${Math.round((val || 0) * 100)}%` }
-function fmtDate(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+function fmtDate(d) {
+  if (!d) return '—'
+  const date = d.includes('T') ? new Date(d) : new Date(d + 'T00:00:00')
+  return isNaN(date) ? '—' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 function Card({ children, style, className, hoverable }) {
   return (
@@ -383,8 +387,22 @@ export default function CreatorDashboard() {
             <Label>Invoices</Label>
             {invoices && invoices.length > 0 ? (
               groupInvoicesByPeriod(invoices).map((group) => {
-                const hasPdf = group.invoices.some(inv => inv.invoicePdfUrl)
-                const allPaid = group.invoices.every(inv => inv.invoiceStatus === 'Paid')
+                const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
+                const allPaid = statuses.every(s => s === 'Paid')
+                const allSent = statuses.every(s => s === 'Sent')
+                const somePaid = statuses.some(s => s === 'Paid')
+                const someSent = statuses.some(s => s === 'Sent')
+                const now = new Date()
+                const periodEnd = group.periodEnd ? new Date(group.periodEnd + 'T23:59:59') : null
+                const isActive = periodEnd && now <= periodEnd
+
+                let statusLabel, statusColor, statusBg
+                if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
+                else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
+                else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+
                 return (
                   <div
                     key={`${group.periodStart}|${group.periodEnd}`}
@@ -403,14 +421,12 @@ export default function CreatorDashboard() {
                         {formatPeriod(group.periodStart, group.periodEnd)}
                       </div>
                       <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>
-                        {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} commission
+                        {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
                         {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      {allPaid && (
-                        <span style={{ fontSize: '10px', fontWeight: 500, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '6px' }}>Paid</span>
-                      )}
+                      <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
                       {group.dueDate && !allPaid && (
                         <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
                       )}

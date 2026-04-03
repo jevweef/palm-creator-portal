@@ -237,7 +237,7 @@ function TableHeader() {
 }
 
 // ── Creator group card ───────────────────────────────────────────────────────
-function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, actionState }) {
+function CreatorGroup({ aka, rows, onSave, onBulkStatus, onGenerate, onSendClick, savingId, actionState }) {
   const commissionPct = rows[0]?.commissionPct || 0
   const totalTr = rows.reduce((s, r) => s + (r.earnings || 0), 0)
   const totalNet = rows.reduce((s, r) => s + (r.netProfit || 0), 0)
@@ -265,9 +265,42 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '18px', fontSize: '13px' }}>
+        <div style={{ display: 'flex', gap: '12px', fontSize: '13px', alignItems: 'center' }}>
           <span style={{ color: '#999' }}>TR: <span style={{ color: totalTr > 0 ? '#4a4a4a' : '#444' }}>{fmt(totalTr)}</span></span>
           <span style={{ color: '#999' }}>Net: <span style={{ color: totalNet > 0 ? '#22c55e' : '#444' }}>{fmt(totalNet)}</span></span>
+          <span style={{ color: '#ddd', margin: '0 2px' }}>|</span>
+          {(() => {
+            const allSame = rows.every(r => r.status === rows[0]?.status)
+            const currentStatus = allSame ? rows[0]?.status : null
+            const nextStatus = currentStatus ? STATUS_CONFIG[currentStatus]?.next : null
+            const ids = rows.map(r => r.id)
+            if (currentStatus && nextStatus) {
+              return (
+                <button onClick={() => onBulkStatus(ids, nextStatus)}
+                  style={{
+                    background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '5px',
+                    color: '#E88FAC', fontSize: '11px', fontWeight: 600, padding: '3px 10px',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                  Mark All {nextStatus}
+                </button>
+              )
+            }
+            return (
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {['Sent', 'Paid'].map(s => (
+                  <button key={s} onClick={() => onBulkStatus(ids, s)}
+                    style={{
+                      background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '5px',
+                      color: '#E88FAC', fontSize: '10px', fontWeight: 600, padding: '2px 8px',
+                      cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}>
+                    All {s}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       </div>
 
@@ -437,6 +470,23 @@ export default function InvoicingPage() {
     finally { setSavingId(null) }
   }, [])
 
+  // Bulk status update — mark all records for a creator as Sent/Paid
+  const handleBulkStatus = useCallback(async (recordIds, status) => {
+    for (const id of recordIds) {
+      setSavingId(id)
+      try {
+        const res = await fetch('/api/admin/invoicing', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordId: id, fields: { status } }),
+        })
+        if (res.ok) {
+          setRecords(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+        }
+      } catch (e) { console.error(e) }
+    }
+    setSavingId(null)
+  }, [])
+
   // Generate PDF
   const handleGenerate = useCallback(async (recordId) => {
     setActionState(prev => ({ ...prev, [recordId]: 'generating' }))
@@ -601,6 +651,7 @@ export default function InvoicingPage() {
             <CreatorGroup
               key={aka} aka={aka} rows={grouped[aka]}
               onSave={handleSave}
+              onBulkStatus={handleBulkStatus}
               onGenerate={handleGenerate}
               onSendClick={handleSendClick}
               savingId={savingId}
