@@ -9,7 +9,7 @@ export default function Header() {
   const searchParams = useSearchParams()
   const { user } = useUser()
   const role = user?.publicMetadata?.role
-  const isAdmin = role === 'admin'
+  const isAdmin = role === 'admin' || role === 'super_admin'
   const isEditor = role === 'editor'
   const isEditorPath = pathname?.startsWith('/editor')
   const isCreatorPath = pathname?.startsWith('/creator')
