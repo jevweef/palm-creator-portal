@@ -300,14 +300,14 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onGenerate, onSendClick
                   ))}
                 </div>
               )}
-              {allHavePdfs && !allSent && (
+              {allHavePdfs && (
                 <button onClick={() => onSendInvoice(ids, aka)}
                   style={{
-                    background: '#3b82f6', border: 'none', borderRadius: '5px',
+                    background: allSent ? '#22c55e' : '#3b82f6', border: 'none', borderRadius: '5px',
                     color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 12px',
                     cursor: 'pointer', whiteSpace: 'nowrap',
                   }}>
-                  ✉ Send Invoice
+                  {allSent ? '✓ Sent' : '✉ Send Invoice'}
                 </button>
               )}
             </>)

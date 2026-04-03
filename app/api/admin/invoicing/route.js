@@ -29,6 +29,8 @@ const FIELDS = [
   'fldhtbiwnxDm2KJpg', // Invoice Dropbox Link
   'fld6OleRMqVZJeE8f', // Revenue Account (linked)
   'fldDrn5gbFp03ngNC', // Creator Invoice (attachment)
+  'fldtJxnQil7qFI3v1', // Generated At
+  'fldurnksixCkoU7Lh', // Sent At
 ]
 
 export async function GET() {
@@ -92,6 +94,8 @@ export async function GET() {
       dueDate: f['fldOTpRmDWDfwz8FH']
         ? f['fldOTpRmDWDfwz8FH'].split('T')[0]
         : null,
+      generatedAt: f['fldtJxnQil7qFI3v1'] || null,
+      sentAt: f['fldurnksixCkoU7Lh'] || null,
     }
   })
 
@@ -118,6 +122,8 @@ export async function PATCH(request) {
     earnings: 'fldUBcYSMy74lt9Xf',
     status: 'fldQEjYB0DxpNWxhU',
     invoiceNumber: 'fldl3FDN3H4pr2nIY',
+    generatedAt: 'fldtJxnQil7qFI3v1',
+    sentAt: 'fldurnksixCkoU7Lh',
   }
 
   const airtableFields = {}

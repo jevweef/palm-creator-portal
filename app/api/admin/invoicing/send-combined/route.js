@@ -253,14 +253,15 @@ export async function POST(request) {
     return Response.json({ error: err }, { status: 500 })
   }
 
-  // Mark all invoices as Sent
+  // Mark all invoices as Sent + write Sent At timestamp
+  const sentAt = new Date().toISOString()
   await Promise.all(recordIds.map(id =>
     fetch(`https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}/${id}`, {
       method: 'PATCH',
       headers: atHeaders(),
-      body: JSON.stringify({ fields: { 'Invoice Status': 'Sent' } }),
+      body: JSON.stringify({ fields: { 'Invoice Status': 'Sent', 'Sent At': sentAt } }),
     })
   ))
 
-  return Response.json({ ok: true, recipient, recordIds })
+  return Response.json({ ok: true, recipient, recordIds, sentAt })
 }
