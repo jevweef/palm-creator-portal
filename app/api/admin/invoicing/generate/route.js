@@ -15,7 +15,7 @@ export async function POST(request) {
   const { recordId } = await request.json()
   if (!recordId) return Response.json({ error: 'recordId required' }, { status: 400 })
 
-  const inspoDir = path.join(os.homedir(), 'inspo_test')
+  const inspoDir = process.env.INSPO_DIR || path.join(os.homedir(), 'inspo_test')
   const cmd = `cd "${inspoDir}" && .venv/bin/python invoices/generate_single.py ${recordId}`
 
   try {
