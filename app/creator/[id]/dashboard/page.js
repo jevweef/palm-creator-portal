@@ -9,21 +9,21 @@ function fmtPct(val) { return `${Math.round((val || 0) * 100)}%` }
 function fmtDate(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 
 function Card({ children, style, className }) {
-  return <div className={className} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', ...style }}>{children}</div>
+  return <div className={className} style={{ background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '12px', padding: '20px', ...style }}>{children}</div>
 }
 
 function Label({ children }) {
-  return <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>{children}</div>
+  return <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>{children}</div>
 }
 
 function Row({ label, value, href, mono }) {
-  const valStyle = { color: '#d4d4d8', fontSize: '13px', ...(mono ? { fontFamily: 'monospace' } : {}) }
+  const valStyle = { color: '#4a4a4a', fontSize: '13px', ...(mono ? { fontFamily: 'monospace' } : {}) }
   const content = href
-    ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...valStyle, color: '#a78bfa', textDecoration: 'none' }}>{value}</a>
+    ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...valStyle, color: '#E88FAC', textDecoration: 'none' }}>{value}</a>
     : <span style={valStyle}>{value || '—'}</span>
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #1a1a1a' }}>
-      <span style={{ color: '#71717a', fontSize: '12px', flexShrink: 0, marginRight: '16px' }}>{label}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #F0D0D8' }}>
+      <span style={{ color: '#999', fontSize: '12px', flexShrink: 0, marginRight: '16px' }}>{label}</span>
       {content}
     </div>
   )
@@ -32,8 +32,8 @@ function Row({ label, value, href, mono }) {
 function StatBox({ value, label, color }) {
   return (
     <div style={{ flex: 1, minWidth: '120px' }}>
-      <div style={{ fontSize: '22px', fontWeight: 700, color: color || '#fff' }}>{value}</div>
-      <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>{label}</div>
+      <div style={{ fontSize: '22px', fontWeight: 700, color: color || '#1a1a1a' }}>{value}</div>
+      <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>{label}</div>
     </div>
   )
 }
@@ -41,10 +41,10 @@ function StatBox({ value, label, color }) {
 function ActionCard({ href, icon, title, subtitle }) {
   return (
     <a href={href} target={href.startsWith('/') ? undefined : '_blank'} rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-      <Card style={{ textAlign: 'center', cursor: 'pointer', borderColor: '#2a2a2a', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', transition: 'border-color 0.2s' }}>
+      <Card style={{ textAlign: 'center', cursor: 'pointer', borderColor: '#E8C4CC', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', transition: 'border-color 0.2s' }}>
         <div style={{ fontSize: '22px', marginBottom: '6px' }}>{icon}</div>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{title}</div>
-        <div style={{ fontSize: '10px', color: '#71717a', marginTop: '3px' }}>{subtitle}</div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{title}</div>
+        <div style={{ fontSize: '10px', color: '#999', marginTop: '3px' }}>{subtitle}</div>
       </Card>
     </a>
   )
@@ -96,8 +96,8 @@ export default function CreatorDashboard() {
 
   if (!isLoaded || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#555', fontSize: '14px' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: '#999', fontSize: '14px' }}>Loading...</div>
       </div>
     )
   }
@@ -109,14 +109,14 @@ export default function CreatorDashboard() {
   const igHref = p.igAccount?.startsWith('http') ? p.igAccount : `https://${p.igAccount}`
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-8">
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
           <div>
             <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
-            <p style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>Palm Management Dashboard</p>
+            <p style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
         </div>
 
@@ -147,7 +147,7 @@ export default function CreatorDashboard() {
               <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                 <StatBox value={fmt$(p.previousMonthTR)} label="Total Revenue" />
                 <StatBox value={fmt$(p.previousMonthTR * (p.commission || 0))} label={`Your Commission (${fmtPct(p.commission)})`} color="#4ade80" />
-                <StatBox value={fmtPct(p.commission)} label="Commission Rate" color="#a78bfa" />
+                <StatBox value={fmtPct(p.commission)} label="Commission Rate" color="#E88FAC" />
               </div>
             </Card>
 
@@ -172,7 +172,7 @@ export default function CreatorDashboard() {
                 <StatBox value="—" label="OF Subscribers" />
                 <StatBox value="—" label="Week-over-Week" />
               </div>
-              <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+              <div style={{ fontSize: '11px', color: '#999', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
             </Card>
           </div>
         </div>
@@ -185,26 +185,26 @@ export default function CreatorDashboard() {
             <Label>Invoices</Label>
             {invoices && invoices.length > 0 ? (
               invoices.map((inv) => (
-                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1a1a1a' }}>
+                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #F0D0D8' }}>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#d4d4d8' }}>{inv.label || `${fmtDate(inv.periodStart)} – ${fmtDate(inv.periodEnd)}`}</div>
-                    <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#4a4a4a' }}>{inv.label || `${fmtDate(inv.periodStart)} – ${fmtDate(inv.periodEnd)}`}</div>
+                    <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
                       {fmt$(inv.earnings)} earned · {fmt$(inv.totalCommission)} commission
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {inv.dueDate && <span style={{ fontSize: '10px', color: '#52525b' }}>Due {fmtDate(inv.dueDate)}</span>}
+                    {inv.dueDate && <span style={{ fontSize: '10px', color: '#999' }}>Due {fmtDate(inv.dueDate)}</span>}
                     {inv.invoicePdfUrl && (
                       <a href={inv.invoicePdfUrl} target="_blank" rel="noopener noreferrer" style={{
-                        fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px',
-                        border: '1px solid #333', borderRadius: '6px',
+                        fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px',
+                        border: '1px solid #E8C4CC', borderRadius: '6px',
                       }}>PDF</a>
                     )}
                   </div>
                 </div>
               ))
             ) : (
-              <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No invoices yet</div>
+              <div style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>No invoices yet</div>
             )}
           </Card>
 
@@ -212,7 +212,7 @@ export default function CreatorDashboard() {
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <Label>My Content</Label>
-              <a href="/my-content" style={{ color: '#a78bfa', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
+              <a href="/my-content" style={{ color: '#E88FAC', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
                 View All →
               </a>
             </div>
@@ -230,14 +230,14 @@ export default function CreatorDashboard() {
               return (<>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: savedOnly.length > 0 || (pipeline?.editing?.length > 0) ? '14px' : 0 }}>
               {[
-                { label: 'Saved', count: savedOnly.length, color: '#a78bfa' },
+                { label: 'Saved', count: savedOnly.length, color: '#E88FAC' },
                 { label: 'Uploaded', count: pipeline?.uploaded?.length || 0, color: '#f59e0b' },
                 { label: 'Editing', count: pipeline?.editing?.length || 0, color: '#3b82f6' },
                 { label: 'Posted', count: pipeline?.posted?.length || 0, color: '#22c55e' },
               ].map(stage => (
-                <div key={stage.label} style={{ textAlign: 'center', padding: '8px', background: '#0a0a0a', borderRadius: '8px', border: '1px solid #1a1a1a' }}>
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : '#333' }}>{stage.count}</div>
-                  <div style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stage.label}</div>
+                <div key={stage.label} style={{ textAlign: 'center', padding: '8px', background: '#FFF0F3', borderRadius: '8px', border: '1px solid #F0D0D8' }}>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : '#E8C4CC' }}>{stage.count}</div>
+                  <div style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stage.label}</div>
                 </div>
               ))}
             </div>
@@ -245,26 +245,26 @@ export default function CreatorDashboard() {
             {/* Saved inspo thumbnails */}
             {savedOnly.length > 0 ? (
               <div>
-                <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
+                <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {savedOnly.slice(0, 8).map((reel) => (
-                    <a key={reel.id} href="/my-content?tab=saved" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a' }}>
-                      <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
+                    <a key={reel.id} href="/my-content?tab=saved" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #F0D0D8', background: '#FFF5F7' }}>
+                      <div style={{ aspectRatio: '9/16', background: '#FFF0F3', overflow: 'hidden' }}>
                         {reel.thumbnail ? (
                           <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '20px' }}>🎬</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '20px' }}>🎬</div>
                         )}
                       </div>
                       <div style={{ padding: '4px 6px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#4a4a4a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
                       </div>
                     </a>
                   ))}
                 </div>
               </div>
             ) : (pipeline?.editing?.length > 0 || pipeline?.uploaded?.length > 0) ? null : (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: '#52525b', fontSize: '13px' }}>
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#999', fontSize: '13px' }}>
                 Save reels from the Inspo Board to start creating content
               </div>
             )}
@@ -272,15 +272,15 @@ export default function CreatorDashboard() {
             {/* In progress content thumbnails */}
             {pipeline?.editing?.length > 0 && (
               <div style={{ marginTop: savedReels.length > 0 ? '12px' : 0 }}>
-                <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
+                <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {pipeline.editing.slice(0, 4).map((item) => (
-                    <a key={item.assetId} href="/my-content?tab=editing" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1a3a6d', background: '#0a0a0a' }}>
-                      <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
+                    <a key={item.assetId} href="/my-content?tab=editing" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #b3d4f7', background: '#FFF5F7' }}>
+                      <div style={{ aspectRatio: '9/16', background: '#FFF0F3', overflow: 'hidden' }}>
                         {item.inspoThumbnail ? (
                           <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '20px' }}>✂️</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '20px' }}>✂️</div>
                         )}
                       </div>
                       <div style={{ padding: '4px 6px' }}>
@@ -300,17 +300,17 @@ export default function CreatorDashboard() {
         {creatorProfile && (
           <div style={{ marginTop: '12px' }}>
             <button onClick={() => setProfileOpen(!profileOpen)} style={{
-              width: '100%', background: '#111', border: '1px solid #222', borderRadius: '12px',
+              width: '100%', background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '12px',
               padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>Your Creator Profile</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>Your Creator Profile</span>
                 {(() => {
                   const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 3)
                   return topTags.length > 0 && (
                     <div style={{ display: 'flex', gap: '4px' }}>
                       {topTags.map(([tag, weight]) => (
-                        <span key={tag} style={{ fontSize: '10px', color: '#a78bfa', background: '#1a1a2e', border: '1px solid #2d2d4e', padding: '2px 6px', borderRadius: '10px' }}>
+                        <span key={tag} style={{ fontSize: '10px', color: '#E88FAC', background: '#FFF0F3', border: '1px solid #F0D0D8', padding: '2px 6px', borderRadius: '10px' }}>
                           {tag} · {weight}
                         </span>
                       ))}
@@ -318,29 +318,29 @@ export default function CreatorDashboard() {
                   )
                 })()}
               </div>
-              <span style={{ color: '#71717a', fontSize: '18px', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+              <span style={{ color: '#999', fontSize: '18px', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
             </button>
 
             {profileOpen && (
               <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }} className="grid-cols-1 md:grid-cols-2">
                 <Card>
                   {creatorProfile.profileSummary && (
-                    <div style={{ fontSize: '13px', color: '#d4d4d8', lineHeight: '1.6', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>
                       {creatorProfile.profileSummary}
                     </div>
                   )}
                   {creatorProfile.contentDirectionNotes && (
                     <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
-                      <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: '1.6' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                      <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>
                         {creatorProfile.contentDirectionNotes}
                       </div>
                     </>
                   )}
                   {creatorProfile.dosDonts && (
                     <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
-                      <div style={{ fontSize: '11px', color: '#a1a1aa', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#0a0a0a', borderRadius: '6px', padding: '10px', border: '1px solid #1a1a1a' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
+                      <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FFF5F7', borderRadius: '6px', padding: '10px', border: '1px solid #F0D0D8' }}>
                         {creatorProfile.dosDonts}
                       </div>
                     </>
@@ -350,17 +350,17 @@ export default function CreatorDashboard() {
                   <Label>Your Top Tags</Label>
                   {(() => {
                     const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 10)
-                    if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No tags yet</div>
+                    if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>No tags yet</div>
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {topTags.map(([tag, weight]) => (
                           <div key={tag}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                              <span style={{ fontSize: '12px', color: '#d4d4d8' }}>{tag}</span>
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#a78bfa' }}>{weight}</span>
+                              <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#E88FAC' }}>{weight}</span>
                             </div>
-                            <div style={{ height: '4px', background: '#222', borderRadius: '2px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${weight}%`, background: '#a78bfa', borderRadius: '2px' }} />
+                            <div style={{ height: '4px', background: '#F0D0D8', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${weight}%`, background: '#E88FAC', borderRadius: '2px' }} />
                             </div>
                           </div>
                         ))}

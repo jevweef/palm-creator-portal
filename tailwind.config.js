@@ -5,10 +5,13 @@ module.exports = {
     extend: {
       colors: {
         palm: {
-          dark: '#0a0a0a',
-          card: '#111111',
-          border: '#222222',
-          accent: '#c8a96e',
+          bg: '#FFF5F7',
+          card: '#ffffff',
+          border: '#F0D0D8',
+          accent: '#E88FAC',
+          'accent-hover': '#d4789a',
+          muted: '#FFF0F3',
+          'input-border': '#E8C4CC',
         }
       }
     }

@@ -15,7 +15,7 @@ function shortcode(url) {
 }
 
 const GRADE_COLORS = {
-  'A+': '#a78bfa', A: '#a78bfa', 'A-': '#a78bfa',
+  'A+': '#E88FAC', A: '#E88FAC', 'A-': '#E88FAC',
   'B+': '#22c55e', B: '#22c55e', 'B-': '#22c55e',
   'C+': '#f59e0b', C: '#f59e0b', 'C-': '#f59e0b',
   D: '#ef4444', F: '#ef4444',
@@ -235,8 +235,8 @@ export default function AdminReview() {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
         <div style={{ fontSize: '20px', color: '#22c55e', fontWeight: 700, marginBottom: '8px' }}>✓ Queue empty</div>
-        <div style={{ color: '#71717a', fontSize: '13px', marginBottom: '20px' }}>Nothing left to review.</div>
-        <button onClick={fetchAll} style={{ padding: '8px 20px', background: '#a78bfa', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+        <div style={{ color: '#999', fontSize: '13px', marginBottom: '20px' }}>Nothing left to review.</div>
+        <button onClick={fetchAll} style={{ padding: '8px 20px', background: '#E88FAC', color: '#1a1a1a', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
           Refresh Queue
         </button>
       </div>
@@ -266,43 +266,43 @@ export default function AdminReview() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', margin: 0 }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>
             Review Queue
           </h1>
-          <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
+          <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
             {index + 1} of {queue.length} remaining
           </div>
         </div>
         <button
           onClick={fetchAll}
-          style={{ padding: '6px 14px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '6px', color: '#a1a1aa', fontSize: '12px', cursor: 'pointer' }}
+          style={{ padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#888', fontSize: '12px', cursor: 'pointer' }}
         >
           ↺ Refresh
         </button>
       </div>
 
       {/* Progress bar */}
-      <div style={{ height: '3px', background: '#222', borderRadius: '2px', marginBottom: '20px' }}>
-        <div style={{ height: '100%', background: '#a78bfa', borderRadius: '2px', width: `${((index) / queue.length) * 100}%`, transition: 'width 0.3s' }} />
+      <div style={{ height: '3px', background: '#F0D0D8', borderRadius: '2px', marginBottom: '20px' }}>
+        <div style={{ height: '100%', background: '#E88FAC', borderRadius: '2px', width: `${((index) / queue.length) * 100}%`, transition: 'width 0.3s' }} />
       </div>
 
       {/* Record card */}
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '20px', marginBottom: '16px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '20px', marginBottom: '16px' }}>
         {/* Identity row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a' }}>
               {record.username ? `@${record.username}` : record.title || 'Untitled'}
             </div>
             {record.caption && (
-              <div style={{ fontSize: '12px', color: '#71717a', marginTop: '3px', maxWidth: '500px' }}>
+              <div style={{ fontSize: '12px', color: '#999', marginTop: '3px', maxWidth: '500px' }}>
                 {record.caption.slice(0, 120)}{record.caption.length > 120 ? '...' : ''}
               </div>
             )}
           </div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
             {record.grade && (
-              <span style={{ fontSize: '12px', fontWeight: 700, color: GRADE_COLORS[record.grade] || '#fff', background: '#1a1a1a', padding: '2px 8px', borderRadius: '4px', border: '1px solid #333' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: GRADE_COLORS[record.grade] || '#fff', background: '#FFF0F3', padding: '2px 8px', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
                 {record.grade}
               </span>
             )}
@@ -310,7 +310,7 @@ export default function AdminReview() {
               <a
                 href={`https://instagram.com/reel/${sc}/`}
                 target="inspo_reel_viewer"
-                style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, background: '#1a1a2e', color: '#a78bfa', border: '1px solid #333', borderRadius: '4px', textDecoration: 'none' }}
+                style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '4px', textDecoration: 'none' }}
               >
                 Open ↗
               </a>
@@ -324,7 +324,7 @@ export default function AdminReview() {
             {[['Views', record.views], ['Likes', record.likes], ['Comments', record.comments]].map(([label, val]) => (
               <div key={label}>
                 <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#d4d4d8' }}>{formatNum(val)}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#4a4a4a' }}>{formatNum(val)}</div>
               </div>
             ))}
           </div>
@@ -334,9 +334,9 @@ export default function AdminReview() {
         {record.dataSource && (
           <span style={{
             fontSize: '10px', padding: '2px 8px', borderRadius: '3px', fontWeight: 600,
-            background: record.dataSource === 'IG Export' ? '#1a1a2e' : '#1a2e1a',
-            color: record.dataSource === 'IG Export' ? '#a78bfa' : '#22c55e',
-            border: `1px solid ${record.dataSource === 'IG Export' ? '#a78bfa44' : '#22c55e44'}`,
+            background: record.dataSource === 'IG Export' ? '#FFF0F3' : '#1a2e1a',
+            color: record.dataSource === 'IG Export' ? '#E88FAC' : '#22c55e',
+            border: `1px solid ${record.dataSource === 'IG Export' ? '#E88FAC44' : '#22c55e44'}`,
           }}>
             {record.dataSource}
           </span>
@@ -354,15 +354,15 @@ export default function AdminReview() {
       {handleNotInSources && (
         <button
           onClick={() => addToSources(record.username)}
-          style={{ marginBottom: '16px', padding: '6px 14px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '6px', color: '#a78bfa', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'block' }}
+          style={{ marginBottom: '16px', padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#E88FAC', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'block' }}
         >
           + Add @{record.username} to Inspo Sources
         </button>
       )}
 
       {/* Voice note */}
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Reviewer Notes
         </div>
         <button
@@ -370,10 +370,10 @@ export default function AdminReview() {
           style={{
             width: '100%',
             padding: '10px',
-            background: isRecording ? '#3d1515' : '#1a1a1a',
-            border: `1px solid ${isRecording ? '#5c2020' : '#333'}`,
+            background: isRecording ? '#3d1515' : '#FFF0F3',
+            border: `1px solid ${isRecording ? '#5c2020' : '#E8C4CC'}`,
             borderRadius: '6px',
-            color: isRecording ? '#ef4444' : '#a1a1aa',
+            color: isRecording ? '#ef4444' : '#888',
             fontSize: '13px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -386,7 +386,7 @@ export default function AdminReview() {
         <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.6 } }`}</style>
 
         {transcript && !reviewerNotes && (
-          <div style={{ fontSize: '13px', color: '#71717a', fontStyle: 'italic', marginBottom: '8px', padding: '8px', background: '#0a0a0a', borderRadius: '6px' }}>
+          <div style={{ fontSize: '13px', color: '#999', fontStyle: 'italic', marginBottom: '8px', padding: '8px', background: '#FFF5F7', borderRadius: '6px' }}>
             {transcript}
           </div>
         )}
@@ -396,13 +396,13 @@ export default function AdminReview() {
           onChange={e => setReviewerNotes(e.target.value)}
           placeholder="Notes will appear here after recording, or type directly..."
           rows={3}
-          style={{ width: '100%', background: '#0a0a0a', border: '1px solid #333', borderRadius: '6px', color: '#d4d4d8', fontSize: '13px', padding: '8px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+          style={{ width: '100%', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#4a4a4a', fontSize: '13px', padding: '8px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
         />
       </div>
 
       {/* Creator pills */}
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Assign to Creators
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -416,9 +416,9 @@ export default function AdminReview() {
                   padding: '5px 12px',
                   fontSize: '12px',
                   fontWeight: 600,
-                  background: selected ? '#a78bfa' : '#1a1a1a',
-                  color: selected ? '#fff' : '#a1a1aa',
-                  border: `1px solid ${selected ? '#a78bfa' : '#333'}`,
+                  background: selected ? '#E88FAC' : '#FFF0F3',
+                  color: selected ? '#fff' : '#888',
+                  border: `1px solid ${selected ? '#E88FAC' : '#E8C4CC'}`,
                   borderRadius: '20px',
                   cursor: 'pointer',
                   transition: 'all 0.1s',
@@ -432,8 +432,8 @@ export default function AdminReview() {
       </div>
 
       {/* Rating + approve */}
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '16px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '16px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Rate & Approve → sets Ready for Analysis
         </div>
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -444,9 +444,9 @@ export default function AdminReview() {
               disabled={saving}
               style={{
                 width: '44px', height: '44px',
-                background: n >= 8 ? '#1a2e1a' : n >= 5 ? '#1a1a2e' : '#1a1a1a',
-                color: n >= 8 ? '#22c55e' : n >= 5 ? '#a78bfa' : '#71717a',
-                border: `1px solid ${n >= 8 ? '#22c55e44' : n >= 5 ? '#a78bfa44' : '#333'}`,
+                background: n >= 8 ? '#1a2e1a' : n >= 5 ? '#FFF0F3' : '#FFF0F3',
+                color: n >= 8 ? '#22c55e' : n >= 5 ? '#E88FAC' : '#999',
+                border: `1px solid ${n >= 8 ? '#22c55e44' : n >= 5 ? '#E88FAC44' : '#E8C4CC'}`,
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 700,
@@ -481,14 +481,14 @@ export default function AdminReview() {
           <button
             onClick={() => setIndex(i => Math.max(0, i - 1))}
             disabled={index === 0}
-            style={{ padding: '6px 14px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '6px', color: '#71717a', fontSize: '12px', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.4 : 1 }}
+            style={{ padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.4 : 1 }}
           >
             ← Prev
           </button>
           <button
             onClick={() => setIndex(i => Math.min(queue.length - 1, i + 1))}
             disabled={index >= queue.length - 1}
-            style={{ padding: '6px 14px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '6px', color: '#71717a', fontSize: '12px', cursor: index >= queue.length - 1 ? 'not-allowed' : 'pointer', opacity: index >= queue.length - 1 ? 0.4 : 1 }}
+            style={{ padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index >= queue.length - 1 ? 'not-allowed' : 'pointer', opacity: index >= queue.length - 1 ? 0.4 : 1 }}
           >
             Skip →
           </button>

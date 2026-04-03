@@ -18,11 +18,11 @@ function formatTime(ts) {
 
 function StatusPill({ status }) {
   const colors = {
-    Processing: { bg: '#332b00', text: '#f59e0b', border: '#5c4b00' },
-    Complete: { bg: '#0a2e0a', text: '#22c55e', border: '#1a5c1a' },
+    Processing: { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
+    Complete: { bg: '#dcfce7', text: '#22c55e', border: '#bbf7d0' },
     Error: { bg: '#2d1515', text: '#ef4444', border: '#5c2020' },
   }
-  const c = colors[status] || { bg: '#1a1a1a', text: '#71717a', border: '#333' }
+  const c = colors[status] || { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' }
   return (
     <span style={{
       padding: '2px 8px',
@@ -51,7 +51,7 @@ function shortcode(url) {
 }
 
 const GRADE_COLORS = {
-  'A+': '#a78bfa', A: '#a78bfa', 'A-': '#a78bfa',
+  'A+': '#E88FAC', A: '#E88FAC', 'A-': '#E88FAC',
   'B+': '#22c55e', B: '#22c55e', 'B-': '#22c55e',
   'C+': '#f59e0b', C: '#f59e0b', 'C-': '#f59e0b',
   D: '#ef4444', F: '#ef4444',
@@ -124,19 +124,19 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '60px', overflowY: 'auto', paddingBottom: '60px' }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '60px', overflowY: 'auto', paddingBottom: '60px' }}
       onClick={onClose}
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: '#111', border: '1px solid #333', borderRadius: '12px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
+        style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>@{source.handle}</div>
-              <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>@{source.handle}</div>
+              <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
                 {loading ? 'Loading...' : `${reels?.length || 0} reels on inspo board`}
                 {sources.length > 1 && <span style={{ color: '#3f3f46', marginLeft: '8px' }}>{currentIdx + 1} / {sources.length}</span>}
               </div>
@@ -146,36 +146,36 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
               <button
                 onClick={() => currentIdx > 0 && onNavigate(sources[currentIdx - 1])}
                 disabled={currentIdx <= 0}
-                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: currentIdx <= 0 ? '#3f3f46' : '#71717a', fontSize: '12px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
+                style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: currentIdx <= 0 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
               >{currentIdx > 0 ? `‹ @${sources[currentIdx - 1].handle}` : '‹'}</button>
               <button
                 onClick={() => currentIdx < sources.length - 1 && onNavigate(sources[currentIdx + 1])}
                 disabled={currentIdx >= sources.length - 1}
-                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#3f3f46' : '#71717a', fontSize: '12px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
+                style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
               >{currentIdx < sources.length - 1 ? `@${sources[currentIdx + 1].handle} ›` : '›'}</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               onClick={() => setEditMode(m => !m)}
-              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: editMode ? '#450a0a' : 'none', color: editMode ? '#fca5a5' : '#71717a', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer' }}
+              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: editMode ? '#450a0a' : 'none', color: editMode ? '#fca5a5' : '#999', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}
             >{editMode ? '✕ Done removing' : 'Remove reels'}</button>
             <a
               href={`https://instagram.com/${source.handle}`}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: '#1a1a2e', color: '#a78bfa', border: '1px solid #333', borderRadius: '6px', textDecoration: 'none' }}
+              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}
             >
               Open Profile ↗
             </a>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#71717a', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
         </div>
 
         {/* Creator Assignment */}
         {allCreators.length > 0 && (
-          <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#0a0a0a', borderRadius: '8px', border: '1px solid #222' }}>
-            <div style={{ fontSize: '11px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+          <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#FFF5F7', borderRadius: '8px', border: '1px solid #222' }}>
+            <div style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
               Assigned to creators {savingCreators && <span style={{ color: '#3f3f46' }}>saving...</span>}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -189,9 +189,9 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
                     style={{
                       padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                       borderRadius: '20px', cursor: 'pointer', border: 'none',
-                      background: assigned ? '#1e1b4b' : '#1c1c1c',
-                      color: assigned ? '#a78bfa' : '#52525b',
-                      outline: assigned ? '1px solid #4c1d95' : '1px solid #27272a',
+                      background: assigned ? '#FFF0F3' : '#1c1c1c',
+                      color: assigned ? '#E88FAC' : '#999',
+                      outline: assigned ? '1px solid #E88FAC' : '1px solid #27272a',
                       transition: 'all 0.15s',
                     }}
                   >
@@ -273,29 +273,29 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100,
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#111', border: '1px solid #333', borderRadius: '12px',
+        background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px',
         padding: '24px', width: '380px',
       }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
           Update & Re-scrape @{source.handle}?
         </h3>
         <p style={{ fontSize: '13px', color: '#a3a3a3', marginBottom: '16px', lineHeight: 1.5 }}>
-          Limit: <span style={{ color: '#71717a' }}>{oldLimit}</span> → <span style={{ color: '#a78bfa', fontWeight: 600 }}>{newLimit}</span> reels
+          Limit: <span style={{ color: '#999' }}>{oldLimit}</span> → <span style={{ color: '#E88FAC', fontWeight: 600 }}>{newLimit}</span> reels
         </p>
 
-        <div style={{ background: '#1a1000', border: '1px solid #5c4b00', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
+        <div style={{ background: '#1a1000', border: '1px solid #fde68a', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '32px', fontWeight: 800, color: '#f59e0b', marginBottom: '4px' }}>~${estCost}</div>
           <div style={{ fontSize: '12px', color: '#a3a3a3' }}>Estimated Apify cost for {newLimit} reels</div>
           <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '8px' }}>Duplicates auto-skipped (free)</div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
-          <button onClick={confirm} disabled={saving} style={{ ...btnStyle, background: '#a78bfa', opacity: saving ? 0.6 : 1 }}>
+          <button onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+          <button onClick={confirm} disabled={saving} style={{ ...btnStyle, background: '#E88FAC', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Scraping...' : 'Update & Scrape'}
           </button>
         </div>
@@ -360,18 +360,18 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100,
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#111', border: '1px solid #333', borderRadius: '12px',
+          background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px',
           padding: '24px', width: '400px',
         }}
       >
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>Enable @{source.handle}?</h3>
-        <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '16px', lineHeight: 1.4 }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Enable @{source.handle}?</h3>
+        <p style={{ fontSize: '12px', color: '#999', marginBottom: '16px', lineHeight: 1.4 }}>
           Adjust scrape settings, then scrape now or add to batch.
         </p>
 
@@ -383,24 +383,24 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
         <input type="text" inputMode="numeric" value={limit} onChange={e => setLimit(parseInt(e.target.value.replace(/\D/g, '')) || '')} onBlur={e => { if (!e.target.value) setLimit(15) }} style={inputStyle} />
         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Limits the number of reels Apify will return</div>
 
-        <div style={{ background: '#1a1000', border: '1px solid #5c4b00', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
+        <div style={{ background: '#1a1000', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#f59e0b' }}>~${estCost}</div>
           <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Est. Apify cost for {limit} reels</div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
+          <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
           <button
             onClick={addToBatch}
             disabled={saving}
-            style={{ ...btnStyle, background: '#1a1a2e', border: '1px solid #a78bfa', color: '#a78bfa', opacity: saving ? 0.6 : 1 }}
+            style={{ ...btnStyle, background: '#FFF0F3', border: '1px solid #E88FAC', color: '#E88FAC', opacity: saving ? 0.6 : 1 }}
           >
             {saving ? '...' : `Add to Batch${batchCount > 0 ? ` (${batchCount})` : ''}`}
           </button>
           <button
             onClick={() => doEnable(true)}
             disabled={saving}
-            style={{ ...btnStyle, background: '#a78bfa', opacity: saving ? 0.6 : 1 }}
+            style={{ ...btnStyle, background: '#E88FAC', opacity: saving ? 0.6 : 1 }}
           >
             {saving ? 'Saving...' : 'Enable & Scrape'}
           </button>
@@ -448,18 +448,18 @@ function AddSourceModal({ onClose, onAdd, allCreators }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100,
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <form
         onClick={e => e.stopPropagation()}
         onSubmit={submit}
         style={{
-          background: '#111', border: '1px solid #333', borderRadius: '12px',
+          background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px',
           padding: '24px', width: '400px',
         }}
       >
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '16px' }}>Add Source</h3>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '16px' }}>Add Source</h3>
         <label style={labelStyle}>Instagram Handle</label>
         <input value={handle} onChange={e => setHandle(e.target.value)} placeholder="username" style={inputStyle} autoFocus />
         <label style={labelStyle}>Lookback Days</label>
@@ -480,9 +480,9 @@ function AddSourceModal({ onClose, onAdd, allCreators }) {
                     style={{
                       padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                       borderRadius: '20px', cursor: 'pointer', border: 'none',
-                      background: selected ? '#1e1b4b' : '#1c1c1c',
-                      color: selected ? '#a78bfa' : '#52525b',
-                      outline: selected ? '1px solid #4c1d95' : '1px solid #27272a',
+                      background: selected ? '#FFF0F3' : '#1c1c1c',
+                      color: selected ? '#E88FAC' : '#999',
+                      outline: selected ? '1px solid #E88FAC' : '1px solid #27272a',
                     }}
                   >
                     {c.aka || c.name}
@@ -493,8 +493,8 @@ function AddSourceModal({ onClose, onAdd, allCreators }) {
           </>
         )}
         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#333' }}>Cancel</button>
-          <button type="submit" disabled={saving} style={{ ...btnStyle, background: '#a78bfa', opacity: saving ? 0.6 : 1 }}>
+          <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+          <button type="submit" disabled={saving} style={{ ...btnStyle, background: '#E88FAC', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Adding...' : 'Add Source'}
           </button>
         </div>
@@ -503,9 +503,9 @@ function AddSourceModal({ onClose, onAdd, allCreators }) {
   )
 }
 
-const labelStyle = { display: 'block', fontSize: '11px', color: '#71717a', fontWeight: 600, marginBottom: '4px', marginTop: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }
-const inputStyle = { width: '100%', padding: '8px 12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
-const btnStyle = { padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
+const labelStyle = { display: 'block', fontSize: '11px', color: '#999', fontWeight: 600, marginBottom: '4px', marginTop: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }
+const inputStyle = { width: '100%', padding: '8px 12px', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
+const btnStyle = { padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
 
 export default function AdminSources() {
   const [sources, setSources] = useState([])
@@ -624,12 +624,12 @@ export default function AdminSources() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#fff' }}>Inspo Sources</h1>
-        <button onClick={() => setShowAdd(true)} style={{ ...btnStyle, background: '#a78bfa' }}>+ Add Source</button>
+        <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>Inspo Sources</h1>
+        <button onClick={() => setShowAdd(true)} style={{ ...btnStyle, background: '#E88FAC' }}>+ Add Source</button>
       </div>
 
       <div style={{
-        background: '#111',
+        background: '#ffffff',
         border: '1px solid #222',
         borderRadius: '10px',
         overflow: 'hidden',
@@ -642,7 +642,7 @@ export default function AdminSources() {
           borderBottom: '1px solid #222',
           fontSize: '11px',
           fontWeight: 600,
-          color: '#71717a',
+          color: '#999',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
           gap: '8px',
@@ -667,7 +667,7 @@ export default function AdminSources() {
               display: 'grid',
               gridTemplateColumns: '40px 1fr 120px 80px 70px 90px 120px 90px 70px 90px',
               padding: '10px 16px',
-              borderBottom: '1px solid #1a1a1a',
+              borderBottom: '1px solid #F0D0D8',
               alignItems: 'center',
               fontSize: '13px',
               gap: '8px',
@@ -680,7 +680,7 @@ export default function AdminSources() {
                 onClick={() => toggleEnabled(source)}
                 style={{
                   width: '32px', height: '18px', borderRadius: '9px',
-                  background: source.enabled ? '#a78bfa' : '#333',
+                  background: source.enabled ? '#E88FAC' : '#E8C4CC',
                   border: 'none', cursor: 'pointer', position: 'relative',
                   transition: 'background 0.2s',
                 }}
@@ -696,9 +696,9 @@ export default function AdminSources() {
 
             {/* Handle */}
             <div
-              style={{ color: '#fff', fontWeight: 500, cursor: 'pointer' }}
+              style={{ color: '#1a1a1a', fontWeight: 500, cursor: 'pointer' }}
               onClick={() => setReelsSource(source)}
-              onMouseEnter={e => e.currentTarget.style.color = '#a78bfa'}
+              onMouseEnter={e => e.currentTarget.style.color = '#E88FAC'}
               onMouseLeave={e => e.currentTarget.style.color = '#fff'}
             >
               @{source.handle}
@@ -706,16 +706,16 @@ export default function AdminSources() {
                 <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#ef4444', background: '#2d1515', border: '1px solid #5c2020', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
               )}
               {source.addedBy && (
-                <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 500, color: '#52525b', verticalAlign: 'middle' }}>by {source.addedBy}</span>
+                <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 500, color: '#999', verticalAlign: 'middle' }}>by {source.addedBy}</span>
               )}
             </div>
 
             {/* Followers */}
-            <div style={{ color: '#d4d4d8', textAlign: 'right', paddingRight: '16px' }}>
+            <div style={{ color: '#4a4a4a', textAlign: 'right', paddingRight: '16px' }}>
               {source.followerCount ? (
                 source.followerCount >= 1000000
-                  ? <>{(source.followerCount / 1000000).toFixed(1)}<span style={{ color: '#a78bfa', fontWeight: 600 }}>M</span></>
-                  : <>{(source.followerCount / 1000).toFixed(0)}<span style={{ color: '#71717a', fontWeight: 600 }}>K</span></>
+                  ? <>{(source.followerCount / 1000000).toFixed(1)}<span style={{ color: '#E88FAC', fontWeight: 600 }}>M</span></>
+                  : <>{(source.followerCount / 1000).toFixed(0)}<span style={{ color: '#999', fontWeight: 600 }}>K</span></>
               ) : '—'}
             </div>
 
@@ -738,8 +738,8 @@ export default function AdminSources() {
                     body: JSON.stringify({ id: source.id, fields: { 'Lookback Days': val } }),
                   })
                 }}
-                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
-                onFocus={e => e.target.style.borderColor = '#333'}
+                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#999', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor = '#E8C4CC'}
                 onBlurCapture={e => e.target.style.borderColor = 'transparent'}
               />
             </div>
@@ -765,8 +765,8 @@ export default function AdminSources() {
                 onKeyDown={e => {
                   if (e.key === 'Enter') e.target.blur()
                 }}
-                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#71717a', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
-                onFocus={e => e.target.style.borderColor = '#333'}
+                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#999', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor = '#E8C4CC'}
                 onBlurCapture={e => e.target.style.borderColor = 'transparent'}
               />
             </div>
@@ -775,13 +775,13 @@ export default function AdminSources() {
             <div><StatusPill status={source.pipelineStatus} /></div>
 
             {/* Last Scraped */}
-            <div style={{ color: '#71717a' }}>{formatTime(source.lastScrapedAt)}</div>
+            <div style={{ color: '#999' }}>{formatTime(source.lastScrapedAt)}</div>
 
             {/* Scraped */}
-            <div style={{ color: '#d4d4d8', textAlign: 'right' }}>{source.reelsScraped || '—'}</div>
+            <div style={{ color: '#4a4a4a', textAlign: 'right' }}>{source.reelsScraped || '—'}</div>
 
             {/* Added */}
-            <div style={{ color: '#d4d4d8', textAlign: 'right' }}>{source.sourceReelsAdded || '—'}</div>
+            <div style={{ color: '#4a4a4a', textAlign: 'right' }}>{source.sourceReelsAdded || '—'}</div>
 
             {/* Scrape button */}
             <div>
@@ -790,9 +790,9 @@ export default function AdminSources() {
                 disabled={scraping[source.id] || !source.enabled}
                 style={{
                   padding: '4px 10px', fontSize: '11px', fontWeight: 600,
-                  background: scraping[source.id] ? '#333' : '#1a1a2e',
-                  color: scraping[source.id] ? '#555' : '#a78bfa',
-                  border: '1px solid #333', borderRadius: '4px',
+                  background: scraping[source.id] ? '#E8C4CC' : '#FFF0F3',
+                  color: scraping[source.id] ? '#555' : '#E88FAC',
+                  border: '1px solid #E8C4CC', borderRadius: '4px',
                   cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -830,38 +830,38 @@ export default function AdminSources() {
       {batch.length > 0 && (
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-          background: 'linear-gradient(to top, #111 80%, transparent)',
+          background: 'linear-gradient(to top, #ffffff 80%, transparent)',
           padding: '16px 24px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
         }}>
           <div style={{
-            background: '#1a1a2e', border: '1px solid #a78bfa', borderRadius: '12px',
+            background: '#FFF0F3', border: '1px solid #E88FAC', borderRadius: '12px',
             padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '16px',
             boxShadow: '0 -4px 20px rgba(167, 139, 250, 0.15)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: '#a78bfa' }}>{batch.length}</span>
-              <span style={{ fontSize: '13px', color: '#d4d4d8' }}>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#E88FAC' }}>{batch.length}</span>
+              <span style={{ fontSize: '13px', color: '#4a4a4a' }}>
                 {batch.length === 1 ? 'creator' : 'creators'} queued
               </span>
-              <span style={{ fontSize: '12px', color: '#71717a' }}>
+              <span style={{ fontSize: '12px', color: '#999' }}>
                 ({batch.map(s => `@${s.handle}`).join(', ')})
               </span>
             </div>
-            <div style={{ width: '1px', height: '20px', background: '#333' }} />
+            <div style={{ width: '1px', height: '20px', background: '#E8C4CC' }} />
             <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600 }}>
               ~${batch.reduce((sum, s) => sum + (s.apifyLimit || 15) * COST_PER_REEL, 0).toFixed(2)}
             </div>
             <button
               onClick={() => setBatch([])}
-              style={{ ...btnStyle, background: '#333', fontSize: '12px', padding: '6px 12px' }}
+              style={{ ...btnStyle, background: '#E8C4CC', fontSize: '12px', padding: '6px 12px' }}
             >
               Clear
             </button>
             <button
               onClick={scrapeBatch}
               disabled={batchScraping}
-              style={{ ...btnStyle, background: '#a78bfa', fontSize: '13px', padding: '8px 20px', opacity: batchScraping ? 0.6 : 1 }}
+              style={{ ...btnStyle, background: '#E88FAC', fontSize: '13px', padding: '8px 20px', opacity: batchScraping ? 0.6 : 1 }}
             >
               {batchScraping ? 'Scraping...' : `Scrape All (${batch.length})`}
             </button>

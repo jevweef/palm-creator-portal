@@ -10,12 +10,12 @@ function formatNum(n) {
 }
 
 function gradeColor(grade) {
-  if (!grade) return '#52525b'
+  if (!grade) return '#ccc'
   if (grade === 'A+') return '#ffd700'
   if (grade.startsWith('A')) return '#4ade80'
   if (grade.startsWith('B')) return '#60a5fa'
   if (grade.startsWith('C')) return '#fb923c'
-  return '#71717a'
+  return '#999'
 }
 
 export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
@@ -30,11 +30,11 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
   return (
     <div
       onClick={onClick}
-      className="group relative bg-[#111] rounded-xl overflow-hidden cursor-pointer border border-[#222] hover:border-[#444] transition-all duration-200 hover:scale-[1.01]"
-      style={{display:'flex', flexDirection:'column'}}
+      className="group relative bg-white rounded-xl overflow-hidden cursor-pointer border border-[#F0D0D8] hover:border-[#E88FAC] transition-all duration-200 hover:scale-[1.01]"
+      style={{display:'flex', flexDirection:'column', boxShadow: '0 1px 4px rgba(232,143,172,0.08)'}}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-[9/16] bg-[#1a1a1a] overflow-hidden">
+      <div className="relative aspect-[9/16] bg-[#FFF0F3] overflow-hidden">
         {record.thumbnail ? (
           <img
             src={record.thumbnail}
@@ -43,7 +43,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <svg className="w-10 h-10 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-10 h-10 text-[#D4A0B0]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
           </div>
@@ -67,7 +67,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
             padding:'2px 7px',
             lineHeight:1.5,
             letterSpacing:'-0.02em',
-            boxShadow:'0 1px 4px rgba(0,0,0,0.5)',
+            boxShadow:'0 1px 4px rgba(0,0,0,0.3)',
           }}>
             {grade}
           </div>
@@ -79,7 +79,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
             onClick={(e) => { e.stopPropagation(); onSave(record.id) }}
             className="absolute bottom-[52px] right-3 z-20 transition-all duration-200 hover:scale-110"
             style={{
-              background: isSaved ? '#a855f7' : 'rgba(0,0,0,0.6)',
+              background: isSaved ? '#E88FAC' : 'rgba(0,0,0,0.6)',
               backdropFilter: 'blur(4px)',
               border: isSaved ? 'none' : '1px solid rgba(255,255,255,0.2)',
               borderRadius: '8px',
@@ -140,7 +140,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
 
       {/* Card body */}
       <div style={{padding:'14px', flex:1}}>
-        <h3 style={{fontSize:'13px', fontWeight:600, color:'#fff', marginBottom:'10px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{record.title}</h3>
+        <h3 style={{fontSize:'13px', fontWeight:600, color:'#1a1a1a', marginBottom:'10px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{record.title}</h3>
 
         {/* Tags — single line, overflow hidden */}
         <div style={{display:'flex', gap:'6px', overflow:'hidden', whiteSpace:'nowrap'}}>
@@ -150,7 +150,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
             </span>
           ))}
           {extraCount > 0 && (
-            <span className="text-[10px] rounded-full bg-zinc-800 text-zinc-400" style={{padding:'3px 8px', flexShrink:0}}>
+            <span style={{padding:'3px 8px', flexShrink:0, fontSize:'10px', borderRadius:'9999px', background:'#FFF0F3', color:'#999'}}>
               +{extraCount}
             </span>
           )}

@@ -5,43 +5,43 @@ import { useState, useEffect, useCallback } from 'react'
 function StatCard({ label, value, sub, color }) {
   return (
     <div style={{
-      background: '#111',
-      border: '1px solid #222',
+      background: '#ffffff',
+      border: '1px solid #F0D0D8',
       borderRadius: '10px',
       padding: '20px',
       flex: '1 1 0',
       minWidth: '140px',
     }}>
-      <div style={{ fontSize: '11px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+      <div style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
         {label}
       </div>
-      <div style={{ fontSize: '28px', fontWeight: 700, color: color || '#fff' }}>
+      <div style={{ fontSize: '28px', fontWeight: 700, color: color || '#1a1a1a' }}>
         {value}
       </div>
       {sub && (
-        <div style={{ fontSize: '12px', color: '#71717a', marginTop: '4px' }}>{sub}</div>
+        <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>{sub}</div>
       )}
     </div>
   )
 }
 
-function ActionButton({ label, description, onClick, loading, result, color = '#a78bfa' }) {
+function ActionButton({ label, description, onClick, loading, result, color = '#E88FAC' }) {
   return (
     <div style={{
-      background: '#111',
-      border: '1px solid #222',
+      background: '#ffffff',
+      border: '1px solid #F0D0D8',
       borderRadius: '10px',
       padding: '20px',
       flex: '1 1 0',
       minWidth: '200px',
     }}>
-      <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>{label}</div>
-      <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '16px' }}>{description}</div>
+      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>{label}</div>
+      <div style={{ fontSize: '12px', color: '#999', marginBottom: '16px' }}>{description}</div>
       <button
         onClick={onClick}
         disabled={loading}
         style={{
-          background: loading ? '#333' : color,
+          background: loading ? '#F0D0D8' : color,
           color: '#fff',
           border: 'none',
           borderRadius: '6px',
@@ -60,11 +60,11 @@ function ActionButton({ label, description, onClick, loading, result, color = '#
         <div style={{
           marginTop: '10px',
           padding: '8px 12px',
-          background: result.error ? '#2d1515' : '#152d15',
-          border: `1px solid ${result.error ? '#5c2020' : '#205c20'}`,
+          background: result.error ? '#fef2f2' : '#f0fdf4',
+          border: `1px solid ${result.error ? '#fecaca' : '#bbf7d0'}`,
           borderRadius: '6px',
           fontSize: '12px',
-          color: result.error ? '#ff8888' : '#88ff88',
+          color: result.error ? '#ef4444' : '#16a34a',
         }}>
           {result.error || result.message}
         </div>
@@ -77,17 +77,17 @@ function StatusBadge({ status, count }) {
   const colors = {
     'Ready for Analysis': '#3b82f6',
     'Processing': '#f59e0b',
-    'Complete': '#a78bfa',
+    'Complete': '#E88FAC',
     'Reviewed': '#22c55e',
     'Error': '#ef4444',
   }
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors[status] || '#555' }} />
-        <span style={{ fontSize: '13px', color: '#d4d4d8' }}>{status}</span>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors[status] || '#999' }} />
+        <span style={{ fontSize: '13px', color: '#4a4a4a' }}>{status}</span>
       </div>
-      <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{count}</span>
+      <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{count}</span>
     </div>
   )
 }
@@ -176,14 +176,14 @@ export default function AdminPipeline() {
   }
 
   if (loading) {
-    return <div style={{ color: '#555', fontSize: '14px', padding: '40px' }}>Loading pipeline status...</div>
+    return <div style={{ color: '#999', fontSize: '14px', padding: '40px' }}>Loading pipeline status...</div>
   }
 
   const statusOrder = ['Ready for Analysis', 'Processing', 'Complete', 'Reviewed', 'Error']
 
   return (
     <div>
-      <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '24px' }}>
+      <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a', marginBottom: '24px' }}>
         TEST Pipeline Control Center
       </h1>
 
@@ -203,7 +203,7 @@ export default function AdminPipeline() {
           label="Inspo Board"
           value={(stats?.inspiration?.byStatus?.['Complete'] || 0).toLocaleString()}
           sub={`${stats?.inspiration?.byStatus?.['Ready for Analysis'] || 0} queued for analysis · ${stats?.inspiration?.total || 0} total in pipeline`}
-          color="#a78bfa"
+          color="#E88FAC"
         />
         {(stats?.sourceReels?.reviewQueue > 0) && (
           <StatCard
@@ -217,13 +217,13 @@ export default function AdminPipeline() {
 
       {/* Status Breakdown */}
       <div style={{
-        background: '#111',
-        border: '1px solid #222',
+        background: '#ffffff',
+        border: '1px solid #F0D0D8',
         borderRadius: '10px',
         padding: '20px',
         marginBottom: '24px',
       }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff', marginBottom: '12px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
           Inspo Board Breakdown
         </div>
         {statusOrder.map(status => {
@@ -240,7 +240,7 @@ export default function AdminPipeline() {
       </div>
 
       {/* Action Buttons */}
-      <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff', marginBottom: '12px' }}>
+      <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
         Pipeline Actions
       </div>
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -258,7 +258,7 @@ export default function AdminPipeline() {
           onClick={runPromote}
           loading={promoteLoading}
           result={promoteResult}
-          color="#a78bfa"
+          color="#E88FAC"
         />
         <ActionButton
           label="Analysis"

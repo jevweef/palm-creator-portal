@@ -12,11 +12,11 @@ const TAG_CATEGORIES = [
 ]
 
 const STATUS_STYLES = {
-  'Not Started':       { bg: '#1a1a1a', text: '#71717a', border: '#333' },
-  'Ready to Analyze':  { bg: '#0a1e3d', text: '#60a5fa', border: '#1e3a5f' },
-  'Analyzing':         { bg: '#332b00', text: '#f59e0b', border: '#5c4b00' },
-  'Analyzed':          { bg: '#0a2e0a', text: '#22c55e', border: '#1a5c1a' },
-  'Reanalyze':         { bg: '#2d1f00', text: '#fb923c', border: '#5c3d00' },
+  'Not Started':       { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' },
+  'Ready to Analyze':  { bg: '#dbeafe', text: '#60a5fa', border: '#bfdbfe' },
+  'Analyzing':         { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
+  'Analyzed':          { bg: '#dcfce7', text: '#22c55e', border: '#bbf7d0' },
+  'Reanalyze':         { bg: '#ffedd5', text: '#fb923c', border: '#fed7aa' },
 }
 
 // Derive display status from analysis status + documents + dates
@@ -50,20 +50,20 @@ function StatusPill({ status }) {
 function WeightBar({ tag, weight, category }) {
   const catColors = {
     'Setting / Location': '#06b6d4',
-    'Persona / Niche':    '#a78bfa',
+    'Persona / Niche':    '#E88FAC',
     'Tone / Energy':      '#f472b6',
     'Visual / Body':      '#fb923c',
     'Viewer Experience':  '#60a5fa',
     'Film Format':        '#34d399',
   }
-  const color = catColors[category] || '#a78bfa'
+  const color = catColors[category] || '#E88FAC'
   return (
     <div style={{ marginBottom: '6px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-        <span style={{ fontSize: '12px', color: '#d4d4d8' }}>{tag}</span>
+        <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
         <span style={{ fontSize: '12px', fontWeight: 600, color, minWidth: '28px', textAlign: 'right' }}>{weight}</span>
       </div>
-      <div style={{ height: '4px', background: '#222', borderRadius: '2px', overflow: 'hidden' }}>
+      <div style={{ height: '4px', background: '#F0D0D8', borderRadius: '2px', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${weight}%`, background: color, borderRadius: '2px', transition: 'width 0.4s ease' }} />
       </div>
     </div>
@@ -89,7 +89,7 @@ function TagWeightPanel({ tagWeights }) {
         if (!tags.length) return null
         return (
           <div key={cat}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{cat}</div>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{cat}</div>
             {tags.map(tw => (
               <WeightBar key={tw.tag} tag={tw.tag} weight={tw.weight} category={cat} />
             ))}
@@ -102,22 +102,22 @@ function TagWeightPanel({ tagWeights }) {
 
 function DocumentRow({ doc, onDelete }) {
   const typeColors = {
-    Audio: '#a78bfa', Transcript: '#60a5fa', PDF: '#fb923c',
-    'Meeting Notes': '#34d399', Other: '#71717a',
+    Audio: '#E88FAC', Transcript: '#60a5fa', PDF: '#fb923c',
+    'Meeting Notes': '#34d399', Other: '#999',
   }
-  const color = typeColors[doc.fileType] || '#71717a'
+  const color = typeColors[doc.fileType] || '#999'
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '10px 12px', background: '#111', borderRadius: '8px',
+      padding: '10px 12px', background: '#ffffff', borderRadius: '8px',
       border: '1px solid #222',
     }}>
-      <span style={{ fontSize: '11px', fontWeight: 600, color, background: '#1a1a1a', border: `1px solid ${color}30`, padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
+      <span style={{ fontSize: '11px', fontWeight: 600, color, background: '#FFF0F3', border: `1px solid ${color}30`, padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
         {doc.fileType}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '13px', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.fileName}</div>
-        {doc.notes && <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>{doc.notes}</div>}
+        <div style={{ fontSize: '13px', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.fileName}</div>
+        {doc.notes && <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>{doc.notes}</div>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         {doc.hasExtractedText && (
@@ -187,11 +187,11 @@ function UploadModal({ creator, onClose, onUploaded }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000,
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#111', border: '1px solid #333', borderRadius: '12px', padding: '28px', width: '480px', maxWidth: '95vw' }}>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '20px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', padding: '28px', width: '480px', maxWidth: '95vw' }}>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '20px' }}>
           Upload Document — {creator.name || creator.aka}
         </div>
 
@@ -200,14 +200,14 @@ function UploadModal({ creator, onClose, onUploaded }) {
             <div style={{ color: '#22c55e', fontSize: '14px', marginBottom: '12px' }}>
               Uploaded successfully.{result.isAudio ? ' Audio will be transcribed when you run analysis.' : ''}
             </div>
-            <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '20px' }}>{result.fileName}</div>
+            <div style={{ fontSize: '12px', color: '#999', marginBottom: '20px' }}>{result.fileName}</div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => { setResult(null); setFile(null); setNotes('') }}
-                style={{ flex: 1, background: '#1a1a1a', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                style={{ flex: 1, background: '#FFF0F3', color: '#1a1a1a', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 Upload Another
               </button>
               <button onClick={() => { onUploaded(); onClose() }}
-                style={{ flex: 1, background: '#a78bfa', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                style={{ flex: 1, background: '#E88FAC', color: '#1a1a1a', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                 Done
               </button>
             </div>
@@ -215,15 +215,15 @@ function UploadModal({ creator, onClose, onUploaded }) {
         ) : (
           <>
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', color: '#71717a', display: 'block', marginBottom: '6px' }}>File Type</label>
+              <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '6px' }}>File Type</label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {['Audio', 'Transcript', 'PDF', 'Meeting Notes', 'Other'].map(t => (
                   <button key={t} onClick={() => setFileType(t)}
                     style={{
                       padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
-                      background: fileType === t ? '#a78bfa' : '#1a1a1a',
-                      color: fileType === t ? '#fff' : '#a1a1aa',
-                      border: fileType === t ? '1px solid #a78bfa' : '1px solid #333',
+                      background: fileType === t ? '#E88FAC' : '#FFF0F3',
+                      color: fileType === t ? '#fff' : '#888',
+                      border: fileType === t ? '1px solid #E88FAC' : '1px solid #E8C4CC',
                     }}>
                     {t}
                   </button>
@@ -232,12 +232,12 @@ function UploadModal({ creator, onClose, onUploaded }) {
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', color: '#71717a', display: 'block', marginBottom: '6px' }}>File</label>
+              <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '6px' }}>File</label>
               <div
                 onClick={() => fileRef.current?.click()}
                 style={{
                   border: '1px dashed #444', borderRadius: '8px', padding: '20px', textAlign: 'center',
-                  cursor: 'pointer', background: '#0a0a0a', color: file ? '#fff' : '#555', fontSize: '13px',
+                  cursor: 'pointer', background: '#FFF5F7', color: file ? '#fff' : '#555', fontSize: '13px',
                 }}>
                 {file ? file.name : 'Click to select a file'}
               </div>
@@ -245,27 +245,27 @@ function UploadModal({ creator, onClose, onUploaded }) {
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '12px', color: '#71717a', display: 'block', marginBottom: '6px' }}>Notes (optional)</label>
+              <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '6px' }}>Notes (optional)</label>
               <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Onboarding call Jan 2026"
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #333', borderRadius: '6px', padding: '8px 10px', color: '#fff', fontSize: '13px', boxSizing: 'border-box' }} />
+                style={{ width: '100%', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '8px 10px', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' }} />
             </div>
 
             {error && <div style={{ color: '#ef4444', fontSize: '12px', marginBottom: '12px' }}>{error}</div>}
 
             {fileType === 'Audio' && (
-              <div style={{ fontSize: '11px', color: '#71717a', marginBottom: '16px', padding: '8px 10px', background: '#0a0a0a', border: '1px solid #222', borderRadius: '6px' }}>
+              <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px', padding: '8px 10px', background: '#FFF5F7', border: '1px solid #222', borderRadius: '6px' }}>
                 Audio uploads directly to Dropbox. Whisper transcription runs when you hit "Run Analysis."
               </div>
             )}
 
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={onClose}
-                style={{ flex: 1, background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                style={{ flex: 1, background: '#FFF0F3', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 Cancel
               </button>
               <button onClick={submit} disabled={uploading || !file}
                 style={{
-                  flex: 2, background: uploading ? '#333' : '#a78bfa', color: '#fff', border: 'none',
+                  flex: 2, background: uploading ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
                   borderRadius: '6px', padding: '8px', cursor: uploading || !file ? 'not-allowed' : 'pointer',
                   fontSize: '13px', fontWeight: 600, opacity: !file ? 0.5 : 1,
                 }}>
@@ -365,8 +365,8 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', gap: '12px' }}>
         <div>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: '#fff' }}>{creator.name}</div>
-          {creator.aka && <div style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>aka {creator.aka}</div>}
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</div>
+          {creator.aka && <div style={{ fontSize: '13px', color: '#999', marginTop: '2px' }}>aka {creator.aka}</div>}
           <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <StatusPill status={status} />
             {c.profileLastAnalyzed && (
@@ -376,13 +376,13 @@ function CreatorDetail({ creator, onProfileUpdated }) {
         </div>
         <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
           <button onClick={() => setShowUpload(true)}
-            style={{ background: '#1a1a1a', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+            style={{ background: '#FFF0F3', color: '#1a1a1a', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
             + Upload
           </button>
           {(status === 'Analyzed' || status === 'Reanalyze' || status === 'Analyzing') && (
             <button onClick={resetAnalysis} disabled={resetting}
               style={{
-                background: '#1a1a1a', color: '#71717a', border: '1px solid #333',
+                background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC',
                 borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500,
                 cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.5 : 1,
               }}>
@@ -391,7 +391,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
           )}
           <button onClick={runAnalysis} disabled={analyzing}
             style={{
-              background: analyzing ? '#333' : '#a78bfa', color: '#fff', border: 'none',
+              background: analyzing ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
               borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
               cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.7 : 1,
             }}>
@@ -401,10 +401,10 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       </div>
 
       {analyzeResult && (
-        <div style={{ background: '#0a2e0a', border: '1px solid #1a5c1a', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#22c55e' }}>
+        <div style={{ background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#22c55e' }}>
           Analysis complete. {analyzeResult.documentsAnalyzed} document(s) analyzed.
           {analyzeResult.topTags?.length > 0 && (
-            <span style={{ color: '#a1a1aa' }}> Top tags: {analyzeResult.topTags.map(t => `${t.tag} (${t.weight})`).join(', ')}</span>
+            <span style={{ color: '#888' }}> Top tags: {analyzeResult.topTags.map(t => `${t.tag} (${t.weight})`).join(', ')}</span>
           )}
         </div>
       )}
@@ -421,8 +421,8 @@ function CreatorDetail({ creator, onProfileUpdated }) {
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400,
-              color: activeTab === key ? '#fff' : '#71717a', background: 'none', border: 'none',
-              borderBottom: activeTab === key ? '2px solid #a78bfa' : '2px solid transparent',
+              color: activeTab === key ? '#fff' : '#999', background: 'none', border: 'none',
+              borderBottom: activeTab === key ? '2px solid #E88FAC' : '2px solid transparent',
               cursor: 'pointer', marginBottom: '-1px',
             }}>
             {label}
@@ -434,7 +434,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       {activeTab === 'profile' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {!c.profileSummary && status !== 'Analyzed' && status !== 'Reanalyze' && (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#111', borderRadius: '8px', border: '1px solid #222' }}>
+            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #222' }}>
               No profile yet. Upload documents and run analysis to generate.
             </div>
           )}
@@ -454,10 +454,10 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 
           {topTags.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Tags</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Tags</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {topTags.map(tw => (
-                  <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: '#1a1a2e', color: '#a78bfa', border: '1px solid #2d2d4e' }}>
+                  <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #F0D0D8' }}>
                     {tw.tag} · {tw.weight}
                   </span>
                 ))}
@@ -471,7 +471,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       {activeTab === 'documents' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {documents.length === 0 && (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#111', borderRadius: '8px', border: '1px solid #222' }}>
+            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #222' }}>
               No documents yet. Click "+ Upload" to add voice memos, transcripts, or notes.
             </div>
           )}
@@ -479,7 +479,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             <DocumentRow key={doc.id} doc={doc} />
           ))}
           <button onClick={() => setShowUpload(true)}
-            style={{ marginTop: '4px', background: '#0a0a0a', color: '#71717a', border: '1px dashed #333', borderRadius: '8px', padding: '10px', fontSize: '13px', cursor: 'pointer' }}>
+            style={{ marginTop: '4px', background: '#FFF5F7', color: '#999', border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '10px', fontSize: '13px', cursor: 'pointer' }}>
             + Upload another document
           </button>
         </div>
@@ -504,10 +504,10 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 function ProfileSection({ label, text, mono }) {
   return (
     <div>
-      <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{label}</div>
+      <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{label}</div>
       <div style={{
-        fontSize: '13px', color: '#d4d4d8', lineHeight: '1.6', whiteSpace: 'pre-wrap',
-        fontFamily: mono ? 'monospace' : 'inherit', background: '#111',
+        fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', whiteSpace: 'pre-wrap',
+        fontFamily: mono ? 'monospace' : 'inherit', background: '#ffffff',
         borderRadius: '8px', padding: '12px 14px', border: '1px solid #222',
       }}>
         {text}
@@ -538,25 +538,25 @@ export default function CreatorsPage() {
   return (
     <div>
       <div style={{ marginBottom: '24px' }}>
-        <div style={{ fontSize: '22px', fontWeight: 700, color: '#fff' }}>Creator Profiles</div>
-        <div style={{ fontSize: '13px', color: '#71717a', marginTop: '4px' }}>Upload documents and generate AI-powered creator profiles and tag weights.</div>
+        <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>Creator Profiles</div>
+        <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>Upload documents and generate AI-powered creator profiles and tag weights.</div>
       </div>
 
       <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
         {/* Creator list */}
         <div style={{ width: '220px', flexShrink: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Creators</div>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Creators</div>
           {loading && <div style={{ color: '#555', fontSize: '13px' }}>Loading...</div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {creators.map(c => (
               <button key={c.id} onClick={() => setSelected(c)}
                 style={{
                   width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '8px',
-                  background: selected?.id === c.id ? '#1a1a2e' : '#0a0a0a',
-                  border: selected?.id === c.id ? '1px solid #2d2d4e' : '1px solid #1a1a1a',
+                  background: selected?.id === c.id ? '#FFF0F3' : '#FFF5F7',
+                  border: selected?.id === c.id ? '1px solid #F0D0D8' : '1px solid #F0D0D8',
                   cursor: 'pointer', transition: 'all 0.15s',
                 }}>
-                <div style={{ fontSize: '13px', fontWeight: selected?.id === c.id ? 600 : 400, color: '#fff' }}>
+                <div style={{ fontSize: '13px', fontWeight: selected?.id === c.id ? 600 : 400, color: '#1a1a1a' }}>
                   {c.name || c.aka}
                 </div>
                 {c.aka && c.name && (
@@ -571,7 +571,7 @@ export default function CreatorsPage() {
         </div>
 
         {/* Detail panel */}
-        <div style={{ flex: 1, minWidth: 0, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ flex: 1, minWidth: 0, background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '12px', padding: '24px' }}>
           {!selected ? (
             <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '60px 0' }}>
               Select a creator to view or build their profile.

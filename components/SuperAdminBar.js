@@ -72,8 +72,8 @@ export default function SuperAdminBar() {
     borderRadius: '4px',
     cursor: 'pointer',
     border: 'none',
-    background: active ? '#a78bfa' : 'transparent',
-    color: active ? '#fff' : '#71717a',
+    background: active ? '#E88FAC' : 'transparent',
+    color: active ? '#fff' : '#999',
     transition: 'all 0.15s',
   })
 
@@ -91,14 +91,14 @@ export default function SuperAdminBar() {
 
   return (
     <div style={{
-      background: '#050505',
-      borderBottom: '1px solid #1a1a1a',
+      background: '#FFF0F3',
+      borderBottom: '1px solid #F0D0D8',
       padding: '6px 24px',
       display: 'flex',
       alignItems: 'center',
       gap: '4px',
     }}>
-      <span style={{ fontSize: '10px', fontWeight: 700, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: '8px' }}>
+      <span style={{ fontSize: '10px', fontWeight: 700, color: '#C88FA0', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: '8px' }}>
         View as
       </span>
 
@@ -139,16 +139,16 @@ export default function SuperAdminBar() {
             position: 'absolute',
             top: 'calc(100% + 6px)',
             left: 0,
-            background: '#111',
-            border: '1px solid #222',
+            background: '#fff',
+            border: '1px solid #F0D0D8',
             borderRadius: '8px',
             minWidth: '180px',
             zIndex: 1000,
             overflow: 'hidden',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
           }}>
             {creators.length === 0 && (
-              <div style={{ padding: '10px 14px', fontSize: '12px', color: '#52525b' }}>Loading...</div>
+              <div style={{ padding: '10px 14px', fontSize: '12px', color: '#999' }}>Loading...</div>
             )}
             {creators.map(c => (
               <button
@@ -159,18 +159,18 @@ export default function SuperAdminBar() {
                   width: '100%',
                   padding: '9px 14px',
                   textAlign: 'left',
-                  background: selectedCreator?.id === c.id ? '#1a1a2e' : 'transparent',
+                  background: selectedCreator?.id === c.id ? '#FFF0F3' : 'transparent',
                   border: 'none',
-                  borderBottom: '1px solid #1a1a1a',
-                  color: selectedCreator?.id === c.id ? '#a78bfa' : '#d4d4d8',
+                  borderBottom: '1px solid #F0D0D8',
+                  color: selectedCreator?.id === c.id ? '#E88FAC' : '#4a4a4a',
                   fontSize: '13px',
                   cursor: 'pointer',
                 }}
-                onMouseEnter={e => { if (selectedCreator?.id !== c.id) e.currentTarget.style.background = '#1a1a1a' }}
+                onMouseEnter={e => { if (selectedCreator?.id !== c.id) e.currentTarget.style.background = '#FFF5F7' }}
                 onMouseLeave={e => { if (selectedCreator?.id !== c.id) e.currentTarget.style.background = 'transparent' }}
               >
                 {c.aka || c.name}
-                <span style={{ fontSize: '10px', color: '#52525b', marginLeft: '6px' }}>{c.status}</span>
+                <span style={{ fontSize: '10px', color: '#999', marginLeft: '6px' }}>{c.status}</span>
               </button>
             ))}
           </div>

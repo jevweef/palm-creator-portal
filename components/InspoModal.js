@@ -4,12 +4,12 @@ import { useEffect, useCallback, useRef } from 'react'
 import { tagStyle } from '@/lib/tagStyle'
 
 function gradeColor(grade) {
-  if (!grade) return '#52525b'
+  if (!grade) return '#ccc'
   if (grade === 'A+') return '#ffd700'
   if (grade.startsWith('A')) return '#4ade80'
   if (grade.startsWith('B')) return '#60a5fa'
   if (grade.startsWith('C')) return '#fb923c'
-  return '#71717a'
+  return '#999'
 }
 
 function formatNum(n) {
@@ -78,17 +78,17 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-[#111] overflow-hidden border-0 md:border md:border-[#2a2a2a] flex flex-col">
+      <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-white overflow-hidden border-0 md:border md:border-[#F0D0D8] flex flex-col" style={{boxShadow: '0 8px 40px rgba(0,0,0,0.15)'}}>
 
         {/* Header */}
-        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #222', gap:'16px'}}>
+        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #F0D0D8', gap:'16px'}}>
           <div style={{minWidth:0}}>
-            <h2 style={{fontSize:'18px', fontWeight:600, color:'#fff', lineHeight:1.4, margin:0}}>{record.title}</h2>
+            <h2 style={{fontSize:'18px', fontWeight:600, color:'#1a1a1a', lineHeight:1.4, margin:0}}>{record.title}</h2>
             {record.username && (
-              <p style={{fontSize:'12px', color:'#71717a', marginTop:'6px'}}>@{record.username}</p>
+              <p style={{fontSize:'12px', color:'#999', marginTop:'6px'}}>@{record.username}</p>
             )}
           </div>
           <div style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>
@@ -96,8 +96,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               <button
                 onClick={onUpload}
                 style={{
-                  background: '#a855f7',
-                  border: '1px solid #a855f7',
+                  background: '#E88FAC',
+                  border: '1px solid #E88FAC',
                   borderRadius: '9999px',
                   padding: '6px 14px',
                   cursor: 'pointer',
@@ -120,15 +120,15 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               <button
                 onClick={() => onSave(record.id)}
                 style={{
-                  background: isSaved ? '#a855f7' : '#222',
-                  border: isSaved ? '1px solid #a855f7' : '1px solid #333',
+                  background: isSaved ? '#E88FAC' : '#FFF0F3',
+                  border: isSaved ? '1px solid #E88FAC' : '1px solid #F0D0D8',
                   borderRadius: '9999px',
                   padding: '6px 14px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: isSaved ? '#fff' : '#a1a1aa',
+                  color: isSaved ? '#fff' : '#888',
                   fontSize: '12px',
                   fontWeight: 500,
                   transition: 'all 0.2s',
@@ -140,7 +140,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 {isSaved ? 'Saved' : 'Save'}
               </button>
             )}
-            <button onClick={onClose} style={{color:'#71717a', background:'none', border:'none', cursor:'pointer', padding:'4px', marginTop:'2px'}}>
+            <button onClick={onClose} style={{color:'#999', background:'none', border:'none', cursor:'pointer', padding:'4px', marginTop:'2px'}}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -167,7 +167,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             ) : record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} className="w-full md:h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-zinc-700">
+              <div className="w-full h-full flex items-center justify-center text-[#D4A0B0]">
                 <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -176,7 +176,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
           </div>
 
           {/* Details — absolute on desktop, pinned to right of video, scrolls within video height */}
-          <div className="flex flex-col gap-5 p-[22px_28px] bg-[#111] md:absolute md:top-0 md:bottom-0 md:left-[280px] md:right-0 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[#222]">
+          <div className="flex flex-col gap-5 p-[22px_28px] bg-white md:absolute md:top-0 md:bottom-0 md:left-[280px] md:right-0 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[#F0D0D8]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
@@ -195,7 +195,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 </span>
               )}
               {views && (
-                <span className="flex items-center gap-1.5 text-zinc-400">
+                <span className="flex items-center gap-1.5 text-[#888]">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
@@ -219,7 +219,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 </span>
               )}
               {shares && (
-                <span className="flex items-center gap-1.5 text-green-400">
+                <span className="flex items-center gap-1.5 text-green-500">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
@@ -234,7 +234,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               const extraCount = record.tags.length - visibleMobile
               return (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-zinc-600 mb-3">Tags</p>
+                  <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'12px'}}>Tags</p>
                   {/* Desktop: all tags */}
                   <div className="hidden md:flex flex-wrap gap-2">
                     {record.tags.map((tag) => (
@@ -251,7 +251,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                       </span>
                     ))}
                     {extraCount > 0 && (
-                      <span className="text-xs text-zinc-500 whitespace-nowrap">+{extraCount}</span>
+                      <span className="text-xs whitespace-nowrap" style={{color:'#999'}}>+{extraCount}</span>
                     )}
                   </div>
                 </div>
@@ -261,10 +261,10 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {/* Film Format */}
             {record.filmFormat.length > 0 && (
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-zinc-600 mb-3">Film Format</p>
+                <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'12px'}}>Film Format</p>
                 <div className="flex flex-wrap gap-2">
                   {record.filmFormat.map((f) => (
-                    <span key={f} className="text-xs px-3 py-1 rounded border border-zinc-700 text-zinc-400">
+                    <span key={f} className="text-xs px-3 py-1 rounded" style={{border:'1px solid #E8C4CC', color:'#666'}}>
                       {f}
                     </span>
                   ))}
@@ -275,24 +275,24 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {/* On-Screen Text */}
             {record.onScreenText && (
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-zinc-600 mb-2">On-Screen Text</p>
-                <p className="text-sm text-zinc-300 italic">"{record.onScreenText}"</p>
+                <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>On-Screen Text</p>
+                <p style={{fontSize:'14px', color:'#4a4a4a', fontStyle:'italic'}}>"{record.onScreenText}"</p>
               </div>
             )}
 
             {/* Inspo Direction */}
             {inspoDirection && (
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-zinc-600 mb-2">Inspo Direction</p>
-                <p className="text-sm text-zinc-200 leading-relaxed">{inspoDirection}</p>
+                <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>Inspo Direction</p>
+                <p style={{fontSize:'14px', color:'#333', lineHeight:'1.6'}}>{inspoDirection}</p>
               </div>
             )}
 
             {/* What Matters Most */}
             {whatMattersMost && (
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-zinc-600 mb-2">What Matters Most</p>
-                <p className="text-sm text-zinc-200 leading-relaxed">{whatMattersMost}</p>
+                <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>What Matters Most</p>
+                <p style={{fontSize:'14px', color:'#333', lineHeight:'1.6'}}>{whatMattersMost}</p>
               </div>
             )}
 
@@ -303,7 +303,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   href={record.contentLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs transition-colors"
+                  style={{color:'#E88FAC'}}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -317,12 +318,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Prev / Next */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 22px', borderTop:'1px solid #222'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 22px', borderTop:'1px solid #F0D0D8'}}>
           <button
             onClick={onPrev}
             disabled={!hasPrev}
             className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{background:'#222', color:'#d4d4d8', border:'1px solid #333', borderRadius:'9999px', padding:'8px 18px'}}
+            style={{background:'#FFF0F3', color:'#666', border:'1px solid #F0D0D8', borderRadius:'9999px', padding:'8px 18px'}}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -333,7 +334,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             onClick={onNext}
             disabled={!hasNext}
             className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{background:'#222', color:'#d4d4d8', border:'1px solid #333', borderRadius:'9999px', padding:'8px 18px'}}
+            style={{background:'#FFF0F3', color:'#666', border:'1px solid #F0D0D8', borderRadius:'9999px', padding:'8px 18px'}}
           >
             Next
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

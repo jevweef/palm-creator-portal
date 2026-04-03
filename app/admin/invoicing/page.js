@@ -5,7 +5,7 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 
 const STATUS_CONFIG = {
-  Draft: { color: '#71717a', bg: '#1c1c1c', next: 'Sent' },
+  Draft: { color: '#999', bg: '#1c1c1c', next: 'Sent' },
   Sent:  { color: '#3b82f6', bg: '#0f1f3d', next: 'Paid' },
   Paid:  { color: '#22c55e', bg: '#0f2d1a', next: 'Draft' },
 }
@@ -35,17 +35,17 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 100,
-      background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+      background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
-        background: '#111', border: '1px solid #2a2a2a', borderRadius: '14px',
+        background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '14px',
         padding: '28px 32px', width: '440px', maxWidth: '90vw',
       }}>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>
           Send invoice to {data.aka}?
         </div>
-        <div style={{ fontSize: '13px', color: '#71717a', marginBottom: '24px' }}>
+        <div style={{ fontSize: '13px', color: '#999', marginBottom: '24px' }}>
           This will email the PDF link and mark the invoice as Sent.
         </div>
 
@@ -57,16 +57,16 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
         ].map(row => (
           <div key={row.label} style={{
             display: 'flex', gap: '16px', padding: '8px 0',
-            borderBottom: '1px solid #1a1a1a', alignItems: 'center',
+            borderBottom: '1px solid #F0D0D8', alignItems: 'center',
           }}>
-            <span style={{ fontSize: '12px', color: '#52525b', width: '56px', flexShrink: 0 }}>{row.label}</span>
-            <span style={{ fontSize: '13px', color: '#d4d4d8' }}>{row.value}</span>
+            <span style={{ fontSize: '12px', color: '#999', width: '56px', flexShrink: 0 }}>{row.label}</span>
+            <span style={{ fontSize: '13px', color: '#4a4a4a' }}>{row.value}</span>
           </div>
         ))}
 
         {data.dropboxLink && (
           <a href={data.dropboxLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '12px', color: '#a78bfa', display: 'inline-block', marginTop: '12px' }}>
+            style={{ fontSize: '12px', color: '#E88FAC', display: 'inline-block', marginTop: '12px' }}>
             Preview PDF ↗
           </a>
         )}
@@ -79,14 +79,14 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '24px', justifyContent: 'flex-end' }}>
           <button onClick={onCancel} style={{
-            background: 'transparent', border: '1px solid #333', borderRadius: '7px',
-            color: '#a1a1aa', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
+            background: 'transparent', border: '1px solid #E8C4CC', borderRadius: '7px',
+            color: '#888', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
           }}>
             Cancel
           </button>
           <button onClick={onConfirm} disabled={sending || !data.email} style={{
-            background: data.email ? '#3b82f6' : '#1a1a1a',
-            border: 'none', borderRadius: '7px', color: '#fff',
+            background: data.email ? '#3b82f6' : '#FFF0F3',
+            border: 'none', borderRadius: '7px', color: '#1a1a1a',
             padding: '8px 20px', fontSize: '13px', fontWeight: 600,
             cursor: data.email ? 'pointer' : 'not-allowed', opacity: sending ? 0.6 : 1,
           }}>
@@ -138,8 +138,8 @@ function EarningsCell({ record, onSave, disabled }) {
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         style={{
-          background: '#1a1a2e', border: '1px solid #a78bfa', borderRadius: '4px',
-          color: '#fff', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
+          background: '#FFF0F3', border: '1px solid #E88FAC', borderRadius: '4px',
+          color: '#1a1a1a', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
         }}
       />
     )
@@ -154,7 +154,7 @@ function EarningsCell({ record, onSave, disabled }) {
         fontSize: '13px', cursor: disabled ? 'default' : 'pointer',
         padding: '4px 8px', fontFamily: 'inherit', transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.background = '#1a1a1a' }}}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = '#E8C4CC'; e.currentTarget.style.background = '#FFF0F3' }}}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
     >
       {record.earnings > 0 ? fmt(record.earnings) : <span style={{ color: '#444' }}>—</span>}
@@ -177,23 +177,23 @@ function SummaryBar({ records }) {
   return (
     <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
       {[
-        { label: 'Total Revenue', value: fmt(total.tr), color: '#fff' },
-        { label: 'Total Commission', value: fmt(total.commission), color: '#a78bfa' },
+        { label: 'Total Revenue', value: fmt(total.tr), color: '#1a1a1a' },
+        { label: 'Total Commission', value: fmt(total.commission), color: '#E88FAC' },
         { label: 'Chat Team Cost', value: fmt(total.chat), color: '#f59e0b' },
         { label: 'Net Profit', value: fmt(total.net), color: '#22c55e' },
       ].map(s => (
         <div key={s.label} style={{
-          background: '#111', border: '1px solid #222', borderRadius: '10px',
+          background: '#ffffff', border: '1px solid #222', borderRadius: '10px',
           padding: '14px 18px', minWidth: '130px', flex: '1 1 0',
         }}>
-          <div style={{ fontSize: '10px', color: '#52525b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>
+          <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>
             {s.label}
           </div>
           <div style={{ fontSize: '20px', fontWeight: 700, color: s.color }}>{s.value}</div>
         </div>
       ))}
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '14px 18px', minWidth: '110px' }}>
-        <div style={{ fontSize: '10px', color: '#52525b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Status</div>
+      <div style={{ background: '#ffffff', border: '1px solid #222', borderRadius: '10px', padding: '14px 18px', minWidth: '110px' }}>
+        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Status</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {Object.entries(STATUS_CONFIG).map(([s, cfg]) => (
             <span key={s} style={{ fontSize: '12px', color: cfg.color, fontWeight: 600 }}>
@@ -211,10 +211,10 @@ function TableHeader() {
   return (
     <div style={{
       position: 'sticky', top: 0, zIndex: 10,
-      background: '#0a0a0a',
+      background: '#FFF5F7',
       display: 'grid', gridTemplateColumns: COLS, gap: '12px',
       padding: '6px 20px 8px', marginBottom: '4px',
-      borderBottom: '1px solid #1a1a1a',
+      borderBottom: '1px solid #F0D0D8',
     }}>
       {[
         { label: 'Account', align: 'left' },
@@ -246,28 +246,28 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
 
   return (
     <div style={{
-      background: '#111', border: '1px solid #222', borderRadius: '10px',
+      background: '#ffffff', border: '1px solid #222', borderRadius: '10px',
       marginBottom: '10px', overflow: 'hidden',
     }}>
       {/* Creator header row */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '11px 20px', borderBottom: '1px solid #1a1a1a', background: '#141414',
+        padding: '11px 20px', borderBottom: '1px solid #F0D0D8', background: '#fafafa',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{aka}</span>
-          <span style={{ fontSize: '12px', color: '#52525b' }}>
+          <span style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</span>
+          <span style={{ fontSize: '12px', color: '#999' }}>
             {pct(commissionPct)} commission · {rows.length} {rows.length === 1 ? 'account' : 'accounts'}
           </span>
           {dueDate && (
-            <span style={{ fontSize: '11px', color: '#3f3f46', background: '#1a1a1a', padding: '2px 8px', borderRadius: '4px' }}>
+            <span style={{ fontSize: '11px', color: '#3f3f46', background: '#FFF0F3', padding: '2px 8px', borderRadius: '4px' }}>
               Due {fmtDate(dueDate)}
             </span>
           )}
         </div>
         <div style={{ display: 'flex', gap: '18px', fontSize: '13px' }}>
-          <span style={{ color: '#52525b' }}>TR: <span style={{ color: totalTr > 0 ? '#d4d4d8' : '#444' }}>{fmt(totalTr)}</span></span>
-          <span style={{ color: '#52525b' }}>Net: <span style={{ color: totalNet > 0 ? '#22c55e' : '#444' }}>{fmt(totalNet)}</span></span>
+          <span style={{ color: '#999' }}>TR: <span style={{ color: totalTr > 0 ? '#4a4a4a' : '#444' }}>{fmt(totalTr)}</span></span>
+          <span style={{ color: '#999' }}>Net: <span style={{ color: totalNet > 0 ? '#22c55e' : '#444' }}>{fmt(totalNet)}</span></span>
         </div>
       </div>
 
@@ -284,13 +284,13 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
             style={{
               display: 'grid', gridTemplateColumns: COLS,
               alignItems: 'center', gap: '12px', padding: '10px 20px',
-              borderTop: i === 0 ? 'none' : '1px solid #1a1a1a', transition: 'background 0.1s',
+              borderTop: i === 0 ? 'none' : '1px solid #F0D0D8', transition: 'background 0.1s',
             }}
             onMouseEnter={e => e.currentTarget.style.background = '#161616'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
             {/* Account name */}
-            <div style={{ fontSize: '13px', color: '#a1a1aa' }}>
+            <div style={{ fontSize: '13px', color: '#888' }}>
               {record.accountName.replace(aka + ' - ', '')}
             </div>
 
@@ -298,7 +298,7 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
             <EarningsCell record={record} onSave={onSave} disabled={isBusy} />
 
             {/* Commission */}
-            <div style={{ fontSize: '13px', color: record.totalCommission > 0 ? '#a78bfa' : '#444', textAlign: 'right' }}>
+            <div style={{ fontSize: '13px', color: record.totalCommission > 0 ? '#E88FAC' : '#444', textAlign: 'right' }}>
               {fmt(record.totalCommission)}
             </div>
 
@@ -326,13 +326,13 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
               {record.dropboxLink && (
                 <a href={record.dropboxLink} target="_blank" rel="noopener noreferrer"
                   title="View PDF" style={{
-                    color: '#52525b', fontSize: '14px', textDecoration: 'none',
+                    color: '#999', fontSize: '14px', textDecoration: 'none',
                     padding: '4px 6px', borderRadius: '4px', lineHeight: 1,
-                    border: '1px solid #2a2a2a',
+                    border: '1px solid #E8C4CC',
                     transition: 'color 0.15s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.color = '#a78bfa'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#52525b'}
+                  onMouseEnter={e => e.currentTarget.style.color = '#E88FAC'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#999'}
                 >
                   ↗
                 </a>
@@ -342,9 +342,9 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
               <button onClick={() => onGenerate(record.id)} disabled={isBusy}
                 title={record.hasPdf ? 'Regenerate PDF' : 'Generate PDF'}
                 style={{
-                  background: isGenerating ? '#1a1a2e' : '#1a1a1a',
-                  border: `1px solid ${isGenerating ? '#a78bfa44' : '#2a2a2a'}`,
-                  borderRadius: '4px', color: isGenerating ? '#a78bfa' : '#71717a',
+                  background: isGenerating ? '#FFF0F3' : '#FFF0F3',
+                  border: `1px solid ${isGenerating ? '#E88FAC44' : '#E8C4CC'}`,
+                  borderRadius: '4px', color: isGenerating ? '#E88FAC' : '#999',
                   fontSize: '11px', fontWeight: 600, padding: '4px 8px',
                   cursor: isBusy ? 'not-allowed' : 'pointer', opacity: isBusy && !isGenerating ? 0.4 : 1,
                   transition: 'all 0.15s', whiteSpace: 'nowrap',
@@ -356,9 +356,9 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
               <button onClick={() => onSendClick(record.id)} disabled={isBusy || !record.hasPdf}
                 title={!record.hasPdf ? 'Generate PDF first' : 'Send to creator'}
                 style={{
-                  background: isSending ? '#0f1f3d' : '#1a1a1a',
-                  border: `1px solid ${isSending ? '#3b82f644' : '#2a2a2a'}`,
-                  borderRadius: '4px', color: isSending ? '#3b82f6' : record.hasPdf ? '#71717a' : '#333',
+                  background: isSending ? '#0f1f3d' : '#FFF0F3',
+                  border: `1px solid ${isSending ? '#3b82f644' : '#E8C4CC'}`,
+                  borderRadius: '4px', color: isSending ? '#3b82f6' : record.hasPdf ? '#999' : '#E8C4CC',
                   fontSize: '11px', fontWeight: 600, padding: '4px 8px',
                   cursor: (isBusy || !record.hasPdf) ? 'not-allowed' : 'pointer',
                   opacity: (!record.hasPdf && !isSending) ? 0.4 : 1,
@@ -539,9 +539,9 @@ export default function InvoicingPage() {
 
       {/* Title */}
       <div style={{ marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#fff', margin: 0 }}>Invoicing</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Invoicing</h1>
         {currentPeriod && (
-          <div style={{ fontSize: '13px', color: '#52525b', marginTop: '4px' }}>
+          <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
             {fmtDate(currentPeriod.start)} – {fmtDate(currentPeriod.end)}, {new Date(currentPeriod.start + 'T12:00:00').getFullYear()}
             &nbsp;·&nbsp;{periodRecords.length} accounts
           </div>
@@ -555,9 +555,9 @@ export default function InvoicingPage() {
             const active = selectedPeriod === p.key
             return (
               <button key={p.key} onClick={() => setSelectedPeriod(p.key)} style={{
-                background: active ? '#1a1a2e' : '#111',
-                border: `1px solid ${active ? '#a78bfa' : '#222'}`,
-                borderRadius: '6px', color: active ? '#a78bfa' : '#71717a',
+                background: active ? '#FFF0F3' : '#ffffff',
+                border: `1px solid ${active ? '#E88FAC' : '#F0D0D8'}`,
+                borderRadius: '6px', color: active ? '#E88FAC' : '#999',
                 padding: '6px 14px', fontSize: '12px', fontWeight: active ? 600 : 400,
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>
@@ -566,7 +566,7 @@ export default function InvoicingPage() {
             )
           })}
           <button onClick={load} style={{
-            marginLeft: 'auto', background: 'transparent', border: '1px solid #1a1a1a',
+            marginLeft: 'auto', background: 'transparent', border: '1px solid #F0D0D8',
             borderRadius: '6px', color: '#3f3f46', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
           }}>
             ↺
