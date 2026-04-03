@@ -7,6 +7,9 @@ export const metadata = {
   title: 'Palm Management',
   description: 'Creator portal',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.png',
+  },
   openGraph: {
     title: 'Palm Management',
     description: 'Creator portal',
@@ -14,7 +17,7 @@ export const metadata = {
     siteName: 'Palm',
     images: [
       {
-        url: 'https://app.palm-mgmt.com/og-image.jpg',
+        url: 'https://app.palm-mgmt.com/og-image.png',
         width: 1200,
         height: 630,
       },
