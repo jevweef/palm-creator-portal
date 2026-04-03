@@ -17,7 +17,7 @@ export const metadata = {
     siteName: 'Palm',
     images: [
       {
-        url: 'https://app.palm-mgmt.com/og-image.png',
+        url: 'https://app.palm-mgmt.com/og-image.jpg',
         width: 1200,
         height: 630,
       },
