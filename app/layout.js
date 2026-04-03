@@ -32,7 +32,23 @@ const clerkAppearance = {
   },
   variables: {
     colorPrimary: '#E88FAC',
+    colorBackground: '#FFECF7',
+    colorText: '#1a1a1a',
+    colorTextSecondary: '#666',
+    colorInputBackground: '#fff',
+    colorInputText: '#1a1a1a',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontSize: '14px',
     borderRadius: '8px',
+  },
+  elements: {
+    card: { backgroundColor: '#fff', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
+    formButtonPrimary: { backgroundColor: '#E88FAC', color: '#fff', fontWeight: '600', fontSize: '14px', '&:hover': { backgroundColor: '#d4789a' } },
+    footerActionLink: { color: '#E88FAC', fontWeight: '500' },
+    headerTitle: { fontSize: '22px', fontWeight: '700' },
+    headerSubtitle: { fontSize: '14px', color: '#888' },
+    socialButtonsBlockButton: { border: '1px solid #ddd', '&:hover': { backgroundColor: '#f5f5f5' } },
+    formFieldLabel: { fontWeight: '600', fontSize: '13px' },
   },
 }
 
