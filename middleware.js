@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 
 // Public routes that don't require auth
 const isPublicRoute = createRouteMatcher([
@@ -10,9 +11,68 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin/score-reels(.*)',
 ])
 
+// Admin-only routes
+const isAdminRoute = createRouteMatcher([
+  '/admin(.*)',
+  '/api/admin(.*)',
+])
+
+// Editor-only routes
+const isEditorRoute = createRouteMatcher([
+  '/editor(.*)',
+  '/api/editor(.*)',
+])
+
+// Creator-allowed routes (creator paths + shared pages)
+const isCreatorRoute = createRouteMatcher([
+  '/creator(.*)',
+  '/dashboard(.*)',
+  '/inspo(.*)',
+  '/my-content(.*)',
+  '/api/creator(.*)',
+  '/api/inspiration(.*)',
+  '/api/saved-inspo(.*)',
+  '/api/content-pipeline(.*)',
+  '/api/creator-profile(.*)',
+])
+
 export default clerkMiddleware((auth, req) => {
-  if (!isPublicRoute(req)) {
+  if (isPublicRoute(req)) return
+
+  const { userId, sessionClaims } = auth()
+  if (!userId) {
     auth().protect()
+    return
+  }
+
+  const role = sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role
+  const userType = sessionClaims?.publicMetadata?.userType || sessionClaims?.metadata?.userType
+
+  const url = req.nextUrl
+
+  // Admin can access everything
+  if (role === 'admin' || role === 'super_admin') return
+
+  // Editor can access editor routes + shared routes, not admin
+  if (role === 'editor') {
+    if (isAdminRoute(req)) {
+      return NextResponse.redirect(new URL('/editor', url))
+    }
+    return
+  }
+
+  // Creator: block admin and editor routes entirely
+  if (userType === 'creator') {
+    if (isAdminRoute(req) || isEditorRoute(req)) {
+      const opsId = sessionClaims?.publicMetadata?.airtableOpsId || sessionClaims?.metadata?.airtableOpsId
+      return NextResponse.redirect(new URL(opsId ? `/creator/${opsId}/dashboard` : '/dashboard', url))
+    }
+    return
+  }
+
+  // Default logged-in user with no role — block admin/editor
+  if (isAdminRoute(req) || isEditorRoute(req)) {
+    return NextResponse.redirect(new URL('/dashboard', url))
   }
 })
 
