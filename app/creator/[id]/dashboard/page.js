@@ -338,23 +338,9 @@ export default function CreatorDashboard() {
                 boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '20px' }}>&#x1F334;</span>
-                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Your Creator Profile</span>
-                </div>
-                {(() => {
-                  const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 3)
-                  return topTags.length > 0 && (
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {topTags.map(([tag, weight]) => (
-                        <span key={tag} style={{ fontSize: '10px', color: '#E88FAC', background: '#FFF0F3', padding: '2px 8px', borderRadius: '10px', fontWeight: 500 }}>
-                          {tag} · {weight}
-                        </span>
-                      ))}
-                    </div>
-                  )
-                })()}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '20px' }}>&#x1F9EC;</span>
+                <span style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Your Content DNA</span>
               </div>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
