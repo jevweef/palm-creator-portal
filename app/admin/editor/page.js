@@ -1390,7 +1390,7 @@ function ForReview({ showToast }) {
           No edits waiting for review.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(600px, 700px))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
           {tasks.map(task => {
             const isExpanded = expanded.has(task.id)
             const fmtDate = task.completedAt

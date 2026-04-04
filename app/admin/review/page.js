@@ -255,9 +255,9 @@ export default function AdminReview() {
         <div style={{
           position: 'fixed', top: '20px', right: '20px', zIndex: 999,
           padding: '10px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-          background: toast.error ? '#2d1515' : '#152d15',
-          color: toast.error ? '#ff8888' : '#88ff88',
-          border: `1px solid ${toast.error ? '#5c2020' : '#205c20'}`,
+          background: toast.error ? '#FEF2F2' : '#F0FDF4',
+          color: toast.error ? '#ef4444' : '#16a34a',
+          border: `1px solid ${toast.error ? '#FECACA' : '#BBF7D0'}`,
         }}>
           {toast.msg}
         </div>
@@ -370,8 +370,8 @@ export default function AdminReview() {
           style={{
             width: '100%',
             padding: '10px',
-            background: isRecording ? '#3d1515' : '#FFF0F3',
-            border: `1px solid ${isRecording ? '#5c2020' : '#E8C4CC'}`,
+            background: isRecording ? '#FEF2F2' : '#FFF0F3',
+            border: `1px solid ${isRecording ? '#FECACA' : '#E8C4CC'}`,
             borderRadius: '6px',
             color: isRecording ? '#ef4444' : '#888',
             fontSize: '13px',
@@ -462,9 +462,9 @@ export default function AdminReview() {
             disabled={saving}
             style={{
               width: '44px', height: '44px',
-              background: '#2d1515',
+              background: '#FEF2F2',
               color: '#ef4444',
-              border: '1px solid #5c2020',
+              border: '1px solid #FECACA',
               borderRadius: '6px',
               fontSize: '16px',
               cursor: saving ? 'not-allowed' : 'pointer',

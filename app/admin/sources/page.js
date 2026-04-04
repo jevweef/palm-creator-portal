@@ -20,7 +20,7 @@ function StatusPill({ status }) {
   const colors = {
     Processing: { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
     Complete: { bg: '#dcfce7', text: '#22c55e', border: '#bbf7d0' },
-    Error: { bg: '#2d1515', text: '#ef4444', border: '#5c2020' },
+    Error: { bg: '#FEF2F2', text: '#ef4444', border: '#FECACA' },
   }
   const c = colors[status] || { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' }
   return (
@@ -189,9 +189,9 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
                     style={{
                       padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                       borderRadius: '20px', cursor: 'pointer', border: 'none',
-                      background: assigned ? '#FFF0F3' : '#1c1c1c',
-                      color: assigned ? '#E88FAC' : '#999',
-                      outline: assigned ? '1px solid #E88FAC' : '1px solid #27272a',
+                      background: assigned ? '#FFF0F3' : '#ffffff',
+                      color: assigned ? '#E88FAC' : '#666',
+                      outline: assigned ? '1px solid #E88FAC' : '1px solid #E8C4CC',
                       transition: 'all 0.15s',
                     }}
                   >
@@ -287,7 +287,7 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
           Limit: <span style={{ color: '#999' }}>{oldLimit}</span> → <span style={{ color: '#E88FAC', fontWeight: 600 }}>{newLimit}</span> reels
         </p>
 
-        <div style={{ background: '#1a1000', border: '1px solid #fde68a', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
+        <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '32px', fontWeight: 800, color: '#f59e0b', marginBottom: '4px' }}>~${estCost}</div>
           <div style={{ fontSize: '12px', color: '#a3a3a3' }}>Estimated Apify cost for {newLimit} reels</div>
           <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '8px' }}>Duplicates auto-skipped (free)</div>
@@ -383,7 +383,7 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
         <input type="text" inputMode="numeric" value={limit} onChange={e => setLimit(parseInt(e.target.value.replace(/\D/g, '')) || '')} onBlur={e => { if (!e.target.value) setLimit(15) }} style={inputStyle} />
         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Limits the number of reels Apify will return</div>
 
-        <div style={{ background: '#1a1000', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
+        <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#f59e0b' }}>~${estCost}</div>
           <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Est. Apify cost for {limit} reels</div>
         </div>
@@ -480,9 +480,9 @@ function AddSourceModal({ onClose, onAdd, allCreators }) {
                     style={{
                       padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                       borderRadius: '20px', cursor: 'pointer', border: 'none',
-                      background: selected ? '#FFF0F3' : '#1c1c1c',
-                      color: selected ? '#E88FAC' : '#999',
-                      outline: selected ? '1px solid #E88FAC' : '1px solid #27272a',
+                      background: selected ? '#FFF0F3' : '#ffffff',
+                      color: selected ? '#E88FAC' : '#666',
+                      outline: selected ? '1px solid #E88FAC' : '1px solid #E8C4CC',
                     }}
                   >
                     {c.aka || c.name}
@@ -700,11 +700,11 @@ export default function AdminSources() {
               style={{ color: '#1a1a1a', fontWeight: 500, cursor: 'pointer' }}
               onClick={() => setReelsSource(source)}
               onMouseEnter={e => e.currentTarget.style.color = '#E88FAC'}
-              onMouseLeave={e => e.currentTarget.style.color = '#fff'}
+              onMouseLeave={e => e.currentTarget.style.color = '#1a1a1a'}
             >
               @{source.handle}
               {source.ageRestricted && (
-                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#ef4444', background: '#2d1515', border: '1px solid #5c2020', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
+                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#ef4444', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
               )}
               {source.addedBy && (
                 <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 500, color: '#999', verticalAlign: 'middle' }}>by {source.addedBy}</span>
