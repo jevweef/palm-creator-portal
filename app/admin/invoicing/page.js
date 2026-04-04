@@ -3,14 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
+import InvoiceWorkflowModal from './InvoiceWorkflowModal'
 
 const STATUS_CONFIG = {
-  Draft: { color: '#71717a', bg: '#1c1c1c', next: 'Sent' },
-  Sent:  { color: '#3b82f6', bg: '#0f1f3d', next: 'Paid' },
-  Paid:  { color: '#22c55e', bg: '#0f2d1a', next: 'Draft' },
+  Draft: { color: '#9ca3af', bg: '#f3f4f6', next: 'Sent' },
+  Sent:  { color: '#3b82f6', bg: '#dbeafe', next: 'Paid' },
+  Paid:  { color: '#22c55e', bg: '#dcfce7', next: 'Draft' },
 }
 
-const COLS = '160px 150px 130px 130px 130px 88px 140px'
+const COLS = '160px 150px 130px 130px 130px 88px'
 
 function fmt(n) {
   if (!n && n !== 0) return '—'
@@ -35,17 +36,17 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 100,
-      background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+      background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
-        background: '#111', border: '1px solid #2a2a2a', borderRadius: '14px',
+        background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '28px 32px', width: '440px', maxWidth: '90vw',
       }}>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>
           Send invoice to {data.aka}?
         </div>
-        <div style={{ fontSize: '13px', color: '#71717a', marginBottom: '24px' }}>
+        <div style={{ fontSize: '13px', color: '#999', marginBottom: '24px' }}>
           This will email the PDF link and mark the invoice as Sent.
         </div>
 
@@ -57,16 +58,16 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
         ].map(row => (
           <div key={row.label} style={{
             display: 'flex', gap: '16px', padding: '8px 0',
-            borderBottom: '1px solid #1a1a1a', alignItems: 'center',
+            borderBottom: '1px solid rgba(0,0,0,0.04)', alignItems: 'center',
           }}>
-            <span style={{ fontSize: '12px', color: '#52525b', width: '56px', flexShrink: 0 }}>{row.label}</span>
-            <span style={{ fontSize: '13px', color: '#d4d4d8' }}>{row.value}</span>
+            <span style={{ fontSize: '12px', color: '#999', width: '56px', flexShrink: 0 }}>{row.label}</span>
+            <span style={{ fontSize: '13px', color: '#4a4a4a' }}>{row.value}</span>
           </div>
         ))}
 
         {data.dropboxLink && (
           <a href={data.dropboxLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '12px', color: '#a78bfa', display: 'inline-block', marginTop: '12px' }}>
+            style={{ fontSize: '12px', color: '#E88FAC', display: 'inline-block', marginTop: '12px' }}>
             Preview PDF ↗
           </a>
         )}
@@ -79,14 +80,14 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '24px', justifyContent: 'flex-end' }}>
           <button onClick={onCancel} style={{
-            background: 'transparent', border: '1px solid #333', borderRadius: '7px',
-            color: '#a1a1aa', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
+            background: 'transparent', border: '1px solid #E8C4CC', borderRadius: '7px',
+            color: '#888', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
           }}>
             Cancel
           </button>
           <button onClick={onConfirm} disabled={sending || !data.email} style={{
-            background: data.email ? '#3b82f6' : '#1a1a1a',
-            border: 'none', borderRadius: '7px', color: '#fff',
+            background: data.email ? '#3b82f6' : '#FFF0F3',
+            border: 'none', borderRadius: '7px', color: '#1a1a1a',
             padding: '8px 20px', fontSize: '13px', fontWeight: 600,
             cursor: data.email ? 'pointer' : 'not-allowed', opacity: sending ? 0.6 : 1,
           }}>
@@ -138,8 +139,8 @@ function EarningsCell({ record, onSave, disabled }) {
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         style={{
-          background: '#1a1a2e', border: '1px solid #a78bfa', borderRadius: '4px',
-          color: '#fff', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
+          background: '#FFF0F3', border: '1px solid #E88FAC', borderRadius: '4px',
+          color: '#1a1a1a', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
         }}
       />
     )
@@ -154,7 +155,7 @@ function EarningsCell({ record, onSave, disabled }) {
         fontSize: '13px', cursor: disabled ? 'default' : 'pointer',
         padding: '4px 8px', fontFamily: 'inherit', transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.background = '#1a1a1a' }}}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = '#E8C4CC'; e.currentTarget.style.background = '#FFF0F3' }}}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
     >
       {record.earnings > 0 ? fmt(record.earnings) : <span style={{ color: '#444' }}>—</span>}
@@ -177,23 +178,23 @@ function SummaryBar({ records }) {
   return (
     <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
       {[
-        { label: 'Total Revenue', value: fmt(total.tr), color: '#fff' },
-        { label: 'Total Commission', value: fmt(total.commission), color: '#a78bfa' },
+        { label: 'Total Revenue', value: fmt(total.tr), color: '#1a1a1a' },
+        { label: 'Total Commission', value: fmt(total.commission), color: '#E88FAC' },
         { label: 'Chat Team Cost', value: fmt(total.chat), color: '#f59e0b' },
         { label: 'Net Profit', value: fmt(total.net), color: '#22c55e' },
       ].map(s => (
         <div key={s.label} style={{
-          background: '#111', border: '1px solid #222', borderRadius: '10px',
+          background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
           padding: '14px 18px', minWidth: '130px', flex: '1 1 0',
         }}>
-          <div style={{ fontSize: '10px', color: '#52525b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>
+          <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>
             {s.label}
           </div>
           <div style={{ fontSize: '20px', fontWeight: 700, color: s.color }}>{s.value}</div>
         </div>
       ))}
-      <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '14px 18px', minWidth: '110px' }}>
-        <div style={{ fontSize: '10px', color: '#52525b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Status</div>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '14px 18px', minWidth: '110px' }}>
+        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Status</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {Object.entries(STATUS_CONFIG).map(([s, cfg]) => (
             <span key={s} style={{ fontSize: '12px', color: cfg.color, fontWeight: 600 }}>
@@ -211,10 +212,10 @@ function TableHeader() {
   return (
     <div style={{
       position: 'sticky', top: 0, zIndex: 10,
-      background: '#0a0a0a',
+      background: '#FFF5F7',
       display: 'grid', gridTemplateColumns: COLS, gap: '12px',
       padding: '6px 20px 8px', marginBottom: '4px',
-      borderBottom: '1px solid #1a1a1a',
+      borderBottom: '1px solid rgba(0,0,0,0.04)',
     }}>
       {[
         { label: 'Account', align: 'left' },
@@ -223,7 +224,6 @@ function TableHeader() {
         { label: 'Chat Fee', align: 'right' },
         { label: 'Net Profit', align: 'right' },
         { label: 'Status', align: 'center' },
-        { label: 'Actions', align: 'right' },
       ].map(col => (
         <div key={col.label} style={{
           fontSize: '11px', color: '#3f3f46', fontWeight: 600,
@@ -237,68 +237,126 @@ function TableHeader() {
 }
 
 // ── Creator group card ───────────────────────────────────────────────────────
-function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, actionState }) {
+function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingId }) {
   const commissionPct = rows[0]?.commissionPct || 0
   const totalTr = rows.reduce((s, r) => s + (r.earnings || 0), 0)
   const totalNet = rows.reduce((s, r) => s + (r.netProfit || 0), 0)
   const dueDate = rows[0]?.dueDate
+  const allHavePdfs = rows.every(r => r.hasPdf)
+  const allSent = rows.every(r => r.status === 'Sent' || r.status === 'Paid')
+  const allPaid = rows.every(r => r.status === 'Paid')
   const sorted = [...rows].sort((a, b) => accountRank(a.accountName) - accountRank(b.accountName))
+
+  // Determine current stage (0-4)
+  const currentStage = allPaid ? 5 : allSent ? 4 : allHavePdfs ? 1 : 0
+  const STAGE_LABELS = ['Generate', 'Review', 'Preview', 'Send', 'Payment', 'Complete']
 
   return (
     <div style={{
-      background: '#111', border: '1px solid #222', borderRadius: '10px',
+      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       marginBottom: '10px', overflow: 'hidden',
     }}>
       {/* Creator header row */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '11px 20px', borderBottom: '1px solid #1a1a1a', background: '#141414',
+        padding: '11px 20px', borderBottom: '1px solid rgba(0,0,0,0.04)', background: '#fafafa',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{aka}</span>
-          <span style={{ fontSize: '12px', color: '#52525b' }}>
+          <span style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</span>
+          <span style={{ fontSize: '12px', color: '#999' }}>
             {pct(commissionPct)} commission · {rows.length} {rows.length === 1 ? 'account' : 'accounts'}
           </span>
           {dueDate && (
-            <span style={{ fontSize: '11px', color: '#3f3f46', background: '#1a1a1a', padding: '2px 8px', borderRadius: '4px' }}>
+            <span style={{ fontSize: '11px', color: '#3f3f46', background: '#FFF0F3', padding: '2px 8px', borderRadius: '4px' }}>
               Due {fmtDate(dueDate)}
             </span>
           )}
+          {/* Stage progress dots */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
+            {[0,1,2,3,4].map(s => (
+              <div key={s} style={{
+                width: s < currentStage ? '16px' : s === currentStage ? '16px' : '6px',
+                height: '6px',
+                borderRadius: '3px',
+                background: s < currentStage ? '#22c55e' : s === currentStage ? '#E88FAC' : '#e5e7eb',
+                transition: '0.2s',
+              }} title={STAGE_LABELS[s]} />
+            ))}
+            <span style={{ fontSize: '10px', color: currentStage >= 5 ? '#22c55e' : '#999', marginLeft: '4px', fontWeight: 500 }}>
+              {STAGE_LABELS[Math.min(currentStage, 5)]}
+            </span>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '18px', fontSize: '13px' }}>
-          <span style={{ color: '#52525b' }}>TR: <span style={{ color: totalTr > 0 ? '#d4d4d8' : '#444' }}>{fmt(totalTr)}</span></span>
-          <span style={{ color: '#52525b' }}>Net: <span style={{ color: totalNet > 0 ? '#22c55e' : '#444' }}>{fmt(totalNet)}</span></span>
+        <div style={{ display: 'flex', gap: '12px', fontSize: '13px', alignItems: 'center' }}>
+          <span style={{ color: '#999' }}>TR: <span style={{ color: totalTr > 0 ? '#4a4a4a' : '#444' }}>{fmt(totalTr)}</span></span>
+          <span style={{ color: '#999' }}>Net: <span style={{ color: totalNet > 0 ? '#22c55e' : '#444' }}>{fmt(totalNet)}</span></span>
+          <span style={{ color: '#ddd', margin: '0 2px' }}>|</span>
+          {(() => {
+            const allSame = rows.every(r => r.status === rows[0]?.status)
+            const currentStatus = allSame ? rows[0]?.status : null
+            const nextStatus = currentStatus ? STATUS_CONFIG[currentStatus]?.next : null
+            const ids = rows.map(r => r.id)
+            return (<>
+              {currentStatus && nextStatus ? (
+                <button onClick={() => onBulkStatus(ids, nextStatus)}
+                  style={{
+                    background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '5px',
+                    color: '#E88FAC', fontSize: '11px', fontWeight: 600, padding: '3px 10px',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                  Mark All {nextStatus}
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {['Sent', 'Paid'].map(s => (
+                    <button key={s} onClick={() => onBulkStatus(ids, s)}
+                      style={{
+                        background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '5px',
+                        color: '#E88FAC', fontSize: '10px', fontWeight: 600, padding: '2px 8px',
+                        cursor: 'pointer', whiteSpace: 'nowrap',
+                      }}>
+                      All {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => onOpenWorkflow(aka, rows)}
+                style={{
+                  background: '#1a1a1a', border: 'none', borderRadius: '5px',
+                  color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 12px',
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>
+                Manage →
+              </button>
+            </>)
+          })()}
         </div>
       </div>
 
       {/* Account rows */}
       {sorted.map((record, i) => {
         const isSavingStatus = savingId === record.id
-        const action = actionState[record.id]
-        const isGenerating = action === 'generating'
-        const isSending = action === 'sending'
-        const isBusy = isSavingStatus || isGenerating || isSending
 
         return (
           <div key={record.id}
             style={{
               display: 'grid', gridTemplateColumns: COLS,
               alignItems: 'center', gap: '12px', padding: '10px 20px',
-              borderTop: i === 0 ? 'none' : '1px solid #1a1a1a', transition: 'background 0.1s',
+              borderTop: i === 0 ? 'none' : '1px solid rgba(0,0,0,0.04)', transition: 'background 0.1s',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = '#161616'}
+            onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
             {/* Account name */}
-            <div style={{ fontSize: '13px', color: '#a1a1aa' }}>
+            <div style={{ fontSize: '13px', color: '#888' }}>
               {record.accountName.replace(aka + ' - ', '')}
             </div>
 
             {/* Earnings — editable */}
-            <EarningsCell record={record} onSave={onSave} disabled={isBusy} />
+            <EarningsCell record={record} onSave={onSave} disabled={isSavingStatus} />
 
             {/* Commission */}
-            <div style={{ fontSize: '13px', color: record.totalCommission > 0 ? '#a78bfa' : '#444', textAlign: 'right' }}>
+            <div style={{ fontSize: '13px', color: record.totalCommission > 0 ? '#E88FAC' : '#444', textAlign: 'right' }}>
               {fmt(record.totalCommission)}
             </div>
 
@@ -314,58 +372,13 @@ function CreatorGroup({ aka, rows, onSave, onGenerate, onSendClick, savingId, ac
 
             {/* Status */}
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <StatusPill
-                status={record.status} saving={isSavingStatus}
-                onClick={() => onSave(record.id, { status: STATUS_CONFIG[record.status]?.next || 'Draft' })}
-              />
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-              {/* View PDF */}
-              {record.dropboxLink && (
-                <a href={record.dropboxLink} target="_blank" rel="noopener noreferrer"
-                  title="View PDF" style={{
-                    color: '#52525b', fontSize: '14px', textDecoration: 'none',
-                    padding: '4px 6px', borderRadius: '4px', lineHeight: 1,
-                    border: '1px solid #2a2a2a',
-                    transition: 'color 0.15s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = '#a78bfa'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#52525b'}
-                >
-                  ↗
-                </a>
-              )}
-
-              {/* Generate button */}
-              <button onClick={() => onGenerate(record.id)} disabled={isBusy}
-                title={record.hasPdf ? 'Regenerate PDF' : 'Generate PDF'}
-                style={{
-                  background: isGenerating ? '#1a1a2e' : '#1a1a1a',
-                  border: `1px solid ${isGenerating ? '#a78bfa44' : '#2a2a2a'}`,
-                  borderRadius: '4px', color: isGenerating ? '#a78bfa' : '#71717a',
-                  fontSize: '11px', fontWeight: 600, padding: '4px 8px',
-                  cursor: isBusy ? 'not-allowed' : 'pointer', opacity: isBusy && !isGenerating ? 0.4 : 1,
-                  transition: 'all 0.15s', whiteSpace: 'nowrap',
-                }}>
-                {isGenerating ? '⟳ Gen...' : record.hasPdf ? '⟳ PDF' : '⚙ Gen'}
-              </button>
-
-              {/* Send button */}
-              <button onClick={() => onSendClick(record.id)} disabled={isBusy || !record.hasPdf}
-                title={!record.hasPdf ? 'Generate PDF first' : 'Send to creator'}
-                style={{
-                  background: isSending ? '#0f1f3d' : '#1a1a1a',
-                  border: `1px solid ${isSending ? '#3b82f644' : '#2a2a2a'}`,
-                  borderRadius: '4px', color: isSending ? '#3b82f6' : record.hasPdf ? '#71717a' : '#333',
-                  fontSize: '11px', fontWeight: 600, padding: '4px 8px',
-                  cursor: (isBusy || !record.hasPdf) ? 'not-allowed' : 'pointer',
-                  opacity: (!record.hasPdf && !isSending) ? 0.4 : 1,
-                  transition: 'all 0.15s', whiteSpace: 'nowrap',
-                }}>
-                {isSending ? '✉ ...' : '✉ Send'}
-              </button>
+              <span style={{
+                background: STATUS_CONFIG[record.status]?.bg || '#f3f4f6',
+                color: STATUS_CONFIG[record.status]?.color || '#999',
+                border: `1px solid ${(STATUS_CONFIG[record.status]?.color || '#999')}44`,
+                borderRadius: '20px', padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                letterSpacing: '0.03em',
+              }}>{record.status}</span>
             </div>
           </div>
         )
@@ -385,9 +398,8 @@ export default function InvoicingPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [savingId, setSavingId] = useState(null)
-  const [actionState, setActionState] = useState({}) // { [recordId]: 'generating' | 'sending' }
-  const [sendModal, setSendModal] = useState(null)   // preflight data for the modal
   const [actionError, setActionError] = useState(null)
+  const [workflowModal, setWorkflowModal] = useState(null) // { aka, rows }
 
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin'
@@ -437,75 +449,22 @@ export default function InvoicingPage() {
     finally { setSavingId(null) }
   }, [])
 
-  // Generate PDF
-  const handleGenerate = useCallback(async (recordId) => {
-    setActionState(prev => ({ ...prev, [recordId]: 'generating' }))
-    setActionError(null)
-    try {
-      const res = await fetch('/api/admin/invoicing/generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.ok) {
-        setActionError(data.error || 'PDF generation failed')
-        return
-      }
-      setRecords(prev => prev.map(r => r.id !== recordId ? r : {
-        ...r, dropboxLink: data.dropboxLink, hasPdf: true,
-        invoiceNumber: data.invoiceNumber ? Number(data.invoiceNumber) : r.invoiceNumber,
-      }))
-    } catch (e) {
-      setActionError(e.message)
-    } finally {
-      setActionState(prev => ({ ...prev, [recordId]: null }))
+  // Bulk status update — mark all records for a creator as Sent/Paid
+  const handleBulkStatus = useCallback(async (recordIds, status) => {
+    for (const id of recordIds) {
+      setSavingId(id)
+      try {
+        const res = await fetch('/api/admin/invoicing', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordId: id, fields: { status } }),
+        })
+        if (res.ok) {
+          setRecords(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+        }
+      } catch (e) { console.error(e) }
     }
+    setSavingId(null)
   }, [])
-
-  // Open send modal — fetch preflight data first
-  const handleSendClick = useCallback(async (recordId) => {
-    setActionState(prev => ({ ...prev, [recordId]: 'sending' }))
-    setActionError(null)
-    try {
-      const res = await fetch(`/api/admin/invoicing/send?recordId=${recordId}`)
-      const data = await res.json()
-      if (!res.ok) { setActionError(data.error); return }
-      setSendModal({ ...data, recordId })
-    } catch (e) {
-      setActionError(e.message)
-    } finally {
-      setActionState(prev => ({ ...prev, [recordId]: null }))
-    }
-  }, [])
-
-  // Confirm send
-  const handleSendConfirm = useCallback(async () => {
-    if (!sendModal) return
-    const { recordId } = sendModal
-    setActionState(prev => ({ ...prev, [recordId]: 'sending' }))
-    try {
-      const res = await fetch('/api/admin/invoicing/send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setRecords(prev => prev.map(r => r.id === recordId ? { ...r, status: 'Sent' } : r))
-        setSendModal(null)
-      } else if (data.manual) {
-        // Resend not configured — show details for manual send
-        setSendModal(prev => ({ ...prev, manual: true, manualDetails: data }))
-      } else {
-        setActionError(data.error || 'Send failed')
-        setSendModal(null)
-      }
-    } catch (e) {
-      setActionError(e.message)
-      setSendModal(null)
-    } finally {
-      setActionState(prev => ({ ...prev, [recordId]: null }))
-    }
-  }, [sendModal])
 
   if (!isLoaded || !isAdmin) {
     return (
@@ -529,19 +488,24 @@ export default function InvoicingPage() {
 
   return (
     <div style={{ maxWidth: '1060px' }}>
-      {/* Send confirmation modal */}
-      <SendModal
-        data={sendModal}
-        onConfirm={handleSendConfirm}
-        onCancel={() => setSendModal(null)}
-        sending={sendModal ? !!actionState[sendModal.recordId] : false}
-      />
+      {/* Workflow modal */}
+      {workflowModal && (() => {
+        const liveRows = periodRecords.filter(r => r.aka === workflowModal.aka)
+        return liveRows.length > 0 ? (
+          <InvoiceWorkflowModal
+            aka={workflowModal.aka}
+            rows={liveRows}
+            onClose={() => setWorkflowModal(null)}
+            onRecordsUpdate={setRecords}
+          />
+        ) : null
+      })()}
 
       {/* Title */}
       <div style={{ marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#fff', margin: 0 }}>Invoicing</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Invoicing</h1>
         {currentPeriod && (
-          <div style={{ fontSize: '13px', color: '#52525b', marginTop: '4px' }}>
+          <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
             {fmtDate(currentPeriod.start)} – {fmtDate(currentPeriod.end)}, {new Date(currentPeriod.start + 'T12:00:00').getFullYear()}
             &nbsp;·&nbsp;{periodRecords.length} accounts
           </div>
@@ -555,9 +519,9 @@ export default function InvoicingPage() {
             const active = selectedPeriod === p.key
             return (
               <button key={p.key} onClick={() => setSelectedPeriod(p.key)} style={{
-                background: active ? '#1a1a2e' : '#111',
-                border: `1px solid ${active ? '#a78bfa' : '#222'}`,
-                borderRadius: '6px', color: active ? '#a78bfa' : '#71717a',
+                background: active ? '#FFF0F3' : '#ffffff',
+                border: active ? '1px solid #E88FAC' : 'none', boxShadow: active ? 'none' : '0 1px 4px rgba(0,0,0,0.04)',
+                borderRadius: '6px', color: active ? '#E88FAC' : '#999',
                 padding: '6px 14px', fontSize: '12px', fontWeight: active ? 600 : 400,
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>
@@ -566,7 +530,7 @@ export default function InvoicingPage() {
             )
           })}
           <button onClick={load} style={{
-            marginLeft: 'auto', background: 'transparent', border: '1px solid #1a1a1a',
+            marginLeft: 'auto', background: 'transparent', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
             borderRadius: '6px', color: '#3f3f46', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
           }}>
             ↺
@@ -601,10 +565,9 @@ export default function InvoicingPage() {
             <CreatorGroup
               key={aka} aka={aka} rows={grouped[aka]}
               onSave={handleSave}
-              onGenerate={handleGenerate}
-              onSendClick={handleSendClick}
+              onBulkStatus={handleBulkStatus}
+              onOpenWorkflow={(a, r) => setWorkflowModal({ aka: a, rows: r })}
               savingId={savingId}
-              actionState={actionState}
             />
           ))}
         </>

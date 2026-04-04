@@ -13,17 +13,17 @@ function formatSlot(isoDate) {
 }
 
 const STATUS_COLORS = {
-  'To Do': { bg: '#332b00', text: '#f59e0b', border: '#5c4b00' },
+  'To Do': { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
   'In Progress': { bg: '#0a1a3d', text: '#3b82f6', border: '#1a3a6d' },
 }
 
 const TAG_COLORS = [
-  '#a78bfa', '#22c55e', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899',
+  '#E88FAC', '#22c55e', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899',
   '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4',
 ]
 
 function StatusBadge({ status }) {
-  const c = STATUS_COLORS[status] || { bg: '#1a1a1a', text: '#71717a', border: '#333' }
+  const c = STATUS_COLORS[status] || { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' }
   return (
     <span style={{
       padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
@@ -116,14 +116,14 @@ function SubmitModal({ task, onClose, onSubmit }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
-      <div style={{ background: '#111', border: '1px solid #333', borderRadius: '12px', padding: '24px', width: '440px', maxWidth: '95vw' }}
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '440px', maxWidth: '95vw' }}
         onClick={e => e.stopPropagation()}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
           Submit Edit for Review
         </h3>
-        <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '16px' }}>
+        <p style={{ fontSize: '12px', color: '#999', marginBottom: '16px' }}>
           {task.inspo.title} — {task.creator.name}
         </p>
 
@@ -132,21 +132,21 @@ function SubmitModal({ task, onClose, onSubmit }) {
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f) }}
           onDragOver={e => e.preventDefault()}
           style={{
-            border: `2px dashed ${file ? '#22c55e' : '#333'}`, borderRadius: '10px',
+            border: `2px dashed ${file ? '#22c55e' : 'rgba(0,0,0,0.08)'}`, borderRadius: '18px',
             padding: '24px', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.2s',
-            background: file ? '#0a2e0a' : 'transparent',
+            background: file ? '#dcfce7' : 'transparent',
           }}
         >
           {file ? (
             <div>
               <div style={{ fontSize: '13px', color: '#22c55e', fontWeight: 600 }}>{file.name}</div>
-              <div style={{ fontSize: '11px', color: '#71717a', marginTop: '4px' }}>
+              <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
                 {(file.size / (1024 * 1024)).toFixed(1)} MB — click to change
               </div>
             </div>
           ) : (
             <div>
-              <div style={{ fontSize: '13px', color: '#a1a1aa' }}>Drop edited video here or click to browse</div>
+              <div style={{ fontSize: '13px', color: '#888' }}>Drop edited video here or click to browse</div>
               <div style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>MP4, MOV</div>
             </div>
           )}
@@ -160,25 +160,25 @@ function SubmitModal({ task, onClose, onSubmit }) {
           disabled={uploading}
           style={{
             width: '100%', marginTop: '12px', padding: '10px 12px',
-            background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px',
-            color: '#d4d4d8', fontSize: '13px', resize: 'vertical', minHeight: '60px',
+            background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '8px',
+            color: '#4a4a4a', fontSize: '13px', resize: 'vertical', minHeight: '60px',
             fontFamily: 'inherit', boxSizing: 'border-box',
           }}
         />
 
         {error && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '8px' }}>{error}</p>}
-        {progress && <p style={{ fontSize: '12px', color: '#a78bfa', marginTop: '8px' }}>{progress}</p>}
+        {progress && <p style={{ fontSize: '12px', color: '#E88FAC', marginTop: '8px' }}>{progress}</p>}
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} disabled={uploading}
-            style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#333' }}>
+            style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#E8C4CC' }}>
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={!file || uploading}
             style={{
-              padding: '8px 20px', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', fontWeight: 600,
+              padding: '8px 20px', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600,
               cursor: !file || uploading ? 'not-allowed' : 'pointer',
-              background: !file || uploading ? '#333' : '#a78bfa', opacity: uploading ? 0.6 : 1,
+              background: !file || uploading ? '#E8C4CC' : '#E88FAC', opacity: uploading ? 0.6 : 1,
             }}>
             {uploading ? 'Uploading...' : 'Submit for Review'}
           </button>
@@ -276,9 +276,9 @@ function InspoTasks({ showToast }) {
               onClick={() => setFilter(tab.key)}
               style={{
                 padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-                background: filter === tab.key ? '#1a1a2e' : 'transparent',
-                color: filter === tab.key ? '#a78bfa' : '#71717a',
-                border: `1px solid ${filter === tab.key ? '#a78bfa' : '#333'}`,
+                background: filter === tab.key ? '#FFF0F3' : 'transparent',
+                color: filter === tab.key ? '#E88FAC' : '#999',
+                border: `1px solid ${filter === tab.key ? '#E88FAC' : '#E8C4CC'}`,
                 borderRadius: '6px', cursor: 'pointer',
               }}
             >
@@ -290,7 +290,7 @@ function InspoTasks({ showToast }) {
           onClick={fetchTasks}
           style={{
             padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-            background: '#111', color: '#a1a1aa', border: '1px solid #333',
+            background: '#ffffff', color: '#888', border: '1px solid #E8C4CC',
             borderRadius: '6px', cursor: 'pointer',
           }}
         >
@@ -299,7 +299,7 @@ function InspoTasks({ showToast }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#111', borderRadius: '12px', border: '1px solid #1a1a1a' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           {tasks.length === 0 ? 'No editing tasks in queue.' : 'No tasks match this filter.'}
         </div>
       ) : (
@@ -342,26 +342,26 @@ function InspoTasks({ showToast }) {
 function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, updating }) {
   return (
     <div style={{
-      background: '#111', border: '1px solid #222', borderRadius: '12px',
+      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
     }}>
       {/* Visual header */}
-      <div style={{ display: 'flex', height: '200px', background: '#0a0a0a' }}>
+      <div style={{ display: 'flex', height: '200px', background: '#FFF5F7' }}>
         {/* Inspo thumbnail */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {task.inspo.thumbnail ? (
             <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '12px' }}>No thumbnail</div>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '12px' }}>No thumbnail</div>
           )}
-          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#a78bfa', fontWeight: 600 }}>
+          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.4)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#E88FAC', fontWeight: 600 }}>
             INSPO
           </div>
         </div>
 
         {/* Arrow */}
-        <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', flexShrink: 0 }}>
-          <span style={{ color: '#333', fontSize: '18px' }}>→</span>
+        <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF5F7', flexShrink: 0 }}>
+          <span style={{ color: '#E8C4CC', fontSize: '18px' }}>→</span>
         </div>
 
         {/* Creator clip */}
@@ -374,20 +374,20 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
           ) : task.asset.dropboxLink ? (
             <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
               style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', background: '#0f0f1a', transition: 'background 0.15s' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#1a1a2e'}
+              onMouseEnter={e => e.currentTarget.style.background = '#FFF0F3'}
               onMouseLeave={e => e.currentTarget.style.background = '#0f0f1a'}
             >
-              <svg style={{ width: '32px', height: '32px', color: '#a78bfa', marginBottom: '8px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <svg style={{ width: '32px', height: '32px', color: '#E88FAC', marginBottom: '8px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span style={{ color: '#a78bfa', fontSize: '12px', fontWeight: 600 }}>Download Clips</span>
+              <span style={{ color: '#E88FAC', fontSize: '12px', fontWeight: 600 }}>Download Clips</span>
             </a>
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', color: '#333', fontSize: '12px' }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF5F7', color: '#E8C4CC', fontSize: '12px' }}>
               No clip yet
             </div>
           )}
-          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>
+          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.4)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>
             CREATOR CLIP
           </div>
         </div>
@@ -397,10 +397,10 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>
               {task.creator.name || 'Unknown Creator'}
             </div>
-            <div style={{ fontSize: '13px', color: '#a1a1aa', marginTop: '2px' }}>
+            <div style={{ fontSize: '13px', color: '#888', marginTop: '2px' }}>
               {task.inspo.title || task.name}
             </div>
           </div>
@@ -411,19 +411,19 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {task.inspo.contentLink && (
             <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px', background: '#1a1a2e', borderRadius: '4px', border: '1px solid #333' }}>
+              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: '#FFF0F3', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
               Original Reel ↗
             </a>
           )}
           {task.inspo.dbShareLink && (
             <a href={task.inspo.dbShareLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px', background: '#1a1a2e', borderRadius: '4px', border: '1px solid #333' }}>
+              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: '#FFF0F3', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
               Analyzed Video ↗
             </a>
           )}
           {(task.asset.dropboxLinks?.length > 0 ? task.asset.dropboxLinks : task.asset.dropboxLink ? [task.asset.dropboxLink] : []).map((link, i, arr) => (
             <a key={i} href={link} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '3px 8px', background: '#0a2e0a', borderRadius: '4px', border: '1px solid #1a5c1a' }}>
+              style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '3px 8px', background: '#dcfce7', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
               {arr.length > 1 ? `Clip ${i + 1} ↗` : 'Creator Clips ↗'}
             </a>
           ))}
@@ -431,11 +431,11 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
 
         {/* Creator notes */}
         {(task.creatorNotes || task.asset.creatorNotes) && (
-          <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '10px' }}>
-            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+          <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '10px' }}>
+            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
               Creator Notes
             </div>
-            <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4 }}>
+            <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.4 }}>
               {task.creatorNotes || task.asset.creatorNotes}
             </div>
           </div>
@@ -446,22 +446,22 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
           <>
             <button
               onClick={onToggleExpand}
-              style={{ background: 'none', border: 'none', color: '#71717a', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+              style={{ background: 'none', border: 'none', color: '#999', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: 0 }}
             >
               {expanded ? '▾ Hide Inspo Details' : '▸ View Inspo Details'}
             </button>
 
             {expanded && (
-              <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {task.inspo.notes && (
-                  <div style={{ fontSize: '12px', color: '#d4d4d8', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                     {task.inspo.notes}
                   </div>
                 )}
                 <div>
-                  <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>On-Screen Text</div>
+                  <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>On-Screen Text</div>
                   {task.inspo.onScreenText ? (
-                    <div style={{ fontSize: '12px', color: '#f59e0b', lineHeight: 1.4, background: '#1a1500', border: '1px solid #332b00', borderRadius: '6px', padding: '8px 10px' }}>
+                    <div style={{ fontSize: '12px', color: '#f59e0b', lineHeight: 1.4, background: '#1a1500', border: '1px solid #fef3c7', borderRadius: '6px', padding: '8px 10px' }}>
                       {task.inspo.onScreenText}
                     </div>
                   ) : (
@@ -470,15 +470,15 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
                 </div>
                 {task.inspo.transcript && (
                   <div>
-                    <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Transcript</div>
-                    <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4, fontStyle: 'italic' }}>
+                    <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Transcript</div>
+                    <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.4, fontStyle: 'italic' }}>
                       {task.inspo.transcript}
                     </div>
                   </div>
                 )}
                 {task.inspo.tags?.length > 0 && (
                   <div>
-                    <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Tags</div>
+                    <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Tags</div>
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       {task.inspo.tags.map((tag, i) => <TagPill key={i} tag={tag} index={i} />)}
                     </div>
@@ -486,8 +486,8 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
                 )}
                 {task.inspo.audioType && (
                   <div>
-                    <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Audio</div>
-                    <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333' }}>
+                    <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Audio</div>
+                    <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#FFF0F3', color: '#888', border: '1px solid #E8C4CC' }}>
                       {typeof task.inspo.audioType === 'object' ? task.inspo.audioType.name : task.inspo.audioType}
                     </span>
                   </div>
@@ -501,13 +501,13 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
         <div style={{ marginTop: 'auto', paddingTop: '4px' }}>
           {task.status === 'To Do' && (
             <button onClick={onStartEditing} disabled={updating}
-              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating ? '#333' : '#0a2e0a', color: updating ? '#555' : '#22c55e', border: '1px solid #1a5c1a', borderRadius: '8px', cursor: 'pointer', opacity: updating ? 0.6 : 1 }}>
+              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating ? '#E8C4CC' : '#dcfce7', color: updating ? '#555' : '#22c55e', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', opacity: updating ? 0.6 : 1 }}>
               {updating ? 'Updating...' : 'Start Editing'}
             </button>
           )}
           {task.status === 'In Progress' && (
             <button onClick={onSubmit}
-              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: '#1a1a2e', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '8px', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
               Submit for Review
             </button>
           )}
@@ -547,14 +547,14 @@ function UnreviewedLibrary({ showToast }) {
     <div>
       {/* Controls row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <p style={{ fontSize: '13px', color: '#71717a', margin: 0 }}>
+        <p style={{ fontSize: '13px', color: '#999', margin: 0 }}>
           {assets.length} {assets.length === 1 ? 'clip' : 'clips'} waiting to be matched to inspo
         </p>
         <button
           onClick={fetchAssets}
           style={{
             padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-            background: '#111', color: '#a1a1aa', border: '1px solid #333',
+            background: '#ffffff', color: '#888', border: '1px solid #E8C4CC',
             borderRadius: '6px', cursor: 'pointer',
           }}
         >
@@ -563,7 +563,7 @@ function UnreviewedLibrary({ showToast }) {
       </div>
 
       {assets.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#111', borderRadius: '12px', border: '1px solid #1a1a1a' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           No unreviewed clips in library.
         </div>
       ) : (
@@ -588,16 +588,16 @@ function UnreviewedCard({ asset }) {
 
   return (
     <div style={{
-      background: '#111', border: '1px solid #222', borderRadius: '12px',
+      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
     }}>
       {/* Thumbnail */}
-      <div style={{ height: '180px', background: '#0a0a0a', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: '180px', background: '#FFF5F7', position: 'relative', overflow: 'hidden' }}>
         {asset.thumbnail ? (
           <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <svg style={{ width: '36px', height: '36px', color: '#333' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg style={{ width: '36px', height: '36px', color: '#E8C4CC' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
             </svg>
             <span style={{ fontSize: '11px', color: '#444' }}>No thumbnail</span>
@@ -614,7 +614,7 @@ function UnreviewedCard({ asset }) {
         {/* Creator + date */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
               {asset.creator.name || 'Unknown Creator'}
             </div>
             {formattedDate && (
@@ -624,7 +624,7 @@ function UnreviewedCard({ asset }) {
             )}
           </div>
           {asset.sourceType && (
-            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, background: '#1a1a1a', color: '#71717a', border: '1px solid #333', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC', whiteSpace: 'nowrap', flexShrink: 0 }}>
               {asset.sourceType}
             </span>
           )}
@@ -632,16 +632,16 @@ function UnreviewedCard({ asset }) {
 
         {/* Folder path hint */}
         {folderLabel && (
-          <div style={{ fontSize: '11px', color: '#555', fontFamily: 'monospace', background: '#0a0a0a', padding: '4px 8px', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '11px', color: '#555', fontFamily: 'monospace', background: '#FFF5F7', padding: '4px 8px', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             📁 {folderLabel}
           </div>
         )}
 
         {/* Creator notes */}
         {asset.creatorNotes && (
-          <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '8px 10px' }}>
-            <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Notes</div>
-            <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4 }}>{asset.creatorNotes}</div>
+          <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '8px 10px' }}>
+            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Notes</div>
+            <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.4 }}>{asset.creatorNotes}</div>
           </div>
         )}
 
@@ -652,7 +652,7 @@ function UnreviewedCard({ asset }) {
               style={{
                 flex: 1, minWidth: '80px', textAlign: 'center',
                 padding: '8px', fontSize: '12px', fontWeight: 600,
-                background: '#1a1a2e', color: '#a78bfa', border: '1px solid #333',
+                background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC',
                 borderRadius: '6px', textDecoration: 'none',
               }}>
               {arr.length > 1 ? `Clip ${i + 1} ↗` : 'View Clip ↗'}
@@ -869,28 +869,28 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
-      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '12px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#d4d4d8' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#4a4a4a' }}>
               {mode === 'scrub' ? 'Pick a frame' : 'Crop frame'}
             </div>
-            <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
               {mode === 'scrub' ? 'Scrub to the moment you want to flag' : 'Drag to select — adjust corners to isolate the issue'}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {mode === 'crop' && (
               <button onClick={() => { setMode('scrub'); setSel(null) }}
-                style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
                 ← Back
               </button>
             )}
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#52525b', cursor: 'pointer', fontSize: '20px' }}>×</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
           </div>
         </div>
 
@@ -905,11 +905,11 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
             </div>
             <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '11px', color: '#71717a', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
+                <span style={{ fontSize: '11px', color: '#999', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
                 <input type="range" min={0} max={duration || 100} step={0.05} value={currentTime}
                   onChange={e => { const t = parseFloat(e.target.value); setCurrentTime(t); if (videoRef.current) videoRef.current.currentTime = t }}
                   style={{ flex: 1, accentColor: '#ef4444', cursor: 'pointer' }} />
-                <span style={{ fontSize: '11px', color: '#52525b', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
+                <span style={{ fontSize: '11px', color: '#999', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
               </div>
               {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
               <button onClick={handleCapture} disabled={capturing || !duration}
@@ -937,7 +937,7 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
               {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={handleUseFullFrame} disabled={uploading}
-                  style={{ flex: 1, padding: '9px', background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#71717a', borderRadius: '8px', cursor: uploading ? 'default' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: uploading ? 0.5 : 1 }}>
+                  style={{ flex: 1, padding: '9px', background: '#FFF0F3', border: '1px solid #E8C4CC', color: '#999', borderRadius: '8px', cursor: uploading ? 'default' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: uploading ? 0.5 : 1 }}>
                   Use full frame
                 </button>
                 <button onClick={handleCropAndAdd} disabled={!canCrop || uploading}
@@ -1003,12 +1003,12 @@ function CropperModal({ file, onCrop, onSkip }) {
       // redraw selected region clearly
       ctx.drawImage(image, x / scaleRef.current, y / scaleRef.current, w / scaleRef.current, h / scaleRef.current, x, y, w, h)
       // selection border
-      ctx.strokeStyle = '#a78bfa'
+      ctx.strokeStyle = '#E88FAC'
       ctx.lineWidth = 2
       ctx.strokeRect(x + 1, y + 1, w - 2, h - 2)
       // corner handles
       const hs = 6
-      ctx.fillStyle = '#a78bfa'
+      ctx.fillStyle = '#E88FAC'
       ;[[x, y], [x+w, y], [x, y+h], [x+w, y+h]].forEach(([cx, cy]) => {
         ctx.fillRect(cx - hs/2, cy - hs/2, hs, hs)
       })
@@ -1065,29 +1065,29 @@ function CropperModal({ file, onCrop, onSkip }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '16px', padding: '20px', maxWidth: '95vw', display: 'flex', flexDirection: 'column', gap: '12px' }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '16px', padding: '20px', maxWidth: '95vw', display: 'flex', flexDirection: 'column', gap: '12px' }}
         onClick={e => e.stopPropagation()}>
         <div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Crop Screenshot</div>
-          <div style={{ fontSize: '11px', color: '#52525b', marginTop: '2px' }}>Drag to select what to send · or skip to use the full image</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>Crop Screenshot</div>
+          <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>Drag to select what to send · or skip to use the full image</div>
         </div>
-        {!ready && <div style={{ width: '200px', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#52525b', fontSize: '13px' }}>Loading...</div>}
+        {!ready && <div style={{ width: '200px', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '13px' }}>Loading...</div>}
         <canvas
           ref={canvasRef}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseUp}
-          style={{ display: ready ? 'block' : 'none', cursor: 'crosshair', maxWidth: '100%', borderRadius: '8px', border: '1px solid #2a2a2a', userSelect: 'none' }}
+          style={{ display: ready ? 'block' : 'none', cursor: 'crosshair', maxWidth: '100%', borderRadius: '8px', border: '1px solid #E8C4CC', userSelect: 'none' }}
         />
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={() => onSkip(file)}
-            style={{ padding: '8px 16px', border: '1px solid #333', borderRadius: '8px', color: '#a1a1aa', fontSize: '12px', fontWeight: 600, cursor: 'pointer', background: 'transparent' }}>
+            style={{ padding: '8px 16px', border: '1px solid #E8C4CC', borderRadius: '8px', color: '#888', fontSize: '12px', fontWeight: 600, cursor: 'pointer', background: 'transparent' }}>
             Use Full Image
           </button>
           <button onClick={handleCrop} disabled={!canCrop}
-            style={{ padding: '8px 18px', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: canCrop ? 'pointer' : 'not-allowed', background: canCrop ? '#a78bfa' : '#333', opacity: canCrop ? 1 : 0.5 }}>
+            style={{ padding: '8px 18px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '12px', fontWeight: 700, cursor: canCrop ? 'pointer' : 'not-allowed', background: canCrop ? '#E88FAC' : '#E8C4CC', opacity: canCrop ? 1 : 0.5 }}>
             Crop & Add
           </button>
         </div>
@@ -1185,25 +1185,25 @@ function RevisionModal({ task, onClose, onSubmit }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
-      <div style={{ background: '#111', border: '1px solid #333', borderRadius: '16px', padding: '28px', width: '500px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto' }}
+      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '16px', padding: '28px', width: '500px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
-        <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#fff', margin: '0 0 4px' }}>Request Revision</h3>
-        <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '20px' }}>
+        <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 4px' }}>Request Revision</h3>
+        <p style={{ fontSize: '12px', color: '#999', marginBottom: '20px' }}>
           {task.inspo.title || task.name} · {task.creator.name}
         </p>
 
         <div style={{ marginBottom: '14px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Feedback</div>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Feedback</div>
           <textarea
             value={feedback}
             onChange={e => setFeedback(e.target.value)}
             placeholder="Describe what needs to change..."
             autoFocus
             style={{
-              width: '100%', padding: '10px 12px', background: '#0a0a0a',
-              border: '1px solid #333', borderRadius: '8px', color: '#d4d4d8',
+              width: '100%', padding: '10px 12px', background: '#FFF5F7',
+              border: '1px solid #E8C4CC', borderRadius: '8px', color: '#4a4a4a',
               fontSize: '13px', resize: 'vertical', minHeight: '100px',
               fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5,
             }}
@@ -1211,17 +1211,17 @@ function RevisionModal({ task, onClose, onSubmit }) {
         </div>
 
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
             Screenshots <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#3f3f46' }}>— drag to crop after selecting</span>
           </div>
           {screenshots.length > 0 && (
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
               {screenshots.map((url, i) => (
                 <div key={i} style={{ position: 'relative', width: '72px', height: '72px' }}>
-                  <img src={url.replace(/([?&])dl=[01]/, '$1raw=1')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #333' }} />
+                  <img src={url.replace(/([?&])dl=[01]/, '$1raw=1')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E8C4CC' }} />
                   <button
                     onClick={() => setScreenshots(prev => prev.filter((_, j) => j !== i))}
-                    style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                    style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', color: '#1a1a1a', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                     ×
                   </button>
                 </div>
@@ -1232,7 +1232,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading || cropQueue.length > 0}
-              style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#1a1a1a', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', opacity: (uploading || cropQueue.length > 0) ? 0.6 : 1 }}>
+              style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer', opacity: (uploading || cropQueue.length > 0) ? 0.6 : 1 }}>
               {uploading ? progress || 'Uploading...' : '+ Add Screenshot'}
             </button>
             {hasVideo && (
@@ -1251,14 +1251,14 @@ function RevisionModal({ task, onClose, onSubmit }) {
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} disabled={uploading}
-            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#333' }}>
+            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#E8C4CC' }}>
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={uploading || !feedback.trim()}
             style={{
-              padding: '9px 22px', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: 600,
+              padding: '9px 22px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600,
               cursor: uploading || !feedback.trim() ? 'not-allowed' : 'pointer',
-              background: uploading || !feedback.trim() ? '#333' : '#ef4444', opacity: uploading ? 0.6 : 1,
+              background: uploading || !feedback.trim() ? '#E8C4CC' : '#ef4444', opacity: uploading ? 0.6 : 1,
             }}>
             Send Revision Request
           </button>
@@ -1293,12 +1293,12 @@ function VideoModal({ url, onClose }) {
   const rawUrl = url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
       <div style={{ position: 'relative', maxHeight: '90vh', maxWidth: '420px', width: '100%' }}>
         <video src={rawUrl} controls autoPlay playsInline
           style={{ width: '100%', maxHeight: '90vh', borderRadius: '10px', display: 'block', background: '#000' }} />
         <button onClick={onClose}
-          style={{ position: 'absolute', top: '-14px', right: '-14px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          style={{ position: 'absolute', top: '-14px', right: '-14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '50%', width: '32px', height: '32px', color: '#1a1a1a', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           ×
         </button>
       </div>
@@ -1376,17 +1376,17 @@ function ForReview({ showToast }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <p style={{ fontSize: '13px', color: '#71717a', margin: 0 }}>
+        <p style={{ fontSize: '13px', color: '#999', margin: 0 }}>
           {tasks.length} edit{tasks.length !== 1 ? 's' : ''} waiting for your review
         </p>
         <button onClick={fetchTasks}
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#111', color: '#a1a1aa', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer' }}>
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#ffffff', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
 
       {tasks.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#111', borderRadius: '12px', border: '1px solid #1a1a1a' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           No edits waiting for review.
         </div>
       ) : (
@@ -1404,9 +1404,9 @@ function ForReview({ showToast }) {
             const hasInspo = !!(inspoVideoUrl || task.inspo.thumbnail)
 
             return (
-              <div key={task.id} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', overflow: 'hidden' }}>
+              <div key={task.id} style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden' }}>
                 {/* Video strip — RAW | EDIT | INSPO */}
-                <div style={{ display: 'flex', background: '#0a0a0a', gap: '2px' }}>
+                <div style={{ display: 'flex', background: '#FFF5F7', gap: '2px' }}>
 
                   {/* RAW clip */}
                   <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a0a14' }}>
@@ -1416,12 +1416,12 @@ function ForReview({ showToast }) {
                           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                           onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
                         <button onClick={() => setVideoModal(task.asset.dropboxLink.split('\n').filter(Boolean)[0])}
-                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#1a1a1a', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
                           ⛶
                         </button>
                       </>
                     ) : (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '11px' }}>No raw clip</div>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '11px' }}>No raw clip</div>
                     )}
                     <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#3b82f6', fontWeight: 600 }}>RAW</div>
                   </div>
@@ -1434,12 +1434,12 @@ function ForReview({ showToast }) {
                           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                           onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
                         <button onClick={() => setVideoModal(task.asset.editedFileLink)}
-                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#1a1a1a', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
                           ⛶
                         </button>
                       </>
                     ) : (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '11px' }}>No edit yet</div>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '11px' }}>No edit yet</div>
                     )}
                     <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>EDIT</div>
                   </div>
@@ -1454,7 +1454,7 @@ function ForReview({ showToast }) {
                       ) : task.inspo.thumbnail ? (
                         <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                       ) : null}
-                      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#a78bfa', fontWeight: 600 }}>INSPO</div>
+                      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#E88FAC', fontWeight: 600 }}>INSPO</div>
                     </div>
                   )}
                 </div>
@@ -1463,23 +1463,23 @@ function ForReview({ showToast }) {
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
                     <div>
-                      <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>{task.creator.name}</div>
-                      <div style={{ fontSize: '13px', color: '#a1a1aa', marginTop: '2px' }}>{task.inspo.title || task.name}</div>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>{task.creator.name}</div>
+                      <div style={{ fontSize: '13px', color: '#888', marginTop: '2px' }}>{task.inspo.title || task.name}</div>
                     </div>
-                    {fmtDate && <span style={{ fontSize: '10px', color: '#52525b', whiteSpace: 'nowrap', marginTop: '2px' }}>Submitted {fmtDate}</span>}
+                    {fmtDate && <span style={{ fontSize: '10px', color: '#999', whiteSpace: 'nowrap', marginTop: '2px' }}>Submitted {fmtDate}</span>}
                   </div>
 
                   {/* Quick links */}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {task.asset.editedFileLink && (
                       <a href={task.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '3px 8px', background: '#0a2e0a', borderRadius: '4px', border: '1px solid #1a5c1a' }}>
+                        style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '3px 8px', background: '#dcfce7', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
                         Download Edit ↗
                       </a>
                     )}
                     {task.inspo.contentLink && (
                       <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px', background: '#1a1a2e', borderRadius: '4px', border: '1px solid #333' }}>
+                        style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: '#FFF0F3', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
                         Original Reel ↗
                       </a>
                     )}
@@ -1487,9 +1487,9 @@ function ForReview({ showToast }) {
 
                   {/* Editor notes */}
                   {task.editorNotes && (
-                    <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '10px' }}>
-                      <div style={{ fontSize: '10px', color: '#52525b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Editor Notes</div>
-                      <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4 }}>{task.editorNotes}</div>
+                    <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '10px' }}>
+                      <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Editor Notes</div>
+                      <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.4 }}>{task.editorNotes}</div>
                     </div>
                   )}
 
@@ -1497,14 +1497,14 @@ function ForReview({ showToast }) {
                   {task.inspo.notes && (
                     <>
                       <button onClick={() => setExpanded(prev => { const n = new Set(prev); n.has(task.id) ? n.delete(task.id) : n.add(task.id); return n })}
-                        style={{ background: 'none', border: 'none', color: '#71717a', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+                        style={{ background: 'none', border: 'none', color: '#999', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
                         {isExpanded ? '▾ Hide inspo' : '▸ View inspo direction'}
                       </button>
                       {isExpanded && (
-                        <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '12px' }}>
-                          <div style={{ fontSize: '12px', color: '#d4d4d8', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
+                        <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '12px' }}>
+                          <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
                           {task.inspo.onScreenText && (
-                            <div style={{ marginTop: '8px', fontSize: '12px', color: '#f59e0b', background: '#1a1500', border: '1px solid #332b00', borderRadius: '6px', padding: '8px 10px' }}>
+                            <div style={{ marginTop: '8px', fontSize: '12px', color: '#f59e0b', background: '#1a1500', border: '1px solid #fef3c7', borderRadius: '6px', padding: '8px 10px' }}>
                               "{task.inspo.onScreenText}"
                             </div>
                           )}
@@ -1524,7 +1524,7 @@ function ForReview({ showToast }) {
                     <button
                       onClick={() => handleApprove(task.id)}
                       disabled={updating === task.id}
-                      style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: '#0a2e0a', color: '#22c55e', border: '1px solid #1a5c1a', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                      style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: '#dcfce7', color: '#22c55e', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
                       {updating === task.id ? 'Saving...' : 'Approve ✓'}
                     </button>
                   </div>
@@ -1612,8 +1612,8 @@ export default function EditorQueue() {
       {/* Page header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>Editor Dashboard</h1>
-          <p style={{ fontSize: '13px', color: '#71717a', marginTop: '4px' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Editor Dashboard</h1>
+          <p style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
             Manage editing tasks and review uploaded clips
           </p>
         </div>
@@ -1622,7 +1622,7 @@ export default function EditorQueue() {
           <div style={{ flexShrink: 0, marginTop: '4px' }}>
             {notifStatus === 'idle' && (
               <button onClick={handleEnableNotifications}
-                style={{ fontSize: '12px', fontWeight: 600, padding: '6px 14px', borderRadius: '8px', border: '1px solid #2a2a2a', background: 'transparent', color: '#71717a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                style={{ fontSize: '12px', fontWeight: 600, padding: '6px 14px', borderRadius: '8px', border: '1px solid #E8C4CC', background: 'transparent', color: '#999', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 🔔 Enable review notifications
               </button>
             )}
@@ -1632,23 +1632,23 @@ export default function EditorQueue() {
               </span>
             )}
             {notifStatus === 'denied' && (
-              <span style={{ fontSize: '11px', color: '#52525b' }}>Notifications blocked in browser</span>
+              <span style={{ fontSize: '11px', color: '#999' }}>Notifications blocked in browser</span>
             )}
           </div>
         )}
       </div>
 
       {/* Section tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: '#111', borderRadius: '8px', padding: '4px', width: 'fit-content', border: '1px solid #222' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: '#ffffff', borderRadius: '8px', padding: '4px', width: 'fit-content', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveSection(tab.key)}
             style={{
               padding: '8px 20px', fontSize: '13px', fontWeight: 600,
-              background: activeSection === tab.key ? '#1a1a2e' : 'transparent',
-              color: activeSection === tab.key ? '#a78bfa' : '#71717a',
-              border: `1px solid ${activeSection === tab.key ? '#a78bfa30' : 'transparent'}`,
+              background: activeSection === tab.key ? '#FFF0F3' : 'transparent',
+              color: activeSection === tab.key ? '#E88FAC' : '#999',
+              border: `1px solid ${activeSection === tab.key ? '#E88FAC30' : 'transparent'}`,
               borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
             }}
           >
@@ -1668,9 +1668,9 @@ export default function EditorQueue() {
         <div style={{
           position: 'fixed', bottom: '24px', right: '24px', zIndex: 100,
           padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-          background: toast.error ? '#2d1515' : '#0a2e0a',
+          background: toast.error ? '#2d1515' : '#dcfce7',
           color: toast.error ? '#ef4444' : '#22c55e',
-          border: `1px solid ${toast.error ? '#5c2020' : '#1a5c1a'}`,
+          border: `1px solid ${toast.error ? '#5c2020' : '#bbf7d0'}`,
           boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         }}>
           {toast.msg}

@@ -15,7 +15,7 @@ export async function POST(request) {
   const { recordId } = await request.json()
   if (!recordId) return Response.json({ error: 'recordId required' }, { status: 400 })
 
-  const inspoDir = path.join(os.homedir(), 'inspo_test')
+  const inspoDir = process.env.INSPO_DIR || path.join(os.homedir(), 'inspo_test')
   const cmd = `cd "${inspoDir}" && .venv/bin/python invoices/generate_single.py ${recordId}`
 
   try {
@@ -31,11 +31,19 @@ export async function POST(request) {
       return Response.json({ error: 'Generation failed', detail: stderr }, { status: 500 })
     }
 
+    // Write Generated At timestamp
+    await fetch(`https://api.airtable.com/v0/appL7c4Wtotpz07KS/tblKbU8VkdlOHXoJj/${recordId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { fldtJxnQil7qFI3v1: new Date().toISOString() } }),
+    })
+
     return Response.json({
       ok: true,
       dropboxLink: parse('DROPBOX_LINK'),
       invoiceNumber: parse('INVOICE_NUMBER'),
       filename: parse('FILENAME'),
+      generatedAt: new Date().toISOString(),
     })
   } catch (err) {
     console.error('Generate invoice error:', err.message)

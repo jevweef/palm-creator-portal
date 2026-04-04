@@ -24,8 +24,9 @@ export default function Header() {
 
   return (
     <header style={{
-      borderBottom: '1px solid #222',
-      background: '#0a0a0a',
+      border: 'none',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      background: '#ffffff',
     }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="px-4 md:px-8 py-3">
       <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
@@ -44,7 +45,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname === '/editor' ? 600 : 400,
-                  color: pathname === '/editor' ? '#fff' : '#71717a',
+                  color: pathname === '/editor' ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -56,7 +57,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.startsWith('/editor/inspo') ? 600 : 400,
-                  color: pathname?.startsWith('/editor/inspo') ? '#fff' : '#71717a',
+                  color: pathname?.startsWith('/editor/inspo') ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -71,7 +72,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.endsWith('/dashboard') ? 600 : 400,
-                  color: pathname?.endsWith('/dashboard') ? '#fff' : '#71717a',
+                  color: pathname?.endsWith('/dashboard') ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -83,7 +84,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.includes('/my-content') ? 600 : 400,
-                  color: pathname?.includes('/my-content') ? '#fff' : '#71717a',
+                  color: pathname?.includes('/my-content') ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -95,7 +96,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.includes('/inspo') ? 600 : 400,
-                  color: pathname?.includes('/inspo') ? '#fff' : '#71717a',
+                  color: pathname?.includes('/inspo') ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -107,7 +108,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname?.includes('/vault') ? 600 : 400,
-                  color: pathname?.includes('/vault') ? '#fff' : '#71717a',
+                  color: pathname?.includes('/vault') ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -122,7 +123,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname === '/dashboard' ? 600 : 400,
-                  color: pathname === '/dashboard' ? '#fff' : '#71717a',
+                  color: pathname === '/dashboard' ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -134,7 +135,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname === '/my-content' ? 600 : 400,
-                  color: pathname === '/my-content' ? '#fff' : '#71717a',
+                  color: pathname === '/my-content' ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -146,7 +147,7 @@ export default function Header() {
                 style={{
                   fontSize: '13px',
                   fontWeight: pathname === '/inspo' ? 600 : 400,
-                  color: pathname === '/inspo' ? '#fff' : '#71717a',
+                  color: pathname === '/inspo' ? '#1a1a1a' : '#999',
                   textDecoration: 'none',
                   transition: 'color 0.15s',
                 }}
@@ -159,7 +160,7 @@ export default function Header() {
                   style={{
                     fontSize: '13px',
                     fontWeight: pathname?.startsWith('/admin') ? 600 : 400,
-                    color: pathname?.startsWith('/admin') ? '#a78bfa' : '#71717a',
+                    color: pathname?.startsWith('/admin') ? '#E88FAC' : '#999',
                     textDecoration: 'none',
                     transition: 'color 0.15s',
                   }}

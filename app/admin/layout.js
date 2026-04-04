@@ -43,8 +43,8 @@ export default function AdminLayout({ children }) {
 
   if (!isLoaded || (!isAdmin && !isEditor)) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#555', fontSize: '14px' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: '#999', fontSize: '14px' }}>Loading...</div>
       </div>
     )
   }
@@ -52,15 +52,16 @@ export default function AdminLayout({ children }) {
   const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#0a0a0a' }}>
+    <div style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
       {/* Sidebar */}
       <aside style={{
         width: '160px',
-        borderRight: '1px solid #222',
+        boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
         padding: '20px 0',
         flexShrink: 0,
+        background: '#ffffff',
       }}>
-        <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {isAdmin ? 'Admin' : 'Editor'}
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -77,11 +78,11 @@ export default function AdminLayout({ children }) {
                   padding: '8px 16px',
                   fontSize: '13px',
                   fontWeight: isActive ? 600 : 400,
-                  color: isActive ? '#fff' : '#a1a1aa',
-                  background: isActive ? '#1a1a2e' : 'transparent',
-                  borderLeft: isActive ? '2px solid #a78bfa' : '2px solid transparent',
+                  color: isActive ? '#E88FAC' : '#666',
+                  background: isActive ? '#FFF0F3' : 'transparent',
+                  borderLeft: isActive ? '2px solid #E88FAC' : '2px solid transparent',
                   textDecoration: 'none',
-                  transition: 'all 0.15s',
+                  transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
                 }}
               >
                 <span>{item.icon}</span>

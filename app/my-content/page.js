@@ -18,11 +18,11 @@ const TABS = [
 ]
 
 const STATUS_COLORS = {
-  Uploaded: { bg: '#1e3a5f', color: '#60a5fa' },
-  'In Editing': { bg: '#3f3412', color: '#facc15' },
-  'In Review': { bg: '#3f2412', color: '#fb923c' },
-  Scheduled: { bg: '#2d1f4e', color: '#a78bfa' },
-  Posted: { bg: '#14372a', color: '#4ade80' },
+  Uploaded: { bg: '#dbeafe', color: '#60a5fa' },
+  'In Editing': { bg: '#fef3c7', color: '#facc15' },
+  'In Review': { bg: '#ffedd5', color: '#fb923c' },
+  Scheduled: { bg: '#ede9fe', color: '#E88FAC' },
+  Posted: { bg: '#dcfce7', color: '#4ade80' },
 }
 
 function PipelineCard({ item }) {
@@ -30,9 +30,10 @@ function PipelineCard({ item }) {
 
   return (
     <div style={{
-      background: '#111',
-      border: '1px solid #222',
-      borderRadius: '12px',
+      background: '#ffffff',
+      border: 'none',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      borderRadius: '18px',
       overflow: 'hidden',
     }}>
       {item.inspoThumbnail && (
@@ -46,7 +47,7 @@ function PipelineCard({ item }) {
       )}
       <div style={{ padding: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', margin: 0, lineHeight: 1.3, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', margin: 0, lineHeight: 1.3, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.inspoTitle || item.assetName}
           </h3>
           <span style={{
@@ -63,10 +64,10 @@ function PipelineCard({ item }) {
           </span>
         </div>
         {item.inspoUsername && (
-          <p style={{ fontSize: '11px', color: '#71717a', marginTop: '4px' }}>@{item.inspoUsername}</p>
+          <p style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>@{item.inspoUsername}</p>
         )}
         {item.creatorNotes && (
-          <p style={{ fontSize: '12px', color: '#a1a1aa', marginTop: '8px', lineHeight: 1.4, fontStyle: 'italic' }}>
+          <p style={{ fontSize: '12px', color: '#888', marginTop: '8px', lineHeight: 1.4, fontStyle: 'italic' }}>
             &quot;{item.creatorNotes}&quot;
           </p>
         )}
@@ -94,7 +95,7 @@ function EmptyState({ tab }) {
   }
 
   return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#52525b' }}>
+    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
       <p style={{ fontSize: '14px' }}>{messages[tab]}</p>
     </div>
   )
@@ -193,7 +194,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
     <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-6">
       {/* Page header + quota */}
       <div style={{ marginBottom: '28px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#fff', margin: '0 0 16px 0' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 16px 0' }}>
           My Content
         </h1>
         {data?.quota && (
@@ -205,7 +206,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
       <div style={{
         display: 'flex',
         gap: '4px',
-        borderBottom: '1px solid #222',
+        borderBottom: '1px solid rgba(0,0,0,0.04)',
         marginBottom: '24px',
         overflowX: 'auto',
       }}>
@@ -217,10 +218,10 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
               padding: '10px 18px',
               fontSize: '13px',
               fontWeight: activeTab === tab.key ? 600 : 400,
-              color: activeTab === tab.key ? '#fff' : '#71717a',
+              color: activeTab === tab.key ? '#1a1a1a' : '#999',
               background: 'none',
               border: 'none',
-              borderBottom: activeTab === tab.key ? '2px solid #a855f7' : '2px solid transparent',
+              borderBottom: activeTab === tab.key ? '2px solid #E88FAC' : '2px solid transparent',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
               transition: 'all 0.15s',
@@ -231,8 +232,8 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
               <span style={{
                 marginLeft: '6px',
                 fontSize: '11px',
-                background: activeTab === tab.key ? '#a855f7' : '#222',
-                color: activeTab === tab.key ? '#fff' : '#71717a',
+                background: activeTab === tab.key ? '#E88FAC' : '#F0D0D8',
+                color: activeTab === tab.key ? '#fff' : '#999',
                 padding: '1px 7px',
                 borderRadius: '9999px',
               }}>
@@ -245,7 +246,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
 
       {/* Content */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#52525b' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: '#999' }}>
           Loading...
         </div>
       ) : !data ? (
@@ -273,7 +274,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
                         marginTop: '-12px',
                         width: '100%',
                         padding: '22px 8px 10px',
-                        background: '#a855f7',
+                        background: '#E88FAC',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '0 0 12px 12px',

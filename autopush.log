@@ -2083,3 +2083,246 @@ After doing this, you may fix the identity used for this commit with:
 
  1 file changed, 0 insertions(+), 0 deletions(-)
 Everything up-to-date
+[dev 17400e0] Auto-save: 2026-04-03 14:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 16 insertions(+)
+Everything up-to-date
+[dev d94dc16] Auto-save: 2026-04-03 14:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 27 files changed, 757 insertions(+), 736 deletions(-)
+Everything up-to-date
+[dev 87a0a92] Auto-save: 2026-04-03 15:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 7 files changed, 284 insertions(+), 269 deletions(-)
+Everything up-to-date
+[dev 1d0d129] Auto-save: 2026-04-03 15:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 16 insertions(+)
+Everything up-to-date
+[dev 8924035] Auto-save: 2026-04-03 16:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 3 files changed, 212 insertions(+), 21 deletions(-)
+Everything up-to-date
+[dev e5e4a6e] Auto-save: 2026-04-03 16:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 4 files changed, 104 insertions(+), 53 deletions(-)
+ create mode 100644 public/zelle-qr.png
+Everything up-to-date
+[dev 97bfc5c] Auto-save: 2026-04-03 17:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 17 insertions(+)
+Everything up-to-date
+[dev a2cb5a4] Auto-save: 2026-04-03 17:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 3 files changed, 92 insertions(+), 9 deletions(-)
+Everything up-to-date
+[dev b409f17] Auto-save: 2026-04-03 18:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 3 files changed, 432 insertions(+), 20 deletions(-)
+ create mode 100644 app/api/admin/invoicing/send-combined/route.js
+Everything up-to-date
+[dev e8b3436] Auto-save: 2026-04-03 18:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 3 files changed, 21 insertions(+), 4 deletions(-)
+Everything up-to-date
+[dev 29c385c] Auto-save: 2026-04-03 19:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 16 insertions(+)
+Everything up-to-date
+[dev c810087] Auto-save: 2026-04-03 19:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 6 files changed, 38 insertions(+), 7 deletions(-)
+Everything up-to-date
+[dev bb4c794] Auto-save: 2026-04-03 20:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 3 files changed, 518 insertions(+), 268 deletions(-)
+ create mode 100644 app/admin/invoicing/InvoiceWorkflowModal.js
+Everything up-to-date
+[dev 27b39be] Auto-save: 2026-04-03 20:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+Everything up-to-date
+[dev 541bd75] Auto-save: 2026-04-03 21:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 37 insertions(+), 10 deletions(-)
+Everything up-to-date

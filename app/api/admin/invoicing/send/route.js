@@ -183,7 +183,7 @@ export async function POST(request) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Palm Digital Management <invoices@palm-mgmt.com>',
+      from: 'Palm Digital Management <evan@palm-mgmt.com>',
       to: [email],
       subject,
       html,

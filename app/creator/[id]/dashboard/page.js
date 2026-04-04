@@ -6,34 +6,230 @@ import { useSearchParams, useParams } from 'next/navigation'
 
 function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0) }
 function fmtPct(val) { return `${Math.round((val || 0) * 100)}%` }
-function fmtDate(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+function fmtDate(d) {
+  if (!d) return '—'
+  const date = d.includes('T') ? new Date(d) : new Date(d + 'T00:00:00')
+  return isNaN(date) ? '—' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
-function Card({ children, style, className }) {
-  return <div className={className} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', ...style }}>{children}</div>
+function Card({ children, style, className, hoverable }) {
+  return (
+    <div
+      className={`${className || ''} ${hoverable ? 'card-hover' : ''}`}
+      style={{
+        background: '#ffffff',
+        borderRadius: '18px',
+        padding: '20px',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  )
 }
 
 function Label({ children }) {
-  return <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>{children}</div>
+  return <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>{children}</div>
 }
 
 function Row({ label, value, href, mono }) {
-  const valStyle = { color: '#d4d4d8', fontSize: '13px', ...(mono ? { fontFamily: 'monospace' } : {}) }
+  const valStyle = { color: '#4a4a4a', fontSize: '13px', ...(mono ? { fontFamily: 'monospace' } : {}) }
   const content = href
-    ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...valStyle, color: '#a78bfa', textDecoration: 'none' }}>{value}</a>
+    ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...valStyle, color: '#E88FAC', textDecoration: 'none' }}>{value}</a>
     : <span style={valStyle}>{value || '—'}</span>
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #1a1a1a' }}>
-      <span style={{ color: '#71717a', fontSize: '12px', flexShrink: 0, marginRight: '16px' }}>{label}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+      <span style={{ color: '#999', fontSize: '12px', flexShrink: 0, marginRight: '16px' }}>{label}</span>
       {content}
     </div>
   )
 }
 
-function StatBox({ value, label, color }) {
+function StatBox({ value, label, color, gradient }) {
+  const textStyle = gradient
+    ? { fontSize: '22px', fontWeight: 700, background: gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
+    : { fontSize: '22px', fontWeight: 700, color: color || '#1a1a1a' }
   return (
     <div style={{ flex: 1, minWidth: '120px' }}>
-      <div style={{ fontSize: '22px', fontWeight: 700, color: color || '#fff' }}>{value}</div>
-      <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>{label}</div>
+      <div style={textStyle}>{value}</div>
+      <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>{label}</div>
+    </div>
+  )
+}
+
+function formatPeriod(start, end) {
+  if (!start || !end) return '—'
+  const s = new Date(start + 'T00:00:00')
+  const e = new Date(end + 'T00:00:00')
+  const sMonth = s.toLocaleDateString('en-US', { month: 'long' })
+  const eMonth = e.toLocaleDateString('en-US', { month: 'long' })
+  const sDay = s.getDate()
+  const eDay = e.getDate()
+  const eYear = e.getFullYear()
+  if (sMonth === eMonth) {
+    return `${sMonth} ${sDay} – ${eDay}, ${eYear}`
+  }
+  return `${sMonth} ${sDay} – ${eMonth} ${eDay}, ${eYear}`
+}
+
+function groupInvoicesByPeriod(invoices) {
+  const groups = {}
+  for (const inv of invoices) {
+    const key = `${inv.periodStart}|${inv.periodEnd}`
+    if (!groups[key]) {
+      groups[key] = {
+        periodStart: inv.periodStart,
+        periodEnd: inv.periodEnd,
+        dueDate: inv.dueDate,
+        totalEarnings: 0,
+        totalCommission: 0,
+        invoices: [],
+      }
+    }
+    groups[key].totalEarnings += inv.earnings || 0
+    groups[key].totalCommission += inv.totalCommission || 0
+    groups[key].invoices.push(inv)
+    if (inv.dueDate && !groups[key].dueDate) groups[key].dueDate = inv.dueDate
+  }
+  return Object.values(groups)
+}
+
+function InvoiceModal({ group, onClose }) {
+  const [pdfUrl, setPdfUrl] = useState(null)
+
+  if (!group) return null
+
+  const hasPdfs = group.invoices.some(inv => inv.invoicePdfUrl || inv.invoiceDropboxUrl)
+  const allPaid = group.invoices.every(inv => inv.invoiceStatus === 'Paid')
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: pdfUrl ? '1000px' : '640px',
+        maxHeight: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        display: 'flex', flexDirection: 'column', transition: 'max-width 0.3s ease',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
+                {formatPeriod(group.periodStart, group.periodEnd)}
+              </div>
+              <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
+                {group.invoices.length} account{group.invoices.length !== 1 ? 's' : ''} · Due {fmtDate(group.dueDate)}
+              </div>
+            </div>
+            <button onClick={onClose} style={{
+              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+              cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>✕</button>
+          </div>
+          {/* Combined totals */}
+          <div style={{ display: 'flex', marginTop: '16px', padding: '18px 24px', background: '#FFF8FA', borderRadius: '14px' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(group.totalEarnings)}</div>
+              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Total Revenue</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(group.totalEarnings - group.totalCommission)}</div>
+              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Your Take Home</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: '#E88FAC' }}>{fmt$(group.totalCommission)}</div>
+              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Management Fee</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content area */}
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {pdfUrl ? (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '75vh' }}>
+              <div style={{ padding: '12px 28px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => setPdfUrl(null)} style={{
+                  background: '#f5f5f5', border: 'none', borderRadius: '8px', padding: '5px 12px',
+                  cursor: 'pointer', fontSize: '12px', color: '#666', fontWeight: 500,
+                }}>← Back</button>
+                <span style={{ fontSize: '11px', color: '#aaa' }}>Invoice PDF</span>
+              </div>
+              <iframe src={pdfUrl} style={{ flex: 1, border: 'none', width: '100%' }} title="Invoice PDF" />
+            </div>
+          ) : (
+            <div style={{ padding: '20px 28px 28px' }}>
+              {/* Account line items */}
+              {group.invoices.map((inv) => {
+                const acctLabel = Array.isArray(inv.accountName) ? inv.accountName.join(', ') : (inv.accountName || 'Account')
+                const pdfLink = inv.invoicePdfUrl || inv.invoiceDropboxUrl
+                return (
+                  <div key={inv.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', marginBottom: '6px',
+                    background: '#FAFAFA', borderRadius: '12px',
+                    border: '1px solid rgba(0,0,0,0.04)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', minWidth: '70px' }}>{acctLabel}</div>
+                      {inv.invoiceStatus && (
+                        <span style={{
+                          fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '5px',
+                          background: inv.invoiceStatus === 'Paid' ? '#dcfce7' : inv.invoiceStatus === 'Sent' ? '#fef3c7' : '#f3f4f6',
+                          color: inv.invoiceStatus === 'Paid' ? '#16a34a' : inv.invoiceStatus === 'Sent' ? '#d97706' : '#6b7280',
+                        }}>{inv.invoiceStatus}</span>
+                      )}
+                      <span style={{ fontSize: '12px', color: '#666' }}>{fmt$(inv.earnings)}</span>
+                      <span style={{ fontSize: '12px', color: '#ccc' }}>·</span>
+                      <span style={{ fontSize: '12px', color: '#999' }}>{fmtPct(inv.commissionPct)} fee</span>
+                    </div>
+                    {pdfLink && (
+                      <button onClick={() => setPdfUrl(pdfLink)} style={{
+                        fontSize: '11px', color: '#E88FAC', background: '#FFF0F3', border: 'none',
+                        padding: '5px 12px', borderRadius: '8px', fontWeight: 500, cursor: 'pointer',
+                        flexShrink: 0,
+                      }}>View PDF</button>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Zelle payment section */}
+              {!allPaid && (
+                <div style={{
+                  marginTop: '20px', padding: '20px', background: '#FAFAFA', borderRadius: '14px',
+                  border: '1px solid rgba(0,0,0,0.04)', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Pay via Zelle</div>
+                  <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '14px' }}>Scan the QR code or send to the info below</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
+                    <img src="/zelle-qr.png" alt="Zelle QR Code" style={{ width: '120px', height: '120px', borderRadius: '10px', objectFit: 'contain' }} />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                        <span style={{ display: 'inline-block', width: '50px' }}>To</span>
+                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>Palm Digital Management LLC</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                        <span style={{ display: 'inline-block', width: '50px' }}>Bank</span>
+                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>Chase</span>
+                      </div>
+                      <div style={{
+                        marginTop: '12px', padding: '10px 20px', background: '#6d28d9', color: '#fff',
+                        borderRadius: '10px', fontSize: '13px', fontWeight: 600, display: 'inline-block',
+                      }}>
+                        {fmt$(group.totalCommission)} due
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -41,10 +237,10 @@ function StatBox({ value, label, color }) {
 function ActionCard({ href, icon, title, subtitle }) {
   return (
     <a href={href} target={href.startsWith('/') ? undefined : '_blank'} rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-      <Card style={{ textAlign: 'center', cursor: 'pointer', borderColor: '#2a2a2a', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', transition: 'border-color 0.2s' }}>
+      <Card hoverable style={{ textAlign: 'center', cursor: 'pointer', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
         <div style={{ fontSize: '22px', marginBottom: '6px' }}>{icon}</div>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{title}</div>
-        <div style={{ fontSize: '10px', color: '#71717a', marginTop: '3px' }}>{subtitle}</div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{title}</div>
+        <div style={{ fontSize: '10px', color: '#aaa', marginTop: '3px' }}>{subtitle}</div>
       </Card>
     </a>
   )
@@ -72,6 +268,7 @@ export default function CreatorDashboard() {
 
   const [creatorProfile, setCreatorProfile] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [invoiceModal, setInvoiceModal] = useState(null)
 
   useEffect(() => {
     if (!isLoaded) return
@@ -96,8 +293,8 @@ export default function CreatorDashboard() {
 
   if (!isLoaded || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#555', fontSize: '14px' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: '#aaa', fontSize: '14px' }}>Loading...</div>
       </div>
     )
   }
@@ -109,14 +306,14 @@ export default function CreatorDashboard() {
   const igHref = p.igAccount?.startsWith('http') ? p.igAccount : `https://${p.igAccount}`
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-8">
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
           <div>
             <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
-            <p style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>Palm Management Dashboard</p>
+            <p style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
         </div>
 
@@ -128,7 +325,7 @@ export default function CreatorDashboard() {
             <Label>Profile</Label>
             <Row label="Name" value={p.name} />
             <Row label="Stage Name" value={p.aka} />
-            <Row label="Commission" value={fmtPct(p.commission)} />
+            <Row label="Management Fee" value={fmtPct(p.commission)} />
             <Row label="Started" value={fmtDate(p.managementStartDate)} />
             <Row label="OnlyFans" value={p.onlyfansUrl?.replace('https://', '')} href={p.onlyfansUrl} />
             {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
@@ -144,10 +341,15 @@ export default function CreatorDashboard() {
             {/* Earnings row */}
             <Card>
               <Label>Last Month</Label>
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                <StatBox value={fmt$(p.previousMonthTR)} label="Total Revenue" />
-                <StatBox value={fmt$(p.previousMonthTR * (p.commission || 0))} label={`Your Commission (${fmtPct(p.commission)})`} color="#4ade80" />
-                <StatBox value={fmtPct(p.commission)} label="Commission Rate" color="#a78bfa" />
+              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0' }}>
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(p.previousMonthTR * (1 - (p.commission || 0)))}</div>
+                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
+                </div>
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(p.previousMonthTR)}</div>
+                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
+                </div>
               </div>
             </Card>
 
@@ -172,7 +374,7 @@ export default function CreatorDashboard() {
                 <StatBox value="—" label="OF Subscribers" />
                 <StatBox value="—" label="Week-over-Week" />
               </div>
-              <div style={{ fontSize: '11px', color: '#3f3f46', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
             </Card>
           </div>
         </div>
@@ -184,35 +386,68 @@ export default function CreatorDashboard() {
           <Card>
             <Label>Invoices</Label>
             {invoices && invoices.length > 0 ? (
-              invoices.map((inv) => (
-                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1a1a1a' }}>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#d4d4d8' }}>{inv.label || `${fmtDate(inv.periodStart)} – ${fmtDate(inv.periodEnd)}`}</div>
-                    <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>
-                      {fmt$(inv.earnings)} earned · {fmt$(inv.totalCommission)} commission
+              groupInvoicesByPeriod(invoices).map((group) => {
+                const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
+                const allPaid = statuses.every(s => s === 'Paid')
+                const allSent = statuses.every(s => s === 'Sent')
+                const somePaid = statuses.some(s => s === 'Paid')
+                const someSent = statuses.some(s => s === 'Sent')
+                const now = new Date()
+                const periodEnd = group.periodEnd ? new Date(group.periodEnd + 'T23:59:59') : null
+                const isActive = periodEnd && now <= periodEnd
+
+                let statusLabel, statusColor, statusBg
+                if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
+                else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
+                else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+
+                return (
+                  <div
+                    key={`${group.periodStart}|${group.periodEnd}`}
+                    onClick={() => setInvoiceModal(group)}
+                    className="card-hover"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 14px', marginBottom: '6px', cursor: 'pointer',
+                      borderRadius: '12px', background: '#FAFAFA',
+                      border: '1px solid rgba(0,0,0,0.04)',
+                      transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
+                        {formatPeriod(group.periodStart, group.periodEnd)}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>
+                        {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
+                        {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
+                      {group.dueDate && !allPaid && (
+                        <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
+                      )}
+                      <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {inv.dueDate && <span style={{ fontSize: '10px', color: '#52525b' }}>Due {fmtDate(inv.dueDate)}</span>}
-                    {inv.invoicePdfUrl && (
-                      <a href={inv.invoicePdfUrl} target="_blank" rel="noopener noreferrer" style={{
-                        fontSize: '11px', color: '#a78bfa', textDecoration: 'none', padding: '3px 8px',
-                        border: '1px solid #333', borderRadius: '6px',
-                      }}>PDF</a>
-                    )}
-                  </div>
-                </div>
-              ))
+                )
+              })
             ) : (
-              <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No invoices yet</div>
+              <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No invoices yet</div>
             )}
           </Card>
+
+          {/* Invoice detail modal */}
+          {invoiceModal && <InvoiceModal group={invoiceModal} onClose={() => setInvoiceModal(null)} />}
 
           {/* Content Pipeline — shows saved, in progress, and completed content */}
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <Label>My Content</Label>
-              <a href="/my-content" style={{ color: '#a78bfa', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
+              <a href="/my-content" style={{ color: '#E88FAC', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
                 View All →
               </a>
             </div>
@@ -230,14 +465,18 @@ export default function CreatorDashboard() {
               return (<>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: savedOnly.length > 0 || (pipeline?.editing?.length > 0) ? '14px' : 0 }}>
               {[
-                { label: 'Saved', count: savedOnly.length, color: '#a78bfa' },
+                { label: 'Saved', count: savedOnly.length, color: '#E88FAC' },
                 { label: 'Uploaded', count: pipeline?.uploaded?.length || 0, color: '#f59e0b' },
                 { label: 'Editing', count: pipeline?.editing?.length || 0, color: '#3b82f6' },
                 { label: 'Posted', count: pipeline?.posted?.length || 0, color: '#22c55e' },
               ].map(stage => (
-                <div key={stage.label} style={{ textAlign: 'center', padding: '8px', background: '#0a0a0a', borderRadius: '8px', border: '1px solid #1a1a1a' }}>
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : '#333' }}>{stage.count}</div>
-                  <div style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stage.label}</div>
+                <div key={stage.label} style={{
+                  textAlign: 'center', padding: '8px',
+                  background: '#FFF8FA', borderRadius: '12px',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                }}>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : '#ddd' }}>{stage.count}</div>
+                  <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stage.label}</div>
                 </div>
               ))}
             </div>
@@ -245,26 +484,26 @@ export default function CreatorDashboard() {
             {/* Saved inspo thumbnails */}
             {savedOnly.length > 0 ? (
               <div>
-                <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
+                <div style={{ fontSize: '10px', color: '#aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {savedOnly.slice(0, 8).map((reel) => (
-                    <a key={reel.id} href="/my-content?tab=saved" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #222', background: '#0a0a0a' }}>
-                      <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
+                    <a key={reel.id} href="/my-content?tab=saved" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
+                      <div style={{ aspectRatio: '9/16', background: '#FFF0F3', overflow: 'hidden' }}>
                         {reel.thumbnail ? (
                           <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '20px' }}>🎬</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ddd', fontSize: '20px' }}>🎬</div>
                         )}
                       </div>
                       <div style={{ padding: '4px 6px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#e4e4e7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#4a4a4a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
                       </div>
                     </a>
                   ))}
                 </div>
               </div>
             ) : (pipeline?.editing?.length > 0 || pipeline?.uploaded?.length > 0) ? null : (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: '#52525b', fontSize: '13px' }}>
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#aaa', fontSize: '13px' }}>
                 Save reels from the Inspo Board to start creating content
               </div>
             )}
@@ -272,15 +511,15 @@ export default function CreatorDashboard() {
             {/* In progress content thumbnails */}
             {pipeline?.editing?.length > 0 && (
               <div style={{ marginTop: savedReels.length > 0 ? '12px' : 0 }}>
-                <div style={{ fontSize: '10px', color: '#71717a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
+                <div style={{ fontSize: '10px', color: '#aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {pipeline.editing.slice(0, 4).map((item) => (
-                    <a key={item.assetId} href="/my-content?tab=editing" style={{ textDecoration: 'none', display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1a3a6d', background: '#0a0a0a' }}>
-                      <div style={{ aspectRatio: '9/16', background: '#1a1a1a', overflow: 'hidden' }}>
+                    <a key={item.assetId} href="/my-content?tab=editing" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
+                      <div style={{ aspectRatio: '9/16', background: '#FFF0F3', overflow: 'hidden' }}>
                         {item.inspoThumbnail ? (
                           <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: '20px' }}>✂️</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ddd', fontSize: '20px' }}>✂️</div>
                         )}
                       </div>
                       <div style={{ padding: '4px 6px' }}>
@@ -299,18 +538,19 @@ export default function CreatorDashboard() {
         {/* ── Creator Profile (collapsible) ── */}
         {creatorProfile && (
           <div style={{ marginTop: '12px' }}>
-            <button onClick={() => setProfileOpen(!profileOpen)} style={{
-              width: '100%', background: '#111', border: '1px solid #222', borderRadius: '12px',
+            <button onClick={() => setProfileOpen(!profileOpen)} className="card-hover" style={{
+              width: '100%', background: '#ffffff', borderRadius: '18px', border: 'none',
               padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>Your Creator Profile</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>Your Creator Profile</span>
                 {(() => {
                   const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 3)
                   return topTags.length > 0 && (
                     <div style={{ display: 'flex', gap: '4px' }}>
                       {topTags.map(([tag, weight]) => (
-                        <span key={tag} style={{ fontSize: '10px', color: '#a78bfa', background: '#1a1a2e', border: '1px solid #2d2d4e', padding: '2px 6px', borderRadius: '10px' }}>
+                        <span key={tag} style={{ fontSize: '10px', color: '#E88FAC', background: '#FFF0F3', padding: '2px 8px', borderRadius: '10px', fontWeight: 500 }}>
                           {tag} · {weight}
                         </span>
                       ))}
@@ -318,29 +558,29 @@ export default function CreatorDashboard() {
                   )
                 })()}
               </div>
-              <span style={{ color: '#71717a', fontSize: '18px', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+              <span style={{ color: '#ccc', fontSize: '18px', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
             </button>
 
             {profileOpen && (
               <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }} className="grid-cols-1 md:grid-cols-2">
                 <Card>
                   {creatorProfile.profileSummary && (
-                    <div style={{ fontSize: '13px', color: '#d4d4d8', lineHeight: '1.6', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>
                       {creatorProfile.profileSummary}
                     </div>
                   )}
                   {creatorProfile.contentDirectionNotes && (
                     <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
-                      <div style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: '1.6' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                      <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>
                         {creatorProfile.contentDirectionNotes}
                       </div>
                     </>
                   )}
                   {creatorProfile.dosDonts && (
                     <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
-                      <div style={{ fontSize: '11px', color: '#a1a1aa', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#0a0a0a', borderRadius: '6px', padding: '10px', border: '1px solid #1a1a1a' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
+                      <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>
                         {creatorProfile.dosDonts}
                       </div>
                     </>
@@ -350,17 +590,17 @@ export default function CreatorDashboard() {
                   <Label>Your Top Tags</Label>
                   {(() => {
                     const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 10)
-                    if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No tags yet</div>
+                    if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {topTags.map(([tag, weight]) => (
                           <div key={tag}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                              <span style={{ fontSize: '12px', color: '#d4d4d8' }}>{tag}</span>
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#a78bfa' }}>{weight}</span>
+                              <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#E88FAC' }}>{weight}</span>
                             </div>
-                            <div style={{ height: '4px', background: '#222', borderRadius: '2px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${weight}%`, background: '#a78bfa', borderRadius: '2px' }} />
+                            <div style={{ height: '4px', background: '#F5F0F2', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${weight}%`, background: '#E88FAC', borderRadius: '2px' }} />
                             </div>
                           </div>
                         ))}
@@ -375,8 +615,16 @@ export default function CreatorDashboard() {
 
       </div>
 
-      {/* Responsive overrides */}
+      {/* Apple-style hover interactions */}
       <style>{`
+        .card-hover:hover {
+          transform: scale(1.01);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
+        }
+        .thumb-hover:hover {
+          transform: scale(1.02);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+        }
         @media (max-width: 1024px) {
           [style*="grid-template-columns: repeat(12"] { grid-template-columns: 1fr !important; }
           [style*="grid-column: span 5"] { grid-column: span 1 !important; }
