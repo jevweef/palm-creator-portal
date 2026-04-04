@@ -235,9 +235,27 @@ export async function PATCH(request) {
       }
     }
 
-    // 5. Build Inspiration record — straight to Ready for Analysis, no filter
+    // 5. Dedup check — make sure this reel isn't already in Inspiration
+    const canonicalLink = sc ? `https://www.instagram.com/reel/${sc}/` : sr['Reel URL']
+    if (sc) {
+      const existing = await fetchAirtableRecords('Inspiration', {
+        fields: ['Content link'],
+        filterByFormula: `FIND("${sc}", {Content link})`,
+        maxRecords: 1,
+      })
+      if (existing.length) {
+        // Already promoted — mark source reel and return the existing record
+        await patchAirtableRecord('Source Reels', recordId, {
+          'Imported to Inspiration': 'Yes',
+          'Review Status': 'Approved',
+        })
+        return NextResponse.json({ ok: true, inspoRecordId: existing[0].id, duplicate: true })
+      }
+    }
+
+    // Build Inspiration record — straight to Ready for Analysis, no filter
     const inspoFields = {
-      'Content link': sc ? `https://www.instagram.com/reel/${sc}/` : sr['Reel URL'],
+      'Content link': canonicalLink,
       'Username': username,
       'Status': 'Ready for Analysis',
       'Ingestion Source': 'Manual',

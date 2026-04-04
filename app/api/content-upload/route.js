@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OPS_BASE = 'applLIT2t83plMqNx'
@@ -17,10 +18,28 @@ function getWeekStart() {
 
 export async function POST(request) {
   try {
+    const { userId } = auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { inspoRecordId, creatorOpsId, notes, uploadedFiles, thumbnailBase64 } = await request.json()
+
+    // Ownership check
+    const user = await currentUser()
+    const role = user?.publicMetadata?.role
+    const isAdmin = role === 'admin' || role === 'super_admin'
+    if (!isAdmin && user?.publicMetadata?.airtableOpsId !== creatorOpsId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     if (!inspoRecordId || !creatorOpsId || !uploadedFiles?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Validate record ID formats
+    if (!/^rec[A-Za-z0-9]{14}$/.test(inspoRecordId) || !/^rec[A-Za-z0-9]{14}$/.test(creatorOpsId)) {
+      return NextResponse.json({ error: 'Invalid record ID format' }, { status: 400 })
     }
 
     // Get inspo title
@@ -70,6 +89,7 @@ export async function POST(request) {
     const assetId = assetData.records[0].id
 
     // Upload thumbnail to Asset record if provided
+    let thumbnailUploaded = false
     if (thumbnailBase64) {
       try {
         const thumbRes = await fetch(
@@ -90,7 +110,7 @@ export async function POST(request) {
         if (!thumbRes.ok) {
           console.warn('[content-upload] Thumbnail upload failed:', await thumbRes.text())
         } else {
-          console.log(`[content-upload] Thumbnail uploaded for asset ${assetId}`)
+          thumbnailUploaded = true
         }
       } catch (err) {
         console.warn('[content-upload] Thumbnail upload error:', err.message)
@@ -122,13 +142,24 @@ export async function POST(request) {
       }
     )
 
+    let taskCreated = true
     if (!taskRes.ok) {
+      taskCreated = false
       console.warn('[content-upload] Task creation failed:', await taskRes.text())
     }
 
-    console.log(`[content-upload] Success: asset ${assetId} created for inspo "${inspoTitle}"`)
-
-    return NextResponse.json({ status: 'success', assetId })
+    return NextResponse.json({
+      status: 'success',
+      assetId,
+      thumbnailUploaded,
+      taskCreated,
+      ...((!thumbnailUploaded || !taskCreated) && {
+        warnings: [
+          ...(!thumbnailUploaded && thumbnailBase64 ? ['Thumbnail upload failed — asset was created without a preview image'] : []),
+          ...(!taskCreated ? ['Editor task creation failed — admin may need to create it manually'] : []),
+        ],
+      }),
+    })
   } catch (err) {
     console.error('[content-upload] Error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })

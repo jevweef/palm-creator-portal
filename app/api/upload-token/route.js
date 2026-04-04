@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import { getDropboxAccessToken, getDropboxRootNamespaceId } from '@/lib/dropbox'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
@@ -8,10 +9,23 @@ const HQ_ONBOARDING = 'tbl4nFzgH6nJHr3q6'
 
 export async function POST(request) {
   try {
+    const { userId } = auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { creatorHqId } = await request.json()
 
     if (!creatorHqId) {
       return NextResponse.json({ error: 'Missing creatorHqId' }, { status: 400 })
+    }
+
+    // Ownership check — creators can only get their own upload token
+    const user = await currentUser()
+    const role = user?.publicMetadata?.role
+    const isAdmin = role === 'admin' || role === 'super_admin'
+    if (!isAdmin && user?.publicMetadata?.airtableHqId !== creatorHqId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Get creator name from HQ

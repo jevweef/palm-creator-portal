@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const BASE_ID = 'applLIT2t83plMqNx'
@@ -6,6 +7,15 @@ const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 
 export async function GET(request) {
   try {
+    const { userId } = auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = await currentUser()
+    const role = user?.publicMetadata?.role
+    const isAdmin = role === 'admin' || role === 'super_admin' || role === 'editor'
+
     const { searchParams } = new URL(request.url)
     const creatorOpsId = searchParams.get('creatorOpsId')
 
@@ -13,12 +23,22 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Missing creatorOpsId' }, { status: 400 })
     }
 
+    if (!isAdmin && user?.publicMetadata?.airtableOpsId !== creatorOpsId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     // Fetch all complete records with Saved By field — filter in code since
     // ARRAYJOIN on linked records returns display names, not record IDs
     const allRecords = []
     let offset = null
+    let pages = 0
+    const MAX_PAGES = 50
 
     do {
+      if (++pages > MAX_PAGES) {
+        console.warn('[saved-inspo] Hit max pagination limit')
+        break
+      }
       const params = new URLSearchParams({
         filterByFormula: "{Status} = 'Complete'",
       })

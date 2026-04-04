@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const HQ_BASE = 'appL7c4Wtotpz07KS'
@@ -22,10 +23,25 @@ async function fetchAirtable(base, table, params = '') {
 
 export async function GET(request) {
   try {
+    // Auth check — must be logged in
+    const { userId } = auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Ownership check — creators can only access their own profile, admins can access any
+    const user = await currentUser()
+    const role = user?.publicMetadata?.role
+    const isAdmin = role === 'admin' || role === 'super_admin'
+
     const { searchParams } = new URL(request.url)
     const hqId = searchParams.get('hqId')
     if (!hqId) {
       return NextResponse.json({ error: 'hqId is required' }, { status: 400 })
+    }
+
+    if (!isAdmin && user?.publicMetadata?.airtableHqId !== hqId) {
+      return NextResponse.json({ error: 'Forbidden — you can only access your own profile' }, { status: 403 })
     }
 
     // Step 1: Fetch creator profile to get their name (needed for linked record filters)

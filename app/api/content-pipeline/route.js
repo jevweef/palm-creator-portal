@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const BASE_ID = 'applLIT2t83plMqNx'
@@ -16,11 +17,19 @@ function getWeekStart() {
   return monday.toISOString().split('T')[0]
 }
 
+const MAX_PAGES = 50
+
 async function fetchAllRecords(tableId, params) {
   const allRecords = []
   let offset = null
+  let pages = 0
 
   do {
+    if (++pages > MAX_PAGES) {
+      console.warn(`[fetchAllRecords] Hit max pagination limit for table ${tableId}`)
+      break
+    }
+
     const p = new URLSearchParams(params)
     if (offset) p.set('offset', offset)
 
@@ -47,11 +56,24 @@ async function fetchAllRecords(tableId, params) {
 
 export async function GET(request) {
   try {
+    const { userId } = auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = await currentUser()
+    const role = user?.publicMetadata?.role
+    const isAdmin = role === 'admin' || role === 'super_admin' || role === 'editor'
+
     const { searchParams } = new URL(request.url)
     const creatorOpsId = searchParams.get('creatorOpsId')
 
     if (!creatorOpsId) {
       return NextResponse.json({ error: 'Missing creatorOpsId' }, { status: 400 })
+    }
+
+    if (!isAdmin && user?.publicMetadata?.airtableOpsId !== creatorOpsId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Fetch in parallel: saved inspo, assets, and creator quota
