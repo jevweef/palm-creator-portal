@@ -311,25 +311,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   </div>
                 ))}
               </div>
-              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden' }}>
-                <iframe
-                  srcDoc={emailPreview.html || emailPreview.manual?.html || '<p>No preview available</p>'}
-                  style={{ width: '100%', height: '500px', border: 'none' }}
-                  sandbox="allow-same-origin"
-                  title="Email Preview"
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-                <button onClick={() => { setEmailPreview(null); handleLoadPreview() }}
-                  style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  ↻ Refresh preview
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
                 <button onClick={() => setActiveStep(3)} style={{
                   background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px',
-                  padding: '8px 20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                  padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                 }}>
                   Looks Good → Send
                 </button>
+              </div>
+              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden' }}>
+                <iframe
+                  srcDoc={emailPreview.html || emailPreview.manual?.html || '<p>No preview available</p>'}
+                  style={{ width: '100%', height: 'calc(90vh - 420px)', border: 'none' }}
+                  sandbox="allow-same-origin"
+                  title="Email Preview"
+                />
               </div>
             </div>
           ) : (
