@@ -292,9 +292,11 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
   const [refining, setRefining] = useState(false)
+  const [committing, setCommitting] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [analyzeResult, setAnalyzeResult] = useState(null)
   const [refineResult, setRefineResult] = useState(null)
+  const [refinePreview, setRefinePreview] = useState(null)
   const [analyzeError, setAnalyzeError] = useState('')
   const [showUpload, setShowUpload] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
@@ -365,6 +367,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
     setRefining(true)
     setAnalyzeError('')
     setRefineResult(null)
+    setRefinePreview(null)
     try {
       const res = await fetch('/api/admin/creator-profile/refine', {
         method: 'POST',
@@ -373,14 +376,44 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Refine failed')
-      setRefineResult(data)
-      load()
-      onProfileUpdated(creator.id, 'Complete')
+      setRefinePreview(data)
     } catch (e) {
       setAnalyzeError(e.message)
     } finally {
       setRefining(false)
     }
+  }
+
+  const commitRefine = async () => {
+    if (!refinePreview?.proposed) return
+    setCommitting(true)
+    setAnalyzeError('')
+    try {
+      const res = await fetch('/api/admin/creator-profile/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorId: creator.id,
+          feedback: feedback.trim(),
+          commit: true,
+          proposal: refinePreview.proposed,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Commit failed')
+      setRefineResult({ changesMade: refinePreview.changesMade })
+      setRefinePreview(null)
+      load()
+      onProfileUpdated(creator.id, 'Complete')
+    } catch (e) {
+      setAnalyzeError(e.message)
+    } finally {
+      setCommitting(false)
+    }
+  }
+
+  const discardRefine = () => {
+    setRefinePreview(null)
   }
 
   if (loading) return (
@@ -456,8 +489,96 @@ function CreatorDetail({ creator, onProfileUpdated }) {
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
+      {/* Refine Preview */}
+      {refinePreview && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>Review Proposed Changes</div>
+              {refinePreview.changesMade && (
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{refinePreview.changesMade}</div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={discardRefine}
+                style={{ background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
+                Discard
+              </button>
+              <button onClick={commitRefine} disabled={committing}
+                style={{
+                  background: committing ? '#bbf7d0' : '#22c55e', color: '#fff', border: 'none',
+                  borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
+                  cursor: committing ? 'not-allowed' : 'pointer',
+                }}>
+                {committing ? 'Saving...' : 'Accept & Save'}
+              </button>
+            </div>
+          </div>
+
+          {/* Profile text diffs */}
+          {[
+            ['Profile Summary', 'profileSummary', 'profile_summary'],
+            ['Brand Voice', 'brandVoiceNotes', 'brand_voice_notes'],
+            ['Content Direction', 'contentDirectionNotes', 'content_direction_notes'],
+            ['Do / Don\'t', 'dosDonts', 'do_dont_notes'],
+          ].map(([label, currentKey, proposedKey]) => {
+            const cur = refinePreview.current?.[currentKey] || ''
+            const proposed = refinePreview.proposed?.[proposedKey] || ''
+            if (cur === proposed) return null
+            return (
+              <div key={label} style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{label}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ background: '#FEF2F2', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#991B1B', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#DC2626', marginBottom: '6px' }}>CURRENT</div>
+                    {cur || <span style={{ color: '#999', fontStyle: 'italic' }}>empty</span>}
+                  </div>
+                  <div style={{ background: '#F0FDF4', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#166534', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#16A34A', marginBottom: '6px' }}>PROPOSED</div>
+                    {proposed || <span style={{ color: '#999', fontStyle: 'italic' }}>empty</span>}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Tag weight diffs — only show tags that changed */}
+          {(() => {
+            const curTags = refinePreview.current?.tagWeights || {}
+            const propTags = refinePreview.proposed?.tag_weights || {}
+            const allTags = new Set([...Object.keys(curTags), ...Object.keys(propTags)])
+            const changed = [...allTags].filter(t => (curTags[t] || 0) !== (propTags[t] || 0))
+              .sort((a, b) => Math.abs((propTags[b] || 0) - (curTags[b] || 0)) - Math.abs((propTags[a] || 0) - (curTags[a] || 0)))
+            if (changed.length === 0) return null
+            return (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Tag Weight Changes</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {changed.map(tag => {
+                    const from = curTags[tag] || 0
+                    const to = propTags[tag] || 0
+                    const diff = to - from
+                    return (
+                      <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', background: diff > 0 ? '#F0FDF4' : '#FEF2F2', borderRadius: '6px' }}>
+                        <span style={{ fontSize: '12px', color: '#4a4a4a', flex: 1 }}>{tag}</span>
+                        <span style={{ fontSize: '12px', color: '#999', minWidth: '28px', textAlign: 'right' }}>{from}</span>
+                        <span style={{ fontSize: '12px', color: '#999' }}>→</span>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: diff > 0 ? '#16a34a' : '#dc2626', minWidth: '28px', textAlign: 'right' }}>{to}</span>
+                        <span style={{ fontSize: '11px', color: diff > 0 ? '#16a34a' : '#dc2626', minWidth: '36px', textAlign: 'right' }}>
+                          {diff > 0 ? '+' : ''}{diff}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* Tabs — hidden during refine preview */}
+      {!refinePreview && <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
         {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights']].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
@@ -469,10 +590,10 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             {label}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* Profile tab */}
-      {activeTab === 'profile' && (
+      {!refinePreview && activeTab === 'profile' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {!c.profileSummary && status !== 'Analyzed' && status !== 'Reanalyze' && (
             <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
@@ -544,7 +665,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       )}
 
       {/* Documents tab */}
-      {activeTab === 'documents' && (
+      {!refinePreview && activeTab === 'documents' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {documents.length === 0 && (
             <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
@@ -567,7 +688,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       )}
 
       {/* Tag weights tab */}
-      {activeTab === 'tags' && (
+      {!refinePreview && activeTab === 'tags' && (
         <TagWeightPanel tagWeights={tagWeights} />
       )}
 

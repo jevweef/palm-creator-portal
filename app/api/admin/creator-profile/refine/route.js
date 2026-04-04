@@ -96,18 +96,42 @@ async function upsertTagWeights(creatorId, tagWeights) {
 }
 
 // POST /api/admin/creator-profile/refine
-// Body: { creatorId, feedback }
-// Adjusts the existing profile based on admin feedback without re-processing documents
+// Body: { creatorId, feedback, commit?: boolean }
+// Default (commit=false): returns proposed changes without writing to Airtable
+// commit=true: writes the provided proposal to Airtable
 export async function POST(request) {
   try {
     await requireAdmin()
 
-    const { creatorId, feedback } = await request.json()
+    const body = await request.json()
+    const { creatorId, feedback, commit, proposal } = body
     if (!creatorId) return NextResponse.json({ error: 'creatorId is required' }, { status: 400 })
-    if (!feedback?.trim()) return NextResponse.json({ error: 'feedback is required' }, { status: 400 })
 
-    // Mark as analyzing
-    await patchCreator(creatorId, { 'Profile Analysis Status': 'Analyzing' })
+    // ── COMMIT MODE: write a previously previewed proposal to Airtable ──
+    if (commit && proposal) {
+      const dosDonts = Array.isArray(proposal.do_dont_notes)
+        ? proposal.do_dont_notes.join('\n')
+        : (proposal.do_dont_notes || '')
+
+      const today = new Date().toISOString().split('T')[0]
+      await patchCreator(creatorId, {
+        'Profile Summary': proposal.profile_summary || '',
+        'Brand Voice Notes': proposal.brand_voice_notes || '',
+        'Content Direction Notes': proposal.content_direction_notes || '',
+        'Dos and Donts': dosDonts,
+        'Admin Feedback': (feedback || '').trim(),
+        'Profile Analysis Status': 'Complete',
+        'Profile Last Analyzed': today,
+      })
+
+      if (proposal.tag_weights) await upsertTagWeights(creatorId, proposal.tag_weights)
+      if (proposal.film_format_weights) await upsertTagWeights(creatorId, proposal.film_format_weights)
+
+      return NextResponse.json({ success: true, committed: true })
+    }
+
+    // ── PREVIEW MODE (default): generate proposed changes, return without writing ──
+    if (!feedback?.trim()) return NextResponse.json({ error: 'feedback is required' }, { status: 400 })
 
     // Fetch current profile
     const creatorRes = await fetch(
@@ -199,45 +223,31 @@ ${feedback}`
 
     const result = JSON.parse(response.choices[0].message.content)
 
-    const dosDonts = Array.isArray(result.do_dont_notes)
-      ? result.do_dont_notes.join('\n')
-      : (result.do_dont_notes || '')
-
-    // Write updated profile + save feedback to Airtable
-    const today = new Date().toISOString().split('T')[0]
-    await patchCreator(creatorId, {
-      'Profile Summary': result.profile_summary || currentProfile.profileSummary,
-      'Brand Voice Notes': result.brand_voice_notes || currentProfile.brandVoiceNotes,
-      'Content Direction Notes': result.content_direction_notes || currentProfile.contentDirectionNotes,
-      'Dos and Donts': dosDonts || currentProfile.dosDonts,
-      'Admin Feedback': feedback.trim(),
-      'Profile Analysis Status': 'Complete',
-      'Profile Last Analyzed': today,
-    })
-
-    // Upsert adjusted tag weights
-    if (result.tag_weights) await upsertTagWeights(creatorId, result.tag_weights)
-    if (result.film_format_weights) await upsertTagWeights(creatorId, result.film_format_weights)
-
-    const topTags = Object.entries(result.tag_weights || {})
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([tag, weight]) => ({ tag, weight }))
-
+    // Return proposal + current state for diff display — nothing written yet
     return NextResponse.json({
       success: true,
+      preview: true,
       changesMade: result.changes_made || '',
-      topTags,
+      current: {
+        profileSummary: currentProfile.profileSummary,
+        brandVoiceNotes: currentProfile.brandVoiceNotes,
+        contentDirectionNotes: currentProfile.contentDirectionNotes,
+        dosDonts: currentProfile.dosDonts,
+        tagWeights: currentTagWeights,
+        filmFormatWeights: currentFilmFormatWeights,
+      },
+      proposed: {
+        profile_summary: result.profile_summary || '',
+        brand_voice_notes: result.brand_voice_notes || '',
+        content_direction_notes: result.content_direction_notes || '',
+        do_dont_notes: result.do_dont_notes || '',
+        tag_weights: result.tag_weights || {},
+        film_format_weights: result.film_format_weights || {},
+      },
     })
   } catch (err) {
     if (err instanceof Response) return err
     console.error('Creator profile refine error:', err)
-    try {
-      const body = await request.clone().json().catch(() => ({}))
-      if (body.creatorId) {
-        await patchCreator(body.creatorId, { 'Profile Analysis Status': 'Complete' })
-      }
-    } catch {}
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
