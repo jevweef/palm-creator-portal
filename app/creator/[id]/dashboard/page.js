@@ -417,7 +417,7 @@ export default function CreatorDashboard() {
             })()}
           </Card>
 
-          {/* Quick Actions + Stats */}
+          {/* Quick Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="quick-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               {uploads?.socialUploadUrl && (
@@ -428,24 +428,14 @@ export default function CreatorDashboard() {
               )}
               <ActionCard href={vaultPath} icon="🔐" title="OF Vault Upload" subtitle="OnlyFans" />
             </div>
-            <Card style={{ flex: 1 }}>
-              <Label>Growth & Stats</Label>
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
-                <StatBox value="—" label="IG Followers" />
-                <StatBox value="—" label="TikTok Followers" />
-                <StatBox value="—" label="OF Subscribers" />
-                <StatBox value="—" label="Week-over-Week" />
-              </div>
-              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
-            </Card>
           </div>
         </div>
 
-        {/* ── Row 2: Invoices + Content Pipeline ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px' }}>
+        {/* ── My Content + Invoices (side by side on desktop) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginTop: '12px' }}>
 
-          {/* Invoices */}
-          <Card>
+          {/* Invoices — second on desktop, second on mobile */}
+          <Card className="order-2">
             <Label>Invoices</Label>
             {invoices && invoices.length > 0 ? (
               groupInvoicesByPeriod(invoices).map((group) => {
@@ -505,8 +495,8 @@ export default function CreatorDashboard() {
           {/* Invoice detail modal */}
           {invoiceModal && <InvoiceModal group={invoiceModal} onClose={() => setInvoiceModal(null)} />}
 
-          {/* Content Pipeline — shows saved, in progress, and completed content */}
-          <Card>
+          {/* Content Pipeline — shows first on desktop (order-1), first on mobile (order-1) */}
+          <Card className="order-1 md:order-1">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <Label>My Content</Label>
               <a href="/my-content" style={{ color: '#E88FAC', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
@@ -596,6 +586,18 @@ export default function CreatorDashboard() {
             })()}
           </Card>
         </div>
+
+        {/* ── Growth & Stats ── */}
+        <Card style={{ marginTop: '12px' }}>
+          <Label>Growth & Stats</Label>
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
+            <StatBox value="—" label="IG Followers" />
+            <StatBox value="—" label="TikTok Followers" />
+            <StatBox value="—" label="OF Subscribers" />
+            <StatBox value="—" label="Week-over-Week" />
+          </div>
+          <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+        </Card>
 
         {/* ── Collapsible bars: Content DNA + Profile ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
