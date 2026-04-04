@@ -265,9 +265,11 @@ export default function CreatorDashboard() {
 
   // inspo board path for this creator
   const inspoPath = `/creator/${creatorOpsId}/inspo`
+  const vaultPath = `/creator/${creatorOpsId}/vault`
 
   const [creatorProfile, setCreatorProfile] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
   const profileRef = useRef(null)
   const [invoiceModal, setInvoiceModal] = useState(null)
 
@@ -310,163 +312,84 @@ export default function CreatorDashboard() {
     <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-4 md:py-8">
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-          <div>
+        {/* ── Header + Earnings ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
             <p style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
+          <Card>
+            <Label>Last Month</Label>
+            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0' }}>
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(p.previousMonthTR * (1 - (p.commission || 0)))}</div>
+                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
+              </div>
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(p.previousMonthTR)}</div>
+                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
+              </div>
+            </div>
+          </Card>
         </div>
 
-        {/* ── Creator Profile (collapsible) ── */}
-        {creatorProfile && (
-          <div ref={profileRef} style={{ marginBottom: '16px' }}>
-            <button
-              onClick={() => {
-                const willOpen = !profileOpen
-                setProfileOpen(willOpen)
-                if (willOpen) {
-                  setTimeout(() => {
-                    profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                  }, 50)
-                }
-              }}
-              className="card-hover"
-              style={{
-                width: '100%', background: '#ffffff', borderRadius: profileOpen ? '18px 18px 0 0' : '18px', border: 'none',
-                padding: '20px 24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '20px' }}>&#x1F9EC;</span>
-                <span style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Your Content DNA</span>
+        {/* ── Browse Inspo + Quick Actions ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginBottom: '12px' }}>
+          {/* Browse Inspo — visual card with sort shortcuts */}
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '20px 20px 16px' }}>
+              <Label>Browse Inspo</Label>
+              <p style={{ fontSize: '13px', color: '#888', margin: '4px 0 14px' }}>Find reels to recreate for your audience</p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {[
+                  ...(creatorProfile ? [{ key: 'foryou', label: 'For You', icon: '✨' }] : []),
+                  { key: 'top', label: 'Top', icon: '🔥' },
+                  { key: 'viral', label: 'Viral', icon: '🚀' },
+                  { key: 'recent', label: 'Recent', icon: '🕐' },
+                ].map(s => (
+                  <a
+                    key={s.key}
+                    href={`${inspoPath}?sort=${s.key}`}
+                    className="card-hover"
+                    style={{
+                      flex: 1, minWidth: '70px', textDecoration: 'none',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                      padding: '12px 8px', borderRadius: '14px',
+                      background: s.key === 'foryou' ? '#FFF0F3' : '#FAFAFA',
+                      border: s.key === 'foryou' ? '1px solid #E88FAC' : '1px solid rgba(0,0,0,0.04)',
+                      transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>{s.icon}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: s.key === 'foryou' ? '#E88FAC' : '#666' }}>{s.label}</span>
+                  </a>
+                ))}
               </div>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                background: profileOpen ? '#E88FAC' : '#FFF0F3',
-                padding: '6px 14px', borderRadius: '9999px',
-                transition: 'all 0.2s',
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: profileOpen ? '#fff' : '#E88FAC' }}>
-                  {profileOpen ? 'Hide' : 'View'}
-                </span>
-                <span style={{
-                  fontSize: '14px', color: profileOpen ? '#fff' : '#E88FAC',
-                  transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  display: 'inline-block',
-                }}>&#x25BE;</span>
-              </div>
-            </button>
-
-            {profileOpen && (
-              <div style={{
-                background: '#ffffff', borderRadius: '0 0 18px 18px',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                padding: '4px 0 0',
-                borderTop: '1px solid rgba(0,0,0,0.04)',
-              }}>
-                <div style={{ display: 'grid', gap: '0' }} className="grid-cols-1 md:grid-cols-2">
-                  <div style={{ padding: '20px 24px' }}>
-                    {creatorProfile.profileSummary && (
-                      <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>
-                        {creatorProfile.profileSummary}
-                      </div>
-                    )}
-                    {creatorProfile.contentDirectionNotes && (
-                      <>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
-                        <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>
-                          {creatorProfile.contentDirectionNotes}
-                        </div>
-                      </>
-                    )}
-                    {creatorProfile.dosDonts && (
-                      <>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
-                        <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>
-                          {creatorProfile.dosDonts}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div style={{ padding: '20px 24px', borderLeft: '1px solid rgba(0,0,0,0.04)' }}>
-                    <Label>Your Top Tags</Label>
-                    {(() => {
-                      const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 10)
-                      if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
-                      return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {topTags.map(([tag, weight]) => (
-                            <div key={tag}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
-                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#E88FAC' }}>{weight}</span>
-                              </div>
-                              <div style={{ height: '4px', background: '#F5F0F2', borderRadius: '2px', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${weight}%`, background: '#E88FAC', borderRadius: '2px' }} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </div>
+            </div>
+            {/* Thumbnail strip of saved reels */}
+            {savedReels.length > 0 && (
+              <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', padding: '12px 20px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
+                {savedReels.slice(0, 5).map(r => (
+                  <a key={r.id} href={inspoPath} style={{ flexShrink: 0, width: '48px', height: '72px', borderRadius: '8px', overflow: 'hidden', background: '#FFF0F3' }}>
+                    {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                  </a>
+                ))}
+                <a href={inspoPath} style={{ flexShrink: 0, width: '48px', height: '72px', borderRadius: '8px', background: '#FFF0F3', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: '#E88FAC', fontSize: '18px' }}>→</a>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── Row 1: Profile + Earnings + Quick Actions ── */}
-        <div style={{ display: 'grid', gap: '12px', marginBottom: '12px' }} className="grid-cols-1 md:grid-cols-12">
-
-          {/* Profile — spans 5 cols on desktop, full on mobile */}
-          <Card className="md:col-span-5">
-            <Label>Profile</Label>
-            <Row label="Name" value={p.name} />
-            <Row label="Stage Name" value={p.aka} />
-            <Row label="Management Fee" value={fmtPct(p.commission)} />
-            <Row label="Started" value={fmtDate(p.managementStartDate)} />
-            <Row label="OnlyFans" value={p.onlyfansUrl?.replace('https://', '')} href={p.onlyfansUrl} />
-            {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
-            {p.ofEmail && <Row label="OF Email" value={p.ofEmail} />}
-            {p.communicationEmail && p.communicationEmail !== p.ofEmail && <Row label="Email" value={p.communicationEmail} />}
-            {p.telegram && <Row label="Telegram" value={p.telegram} />}
-            {p.contractUrl && <Row label="Contract" value="View PDF" href={p.contractUrl} />}
           </Card>
 
-          {/* Right column — Earnings + Actions stacked */}
-          <div className="md:col-span-7" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-            {/* Earnings row */}
-            <Card>
-              <Label>Last Month</Label>
-              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0' }}>
-                <div style={{ flex: 1, minWidth: '140px' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(p.previousMonthTR * (1 - (p.commission || 0)))}</div>
-                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
-                </div>
-                <div style={{ flex: 1, minWidth: '140px' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(p.previousMonthTR)}</div>
-                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Quick Actions grid */}
-            <div className="quick-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+          {/* Quick Actions + Stats */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="quick-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               {uploads?.socialUploadUrl && (
                 <ActionCard href={uploads.socialUploadUrl} icon="📱" title="Upload Social" subtitle="Dropbox" />
               )}
               {uploads?.longformUploadUrl && (
                 <ActionCard href={uploads.longformUploadUrl} icon="🎬" title="Upload Longform" subtitle="Dropbox" />
               )}
-              <ActionCard href={inspoPath} icon="✨" title="Browse Inspo" subtitle="Find reels" />
-              <ActionCard href="#" icon="📂" title="My Files" subtitle="Coming soon" />
+              <ActionCard href={vaultPath} icon="🔐" title="OF Vault Upload" subtitle="OnlyFans" />
             </div>
-
-            {/* Stats placeholder */}
             <Card style={{ flex: 1 }}>
               <Label>Growth & Stats</Label>
               <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
@@ -480,7 +403,7 @@ export default function CreatorDashboard() {
           </div>
         </div>
 
-        {/* ── Row 2: Invoices + Saved Inspo ── */}
+        {/* ── Row 2: Invoices + Content Pipeline ── */}
         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px' }}>
 
           {/* Invoices */}
@@ -636,7 +559,127 @@ export default function CreatorDashboard() {
           </Card>
         </div>
 
-        {/* Creator Profile moved above — was here */}
+        {/* ── Collapsible bars: Content DNA + Profile ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+          {/* Content DNA */}
+          {creatorProfile && (
+            <div ref={profileRef}>
+              <button
+                onClick={() => {
+                  const willOpen = !profileOpen
+                  setProfileOpen(willOpen)
+                  if (willOpen) {
+                    setTimeout(() => profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                  }
+                }}
+                className="card-hover"
+                style={{
+                  width: '100%', background: '#ffffff', borderRadius: profileOpen ? '18px 18px 0 0' : '18px', border: 'none',
+                  padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '16px' }}>&#x1F9EC;</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Your Content DNA</span>
+                </div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: profileOpen ? '#E88FAC' : '#FFF0F3',
+                  padding: '4px 12px', borderRadius: '9999px', transition: 'all 0.2s',
+                }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: profileOpen ? '#fff' : '#E88FAC' }}>{profileOpen ? 'Hide' : 'View'}</span>
+                  <span style={{ fontSize: '12px', color: profileOpen ? '#fff' : '#E88FAC', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#x25BE;</span>
+                </div>
+              </button>
+              {profileOpen && (
+                <div style={{ background: '#ffffff', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+                  <div style={{ display: 'grid', gap: '0' }} className="grid-cols-1 md:grid-cols-2">
+                    <div style={{ padding: '20px 24px' }}>
+                      {creatorProfile.profileSummary && (
+                        <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>{creatorProfile.profileSummary}</div>
+                      )}
+                      {creatorProfile.contentDirectionNotes && (
+                        <>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                          <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>{creatorProfile.contentDirectionNotes}</div>
+                        </>
+                      )}
+                      {creatorProfile.dosDonts && (
+                        <>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
+                          <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{creatorProfile.dosDonts}</div>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ padding: '20px 24px', borderLeft: '1px solid rgba(0,0,0,0.04)' }}>
+                      <Label>Your Top Tags</Label>
+                      {(() => {
+                        const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 10)
+                        if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {topTags.map(([tag, weight]) => (
+                              <div key={tag}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                  <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
+                                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#E88FAC' }}>{weight}</span>
+                                </div>
+                                <div style={{ height: '4px', background: '#F5F0F2', borderRadius: '2px', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${weight}%`, background: '#E88FAC', borderRadius: '2px' }} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Profile — collapsible bar */}
+          <div>
+            <button
+              onClick={() => setShowProfile(!showProfile)}
+              className="card-hover"
+              style={{
+                width: '100%', background: '#ffffff', borderRadius: showProfile ? '18px 18px 0 0' : '18px', border: 'none',
+                padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '16px' }}>&#x1F464;</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Account Details</span>
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                background: showProfile ? '#E88FAC' : '#FFF0F3',
+                padding: '4px 12px', borderRadius: '9999px', transition: 'all 0.2s',
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: showProfile ? '#fff' : '#E88FAC' }}>{showProfile ? 'Hide' : 'View'}</span>
+                <span style={{ fontSize: '12px', color: showProfile ? '#fff' : '#E88FAC', transition: 'transform 0.2s', transform: showProfile ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#x25BE;</span>
+              </div>
+            </button>
+            {showProfile && (
+              <div style={{ background: '#ffffff', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '4px 20px 20px', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+                <Row label="Name" value={p.name} />
+                <Row label="Stage Name" value={p.aka} />
+                <Row label="Management Fee" value={fmtPct(p.commission)} />
+                <Row label="Started" value={fmtDate(p.managementStartDate)} />
+                <Row label="OnlyFans" value={p.onlyfansUrl?.replace('https://', '')} href={p.onlyfansUrl} />
+                {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
+                {p.ofEmail && <Row label="OF Email" value={p.ofEmail} />}
+                {p.communicationEmail && p.communicationEmail !== p.ofEmail && <Row label="Email" value={p.communicationEmail} />}
+                {p.telegram && <Row label="Telegram" value={p.telegram} />}
+                {p.contractUrl && <Row label="Contract" value="View PDF" href={p.contractUrl} />}
+              </div>
+            )}
+          </div>
+        </div>
 
       </div>
 
@@ -660,7 +703,7 @@ export default function CreatorDashboard() {
           [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: repeat(2"] { grid-template-columns: 1fr !important; }
           [style*="gap: 32px"] { gap: 16px !important; }
-          .quick-actions-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .quick-actions-grid { grid-template-columns: repeat(3, 1fr) !important; }
         }
       `}</style>
     </div>

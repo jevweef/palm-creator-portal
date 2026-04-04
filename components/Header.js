@@ -115,18 +115,6 @@ export default function Header() {
               >
                 Inspo Board
               </Link>
-              <Link
-                href={`/creator/${creatorIdFromPath}/vault${hqSuffix}`}
-                style={{
-                  fontSize: '13px',
-                  fontWeight: pathname?.includes('/vault') ? 600 : 400,
-                  color: pathname?.includes('/vault') ? '#1a1a1a' : '#999',
-                  textDecoration: 'none',
-                  transition: 'color 0.15s',
-                }}
-              >
-                New OF Content Upload
-              </Link>
             </>
           ) : (
             <>
