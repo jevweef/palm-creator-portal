@@ -236,8 +236,8 @@ function UploadModal({ creator, onClose, onUploaded }) {
               <div
                 onClick={() => fileRef.current?.click()}
                 style={{
-                  border: '1px dashed #444', borderRadius: '8px', padding: '20px', textAlign: 'center',
-                  cursor: 'pointer', background: '#FFF5F7', color: file ? '#fff' : '#555', fontSize: '13px',
+                  border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '20px', textAlign: 'center',
+                  cursor: 'pointer', background: file ? '#dcfce7' : '#FFF5F7', color: file ? '#16a34a' : '#999', fontSize: '13px', fontWeight: file ? 600 : 400,
                 }}>
                 {file ? file.name : 'Click to select a file'}
               </div>
