@@ -796,13 +796,7 @@ export default function PostsPage() {
   return (
     <div style={{ color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0, color: '#4a4a4a' }}>Post Prep</h1>
-          <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
-            {posts.length} post{posts.length !== 1 ? 's' : ''} in queue
-          </div>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => setLogModal(true)} style={{ background: '#dcfce7', border: '1px solid #bbf7d0', color: '#22c55e', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
             + Log Historical Post
