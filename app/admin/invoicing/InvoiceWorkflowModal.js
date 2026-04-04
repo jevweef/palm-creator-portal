@@ -34,7 +34,20 @@ const STEPS = [
 ]
 
 export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpdate }) {
-  const [activeStep, setActiveStep] = useState(0)
+  const getNextUnfinishedStep = (recs) => {
+    const allPdfs = recs.every(r => r.hasPdf)
+    const allSentOrPaid = recs.every(r => r.status === 'Sent' || r.status === 'Paid')
+    const allPaid = recs.every(r => r.status === 'Paid')
+    if (allPaid) return 4
+    if (allSentOrPaid) return 4
+    if (allPdfs) return 1
+    return 0
+  }
+  const [activeStep, setActiveStep] = useState(() => {
+    const step = getNextUnfinishedStep(rows)
+    console.log('Modal init — rows hasPdf:', rows.map(r => r.hasPdf), 'initial step:', step)
+    return step
+  })
   const [generating, setGenerating] = useState(false)
   const [genProgress, setGenProgress] = useState({ done: 0, total: 0 })
   const [pdfTab, setPdfTab] = useState(0)
@@ -93,17 +106,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
         })
         const data = await res.json()
         if (data.ok) {
-          // Re-fetch record to get the Airtable attachment URL
-          let freshPdfUrl = null
-          try {
-            const refetch = await fetch(`/api/admin/invoicing`)
-            const refetchData = await refetch.json()
-            const freshRec = refetchData.records?.find(r => r.id === targets[i].id)
-            if (freshRec?.pdfUrl) freshPdfUrl = freshRec.pdfUrl
-          } catch (_) {}
           onRecordsUpdate(prev => prev.map(r => r.id === targets[i].id ? {
             ...r, hasPdf: true, dropboxLink: data.dropboxLink,
-            pdfUrl: freshPdfUrl || r.pdfUrl,
             invoiceNumber: data.invoiceNumber ? Number(data.invoiceNumber) : r.invoiceNumber,
             generatedAt: data.generatedAt || new Date().toISOString(),
           } : r))
@@ -115,7 +119,14 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       }
       setGenProgress({ done: i + 1, total })
     }
+    // Reload all records to get fresh Airtable attachment URLs
+    try {
+      const refresh = await fetch('/api/admin/invoicing')
+      const refreshData = await refresh.json()
+      if (refreshData.records) onRecordsUpdate(() => refreshData.records)
+    } catch (_) {}
     setGenerating(false)
+    setActiveStep(1) // auto-advance to Review PDFs
   }, [sorted, onRecordsUpdate])
 
   // Load email preview
