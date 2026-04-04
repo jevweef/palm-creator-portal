@@ -338,8 +338,8 @@ export default function CreatorDashboard() {
 
         {/* ── Header + Earnings ── */}
         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
+          <div className="md:pl-5" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <h1 className="text-[22px] md:text-[28px]" style={{ fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
             <p style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
           <Card>
