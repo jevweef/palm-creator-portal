@@ -1,7 +1,7 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSearchParams, useParams } from 'next/navigation'
 
 function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0) }
@@ -268,6 +268,7 @@ export default function CreatorDashboard() {
 
   const [creatorProfile, setCreatorProfile] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef(null)
   const [invoiceModal, setInvoiceModal] = useState(null)
 
   useEffect(() => {
@@ -316,6 +317,120 @@ export default function CreatorDashboard() {
             <p style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
         </div>
+
+        {/* ── Creator Profile (collapsible) ── */}
+        {creatorProfile && (
+          <div ref={profileRef} style={{ marginBottom: '16px' }}>
+            <button
+              onClick={() => {
+                const willOpen = !profileOpen
+                setProfileOpen(willOpen)
+                if (willOpen) {
+                  setTimeout(() => {
+                    profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }, 50)
+                }
+              }}
+              className="card-hover"
+              style={{
+                width: '100%', background: '#ffffff', borderRadius: profileOpen ? '18px 18px 0 0' : '18px', border: 'none',
+                padding: '20px 24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>&#x1F334;</span>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Your Creator Profile</span>
+                </div>
+                {(() => {
+                  const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 3)
+                  return topTags.length > 0 && (
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {topTags.map(([tag, weight]) => (
+                        <span key={tag} style={{ fontSize: '10px', color: '#E88FAC', background: '#FFF0F3', padding: '2px 8px', borderRadius: '10px', fontWeight: 500 }}>
+                          {tag} · {weight}
+                        </span>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                background: profileOpen ? '#E88FAC' : '#FFF0F3',
+                padding: '6px 14px', borderRadius: '9999px',
+                transition: 'all 0.2s',
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: profileOpen ? '#fff' : '#E88FAC' }}>
+                  {profileOpen ? 'Hide' : 'View'}
+                </span>
+                <span style={{
+                  fontSize: '14px', color: profileOpen ? '#fff' : '#E88FAC',
+                  transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  display: 'inline-block',
+                }}>&#x25BE;</span>
+              </div>
+            </button>
+
+            {profileOpen && (
+              <div style={{
+                background: '#ffffff', borderRadius: '0 0 18px 18px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                padding: '4px 0 0',
+                borderTop: '1px solid rgba(0,0,0,0.04)',
+              }}>
+                <div style={{ display: 'grid', gap: '0' }} className="grid-cols-1 md:grid-cols-2">
+                  <div style={{ padding: '20px 24px' }}>
+                    {creatorProfile.profileSummary && (
+                      <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>
+                        {creatorProfile.profileSummary}
+                      </div>
+                    )}
+                    {creatorProfile.contentDirectionNotes && (
+                      <>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                        <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>
+                          {creatorProfile.contentDirectionNotes}
+                        </div>
+                      </>
+                    )}
+                    {creatorProfile.dosDonts && (
+                      <>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
+                        <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>
+                          {creatorProfile.dosDonts}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div style={{ padding: '20px 24px', borderLeft: '1px solid rgba(0,0,0,0.04)' }}>
+                    <Label>Your Top Tags</Label>
+                    {(() => {
+                      const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 10)
+                      if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {topTags.map(([tag, weight]) => (
+                            <div key={tag}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#E88FAC' }}>{weight}</span>
+                              </div>
+                              <div style={{ height: '4px', background: '#F5F0F2', borderRadius: '2px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${weight}%`, background: '#E88FAC', borderRadius: '2px' }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Row 1: Profile + Earnings + Quick Actions ── */}
         <div style={{ display: 'grid', gap: '12px', marginBottom: '12px' }} className="grid-cols-1 md:grid-cols-12">
@@ -535,83 +650,7 @@ export default function CreatorDashboard() {
           </Card>
         </div>
 
-        {/* ── Creator Profile (collapsible) ── */}
-        {creatorProfile && (
-          <div style={{ marginTop: '12px' }}>
-            <button onClick={() => setProfileOpen(!profileOpen)} className="card-hover" style={{
-              width: '100%', background: '#ffffff', borderRadius: '18px', border: 'none',
-              padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>Your Creator Profile</span>
-                {(() => {
-                  const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 3)
-                  return topTags.length > 0 && (
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {topTags.map(([tag, weight]) => (
-                        <span key={tag} style={{ fontSize: '10px', color: '#E88FAC', background: '#FFF0F3', padding: '2px 8px', borderRadius: '10px', fontWeight: 500 }}>
-                          {tag} · {weight}
-                        </span>
-                      ))}
-                    </div>
-                  )
-                })()}
-              </div>
-              <span style={{ color: '#ccc', fontSize: '18px', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
-            </button>
-
-            {profileOpen && (
-              <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }} className="grid-cols-1 md:grid-cols-2">
-                <Card>
-                  {creatorProfile.profileSummary && (
-                    <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>
-                      {creatorProfile.profileSummary}
-                    </div>
-                  )}
-                  {creatorProfile.contentDirectionNotes && (
-                    <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
-                      <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>
-                        {creatorProfile.contentDirectionNotes}
-                      </div>
-                    </>
-                  )}
-                  {creatorProfile.dosDonts && (
-                    <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
-                      <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>
-                        {creatorProfile.dosDonts}
-                      </div>
-                    </>
-                  )}
-                </Card>
-                <Card>
-                  <Label>Your Top Tags</Label>
-                  {(() => {
-                    const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 10)
-                    if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {topTags.map(([tag, weight]) => (
-                          <div key={tag}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                              <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#E88FAC' }}>{weight}</span>
-                            </div>
-                            <div style={{ height: '4px', background: '#F5F0F2', borderRadius: '2px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${weight}%`, background: '#E88FAC', borderRadius: '2px' }} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </Card>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Creator Profile moved above — was here */}
 
       </div>
 
