@@ -380,7 +380,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     <div className="min-h-screen bg-[#FFF5F7]">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-[#FFF5F7]/95 backdrop-blur" style={{boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
-        <div style={{maxWidth:'1400px', margin:'0 auto', padding:'12px 32px'}}>
+        <div className="px-4 md:px-8" style={{maxWidth:'1400px', margin:'0 auto', paddingTop:'12px', paddingBottom:'12px'}}>
 
           {/* Mobile: title + filter button */}
           <div className="flex md:hidden items-center justify-between">
@@ -570,7 +570,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       </div>
 
       {/* Grid */}
-      <div style={{maxWidth:'1400px', margin:'0 auto', padding:'24px 32px'}}>
+      <div className="px-4 md:px-8 py-4 md:py-6" style={{maxWidth:'1400px', margin:'0 auto'}}>
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
             {Array.from({ length: 24 }).map((_, i) => (

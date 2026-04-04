@@ -307,7 +307,7 @@ export default function CreatorDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-8">
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-4 md:py-8">
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
@@ -354,7 +354,7 @@ export default function CreatorDashboard() {
             </Card>
 
             {/* Quick Actions grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+            <div className="quick-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
               {uploads?.socialUploadUrl && (
                 <ActionCard href={uploads.socialUploadUrl} icon="📱" title="Upload Social" subtitle="Dropbox" />
               )}
@@ -631,9 +631,11 @@ export default function CreatorDashboard() {
           [style*="grid-column: span 7"] { grid-column: span 1 !important; }
           [style*="grid-template-columns: repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
         }
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
           [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: repeat(2"] { grid-template-columns: 1fr !important; }
+          [style*="gap: 32px"] { gap: 16px !important; }
+          .quick-actions-grid { grid-template-columns: repeat(2, 1fr) !important; }
         }
       `}</style>
     </div>

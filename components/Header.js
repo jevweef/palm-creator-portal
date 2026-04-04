@@ -23,21 +23,33 @@ export default function Header() {
   if (pathname?.startsWith('/sign-')) return null
 
   return (
+    <>
+    <style>{`
+      @media (max-width: 768px) {
+        .header-inner { flex-wrap: nowrap !important; }
+        .header-left { gap: 16px !important; min-width: 0 !important; flex: 1 !important; }
+        .header-nav { gap: 14px !important; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; white-space: nowrap; padding-right: 8px; }
+        .header-nav::-webkit-scrollbar { display: none; }
+        .header-nav a { font-size: 12px !important; white-space: nowrap; }
+        .header-logo { height: 24px !important; }
+      }
+    `}</style>
     <header style={{
       border: 'none',
       boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
       background: '#ffffff',
     }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="px-4 md:px-8 py-3">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+      <div className="header-inner px-4 md:px-8 py-3" style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
         <Link href={isEditor ? '/admin/editor' : isCreatorPath ? `/creator/${creatorIdFromPath}/dashboard${hqSuffix}` : '/dashboard'}>
           <img
             src="/palm-logo.png"
             alt="Palm Management"
+            className="header-logo"
             style={{ height: '28px', width: 'auto' }}
           />
         </Link>
-        <nav style={{ display: 'flex', gap: '20px' }}>
+        <nav className="header-nav" style={{ display: 'flex', gap: '20px' }}>
           {(isEditor || isEditorPath) ? (
             <>
               <Link
@@ -175,5 +187,6 @@ export default function Header() {
       <UserButton afterSignOutUrl="/sign-in" />
       </div>
     </header>
+    </>
   )
 }

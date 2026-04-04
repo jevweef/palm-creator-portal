@@ -191,9 +191,9 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
   }
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-6">
+    <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-4 md:py-6">
       {/* Page header + quota */}
-      <div style={{ marginBottom: '28px' }}>
+      <div className="mb-4 md:mb-7">
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 16px 0' }}>
           My Content
         </h1>
@@ -215,7 +215,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              padding: '10px 18px',
+              padding: '10px 12px',
               fontSize: '13px',
               fontWeight: activeTab === tab.key ? 600 : 400,
               color: activeTab === tab.key ? '#1a1a1a' : '#999',
