@@ -160,7 +160,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [activeFormats, setActiveFormats] = useState([])
   const [tagMode, setTagMode] = useState('any')
   const [showMobileFilters, setShowMobileFilters] = useState(false)
-  const [sort, setSort] = useState('recent') // 'top' | 'recent' | 'viral' | 'foryou'
+  const [sort, setSort] = useState('top') // 'top' | 'recent' | 'viral' | 'foryou'
   const [search, setSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [textOnly, setTextOnly] = useState(false)
@@ -339,6 +339,12 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]
   )
   const clearAll = () => { setActiveTags([]); setActiveFormats([]); setSearch(''); setTagMode('any'); setSort('top') }
+
+  const PAGE_SIZE = 84 // 7 columns × 12 rows
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+
+  // Reset visible count when filters/sort change
+  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [sort, activeTags, activeFormats, search, tagMode])
 
   const openModal = (idx) => setSelectedIdx(idx)
   const closeModal = () => setSelectedIdx(null)
@@ -590,7 +596,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
-            {filtered.map((record, idx) => (
+            {filtered.slice(0, visibleCount).map((record, idx) => (
               <InspoCard
                 key={record.id}
                 record={record}
@@ -601,6 +607,21 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               />
             ))}
           </div>
+          {visibleCount < filtered.length && (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <button onClick={() => setVisibleCount(v => v + PAGE_SIZE)} style={{
+                background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
+                padding: '12px 32px', fontSize: '14px', fontWeight: 600, color: '#666',
+                cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                transition: '0.2s',
+              }}>
+                Load More ({filtered.length - visibleCount} remaining)
+              </button>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px' }}>
+                Showing {Math.min(visibleCount, filtered.length)} of {filtered.length}
+              </div>
+            </div>
+          )}
         )}
       </div>
 
