@@ -4,7 +4,7 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchCreateRec
 const SOURCE_FIELDS = [
   'Handle', 'Platform', 'Enabled', 'Pipeline Status', 'Last Scraped At',
   'Reels Scraped', 'Too New Skipped', 'Source Reels Added', 'Follower Count',
-  'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Age Restricted', 'Added By',
+  'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Age Restricted', 'Added By', 'Date Added',
 ]
 
 export async function GET() {
@@ -32,6 +32,7 @@ export async function GET() {
       notes: r.fields?.Notes || '',
       ageRestricted: !!r.fields?.['Age Restricted'],
       addedBy: r.fields?.['Added By'] || '',
+      dateAdded: r.fields?.['Date Added'] || null,
     }))
 
     // Sort: enabled first, then by handle
@@ -61,12 +62,31 @@ export async function POST(request) {
 
     const addedBy = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.emailAddresses?.[0]?.emailAddress || ''
 
+    // Bulk add: { sources: [{ handle, palmCreators }, ...] }
+    if (body.sources && Array.isArray(body.sources)) {
+      const records = body.sources.map(s => ({
+        fields: {
+          Handle: (s.handle || '').trim().toLowerCase(),
+          Platform: 'Instagram',
+          Enabled: true,
+          'Lookback Days': 180,
+          'Added By': addedBy,
+          'Date Added': new Date().toISOString().split('T')[0],
+          ...(s.palmCreators?.length ? { 'Palm Creators': s.palmCreators } : {}),
+        },
+      }))
+      const created = await batchCreateRecords('Inspo Sources', records)
+      return NextResponse.json({ sources: created })
+    }
+
+    // Single add
     const fields = {
       Handle: handle.trim().toLowerCase(),
       Platform: platform || 'Instagram',
       Enabled: true,
       'Lookback Days': lookbackDays || 180,
       'Added By': addedBy,
+      'Date Added': new Date().toISOString().split('T')[0],
     }
     if (apifyLimit) fields['Apify Limit'] = apifyLimit
     if (palmCreators?.length) fields['Palm Creators'] = palmCreators
