@@ -549,7 +549,12 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             const allTags = new Set([...Object.keys(curTags), ...Object.keys(propTags)])
             const changed = [...allTags].filter(t => (curTags[t] || 0) !== (propTags[t] || 0))
               .sort((a, b) => Math.abs((propTags[b] || 0) - (curTags[b] || 0)) - Math.abs((propTags[a] || 0) - (curTags[a] || 0)))
-            if (changed.length === 0) return null
+            if (changed.length === 0) return (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Tag Weight Changes</div>
+                <div style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>No tag weight changes — only profile text was adjusted.</div>
+              </div>
+            )
             const maxDelta = Math.max(...changed.map(t => Math.abs((propTags[t] || 0) - (curTags[t] || 0))), 1)
             return (
               <div style={{ marginBottom: '16px' }}>
