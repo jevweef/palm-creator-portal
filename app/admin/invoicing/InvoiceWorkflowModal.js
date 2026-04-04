@@ -53,6 +53,9 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     // If email was already sent, PDFs were approved
     return rows.some(r => r.sentAt || r.status === 'Sent' || r.status === 'Paid')
   })
+  const [emailApproved, setEmailApproved] = useState(() => {
+    return rows.some(r => r.sentAt || r.status === 'Sent' || r.status === 'Paid')
+  })
   const [emailPreview, setEmailPreview] = useState(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [sending, setSending] = useState(false)
@@ -82,7 +85,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     switch (i) {
       case 0: return allHavePdfs ? 'complete' : 'ready'
       case 1: return pdfApproved ? 'complete' : allHavePdfs ? 'ready' : 'locked'
-      case 2: return allHavePdfs ? 'ready' : 'locked'
+      case 2: return emailApproved ? 'complete' : allHavePdfs ? 'ready' : 'locked'
       case 3: return allSent ? 'complete' : allHavePdfs ? 'ready' : 'locked'
       case 4: return allPaid ? 'complete' : 'ready'
       default: return 'locked'
@@ -312,7 +315,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                <button onClick={() => setActiveStep(3)} style={{
+                <button onClick={() => { setEmailApproved(true); setActiveStep(3) }} style={{
                   background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px',
                   padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                 }}>
