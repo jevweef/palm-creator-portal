@@ -14,7 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "@clerk/nextjs": "^5.7.5",
-    "@sparticuz/chromium": "^143.0.4",
+    "@sparticuz/chromium-min": "^143.0.4",
     "@tailwindcss/postcss": "^4.2.2",
     "airtable": "^0.12.2",
     "ffmpeg-static": "^4.4.1",
