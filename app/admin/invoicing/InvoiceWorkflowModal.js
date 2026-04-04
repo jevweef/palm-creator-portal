@@ -250,26 +250,19 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                const pdfLink = rec?.dropboxLink || rec?.pdfUrl || null
-                const directUrl = rec?.pdfUrl || (pdfLink ? pdfLink.replace('?dl=0', '?dl=1') : null)
-                const googleViewerUrl = directUrl ? `https://docs.google.com/gview?url=${encodeURIComponent(directUrl)}&embedded=true` : null
-                return pdfLink ? (
-                  <div>
-                    {googleViewerUrl ? (
+                const embedUrl = rec?.pdfUrl || (rec?.dropboxLink ? rec.dropboxLink.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '') : null)
+                return embedUrl ? (
+                  <div style={{ position: 'relative' }}>
+                    <div style={{
+                      width: '100%', height: 'calc(90vh - 380px)',
+                      borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
+                    }}>
                       <iframe
-                        src={googleViewerUrl}
-                        style={{ width: '100%', height: 'calc(90vh - 380px)', border: '1px solid #eee', borderRadius: '10px', display: 'block' }}
+                        src={embedUrl + '#view=FitH&toolbar=1&navpanes=0'}
+                        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                         title="Invoice PDF"
                       />
-                    ) : (
-                      <div style={{
-                        width: '100%', height: '300px', borderRadius: '10px', border: '1px solid #eee',
-                        background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#aaa', fontSize: '13px',
-                      }}>
-                        PDF generated — click below to view
-                      </div>
-                    )}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
                       <a href={rec.dropboxLink || embedUrl} target="_blank" rel="noopener noreferrer"
                         style={{ fontSize: '11px', color: '#E88FAC' }}>
@@ -513,7 +506,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           </div>
 
           {/* Right content */}
-          <div style={{ flex: 1, padding: '20px 28px', overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ flex: 1, padding: '20px 28px', overflow: activeStep === 1 ? 'hidden' : 'auto' }}>
             {error && (
               <div style={{
                 marginBottom: '14px', padding: '10px 14px', background: '#fef2f2',
