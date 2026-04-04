@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation'
 import InvoiceWorkflowModal from './InvoiceWorkflowModal'
 
 const STATUS_CONFIG = {
-  Draft: { color: '#999', bg: '#1c1c1c', next: 'Sent' },
-  Sent:  { color: '#3b82f6', bg: '#0f1f3d', next: 'Paid' },
-  Paid:  { color: '#22c55e', bg: '#0f2d1a', next: 'Draft' },
+  Draft: { color: '#9ca3af', bg: '#f3f4f6', next: 'Sent' },
+  Sent:  { color: '#3b82f6', bg: '#dbeafe', next: 'Paid' },
+  Paid:  { color: '#22c55e', bg: '#dcfce7', next: 'Draft' },
 }
 
 const COLS = '160px 150px 130px 130px 130px 88px'
@@ -244,7 +244,12 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
   const dueDate = rows[0]?.dueDate
   const allHavePdfs = rows.every(r => r.hasPdf)
   const allSent = rows.every(r => r.status === 'Sent' || r.status === 'Paid')
+  const allPaid = rows.every(r => r.status === 'Paid')
   const sorted = [...rows].sort((a, b) => accountRank(a.accountName) - accountRank(b.accountName))
+
+  // Determine current stage (0-4)
+  const currentStage = allPaid ? 5 : allSent ? 4 : allHavePdfs ? 1 : 0
+  const STAGE_LABELS = ['Generate', 'Review', 'Preview', 'Send', 'Payment', 'Complete']
 
   return (
     <div style={{
@@ -266,6 +271,21 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
               Due {fmtDate(dueDate)}
             </span>
           )}
+          {/* Stage progress dots */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
+            {[0,1,2,3,4].map(s => (
+              <div key={s} style={{
+                width: s < currentStage ? '16px' : s === currentStage ? '16px' : '6px',
+                height: '6px',
+                borderRadius: '3px',
+                background: s < currentStage ? '#22c55e' : s === currentStage ? '#E88FAC' : '#e5e7eb',
+                transition: '0.2s',
+              }} title={STAGE_LABELS[s]} />
+            ))}
+            <span style={{ fontSize: '10px', color: currentStage >= 5 ? '#22c55e' : '#999', marginLeft: '4px', fontWeight: 500 }}>
+              {STAGE_LABELS[Math.min(currentStage, 5)]}
+            </span>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', fontSize: '13px', alignItems: 'center' }}>
           <span style={{ color: '#999' }}>TR: <span style={{ color: totalTr > 0 ? '#4a4a4a' : '#444' }}>{fmt(totalTr)}</span></span>
@@ -352,10 +372,13 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
 
             {/* Status */}
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <StatusPill
-                status={record.status} saving={isSavingStatus}
-                onClick={() => onSave(record.id, { status: STATUS_CONFIG[record.status]?.next || 'Draft' })}
-              />
+              <span style={{
+                background: STATUS_CONFIG[record.status]?.bg || '#f3f4f6',
+                color: STATUS_CONFIG[record.status]?.color || '#999',
+                border: `1px solid ${(STATUS_CONFIG[record.status]?.color || '#999')}44`,
+                borderRadius: '20px', padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                letterSpacing: '0.03em',
+              }}>{record.status}</span>
             </div>
           </div>
         )
