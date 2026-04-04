@@ -294,16 +294,28 @@ export default function CreatorDashboard() {
       })
       .catch((err) => { console.error(err); setLoading(false) })
 
-    // Fetch viral reels (non-blocking, cached 5min on server)
-    fetch('/api/inspiration')
-      .then(r => r.json())
-      .then(data => {
-        const sorted = (data.records || [])
-          .filter(r => r.thumbnail)
-          .sort((a, b) => (b.views || 0) - (a.views || 0))
-        setTopReels(sorted.slice(0, 6))
-      })
-      .catch(() => {})
+    // Fetch reels for preview strip (non-blocking, cached 5min on server)
+    Promise.all([
+      fetch('/api/inspiration').then(r => r.json()).catch(() => ({ records: [] })),
+      fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then(r => r.json()).catch(() => ({ tagWeights: {} })),
+    ]).then(([inspoData, twData]) => {
+      const recs = (inspoData.records || []).filter(r => r.thumbnail)
+      const tw = twData.tagWeights || {}
+      const hasForYou = Object.keys(tw).length > 0
+      if (hasForYou) {
+        // Score by tag overlap, then sort
+        const scored = recs.map(r => {
+          const tags = [...(r.tags || []), ...(r.suggestedTags || [])]
+          const score = tags.reduce((sum, t) => sum + (tw[t] || 0), 0)
+          return { ...r, forYouScore: score }
+        })
+        scored.sort((a, b) => b.forYouScore - a.forYouScore)
+        setTopReels(scored.slice(0, 6))
+      } else {
+        recs.sort((a, b) => (b.views || 0) - (a.views || 0))
+        setTopReels(recs.slice(0, 6))
+      }
+    }).catch(() => {})
   }, [isLoaded, creatorOpsId, hqId])
 
   if (!isLoaded || loading) {
@@ -378,22 +390,27 @@ export default function CreatorDashboard() {
                 ))}
               </div>
             </div>
-            {/* Viral strip — highest view reels */}
-            {topReels.length > 0 && (
-              <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', padding: '12px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Viral Right Now</span>
-                  <a href={`${inspoPath}?sort=viral`} style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
+            {/* Reel preview strip — For You if available, otherwise Viral */}
+            {topReels.length > 0 && (() => {
+              const isForYou = creatorProfile && topReels[0]?.forYouScore !== undefined
+              const stripLabel = isForYou ? 'Picked For You' : 'Viral Right Now'
+              const stripSort = isForYou ? 'foryou' : 'viral'
+              return (
+                <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', padding: '12px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{stripLabel}</span>
+                    <a href={`${inspoPath}?sort=${stripSort}`} style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${topReels.length}, 1fr)`, gap: '6px' }}>
+                    {topReels.map(r => (
+                      <a key={r.id} href={`${inspoPath}?sort=${stripSort}`} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: '#FFF0F3', display: 'block' }}>
+                        {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                      </a>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
-                  {topReels.slice(0, 6).map(r => (
-                    <a key={r.id} href={`${inspoPath}?sort=top`} style={{ flexShrink: 0, width: '52px', height: '78px', borderRadius: '8px', overflow: 'hidden', background: '#FFF0F3' }}>
-                      {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
+              )
+            })()}
           </Card>
 
           {/* Quick Actions + Stats */}
