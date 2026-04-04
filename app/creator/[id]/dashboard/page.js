@@ -708,6 +708,7 @@ export default function CreatorDashboard() {
               <div style={{ background: '#ffffff', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '4px 20px 20px', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
                 <Row label="Name" value={p.name} />
                 <Row label="Stage Name" value={p.aka} />
+                <Row label="Your Rate" value={fmtPct(1 - (p.commission || 0))} />
                 <Row label="Management Fee" value={fmtPct(p.commission)} />
                 <Row label="Started" value={fmtDate(p.managementStartDate)} />
                 <Row label="OnlyFans" value={p.onlyfansUrl?.replace('https://', '')} href={p.onlyfansUrl} />

@@ -100,7 +100,7 @@ function TagWeightPanel({ tagWeights }) {
   )
 }
 
-function DocumentRow({ doc, onDelete }) {
+function DocumentRow({ doc, isNew }) {
   const typeColors = {
     Audio: '#E88FAC', Transcript: '#60a5fa', PDF: '#fb923c',
     'Meeting Notes': '#34d399', Other: '#999',
@@ -109,14 +109,22 @@ function DocumentRow({ doc, onDelete }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '10px 12px', background: '#ffffff', borderRadius: '8px',
-      border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      padding: '10px 12px', background: isNew ? '#FFFBEB' : '#ffffff', borderRadius: '8px',
+      border: isNew ? '1px solid #FDE68A' : 'none',
+      boxShadow: isNew ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
     }}>
       <span style={{ fontSize: '11px', fontWeight: 600, color, background: '#FFF0F3', border: `1px solid ${color}30`, padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
         {doc.fileType}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '13px', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.fileName}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '13px', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.fileName}</span>
+          {isNew && (
+            <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '1px 6px', borderRadius: '4px', flexShrink: 0 }}>
+              New
+            </span>
+          )}
+        </div>
         {doc.notes && <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>{doc.notes}</div>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -283,11 +291,14 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [refining, setRefining] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [analyzeResult, setAnalyzeResult] = useState(null)
+  const [refineResult, setRefineResult] = useState(null)
   const [analyzeError, setAnalyzeError] = useState('')
   const [showUpload, setShowUpload] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
+  const [feedback, setFeedback] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -295,6 +306,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       const res = await fetch(`/api/admin/creator-profile?creatorId=${creator.id}`)
       const data = await res.json()
       setProfile(data)
+      if (data?.creator?.adminFeedback) setFeedback(data.creator.adminFeedback)
     } catch (e) {
       console.error(e)
     } finally {
@@ -345,6 +357,29 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       onProfileUpdated(creator.id, 'Not Started')
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  const runRefine = async () => {
+    if (!feedback.trim()) return
+    setRefining(true)
+    setAnalyzeError('')
+    setRefineResult(null)
+    try {
+      const res = await fetch('/api/admin/creator-profile/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: creator.id, feedback: feedback.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Refine failed')
+      setRefineResult(data)
+      load()
+      onProfileUpdated(creator.id, 'Complete')
+    } catch (e) {
+      setAnalyzeError(e.message)
+    } finally {
+      setRefining(false)
     }
   }
 
@@ -409,8 +444,14 @@ function CreatorDetail({ creator, onProfileUpdated }) {
         </div>
       )}
 
+      {refineResult && (
+        <div style={{ background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#22c55e' }}>
+          Profile refined.{refineResult.changesMade && <span style={{ color: '#888' }}> {refineResult.changesMade}</span>}
+        </div>
+      )}
+
       {analyzeError && (
-        <div style={{ background: '#2d1515', border: '1px solid #5c2020', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#ef4444' }}>
+        <div style={{ background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#ef4444' }}>
           {analyzeError}
         </div>
       )}
@@ -464,6 +505,41 @@ function CreatorDetail({ creator, onProfileUpdated }) {
               </div>
             </div>
           )}
+
+          {/* Admin Feedback + Refine */}
+          {(status === 'Analyzed' || status === 'Reanalyze') && (
+            <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '20px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Admin Feedback</div>
+              <textarea
+                value={feedback}
+                onChange={e => setFeedback(e.target.value)}
+                placeholder="e.g. she's more bratty than sweet, tone down Girl Next Door, bump up Soft Tease"
+                rows={3}
+                style={{
+                  width: '100%', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '8px',
+                  padding: '10px 12px', color: '#1a1a1a', fontSize: '13px', lineHeight: '1.5',
+                  resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit',
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'center' }}>
+                <button
+                  onClick={runRefine}
+                  disabled={refining || !feedback.trim()}
+                  style={{
+                    background: refining ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
+                    borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
+                    cursor: refining || !feedback.trim() ? 'not-allowed' : 'pointer',
+                    opacity: !feedback.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {refining ? 'Refining...' : 'Refine'}
+                </button>
+                <span style={{ fontSize: '11px', color: '#999' }}>
+                  Adjusts the current profile based on your feedback — does not re-process documents.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -475,8 +551,13 @@ function CreatorDetail({ creator, onProfileUpdated }) {
               No documents yet. Click "+ Upload" to add voice memos, transcripts, or notes.
             </div>
           )}
+          {documents.some(doc => c.profileLastAnalyzed && doc.uploadDate > c.profileLastAnalyzed) && (
+            <div style={{ fontSize: '11px', color: '#d97706', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', padding: '6px 10px' }}>
+              Yellow docs were uploaded after the last analysis and are not yet included. Hit Reanalyze to pick them up.
+            </div>
+          )}
           {documents.map(doc => (
-            <DocumentRow key={doc.id} doc={doc} />
+            <DocumentRow key={doc.id} doc={doc} isNew={!!(c.profileLastAnalyzed && doc.uploadDate > c.profileLastAnalyzed)} />
           ))}
           <button onClick={() => setShowUpload(true)}
             style={{ marginTop: '4px', background: '#FFF5F7', color: '#999', border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '10px', fontSize: '13px', cursor: 'pointer' }}>

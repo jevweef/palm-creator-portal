@@ -39,6 +39,7 @@ export async function GET(request) {
       dosDonts: f['Dos and Donts'] || '',
       profileAnalysisStatus: f['Profile Analysis Status'] || 'Not Started',
       profileLastAnalyzed: f['Profile Last Analyzed'] || null,
+      adminFeedback: f['Admin Feedback'] || '',
     }
 
     // Fetch documents for this creator
