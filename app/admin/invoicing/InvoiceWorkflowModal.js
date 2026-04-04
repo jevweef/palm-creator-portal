@@ -38,20 +38,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     const allPdfs = recs.every(r => r.hasPdf)
     const allSentOrPaid = recs.every(r => r.status === 'Sent' || r.status === 'Paid')
     const allPaid = recs.every(r => r.status === 'Paid')
+    const anySent = recs.some(r => r.sentAt || r.status === 'Sent' || r.status === 'Paid')
     if (allPaid) return 4
     if (allSentOrPaid) return 4
+    if (anySent) return 3 // email was sent, go to Send step to show confirmation
     if (allPdfs) return 1
     return 0
   }
-  const [activeStep, setActiveStep] = useState(() => {
-    const step = getNextUnfinishedStep(rows)
-    console.log('Modal init — rows hasPdf:', rows.map(r => r.hasPdf), 'initial step:', step)
-    return step
-  })
+  const [activeStep, setActiveStep] = useState(() => getNextUnfinishedStep(rows))
   const [generating, setGenerating] = useState(false)
   const [genProgress, setGenProgress] = useState({ done: 0, total: 0 })
   const [pdfTab, setPdfTab] = useState(0)
-  const [pdfApproved, setPdfApproved] = useState(false)
+  const [pdfApproved, setPdfApproved] = useState(() => {
+    // If email was already sent, PDFs were approved
+    return rows.some(r => r.sentAt || r.status === 'Sent' || r.status === 'Paid')
+  })
   const [emailPreview, setEmailPreview] = useState(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [sending, setSending] = useState(false)
