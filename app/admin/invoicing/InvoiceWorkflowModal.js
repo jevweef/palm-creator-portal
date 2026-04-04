@@ -255,7 +255,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   <div>
                     <iframe
                       src={embedUrl + '#view=FitH&toolbar=0&navpanes=0&scrollbar=0'}
-                      style={{ width: '100%', height: 'calc(90vh - 320px)', border: '1px solid #eee', borderRadius: '10px' }}
+                      style={{ width: '100%', height: 'calc(90vh - 380px)', border: '1px solid #eee', borderRadius: '10px', display: 'block' }}
                       title="Invoice PDF"
                     />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
@@ -501,7 +501,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           </div>
 
           {/* Right content */}
-          <div style={{ flex: 1, padding: '20px 28px', overflow: 'auto' }}>
+          <div style={{ flex: 1, padding: '20px 28px', overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {error && (
               <div style={{
                 marginBottom: '14px', padding: '10px 14px', background: '#fef2f2',
