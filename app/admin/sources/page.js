@@ -517,9 +517,23 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles }) {
 
         {step === 2 && current && (<>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
-              @{current.handle}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+                @{current.handle}
+              </h3>
+              <a
+                href={`https://instagram.com/${current.handle}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                  background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC',
+                  borderRadius: '6px', textDecoration: 'none', whiteSpace: 'nowrap',
+                }}
+              >
+                View IG ↗
+              </a>
+            </div>
             <span style={{ fontSize: '12px', color: '#999' }}>
               {parsed.filter(p => !p.exists).indexOf(current) + 1} of {newCount}
             </span>
