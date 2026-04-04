@@ -272,6 +272,7 @@ export default function CreatorDashboard() {
   const [showProfile, setShowProfile] = useState(false)
   const profileRef = useRef(null)
   const [invoiceModal, setInvoiceModal] = useState(null)
+  const [topReels, setTopReels] = useState([])
 
   useEffect(() => {
     if (!isLoaded) return
@@ -292,6 +293,17 @@ export default function CreatorDashboard() {
         setLoading(false)
       })
       .catch((err) => { console.error(err); setLoading(false) })
+
+    // Fetch trending reels (non-blocking, cached 5min on server)
+    fetch('/api/inspiration')
+      .then(r => r.json())
+      .then(data => {
+        const sorted = (data.records || [])
+          .filter(r => r.thumbnail)
+          .sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0))
+        setTopReels(sorted.slice(0, 6))
+      })
+      .catch(() => {})
   }, [isLoaded, creatorOpsId, hqId])
 
   if (!isLoaded || loading) {
@@ -366,15 +378,20 @@ export default function CreatorDashboard() {
                 ))}
               </div>
             </div>
-            {/* Thumbnail strip of saved reels */}
-            {savedReels.length > 0 && (
-              <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', padding: '12px 20px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
-                {savedReels.slice(0, 5).map(r => (
-                  <a key={r.id} href={inspoPath} style={{ flexShrink: 0, width: '48px', height: '72px', borderRadius: '8px', overflow: 'hidden', background: '#FFF0F3' }}>
-                    {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                  </a>
-                ))}
-                <a href={inspoPath} style={{ flexShrink: 0, width: '48px', height: '72px', borderRadius: '8px', background: '#FFF0F3', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: '#E88FAC', fontSize: '18px' }}>→</a>
+            {/* Trending strip — pulls top reels */}
+            {topReels.length > 0 && (
+              <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', padding: '12px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Trending Reels</span>
+                  <a href={`${inspoPath}?sort=top`} style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
+                  {topReels.slice(0, 6).map(r => (
+                    <a key={r.id} href={`${inspoPath}?sort=top`} style={{ flexShrink: 0, width: '52px', height: '78px', borderRadius: '8px', overflow: 'hidden', background: '#FFF0F3' }}>
+                      {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
           </Card>
