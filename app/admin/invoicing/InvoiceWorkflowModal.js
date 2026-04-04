@@ -232,8 +232,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 return embedUrl ? (
                   <div>
                     <iframe
-                      src={embedUrl}
-                      style={{ width: '100%', height: '500px', border: '1px solid #eee', borderRadius: '10px' }}
+                      src={embedUrl + '#view=FitH&toolbar=0&navpanes=0&scrollbar=0'}
+                      style={{ width: '100%', height: 'calc(90vh - 240px)', border: '1px solid #eee', borderRadius: '10px' }}
                       title="Invoice PDF"
                     />
                     <a href={rec.dropboxLink || embedUrl} target="_blank" rel="noopener noreferrer"
@@ -372,8 +372,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '860px',
-        maxHeight: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '900px',
+        height: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
