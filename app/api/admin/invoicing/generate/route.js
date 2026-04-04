@@ -94,7 +94,7 @@ async function dropboxShareLink(token, dropboxPath) {
   return { browsable, direct }
 }
 
-export const maxDuration = 10 // Vercel Hobby max
+export const maxDuration = 60 // needs Pro plan for >10s, but set high for safety
 
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }

@@ -108,6 +108,11 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ recordId: targets[i].id }),
         })
+        if (!res.ok) {
+          const text = await res.text()
+          try { const err = JSON.parse(text); setError(`Failed: ${err.error}`) } catch (_) { setError(`Generation failed (${res.status}). May have timed out — try again.`) }
+          continue
+        }
         const data = await res.json()
         if (data.ok) {
           onRecordsUpdate(prev => prev.map(r => r.id === targets[i].id ? {
