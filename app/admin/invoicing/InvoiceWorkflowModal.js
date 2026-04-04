@@ -250,22 +250,17 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                const thumbnailUrl = rec?.pdfThumbnail || null
                 const pdfLink = rec?.dropboxLink || rec?.pdfUrl || null
+                const directUrl = rec?.pdfUrl || (pdfLink ? pdfLink.replace('?dl=0', '?dl=1') : null)
+                const googleViewerUrl = directUrl ? `https://docs.google.com/gview?url=${encodeURIComponent(directUrl)}&embedded=true` : null
                 return pdfLink ? (
                   <div>
-                    {thumbnailUrl ? (
-                      <div style={{
-                        width: '100%', maxHeight: 'calc(90vh - 380px)', overflow: 'hidden',
-                        borderRadius: '10px', border: '1px solid #eee', background: '#fafafa',
-                        display: 'flex', justifyContent: 'center',
-                      }}>
-                        <img
-                          src={thumbnailUrl}
-                          alt="Invoice preview"
-                          style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }}
-                        />
-                      </div>
+                    {googleViewerUrl ? (
+                      <iframe
+                        src={googleViewerUrl}
+                        style={{ width: '100%', height: 'calc(90vh - 380px)', border: '1px solid #eee', borderRadius: '10px', display: 'block' }}
+                        title="Invoice PDF"
+                      />
                     ) : (
                       <div style={{
                         width: '100%', height: '300px', borderRadius: '10px', border: '1px solid #eee',
