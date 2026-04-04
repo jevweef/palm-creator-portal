@@ -91,6 +91,7 @@ export async function GET() {
       dropboxLink: f['fldhtbiwnxDm2KJpg'] || null,
       hasPdf: attachments.length > 0,
       pdfUrl: attachments[0]?.url || null,
+      pdfThumbnail: attachments[0]?.thumbnails?.large?.url || null,
       dueDate: f['fldOTpRmDWDfwz8FH']
         ? f['fldOTpRmDWDfwz8FH'].split('T')[0]
         : null,

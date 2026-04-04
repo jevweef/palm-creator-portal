@@ -250,14 +250,31 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                const embedUrl = rec?.pdfUrl || (rec?.dropboxLink ? rec.dropboxLink.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '') : null)
-                return embedUrl ? (
+                const thumbnailUrl = rec?.pdfThumbnail || null
+                const pdfLink = rec?.dropboxLink || rec?.pdfUrl || null
+                return pdfLink ? (
                   <div>
-                    <iframe
-                      src={embedUrl + '#view=FitH&toolbar=0&navpanes=0&scrollbar=0'}
-                      style={{ width: '100%', height: 'calc(90vh - 380px)', border: '1px solid #eee', borderRadius: '10px', display: 'block' }}
-                      title="Invoice PDF"
-                    />
+                    {thumbnailUrl ? (
+                      <div style={{
+                        width: '100%', maxHeight: 'calc(90vh - 380px)', overflow: 'hidden',
+                        borderRadius: '10px', border: '1px solid #eee', background: '#fafafa',
+                        display: 'flex', justifyContent: 'center',
+                      }}>
+                        <img
+                          src={thumbnailUrl}
+                          alt="Invoice preview"
+                          style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }}
+                        />
+                      </div>
+                    ) : (
+                      <div style={{
+                        width: '100%', height: '300px', borderRadius: '10px', border: '1px solid #eee',
+                        background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#aaa', fontSize: '13px',
+                      }}>
+                        PDF generated — click below to view
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
                       <a href={rec.dropboxLink || embedUrl} target="_blank" rel="noopener noreferrer"
                         style={{ fontSize: '11px', color: '#E88FAC' }}>
