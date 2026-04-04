@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
+import InvoiceWorkflowModal from './InvoiceWorkflowModal'
 
 const STATUS_CONFIG = {
   Draft: { color: '#999', bg: '#1c1c1c', next: 'Sent' },
@@ -10,7 +11,7 @@ const STATUS_CONFIG = {
   Paid:  { color: '#22c55e', bg: '#0f2d1a', next: 'Draft' },
 }
 
-const COLS = '160px 150px 130px 130px 130px 88px 140px'
+const COLS = '160px 150px 130px 130px 130px 88px'
 
 function fmt(n) {
   if (!n && n !== 0) return '—'
@@ -223,7 +224,6 @@ function TableHeader() {
         { label: 'Chat Fee', align: 'right' },
         { label: 'Net Profit', align: 'right' },
         { label: 'Status', align: 'center' },
-        { label: 'Actions', align: 'right' },
       ].map(col => (
         <div key={col.label} style={{
           fontSize: '11px', color: '#3f3f46', fontWeight: 600,
@@ -237,7 +237,7 @@ function TableHeader() {
 }
 
 // ── Creator group card ───────────────────────────────────────────────────────
-function CreatorGroup({ aka, rows, onSave, onBulkStatus, onGenerate, onSendClick, onSendInvoice, savingId, actionState }) {
+function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingId }) {
   const commissionPct = rows[0]?.commissionPct || 0
   const totalTr = rows.reduce((s, r) => s + (r.earnings || 0), 0)
   const totalNet = rows.reduce((s, r) => s + (r.netProfit || 0), 0)
@@ -300,16 +300,14 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onGenerate, onSendClick
                   ))}
                 </div>
               )}
-              {allHavePdfs && (
-                <button onClick={() => onSendInvoice(ids, aka)}
-                  style={{
-                    background: allSent ? '#22c55e' : '#3b82f6', border: 'none', borderRadius: '5px',
-                    color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 12px',
-                    cursor: 'pointer', whiteSpace: 'nowrap',
-                  }}>
-                  {allSent ? '✓ Sent' : '✉ Send Invoice'}
-                </button>
-              )}
+              <button onClick={() => onOpenWorkflow(aka, rows)}
+                style={{
+                  background: '#1a1a1a', border: 'none', borderRadius: '5px',
+                  color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 12px',
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>
+                Manage →
+              </button>
             </>)
           })()}
         </div>
@@ -318,10 +316,6 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onGenerate, onSendClick
       {/* Account rows */}
       {sorted.map((record, i) => {
         const isSavingStatus = savingId === record.id
-        const action = actionState[record.id]
-        const isGenerating = action === 'generating'
-        const isSending = action === 'sending'
-        const isBusy = isSavingStatus || isGenerating || isSending
 
         return (
           <div key={record.id}
@@ -330,7 +324,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onGenerate, onSendClick
               alignItems: 'center', gap: '12px', padding: '10px 20px',
               borderTop: i === 0 ? 'none' : '1px solid rgba(0,0,0,0.04)', transition: 'background 0.1s',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = '#161616'}
+            onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
             {/* Account name */}
@@ -339,7 +333,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onGenerate, onSendClick
             </div>
 
             {/* Earnings — editable */}
-            <EarningsCell record={record} onSave={onSave} disabled={isBusy} />
+            <EarningsCell record={record} onSave={onSave} disabled={isSavingStatus} />
 
             {/* Commission */}
             <div style={{ fontSize: '13px', color: record.totalCommission > 0 ? '#E88FAC' : '#444', textAlign: 'right' }}>
@@ -363,54 +357,6 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onGenerate, onSendClick
                 onClick={() => onSave(record.id, { status: STATUS_CONFIG[record.status]?.next || 'Draft' })}
               />
             </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-              {/* View PDF */}
-              {record.dropboxLink && (
-                <a href={record.dropboxLink} target="_blank" rel="noopener noreferrer"
-                  title="View PDF" style={{
-                    color: '#999', fontSize: '14px', textDecoration: 'none',
-                    padding: '4px 6px', borderRadius: '4px', lineHeight: 1,
-                    border: '1px solid #E8C4CC',
-                    transition: 'color 0.15s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = '#E88FAC'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#999'}
-                >
-                  ↗
-                </a>
-              )}
-
-              {/* Generate button */}
-              <button onClick={() => onGenerate(record.id)} disabled={isBusy}
-                title={record.hasPdf ? 'Regenerate PDF' : 'Generate PDF'}
-                style={{
-                  background: isGenerating ? '#FFF0F3' : '#FFF0F3',
-                  border: `1px solid ${isGenerating ? '#E88FAC44' : '#E8C4CC'}`,
-                  borderRadius: '4px', color: isGenerating ? '#E88FAC' : '#999',
-                  fontSize: '11px', fontWeight: 600, padding: '4px 8px',
-                  cursor: isBusy ? 'not-allowed' : 'pointer', opacity: isBusy && !isGenerating ? 0.4 : 1,
-                  transition: 'all 0.15s', whiteSpace: 'nowrap',
-                }}>
-                {isGenerating ? '⟳ Gen...' : record.hasPdf ? '⟳ PDF' : '⚙ Gen'}
-              </button>
-
-              {/* Send button */}
-              <button onClick={() => onSendClick(record.id)} disabled={isBusy || !record.hasPdf}
-                title={!record.hasPdf ? 'Generate PDF first' : 'Send to creator'}
-                style={{
-                  background: isSending ? '#0f1f3d' : '#FFF0F3',
-                  border: `1px solid ${isSending ? '#3b82f644' : '#E8C4CC'}`,
-                  borderRadius: '4px', color: isSending ? '#3b82f6' : record.hasPdf ? '#999' : '#E8C4CC',
-                  fontSize: '11px', fontWeight: 600, padding: '4px 8px',
-                  cursor: (isBusy || !record.hasPdf) ? 'not-allowed' : 'pointer',
-                  opacity: (!record.hasPdf && !isSending) ? 0.4 : 1,
-                  transition: 'all 0.15s', whiteSpace: 'nowrap',
-                }}>
-                {isSending ? '✉ ...' : '✉ Send'}
-              </button>
-            </div>
           </div>
         )
       })}
@@ -429,9 +375,8 @@ export default function InvoicingPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [savingId, setSavingId] = useState(null)
-  const [actionState, setActionState] = useState({}) // { [recordId]: 'generating' | 'sending' }
-  const [sendModal, setSendModal] = useState(null)   // preflight data for the modal
   const [actionError, setActionError] = useState(null)
+  const [workflowModal, setWorkflowModal] = useState(null) // { aka, rows }
 
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin'
@@ -498,117 +443,6 @@ export default function InvoicingPage() {
     setSavingId(null)
   }, [])
 
-  // Generate PDF
-  const handleGenerate = useCallback(async (recordId) => {
-    setActionState(prev => ({ ...prev, [recordId]: 'generating' }))
-    setActionError(null)
-    try {
-      const res = await fetch('/api/admin/invoicing/generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.ok) {
-        setActionError(data.error || 'PDF generation failed')
-        return
-      }
-      setRecords(prev => prev.map(r => r.id !== recordId ? r : {
-        ...r, dropboxLink: data.dropboxLink, hasPdf: true,
-        invoiceNumber: data.invoiceNumber ? Number(data.invoiceNumber) : r.invoiceNumber,
-      }))
-    } catch (e) {
-      setActionError(e.message)
-    } finally {
-      setActionState(prev => ({ ...prev, [recordId]: null }))
-    }
-  }, [])
-
-  // Open send modal — fetch preflight data first
-  const handleSendClick = useCallback(async (recordId) => {
-    setActionState(prev => ({ ...prev, [recordId]: 'sending' }))
-    setActionError(null)
-    try {
-      const res = await fetch(`/api/admin/invoicing/send?recordId=${recordId}`)
-      const data = await res.json()
-      if (!res.ok) { setActionError(data.error); return }
-      setSendModal({ ...data, recordId })
-    } catch (e) {
-      setActionError(e.message)
-    } finally {
-      setActionState(prev => ({ ...prev, [recordId]: null }))
-    }
-  }, [])
-
-  // Confirm send
-  const handleSendConfirm = useCallback(async () => {
-    if (!sendModal) return
-    const { recordId } = sendModal
-    setActionState(prev => ({ ...prev, [recordId]: 'sending' }))
-    try {
-      const res = await fetch('/api/admin/invoicing/send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setRecords(prev => prev.map(r => r.id === recordId ? { ...r, status: 'Sent' } : r))
-        setSendModal(null)
-      } else if (data.manual) {
-        // Resend not configured — show details for manual send
-        setSendModal(prev => ({ ...prev, manual: true, manualDetails: data }))
-      } else {
-        setActionError(data.error || 'Send failed')
-        setSendModal(null)
-      }
-    } catch (e) {
-      setActionError(e.message)
-      setSendModal(null)
-    } finally {
-      setActionState(prev => ({ ...prev, [recordId]: null }))
-    }
-  }, [sendModal])
-
-  // Combined invoice send
-  const [combinedSendModal, setCombinedSendModal] = useState(null) // { ids, aka, loading, data }
-
-  const handleSendInvoice = useCallback(async (recordIds, aka) => {
-    setCombinedSendModal({ ids: recordIds, aka, loading: true, data: null })
-    try {
-      const res = await fetch(`/api/admin/invoicing/send-combined?recordIds=${recordIds.join(',')}`)
-      const data = await res.json()
-      setCombinedSendModal({ ids: recordIds, aka, loading: false, data })
-    } catch (e) {
-      setActionError(e.message)
-      setCombinedSendModal(null)
-    }
-  }, [])
-
-  const handleConfirmSendInvoice = useCallback(async () => {
-    if (!combinedSendModal) return
-    const { ids } = combinedSendModal
-    setCombinedSendModal(prev => ({ ...prev, loading: true }))
-    try {
-      const res = await fetch('/api/admin/invoicing/send-combined', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordIds: ids }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setRecords(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: 'Sent' } : r))
-        setCombinedSendModal(null)
-      } else if (data.manual) {
-        setCombinedSendModal(prev => ({ ...prev, loading: false, manual: data }))
-      } else {
-        setActionError(data.error || 'Send failed')
-        setCombinedSendModal(null)
-      }
-    } catch (e) {
-      setActionError(e.message)
-      setCombinedSendModal(null)
-    }
-  }, [combinedSendModal])
-
   if (!isLoaded || !isAdmin) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
@@ -631,90 +465,18 @@ export default function InvoicingPage() {
 
   return (
     <div style={{ maxWidth: '1060px' }}>
-      {/* Send confirmation modal (per-account, legacy) */}
-      <SendModal
-        data={sendModal}
-        onConfirm={handleSendConfirm}
-        onCancel={() => setSendModal(null)}
-        sending={sendModal ? !!actionState[sendModal.recordId] : false}
-      />
-
-      {/* Combined send invoice modal */}
-      {combinedSendModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 100,
-          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <div style={{
-            background: '#ffffff', borderRadius: '18px', boxShadow: '0 8px 40px rgba(0,0,0,0.12)',
-            padding: '28px 32px', width: '500px', maxWidth: '90vw',
-          }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>
-              Send invoice to {combinedSendModal.aka}?
-            </div>
-            {combinedSendModal.loading ? (
-              <div style={{ padding: '20px 0', color: '#999', fontSize: '13px' }}>Loading invoice details...</div>
-            ) : combinedSendModal.manual ? (
-              <div>
-                <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '12px', padding: '10px 14px', background: '#fef2f2', borderRadius: '8px' }}>
-                  Resend API key not configured. Add RESEND_API_KEY to .env.local to enable email sending.
-                </div>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setCombinedSendModal(null)} style={{
-                    background: 'transparent', border: '1px solid #E8C4CC', borderRadius: '7px',
-                    color: '#888', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
-                  }}>Close</button>
-                </div>
-              </div>
-            ) : combinedSendModal.data ? (
-              <div>
-                <div style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
-                  This will email all {combinedSendModal.ids.length} account invoices and mark them as Sent.
-                </div>
-                {[
-                  { label: 'To', value: `josh@palm-mgmt.com (test)` },
-                  { label: 'From', value: 'evan@palm-mgmt.com' },
-                  { label: 'Period', value: `${fmtDate(combinedSendModal.data.periodStart)} – ${fmtDate(combinedSendModal.data.periodEnd)}` },
-                  { label: 'Accounts', value: combinedSendModal.data.invoices?.map(i => i.accountName).join(', ') },
-                  { label: 'Mgmt Fee', value: fmt(combinedSendModal.data.totalCommission) },
-                ].map(row => (
-                  <div key={row.label} style={{
-                    display: 'flex', gap: '16px', padding: '8px 0',
-                    borderBottom: '1px solid rgba(0,0,0,0.04)', alignItems: 'center',
-                  }}>
-                    <span style={{ fontSize: '12px', color: '#999', width: '70px', flexShrink: 0 }}>{row.label}</span>
-                    <span style={{ fontSize: '13px', color: '#4a4a4a' }}>{row.value}</span>
-                  </div>
-                ))}
-
-                {!combinedSendModal.data.allHavePdfs && (
-                  <div style={{ marginTop: '14px', padding: '10px 14px', background: '#fef3c7', borderRadius: '8px', fontSize: '12px', color: '#92400e' }}>
-                    Some accounts don't have PDFs generated yet. Generate all PDFs first.
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '10px', marginTop: '24px', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setCombinedSendModal(null)} style={{
-                    background: 'transparent', border: '1px solid #E8C4CC', borderRadius: '7px',
-                    color: '#888', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
-                  }}>Cancel</button>
-                  <button onClick={handleConfirmSendInvoice}
-                    disabled={!combinedSendModal.data.allHavePdfs}
-                    style={{
-                      background: combinedSendModal.data.allHavePdfs ? '#3b82f6' : '#e5e7eb',
-                      border: 'none', borderRadius: '7px', color: '#fff',
-                      padding: '8px 20px', fontSize: '13px', fontWeight: 600,
-                      cursor: combinedSendModal.data.allHavePdfs ? 'pointer' : 'not-allowed',
-                    }}>
-                    Send Invoice ✉
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
+      {/* Workflow modal */}
+      {workflowModal && (() => {
+        const liveRows = periodRecords.filter(r => r.aka === workflowModal.aka)
+        return liveRows.length > 0 ? (
+          <InvoiceWorkflowModal
+            aka={workflowModal.aka}
+            rows={liveRows}
+            onClose={() => setWorkflowModal(null)}
+            onRecordsUpdate={setRecords}
+          />
+        ) : null
+      })()}
 
       {/* Title */}
       <div style={{ marginBottom: '20px' }}>
@@ -781,11 +543,8 @@ export default function InvoicingPage() {
               key={aka} aka={aka} rows={grouped[aka]}
               onSave={handleSave}
               onBulkStatus={handleBulkStatus}
-              onGenerate={handleGenerate}
-              onSendClick={handleSendClick}
-              onSendInvoice={handleSendInvoice}
+              onOpenWorkflow={(a, r) => setWorkflowModal({ aka: a, rows: r })}
               savingId={savingId}
-              actionState={actionState}
             />
           ))}
         </>
