@@ -552,8 +552,9 @@ export default function CreatorsPage() {
               <button key={c.id} onClick={() => setSelected(c)}
                 style={{
                   width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '8px',
-                  background: selected?.id === c.id ? '#FFF0F3' : '#FFF5F7',
-                  border: 'none', boxShadow: selected?.id === c.id ? '0 2px 12px rgba(0,0,0,0.06)' : '0 1px 4px rgba(0,0,0,0.04)',
+                  background: selected?.id === c.id ? '#ffffff' : 'transparent',
+                  border: selected?.id === c.id ? '1px solid #E88FAC' : '1px solid transparent',
+                  boxShadow: selected?.id === c.id ? '0 2px 12px rgba(0,0,0,0.06)' : 'none',
                   cursor: 'pointer', transition: 'all 0.15s',
                 }}>
                 <div style={{ fontSize: '13px', fontWeight: selected?.id === c.id ? 600 : 400, color: '#1a1a1a' }}>
@@ -571,7 +572,7 @@ export default function CreatorsPage() {
         </div>
 
         {/* Detail panel */}
-        <div style={{ flex: 1, minWidth: 0, background: '#FFF5F7', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '24px' }}>
+        <div style={{ flex: 1, minWidth: 0, background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '24px' }}>
           {!selected ? (
             <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '60px 0' }}>
               Select a creator to view or build their profile.
