@@ -343,15 +343,19 @@ export default function CreatorDashboard() {
             <p style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
           <Card>
-            <Label>Last Month</Label>
-            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0' }}>
+            {(() => {
+              const groups = invoices?.length > 0 ? groupInvoicesByPeriod(invoices).sort((a, b) => (b.periodEnd || '').localeCompare(a.periodEnd || '')) : []
+              const latestPeriod = groups[0]
+              return <Label>{latestPeriod ? formatPeriod(latestPeriod.periodStart, latestPeriod.periodEnd) : 'Earnings'}</Label>
+            })()}
+            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0', justifyContent: 'center', textAlign: 'center' }}>
               <div style={{ flex: 1, minWidth: '120px' }}>
-                <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(p.previousMonthTR * (1 - (p.commission || 0)))}</div>
-                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
+                <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(p.previousMonthTR)}</div>
+                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
               </div>
               <div style={{ flex: 1, minWidth: '120px' }}>
-                <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(p.previousMonthTR)}</div>
-                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
+                <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(p.previousMonthTR * (1 - (p.commission || 0)))}</div>
+                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
               </div>
             </div>
           </Card>
