@@ -32,14 +32,16 @@ export async function GET(request) {
       (r.fields['Creator'] || []).some(c => (c.id || c) === creatorOpsId)
     )
 
-    // Return as { tag: weight } map + separate film format weights
+    // Return as { tag: weight } map + separate film format weights + full list with categories
     const tagWeights = {}
     const filmFormatWeights = {}
+    const allTags = []
     records.forEach(r => {
       const tag = r.fields['Tag']
       const weight = r.fields['Weight'] ?? 0
-      const category = r.fields['Tag Category'] || ''
+      const category = r.fields['Tag Category'] || 'Other'
       if (!tag) return
+      allTags.push({ tag, weight, category })
       if (category === 'Film Format') {
         filmFormatWeights[tag] = weight
       } else {
@@ -47,7 +49,7 @@ export async function GET(request) {
       }
     })
 
-    return NextResponse.json({ tagWeights, filmFormatWeights })
+    return NextResponse.json({ tagWeights, filmFormatWeights, allTags })
   } catch (err) {
     console.error('Tag weights GET error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

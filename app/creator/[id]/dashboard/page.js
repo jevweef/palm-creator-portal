@@ -290,7 +290,7 @@ export default function CreatorDashboard() {
         setSavedReels(savedData.records || [])
         setPipeline(pipelineData)
         if (cpData && cpData.profileAnalysisStatus === 'Complete') {
-          setCreatorProfile({ ...cpData, tagWeights: tagData.tagWeights || {} })
+          setCreatorProfile({ ...cpData, tagWeights: tagData.tagWeights || {}, allTags: tagData.allTags || [] })
         }
         setLoading(false)
       })
@@ -809,44 +809,53 @@ export default function CreatorDashboard() {
                       )}
                     </div>
                     <div style={{ padding: '20px 24px', borderLeft: '1px solid rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                        <Label style={{ marginBottom: 0 }}>Your Tags</Label>
-                        {(() => {
-                          const allTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0)
-                          if (allTags.length > 10) return (
-                            <button
-                              onClick={() => setShowAllTags(!showAllTags)}
-                              style={{
-                                background: '#FFF0F3', border: 'none', borderRadius: '9999px',
-                                padding: '3px 10px', cursor: 'pointer', fontSize: '10px', fontWeight: 600, color: '#E88FAC',
-                              }}
-                            >
-                              {showAllTags ? 'Top 10' : `All ${allTags.length} Tags`}
-                            </button>
-                          )
-                          return null
-                        })()}
-                      </div>
+                      <Label>All Tags</Label>
                       {(() => {
-                        const allTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a)
-                        const visibleTags = showAllTags ? allTags : allTags.slice(0, 10)
-                        if (allTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
+                        const TAG_CATEGORIES = ['Setting / Location', 'Persona / Niche', 'Tone / Energy', 'Visual / Body', 'Viewer Experience', 'Film Format']
+                        const CAT_COLORS = {
+                          'Setting / Location': '#06b6d4',
+                          'Persona / Niche': '#E88FAC',
+                          'Tone / Energy': '#f472b6',
+                          'Visual / Body': '#fb923c',
+                          'Viewer Experience': '#60a5fa',
+                          'Film Format': '#34d399',
+                        }
+                        const tags = (creatorProfile.allTags || []).filter(t => t.weight > 0)
+                        if (tags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
+
+                        const byCategory = {}
+                        tags.forEach(t => {
+                          const cat = t.category || 'Other'
+                          if (!byCategory[cat]) byCategory[cat] = []
+                          byCategory[cat].push(t)
+                        })
+
                         return (
                           <div style={{
-                            display: 'flex', flexDirection: 'column', gap: '6px', flex: 1,
-                            ...(showAllTags ? { maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' } : {}),
+                            display: 'flex', flexDirection: 'column', gap: '16px', flex: 1,
+                            maxHeight: '500px', overflowY: 'auto', paddingRight: '4px',
                           }}>
-                            {visibleTags.map(([tag, weight]) => (
-                              <div key={tag}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                  <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
-                                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#E88FAC' }}>{weight}</span>
+                            {TAG_CATEGORIES.map(cat => {
+                              const catTags = (byCategory[cat] || []).sort((a, b) => b.weight - a.weight)
+                              if (!catTags.length) return null
+                              const color = CAT_COLORS[cat] || '#E88FAC'
+                              return (
+                                <div key={cat}>
+                                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{cat}</div>
+                                  {catTags.map(t => (
+                                    <div key={t.tag} style={{ marginBottom: '5px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                        <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{t.tag}</span>
+                                        <span style={{ fontSize: '12px', fontWeight: 600, color, minWidth: '28px', textAlign: 'right' }}>{t.weight}</span>
+                                      </div>
+                                      <div style={{ height: '4px', background: 'rgba(0,0,0,0.04)', borderRadius: '2px', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${t.weight}%`, background: color, borderRadius: '2px' }} />
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
-                                <div style={{ height: '4px', background: '#F5F0F2', borderRadius: '2px', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${weight}%`, background: '#E88FAC', borderRadius: '2px' }} />
-                                </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         )
                       })()}
