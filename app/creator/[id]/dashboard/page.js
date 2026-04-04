@@ -417,7 +417,7 @@ export default function CreatorDashboard() {
             })()}
           </Card>
 
-          {/* Quick Actions */}
+          {/* Quick Actions + Invoices */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="quick-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               {uploads?.socialUploadUrl && (
@@ -429,26 +429,9 @@ export default function CreatorDashboard() {
               <ActionCard href={vaultPath} icon="🔐" title="OF Vault Upload" subtitle="OnlyFans" />
             </div>
 
-            {/* Profile card fills remaining space */}
+            {/* Invoices fills remaining space */}
             <Card style={{ flex: 1 }}>
-              <Label>Profile</Label>
-              <Row label="Stage Name" value={p.aka} />
-              {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
-              {p.onlyfansUrl && <Row label="OnlyFans" value="View Page" href={p.onlyfansUrl} />}
-              <Row label="Commission" value={fmtPct(p.commission)} />
-              <Row label="Start Date" value={fmtDate(p.managementStartDate)} />
-              {p.telegram && <Row label="Telegram" value={p.telegram} />}
-              {p.contractUrl && <Row label="Contract" value="View" href={p.contractUrl} />}
-            </Card>
-          </div>
-        </div>
-
-        {/* ── My Content + Invoices (side by side on desktop) ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginTop: '12px' }}>
-
-          {/* Invoices — second on desktop, second on mobile */}
-          <Card className="order-2">
-            <Label>Invoices</Label>
+              <Label>Invoices</Label>
             {invoices && invoices.length > 0 ? (
               groupInvoicesByPeriod(invoices).map((group) => {
                 const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
@@ -502,13 +485,16 @@ export default function CreatorDashboard() {
             ) : (
               <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No invoices yet</div>
             )}
-          </Card>
+            </Card>
+          </div>
+        </div>
 
-          {/* Invoice detail modal */}
-          {invoiceModal && <InvoiceModal group={invoiceModal} onClose={() => setInvoiceModal(null)} />}
+        {/* Invoice detail modal */}
+        {invoiceModal && <InvoiceModal group={invoiceModal} onClose={() => setInvoiceModal(null)} />}
 
-          {/* Content Pipeline — shows first on desktop (order-1), first on mobile (order-1) */}
-          <Card className="order-1 md:order-1">
+        {/* ── My Content + Growth & Stats ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginTop: '12px' }}>
+          <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <Label>My Content</Label>
               <a href="/my-content" style={{ color: '#E88FAC', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
@@ -597,19 +583,19 @@ export default function CreatorDashboard() {
               </>)
             })()}
           </Card>
-        </div>
 
-        {/* ── Growth & Stats ── */}
-        <Card style={{ marginTop: '12px' }}>
-          <Label>Growth & Stats</Label>
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
-            <StatBox value="—" label="IG Followers" />
-            <StatBox value="—" label="TikTok Followers" />
-            <StatBox value="—" label="OF Subscribers" />
-            <StatBox value="—" label="Week-over-Week" />
-          </div>
-          <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
-        </Card>
+          {/* Growth & Stats — next to My Content */}
+          <Card>
+            <Label>Growth & Stats</Label>
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
+              <StatBox value="—" label="IG Followers" />
+              <StatBox value="—" label="TikTok Followers" />
+              <StatBox value="—" label="OF Subscribers" />
+              <StatBox value="—" label="Week-over-Week" />
+            </div>
+            <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+          </Card>
+        </div>
 
         {/* ── Collapsible bars: Content DNA + Profile ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
