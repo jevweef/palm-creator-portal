@@ -113,7 +113,36 @@ export async function POST(request) {
         ? proposal.do_dont_notes.join('\n')
         : (proposal.do_dont_notes || '')
 
+      // Build refinement history entry
+      const { changesMade, currentTagWeights } = body
+      const tagChanges = []
+      if (proposal.tag_weights && currentTagWeights) {
+        const allTags = new Set([...Object.keys(currentTagWeights), ...Object.keys(proposal.tag_weights)])
+        for (const tag of allTags) {
+          const from = currentTagWeights[tag] || 0
+          const to = proposal.tag_weights[tag] || 0
+          if (from !== to) tagChanges.push({ tag, from, to })
+        }
+        tagChanges.sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from))
+      }
+
+      // Fetch existing history and append
+      const creatorRes = await fetch(
+        `https://api.airtable.com/v0/${OPS_BASE}/${PALM_CREATORS_TABLE}/${creatorId}`,
+        { headers: airtableHeaders }
+      )
+      let history = []
+      if (creatorRes.ok) {
+        const existing = (await creatorRes.json()).fields?.['Refinement History'] || ''
+        try { history = JSON.parse(existing) } catch { history = [] }
+      }
       const today = new Date().toISOString().split('T')[0]
+      history.push({
+        date: today,
+        summary: changesMade || (feedback || '').trim(),
+        tagChanges: tagChanges.slice(0, 5),
+      })
+
       await patchCreator(creatorId, {
         'Profile Summary': proposal.profile_summary || '',
         'Brand Voice Notes': proposal.brand_voice_notes || '',
@@ -122,6 +151,7 @@ export async function POST(request) {
         'Admin Feedback': (feedback || '').trim(),
         'Profile Analysis Status': 'Complete',
         'Profile Last Analyzed': today,
+        'Refinement History': JSON.stringify(history),
       })
 
       if (proposal.tag_weights) await upsertTagWeights(creatorId, proposal.tag_weights)

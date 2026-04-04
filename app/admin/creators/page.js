@@ -397,6 +397,8 @@ function CreatorDetail({ creator, onProfileUpdated }) {
           feedback: feedback.trim(),
           commit: true,
           proposal: refinePreview.proposed,
+          changesMade: refinePreview.changesMade || '',
+          currentTagWeights: refinePreview.current?.tagWeights || {},
         }),
       })
       const data = await res.json()
@@ -651,6 +653,45 @@ function CreatorDetail({ creator, onProfileUpdated }) {
                   <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid rgba(0,0,0,0.04)' }}>
                     {tw.tag} · {tw.weight}
                   </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Refinement History */}
+          {c.refinementHistory?.length > 0 && (
+            <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '20px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Adjustments</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[...c.refinementHistory].reverse().map((entry, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '12px',
+                    padding: '10px 14px', background: '#ffffff', borderRadius: '8px',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                  }}>
+                    <span style={{ fontSize: '11px', color: '#999', flexShrink: 0, paddingTop: '1px' }}>{entry.date}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.5' }}>{entry.summary}</div>
+                      {entry.tagChanges?.length > 0 ? (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {entry.tagChanges.slice(0, 5).map(tc => {
+                            const diff = tc.to - tc.from
+                            return (
+                              <span key={tc.tag} style={{
+                                fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px',
+                                background: diff > 0 ? '#F0FDF4' : '#FEF2F2',
+                                color: diff > 0 ? '#16a34a' : '#dc2626',
+                              }}>
+                                {tc.tag} {diff > 0 ? '+' : ''}{diff}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '10px', color: '#999', marginTop: '4px', fontStyle: 'italic' }}>Text only — no tag changes</div>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

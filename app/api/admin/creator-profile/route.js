@@ -40,6 +40,7 @@ export async function GET(request) {
       profileAnalysisStatus: f['Profile Analysis Status'] || 'Not Started',
       profileLastAnalyzed: f['Profile Last Analyzed'] || null,
       adminFeedback: f['Admin Feedback'] || '',
+      refinementHistory: (() => { try { return JSON.parse(f['Refinement History'] || '[]') } catch { return [] } })(),
     }
 
     // Fetch documents for this creator
