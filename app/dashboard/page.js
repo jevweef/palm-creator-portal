@@ -13,7 +13,7 @@ export default function DashboardRedirect() {
     const hqId = user?.publicMetadata?.airtableHqId
     const role = user?.publicMetadata?.role
     if (role === 'admin' || role === 'super_admin') {
-      router.replace('/admin')
+      router.replace('/admin/inspo')
       return
     }
     if (opsId && opsId !== 'undefined') {

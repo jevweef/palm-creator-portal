@@ -156,7 +156,7 @@ export default function Header() {
               </Link>
               {isAdmin && (
                 <Link
-                  href="/admin"
+                  href="/admin/inspo"
                   style={{
                     fontSize: '13px',
                     fontWeight: pathname?.startsWith('/admin') ? 600 : 400,
