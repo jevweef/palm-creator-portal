@@ -314,10 +314,18 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   title="Email Preview"
                 />
               </div>
-              <button onClick={() => { setEmailPreview(null); handleLoadPreview() }}
-                style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer', marginTop: '8px' }}>
-                ↻ Refresh preview
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+                <button onClick={() => { setEmailPreview(null); handleLoadPreview() }}
+                  style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  ↻ Refresh preview
+                </button>
+                <button onClick={() => setActiveStep(3)} style={{
+                  background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px',
+                  padding: '8px 20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                }}>
+                  Looks Good → Send
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ padding: '20px 0' }}>
