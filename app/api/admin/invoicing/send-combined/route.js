@@ -206,7 +206,7 @@ export async function POST(request) {
   }
 
   // TESTING: hardcode recipient
-  const recipient = 'josh@palm-mgmt.com'
+  const recipient = 'evan@palm-mgmt.com'
 
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
   const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
