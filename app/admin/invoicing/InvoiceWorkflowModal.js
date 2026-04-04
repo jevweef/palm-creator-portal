@@ -328,8 +328,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px', padding: '14px 16px', background: '#fafafa', borderRadius: '10px' }}>
                 {[
-                  { label: 'To', value: `evan@palm-mgmt.com (test)` },
-                  { label: 'From', value: 'evan@palm-mgmt.com' },
+                  { label: 'To', value: `evan@palm-mgmt.com, josh@palm-mgmt.com (test)` },
+                  { label: 'From', value: 'evan@palm-mgmt.com, josh@palm-mgmt.com' },
                   { label: 'Subject', value: `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
                 ].map(r => (
                   <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
@@ -386,7 +386,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div style={{ padding: '20px 0' }}>
               <div style={{ padding: '14px 16px', background: '#fafafa', borderRadius: '10px', marginBottom: '16px' }}>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '6px' }}>
-                  Sending to <strong style={{ color: '#4a4a4a' }}>evan@palm-mgmt.com</strong> (test mode)
+                  Sending to <strong style={{ color: '#4a4a4a' }}>evan@palm-mgmt.com, josh@palm-mgmt.com</strong> (test mode)
                 </div>
                 <div style={{ fontSize: '12px', color: '#999' }}>
                   {sorted.length} account{sorted.length > 1 ? 's' : ''} · Management fee: <strong style={{ color: '#E88FAC' }}>{fmt(totalCommission)}</strong>

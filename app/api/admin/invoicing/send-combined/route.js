@@ -205,8 +205,8 @@ export async function POST(request) {
     email = cr.fields?.['Communication Email'] || null
   }
 
-  // TESTING: hardcode recipient
-  const recipient = 'evan@palm-mgmt.com'
+  // TESTING: hardcode recipients
+  const recipient = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
 
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
   const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
@@ -250,7 +250,7 @@ export async function POST(request) {
     },
     body: JSON.stringify({
       from: 'Evan <evan@palm-mgmt.com>',
-      to: [recipient],
+      to: Array.isArray(recipient) ? recipient : [recipient],
       subject,
       html,
       attachments,
