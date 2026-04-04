@@ -4,7 +4,7 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchCreateRec
 const SOURCE_FIELDS = [
   'Handle', 'Platform', 'Enabled', 'Pipeline Status', 'Last Scraped At',
   'Reels Scraped', 'Too New Skipped', 'Source Reels Added', 'Follower Count',
-  'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Age Restricted', 'Added By', 'Date Added',
+  'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Age Restricted', 'Added By', 'Date Added', 'Account Status',
 ]
 
 export async function GET() {
@@ -33,6 +33,7 @@ export async function GET() {
       ageRestricted: !!r.fields?.['Age Restricted'],
       addedBy: r.fields?.['Added By'] || '',
       dateAdded: r.fields?.['Date Added'] || null,
+      accountStatus: r.fields?.['Account Status']?.name || r.fields?.['Account Status'] || 'Active',
     }))
 
     // Sort: enabled first, then by handle
@@ -68,11 +69,12 @@ export async function POST(request) {
         fields: {
           Handle: (s.handle || '').trim().toLowerCase(),
           Platform: 'Instagram',
-          Enabled: true,
+          Enabled: s.accountStatus === 'Dead' ? false : true,
           'Lookback Days': 180,
           'Added By': addedBy,
           'Date Added': new Date().toISOString().split('T')[0],
           ...(s.palmCreators?.length ? { 'Palm Creators': s.palmCreators } : {}),
+          ...(s.accountStatus ? { 'Account Status': s.accountStatus } : { 'Account Status': 'Active' }),
         },
       }))
       const created = await batchCreateRecords('Inspo Sources', records)
@@ -113,7 +115,7 @@ export async function PATCH(request) {
     }
 
     // Only allow updating specific fields
-    const allowed = ['Enabled', 'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Pipeline Status']
+    const allowed = ['Enabled', 'Lookback Days', 'Apify Limit', 'Palm Creators', 'Notes', 'Pipeline Status', 'Account Status']
     const cleanFields = {}
     for (const key of allowed) {
       if (key in fields) cleanFields[key] = fields[key]

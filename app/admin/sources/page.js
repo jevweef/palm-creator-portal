@@ -410,7 +410,7 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
   )
 }
 
-function parseHandles(text, existingHandles) {
+function parseHandles(text, existingHandles, deadHandles) {
   return text.split('\n')
     .map(line => line.trim())
     .filter(Boolean)
@@ -420,10 +420,10 @@ function parseHandles(text, existingHandles) {
       return line.replace(/^@/, '').replace(/\/$/, '').toLowerCase()
     })
     .filter((h, i, arr) => h && arr.indexOf(h) === i)
-    .map(h => ({ handle: h, creators: [], exists: existingHandles.has(h) }))
+    .map(h => ({ handle: h, creators: [], exists: existingHandles.has(h), dead: deadHandles.has(h), markedDead: false }))
 }
 
-function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles }) {
+function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, deadHandles }) {
   const [step, setStep] = useState(1)
   const [rawText, setRawText] = useState('')
   const [parsed, setParsed] = useState([])
@@ -431,10 +431,10 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles }) {
   const [saving, setSaving] = useState(false)
 
   const goToTag = () => {
-    const items = parseHandles(rawText, existingHandles)
+    const items = parseHandles(rawText, existingHandles, deadHandles)
     if (items.length === 0) return
     setParsed(items)
-    const firstNew = items.findIndex(i => !i.exists)
+    const firstNew = items.findIndex(i => !i.exists && !i.dead)
     if (firstNew === -1) { setStep(3); return }
     setCurrentIdx(firstNew)
     setStep(2)
@@ -448,26 +448,33 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles }) {
     ))
   }
 
+  const markDead = () => {
+    setParsed(prev => prev.map((item, i) => i === currentIdx ? { ...item, markedDead: true, creators: [] } : item))
+    const nextNew = parsed.findIndex((item, i) => i > currentIdx && !item.exists && !item.dead && !item.markedDead)
+    if (nextNew === -1) { setStep(3); return }
+    setCurrentIdx(nextNew)
+  }
+
   const nextHandle = () => {
-    const nextNew = parsed.findIndex((item, i) => i > currentIdx && !item.exists)
+    const nextNew = parsed.findIndex((item, i) => i > currentIdx && !item.exists && !item.dead && !item.markedDead)
     if (nextNew === -1) { setStep(3); return }
     setCurrentIdx(nextNew)
   }
 
   const submit = async () => {
-    const toCreate = parsed.filter(p => !p.exists)
-    if (toCreate.length === 0) { onClose(); return }
+    const toCreate = parsed.filter(p => !p.exists && !p.dead)
+    if (toCreate.length === 0 && deadCount === 0) { onClose(); return }
     setSaving(true)
     try {
+      const allToCreate = [
+        ...toCreate.filter(p => !p.markedDead).map(p => ({ handle: p.handle, palmCreators: p.creators })),
+        ...parsed.filter(p => p.markedDead).map(p => ({ handle: p.handle, accountStatus: 'Dead' })),
+      ]
+      if (allToCreate.length === 0) { onClose(); return }
       const res = await fetch('/api/admin/sources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sources: toCreate.map(p => ({
-            handle: p.handle,
-            palmCreators: p.creators,
-          })),
-        }),
+        body: JSON.stringify({ sources: allToCreate }),
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       onAdd()
@@ -479,7 +486,8 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles }) {
     }
   }
 
-  const newCount = parsed.filter(p => !p.exists).length
+  const newCount = parsed.filter(p => !p.exists && !p.dead).length
+  const deadCount = parsed.filter(p => p.markedDead).length
   const current = parsed[currentIdx]
 
   return (
@@ -502,11 +510,19 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles }) {
             rows={8}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.6 }}
           />
-          {rawText.trim() && (
-            <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
-              {parseHandles(rawText, existingHandles).filter(p => !p.exists).length} new · {parseHandles(rawText, existingHandles).filter(p => p.exists).length} already exist
-            </div>
-          )}
+          {rawText.trim() && (() => {
+            const preview = parseHandles(rawText, existingHandles, deadHandles)
+            const newCount = preview.filter(p => !p.exists && !p.dead).length
+            const existCount = preview.filter(p => p.exists).length
+            const deadCount = preview.filter(p => p.dead).length
+            return (
+              <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
+                {newCount} new
+                {existCount > 0 && <> · {existCount} already exist</>}
+                {deadCount > 0 && <> · <span style={{ color: '#ef4444' }}>{deadCount} dead (auto-skipped)</span></>}
+              </div>
+            )
+          })()}
           <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
             <button onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
             <button onClick={goToTag} disabled={!rawText.trim()} style={{ ...btnStyle, background: '#E88FAC', opacity: !rawText.trim() ? 0.5 : 1 }}>
@@ -566,31 +582,42 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles }) {
             </>
           )}
 
-          <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
-            <button onClick={nextHandle} style={{ ...btnStyle, background: '#E8C4CC' }}>Skip</button>
-            <button onClick={nextHandle} style={{ ...btnStyle, background: '#E88FAC' }}>
-              {parsed.filter((p, i) => i > currentIdx && !p.exists).length > 0 ? 'Next' : 'Review'}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'space-between' }}>
+            <button onClick={markDead} style={{ ...btnStyle, background: '#FEF2F2', color: '#ef4444', border: '1px solid #FECACA', fontSize: '11px' }}>
+              Dead Account
             </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={nextHandle} style={{ ...btnStyle, background: '#E8C4CC' }}>Skip</button>
+              <button onClick={nextHandle} style={{ ...btnStyle, background: '#E88FAC' }}>
+                {parsed.filter((p, i) => i > currentIdx && !p.exists && !p.dead && !p.markedDead).length > 0 ? 'Next' : 'Review'}
+              </button>
+            </div>
           </div>
         </>)}
 
         {step === 3 && (<>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
-            Add {newCount} Source{newCount !== 1 ? 's' : ''}
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+            Add {newCount - deadCount} Source{newCount - deadCount !== 1 ? 's' : ''}
+            {deadCount > 0 && <span style={{ color: '#ef4444', fontSize: '13px', fontWeight: 500 }}> + {deadCount} dead</span>}
           </h3>
+          <p style={{ fontSize: '11px', color: '#999', marginBottom: '12px' }}>
+            {deadCount > 0 && 'Dead accounts will be logged and hidden from the sources list.'}
+          </p>
           <div style={{ maxHeight: '300px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {parsed.map((item, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '8px 12px', borderRadius: '8px',
-                background: item.exists ? '#f5f5f5' : '#FFF5F7',
-                opacity: item.exists ? 0.5 : 1,
+                background: item.markedDead ? '#FEF2F2' : item.dead ? '#f5f5f5' : item.exists ? '#f5f5f5' : '#FFF5F7',
+                opacity: item.exists || item.dead ? 0.5 : 1,
               }}>
-                <span style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>
+                <span style={{ fontSize: '13px', fontWeight: 500, color: item.markedDead ? '#ef4444' : '#1a1a1a' }}>
                   @{item.handle}
                   {item.exists && <span style={{ color: '#999', fontSize: '11px', marginLeft: '8px' }}>already exists</span>}
+                  {item.dead && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>dead account</span>}
+                  {item.markedDead && <span style={{ fontSize: '11px', marginLeft: '8px' }}>will be logged as dead</span>}
                 </span>
-                {!item.exists && item.creators.length > 0 && (
+                {!item.exists && !item.dead && !item.markedDead && item.creators.length > 0 && (
                   <span style={{ fontSize: '11px', color: '#E88FAC' }}>
                     {item.creators.length} creator{item.creators.length !== 1 ? 's' : ''}
                   </span>
@@ -729,8 +756,10 @@ export default function AdminSources() {
   const toggleFilter = (filter) => {
     setActiveFilters(prev => {
       if (filter === 'all') return new Set(['all'])
+      if (filter === 'dead') return prev.has('dead') ? new Set(['all']) : new Set(['dead'])
       const next = new Set(prev)
       next.delete('all')
+      next.delete('dead')
       if (filter === 'enabled') next.delete('disabled')
       if (filter === 'disabled') next.delete('enabled')
       if (next.has(filter)) next.delete(filter)
@@ -740,23 +769,32 @@ export default function AdminSources() {
     })
   }
 
-  const filteredSources = activeFilters.has('all') ? sources : sources.filter(s => {
-    if (activeFilters.has('unscraped') && s.lastScrapedAt) return false
-    if (activeFilters.has('18+') && !s.ageRestricted) return false
-    if (activeFilters.has('enabled') && !s.enabled) return false
-    if (activeFilters.has('disabled') && s.enabled) return false
-    return true
-  })
+  // Live sources = everything except Dead
+  const liveSources = sources.filter(s => s.accountStatus !== 'Dead')
+
+  const filteredSources = activeFilters.has('dead')
+    ? sources.filter(s => s.accountStatus === 'Dead')
+    : activeFilters.has('all')
+      ? liveSources
+      : liveSources.filter(s => {
+          if (activeFilters.has('unscraped') && s.lastScrapedAt) return false
+          if (activeFilters.has('18+') && !s.ageRestricted) return false
+          if (activeFilters.has('enabled') && !s.enabled) return false
+          if (activeFilters.has('disabled') && s.enabled) return false
+          return true
+        })
 
   const filterCounts = {
-    all: sources.length,
-    unscraped: sources.filter(s => !s.lastScrapedAt).length,
-    '18+': sources.filter(s => s.ageRestricted).length,
-    enabled: sources.filter(s => s.enabled).length,
-    disabled: sources.filter(s => !s.enabled).length,
+    all: liveSources.length,
+    unscraped: liveSources.filter(s => !s.lastScrapedAt).length,
+    '18+': liveSources.filter(s => s.ageRestricted).length,
+    enabled: liveSources.filter(s => s.enabled).length,
+    disabled: liveSources.filter(s => !s.enabled).length,
+    dead: sources.filter(s => s.accountStatus === 'Dead').length,
   }
 
   const existingHandles = new Set(sources.map(s => s.handle.toLowerCase()))
+  const deadHandles = new Set(sources.filter(s => s.accountStatus === 'Dead').map(s => s.handle.toLowerCase()))
 
   const scrapeAllVisible = async () => {
     const handles = filteredSources.filter(s => s.enabled).map(s => s.handle)
@@ -798,7 +836,7 @@ export default function AdminSources() {
 
       {/* Filter pills */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {['all', 'unscraped', '18+', 'enabled', 'disabled'].map(filter => {
+        {['all', 'unscraped', '18+', 'enabled', 'disabled', 'dead'].map(filter => {
           const active = activeFilters.has(filter)
           const count = filterCounts[filter]
           if (filter !== 'all' && count === 0) return null
@@ -815,7 +853,7 @@ export default function AdminSources() {
                 transition: 'all 0.15s',
               }}
             >
-              {filter === 'all' ? 'All' : filter === 'unscraped' ? 'Unscraped' : filter === '18+' ? '18+' : filter === 'enabled' ? 'Enabled' : 'Disabled'}
+              {filter === 'all' ? 'All' : filter === 'unscraped' ? 'Unscraped' : filter === '18+' ? '18+' : filter === 'enabled' ? 'Enabled' : filter === 'disabled' ? 'Disabled' : 'Dead'}
               <span style={{ marginLeft: '4px', fontSize: '11px', opacity: 0.7 }}>({count})</span>
             </button>
           )
@@ -1008,7 +1046,7 @@ export default function AdminSources() {
         )}
       </div>
 
-      {showAdd && <BulkAddSourcesModal onClose={() => setShowAdd(false)} onAdd={fetchSources} allCreators={allCreators} existingHandles={existingHandles} />}
+      {showAdd && <BulkAddSourcesModal onClose={() => setShowAdd(false)} onAdd={fetchSources} allCreators={allCreators} existingHandles={existingHandles} deadHandles={deadHandles} />}
       {reelsSource && <ReelsModal source={reelsSource} sources={filteredSources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} />}
 
       {/* Scrape All Visible confirmation */}
