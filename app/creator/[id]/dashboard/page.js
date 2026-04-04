@@ -686,17 +686,72 @@ export default function CreatorDashboard() {
             })()}
           </Card>
 
-          {/* Growth & Stats — next to My Content */}
-          <Card>
-            <Label>Growth & Stats</Label>
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
-              <StatBox value="—" label="IG Followers" />
-              <StatBox value="—" label="TikTok Followers" />
-              <StatBox value="—" label="OF Subscribers" />
-              <StatBox value="—" label="Week-over-Week" />
-            </div>
-            <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
-          </Card>
+          {/* Content DNA preview — next to My Content */}
+          {creatorProfile ? (
+            <Card style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>&#x1F9EC;</span>
+                  <Label style={{ marginBottom: 0 }}>Your Content DNA</Label>
+                </div>
+                <button
+                  onClick={() => {
+                    setProfileOpen(true)
+                    setTimeout(() => profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                  }}
+                  style={{
+                    background: '#FFF0F3', border: 'none', borderRadius: '9999px',
+                    padding: '4px 12px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, color: '#E88FAC',
+                  }}
+                >
+                  Full Profile →
+                </button>
+              </div>
+
+              {/* Profile summary snippet */}
+              {creatorProfile.profileSummary && (
+                <div style={{
+                  fontSize: '12px', color: '#666', lineHeight: '1.6', marginBottom: '14px',
+                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>
+                  {creatorProfile.profileSummary}
+                </div>
+              )}
+
+              {/* Top tags */}
+              {(() => {
+                const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 6)
+                if (topTags.length === 0) return null
+                const maxWeight = topTags[0]?.[1] || 1
+                return (
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>Top Tags</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {topTags.map(([tag, weight]) => (
+                        <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '12px', color: '#4a4a4a', fontWeight: 500, width: '110px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
+                          <div style={{ flex: 1, height: '6px', background: '#FFF0F3', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.round((weight / maxWeight) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, #E88FAC, #D4A0B0)', borderRadius: '3px' }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </Card>
+          ) : (
+            <Card>
+              <Label>Growth & Stats</Label>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
+                <StatBox value="—" label="IG Followers" />
+                <StatBox value="—" label="TikTok Followers" />
+                <StatBox value="—" label="OF Subscribers" />
+                <StatBox value="—" label="Week-over-Week" />
+              </div>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+            </Card>
+          )}
         </div>
 
         {/* ── Collapsible bars: Content DNA + Profile ── */}
