@@ -258,24 +258,43 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                const embedUrl = rec?.pdfUrl || (rec?.dropboxLink ? rec.dropboxLink.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '') : null)
-                return embedUrl ? (
-                  <div style={{ position: 'relative' }}>
-                    <div style={{
-                      width: '100%', height: 'calc(90vh - 380px)',
-                      borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
-                    }}>
-                      <iframe
-                        src={embedUrl + '#view=FitH&toolbar=1&navpanes=0'}
-                        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                        title="Invoice PDF"
-                      />
-                    </div>
+                const embedUrl = rec?.pdfUrl || null // Airtable URL works in iframes
+                const dropboxView = rec?.dropboxLink || null // Dropbox browsable link for "open in new tab"
+                return (embedUrl || dropboxView) ? (
+                  <div>
+                    {embedUrl ? (
+                      <div style={{
+                        width: '100%', height: 'calc(90vh - 380px)',
+                        borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
+                      }}>
+                        <iframe
+                          src={embedUrl + '#view=FitH&toolbar=1&navpanes=0'}
+                          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                          title="Invoice PDF"
+                        />
+                      </div>
+                    ) : (
+                      <div style={{
+                        width: '100%', height: '200px', borderRadius: '10px', border: '1px solid #eee',
+                        background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexDirection: 'column', gap: '8px',
+                      }}>
+                        <span style={{ color: '#aaa', fontSize: '13px' }}>PDF preview loading — try refreshing the page</span>
+                        {dropboxView && (
+                          <a href={dropboxView} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: '12px', color: '#E88FAC', fontWeight: 500 }}>
+                            View on Dropbox ↗
+                          </a>
+                        )}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-                      <a href={rec.dropboxLink || embedUrl} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '11px', color: '#E88FAC' }}>
-                        Open in new tab ↗
-                      </a>
+                      {dropboxView ? (
+                        <a href={dropboxView} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '11px', color: '#E88FAC' }}>
+                          Open in new tab ↗
+                        </a>
+                      ) : <span />}
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
                           background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px',
