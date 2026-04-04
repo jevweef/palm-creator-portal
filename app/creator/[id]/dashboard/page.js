@@ -272,6 +272,7 @@ export default function CreatorDashboard() {
   const [showProfile, setShowProfile] = useState(false)
   const profileRef = useRef(null)
   const [invoiceModal, setInvoiceModal] = useState(null)
+  const [showAllInvoices, setShowAllInvoices] = useState(false)
   const [topReels, setTopReels] = useState([])
 
   useEffect(() => {
@@ -432,57 +433,82 @@ export default function CreatorDashboard() {
             {/* Invoices fills remaining space */}
             <Card style={{ flex: 1 }}>
               <Label>Invoices</Label>
-            {invoices && invoices.length > 0 ? (
-              groupInvoicesByPeriod(invoices).map((group) => {
-                const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
-                const allPaid = statuses.every(s => s === 'Paid')
-                const allSent = statuses.every(s => s === 'Sent')
-                const somePaid = statuses.some(s => s === 'Paid')
-                const someSent = statuses.some(s => s === 'Sent')
-                const now = new Date()
-                const periodEnd = group.periodEnd ? new Date(group.periodEnd + 'T23:59:59') : null
-                const isActive = periodEnd && now <= periodEnd
+            {invoices && invoices.length > 0 ? (() => {
+              const allGroups = groupInvoicesByPeriod(invoices).sort((a, b) => (b.periodEnd || '').localeCompare(a.periodEnd || ''))
+              const hasMore = allGroups.length > 3
+              const visible = hasMore ? allGroups.slice(0, 2) : allGroups
 
-                let statusLabel, statusColor, statusBg
-                if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
-                else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
-                else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
-                else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
-                else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+              return (<>
+                {visible.map((group) => {
+                  const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
+                  const allPaid = statuses.every(s => s === 'Paid')
+                  const allSent = statuses.every(s => s === 'Sent')
+                  const somePaid = statuses.some(s => s === 'Paid')
+                  const someSent = statuses.some(s => s === 'Sent')
+                  const now = new Date()
+                  const periodEnd = group.periodEnd ? new Date(group.periodEnd + 'T23:59:59') : null
+                  const isActive = periodEnd && now <= periodEnd
 
-                return (
+                  let statusLabel, statusColor, statusBg
+                  if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
+                  else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                  else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
+                  else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+
+                  return (
+                    <div
+                      key={`${group.periodStart}|${group.periodEnd}`}
+                      onClick={() => setInvoiceModal(group)}
+                      className="card-hover"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 14px', marginBottom: '6px', cursor: 'pointer',
+                        borderRadius: '12px', background: '#FAFAFA',
+                        border: '1px solid rgba(0,0,0,0.04)',
+                        transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
+                          {formatPeriod(group.periodStart, group.periodEnd)}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>
+                          {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
+                          {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
+                        {group.dueDate && !allPaid && (
+                          <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
+                        )}
+                        <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {hasMore && (
                   <div
-                    key={`${group.periodStart}|${group.periodEnd}`}
-                    onClick={() => setInvoiceModal(group)}
+                    onClick={() => setShowAllInvoices(true)}
                     className="card-hover"
                     style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '12px 14px', marginBottom: '6px', cursor: 'pointer',
-                      borderRadius: '12px', background: '#FAFAFA',
-                      border: '1px solid rgba(0,0,0,0.04)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '12px 14px', cursor: 'pointer',
+                      borderRadius: '12px', background: '#FFF0F3',
+                      border: '1px solid rgba(232,143,172,0.15)',
                       transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                      gap: '6px',
                     }}
                   >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
-                        {formatPeriod(group.periodStart, group.periodEnd)}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>
-                        {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
-                        {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
-                      {group.dueDate && !allPaid && (
-                        <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
-                      )}
-                      <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
-                    </div>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#E88FAC' }}>
+                      View All {allGroups.length} Periods
+                    </span>
+                    <span style={{ color: '#E88FAC', fontSize: '14px' }}>›</span>
                   </div>
-                )
-              })
-            ) : (
+                )}
+              </>)
+            })() : (
               <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No invoices yet</div>
             )}
             </Card>
@@ -491,6 +517,82 @@ export default function CreatorDashboard() {
 
         {/* Invoice detail modal */}
         {invoiceModal && <InvoiceModal group={invoiceModal} onClose={() => setInvoiceModal(null)} />}
+
+        {/* All Invoices modal */}
+        {showAllInvoices && invoices?.length > 0 && (
+          <div onClick={() => setShowAllInvoices(false)} style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '640px',
+              maxHeight: '85vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              display: 'flex', flexDirection: 'column',
+            }}>
+              <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>All Invoices</div>
+                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>{groupInvoicesByPeriod(invoices).length} billing periods</div>
+                </div>
+                <button onClick={() => setShowAllInvoices(false)} style={{
+                  background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+                  cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflow: 'auto', padding: '16px 28px 28px' }}>
+                {groupInvoicesByPeriod(invoices).sort((a, b) => (b.periodEnd || '').localeCompare(a.periodEnd || '')).map((group) => {
+                  const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
+                  const allPaid = statuses.every(s => s === 'Paid')
+                  const allSent = statuses.every(s => s === 'Sent')
+                  const somePaid = statuses.some(s => s === 'Paid')
+                  const someSent = statuses.some(s => s === 'Sent')
+                  const now = new Date()
+                  const periodEnd = group.periodEnd ? new Date(group.periodEnd + 'T23:59:59') : null
+                  const isActive = periodEnd && now <= periodEnd
+
+                  let statusLabel, statusColor, statusBg
+                  if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
+                  else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                  else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
+                  else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+
+                  return (
+                    <div
+                      key={`all-${group.periodStart}|${group.periodEnd}`}
+                      onClick={() => { setShowAllInvoices(false); setInvoiceModal(group) }}
+                      className="card-hover"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '14px 16px', marginBottom: '8px', cursor: 'pointer',
+                        borderRadius: '12px', background: '#FAFAFA',
+                        border: '1px solid rgba(0,0,0,0.04)',
+                        transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>
+                          {formatPeriod(group.periodStart, group.periodEnd)}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                          {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
+                          {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
+                        {group.dueDate && !allPaid && (
+                          <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
+                        )}
+                        <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── My Content + Growth & Stats ── */}
         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginTop: '12px' }}>
