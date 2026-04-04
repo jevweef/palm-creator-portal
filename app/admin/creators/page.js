@@ -550,21 +550,45 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             const changed = [...allTags].filter(t => (curTags[t] || 0) !== (propTags[t] || 0))
               .sort((a, b) => Math.abs((propTags[b] || 0) - (curTags[b] || 0)) - Math.abs((propTags[a] || 0) - (curTags[a] || 0)))
             if (changed.length === 0) return null
+            const maxDelta = Math.max(...changed.map(t => Math.abs((propTags[t] || 0) - (curTags[t] || 0))), 1)
             return (
               <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Tag Weight Changes</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Tag Weight Changes</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {changed.map(tag => {
                     const from = curTags[tag] || 0
                     const to = propTags[tag] || 0
                     const diff = to - from
+                    const barPct = Math.abs(diff) / maxDelta * 45
                     return (
-                      <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', background: diff > 0 ? '#F0FDF4' : '#FEF2F2', borderRadius: '6px' }}>
-                        <span style={{ fontSize: '12px', color: '#4a4a4a', flex: 1 }}>{tag}</span>
-                        <span style={{ fontSize: '12px', color: '#999', minWidth: '28px', textAlign: 'right' }}>{from}</span>
-                        <span style={{ fontSize: '12px', color: '#999' }}>→</span>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: diff > 0 ? '#16a34a' : '#dc2626', minWidth: '28px', textAlign: 'right' }}>{to}</span>
-                        <span style={{ fontSize: '11px', color: diff > 0 ? '#16a34a' : '#dc2626', minWidth: '36px', textAlign: 'right' }}>
+                      <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+                        {/* Tag name */}
+                        <span style={{ fontSize: '12px', color: '#4a4a4a', width: '160px', flexShrink: 0, textAlign: 'right', paddingRight: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
+                        {/* From value */}
+                        <span style={{ fontSize: '11px', color: '#999', width: '28px', textAlign: 'right', flexShrink: 0 }}>{from}</span>
+                        {/* Diverging bar */}
+                        <div style={{ flex: 1, height: '20px', position: 'relative', margin: '0 8px' }}>
+                          {/* Center line */}
+                          <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: '#ddd' }} />
+                          {/* Bar */}
+                          {diff > 0 ? (
+                            <div style={{
+                              position: 'absolute', left: '50%', top: '3px', height: '14px',
+                              width: `${barPct}%`, background: '#22c55e', borderRadius: '0 4px 4px 0',
+                              transition: 'width 0.3s ease',
+                            }} />
+                          ) : (
+                            <div style={{
+                              position: 'absolute', right: '50%', top: '3px', height: '14px',
+                              width: `${barPct}%`, background: '#ef4444', borderRadius: '4px 0 0 4px',
+                              transition: 'width 0.3s ease',
+                            }} />
+                          )}
+                        </div>
+                        {/* To value */}
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: diff > 0 ? '#16a34a' : '#dc2626', width: '28px', textAlign: 'left', flexShrink: 0 }}>{to}</span>
+                        {/* Delta */}
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: diff > 0 ? '#16a34a' : '#dc2626', width: '36px', textAlign: 'right', flexShrink: 0 }}>
                           {diff > 0 ? '+' : ''}{diff}
                         </span>
                       </div>
