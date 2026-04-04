@@ -294,13 +294,13 @@ export default function CreatorDashboard() {
       })
       .catch((err) => { console.error(err); setLoading(false) })
 
-    // Fetch trending reels (non-blocking, cached 5min on server)
+    // Fetch viral reels (non-blocking, cached 5min on server)
     fetch('/api/inspiration')
       .then(r => r.json())
       .then(data => {
         const sorted = (data.records || [])
           .filter(r => r.thumbnail)
-          .sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0))
+          .sort((a, b) => (b.views || 0) - (a.views || 0))
         setTopReels(sorted.slice(0, 6))
       })
       .catch(() => {})
@@ -378,12 +378,12 @@ export default function CreatorDashboard() {
                 ))}
               </div>
             </div>
-            {/* Trending strip — pulls top reels */}
+            {/* Viral strip — highest view reels */}
             {topReels.length > 0 && (
               <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', padding: '12px 20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Trending Reels</span>
-                  <a href={`${inspoPath}?sort=top`} style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Viral Right Now</span>
+                  <a href={`${inspoPath}?sort=viral`} style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
                   {topReels.slice(0, 6).map(r => (
