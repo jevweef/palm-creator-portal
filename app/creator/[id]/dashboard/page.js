@@ -273,6 +273,7 @@ export default function CreatorDashboard() {
   const profileRef = useRef(null)
   const [invoiceModal, setInvoiceModal] = useState(null)
   const [showAllInvoices, setShowAllInvoices] = useState(false)
+  const [showAllTags, setShowAllTags] = useState(false)
   const [topReels, setTopReels] = useState([])
 
   useEffect(() => {
@@ -807,14 +808,35 @@ export default function CreatorDashboard() {
                         </>
                       )}
                     </div>
-                    <div style={{ padding: '20px 24px', borderLeft: '1px solid rgba(0,0,0,0.04)' }}>
-                      <Label>Your Top Tags</Label>
+                    <div style={{ padding: '20px 24px', borderLeft: '1px solid rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <Label style={{ marginBottom: 0 }}>Your Tags</Label>
+                        {(() => {
+                          const allTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0)
+                          if (allTags.length > 10) return (
+                            <button
+                              onClick={() => setShowAllTags(!showAllTags)}
+                              style={{
+                                background: '#FFF0F3', border: 'none', borderRadius: '9999px',
+                                padding: '3px 10px', cursor: 'pointer', fontSize: '10px', fontWeight: 600, color: '#E88FAC',
+                              }}
+                            >
+                              {showAllTags ? 'Top 10' : `All ${allTags.length} Tags`}
+                            </button>
+                          )
+                          return null
+                        })()}
+                      </div>
                       {(() => {
-                        const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 10)
-                        if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
+                        const allTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a)
+                        const visibleTags = showAllTags ? allTags : allTags.slice(0, 10)
+                        if (allTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
                         return (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {topTags.map(([tag, weight]) => (
+                          <div style={{
+                            display: 'flex', flexDirection: 'column', gap: '6px', flex: 1,
+                            ...(showAllTags ? { maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' } : {}),
+                          }}>
+                            {visibleTags.map(([tag, weight]) => (
                               <div key={tag}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                                   <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
