@@ -428,6 +428,18 @@ export default function CreatorDashboard() {
               )}
               <ActionCard href={vaultPath} icon="🔐" title="OF Vault Upload" subtitle="OnlyFans" />
             </div>
+
+            {/* Profile card fills remaining space */}
+            <Card style={{ flex: 1 }}>
+              <Label>Profile</Label>
+              <Row label="Stage Name" value={p.aka} />
+              {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
+              {p.onlyfansUrl && <Row label="OnlyFans" value="View Page" href={p.onlyfansUrl} />}
+              <Row label="Commission" value={fmtPct(p.commission)} />
+              <Row label="Start Date" value={fmtDate(p.managementStartDate)} />
+              {p.telegram && <Row label="Telegram" value={p.telegram} />}
+              {p.contractUrl && <Row label="Contract" value="View" href={p.contractUrl} />}
+            </Card>
           </div>
         </div>
 
