@@ -522,6 +522,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
 function UnreviewedLibrary({ showToast }) {
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedCreator, setSelectedCreator] = useState('all')
 
   const fetchAssets = useCallback(async () => {
     setLoading(true)
@@ -539,6 +540,15 @@ function UnreviewedLibrary({ showToast }) {
 
   useEffect(() => { fetchAssets() }, [fetchAssets])
 
+  // Build creator list from assets
+  const creators = [...new Map(
+    assets.filter(a => a.creator?.id).map(a => [a.creator.id, a.creator.name])
+  )].sort((a, b) => a[1].localeCompare(b[1]))
+
+  const filtered = selectedCreator === 'all'
+    ? assets
+    : assets.filter(a => a.creator?.id === selectedCreator)
+
   if (loading) {
     return <div style={{ color: '#555', fontSize: '14px', padding: '40px 0' }}>Loading library...</div>
   }
@@ -546,10 +556,27 @@ function UnreviewedLibrary({ showToast }) {
   return (
     <div>
       {/* Controls row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <p style={{ fontSize: '13px', color: '#999', margin: 0 }}>
-          {assets.length} {assets.length === 1 ? 'clip' : 'clips'} waiting to be matched to inspo
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <select
+            value={selectedCreator}
+            onChange={e => setSelectedCreator(e.target.value)}
+            style={{
+              padding: '6px 12px', fontSize: '13px', fontWeight: 500,
+              background: '#FFF5F7', color: '#1a1a1a', border: '1px solid #E8C4CC',
+              borderRadius: '6px', cursor: 'pointer', outline: 'none',
+            }}
+          >
+            <option value="all">All Creators ({assets.length})</option>
+            {creators.map(([id, name]) => {
+              const count = assets.filter(a => a.creator?.id === id).length
+              return <option key={id} value={id}>{name} ({count})</option>
+            })}
+          </select>
+          <span style={{ fontSize: '13px', color: '#999' }}>
+            {filtered.length} {filtered.length === 1 ? 'clip' : 'clips'}
+          </span>
+        </div>
         <button
           onClick={fetchAssets}
           style={{
@@ -562,13 +589,13 @@ function UnreviewedLibrary({ showToast }) {
         </button>
       </div>
 
-      {assets.length === 0 ? (
+      {filtered.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          No unreviewed clips in library.
+          {selectedCreator === 'all' ? 'No unreviewed clips in library.' : 'No clips for this creator.'}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 380px))', gap: '16px' }}>
-          {assets.map(asset => (
+          {filtered.map(asset => (
             <UnreviewedCard key={asset.id} asset={asset} />
           ))}
         </div>
