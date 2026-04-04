@@ -491,6 +491,35 @@ function CreatorDetail({ creator, onProfileUpdated }) {
         </div>
       )}
 
+      {/* Admin Feedback + Refine — above tabs */}
+      {!refinePreview && (status === 'Analyzed' || status === 'Reanalyze') && (
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '20px' }}>
+          <textarea
+            value={feedback}
+            onChange={e => setFeedback(e.target.value)}
+            placeholder="e.g. she's more bratty than sweet, tone down Girl Next Door, bump up Soft Tease"
+            rows={2}
+            style={{
+              flex: 1, background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '8px',
+              padding: '10px 12px', color: '#1a1a1a', fontSize: '13px', lineHeight: '1.5',
+              resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit',
+            }}
+          />
+          <button
+            onClick={runRefine}
+            disabled={refining || !feedback.trim()}
+            style={{
+              background: refining ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
+              borderRadius: '8px', padding: '10px 16px', fontSize: '12px', fontWeight: 600,
+              cursor: refining || !feedback.trim() ? 'not-allowed' : 'pointer',
+              opacity: !feedback.trim() ? 0.5 : 1, flexShrink: 0, alignSelf: 'stretch',
+            }}
+          >
+            {refining ? 'Refining...' : 'Refine'}
+          </button>
+        </div>
+      )}
+
       {/* Refine Preview */}
       {refinePreview && (
         <div style={{ marginBottom: '20px' }}>
@@ -610,7 +639,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 
       {/* Tabs — hidden during refine preview */}
       {!refinePreview && <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
-        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights']].map(([key, label]) => (
+        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400,
@@ -658,79 +687,6 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             </div>
           )}
 
-          {/* Refinement History */}
-          {c.refinementHistory?.length > 0 && (
-            <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '20px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Adjustments</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[...c.refinementHistory].reverse().map((entry, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'flex-start', gap: '12px',
-                    padding: '10px 14px', background: '#ffffff', borderRadius: '8px',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                  }}>
-                    <span style={{ fontSize: '11px', color: '#999', flexShrink: 0, paddingTop: '1px' }}>{entry.date}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.5' }}>{entry.summary}</div>
-                      {entry.tagChanges?.length > 0 ? (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                          {entry.tagChanges.slice(0, 5).map(tc => {
-                            const diff = tc.to - tc.from
-                            return (
-                              <span key={tc.tag} style={{
-                                fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px',
-                                background: diff > 0 ? '#F0FDF4' : '#FEF2F2',
-                                color: diff > 0 ? '#16a34a' : '#dc2626',
-                              }}>
-                                {tc.tag} {diff > 0 ? '+' : ''}{diff}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: '10px', color: '#999', marginTop: '4px', fontStyle: 'italic' }}>Text only — no tag changes</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Admin Feedback + Refine */}
-          {(status === 'Analyzed' || status === 'Reanalyze') && (
-            <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '20px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Admin Feedback</div>
-              <textarea
-                value={feedback}
-                onChange={e => setFeedback(e.target.value)}
-                placeholder="e.g. she's more bratty than sweet, tone down Girl Next Door, bump up Soft Tease"
-                rows={3}
-                style={{
-                  width: '100%', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '8px',
-                  padding: '10px 12px', color: '#1a1a1a', fontSize: '13px', lineHeight: '1.5',
-                  resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit',
-                }}
-              />
-              <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'center' }}>
-                <button
-                  onClick={runRefine}
-                  disabled={refining || !feedback.trim()}
-                  style={{
-                    background: refining ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
-                    borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
-                    cursor: refining || !feedback.trim() ? 'not-allowed' : 'pointer',
-                    opacity: !feedback.trim() ? 0.5 : 1,
-                  }}
-                >
-                  {refining ? 'Refining...' : 'Refine'}
-                </button>
-                <span style={{ fontSize: '11px', color: '#999' }}>
-                  Adjusts the current profile based on your feedback — does not re-process documents.
-                </span>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -760,6 +716,48 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       {/* Tag weights tab */}
       {!refinePreview && activeTab === 'tags' && (
         <TagWeightPanel tagWeights={tagWeights} />
+      )}
+
+      {/* Adjustments tab */}
+      {!refinePreview && activeTab === 'adjustments' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {(c.refinementHistory || []).length === 0 ? (
+            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
+              No adjustments yet. Use the Refine field above to make targeted changes.
+            </div>
+          ) : (
+            [...c.refinementHistory].reverse().map((entry, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '12px',
+                padding: '10px 14px', background: '#ffffff', borderRadius: '8px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+              }}>
+                <span style={{ fontSize: '11px', color: '#999', flexShrink: 0, paddingTop: '1px' }}>{entry.date}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.5' }}>{entry.summary}</div>
+                  {entry.tagChanges?.length > 0 ? (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {entry.tagChanges.slice(0, 5).map(tc => {
+                        const diff = tc.to - tc.from
+                        return (
+                          <span key={tc.tag} style={{
+                            fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px',
+                            background: diff > 0 ? '#F0FDF4' : '#FEF2F2',
+                            color: diff > 0 ? '#16a34a' : '#dc2626',
+                          }}>
+                            {tc.tag} {diff > 0 ? '+' : ''}{diff}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '10px', color: '#999', marginTop: '4px', fontStyle: 'italic' }}>Text only — no tag changes</div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       )}
 
       {showUpload && (
