@@ -93,8 +93,17 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
         })
         const data = await res.json()
         if (data.ok) {
+          // Re-fetch record to get the Airtable attachment URL
+          let freshPdfUrl = null
+          try {
+            const refetch = await fetch(`/api/admin/invoicing`)
+            const refetchData = await refetch.json()
+            const freshRec = refetchData.records?.find(r => r.id === targets[i].id)
+            if (freshRec?.pdfUrl) freshPdfUrl = freshRec.pdfUrl
+          } catch (_) {}
           onRecordsUpdate(prev => prev.map(r => r.id === targets[i].id ? {
             ...r, hasPdf: true, dropboxLink: data.dropboxLink,
+            pdfUrl: freshPdfUrl || r.pdfUrl,
             invoiceNumber: data.invoiceNumber ? Number(data.invoiceNumber) : r.invoiceNumber,
             generatedAt: data.generatedAt || new Date().toISOString(),
           } : r))
@@ -229,7 +238,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                const embedUrl = rec?.pdfUrl || (rec?.dropboxLink ? rec.dropboxLink.replace('?dl=0', '?raw=1') : null)
+                const embedUrl = rec?.pdfUrl || (rec?.dropboxLink ? rec.dropboxLink.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '') : null)
                 return embedUrl ? (
                   <div>
                     <iframe
