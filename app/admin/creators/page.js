@@ -421,7 +421,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400,
-              color: activeTab === key ? '#fff' : '#999', background: 'none', border: 'none',
+              color: activeTab === key ? '#1a1a1a' : '#999', background: 'none', border: 'none',
               borderBottom: activeTab === key ? '2px solid #E88FAC' : '2px solid transparent',
               cursor: 'pointer', marginBottom: '-1px',
             }}>
