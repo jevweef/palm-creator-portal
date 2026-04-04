@@ -308,7 +308,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
       const res = await fetch(`/api/admin/creator-profile?creatorId=${creator.id}`)
       const data = await res.json()
       setProfile(data)
-      if (data?.creator?.adminFeedback) setFeedback(data.creator.adminFeedback)
+      setFeedback('')
     } catch (e) {
       console.error(e)
     } finally {
