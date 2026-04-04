@@ -38,6 +38,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
   const [generating, setGenerating] = useState(false)
   const [genProgress, setGenProgress] = useState({ done: 0, total: 0 })
   const [pdfTab, setPdfTab] = useState(0)
+  const [pdfApproved, setPdfApproved] = useState(false)
   const [emailPreview, setEmailPreview] = useState(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [sending, setSending] = useState(false)
@@ -66,7 +67,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
   const stepStatus = (i) => {
     switch (i) {
       case 0: return allHavePdfs ? 'complete' : 'ready'
-      case 1: return allHavePdfs ? 'ready' : 'locked'
+      case 1: return pdfApproved ? 'complete' : allHavePdfs ? 'ready' : 'locked'
       case 2: return allHavePdfs ? 'ready' : 'locked'
       case 3: return allSent ? 'complete' : allHavePdfs ? 'ready' : 'locked'
       case 4: return allPaid ? 'complete' : 'ready'
@@ -228,18 +229,34 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                const embedUrl = rec?.pdfUrl || (rec?.dropboxLink ? rec.dropboxLink.replace('www.dropbox.com', 'www.dropbox.com').replace('?dl=0', '?raw=1') : null)
+                const embedUrl = rec?.pdfUrl || (rec?.dropboxLink ? rec.dropboxLink.replace('?dl=0', '?raw=1') : null)
                 return embedUrl ? (
                   <div>
                     <iframe
                       src={embedUrl + '#view=FitH&toolbar=0&navpanes=0&scrollbar=0'}
-                      style={{ width: '100%', height: 'calc(90vh - 240px)', border: '1px solid #eee', borderRadius: '10px' }}
+                      style={{ width: '100%', height: 'calc(90vh - 320px)', border: '1px solid #eee', borderRadius: '10px' }}
                       title="Invoice PDF"
                     />
-                    <a href={rec.dropboxLink || embedUrl} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: '11px', color: '#E88FAC', marginTop: '8px', display: 'inline-block' }}>
-                      Open in new tab ↗
-                    </a>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+                      <a href={rec.dropboxLink || embedUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '11px', color: '#E88FAC' }}>
+                        Open in new tab ↗
+                      </a>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
+                          background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px',
+                          padding: '8px 16px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                        }}>
+                          Needs Fix → Re-generate
+                        </button>
+                        <button onClick={() => { setPdfApproved(true); setActiveStep(2); handleLoadPreview() }} style={{
+                          background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px',
+                          padding: '8px 20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                        }}>
+                          Approve PDF →
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div style={{ color: '#999', fontSize: '13px' }}>No PDF link available for this account.</div>

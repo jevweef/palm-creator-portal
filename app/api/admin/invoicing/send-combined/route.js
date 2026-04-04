@@ -19,6 +19,64 @@ function fmtMoney(n) {
   return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices }) {
+  const accountRows = invoices.map(inv =>
+    `<tr>
+      <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;">${inv.accountName}</td>
+      <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;text-align:right;">${fmtMoney(inv.earnings)}</td>
+      <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;text-align:right;">${fmtMoney(inv.totalCommission)}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;text-align:center;">
+        ${inv.dropboxLink ? `<a href="${inv.dropboxLink}" style="color:#E88FAC;font-size:13px;font-weight:600;text-decoration:none;">View PDF</a>` : '—'}
+      </td>
+    </tr>`
+  ).join('')
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 24px rgba(0,0,0,0.06);">
+    <div style="background:linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 100%);padding:32px 40px;">
+      <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.5px;">Palm Management</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:4px;">${fmtDate(periodStart)} – ${fmtDate(periodEnd)}</div>
+    </div>
+    <div style="padding:36px 40px;">
+      <p style="font-size:17px;color:#111;margin:0 0 8px;font-weight:600;">Hey ${aka},</p>
+      <p style="font-size:15px;color:#555;margin:0 0 28px;line-height:1.6;">
+        Great work this period! Your accounts continue to perform and we're excited about the momentum.
+        Here's your invoice breakdown for the latest pay period.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
+        <thead>
+          <tr style="background:#fafafa;">
+            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:left;font-weight:600;">Account</th>
+            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:right;font-weight:600;">Revenue</th>
+            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:right;font-weight:600;">Mgmt Fee</th>
+            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:center;font-weight:600;">Invoice</th>
+          </tr>
+        </thead>
+        <tbody>${accountRows}</tbody>
+      </table>
+      <div style="background:#FFF8FA;border-radius:12px;padding:20px 24px;margin:0 0 28px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px;">Management Fee Due</div>
+        <div style="font-size:28px;font-weight:800;color:#E88FAC;letter-spacing:-0.5px;">${fmtMoney(totalCommission)}</div>
+      </div>
+      <p style="font-size:15px;color:#555;margin:0 0 8px;line-height:1.6;">
+        If you could send payment via <strong>Zelle</strong> by <strong>${fmtDate(dueDate)}</strong>, that would be great.
+        Payment details are on each invoice PDF above.
+      </p>
+      <p style="font-size:13px;color:#999;margin:24px 0 0;">
+        Questions about your invoice? Just reply to this email and we'll sort it out.
+      </p>
+    </div>
+    <div style="padding:20px 40px;border-top:1px solid #f0f0f0;background:#fafafa;">
+      <div style="font-size:12px;color:#bbb;">Palm Digital Management LLC</div>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
 // GET — preflight: gather all invoice data for a creator's period
 export async function GET(request) {
   try { await requireAdmin() } catch (e) { return e }
@@ -74,6 +132,8 @@ export async function GET(request) {
     email = cr.fields?.['Communication Email'] || null
   }
 
+  const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
+
   return Response.json({
     email,
     creatorName,
@@ -84,6 +144,7 @@ export async function GET(request) {
     totalCommission,
     totalEarnings,
     allHavePdfs,
+    html,
     invoices: invoices.map(inv => ({
       id: inv.id,
       accountName: inv.accountName,
@@ -148,79 +209,7 @@ export async function POST(request) {
   const recipient = 'josh@palm-mgmt.com'
 
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
-
-  // Build account rows for email
-  const accountRows = invoices.map(inv =>
-    `<tr>
-      <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;">${inv.accountName}</td>
-      <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;text-align:right;">${fmtMoney(inv.earnings)}</td>
-      <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;text-align:right;">${fmtMoney(inv.totalCommission)}</td>
-      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;text-align:center;">
-        ${inv.dropboxLink ? `<a href="${inv.dropboxLink}" style="color:#E88FAC;font-size:13px;font-weight:600;text-decoration:none;">View PDF</a>` : '—'}
-      </td>
-    </tr>`
-  ).join('')
-
-  const html = `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 24px rgba(0,0,0,0.06);">
-
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 100%);padding:32px 40px;">
-      <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.5px;">Palm Management</div>
-      <div style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:4px;">${fmtDate(periodStart)} – ${fmtDate(periodEnd)}</div>
-    </div>
-
-    <!-- Body -->
-    <div style="padding:36px 40px;">
-      <p style="font-size:17px;color:#111;margin:0 0 8px;font-weight:600;">Hey ${aka},</p>
-      <p style="font-size:15px;color:#555;margin:0 0 28px;line-height:1.6;">
-        Great work this period! Your accounts continue to perform and we're excited about the momentum.
-        Here's your invoice breakdown for the latest pay period.
-      </p>
-
-      <!-- Account breakdown table -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
-        <thead>
-          <tr style="background:#fafafa;">
-            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:left;font-weight:600;">Account</th>
-            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:right;font-weight:600;">Revenue</th>
-            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:right;font-weight:600;">Mgmt Fee</th>
-            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:center;font-weight:600;">Invoice</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${accountRows}
-        </tbody>
-      </table>
-
-      <!-- Total due -->
-      <div style="background:#FFF8FA;border-radius:12px;padding:20px 24px;margin:0 0 28px;display:flex;">
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px;">Management Fee Due</div>
-          <div style="font-size:28px;font-weight:800;color:#E88FAC;letter-spacing:-0.5px;">${fmtMoney(totalCommission)}</div>
-        </div>
-      </div>
-
-      <!-- Payment CTA -->
-      <p style="font-size:15px;color:#555;margin:0 0 8px;line-height:1.6;">
-        If you could send payment via <strong>Zelle</strong> by <strong>${fmtDate(dueDate)}</strong>, that would be great.
-        Payment details are on each invoice PDF above.
-      </p>
-      <p style="font-size:13px;color:#999;margin:24px 0 0;">
-        Questions about your invoice? Just reply to this email and we'll sort it out.
-      </p>
-    </div>
-
-    <!-- Footer -->
-    <div style="padding:20px 40px;border-top:1px solid #f0f0f0;background:#fafafa;">
-      <div style="font-size:12px;color:#bbb;">Palm Digital Management LLC</div>
-    </div>
-  </div>
-</body>
-</html>`
+  const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
 
   // Send via Resend if configured, otherwise return for manual
   if (!process.env.RESEND_API_KEY) {
