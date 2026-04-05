@@ -18,6 +18,7 @@ export default function AdminOnboarding() {
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   const fetchCreators = useCallback(async () => {
     try {
@@ -85,11 +86,15 @@ export default function AdminOnboarding() {
     await handleResend(creator.id)
   }
 
-  const filtered = filter === 'all'
-    ? creators
-    : filter === 'No Status'
-      ? creators.filter(c => !c.onboardingStatus)
-      : creators.filter(c => c.onboardingStatus === filter)
+  const filtered = creators.filter(c => {
+    const obMatch = filter === 'all' ? true
+      : filter === 'No Status' ? !c.onboardingStatus
+      : c.onboardingStatus === filter
+    const stMatch = statusFilter === 'all' ? true
+      : statusFilter === 'No Status' ? !c.status
+      : c.status === statusFilter
+    return obMatch && stMatch
+  })
 
   return (
     <div>
@@ -133,26 +138,52 @@ export default function AdminOnboarding() {
       )}
 
       {/* Filter pills */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        {['all', 'No Status', 'Not Started', 'Link Sent', 'In Progress', 'Completed'].map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '20px',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: filter === f ? 600 : 400,
-              background: filter === f ? '#E88FAC' : '#fff',
-              color: filter === f ? '#fff' : '#666',
-              cursor: 'pointer',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-            }}
-          >
-            {f === 'all' ? 'All' : f}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
+          {['all', 'Lead', 'Onboarding', 'Active', 'Offboarded'].map(f => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '20px',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: statusFilter === f ? 600 : 400,
+                background: statusFilter === f ? '#E88FAC' : '#fff',
+                color: statusFilter === f ? '#fff' : '#666',
+                cursor: 'pointer',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              }}
+            >
+              {f === 'all' ? 'All' : f}
+            </button>
+          ))}
+        </div>
+        <div style={{ width: '1px', height: '20px', background: '#e0e0e0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Onboarding</span>
+          {['all', 'Not Started', 'Link Sent', 'In Progress', 'Completed'].map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '20px',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: filter === f ? 600 : 400,
+                background: filter === f ? '#E88FAC' : '#fff',
+                color: filter === f ? '#fff' : '#666',
+                cursor: 'pointer',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              }}
+            >
+              {f === 'all' ? 'All' : f}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Creators table */}
@@ -171,6 +202,7 @@ export default function AdminOnboarding() {
                 <th style={thStyle}>Creator</th>
                 <th style={thStyle}>Email</th>
                 <th style={thStyle}>Status</th>
+                <th style={thStyle}>Onboarding</th>
                 <th style={thStyle}>Link Sent</th>
                 <th style={thStyle}>Actions</th>
               </tr>
@@ -178,7 +210,7 @@ export default function AdminOnboarding() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                  <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
                     No creators found.
                   </td>
                 </tr>
@@ -191,6 +223,27 @@ export default function AdminOnboarding() {
                     </td>
                     <td style={tdStyle}>
                       <span style={{ fontSize: '13px', color: '#666' }}>{c.email || '—'}</span>
+                    </td>
+                    <td style={tdStyle}>
+                      {c.status ? (
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          ...({
+                            'Lead': { bg: '#FCE4EC', color: '#E88FAC' },
+                            'Onboarding': { bg: '#FFF8E1', color: '#F9A825' },
+                            'Active': { bg: '#E8F5E9', color: '#43A047' },
+                            'Offboarded': { bg: '#FFF3E0', color: '#EF6C00' },
+                          }[c.status] || { bg: '#f5f5f5', color: '#999' }),
+                        }}>
+                          {c.status}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: '#ccc' }}>—</span>
+                      )}
                     </td>
                     <td style={tdStyle}>
                       {c.onboardingStatus ? (
