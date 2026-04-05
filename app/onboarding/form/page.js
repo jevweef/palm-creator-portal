@@ -5,6 +5,8 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import OnboardingProgress from '@/components/onboarding/OnboardingProgress'
 import StepBasicInfo from '@/components/onboarding/StepBasicInfo'
+import StepSurvey from '@/components/onboarding/StepSurvey'
+import StepVoiceMemo from '@/components/onboarding/StepVoiceMemo'
 
 export default function OnboardingForm() {
   const { user, isLoaded } = useUser()
@@ -28,6 +30,11 @@ export default function OnboardingForm() {
       .then(data => {
         if (data.profile) {
           setProfileData(data.profile)
+          // If onboarding status is In Progress, check what steps are done
+          if (data.profile.onboardingStatus === 'In Progress' && data.profile.name) {
+            setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
+            setCurrentStep('survey')
+          }
         }
         setLoading(false)
       })
@@ -37,7 +44,6 @@ export default function OnboardingForm() {
   // Redirect if not linked
   useEffect(() => {
     if (isLoaded && !hqId) {
-      // User signed up but webhook hasn't matched yet — show a message
       setLoading(false)
     }
   }, [isLoaded, hqId])
@@ -60,6 +66,21 @@ export default function OnboardingForm() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSurveyComplete = () => {
+    setCompletedSteps(prev => [...new Set([...prev, 'survey'])])
+    setCurrentStep('contract')
+  }
+
+  const handleVoiceMemoComplete = () => {
+    setCompletedSteps(prev => [...new Set([...prev, 'voice-memo'])])
+    setCurrentStep('review')
+  }
+
+  const goToStep = (step) => {
+    setCurrentStep(step)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   if (!isLoaded || loading) {
@@ -151,10 +172,10 @@ export default function OnboardingForm() {
         <OnboardingProgress currentStep={currentStep} completedSteps={completedSteps} />
 
         <div style={{
-          background: '#fff',
+          background: currentStep === 'survey' ? 'transparent' : '#fff',
           borderRadius: '16px',
-          padding: '28px',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          padding: currentStep === 'survey' ? '0' : '28px',
+          boxShadow: currentStep === 'survey' ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
         }}>
           {currentStep === 'basic-info' && (
             <StepBasicInfo
@@ -163,9 +184,17 @@ export default function OnboardingForm() {
               saving={saving}
             />
           )}
-          {currentStep === 'survey' && renderComingSoon('Survey')}
+          {currentStep === 'survey' && (
+            <StepSurvey
+              hqId={hqId}
+              opsId={opsId}
+              onComplete={handleSurveyComplete}
+            />
+          )}
           {currentStep === 'contract' && renderComingSoon('Contract')}
-          {currentStep === 'voice-memo' && renderComingSoon('Voice Memo')}
+          {currentStep === 'voice-memo' && (
+            <StepVoiceMemo onComplete={handleVoiceMemoComplete} />
+          )}
           {currentStep === 'review' && renderComingSoon('Review & Submit')}
         </div>
 
@@ -173,19 +202,18 @@ export default function OnboardingForm() {
         {completedSteps.length > 0 && (
           <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {completedSteps.includes('basic-info') && currentStep !== 'basic-info' && (
-              <button
-                onClick={() => setCurrentStep('basic-info')}
-                style={{
-                  padding: '6px 14px',
-                  background: '#fff',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  color: '#666',
-                  cursor: 'pointer',
-                }}
-              >
-                ← Edit Basic Info
+              <button onClick={() => goToStep('basic-info')} style={navBtnStyle}>
+                ← Basic Info
+              </button>
+            )}
+            {completedSteps.includes('survey') && currentStep !== 'survey' && (
+              <button onClick={() => goToStep('survey')} style={navBtnStyle}>
+                ← Survey
+              </button>
+            )}
+            {completedSteps.includes('voice-memo') && currentStep !== 'voice-memo' && (
+              <button onClick={() => goToStep('voice-memo')} style={navBtnStyle}>
+                ← Voice Memo
               </button>
             )}
           </div>
@@ -193,4 +221,14 @@ export default function OnboardingForm() {
       </div>
     </div>
   )
+}
+
+const navBtnStyle = {
+  padding: '6px 14px',
+  background: '#fff',
+  border: '1px solid #e0e0e0',
+  borderRadius: '6px',
+  fontSize: '12px',
+  color: '#666',
+  cursor: 'pointer',
 }
