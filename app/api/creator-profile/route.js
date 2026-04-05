@@ -72,6 +72,12 @@ export async function GET(request) {
       communicationEmail: c['Communication Email'] || '',
       ofEmail: c['OF Email'] || '',
       onboardingStatus: c['Onboarding Status'] || null,
+      timeZone: c['Time Zone'] || '',
+      address: c['Address'] || '',
+      communication: c['Communication'] || [],
+      ofPassword: c['OF Password'] ? '********' : '',
+      secondOfEmail: c['2nd OF Email'] || '',
+      secondOfPassword: c['2nd OF Password'] ? '********' : '',
     }
 
     // Parse onboarding (Dropbox links)

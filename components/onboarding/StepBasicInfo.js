@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const inputStyle = {
   width: '100%',
@@ -21,17 +21,60 @@ const labelStyle = {
   marginBottom: '6px',
 }
 
+const TIMEZONES = [
+  { value: '', label: 'Select your time zone' },
+  { value: 'EST', label: 'Eastern (EST)' },
+  { value: 'CST', label: 'Central (CST)' },
+  { value: 'MST', label: 'Mountain (MST)' },
+  { value: 'PST', label: 'Pacific (PST)' },
+  { value: 'HST', label: 'Hawaii (HST)' },
+  { value: 'Other', label: 'Other' },
+]
+
+const COMM_OPTIONS = ['iMessage', 'WhatsApp', 'Telegram', 'Email', 'Instagram DM']
+
 export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
   const [form, setForm] = useState({
-    name: initialData.name || '',
-    stageName: initialData.stageName || '',
-    birthday: initialData.birthday || '',
-    location: initialData.location || '',
-    igAccount: initialData.igAccount || '',
+    name: '',
+    stageName: '',
+    birthday: '',
+    location: '',
+    igAccount: '',
+    timeZone: '',
+    address: '',
+    communication: [],
+    telegram: '',
   })
+
+  // Sync initialData when it changes (fixes persistence on navigate back)
+  useEffect(() => {
+    if (initialData && Object.keys(initialData).length > 0) {
+      setForm(prev => ({
+        ...prev,
+        name: initialData.name || prev.name,
+        stageName: initialData.stageName || prev.stageName,
+        birthday: initialData.birthday || prev.birthday,
+        location: initialData.location || prev.location,
+        igAccount: initialData.igAccount || prev.igAccount,
+        timeZone: initialData.timeZone || prev.timeZone,
+        address: initialData.address || prev.address,
+        communication: initialData.communication || prev.communication,
+        telegram: initialData.telegram || prev.telegram,
+      }))
+    }
+  }, [initialData])
 
   const update = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const toggleComm = (opt) => {
+    setForm(prev => ({
+      ...prev,
+      communication: prev.communication.includes(opt)
+        ? prev.communication.filter(c => c !== opt)
+        : [...prev.communication, opt],
+    }))
   }
 
   const handleSubmit = (e) => {
@@ -95,6 +138,30 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
         </div>
 
         <div>
+          <label style={labelStyle}>Mailing Address</label>
+          <input
+            type="text"
+            value={form.address}
+            onChange={e => update('address', e.target.value)}
+            placeholder="Full mailing address (for contracts & shipping)"
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Time Zone</label>
+          <select
+            value={form.timeZone}
+            onChange={e => update('timeZone', e.target.value)}
+            style={{ ...inputStyle, cursor: 'pointer' }}
+          >
+            {TIMEZONES.map(tz => (
+              <option key={tz.value} value={tz.value}>{tz.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label style={labelStyle}>Instagram Handle</label>
           <input
             type="text"
@@ -103,6 +170,43 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
             placeholder="@yourhandle or full URL"
             style={inputStyle}
           />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Telegram</label>
+          <input
+            type="text"
+            value={form.telegram}
+            onChange={e => update('telegram', e.target.value)}
+            placeholder="Your Telegram handle or phone number"
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Preferred Communication Methods</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
+            {COMM_OPTIONS.map(opt => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => toggleComm(opt)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  fontSize: '12px',
+                  fontWeight: form.communication.includes(opt) ? 600 : 400,
+                  background: form.communication.includes(opt) ? '#E88FAC' : '#f5f5f5',
+                  color: form.communication.includes(opt) ? '#fff' : '#666',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

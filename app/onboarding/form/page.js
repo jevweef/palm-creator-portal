@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import OnboardingProgress from '@/components/onboarding/OnboardingProgress'
 import StepBasicInfo from '@/components/onboarding/StepBasicInfo'
+import StepAccounts from '@/components/onboarding/StepAccounts'
 import StepSurvey from '@/components/onboarding/StepSurvey'
 import StepVoiceMemo from '@/components/onboarding/StepVoiceMemo'
 
@@ -22,60 +23,93 @@ export default function OnboardingForm() {
   const opsId = user?.publicMetadata?.airtableOpsId
 
   // Fetch existing profile data to pre-fill
-  useEffect(() => {
-    if (!isLoaded || !hqId) return
-
-    fetch(`/api/creator-profile?hqId=${hqId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.profile) {
-          setProfileData(data.profile)
-          // If onboarding status is In Progress, check what steps are done
-          if (data.profile.onboardingStatus === 'In Progress' && data.profile.name) {
-            setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
+  const fetchProfile = async () => {
+    if (!hqId) return
+    try {
+      const res = await fetch(`/api/creator-profile?hqId=${hqId}`)
+      const data = await res.json()
+      if (data.profile) {
+        setProfileData(data.profile)
+        // Auto-detect completed steps based on saved data
+        const completed = []
+        if (data.profile.name && data.profile.onboardingStatus === 'In Progress') {
+          completed.push('basic-info')
+        }
+        if (data.profile.ofEmail || data.profile.onlyfansUrl) {
+          completed.push('accounts')
+        }
+        if (completed.length > 0) {
+          setCompletedSteps(prev => [...new Set([...prev, ...completed])])
+          // Go to the first incomplete step
+          if (completed.includes('basic-info') && !completed.includes('accounts')) {
+            setCurrentStep('accounts')
+          } else if (completed.includes('accounts')) {
             setCurrentStep('survey')
           }
         }
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [isLoaded, hqId])
-
-  // Redirect if not linked
-  useEffect(() => {
-    if (isLoaded && !hqId) {
+      }
+    } catch (err) {
+      console.error('Fetch profile error:', err)
+    } finally {
       setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    if (!isLoaded) return
+    if (!hqId) {
+      setLoading(false)
+      return
+    }
+    fetchProfile()
   }, [isLoaded, hqId])
 
-  const handleSaveBasicInfo = async (data) => {
-    if (!hqId) return
+  const saveStep = async (step, data) => {
+    if (!hqId) return false
     setSaving(true)
     try {
       const res = await fetch('/api/onboarding/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hqId, step: 'basic-info', data }),
+        body: JSON.stringify({ hqId, step, data }),
       })
       if (res.ok) {
-        setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
-        setCurrentStep('survey')
+        // Re-fetch profile to get updated data
+        await fetchProfile()
+        return true
       }
     } catch (err) {
       console.error('Save error:', err)
     } finally {
       setSaving(false)
     }
+    return false
+  }
+
+  const handleSaveBasicInfo = async (data) => {
+    const ok = await saveStep('basic-info', data)
+    if (ok) {
+      setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
+      goToStep('accounts')
+    }
+  }
+
+  const handleSaveAccounts = async (data) => {
+    const ok = await saveStep('accounts', data)
+    if (ok) {
+      setCompletedSteps(prev => [...new Set([...prev, 'accounts'])])
+      goToStep('survey')
+    }
   }
 
   const handleSurveyComplete = () => {
     setCompletedSteps(prev => [...new Set([...prev, 'survey'])])
-    setCurrentStep('contract')
+    goToStep('contract')
   }
 
   const handleVoiceMemoComplete = () => {
     setCompletedSteps(prev => [...new Set([...prev, 'voice-memo'])])
-    setCurrentStep('review')
+    goToStep('review')
   }
 
   const goToStep = (step) => {
@@ -135,8 +169,27 @@ export default function OnboardingForm() {
     name: profileData.name || '',
     stageName: profileData.aka || '',
     birthday: '',
-    location: '',
+    location: profileData.address || '',
     igAccount: profileData.igAccount || '',
+    timeZone: profileData.timeZone || '',
+    address: profileData.address || '',
+    communication: profileData.communication || [],
+    telegram: profileData.telegram || '',
+  } : {}
+
+  const accountsInitial = profileData ? {
+    ofUrl: profileData.onlyfansUrl || '',
+    ofEmail: profileData.ofEmail || '',
+    ofPassword: '',
+    of2fa: '',
+    secondOfEmail: profileData.secondOfEmail || '',
+    secondOfPassword: '',
+    tiktok: '',
+    twitter: '',
+    reddit: '',
+    youtube: '',
+    oftv: '',
+    otherSocials: '',
   } : {}
 
   const renderComingSoon = (label) => (
@@ -184,6 +237,13 @@ export default function OnboardingForm() {
               saving={saving}
             />
           )}
+          {currentStep === 'accounts' && (
+            <StepAccounts
+              initialData={accountsInitial}
+              onSave={handleSaveAccounts}
+              saving={saving}
+            />
+          )}
           {currentStep === 'survey' && (
             <StepSurvey
               hqId={hqId}
@@ -204,6 +264,11 @@ export default function OnboardingForm() {
             {completedSteps.includes('basic-info') && currentStep !== 'basic-info' && (
               <button onClick={() => goToStep('basic-info')} style={navBtnStyle}>
                 ← Basic Info
+              </button>
+            )}
+            {completedSteps.includes('accounts') && currentStep !== 'accounts' && (
+              <button onClick={() => goToStep('accounts')} style={navBtnStyle}>
+                ← Accounts
               </button>
             )}
             {completedSteps.includes('survey') && currentStep !== 'survey' && (

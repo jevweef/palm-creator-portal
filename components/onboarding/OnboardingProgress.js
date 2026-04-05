@@ -2,6 +2,7 @@
 
 const STEPS = [
   { key: 'basic-info', label: 'Basic Info' },
+  { key: 'accounts', label: 'Accounts' },
   { key: 'survey', label: 'Survey' },
   { key: 'contract', label: 'Contract' },
   { key: 'voice-memo', label: 'Voice Memo' },

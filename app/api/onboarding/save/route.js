@@ -21,12 +21,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'hqId, step, and data are required' }, { status: 400 })
     }
 
-    // Ownership check: creators can only save their own data
     if (!isAdmin && userHqId !== hqId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Map step data to Airtable fields
     const fields = {}
 
     if (step === 'basic-info') {
@@ -35,7 +33,20 @@ export async function POST(request) {
       if (data.birthday) fields['Birthday'] = data.birthday
       if (data.location) fields['Address'] = data.location
       if (data.igAccount) fields['IG Account'] = data.igAccount
+      if (data.timeZone) fields['Time Zone'] = data.timeZone
+      if (data.telegram) fields['Telegram'] = data.telegram
+      if (data.communication && data.communication.length > 0) {
+        fields['Communication'] = data.communication
+      }
       fields['Onboarding Status'] = 'In Progress'
+    }
+
+    if (step === 'accounts') {
+      if (data.ofUrl) fields['Onlyfans URL'] = data.ofUrl
+      if (data.ofEmail) fields['OF Email'] = data.ofEmail
+      if (data.ofPassword) fields['OF Password'] = data.ofPassword
+      if (data.secondOfEmail) fields['2nd OF Email'] = data.secondOfEmail
+      if (data.secondOfPassword) fields['2nd OF Password'] = data.secondOfPassword
     }
 
     if (Object.keys(fields).length > 0) {
