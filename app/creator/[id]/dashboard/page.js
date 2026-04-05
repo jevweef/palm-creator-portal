@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useState, useRef } from 'react'
-import { useSearchParams, useParams } from 'next/navigation'
+import { useSearchParams, useParams, useRouter } from 'next/navigation'
 
 function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0) }
 function fmtPct(val) { return `${Math.round((val || 0) * 100)}%` }
@@ -250,6 +250,7 @@ export default function CreatorDashboard() {
   const { user, isLoaded } = useUser()
   const searchParams = useSearchParams()
   const params = useParams()
+  const router = useRouter()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savedReels, setSavedReels] = useState([])
@@ -286,6 +287,14 @@ export default function CreatorDashboard() {
       fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ tagWeights: {} })),
     ])
       .then(([profileData, savedData, pipelineData, cpData, tagData]) => {
+        // Redirect to onboarding if not completed (skip for admins)
+        const role = user?.publicMetadata?.role
+        const isAdmin = role === 'admin' || role === 'super_admin'
+        const obStatus = profileData?.profile?.onboardingStatus
+        if (!isAdmin && obStatus && obStatus !== 'Completed') {
+          router.replace('/onboarding/form')
+          return
+        }
         setData(profileData)
         setSavedReels(savedData.records || [])
         setPipeline(pipelineData)
