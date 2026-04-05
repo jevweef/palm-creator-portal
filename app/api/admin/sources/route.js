@@ -27,7 +27,7 @@ export async function GET() {
       sourceReelsAdded: r.fields?.['Source Reels Added'] || 0,
       followerCount: r.fields?.['Follower Count'] || null,
       lookbackDays: r.fields?.['Lookback Days'] || 180,
-      apifyLimit: r.fields?.['Apify Limit'] || null,
+      apifyLimit: r.fields?.['Apify Limit'] || 100,
       palmCreators: r.fields?.['Palm Creators'] || [],
       notes: r.fields?.Notes || '',
       ageRestricted: !!r.fields?.['Age Restricted'],

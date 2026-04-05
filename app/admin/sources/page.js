@@ -247,7 +247,7 @@ const COST_PER_REEL = 0.0084
 
 function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
   const [saving, setSaving] = useState(false)
-  const oldLimit = source.apifyLimit || 15
+  const oldLimit = source.apifyLimit || 100
   const estCost = (newLimit * COST_PER_REEL).toFixed(2)
 
   const confirm = async () => {
@@ -306,7 +306,7 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
 
 function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
   const [lookback, setLookback] = useState(source.lookbackDays || 180)
-  const [limit, setLimit] = useState(source.apifyLimit || 15)
+  const [limit, setLimit] = useState(source.apifyLimit || 100)
   const [saving, setSaving] = useState(false)
 
   const estCost = (limit * COST_PER_REEL).toFixed(2)
@@ -983,17 +983,20 @@ export default function AdminSources() {
               <input
                 type="text"
                 inputMode="numeric"
-                value={source._editingLimit != null ? source._editingLimit : (source.apifyLimit || 15)}
+                value={source._editingLimit != null ? source._editingLimit : (source.apifyLimit || 100)}
                 onChange={e => {
                   const val = e.target.value.replace(/\D/g, '')
                   setSources(prev => prev.map(s => s.id === source.id ? { ...s, _editingLimit: val } : s))
                 }}
                 onBlur={e => {
-                  const newVal = parseInt(e.target.value) || 15
-                  const oldVal = source.apifyLimit || 15
-                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, _editingLimit: undefined } : s))
-                  if (newVal !== oldVal) {
-                    setRescrapeSource({ source, newLimit: newVal })
+                  const newVal = parseInt(e.target.value) || 100
+                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, _editingLimit: undefined, apifyLimit: newVal } : s))
+                  if (newVal !== (source.apifyLimit || 100)) {
+                    fetch('/api/admin/sources', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: source.id, fields: { 'Apify Limit': newVal } }),
+                    })
                   }
                 }}
                 onKeyDown={e => {
@@ -1060,13 +1063,13 @@ export default function AdminSources() {
             <div style={{ maxHeight: '200px', overflow: 'auto', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {filteredSources.filter(s => s.enabled).map(s => (
                 <div key={s.id} style={{ fontSize: '12px', color: '#4a4a4a', padding: '4px 8px', background: '#FFF5F7', borderRadius: '6px' }}>
-                  @{s.handle} <span style={{ color: '#999' }}>({s.apifyLimit || 15} reels)</span>
+                  @{s.handle} <span style={{ color: '#999' }}>({s.apifyLimit || 100} reels)</span>
                 </div>
               ))}
             </div>
             <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '10px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
               <div style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b' }}>
-                ~${filteredSources.filter(s => s.enabled).reduce((sum, s) => sum + (s.apifyLimit || 15) * COST_PER_REEL, 0).toFixed(2)}
+                ~${filteredSources.filter(s => s.enabled).reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
               </div>
               <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Estimated Apify cost</div>
               <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '6px' }}>Duplicates auto-skipped (free)</div>
@@ -1119,7 +1122,7 @@ export default function AdminSources() {
             </div>
             <div style={{ width: '1px', height: '20px', background: '#E8C4CC' }} />
             <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600 }}>
-              ~${batch.reduce((sum, s) => sum + (s.apifyLimit || 15) * COST_PER_REEL, 0).toFixed(2)}
+              ~${batch.reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
             </div>
             <button
               onClick={() => setBatch([])}
