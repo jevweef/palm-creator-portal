@@ -124,16 +124,6 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
             autoComplete="off"
           />
         </div>
-        <div>
-          <label style={labelStyle}>2FA / Recovery Info</label>
-          <input
-            type="text"
-            value={form.of2fa}
-            onChange={e => update('of2fa', e.target.value)}
-            placeholder="2FA method, backup codes, or recovery email"
-            style={inputStyle}
-          />
-        </div>
       </div>
 
       {/* OnlyFans Secondary */}
