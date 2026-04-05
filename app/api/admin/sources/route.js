@@ -55,12 +55,6 @@ export async function POST(request) {
     const user = await requireAdmin()
 
     const body = await request.json()
-    const { handle, platform, lookbackDays, apifyLimit, palmCreators } = body
-
-    if (!handle?.trim()) {
-      return NextResponse.json({ error: 'Handle is required' }, { status: 400 })
-    }
-
     const addedBy = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.emailAddresses?.[0]?.emailAddress || ''
 
     // Bulk add: { sources: [{ handle, palmCreators }, ...] }
@@ -82,6 +76,11 @@ export async function POST(request) {
     }
 
     // Single add
+    const { handle, platform, lookbackDays, apifyLimit, palmCreators } = body
+    if (!handle?.trim()) {
+      return NextResponse.json({ error: 'Handle is required' }, { status: 400 })
+    }
+
     const fields = {
       Handle: handle.trim().toLowerCase(),
       Platform: platform || 'Instagram',
