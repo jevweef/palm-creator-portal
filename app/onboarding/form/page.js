@@ -239,7 +239,11 @@ export default function OnboardingForm() {
           </p>
         </div>
 
-        <OnboardingProgress currentStep={currentStep} completedSteps={completedSteps} />
+        <OnboardingProgress
+          currentStep={currentStep}
+          completedSteps={completedSteps}
+          onStepClick={(step) => goToStep(step)}
+        />
 
         <div style={{
           background: currentStep === 'survey' ? 'transparent' : '#fff',

@@ -9,7 +9,7 @@ const STEPS = [
   { key: 'review', label: 'Review' },
 ]
 
-export default function OnboardingProgress({ currentStep, completedSteps = [] }) {
+export default function OnboardingProgress({ currentStep, completedSteps = [], onStepClick }) {
   const currentIndex = STEPS.findIndex(s => s.key === currentStep)
 
   return (
@@ -18,10 +18,14 @@ export default function OnboardingProgress({ currentStep, completedSteps = [] })
         const isActive = step.key === currentStep
         const isCompleted = completedSteps.includes(step.key) || i < currentIndex
         const isLast = i === STEPS.length - 1
+        const clickable = !!onStepClick
 
         return (
           <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: isLast ? '0 0 auto' : '1 1 0' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', minWidth: '72px' }}>
+            <div
+              onClick={() => clickable && onStepClick(step.key)}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', minWidth: '72px', cursor: clickable ? 'pointer' : 'default' }}
+            >
               <div style={{
                 width: '32px',
                 height: '32px',
