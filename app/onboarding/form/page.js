@@ -7,6 +7,7 @@ import OnboardingProgress from '@/components/onboarding/OnboardingProgress'
 import StepBasicInfo from '@/components/onboarding/StepBasicInfo'
 import StepAccounts from '@/components/onboarding/StepAccounts'
 import StepSurvey from '@/components/onboarding/StepSurvey'
+import StepContract from '@/components/onboarding/StepContract'
 import StepVoiceMemo from '@/components/onboarding/StepVoiceMemo'
 
 export default function OnboardingForm() {
@@ -122,6 +123,11 @@ export default function OnboardingForm() {
   const handleSurveyComplete = () => {
     setCompletedSteps(prev => [...new Set([...prev, 'survey'])])
     goToStep('contract')
+  }
+
+  const handleContractComplete = () => {
+    setCompletedSteps(prev => [...new Set([...prev, 'contract'])])
+    goToStep('voice-memo')
   }
 
   const handleVoiceMemoComplete = () => {
@@ -272,7 +278,9 @@ export default function OnboardingForm() {
               onComplete={handleSurveyComplete}
             />
           )}
-          {currentStep === 'contract' && renderComingSoon('Contract')}
+          {currentStep === 'contract' && (
+            <StepContract hqId={hqId} onComplete={handleContractComplete} />
+          )}
           {currentStep === 'voice-memo' && (
             <StepVoiceMemo onComplete={handleVoiceMemoComplete} />
           )}

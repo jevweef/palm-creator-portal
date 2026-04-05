@@ -11,7 +11,7 @@ export async function POST(request) {
   try {
     await requireAdmin()
 
-    const { name, email } = await request.json()
+    const { name, email, commission, creatorState } = await request.json()
     if (!name || !email) {
       return NextResponse.json({ error: 'name and email are required' }, { status: 400 })
     }
@@ -33,21 +33,27 @@ export async function POST(request) {
       isExisting = true
     } else {
       // Create new HQ creator record
-      const hqRecord = await createHqRecord(HQ_CREATORS, {
+      const hqFields = {
         'Creator': name,
         'Communication Email': email,
         'Onboarding Status': 'Link Sent',
-      })
+      }
+      if (commission) hqFields['Commission %'] = parseFloat(commission) / 100
+      if (creatorState) hqFields['Creator State'] = creatorState
+      const hqRecord = await createHqRecord(HQ_CREATORS, hqFields)
       hqId = hqRecord.id
     }
 
-    // Generate onboarding token
+    // Generate onboarding token + update commission/state if provided
     const token = randomUUID()
-    await patchHqRecord(HQ_CREATORS, hqId, {
+    const tokenFields = {
       'Onboarding Token': token,
       'Onboarding Token Created At': new Date().toISOString(),
       'Onboarding Status': 'Link Sent',
-    })
+    }
+    if (commission) tokenFields['Commission %'] = parseFloat(commission) / 100
+    if (creatorState) tokenFields['Creator State'] = creatorState
+    await patchHqRecord(HQ_CREATORS, hqId, tokenFields)
 
     // Check for existing Ops creator record
     const opsExisting = await (async () => {

@@ -15,6 +15,8 @@ export default function AdminOnboarding() {
   const [showModal, setShowModal] = useState(false)
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
+  const [formCommission, setFormCommission] = useState('')
+  const [formState, setFormState] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -42,7 +44,7 @@ export default function AdminOnboarding() {
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formName, email: formEmail }),
+        body: JSON.stringify({ name: formName, email: formEmail, commission: formCommission, creatorState: formState }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -52,6 +54,8 @@ export default function AdminOnboarding() {
         setShowModal(false)
         setFormName('')
         setFormEmail('')
+        setFormCommission('')
+        setFormState('')
         fetchCreators()
       }
     } catch (err) {
@@ -338,7 +342,7 @@ export default function AdminOnboarding() {
                   }}
                 />
               </div>
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
                   Email
                 </label>
@@ -357,6 +361,48 @@ export default function AdminOnboarding() {
                     outline: 'none',
                   }}
                 />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    Commission %
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formCommission}
+                    onChange={e => setFormCommission(e.target.value)}
+                    placeholder="e.g. 45"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    Creator&apos;s State
+                  </label>
+                  <input
+                    type="text"
+                    value={formState}
+                    onChange={e => setFormState(e.target.value)}
+                    placeholder="e.g. Idaho"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
