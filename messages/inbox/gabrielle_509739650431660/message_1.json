@@ -1,0 +1,39 @@
+{
+  "participants": [
+    {
+      "name": "Gabrielle"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772972524929,
+      "content": "My store is legit right up to the right",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768692937044,
+      "content": "Happy bday!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Gabrielle",
+      "timestamp_ms": 1767493602700,
+      "content": "Happy new year!!! Had a rough end to the season, handicaps at a strong 19 \u00f0\u009f\u0098\u0082\u00f0\u009f\u0099\u0083 what about you?! \n\nI think we were going to work together on some modeling stuff back in the day, you used to be more into photography right ?!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Gabrielle",
+  "is_still_participant": true,
+  "thread_path": "inbox/gabrielle_509739650431660",
+  "magic_words": [
+    
+  ]
+}

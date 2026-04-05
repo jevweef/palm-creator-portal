@@ -1,0 +1,72 @@
+{
+  "participants": [
+    {
+      "name": "Travis Stancil"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770587726374,
+      "content": "Haha yeah idk I\u00e2\u0080\u0099ll keep you posted",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Travis Stancil",
+      "timestamp_ms": 1770587717323,
+      "content": "Just come it's low key vibes",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Travis Stancil",
+      "timestamp_ms": 1770587709228,
+      "content": "I think that chick is coming",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770587691391,
+      "content": "Idk haha not feeling too hot and have to fly tomorrow so might just hunker down here",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Travis Stancil",
+      "timestamp_ms": 1770586923672,
+      "content": "U coming over",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3828282444798127234"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Travis Stancil",
+      "timestamp_ms": 1770135192511,
+      "content": "Same!!!",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3824072891340600771"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Travis Stancil",
+  "is_still_participant": true,
+  "thread_path": "inbox/travisstancil_1443572240381725",
+  "magic_words": [
+    
+  ]
+}

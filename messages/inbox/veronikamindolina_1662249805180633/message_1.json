@@ -1,0 +1,37 @@
+{
+  "participants": [
+    {
+      "name": "Veronika Mindolina"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768680008395,
+      "videos": [
+        {
+          "uri": "your_instagram_activity/messages/inbox/veronikamindolina_1662249805180633/videos/1504384737328022.mp4",
+          "creation_timestamp": 1768679992
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768317359186,
+      "content": "Hey! I sent you a few messages on whatsapp! Did you receive them?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Veronika Mindolina",
+  "is_still_participant": true,
+  "thread_path": "inbox/veronikamindolina_1662249805180633",
+  "magic_words": [
+    
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Kate Luxxe <3"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770697538906,
+      "content": "Where are your based",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Kate Luxxe <3",
+  "is_still_participant": true,
+  "thread_path": "inbox/kateluxxe3_1726169972121949",
+  "magic_words": [
+    
+  ]
+}

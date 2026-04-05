@@ -1,0 +1,27 @@
+{
+  "participants": [
+    {
+      "name": "Pilates & Or Boca Raton"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768062401892,
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3807105765769898515"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Pilates & Or Boca Raton",
+  "is_still_participant": true,
+  "thread_path": "inbox/pilatesorbocaraton_1700060588066221",
+  "magic_words": [
+    
+  ]
+}

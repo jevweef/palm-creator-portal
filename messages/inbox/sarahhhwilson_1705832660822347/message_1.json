@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "sarahhhwilson"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768699660877,
+      "content": "Hey we matched on hinge a couple months ago! Are you based in Boston?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "sarahhhwilson",
+  "is_still_participant": true,
+  "thread_path": "inbox/sarahhhwilson_1705832660822347",
+  "magic_words": [
+    
+  ]
+}

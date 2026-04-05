@@ -1,0 +1,38 @@
+{
+  "participants": [
+    {
+      "name": "Casey"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Casey",
+      "timestamp_ms": 1766189067921,
+      "content": "Reacted \u00f0\u009f\u0098\u0082 to your message ",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766187934670,
+      "content": "Steak that lol",
+      "reactions": [
+        {
+          "reaction": "\u00f0\u009f\u0098\u0082",
+          "actor": "Casey"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Casey",
+  "is_still_participant": true,
+  "thread_path": "inbox/casey_422356575836635",
+  "magic_words": [
+    
+  ]
+}

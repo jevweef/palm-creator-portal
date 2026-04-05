@@ -1,0 +1,28 @@
+{
+  "participants": [
+    {
+      "name": "elisabeth \u00ea\u0095\u00a5"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "elisabeth \u00ea\u0095\u00a5",
+      "timestamp_ms": 1766754620944,
+      "content": "\u00f0\u009f\u0098\u0082",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3795788144743192846"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "elisabeth \u00ea\u0095\u00a5",
+  "is_still_participant": true,
+  "thread_path": "inbox/elisabeth_516146713124287",
+  "magic_words": [
+    
+  ]
+}

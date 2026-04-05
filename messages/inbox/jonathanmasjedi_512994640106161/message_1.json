@@ -1,0 +1,59 @@
+{
+  "participants": [
+    {
+      "name": "Jonathan Masjedi"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Jonathan Masjedi",
+      "timestamp_ms": 1769390094538,
+      "content": "Tell me about it \u00f0\u009f\u0098\u0082",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Jonathan Masjedi",
+      "timestamp_ms": 1769390088436,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769387692627,
+      "content": "Dude wild night watching this game haha",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Jonathan Masjedi"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Jonathan Masjedi",
+      "timestamp_ms": 1769387435641,
+      "content": "Right?! Let\u00e2\u0080\u0099s hope!!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769387069783,
+      "content": "Bro imagine we play each other",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Jonathan Masjedi",
+  "is_still_participant": true,
+  "thread_path": "inbox/jonathanmasjedi_512994640106161",
+  "magic_words": [
+    
+  ]
+}

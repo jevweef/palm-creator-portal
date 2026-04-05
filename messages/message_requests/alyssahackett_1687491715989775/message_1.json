@@ -1,0 +1,29 @@
+{
+  "participants": [
+    {
+      "name": "Alyssa Hackett"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Alyssa Hackett",
+      "timestamp_ms": 1766612604219,
+      "content": "No? Not even the little flurries that make everything a little more festive? I have loved getting a little\u00e2\u0080\u00a6 even if it\u00e2\u0080\u0099s worse for driving I feel just cold weather without snow is far worse on Christmas \u00f0\u009f\u008e\u0084\u00f0\u009f\u0098\u0082",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3794276595906014671"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Alyssa Hackett",
+  "is_still_participant": true,
+  "thread_path": "message_requests/alyssahackett_1687491715989775",
+  "magic_words": [
+    
+  ],
+  "is_pending": true
+}

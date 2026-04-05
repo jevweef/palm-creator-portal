@@ -1,0 +1,32 @@
+{
+  "participants": [
+    {
+      "name": "\u00ef\u00bc\u00adADDISON TAYLOR"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769894887284,
+      "content": "Love the westPalm  location",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768314623220,
+      "content": "Hahaha this is my friend from college he\u00e2\u0080\u0099s hysterical",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "\u00ef\u00bc\u00adADDISON TAYLOR",
+  "is_still_participant": true,
+  "thread_path": "inbox/maddisontaylor_508941910511434",
+  "magic_words": [
+    
+  ]
+}

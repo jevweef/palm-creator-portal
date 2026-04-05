@@ -1,0 +1,49 @@
+{
+  "participants": [
+    {
+      "name": "Patricia Dolan"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Patricia Dolan",
+      "timestamp_ms": 1773769958603,
+      "content": "\u00f0\u009f\u0091\u008f",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3854392736376015048"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Patricia Dolan",
+      "timestamp_ms": 1768408010936,
+      "content": "Love you!!\u00f0\u009f\u0098\u0098",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3809493349020136848"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Patricia Dolan",
+      "timestamp_ms": 1768407992988,
+      "content": "\u00f0\u009f\u0098\u008d",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3809493349020136848"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Patricia Dolan",
+  "is_still_participant": true,
+  "thread_path": "message_requests/patriciadolan_1703055647766715",
+  "magic_words": [
+    
+  ],
+  "is_pending": true
+}

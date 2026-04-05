@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "lauren"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771968344220,
+      "content": "Hey! How\u00e2\u0080\u0099s everything been going?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "lauren",
+  "is_still_participant": true,
+  "thread_path": "inbox/lauren_1633253934746887",
+  "magic_words": [
+    
+  ]
+}

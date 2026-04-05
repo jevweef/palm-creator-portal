@@ -1,0 +1,27 @@
+{
+  "participants": [
+    {
+      "name": "Ryan Wandzel"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766355015311,
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3792783193389576552"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Ryan Wandzel",
+  "is_still_participant": true,
+  "thread_path": "inbox/ryanwandzel_491156732289952",
+  "magic_words": [
+    
+  ]
+}

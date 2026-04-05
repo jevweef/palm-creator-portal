@@ -1,0 +1,84 @@
+{
+  "participants": [
+    {
+      "name": "Instagram User"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768679925620,
+      "videos": [
+        {
+          "uri": "your_instagram_activity/messages/inbox/instagramuser_1699678668104413/videos/1256666786327474.mp4",
+          "creation_timestamp": 1768679914
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768403347006,
+      "content": "Just so you know!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768403342142,
+      "content": "By the way the OF link in your bio leads to this?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768403331743,
+      "photos": [
+        {
+          "uri": "your_instagram_activity/messages/inbox/instagramuser_1699678668104413/photos/870590525590404.jpg",
+          "creation_timestamp": 1768403331
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768403310983,
+      "content": "How\u00e2\u0080\u0099s your OF do currently? Has the chat team done well for you?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768403299083,
+      "content": "For x you just need to be consistent! We have bots we use as well that auto post, auto like targeted posts, and a lot more. It can help a lot! Also more engaging text and copy. So longer captions and more realistic posting!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Instagram User",
+      "timestamp_ms": 1768391254155,
+      "content": "Hey, I\u00e2\u0080\u0099m running solo with a chatting agency. I\u00e2\u0080\u0099m doing well on the other platforms but idk how to handle X \u00e2\u0080\u0094 what tips would you give me?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768020986484,
+      "content": "Hey! Love the content. I actually manage some of the top creators on OF and Telegram (mostly within the top 1% and some in the top .1%)! We specialize in 360 marketing and work with a select group of niche creators and other creators we know we can scale. What are you doing for marketing right now? We manage a bunch of platforms, which most agencies don\u00e2\u0080\u0099t do. This includes full chat team and managers, IG, Reddit, X, Telgram and we do OFTV creation and content houses every month or two. Would love to talk about you joining our team. You have a great page and I think we could scale you a lot. Plus we have a competitive commission scale. Let me know if you want to setup a phone call or group chat with my team to discuss what we can do! We have all female account management as well and our teams based between Palm Beach and LA! Let me know if you have any questions. Would love to talk more!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Instagram User",
+  "is_still_participant": true,
+  "thread_path": "inbox/instagramuser_1699678668104413",
+  "magic_words": [
+    
+  ]
+}

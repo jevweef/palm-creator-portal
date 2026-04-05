@@ -1,0 +1,46 @@
+{
+  "participants": [
+    {
+      "name": "Luxe Watches UK"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Luxe Watches UK",
+      "timestamp_ms": 1770396496482,
+      "content": "Welcome to Luxe Watches.\n\nLuxe Watches are a leading pre-owned Luxury Watch & Jewellery Boutique\n\nTo Buy a watch our Sales Manager Charlie can help with this via WhatsApp +447712000111 \n\nTo Sell  a watch please follow this link https://www.luxewatches.co.uk/sell-your-watch/\n\nSelling a watch you can WhatsApp us on +447979 491 284 Please provide him with images of the watch, papers and your anticipated price.\n\nRegards",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770396495848,
+      "content": "What sort of collabs?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Luxe Watches UK",
+      "timestamp_ms": 1769735890054,
+      "content": "Welcome to Luxe Watches.\n\nLuxe Watches are a leading pre-owned Luxury Watch & Jewellery Boutique\n\nTo Buy a watch our Sales Manager Charlie can help with this via WhatsApp +447712000111 \n\nTo Sell  a watch please follow this link https://www.luxewatches.co.uk/sell-your-watch/\n\nSelling a watch you can WhatsApp us on +447979 491 284 Please provide him with images of the watch, papers and your anticipated price.\n\nRegards",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769735889035,
+      "content": "Collaboration",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Luxe Watches UK",
+  "is_still_participant": true,
+  "thread_path": "inbox/luxewatchesuk_1716163579789255",
+  "magic_words": [
+    
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "participants": [
+    {
+      "name": "Riley Hamilton"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Riley Hamilton",
+      "timestamp_ms": 1767081330789,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1767065255281,
+      "content": "https://www.instagram.com/reel/DS2of9xEZKq/?igsh=MWJ3b2V0ODkzaHQ5eQ==",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Riley Hamilton"
+        }
+      ],
+      "share": {
+        "link": "https://www.instagram.com/reel/DS2of9xEZKq/?id=3798401454219301546_6082721089",
+        "share_text": "Get ready for the next one Jan 16 at The Nash #place2be #golf #golfcourses #golfswing #thenash",
+        "original_content_owner": "palmbeachnationalgolf"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Riley Hamilton",
+  "is_still_participant": true,
+  "thread_path": "inbox/rileyhamilton_1600056341399980",
+  "magic_words": [
+    
+  ]
+}

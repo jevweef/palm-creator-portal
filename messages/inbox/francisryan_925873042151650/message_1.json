@@ -1,0 +1,44 @@
+{
+  "participants": [
+    {
+      "name": "Francis Ryan"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769109705561,
+      "content": "It is ai I believe",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Francis Ryan",
+      "timestamp_ms": 1769107400054,
+      "content": "Almost looks like AI, but the hangtags make me think it\u00e2\u0080\u0099s not",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Francis Ryan",
+      "timestamp_ms": 1769107359799,
+      "content": "Francis sent an attachment.",
+      "share": {
+        "link": "https://www.instagram.com/p/DTv5xw_lBgT/",
+        "share_text": "Loved it in short? Get it in long! #sophiathomasdesigns #sophiathomasprom #promdress prom",
+        "original_content_owner": "sophiathomasdesigns"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Francis Ryan",
+  "is_still_participant": true,
+  "thread_path": "inbox/francisryan_925873042151650",
+  "magic_words": [
+    
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "ryan mac"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "ryan mac",
+      "timestamp_ms": 1766241645806,
+      "content": "How are you?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "ryan mac",
+  "is_still_participant": true,
+  "thread_path": "inbox/ryanmac_1684240512981562",
+  "magic_words": [
+    
+  ]
+}

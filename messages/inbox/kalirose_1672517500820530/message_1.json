@@ -1,0 +1,93 @@
+{
+  "participants": [
+    {
+      "name": "Kali Rose"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769892112140,
+      "content": "Really good. Have you thought about of and such? Did you get to La okay!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Kali Rose",
+      "timestamp_ms": 1769887954926,
+      "content": "Good hbu",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769879236955,
+      "content": "Hey how\u00e2\u0080\u0099s it going!?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769038026012,
+      "content": "Hmm no unfortunately! I don\u00e2\u0080\u0099t believe so!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Kali Rose",
+      "timestamp_ms": 1769037891903,
+      "content": "Is there any possibility you know anyone who could take me to LA from FL  in a car \u00f0\u009f\u00a5\u00ba\u00f0\u009f\u00a5\u00ba\u00f0\u009f\u00a9\u00b5",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768741089911,
+      "content": "No worries what\u00e2\u0080\u0099s a good number for you? I\u00e2\u0080\u0099ll send you a text with a google meet invite.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Kali Rose",
+      "timestamp_ms": 1768725471215,
+      "content": "Sorry I\u00e2\u0080\u0099ve been hella busy but I\u00e2\u0080\u0099m def down",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Kali Rose",
+      "timestamp_ms": 1768725459095,
+      "content": "Oh nice",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768679994331,
+      "videos": [
+        {
+          "uri": "your_instagram_activity/messages/inbox/kalirose_1672517500820530/videos/2380539022359866.mp4",
+          "creation_timestamp": 1768679977
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768355601762,
+      "content": "Hey! Would love to setup a google meet or zoom meeting with my team! Happy new year hope it\u00e2\u0080\u0099s going well!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Kali Rose",
+  "is_still_participant": true,
+  "thread_path": "inbox/kalirose_1672517500820530",
+  "magic_words": [
+    
+  ]
+}

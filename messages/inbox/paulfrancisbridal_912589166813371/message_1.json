@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Paul Francis Bridal"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768356462202,
+      "content": "Matt Toto for sure he\u00e2\u0080\u0099s solid does legit everyone\u00e2\u0080\u0099s",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Paul Francis Bridal",
+  "is_still_participant": true,
+  "thread_path": "inbox/paulfrancisbridal_912589166813371",
+  "magic_words": [
+    
+  ]
+}

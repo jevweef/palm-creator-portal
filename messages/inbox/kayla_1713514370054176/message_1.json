@@ -1,0 +1,104 @@
+{
+  "participants": [
+    {
+      "name": "Kayla"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769637732368,
+      "content": "Yeah I get that. How did they do in terms of revenue generated for you?",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Kayla",
+      "timestamp_ms": 1769635832371,
+      "content": "Yeah just weren\u00e2\u0080\u0099t doing the things they promised",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769563985248,
+      "content": "Haha why is that? Did they mess up? It\u00e2\u0080\u0099s really tricky to make the same money without management or at least chat teams on the accounts (edited)",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769563980267,
+      "content": "Haha why is that? Did they mess up? It\u00e2\u0080\u0099s really tricky to make the same money without management or at least chat teams on the accountant",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Kayla",
+      "timestamp_ms": 1769555673877,
+      "content": "Not bad, I recently got rid of management lol",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769555500342,
+      "content": "Hey! How\u00e2\u0080\u0099s your page been doing?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Kayla",
+      "timestamp_ms": 1769555001393,
+      "content": "Heyyyyu",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Kayla",
+      "timestamp_ms": 1769554987943,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769480474206,
+      "content": "Hey! Love the content. I actually manage some of the top creators on OF and Telegram (mostly within the top 1% and some in the top .1%)! We specialize in 360 marketing and work with a select group of niche creators and other creators we know we can scale. What are you doing for marketing right now? We manage a bunch of platforms, which most agencies don\u00e2\u0080\u0099t do. This includes full chat team and managers, IG, Reddit, X, Telgram and we do OFTV creation and content houses every month or two. Would love to talk about you joining our team. You have a great page and I think we could scale you a lot. Plus we have a competitive commission scale. Let me know if you want to setup a phone call or group chat with my team to discuss what we can do! We have all female account management as well and our teams based between Palm Beach and LA! Let me know if you have any questions. Would love to talk more!",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Kayla"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Kayla",
+  "is_still_participant": true,
+  "thread_path": "inbox/kayla_1713514370054176",
+  "magic_words": [
+    
+  ]
+}

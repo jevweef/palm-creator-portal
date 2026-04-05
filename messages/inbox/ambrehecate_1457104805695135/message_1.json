@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Ambre Hecate"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770085459863,
+      "content": "Hey! We were just working with one of the top trans creators on of. She had to take a slight break but would love to discuss management and marketing. She was making well over 6 figures a month with us :)",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Ambre Hecate",
+  "is_still_participant": true,
+  "thread_path": "inbox/ambrehecate_1457104805695135",
+  "magic_words": [
+    
+  ]
+}

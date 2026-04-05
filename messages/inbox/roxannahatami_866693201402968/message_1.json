@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Roxanna Hatami"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766771090583,
+      "content": "No fear lol",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Roxanna Hatami",
+  "is_still_participant": true,
+  "thread_path": "inbox/roxannahatami_866693201402968",
+  "magic_words": [
+    
+  ]
+}

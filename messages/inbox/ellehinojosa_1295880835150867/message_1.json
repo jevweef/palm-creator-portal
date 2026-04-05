@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Elle Hinojosa"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766520514911,
+      "content": "\u00f0\u009f\u0091\u008f",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Elle Hinojosa",
+  "is_still_participant": true,
+  "thread_path": "inbox/ellehinojosa_1295880835150867",
+  "magic_words": [
+    
+  ]
+}

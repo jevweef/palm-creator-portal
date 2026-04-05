@@ -1,0 +1,37 @@
+{
+  "participants": [
+    {
+      "name": "Joshua Voto"
+    },
+    {
+      "name": "brittwandzel"
+    },
+    {
+      "name": "Brigid Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773745083622,
+      "content": "You sent an attachment.",
+      "share": {
+        "link": "https://www.instagram.com/reel/DV70w2nEnhh/?id=3853905961736632417_62516217708",
+        "share_text": "500 million people thought they were catching Pok\u00c3\u00a9mon.\nThey were actually mapping the entire planet. \u00f0\u009f\u008c\u008d\nEvery time a Pok\u00c3\u00a9mon Go player pointed their phone at a building, a street corner, a park bench \u00e2\u0080\u0094 Niantic\u00e2\u0080\u0099s system was quietly geo-tagging that image and adding it to a growing database. Nobody asked. Nobody noticed. Everyone just wanted the Pikachu.\n30 billion photos later, Niantic had built one of the most detailed real-world 3D navigation datasets ever assembled. Street View took Google years and a fleet of specialised camera cars. Pok\u00c3\u00a9mon Go did it faster \u00e2\u0080\u0094 using 500 million volunteers who had absolutely no idea they were working.\nThe result? Robots that can now navigate real-world environments within centimetres of accuracy \u00e2\u0080\u0094 without GPS. Using visual recognition trained on images your phone quietly contributed while you were chasing a Snorlax in 2016.\nThis is what makes modern AI so powerful and so unsettling simultaneously.\nThe training data was never the algorithm. It was always the humans who didn\u00e2\u0080\u0099t read the terms and conditions.\n\u00f0\u009f\u0093\u009a Sources: Niantic Lightship Visual Positioning System | Pok\u00c3\u00a9mon Go Player Data Research | IEEE \u00e2\u0080\u0094 Crowdsourced AI Navigation Datasets | Niantic 3D World Model Documentation\n\n\u00f0\u009f\u0091\u0089 Follow @artificialintelligenceeee for more mind-bending physics\n\n#AI #pokemongo #technology #robotics #sciencefacts",
+        "original_content_owner": "artificialintelligenceeee"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "brittwandzel and Brigid Voto",
+  "is_still_participant": true,
+  "thread_path": "inbox/brittwandzelandbrigidvoto_5675590925802650",
+  "magic_words": [
+    
+  ],
+  "joinable_mode": {
+    "mode": 1,
+    "link": ""
+  }
+}

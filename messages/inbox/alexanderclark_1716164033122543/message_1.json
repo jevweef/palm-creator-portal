@@ -1,0 +1,127 @@
+{
+  "participants": [
+    {
+      "name": "Alexander Clark"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Alexander Clark",
+      "timestamp_ms": 1770578020570,
+      "content": "Thanks!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexander Clark",
+      "timestamp_ms": 1770578014434,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770575771487,
+      "content": "Yeah Avalon or rosewater!",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Alexander Clark"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexander Clark",
+      "timestamp_ms": 1770564534170,
+      "content": "You got any recommendations for Brunch in Delray?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexander Clark",
+      "timestamp_ms": 1770483292514,
+      "content": "Yessir",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770483224075,
+      "content": "Awesome! Is your girl in town?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexander Clark",
+      "timestamp_ms": 1770482814650,
+      "content": "I called yesterday there\u00e2\u0080\u0099s no cover they said come early to get a table so probably hang out in Delray for the day then head there",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexander Clark",
+      "timestamp_ms": 1770482776842,
+      "content": "We were thinking about going to Bostons again",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770482686086,
+      "content": "Hey bro what are you doing for Super Bowl?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769749247738,
+      "content": "Yessir",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexander Clark",
+      "timestamp_ms": 1769739866173,
+      "content": "My guy \u00f0\u009f\u00ab\u00a1",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexander Clark",
+      "timestamp_ms": 1769739861272,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769735936348,
+      "content": "Lfg \u00f0\u009f\u0091\u008f\u00f0\u009f\u008f\u00bd",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Alexander Clark"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Alexander Clark",
+  "is_still_participant": true,
+  "thread_path": "inbox/alexanderclark_1716164033122543",
+  "magic_words": [
+    
+  ]
+}

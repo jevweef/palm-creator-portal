@@ -1,0 +1,56 @@
+{
+  "participants": [
+    {
+      "name": "Jennifer Ann Strafer Goodman"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769297921654,
+      "content": "Hah \u00f0\u009f\u00a4\u00a6\u00f0\u009f\u008f\u00bd",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Jennifer Ann Strafer Goodman",
+      "timestamp_ms": 1769297685576,
+      "content": "Hmmmm",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Jennifer Ann Strafer Goodman",
+      "timestamp_ms": 1766781593753,
+      "content": "That\u00e2\u0080\u0099s insane",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766762629088,
+      "content": "Bad weather haha",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Jennifer Ann Strafer Goodman",
+      "timestamp_ms": 1766762457592,
+      "content": "Oh wow",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3795788144743192846"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Jennifer Ann Strafer Goodman",
+  "is_still_participant": true,
+  "thread_path": "inbox/jenniferannstrafergoodman_1207735577298727",
+  "magic_words": [
+    
+  ]
+}

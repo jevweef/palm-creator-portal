@@ -1,0 +1,59 @@
+{
+  "participants": [
+    {
+      "name": "Markuss Kohs"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Markuss Kohs",
+      "timestamp_ms": 1773231257305,
+      "content": "The infrastructure, the strategy, the chatter training and on-boarding etc",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Markuss Kohs",
+      "timestamp_ms": 1773231238365,
+      "content": "No but I do teach you how to set it up for your own in-house team",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773230956782,
+      "content": "I like it. Do you ever shop them out to any other agencies or no?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Markuss Kohs",
+      "timestamp_ms": 1773230903237,
+      "content": "In-house .",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773230892992,
+      "content": "What chat team are you using",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Markuss Kohs",
+  "is_still_participant": true,
+  "thread_path": "inbox/markusskohs_1422970829108533",
+  "magic_words": [
+    
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "giavillegass"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772472293585,
+      "content": "Hey we matched on hinge prob easier here to talk haha",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "giavillegass",
+  "is_still_participant": true,
+  "thread_path": "inbox/giavillegass_1744261766979436",
+  "magic_words": [
+    
+  ]
+}

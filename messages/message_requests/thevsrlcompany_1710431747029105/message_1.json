@@ -1,0 +1,33 @@
+{
+  "participants": [
+    {
+      "name": "The VSRL Company"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "The VSRL Company",
+      "timestamp_ms": 1769182817803,
+      "content": "Appreciate you reaching out. We\u00e2\u0080\u0099re building a nationwide roster of experienced creatives for events, festivals, and brand work.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "The VSRL Company",
+      "timestamp_ms": 1769182816874,
+      "content": "You opened this conversation through an ad. When you reply, vsrlco will see your public info and which ad you clicked on. View ad(https://www.instagram.com/p/DSdKscRAKtB/)",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "The VSRL Company",
+  "is_still_participant": true,
+  "thread_path": "message_requests/thevsrlcompany_1710431747029105",
+  "magic_words": [
+    
+  ],
+  "is_pending": true
+}

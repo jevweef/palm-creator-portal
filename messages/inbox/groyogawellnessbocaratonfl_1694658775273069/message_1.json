@@ -1,0 +1,39 @@
+{
+  "participants": [
+    {
+      "name": "Gro Yoga & Wellness | Boca Raton, FL"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Gro Yoga & Wellness | Boca Raton, FL",
+      "timestamp_ms": 1767454745661,
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1767451179757,
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3801978467207016258"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Gro Yoga & Wellness | Boca Raton, FL",
+  "is_still_participant": true,
+  "thread_path": "inbox/groyogawellnessbocaratonfl_1694658775273069",
+  "magic_words": [
+    
+  ]
+}

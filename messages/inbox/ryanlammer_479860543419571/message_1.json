@@ -1,0 +1,35 @@
+{
+  "participants": [
+    {
+      "name": "Ryan Lammer"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766768048974,
+      "content": "Lolol",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Ryan Lammer",
+      "timestamp_ms": 1766767588513,
+      "content": "MOOOOOOOOOM",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3795524199549689618"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Ryan Lammer",
+  "is_still_participant": true,
+  "thread_path": "inbox/ryanlammer_479860543419571",
+  "magic_words": [
+    
+  ]
+}

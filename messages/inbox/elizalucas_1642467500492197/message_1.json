@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "eliza lucas"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769878765197,
+      "content": "Hey Eliza! How are things going ?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "eliza lucas",
+  "is_still_participant": true,
+  "thread_path": "inbox/elizalucas_1642467500492197",
+  "magic_words": [
+    
+  ]
+}

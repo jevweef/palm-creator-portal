@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Kirsten Glavin"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766536487222,
+      "content": "Hey saw you on bumble. Are you from Boston?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Kirsten Glavin",
+  "is_still_participant": true,
+  "thread_path": "inbox/kirstenglavin_1686819896056957",
+  "magic_words": [
+    
+  ]
+}

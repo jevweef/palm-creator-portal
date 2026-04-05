@@ -1,0 +1,32 @@
+{
+  "participants": [
+    {
+      "name": "Sami Farina"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Sami Farina",
+      "timestamp_ms": 1770955554996,
+      "content": "Reminiscing !! \u00f0\u009f\u0098\u0082\u00f0\u009f\u0092\u0097",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770953895287,
+      "content": "\u00f0\u009f\u0091\u008f",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Sami Farina",
+  "is_still_participant": true,
+  "thread_path": "inbox/samifarina_509939043745054",
+  "magic_words": [
+    
+  ]
+}

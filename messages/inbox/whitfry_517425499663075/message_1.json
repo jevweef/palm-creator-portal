@@ -1,0 +1,38 @@
+{
+  "participants": [
+    {
+      "name": "Whit Fry"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Whit Fry",
+      "timestamp_ms": 1768081626586,
+      "content": "\u00f0\u009f\u0098\u0082",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3807209559300365948"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Whit Fry",
+      "timestamp_ms": 1766723759237,
+      "content": "\u00f0\u009f\u0098\u00ae",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3795788144743192846"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Whit Fry",
+  "is_still_participant": true,
+  "thread_path": "inbox/whitfry_517425499663075",
+  "magic_words": [
+    
+  ]
+}

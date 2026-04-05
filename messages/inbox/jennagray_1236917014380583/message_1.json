@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Jenna Gray"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768447146571,
+      "content": "Hey how\u00e2\u0080\u0099s your OF doing?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Jenna Gray",
+  "is_still_participant": true,
+  "thread_path": "inbox/jennagray_1236917014380583",
+  "magic_words": [
+    
+  ]
+}

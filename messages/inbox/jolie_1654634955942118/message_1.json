@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Jolie \u00f0\u009f\u0090\u0089"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773669402427,
+      "content": "Hey! How\u00e2\u0080\u0099s it been going?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Jolie \u00f0\u009f\u0090\u0089",
+  "is_still_participant": true,
+  "thread_path": "inbox/jolie_1654634955942118",
+  "magic_words": [
+    
+  ]
+}

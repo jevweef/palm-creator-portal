@@ -1,0 +1,24 @@
+{
+  "participants": [
+    {
+      "name": "Jimme Ethan Huang"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Jimme Ethan Huang",
+      "timestamp_ms": 1771036676913,
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Jimme Ethan Huang",
+  "is_still_participant": true,
+  "thread_path": "inbox/jimmeethanhuang_818895049516117",
+  "magic_words": [
+    
+  ]
+}
