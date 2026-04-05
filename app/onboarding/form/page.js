@@ -93,6 +93,12 @@ export default function OnboardingForm() {
   }
 
   const handleSaveBasicInfo = async (data) => {
+    if (!data) {
+      // Skip — advance without saving
+      setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
+      goToStep('accounts')
+      return
+    }
     const ok = await saveStep('basic-info', data)
     if (ok) {
       setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
@@ -101,6 +107,11 @@ export default function OnboardingForm() {
   }
 
   const handleSaveAccounts = async (data) => {
+    if (!data) {
+      setCompletedSteps(prev => [...new Set([...prev, 'accounts'])])
+      goToStep('survey')
+      return
+    }
     const ok = await saveStep('accounts', data)
     if (ok) {
       setCompletedSteps(prev => [...new Set([...prev, 'accounts'])])
