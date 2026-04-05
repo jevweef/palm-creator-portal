@@ -1,0 +1,196 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useUser } from '@clerk/nextjs'
+import { useRouter } from 'next/navigation'
+import OnboardingProgress from '@/components/onboarding/OnboardingProgress'
+import StepBasicInfo from '@/components/onboarding/StepBasicInfo'
+
+export default function OnboardingForm() {
+  const { user, isLoaded } = useUser()
+  const router = useRouter()
+
+  const [currentStep, setCurrentStep] = useState('basic-info')
+  const [completedSteps, setCompletedSteps] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [profileData, setProfileData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const hqId = user?.publicMetadata?.airtableHqId
+  const opsId = user?.publicMetadata?.airtableOpsId
+
+  // Fetch existing profile data to pre-fill
+  useEffect(() => {
+    if (!isLoaded || !hqId) return
+
+    fetch(`/api/creator-profile?hqId=${hqId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.profile) {
+          setProfileData(data.profile)
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [isLoaded, hqId])
+
+  // Redirect if not linked
+  useEffect(() => {
+    if (isLoaded && !hqId) {
+      // User signed up but webhook hasn't matched yet — show a message
+      setLoading(false)
+    }
+  }, [isLoaded, hqId])
+
+  const handleSaveBasicInfo = async (data) => {
+    if (!hqId) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/onboarding/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, step: 'basic-info', data }),
+      })
+      if (res.ok) {
+        setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
+        setCurrentStep('survey')
+      }
+    } catch (err) {
+      console.error('Save error:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!isLoaded || loading) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: '#999', fontSize: '14px' }}>Loading your onboarding...</div>
+      </div>
+    )
+  }
+
+  if (!hqId) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{
+          background: '#fff',
+          borderRadius: '20px',
+          padding: '40px',
+          maxWidth: '440px',
+          textAlign: 'center',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+        }}>
+          <div style={{ fontSize: '32px', marginBottom: '16px' }}>⏳</div>
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
+            Setting Up Your Account
+          </h1>
+          <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5' }}>
+            We&apos;re linking your account to our system. This usually takes a few seconds.
+            Try refreshing the page in a moment.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: '20px',
+              padding: '10px 24px',
+              background: '#E88FAC',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const basicInfoInitial = profileData ? {
+    name: profileData.name || '',
+    stageName: profileData.aka || '',
+    birthday: '',
+    location: '',
+    igAccount: profileData.igAccount || '',
+  } : {}
+
+  const renderComingSoon = (label) => (
+    <div style={{
+      background: '#fff',
+      borderRadius: '16px',
+      padding: '40px',
+      textAlign: 'center',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+    }}>
+      <div style={{ fontSize: '28px', marginBottom: '12px' }}>🚧</div>
+      <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
+        {label}
+      </h2>
+      <p style={{ fontSize: '13px', color: '#999' }}>
+        This step is coming soon. We&apos;ll let you know when it&apos;s ready.
+      </p>
+    </div>
+  )
+
+  return (
+    <div style={{ minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
+      <div style={{ maxWidth: '700px', margin: '0 auto', padding: '32px 20px' }}>
+        <div style={{ marginBottom: '8px' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
+            Onboarding
+          </h1>
+          <p style={{ fontSize: '13px', color: '#999' }}>
+            Complete each step below. Your progress is saved automatically.
+          </p>
+        </div>
+
+        <OnboardingProgress currentStep={currentStep} completedSteps={completedSteps} />
+
+        <div style={{
+          background: '#fff',
+          borderRadius: '16px',
+          padding: '28px',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        }}>
+          {currentStep === 'basic-info' && (
+            <StepBasicInfo
+              initialData={basicInfoInitial}
+              onSave={handleSaveBasicInfo}
+              saving={saving}
+            />
+          )}
+          {currentStep === 'survey' && renderComingSoon('Survey')}
+          {currentStep === 'contract' && renderComingSoon('Contract')}
+          {currentStep === 'voice-memo' && renderComingSoon('Voice Memo')}
+          {currentStep === 'review' && renderComingSoon('Review & Submit')}
+        </div>
+
+        {/* Step navigation for completed steps */}
+        {completedSteps.length > 0 && (
+          <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {completedSteps.includes('basic-info') && currentStep !== 'basic-info' && (
+              <button
+                onClick={() => setCurrentStep('basic-info')}
+                style={{
+                  padding: '6px 14px',
+                  background: '#fff',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: '#666',
+                  cursor: 'pointer',
+                }}
+              >
+                ← Edit Basic Info
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

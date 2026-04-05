@@ -9,6 +9,7 @@ const ADMIN_NAV = [
   { href: '/admin/inspo', label: 'Inspo Board', icon: '🎬' },
   { href: '/admin/editor', label: 'Editor', icon: '✂️' },
   { href: '/admin/creators', label: 'Creators', icon: '🎭' },
+  { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
   { href: '/admin/invoicing', label: 'Invoicing', icon: '💸' },
 ]
 
