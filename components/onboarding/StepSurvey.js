@@ -110,16 +110,27 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
         </div>
       </div>
 
-      {SECTION_ORDER.map(sectionName => (
-        <SurveySection
-          key={sectionName}
-          title={sectionName}
-          questions={sections[sectionName] || []}
-          answers={answers}
-          onAnswerChange={handleAnswerChange}
-          saving={saving}
-        />
-      ))}
+      {SECTION_ORDER.map((sectionName, index) => {
+        // A section is locked if the previous section isn't fully answered
+        const prevSection = index > 0 ? SECTION_ORDER[index - 1] : null
+        const prevQuestions = prevSection ? (sections[prevSection] || []) : []
+        const prevAllAnswered = prevSection
+          ? prevQuestions.every(q => answers[q.key]?.answer)
+          : true
+
+        return (
+          <SurveySection
+            key={sectionName}
+            title={sectionName}
+            questions={sections[sectionName] || []}
+            answers={answers}
+            onAnswerChange={handleAnswerChange}
+            saving={saving}
+            locked={!prevAllAnswered}
+            defaultExpanded={index === 0}
+          />
+        )
+      })}
 
       <button
         onClick={onComplete}
