@@ -80,14 +80,28 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '500px' }}>
         <div>
-          <label style={labelStyle}>OnlyFans URL</label>
-          <input
-            type="url"
-            value={form.ofUrl}
-            onChange={e => update('ofUrl', e.target.value)}
-            placeholder="https://onlyfans.com/yourusername"
-            style={inputStyle}
-          />
+          <label style={labelStyle}>OnlyFans Username</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            <span style={{
+              padding: '10px 12px',
+              fontSize: '14px',
+              background: '#f5f5f5',
+              border: '1px solid #e0e0e0',
+              borderRight: 'none',
+              borderRadius: '8px 0 0 8px',
+              color: '#999',
+              whiteSpace: 'nowrap',
+            }}>
+              onlyfans.com/
+            </span>
+            <input
+              type="text"
+              value={form.ofUrl}
+              onChange={e => update('ofUrl', e.target.value)}
+              placeholder="yourusername"
+              style={{ ...inputStyle, borderRadius: '0 8px 8px 0' }}
+            />
+          </div>
         </div>
         <div>
           <label style={labelStyle}>OnlyFans Email</label>
