@@ -97,10 +97,9 @@ export default function EarningsGrowth() {
 
   const palmX = px(PALM_DAY, data.length)
 
-  /* Y-axis */
-  const yTop = Math.ceil(max / 200) * 200
+  /* Y-axis — only include labels that fit inside the chart */
   const ySteps = []
-  for (let v = 200; v <= yTop; v += 200) ySteps.push(v)
+  for (let v = 200; v <= max; v += 200) ySteps.push(v)
 
   /* X-axis */
   const xLabels = [
