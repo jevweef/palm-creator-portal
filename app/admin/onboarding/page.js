@@ -17,6 +17,7 @@ export default function AdminOnboarding() {
   const [formEmail, setFormEmail] = useState('')
   const [formCommission, setFormCommission] = useState('')
   const [formState, setFormState] = useState('')
+  const [editCreator, setEditCreator] = useState(null) // for inline "Start Onboarding" modal
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -84,9 +85,46 @@ export default function AdminOnboarding() {
     }
   }
 
+  const openEditModal = (creator) => {
+    setEditCreator(creator)
+    setFormName(creator.name || '')
+    setFormEmail(creator.email || '')
+    setFormCommission('')
+    setFormState('')
+  }
+
+  const handleStartExisting = async (e) => {
+    e.preventDefault()
+    if (!editCreator) return
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/admin/onboarding/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formName || editCreator.name,
+          email: formEmail || editCreator.email,
+          commission: formCommission,
+          creatorState: formState,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        await navigator.clipboard.writeText(data.onboardingUrl)
+        setCopied('new')
+        setTimeout(() => setCopied(null), 3000)
+        setEditCreator(null)
+        fetchCreators()
+      }
+    } catch (err) {
+      console.error('Start existing error:', err)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleCopyLink = async (creator) => {
     if (!creator.hasToken) return
-    // Reconstruct URL from existing token - just resend to get a fresh link copied
     await handleResend(creator.id)
   }
 
@@ -272,12 +310,20 @@ export default function AdminOnboarding() {
                     </td>
                     <td style={tdStyle}>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        {c.onboardingStatus !== 'Completed' && (
+                        {!c.onboardingStatus && (
+                          <button
+                            onClick={() => openEditModal(c)}
+                            style={{ ...actionBtnStyle, background: '#E88FAC', color: '#fff' }}
+                          >
+                            Start Onboarding
+                          </button>
+                        )}
+                        {c.onboardingStatus && c.onboardingStatus !== 'Completed' && (
                           <button
                             onClick={() => handleResend(c.id)}
                             style={actionBtnStyle}
                           >
-                            {copied === c.id ? 'Copied!' : c.hasToken ? 'Copy Link' : 'Send Link'}
+                            {copied === c.id ? 'Copied!' : 'Copy Link'}
                           </button>
                         )}
                       </div>
@@ -436,6 +482,111 @@ export default function AdminOnboarding() {
                   }}
                 >
                   {submitting ? 'Creating...' : 'Create & Copy Link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Inline Start Onboarding Modal (for existing creators) */}
+      {editCreator && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}
+          onClick={() => setEditCreator(null)}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '16px',
+              padding: '28px',
+              width: '420px',
+              maxWidth: '90vw',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+              Start Onboarding — {editCreator.name}
+            </h2>
+            <p style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
+              Set commission and state, then send the onboarding link. Status will be set to Onboarding.
+            </p>
+
+            <form onSubmit={handleStartExisting}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    Commission %
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formCommission}
+                    onChange={e => setFormCommission(e.target.value)}
+                    placeholder="e.g. 45"
+                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    Creator&apos;s State
+                  </label>
+                  <input
+                    type="text"
+                    value={formState}
+                    onChange={e => setFormState(e.target.value)}
+                    placeholder="e.g. Idaho"
+                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                  />
+                </div>
+              </div>
+              {!editCreator.email && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formEmail}
+                    onChange={e => setFormEmail(e.target.value)}
+                    placeholder="Their communication email"
+                    required
+                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                  />
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditCreator(null)}
+                  style={{ padding: '9px 18px', background: '#f5f5f5', color: '#666', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    padding: '9px 18px',
+                    background: submitting ? '#F0D0D8' : '#E88FAC',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {submitting ? 'Starting...' : 'Start & Copy Link'}
                 </button>
               </div>
             </form>

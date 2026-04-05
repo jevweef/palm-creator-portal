@@ -53,6 +53,7 @@ export async function POST(request) {
     }
     if (commission) tokenFields['Commission %'] = parseFloat(commission) / 100
     if (creatorState) tokenFields['Creator State'] = creatorState
+    tokenFields['Status'] = 'Onboarding'
     await patchHqRecord(HQ_CREATORS, hqId, tokenFields)
 
     // Check for existing Ops creator record
