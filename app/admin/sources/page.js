@@ -677,6 +677,16 @@ export default function AdminSources() {
 
   useEffect(() => { fetchSources() }, [fetchSources])
 
+  // Auto-refresh while any source is Processing
+  useEffect(() => {
+    const hasProcessing = sources.some(s => s.pipelineStatus === 'Processing')
+    if (!hasProcessing) return
+    const interval = setInterval(() => {
+      fetchSources()
+    }, 15000) // poll every 15 seconds
+    return () => clearInterval(interval)
+  }, [sources, fetchSources])
+
   const toggleEnabled = async (source) => {
     if (!source.enabled) {
       // Enabling — show confirmation modal

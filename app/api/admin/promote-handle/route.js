@@ -200,17 +200,24 @@ export async function POST(request) {
     }
 
     let created = 0
+    let chunkErrors = []
     for (let i = 0; i < inspoRecordsToCreate.length; i += 10) {
       const chunk = inspoRecordsToCreate.slice(i, i + 10)
       const idChunk = sourceIdsToMark.slice(i, i + 10)
-      await batchCreateRecords('Inspiration', chunk)
-      await batchUpdateRecords('Source Reels', idChunk.map(id => ({
-        id, fields: { 'Imported to Inspiration': 'Yes' },
-      })))
-      created += chunk.length
+      try {
+        await batchCreateRecords('Inspiration', chunk)
+        await batchUpdateRecords('Source Reels', idChunk.map(id => ({
+          id, fields: { 'Imported to Inspiration': 'Yes' },
+        })))
+        created += chunk.length
+      } catch (err) {
+        console.error(`[Promote-Handle] Chunk ${i / 10 + 1} failed for @${handle}:`, err.message)
+        chunkErrors.push({ chunk: i / 10 + 1, error: err.message })
+        // Continue to next chunk — don't let one chunk failure kill the rest
+      }
     }
 
-    console.log(`[Promote-Handle] @${handle}: promoted ${created} reels`)
+    console.log(`[Promote-Handle] @${handle}: promoted ${created} reels${chunkErrors.length ? `, ${chunkErrors.length} chunk(s) failed` : ''}`)
 
     // Trigger GitHub Actions analysis workflow
     let analysisTriggered = false
@@ -228,14 +235,14 @@ export async function POST(request) {
             client_payload: { handle, trigger: 'auto-chain', timestamp: new Date().toISOString() },
           }),
         })
-        analysisTriggered = res.status === 204
+        analysisTriggered = res.ok || res.status === 204
         console.log(`[Promote-Handle] GitHub Actions dispatch: ${res.status}`)
       } catch (err) {
         console.error('[Promote-Handle] GitHub Actions trigger failed:', err)
       }
     }
 
-    return NextResponse.json({ promoted: created, analysisTriggered })
+    return NextResponse.json({ promoted: created, analysisTriggered, ...(chunkErrors.length ? { chunkErrors } : {}) })
   } catch (err) {
     console.error('Promote-handle error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
