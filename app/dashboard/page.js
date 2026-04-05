@@ -26,7 +26,15 @@ export default function DashboardRedirect() {
       return
     }
 
-    // Check onboarding status before allowing dashboard access
+    // Check onboarding status before allowing dashboard access (skip for admins/editors)
+    const userRole = user?.publicMetadata?.role
+    if (userRole === 'admin' || userRole === 'super_admin' || userRole === 'editor') {
+      if (opsId && opsId !== 'undefined') {
+        router.replace(`/creator/${opsId}/dashboard?hqId=${hqId}`)
+      }
+      return
+    }
+
     fetch(`/api/creator-profile?hqId=${hqId}`)
       .then(r => r.json())
       .then(data => {

@@ -57,12 +57,18 @@ export default function OnboardingForm() {
 
   useEffect(() => {
     if (!isLoaded) return
+    // Admins and editors don't need onboarding
+    const role = user?.publicMetadata?.role
+    if (role === 'admin' || role === 'super_admin' || role === 'editor') {
+      router.replace('/dashboard')
+      return
+    }
     if (!hqId) {
       setLoading(false)
       return
     }
     fetchProfile()
-  }, [isLoaded, hqId])
+  }, [isLoaded, hqId, user, router])
 
   const saveStep = async (step, data) => {
     if (!hqId) return false
