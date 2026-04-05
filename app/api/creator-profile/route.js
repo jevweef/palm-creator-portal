@@ -71,6 +71,7 @@ export async function GET(request) {
       contractFilename: c['Contract']?.[0]?.filename || null,
       communicationEmail: c['Communication Email'] || '',
       ofEmail: c['OF Email'] || '',
+      onboardingStatus: c['Onboarding Status'] || null,
     }
 
     // Parse onboarding (Dropbox links)
