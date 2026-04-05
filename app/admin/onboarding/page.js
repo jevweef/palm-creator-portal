@@ -87,7 +87,9 @@ export default function AdminOnboarding() {
 
   const filtered = filter === 'all'
     ? creators
-    : creators.filter(c => c.onboardingStatus === filter)
+    : filter === 'No Status'
+      ? creators.filter(c => !c.onboardingStatus)
+      : creators.filter(c => c.onboardingStatus === filter)
 
   return (
     <div>
@@ -132,7 +134,7 @@ export default function AdminOnboarding() {
 
       {/* Filter pills */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        {['all', 'Not Started', 'Link Sent', 'In Progress', 'Completed'].map(f => (
+        {['all', 'No Status', 'Not Started', 'Link Sent', 'In Progress', 'Completed'].map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -191,16 +193,20 @@ export default function AdminOnboarding() {
                       <span style={{ fontSize: '13px', color: '#666' }}>{c.email || '—'}</span>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '3px 10px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        ...(STATUS_COLORS[c.onboardingStatus] || STATUS_COLORS['Not Started']),
-                      }}>
-                        {c.onboardingStatus}
-                      </span>
+                      {c.onboardingStatus ? (
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          ...(STATUS_COLORS[c.onboardingStatus] || STATUS_COLORS['Not Started']),
+                        }}>
+                          {c.onboardingStatus}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: '#ccc' }}>—</span>
+                      )}
                     </td>
                     <td style={tdStyle}>
                       <span style={{ fontSize: '12px', color: '#999' }}>

@@ -22,7 +22,7 @@ export async function GET() {
       name: rec.fields['Creator'] || '',
       aka: rec.fields['AKA'] || '',
       email: rec.fields['Communication Email'] || '',
-      onboardingStatus: rec.fields['Onboarding Status'] || 'Not Started',
+      onboardingStatus: rec.fields['Onboarding Status'] || null,
       hasToken: !!rec.fields['Onboarding Token'],
       tokenCreatedAt: rec.fields['Onboarding Token Created At'] || null,
       onboardingDate: rec.fields['Onboarding Date'] || null,
