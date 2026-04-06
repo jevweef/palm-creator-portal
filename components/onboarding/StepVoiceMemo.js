@@ -10,6 +10,49 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+// Convert an AudioBuffer to a WAV Blob (mono, 16-bit PCM)
+function audioBufferToWav(audioBuffer) {
+  // Downmix to mono
+  const numChannels = 1
+  const sampleRate = audioBuffer.sampleRate
+  const samples = audioBuffer.getChannelData(0)
+
+  // Convert float32 to int16
+  const int16 = new Int16Array(samples.length)
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]))
+    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+  }
+
+  const byteLength = int16.length * 2
+  const buffer = new ArrayBuffer(44 + byteLength)
+  const view = new DataView(buffer)
+
+  // WAV header
+  const writeStr = (offset, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i))
+  }
+  writeStr(0, 'RIFF')
+  view.setUint32(4, 36 + byteLength, true)
+  writeStr(8, 'WAVE')
+  writeStr(12, 'fmt ')
+  view.setUint32(16, 16, true)          // chunk size
+  view.setUint16(20, 1, true)           // PCM format
+  view.setUint16(22, numChannels, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * numChannels * 2, true) // byte rate
+  view.setUint16(32, numChannels * 2, true) // block align
+  view.setUint16(34, 16, true)          // bits per sample
+  writeStr(36, 'data')
+  view.setUint32(40, byteLength, true)
+
+  // Write PCM samples
+  const output = new Int16Array(buffer, 44)
+  output.set(int16)
+
+  return new Blob([buffer], { type: 'audio/wav' })
+}
+
 export default function StepVoiceMemo({ hqId, onComplete }) {
   // Recording state
   const [recState, setRecState] = useState('idle') // idle | recording | recorded | uploading | done
@@ -130,10 +173,25 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
         if (e.data.size > 0) chunksRef.current.push(e.data)
       }
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
-        setAudioBlob(blob)
-        setAudioUrl(URL.createObjectURL(blob))
+      recorder.onstop = async () => {
+        const rawBlob = new Blob(chunksRef.current, { type: recorder.mimeType })
+
+        // Convert to WAV for universal playback
+        try {
+          const arrayBuf = await rawBlob.arrayBuffer()
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+          const decoded = await audioCtx.decodeAudioData(arrayBuf)
+          const wavBlob = audioBufferToWav(decoded)
+          setAudioBlob(wavBlob)
+          setAudioUrl(URL.createObjectURL(wavBlob))
+          audioCtx.close()
+        } catch (err) {
+          // Fallback to raw blob if conversion fails
+          console.warn('WAV conversion failed, using raw format:', err)
+          setAudioBlob(rawBlob)
+          setAudioUrl(URL.createObjectURL(rawBlob))
+        }
+
         setRecState('recorded')
 
         // Clean up stream
@@ -192,9 +250,9 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
       const formData = new FormData()
       formData.append('hqId', hqId)
 
-      // Determine extension for filename
+      // Determine extension from mime type
       const mime = audioBlob.type
-      const ext = mime.includes('mp4') ? 'm4a' : mime.includes('webm') ? 'webm' : 'webm'
+      const ext = mime.includes('wav') ? 'wav' : mime.includes('mp4') ? 'm4a' : 'webm'
       formData.append('audio', audioBlob, `voice-memo.${ext}`)
 
       const res = await fetch('/api/onboarding/voice-memo', {
