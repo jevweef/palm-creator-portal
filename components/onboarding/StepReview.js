@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 
 const STEPS = [
-  { key: 'basic-info', label: 'Basic Info', icon: '👤' },
-  { key: 'accounts', label: 'Accounts', icon: '🔗' },
-  { key: 'survey', label: 'Survey', icon: '📋' },
-  { key: 'contract', label: 'Contract', icon: '📝' },
-  { key: 'voice-memo', label: 'Voice Memo', icon: '🎙️' },
+  { key: 'basic-info', label: 'Basic Info', num: 1 },
+  { key: 'accounts', label: 'Accounts', num: 2 },
+  { key: 'survey', label: 'Survey', num: 3 },
+  { key: 'contract', label: 'Contract', num: 4 },
+  { key: 'voice-memo', label: 'Voice Memo', num: 5 },
 ]
 
 export default function StepReview({ hqId, completedSteps, onGoToStep }) {
@@ -66,7 +66,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
   if (submitted) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+        <div style={{ fontSize: '32px', fontWeight: 800, color: '#E88FAC', marginBottom: '16px' }}>Done!</div>
         <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginBottom: '8px' }}>
           You&apos;re all set!
         </h2>
@@ -81,7 +81,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
           display: 'inline-block',
         }}>
           <span style={{ fontSize: '14px', fontWeight: 600, color: '#2E7D32' }}>
-            ✅ Onboarding Complete
+            Onboarding Complete
           </span>
         </div>
       </div>
@@ -119,7 +119,12 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '18px' }}>{step.icon}</span>
+                <span style={{
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  background: isComplete ? '#E8F5E9' : '#f5f5f5',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '11px', fontWeight: 600, color: isComplete ? '#43A047' : '#999',
+                }}>{step.num}</span>
                 <span style={{
                   fontSize: '14px',
                   fontWeight: 500,

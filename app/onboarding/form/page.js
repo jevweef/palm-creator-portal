@@ -182,7 +182,7 @@ export default function OnboardingForm() {
           textAlign: 'center',
           boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '16px' }}>⏳</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: '#E88FAC', marginBottom: '16px' }}>...</div>
           <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
             Setting Up Your Account
           </h1>
@@ -246,7 +246,7 @@ export default function OnboardingForm() {
       textAlign: 'center',
       boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
     }}>
-      <div style={{ fontSize: '28px', marginBottom: '12px' }}>🚧</div>
+      <div style={{ fontSize: '14px', fontWeight: 600, color: '#999', marginBottom: '12px' }}>Coming Soon</div>
       <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
         {label}
       </h2>

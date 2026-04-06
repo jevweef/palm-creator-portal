@@ -121,7 +121,7 @@ export default function StepContract({ hqId, onComplete }) {
       <div>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#E8F5E9', padding: '8px 16px', borderRadius: '8px' }}>
-            <span style={{ fontSize: '16px' }}>✅</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#2E7D32"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             <span style={{ fontSize: '14px', fontWeight: 600, color: '#2E7D32' }}>Contract Signed Successfully</span>
           </div>
         </div>

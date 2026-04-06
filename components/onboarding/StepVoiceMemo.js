@@ -348,7 +348,9 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
           textAlign: 'center',
           marginBottom: '24px',
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+          <div style={{ marginBottom: '8px' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="#2E7D32"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
           <div style={{ fontSize: '14px', fontWeight: 600, color: '#2E7D32' }}>
             Voice memo {confirmed ? 'confirmed' : 'uploaded'}
           </div>
@@ -610,7 +612,9 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
               style={{ display: 'none' }}
               onChange={e => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0]) }}
             />
-            <div style={{ fontSize: '20px', marginBottom: '6px' }}>📁</div>
+            <div style={{ fontSize: '14px', color: '#999', marginBottom: '6px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#999"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+            </div>
             <div style={{ fontSize: '13px', color: '#666' }}>
               Drop an audio file or <span style={{ color: '#E88FAC', fontWeight: 500 }}>browse</span>
             </div>
