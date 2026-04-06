@@ -180,6 +180,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   const [loading, setLoading] = useState(true)
   const [preview, setPreview] = useState(null) // photo being previewed
   const [page, setPage] = useState(0)
+  const [sortNewest, setSortNewest] = useState(true)
   const isReel = (platforms || []).some(p => REEL_PLATFORMS.includes(p))
 
   useEffect(() => {
@@ -242,6 +243,16 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+            <button onClick={() => { setSortNewest(true); setPage(0) }}
+              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid #E8C4CC', background: sortNewest ? '#E88FAC' : '#FFF0F3', color: sortNewest ? '#fff' : '#888' }}>
+              Newest
+            </button>
+            <button onClick={() => { setSortNewest(false); setPage(0) }}
+              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid #E8C4CC', background: !sortNewest ? '#E88FAC' : '#FFF0F3', color: !sortNewest ? '#fff' : '#888' }}>
+              Oldest
+            </button>
+          </div>
           {isReel && (
             <div style={{ fontSize: '11px', color: '#999', marginBottom: '12px', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '6px 10px' }}>
               Showing unused photos only — photos already used as reel thumbnails are hidden.
@@ -254,8 +265,9 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
             </div>
           )}
           {(() => {
-            const totalPages = Math.ceil(photos.length / PHOTO_PAGE_SIZE)
-            const pagePhotos = photos.slice(page * PHOTO_PAGE_SIZE, (page + 1) * PHOTO_PAGE_SIZE)
+            const sorted = sortNewest ? photos : [...photos].reverse()
+            const totalPages = Math.ceil(sorted.length / PHOTO_PAGE_SIZE)
+            const pagePhotos = sorted.slice(page * PHOTO_PAGE_SIZE, (page + 1) * PHOTO_PAGE_SIZE)
             return (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
