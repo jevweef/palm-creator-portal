@@ -36,13 +36,14 @@ function etToUTC(etDateStr, etHour) {
 function getNextPostingSlot(existingSlotISOs, submissionISO) {
   const existingSet = new Set((existingSlotISOs || []).map(s => new Date(s).toISOString()))
 
-  // Start from the later of: the editor's submission day or today (never assign past slots)
   const now = new Date()
   const submission = submissionISO ? new Date(submissionISO) : now
-  const targetDate = submission > now ? submission : now
+
+  // Start from the submission's ET date (the task's day), never earlier than today
+  const startFrom = submission > now ? submission : now
   const startDateStr = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/New_York',
-  }).format(targetDate)
+  }).format(startFrom)
   const [sy, sm, sd] = startDateStr.split('-').map(Number)
 
   for (let dayOffset = 0; dayOffset <= 365; dayOffset++) {
@@ -53,6 +54,8 @@ function getNextPostingSlot(existingSlotISOs, submissionISO) {
 
     for (const etHour of SLOT_HOURS_ET) {
       const candidate = etToUTC(etDateStr, etHour)
+      // Never schedule in the past
+      if (candidate <= now) continue
       if (!existingSet.has(candidate.toISOString())) return candidate
     }
   }
