@@ -80,7 +80,7 @@ export async function GET() {
       }),
       // OPS — source reels (for pipeline stats)
       fetchAirtableRecords('Source Reels', {
-        fields: ['Source Handle', 'Data Source', 'Review Status', 'Imported to Inspiration', 'Created'],
+        fields: ['Source Handle', 'Data Source', 'Review Status', 'Imported to Inspiration'],
       }),
       // OPS — inspiration (for pipeline stats)
       fetchAirtableRecords('Inspiration', {
