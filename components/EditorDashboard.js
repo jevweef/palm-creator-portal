@@ -472,7 +472,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
 
 // ─── Library Picker Modal (for empty slots) ────────────────────────────────────
 
-function LibraryPickerModal({ creator, onClose, onRefresh }) {
+function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
   const [library, setLibrary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [assigning, setAssigning] = useState(null)
@@ -497,9 +497,14 @@ function LibraryPickerModal({ creator, onClose, onRefresh }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assetId: asset.id, creatorId: creator.id }),
       })
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
-      onRefresh()
-      onClose()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      await onRefresh()
+      if (onTaskCreated) {
+        onTaskCreated(data.taskId, asset)
+      } else {
+        onClose()
+      }
     } catch (e) {
       setErr(e.message)
       setAssigning(null)
@@ -1706,6 +1711,21 @@ function CreatorSection({ creator, onRefresh }) {
           creator={creator}
           onClose={() => setLibraryModal(false)}
           onRefresh={onRefresh}
+          onTaskCreated={(taskId, asset) => {
+            setLibraryModal(false)
+            // Open task detail modal immediately with a minimal task object.
+            // The full data will populate on next refresh, but this gives instant feedback.
+            setTaskModal({
+              type: 'toDo',
+              task: {
+                id: taskId,
+                name: `Edit: ${asset.name || ''}`,
+                status: 'To Do',
+                thumbnailUrl: asset.dropboxLinks?.[0] || asset.dropboxLink || '',
+                assetId: asset.id,
+              },
+            })
+          }}
         />
       )}
 
