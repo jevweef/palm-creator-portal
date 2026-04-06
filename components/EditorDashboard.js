@@ -964,7 +964,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
             {/* Action button */}
             {slot.type === 'toDo' && (
-              <button onClick={() => { onAction('startEditing', task); onClose() }} disabled={updating}
+              <button onClick={() => onAction('startEditing', task)} disabled={updating}
                 style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: '#dcfce7', color: '#22c55e', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
                 {updating ? 'Starting...' : 'Start Editing →'}
               </button>
@@ -1391,6 +1391,10 @@ function CreatorSection({ creator, onRefresh }) {
         })
         if (!res.ok) throw new Error((await res.json()).error || 'Update failed')
         showToast('Started editing')
+        // Update task modal in-place to show In Progress state
+        if (taskModal?.task?.id === task.id) {
+          setTaskModal({ type: 'inProgress', task: { ...task, status: 'In Progress' } })
+        }
         onRefresh()
       } catch (err) {
         showToast(err.message, true)
@@ -1422,8 +1426,13 @@ function CreatorSection({ creator, onRefresh }) {
       body: JSON.stringify({ taskId, newStatus: 'Done', editedFileLink, editedFilePath, editorNotes, isRevision }),
     })
     if (!res.ok) throw new Error((await res.json()).error || 'Submit failed')
+    const submittedTask = submitModal?.task
     setSubmitModal(null)
     showToast(isRevision ? 'Revision submitted' : 'Edit submitted for review')
+    // Update task modal to show In Review state
+    if (submittedTask && taskModal?.task?.id === submittedTask.id) {
+      setTaskModal({ type: 'inReview', task: { ...submittedTask, status: 'Done', adminReviewStatus: 'Pending Review' } })
+    }
     onRefresh()
   }
 
