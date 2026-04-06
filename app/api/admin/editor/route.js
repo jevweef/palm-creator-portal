@@ -36,8 +36,10 @@ function etToUTC(etDateStr, etHour) {
 function getNextPostingSlot(existingSlotISOs, submissionISO) {
   const existingSet = new Set((existingSlotISOs || []).map(s => new Date(s).toISOString()))
 
-  // Start from the ET calendar day the editor submitted the task
-  const targetDate = submissionISO ? new Date(submissionISO) : new Date()
+  // Start from the later of: the editor's submission day or today (never assign past slots)
+  const now = new Date()
+  const submission = submissionISO ? new Date(submissionISO) : now
+  const targetDate = submission > now ? submission : now
   const startDateStr = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/New_York',
   }).format(targetDate)
