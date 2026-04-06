@@ -499,10 +499,10 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
-      await onRefresh()
       if (onTaskCreated) {
         onTaskCreated(data.taskId, asset)
       } else {
+        await onRefresh()
         onClose()
       }
     } catch (e) {
@@ -1723,20 +1723,31 @@ function CreatorSection({ creator, onRefresh }) {
           creator={creator}
           onClose={() => setLibraryModal(false)}
           onRefresh={onRefresh}
-          onTaskCreated={(taskId, asset) => {
+          onTaskCreated={async (taskId, asset) => {
             setLibraryModal(false)
-            // Open task detail modal immediately with a minimal task object.
-            // The full data will populate on next refresh, but this gives instant feedback.
-            setTaskModal({
-              type: 'toDo',
-              task: {
-                id: taskId,
-                name: `Edit: ${asset.name || ''}`,
-                status: 'To Do',
-                thumbnailUrl: asset.dropboxLinks?.[0] || asset.dropboxLink || '',
-                assetId: asset.id,
+            // Open task detail modal immediately in editing state (skip the "Start Editing" step)
+            const newTask = {
+              id: taskId,
+              name: `Edit: ${asset.name || ''}`,
+              status: 'In Progress',
+              asset: {
+                id: asset.id,
+                dropboxLinks: asset.dropboxLinks || [],
+                dropboxLink: asset.dropboxLink || '',
+                thumbnail: asset.thumbnail || '',
+                creatorNotes: asset.creatorNotes || '',
               },
-            })
+            }
+            setTaskModal({ type: 'inProgress', task: newTask })
+            // Fire the status change to In Progress in the background
+            try {
+              await fetch('/api/admin/editor', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ taskId, newStatus: 'In Progress' }),
+              })
+              onRefresh()
+            } catch {}
           }}
         />
       )}
@@ -1922,9 +1933,9 @@ export function EditorDashboardContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    if (!silent) setError(null)
     try {
       const res = await fetch('/api/editor/dashboard')
       if (!res.ok) {
@@ -1934,9 +1945,9 @@ export function EditorDashboardContent() {
       const data = await res.json()
       setCreators(data.creators || [])
     } catch (err) {
-      setError(err.message)
+      if (!silent) setError(err.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
@@ -1976,7 +1987,7 @@ export function EditorDashboardContent() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           {creators.map(creator => (
             <div key={creator.id} style={{ minWidth: 0 }}>
-              <CreatorSection creator={creator} onRefresh={fetchData} />
+              <CreatorSection creator={creator} onRefresh={() => fetchData(true)} />
             </div>
           ))}
         </div>
