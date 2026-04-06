@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 
 const ADMIN_NAV = [
+  { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/admin/inspo', label: 'Inspo Board', icon: '🎬' },
   { href: '/admin/editor', label: 'Editor', icon: '✂️' },
   { href: '/admin/creators', label: 'Creators', icon: '🎭' },
@@ -65,8 +66,10 @@ export default function AdminLayout({ children }) {
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {NAV_ITEMS.map(item => {
-            const isActive = item.href === '/admin/inspo'
-              ? (pathname === '/admin/inspo' || pathname === '/admin' || pathname === '/admin/sources' || pathname === '/admin/review' || pathname === '/admin/import')
+            const isActive = item.href === '/admin/dashboard'
+              ? (pathname === '/admin/dashboard' || pathname === '/admin')
+              : item.href === '/admin/inspo'
+              ? (pathname === '/admin/inspo' || pathname === '/admin/sources' || pathname === '/admin/review' || pathname === '/admin/import')
               : pathname === item.href || pathname?.startsWith(item.href + '/')
             return (
               <Link
