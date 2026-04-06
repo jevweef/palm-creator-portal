@@ -45,7 +45,7 @@ export async function POST(request) {
     }
 
     const pdfBuffer = await generateContractPdf(contractData)
-    const filename = `contract-palm-digital-${creatorName.replace(/\s+/g, '-').toLowerCase()}.pdf`
+    const filename = `Palm Management - ${creatorName} - Agreement.pdf`
 
     // Upload to Dropbox
     const accessToken = await getDropboxAccessToken()
@@ -67,7 +67,7 @@ export async function POST(request) {
     // Return the PDF as base64 so frontend can display the final document
     const pdfBase64 = pdfBuffer.toString('base64')
 
-    return NextResponse.json({ success: true, dropboxUrl: sharedLink, pdfBase64 })
+    return NextResponse.json({ success: true, dropboxUrl: sharedLink, pdfBase64, filename })
   } catch (err) {
     console.error('[contract/sign] Error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })

@@ -9,7 +9,8 @@ export default function StepContract({ hqId, onComplete }) {
   const [typedName, setTypedName] = useState('')
   const [signing, setSigning] = useState(false)
   const [signed, setSigned] = useState(false)
-  const [pdfDataUrl, setPdfDataUrl] = useState(null)
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
+  const [pdfFilename, setPdfFilename] = useState('contract.pdf')
   const canvasRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasDrawn, setHasDrawn] = useState(false)
@@ -87,7 +88,14 @@ export default function StepContract({ hqId, onComplete }) {
       const data = await res.json()
       if (res.ok) {
         setSigned(true)
-        if (data.pdfBase64) setPdfDataUrl(`data:application/pdf;base64,${data.pdfBase64}`)
+        if (data.pdfBase64) {
+          const byteChars = atob(data.pdfBase64)
+          const byteArray = new Uint8Array(byteChars.length)
+          for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i)
+          const blob = new Blob([byteArray], { type: 'application/pdf' })
+          setPdfBlobUrl(URL.createObjectURL(blob))
+        }
+        if (data.filename) setPdfFilename(data.filename)
       }
     } catch (err) {
       console.error('Sign error:', err)
@@ -113,7 +121,7 @@ export default function StepContract({ hqId, onComplete }) {
         </div>
 
         {/* Show the signed PDF */}
-        {pdfDataUrl && (
+        {pdfBlobUrl && (
           <div style={{
             background: '#fff',
             border: '1px solid #e0e0e0',
@@ -122,7 +130,7 @@ export default function StepContract({ hqId, onComplete }) {
             marginBottom: '20px',
           }}>
             <iframe
-              src={pdfDataUrl}
+              src={pdfBlobUrl}
               style={{
                 width: '100%',
                 height: '600px',
@@ -135,23 +143,45 @@ export default function StepContract({ hqId, onComplete }) {
 
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: '13px', color: '#999', marginBottom: '16px' }}>
-            Your signed contract has been saved. You can download a copy from your dashboard later.
+            Your signed contract has been saved.
           </p>
-          <button
-            onClick={onComplete}
-            style={{
-              padding: '10px 32px',
-              background: '#E88FAC',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Continue
-          </button>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            {pdfBlobUrl && (
+              <a
+                href={pdfBlobUrl}
+                download={pdfFilename}
+                style={{
+                  padding: '10px 24px',
+                  background: '#fff',
+                  color: '#E88FAC',
+                  border: '1px solid #E88FAC',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'none',
+                  display: 'inline-block',
+                }}
+              >
+                Download PDF
+              </a>
+            )}
+            <button
+              onClick={onComplete}
+              style={{
+                padding: '10px 32px',
+                background: '#E88FAC',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Continue
+            </button>
+          </div>
         </div>
       </div>
     )
