@@ -818,8 +818,10 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Save failed')
       setSaved(true)
-      if (onSaved) onSaved()
-      setTimeout(onClose, 1200)
+      setTimeout(() => {
+        if (onSaved) onSaved(task)
+        else onClose()
+      }, 1200)
     } catch (err) {
       setSaveErr(err.message)
     } finally {
@@ -1709,6 +1711,10 @@ function CreatorSection({ creator, onRefresh }) {
           updating={updating}
           onClose={() => setTaskModal(null)}
           onRefresh={onRefresh}
+          onSaved={async (task) => {
+            setTaskModal({ type: 'inReview', task: { ...task, status: 'Done', adminReviewStatus: 'Pending Review' } })
+            await onRefresh()
+          }}
         />
       )}
 
