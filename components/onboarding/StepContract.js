@@ -239,8 +239,8 @@ export default function StepContract({ hqId, onComplete }) {
           <div>
             <canvas
               ref={canvasRef}
-              width={500}
-              height={120}
+              width={600}
+              height={160}
               onMouseDown={startDraw}
               onMouseMove={draw}
               onMouseUp={endDraw}

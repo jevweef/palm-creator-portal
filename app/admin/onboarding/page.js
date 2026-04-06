@@ -503,8 +503,8 @@ export default function AdminOnboarding() {
                 </label>
                 <canvas
                   ref={sigCanvasRef}
-                  width={360}
-                  height={80}
+                  width={500}
+                  height={140}
                   onMouseDown={startSigDraw}
                   onMouseMove={sigDraw}
                   onMouseUp={endSigDraw}
@@ -517,7 +517,7 @@ export default function AdminOnboarding() {
                     borderRadius: '8px',
                     cursor: 'crosshair',
                     width: '100%',
-                    maxWidth: '360px',
+                    maxWidth: '500px',
                     touchAction: 'none',
                     display: 'block',
                   }}
@@ -656,8 +656,8 @@ export default function AdminOnboarding() {
                 </label>
                 <canvas
                   ref={sigCanvasRef}
-                  width={360}
-                  height={80}
+                  width={500}
+                  height={140}
                   onMouseDown={startSigDraw}
                   onMouseMove={sigDraw}
                   onMouseUp={endSigDraw}
@@ -670,7 +670,7 @@ export default function AdminOnboarding() {
                     borderRadius: '8px',
                     cursor: 'crosshair',
                     width: '100%',
-                    maxWidth: '360px',
+                    maxWidth: '500px',
                     touchAction: 'none',
                     display: 'block',
                   }}
