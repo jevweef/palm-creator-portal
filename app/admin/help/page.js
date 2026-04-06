@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 
 // ─── Help content data ───────────────────────────────────────────────
 
@@ -9,7 +10,8 @@ const HELP_SECTIONS = [
     id: 'onboarding',
     title: 'Onboarding a New Creator',
     icon: '📋',
-    tags: ['onboarding', 'new creator', 'invite', 'link', 'commission', 'setup'],
+    link: '/admin/onboarding',
+    tags: ['onboarding', 'new creator', 'invite', 'link', 'commission', 'setup', 'account', 'signup', 'text message'],
     scenario: 'You just signed a new creator and need to get them into the system.',
     steps: [
       {
@@ -22,31 +24,41 @@ const HELP_SECTIONS = [
       },
       {
         heading: 'Fill in the creator\'s info',
-        detail: 'Name (required), email (required), commission % (optional — you can set this later), and their state if you have it.',
+        detail: 'Name (required), email (required), commission % (optional — you can set this later), and their state if you have it. The email matters — it\'s what they\'ll use to create their account in the next step.',
       },
       {
         heading: 'Click "Create & Copy Link"',
-        detail: 'This does two things: creates their record in the system and copies their personal onboarding link to your clipboard.',
+        detail: 'This creates their record in the system and copies their personal onboarding link to your clipboard.',
       },
       {
-        heading: 'Send them the link',
-        detail: 'Paste the link into a DM, email, or text. When they open it, they\'ll land on a branded onboarding page where they fill out their survey, upload voice memos, and sign their contract.',
+        heading: 'Send them the link with instructions',
+        detail: 'Paste the link into a DM, text, or email. When they open it, they\'ll see a welcome page with their name. They need to click "Create Your Account" and sign up using the same email you entered in step 3. After creating their account, they\'ll be taken into the onboarding form automatically.',
+      },
+      {
+        heading: 'What they do from here',
+        detail: 'The onboarding form walks them through everything: basic info, social accounts, a survey about their brand, contract signing, and a voice memo. It takes about an hour. You don\'t need to do anything until they\'re done.',
       },
       {
         heading: 'Track their progress',
-        detail: 'Back on the Onboarding page, you\'ll see their status update as they complete steps: Link Sent → In Progress → Completed. You don\'t need to do anything in between — the system tracks it automatically.',
+        detail: 'Back on the Onboarding page, their status updates as they go: Link Sent → In Progress (they created their account and started) → Completed. Check periodically — there\'s no notification when they finish.',
       },
     ],
     tips: [
       'If a creator says they lost the link, click "Copy Link" next to their name in the table — it generates a fresh one.',
       'If they already exist as a Lead in the system, you\'ll see a "Start Onboarding" button right on their row instead of using the top button.',
       'Commission % can be changed later on the Creators page — don\'t stress about getting it exact at this step.',
+      'The email you enter must match the email they sign up with. If they use a different email, their account won\'t link to their creator record correctly.',
     ],
+    sampleMessage: {
+      label: 'Copy-paste text for the creator',
+      text: `Hey! Here's your link to get started with Palm:\n\n[PASTE LINK HERE]\n\nWhen you open it, click "Create Your Account" and sign up with this email: [THEIR EMAIL]. After that it'll walk you through everything — your info, a quick survey, contract, and a voice memo about your brand. Takes about an hour. Let me know if you have any questions!`,
+    },
   },
   {
     id: 'creator-profile',
     title: 'Setting Up a Creator\'s Profile',
     icon: '🎭',
+    link: '/admin/creators',
     tags: ['creator', 'profile', 'documents', 'voice memo', 'analysis', 'tags', 'AI'],
     scenario: 'A creator just finished onboarding and you need to build out their profile so the system knows what content to recommend them.',
     steps: [
@@ -85,6 +97,7 @@ const HELP_SECTIONS = [
     id: 'uploading-docs',
     title: 'Uploading Documents for a Creator',
     icon: '📎',
+    link: '/admin/creators',
     tags: ['upload', 'documents', 'voice memo', 'audio', 'transcript', 'PDF', 'meeting notes'],
     scenario: 'You have a voice memo, call recording, or document about a creator that should factor into their profile.',
     steps: [
@@ -123,6 +136,7 @@ const HELP_SECTIONS = [
     id: 'invoicing',
     title: 'Invoicing a Creator',
     icon: '💸',
+    link: '/admin/invoicing',
     tags: ['invoice', 'invoicing', 'payment', 'earnings', 'commission', 'send', 'PDF', 'paid'],
     scenario: 'It\'s the end of the billing period and you need to invoice creators for their earnings.',
     steps: [
@@ -157,6 +171,7 @@ const HELP_SECTIONS = [
     id: 'inspo-pipeline',
     title: 'How the Inspo Pipeline Works',
     icon: '⚡',
+    link: '/admin/inspo',
     tags: ['pipeline', 'scrape', 'promote', 'analysis', 'inspo', 'source reels', 'inspiration'],
     scenario: 'Understanding the flow from Instagram scraping to content appearing on the creator portal.',
     steps: [
@@ -178,7 +193,7 @@ const HELP_SECTIONS = [
       },
       {
         heading: 'Creators see them',
-        detail: 'Analyzed reels show up on the creator portal (app.palm-mgmt.com/inspo) where creators browse, filter by tags, and save the ones they want to recreate.',
+        detail: 'Analyzed reels show up on the creator portal where creators browse, filter by tags, and save the ones they want to recreate.',
       },
     ],
     tips: [
@@ -190,6 +205,7 @@ const HELP_SECTIONS = [
     id: 'add-sources',
     title: 'Adding Inspo Sources',
     icon: '📡',
+    link: '/admin/sources',
     tags: ['sources', 'instagram', 'scrape', 'add', 'accounts', 'handles'],
     scenario: 'You found some Instagram accounts that post great content and want to add them as inspiration sources.',
     steps: [
@@ -228,6 +244,7 @@ const HELP_SECTIONS = [
     id: 'review-reels',
     title: 'Reviewing Reels',
     icon: '✅',
+    link: '/admin/review',
     tags: ['review', 'rate', 'approve', 'reels', 'voice note', 'assign', 'creators'],
     scenario: 'There are reels in the review queue waiting to be approved or rejected.',
     steps: [
@@ -262,6 +279,7 @@ const HELP_SECTIONS = [
     id: 'import-reels',
     title: 'Importing Reels from Instagram Export',
     icon: '📥',
+    link: '/admin/import',
     tags: ['import', 'instagram', 'export', 'JSON', 'bulk', 'saved'],
     scenario: 'You saved a bunch of reels on Instagram and want to import them into the system all at once.',
     steps: [
@@ -295,6 +313,7 @@ const HELP_SECTIONS = [
     id: 'editor-workflow',
     title: 'Managing the Editor Workflow',
     icon: '✂️',
+    link: '/admin/editor',
     tags: ['editor', 'editing', 'tasks', 'approve', 'revisions', 'telegram', 'post'],
     scenario: 'Content has been filmed and needs to be edited, reviewed, and posted.',
     steps: [
@@ -334,7 +353,7 @@ const HELP_SECTIONS = [
     steps: [
       {
         heading: 'Sidebar items',
-        detail: 'The left sidebar has 5 sections: Inspo Board, Editor, Creators, Onboarding, and Invoicing. Each one opens a different page.',
+        detail: 'The left sidebar has 6 sections: Inspo Board, Editor, Creators, Onboarding, Invoicing, and Help (this page). Each one opens a different page.',
       },
       {
         heading: 'Inspo Board tabs',
@@ -363,6 +382,7 @@ const HELP_SECTIONS = [
     id: 'refine-profile',
     title: 'Refining a Creator\'s Profile',
     icon: '🎯',
+    link: '/admin/creators',
     tags: ['refine', 'feedback', 'tags', 'weights', 'adjust', 'profile', 'AI'],
     scenario: 'The AI-generated profile isn\'t quite right and you want to adjust it without starting over.',
     steps: [
@@ -396,6 +416,7 @@ const HELP_SECTIONS = [
     id: 'resend-link',
     title: 'Resending an Onboarding Link',
     icon: '🔗',
+    link: '/admin/onboarding',
     tags: ['resend', 'link', 'onboarding', 'lost', 'new link', 'token'],
     scenario: 'A creator says they can\'t find or lost their onboarding link.',
     steps: [
@@ -420,6 +441,7 @@ const HELP_SECTIONS = [
     id: 'check-status',
     title: 'Checking Onboarding Progress',
     icon: '📊',
+    link: '/admin/onboarding',
     tags: ['status', 'progress', 'onboarding', 'check', 'where', 'stuck'],
     scenario: 'You want to see where a creator is in the onboarding process.',
     steps: [
@@ -445,6 +467,7 @@ const HELP_SECTIONS = [
     id: 'run-pipeline',
     title: 'Running the Inspo Pipeline',
     icon: '🚀',
+    link: '/admin/inspo',
     tags: ['pipeline', 'run', 'scrape', 'promote', 'analysis', 'bulk'],
     scenario: 'You want to manually kick off a pipeline run to get fresh content processed.',
     steps: [
@@ -483,6 +506,66 @@ function SearchIcon() {
   )
 }
 
+function ArrowRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  )
+}
+
+function SampleMessageBlock({ message }) {
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy() {
+    navigator.clipboard.writeText(message.text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div style={{
+      marginTop: '18px',
+      padding: '14px 16px',
+      background: '#F0F9FF',
+      borderRadius: '10px',
+      border: '1px solid #BAE6FD',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#0369A1', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+          {message.label}
+        </div>
+        <button
+          onClick={handleCopy}
+          style={{
+            padding: '4px 10px',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: copied ? '#16a34a' : '#0369A1',
+            background: copied ? '#DCFCE7' : '#E0F2FE',
+            border: `1px solid ${copied ? '#BBF7D0' : '#BAE6FD'}`,
+            borderRadius: '5px',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <div style={{
+        fontSize: '13px',
+        color: '#0C4A6E',
+        lineHeight: 1.6,
+        whiteSpace: 'pre-line',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+      }}>
+        {message.text}
+      </div>
+    </div>
+  )
+}
+
 function SectionCard({ section, isOpen, onToggle }) {
   return (
     <div style={{
@@ -493,38 +576,70 @@ function SectionCard({ section, isOpen, onToggle }) {
       transition: 'box-shadow 0.2s',
     }}>
       {/* Header — always visible */}
-      <button
-        onClick={onToggle}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '14px',
-          width: '100%',
-          padding: '18px 22px',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          textAlign: 'left',
-        }}
-      >
-        <span style={{ fontSize: '22px', lineHeight: 1 }}>{section.icon}</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>
-            {section.title}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px',
+        padding: '18px 22px',
+      }}>
+        <button
+          onClick={onToggle}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            flex: 1,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
+            padding: 0,
+          }}
+        >
+          <span style={{ fontSize: '22px', lineHeight: 1 }}>{section.icon}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>
+              {section.title}
+            </div>
+            <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
+              {section.scenario}
+            </div>
           </div>
-          <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
-            {section.scenario}
-          </div>
-        </div>
-        <span style={{
-          fontSize: '18px',
-          color: '#ccc',
-          transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-          transition: 'transform 0.2s',
-        }}>
-          ▾
-        </span>
-      </button>
+          <span style={{
+            fontSize: '18px',
+            color: '#ccc',
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+          }}>
+            ▾
+          </span>
+        </button>
+
+        {/* Direct link button */}
+        {section.link && (
+          <Link
+            href={section.link}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#E88FAC',
+              background: '#FFF0F3',
+              border: '1px solid #F5D5DD',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              transition: 'background 0.15s',
+            }}
+          >
+            Go to page <ArrowRightIcon />
+          </Link>
+        )}
+      </div>
 
       {/* Body — collapsible */}
       {isOpen && (
@@ -561,8 +676,13 @@ function SectionCard({ section, isOpen, onToggle }) {
             ))}
           </div>
 
+          {/* Sample message */}
+          {section.sampleMessage && (
+            <SampleMessageBlock message={section.sampleMessage} />
+          )}
+
           {/* Tips */}
-          {section.tips.length > 0 && (
+          {section.tips && section.tips.length > 0 && (
             <div style={{
               marginTop: '18px',
               padding: '14px 16px',
@@ -669,7 +789,7 @@ export default function HelpPage() {
         </div>
         <input
           type="text"
-          placeholder="Search — try &quot;onboarding&quot;, &quot;invoice&quot;, &quot;scrape&quot;, &quot;voice memo&quot;..."
+          placeholder='Search — try "onboarding", "invoice", "scrape", "voice memo"...'
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{
