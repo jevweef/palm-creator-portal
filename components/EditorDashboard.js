@@ -1391,11 +1391,10 @@ function CreatorSection({ creator, onRefresh }) {
         })
         if (!res.ok) throw new Error((await res.json()).error || 'Update failed')
         showToast('Started editing')
-        // Update task modal in-place to show In Progress state
-        if (taskModal?.task?.id === task.id) {
-          setTaskModal({ type: 'inProgress', task: { ...task, status: 'In Progress' } })
-        }
-        onRefresh()
+        // Update task modal in-place to show In Progress state — set before refresh
+        // so the modal stays open and shows the editing tools immediately
+        setTaskModal({ type: 'inProgress', task: { ...task, status: 'In Progress' } })
+        await onRefresh()
       } catch (err) {
         showToast(err.message, true)
       } finally {
@@ -1430,10 +1429,8 @@ function CreatorSection({ creator, onRefresh }) {
     setSubmitModal(null)
     showToast(isRevision ? 'Revision submitted' : 'Edit submitted for review')
     // Update task modal to show In Review state
-    if (submittedTask && taskModal?.task?.id === submittedTask.id) {
-      setTaskModal({ type: 'inReview', task: { ...submittedTask, status: 'Done', adminReviewStatus: 'Pending Review' } })
-    }
-    onRefresh()
+    setTaskModal({ type: 'inReview', task: { ...submittedTask, status: 'Done', adminReviewStatus: 'Pending Review' } })
+    await onRefresh()
   }
 
   const dailyQuota = creator.dailyQuota || 2
