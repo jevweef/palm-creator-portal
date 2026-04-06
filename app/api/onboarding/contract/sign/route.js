@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { patchHqRecord, fetchHqRecord } from '@/lib/hqAirtable'
 import { generateContractPdf } from '@/lib/generateContractPdf'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 
@@ -27,10 +28,11 @@ export async function POST(request) {
   try {
     const record = await fetchHqRecord(HQ_CREATORS, hqId)
     const c = record.fields || {}
+    const creatorName = c['Creator'] || 'creator'
 
     // Generate signed PDF
     const contractData = {
-      creatorName: c['Creator'] || '',
+      creatorName,
       commissionPct: c['Commission %'] || 0,
       creatorState: c['Creator State'] || '',
       effectiveDate: new Date().toISOString(),
@@ -40,17 +42,26 @@ export async function POST(request) {
     }
 
     const pdfBuffer = await generateContractPdf(contractData)
+    const filename = `contract-palm-digital-${creatorName.replace(/\s+/g, '-').toLowerCase()}.pdf`
 
-    // Upload PDF as base64 attachment to Airtable
-    const base64Pdf = pdfBuffer.toString('base64')
-    const filename = `contract-palm-digital-${(c['Creator'] || 'creator').replace(/\s+/g, '-').toLowerCase()}.pdf`
+    // Upload to Dropbox
+    const accessToken = await getDropboxAccessToken()
+    const rootNs = await getDropboxRootNamespaceId(accessToken)
+    const dropboxPath = `/Palm Ops/Contracts/${filename}`
 
+    await uploadToDropbox(accessToken, rootNs, dropboxPath, pdfBuffer)
+    const sharedLink = await createDropboxSharedLink(accessToken, rootNs, dropboxPath)
+
+    // Convert Dropbox shared link to direct download URL for Airtable attachment
+    const directUrl = sharedLink.replace('?dl=0', '?raw=1').replace('&dl=0', '&raw=1')
+
+    // Attach to Airtable using the Dropbox URL
     await patchHqRecord(HQ_CREATORS, hqId, {
-      'Contract': [{ url: `data:application/pdf;base64,${base64Pdf}`, filename }],
+      'Contract': [{ url: directUrl, filename }],
       'Contract Sign Date': new Date().toISOString().split('T')[0],
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, dropboxUrl: sharedLink })
   } catch (err) {
     console.error('[contract/sign] Error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
