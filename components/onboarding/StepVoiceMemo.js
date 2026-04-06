@@ -1,29 +1,324 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
-export default function StepVoiceMemo({ onComplete }) {
-  const [file, setFile] = useState(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploaded, setUploaded] = useState(false)
+const MAX_DURATION = 600 // 10 minutes in seconds
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+export default function StepVoiceMemo({ hqId, onComplete }) {
+  // Recording state
+  const [recState, setRecState] = useState('idle') // idle | recording | recorded | uploading | done
+  const [duration, setDuration] = useState(0)
+  const [audioBlob, setAudioBlob] = useState(null)
+  const [audioUrl, setAudioUrl] = useState(null)
   const [confirmed, setConfirmed] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
-  const inputRef = useRef(null)
 
-  const handleFile = (f) => {
-    const validTypes = ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/ogg', 'audio/webm', 'video/mp4']
-    if (f && (validTypes.includes(f.type) || f.name.match(/\.(mp3|m4a|wav|ogg|webm|mp4)$/i))) {
-      setFile(f)
+  // Upload state
+  const [uploadProgress, setUploadProgress] = useState(null)
+  const [error, setError] = useState(null)
+
+  // Already uploaded state (for refresh)
+  const [existingMemo, setExistingMemo] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Refs
+  const mediaRecorderRef = useRef(null)
+  const chunksRef = useRef([])
+  const streamRef = useRef(null)
+  const analyserRef = useRef(null)
+  const animFrameRef = useRef(null)
+  const canvasRef = useRef(null)
+  const timerRef = useRef(null)
+  const startTimeRef = useRef(null)
+  const audioRef = useRef(null)
+  const playbackAnimRef = useRef(null)
+  const playbackAnalyserRef = useRef(null)
+  const playbackCanvasRef = useRef(null)
+
+  // File upload refs
+  const fileInputRef = useRef(null)
+
+  // Check if voice memo already exists
+  useEffect(() => {
+    if (!hqId) { setLoading(false); return }
+    fetch(`/api/onboarding/voice-memo?hqId=${hqId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.hasVoiceMemo) {
+          setExistingMemo(data)
+          setRecState('done')
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [hqId])
+
+  // Draw live waveform
+  const drawWaveform = useCallback(() => {
+    const canvas = canvasRef.current
+    const analyser = analyserRef.current
+    if (!canvas || !analyser) return
+
+    const ctx = canvas.getContext('2d')
+    const width = canvas.width
+    const height = canvas.height
+    const bufferLength = analyser.frequencyBinCount
+    const dataArray = new Uint8Array(bufferLength)
+
+    const draw = () => {
+      animFrameRef.current = requestAnimationFrame(draw)
+      analyser.getByteTimeDomainData(dataArray)
+
+      ctx.fillStyle = '#1a1a1a'
+      ctx.fillRect(0, 0, width, height)
+
+      ctx.lineWidth = 2
+      ctx.strokeStyle = '#E88FAC'
+      ctx.beginPath()
+
+      const sliceWidth = width / bufferLength
+      let x = 0
+
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0
+        const y = (v * height) / 2
+
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+
+        x += sliceWidth
+      }
+
+      ctx.lineTo(width, height / 2)
+      ctx.stroke()
+    }
+
+    draw()
+  }, [])
+
+  // Start recording
+  const startRecording = async () => {
+    setError(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+
+      // Set up analyser for waveform
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+      const source = audioContext.createMediaStreamSource(stream)
+      const analyser = audioContext.createAnalyser()
+      analyser.fftSize = 2048
+      source.connect(analyser)
+      analyserRef.current = analyser
+
+      // Determine best mime type
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : ''
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {})
+      chunksRef.current = []
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
+        setAudioBlob(blob)
+        setAudioUrl(URL.createObjectURL(blob))
+        setRecState('recorded')
+
+        // Clean up stream
+        stream.getTracks().forEach(t => t.stop())
+      }
+
+      mediaRecorderRef.current = recorder
+      recorder.start(500) // collect chunks every 500ms
+
+      // Start timer
+      startTimeRef.current = Date.now()
+      setDuration(0)
+      timerRef.current = setInterval(() => {
+        const elapsed = (Date.now() - startTimeRef.current) / 1000
+        setDuration(elapsed)
+        if (elapsed >= MAX_DURATION) {
+          stopRecording()
+        }
+      }, 100)
+
+      setRecState('recording')
+      // Start waveform after a tick to let canvas mount
+      setTimeout(() => drawWaveform(), 50)
+    } catch (err) {
+      console.error('Microphone error:', err)
+      setError('Could not access microphone. Please allow microphone access and try again.')
     }
   }
 
-  const handleDrop = (e) => {
-    e.preventDefault()
-    setDragOver(false)
-    if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0])
+  // Stop recording
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+    if (timerRef.current) clearInterval(timerRef.current)
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
   }
 
-  const canContinue = uploaded || confirmed
+  // Re-record
+  const reRecord = () => {
+    if (audioUrl) URL.revokeObjectURL(audioUrl)
+    setAudioBlob(null)
+    setAudioUrl(null)
+    setDuration(0)
+    setRecState('idle')
+  }
+
+  // Upload recording
+  const uploadRecording = async () => {
+    if (!audioBlob || !hqId) return
+    setRecState('uploading')
+    setUploadProgress('Uploading...')
+    setError(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('hqId', hqId)
+
+      // Determine extension for filename
+      const mime = audioBlob.type
+      const ext = mime.includes('mp4') ? 'm4a' : mime.includes('webm') ? 'webm' : 'webm'
+      formData.append('audio', audioBlob, `voice-memo.${ext}`)
+
+      const res = await fetch('/api/onboarding/voice-memo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setRecState('done')
+        setUploadProgress(null)
+      } else {
+        throw new Error(data.error || 'Upload failed')
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+      setError('Upload failed. Please try again.')
+      setRecState('recorded')
+      setUploadProgress(null)
+    }
+  }
+
+  // Upload a file (drag/drop or browse)
+  const handleFileUpload = async (file) => {
+    if (!file || !hqId) return
+    const validTypes = ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/ogg', 'audio/webm', 'video/mp4']
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|m4a|wav|ogg|webm|mp4)$/i)) {
+      setError('Please upload an audio file (MP3, M4A, WAV, OGG, or WEBM)')
+      return
+    }
+
+    setRecState('uploading')
+    setUploadProgress('Uploading...')
+    setError(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('hqId', hqId)
+      formData.append('audio', file, file.name)
+
+      const res = await fetch('/api/onboarding/voice-memo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setRecState('done')
+        setUploadProgress(null)
+      } else {
+        throw new Error(data.error || 'Upload failed')
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+      setError('Upload failed. Please try again.')
+      setRecState('idle')
+      setUploadProgress(null)
+    }
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      if (playbackAnimRef.current) cancelAnimationFrame(playbackAnimRef.current)
+      if (audioUrl) URL.revokeObjectURL(audioUrl)
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    }
+  }, [])
+
+  if (loading) {
+    return <div style={{ color: '#999', fontSize: '14px', padding: '20px' }}>Loading...</div>
+  }
+
+  // Already uploaded
+  if (recState === 'done') {
+    return (
+      <div>
+        <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+          Voice Memo
+        </h2>
+        <p style={{ fontSize: '13px', color: '#999', marginBottom: '24px' }}>
+          {confirmed
+            ? 'You confirmed your voice memo was already sent.'
+            : 'Your voice memo has been saved!'}
+        </p>
+
+        <div style={{
+          background: '#E8F5E9',
+          borderRadius: '12px',
+          padding: '24px',
+          textAlign: 'center',
+          marginBottom: '24px',
+        }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: '#2E7D32' }}>
+            Voice memo {confirmed ? 'confirmed' : 'uploaded'}
+          </div>
+          {existingMemo?.voiceMemoFilename && (
+            <div style={{ fontSize: '12px', color: '#66BB6A', marginTop: '4px' }}>
+              {existingMemo.voiceMemoFilename}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={onComplete}
+          style={{
+            padding: '10px 32px',
+            background: '#E88FAC',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Continue
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -32,141 +327,307 @@ export default function StepVoiceMemo({ onComplete }) {
       </h2>
       <p style={{ fontSize: '13px', color: '#999', marginBottom: '24px', lineHeight: '1.5' }}>
         Record a voice memo telling us about yourself — your personality, how you talk to fans,
-        what makes you unique. This is the most important part of your profile. Talk naturally,
-        like you&apos;re explaining yourself to a friend.
+        what makes you unique. Talk naturally, like you&apos;re explaining yourself to a friend.
+        2-5 minutes is perfect.
       </p>
 
-      {/* Upload option */}
-      <div style={{
-        background: '#fff',
-        border: `2px dashed ${dragOver ? '#E88FAC' : '#e0e0e0'}`,
-        borderRadius: '12px',
-        padding: '32px',
-        textAlign: 'center',
-        cursor: 'pointer',
-        transition: 'border-color 0.15s',
-        marginBottom: '20px',
-      }}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".mp3,.m4a,.wav,.ogg,.webm,.mp4"
-          style={{ display: 'none' }}
-          onChange={e => handleFile(e.target.files?.[0])}
-        />
+      {error && (
+        <div style={{
+          background: '#FFEBEE',
+          color: '#C62828',
+          padding: '10px 16px',
+          borderRadius: '8px',
+          fontSize: '13px',
+          marginBottom: '16px',
+        }}>
+          {error}
+        </div>
+      )}
 
-        {uploaded ? (
-          <>
-            <div style={{ fontSize: '28px', marginBottom: '8px' }}>✅</div>
-            <div style={{ fontSize: '14px', fontWeight: 500, color: '#43A047' }}>
-              Voice memo uploaded!
-            </div>
-          </>
-        ) : file ? (
-          <>
-            <div style={{ fontSize: '28px', marginBottom: '8px' }}>🎙️</div>
-            <div style={{ fontSize: '14px', fontWeight: 500, color: '#1a1a1a', marginBottom: '4px' }}>
-              {file.name}
-            </div>
-            <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px' }}>
-              {(file.size / 1024 / 1024).toFixed(1)} MB
-            </div>
+      {/* Recorder section */}
+      <div style={{
+        background: recState === 'recording' ? '#1a1a1a' : '#fff',
+        border: recState === 'recording' ? 'none' : '1px solid #e0e0e0',
+        borderRadius: '16px',
+        padding: '28px',
+        marginBottom: '20px',
+        transition: 'background 0.3s, border 0.3s',
+      }}>
+        {/* IDLE STATE */}
+        {recState === 'idle' && (
+          <div style={{ textAlign: 'center' }}>
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                // TODO: Phase 2 — actual Dropbox upload
-                setUploading(true)
-                setTimeout(() => {
-                  setUploading(false)
-                  setUploaded(true)
-                }, 1500)
-              }}
-              disabled={uploading}
+              onClick={startRecording}
               style={{
-                padding: '8px 24px',
-                background: uploading ? '#F0D0D8' : '#E88FAC',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: uploading ? 'not-allowed' : 'pointer',
+                width: '72px',
+                height: '72px',
+                borderRadius: '50%',
+                background: '#E88FAC',
+                border: '4px solid #FFF0F3',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 12px',
+                transition: 'transform 0.15s',
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >
-              {uploading ? 'Uploading...' : 'Upload'}
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
             </button>
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: '28px', marginBottom: '8px' }}>🎙️</div>
-            <div style={{ fontSize: '14px', fontWeight: 500, color: '#1a1a1a', marginBottom: '4px' }}>
-              Drop your voice memo here
+            <div style={{ fontSize: '14px', fontWeight: 500, color: '#1a1a1a' }}>
+              Tap to record
             </div>
-            <div style={{ fontSize: '12px', color: '#999' }}>
-              or click to browse — MP3, M4A, WAV, OGG
+            <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+              Max {MAX_DURATION / 60} minutes
             </div>
-          </>
+          </div>
+        )}
+
+        {/* RECORDING STATE */}
+        {recState === 'recording' && (
+          <div>
+            {/* Waveform canvas */}
+            <canvas
+              ref={canvasRef}
+              width={700}
+              height={80}
+              style={{
+                width: '100%',
+                height: '80px',
+                borderRadius: '8px',
+                marginBottom: '16px',
+              }}
+            />
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              {/* Timer + recording indicator */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '50%',
+                  background: '#E88FAC',
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }} />
+                <span style={{ fontSize: '20px', fontWeight: 600, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatTime(duration)}
+                </span>
+              </div>
+
+              {/* Stop button */}
+              <button
+                onClick={stopRecording}
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '50%',
+                  background: '#E88FAC',
+                  border: '3px solid rgba(255,255,255,0.2)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {/* Stop square icon */}
+                <div style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '3px',
+                  background: '#fff',
+                }} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* RECORDED STATE — playback preview */}
+        {recState === 'recorded' && audioUrl && (
+          <div>
+            <div style={{ marginBottom: '16px' }}>
+              <audio
+                ref={audioRef}
+                src={audioUrl}
+                controls
+                style={{ width: '100%', height: '40px' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '13px', color: '#999' }}>
+                {formatTime(duration)} recorded
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={reRecord}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#f5f5f5',
+                    color: '#666',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Re-record
+                </button>
+                <button
+                  onClick={uploadRecording}
+                  style={{
+                    padding: '8px 20px',
+                    background: '#E88FAC',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Save Recording
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* UPLOADING STATE */}
+        {recState === 'uploading' && (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              border: '3px solid #f0f0f0',
+              borderTop: '3px solid #E88FAC',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+              margin: '0 auto 12px',
+            }} />
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              {uploadProgress || 'Uploading...'}
+            </div>
+          </div>
         )}
       </div>
 
       {/* OR divider */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-        <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
-        <span style={{ fontSize: '12px', color: '#999', fontWeight: 500 }}>OR</span>
-        <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
-      </div>
+      {recState === 'idle' && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
+            <span style={{ fontSize: '12px', color: '#999', fontWeight: 500 }}>OR UPLOAD A FILE</span>
+            <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
+          </div>
 
-      {/* Confirm already sent */}
-      <div style={{
-        background: confirmed ? '#E8F5E9' : '#FFF8E1',
-        border: '1px solid',
-        borderColor: confirmed ? '#A5D6A7' : '#FFE082',
-        borderRadius: '12px',
-        padding: '16px',
-        marginBottom: '24px',
-      }}>
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={confirmed}
-            onChange={e => setConfirmed(e.target.checked)}
-            disabled={uploaded}
-            style={{ marginTop: '3px', accentColor: '#E88FAC' }}
-          />
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
-              I already sent my voice memo to my manager
+          {/* File upload */}
+          <div
+            style={{
+              background: '#fff',
+              border: '2px dashed #e0e0e0',
+              borderRadius: '12px',
+              padding: '24px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              marginBottom: '20px',
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#E88FAC' }}
+            onDragLeave={e => { e.currentTarget.style.borderColor = '#e0e0e0' }}
+            onDrop={e => {
+              e.preventDefault()
+              e.currentTarget.style.borderColor = '#e0e0e0'
+              if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0])
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".mp3,.m4a,.wav,.ogg,.webm,.mp4"
+              style={{ display: 'none' }}
+              onChange={e => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0]) }}
+            />
+            <div style={{ fontSize: '20px', marginBottom: '6px' }}>📁</div>
+            <div style={{ fontSize: '13px', color: '#666' }}>
+              Drop an audio file or <span style={{ color: '#E88FAC', fontWeight: 500 }}>browse</span>
             </div>
-            <div style={{ fontSize: '12px', color: '#666', lineHeight: '1.4' }}>
-              Only check this if you have <strong>already sent</strong> the recording via text, email, or
-              another channel. If you haven&apos;t sent it yet, please upload it above or send it to your
-              manager first.
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+              MP3, M4A, WAV, OGG, WEBM
             </div>
           </div>
-        </label>
-      </div>
 
-      <button
-        onClick={onComplete}
-        disabled={!canContinue}
-        style={{
-          padding: '10px 32px',
-          background: canContinue ? '#E88FAC' : '#F0D0D8',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '8px',
-          fontSize: '14px',
-          fontWeight: 600,
-          cursor: canContinue ? 'pointer' : 'not-allowed',
-        }}
-      >
-        Continue to Next Step
-      </button>
+          {/* OR already sent */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
+            <span style={{ fontSize: '12px', color: '#999', fontWeight: 500 }}>OR</span>
+            <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
+          </div>
+
+          <div style={{
+            background: confirmed ? '#E8F5E9' : '#FFF8E1',
+            border: '1px solid',
+            borderColor: confirmed ? '#A5D6A7' : '#FFE082',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '24px',
+          }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={e => setConfirmed(e.target.checked)}
+                style={{ marginTop: '3px', accentColor: '#E88FAC' }}
+              />
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+                  I already sent my voice memo to my manager
+                </div>
+                <div style={{ fontSize: '12px', color: '#666', lineHeight: '1.4' }}>
+                  Only check this if you have <strong>already sent</strong> the recording via text, email, or
+                  another channel.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          {confirmed && (
+            <button
+              onClick={() => {
+                setRecState('done')
+                onComplete()
+              }}
+              style={{
+                padding: '10px 32px',
+                background: '#E88FAC',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Continue
+            </button>
+          )}
+        </>
+      )}
+
+      {/* CSS animations */}
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }

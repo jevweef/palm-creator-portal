@@ -304,7 +304,7 @@ export default function OnboardingForm() {
             <StepContract hqId={hqId} onComplete={handleContractComplete} />
           )}
           {currentStep === 'voice-memo' && (
-            <StepVoiceMemo onComplete={handleVoiceMemoComplete} />
+            <StepVoiceMemo hqId={hqId} onComplete={handleVoiceMemoComplete} />
           )}
           {currentStep === 'review' && renderComingSoon('Review & Submit')}
         </div>
