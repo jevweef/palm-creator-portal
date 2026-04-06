@@ -235,7 +235,7 @@ export default function OnboardingForm() {
 
   return (
     <div style={{ minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
-      <div style={{ maxWidth: '700px', margin: '0 auto', padding: '32px 20px' }}>
+      <div style={{ maxWidth: '860px', margin: '0 auto', padding: '32px 20px' }}>
         <div style={{ marginBottom: '8px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
             Onboarding
