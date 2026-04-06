@@ -12,6 +12,7 @@ const ADMIN_NAV = [
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
   { href: '/admin/invoicing', label: 'Invoicing', icon: '💸' },
   { href: '/admin/help', label: 'Help', icon: '❓' },
+      { href: '/admin/tonio', label: 'Hi Tonio', icon: '👋' },
 ]
 
 const EDITOR_NAV = [
