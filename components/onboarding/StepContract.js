@@ -21,6 +21,12 @@ export default function StepContract({ hqId, onComplete }) {
       .then(r => r.json())
       .then(data => {
         setContractHtml(data.html || '')
+        // If already signed, show the signed state
+        if (data.alreadySigned && data.contractUrl) {
+          setSigned(true)
+          setPdfBlobUrl(data.contractUrl)
+          setPdfFilename(data.contractFilename || 'contract.pdf')
+        }
         setLoading(false)
       })
       .catch(() => setLoading(false))

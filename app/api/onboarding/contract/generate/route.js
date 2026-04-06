@@ -38,12 +38,27 @@ export async function GET(request) {
       agencySignDate: c['Onboarding Token Created At'] || new Date().toISOString(),
     }
 
+    // Check if already signed
+    const contractSignDate = c['Contract Sign Date'] || null
+    const contractAttachment = c['Contract'] // array of attachment objects
+    const alreadySigned = !!contractSignDate
+    let contractUrl = null
+    let contractFilename = null
+    if (alreadySigned && contractAttachment && contractAttachment.length > 0) {
+      contractUrl = contractAttachment[0].url
+      contractFilename = contractAttachment[0].filename || `Palm Management - ${c['Creator'] || 'Creator'} - Agreement.pdf`
+    }
+
     // Return the contract HTML for in-browser preview
     const html = buildContractHtml(contractData)
 
     return NextResponse.json({
       html,
       contractData,
+      alreadySigned,
+      contractSignDate,
+      contractUrl,
+      contractFilename,
     })
   } catch (err) {
     console.error('[contract/generate] Error:', err.message)
