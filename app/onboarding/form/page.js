@@ -14,7 +14,15 @@ export default function OnboardingForm() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
 
-  const [currentStep, setCurrentStep] = useState('basic-info')
+  const STEPS = ['basic-info', 'accounts', 'survey', 'contract', 'voice-memo', 'review']
+  const getInitialStep = () => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '')
+      if (STEPS.includes(hash)) return hash
+    }
+    return 'basic-info'
+  }
+  const [currentStep, setCurrentStep] = useState(getInitialStep)
   const [completedSteps, setCompletedSteps] = useState([])
   const [saving, setSaving] = useState(false)
   const [profileData, setProfileData] = useState(null)
@@ -41,11 +49,14 @@ export default function OnboardingForm() {
         }
         if (completed.length > 0) {
           setCompletedSteps(prev => [...new Set([...prev, ...completed])])
-          // Go to the first incomplete step
-          if (completed.includes('basic-info') && !completed.includes('accounts')) {
-            setCurrentStep('accounts')
-          } else if (completed.includes('accounts')) {
-            setCurrentStep('survey')
+          // Only auto-advance if no hash is set (first visit vs refresh)
+          const hash = window.location.hash.replace('#', '')
+          if (!hash || !STEPS.includes(hash)) {
+            if (completed.includes('basic-info') && !completed.includes('accounts')) {
+              goToStep('accounts')
+            } else if (completed.includes('accounts')) {
+              goToStep('survey')
+            }
           }
         }
       }
@@ -70,6 +81,16 @@ export default function OnboardingForm() {
     }
     fetchProfile()
   }, [isLoaded, hqId, user, router])
+
+  // Sync step from hash on back/forward navigation
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace('#', '')
+      if (STEPS.includes(hash)) setCurrentStep(hash)
+    }
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [])
 
   const saveStep = async (step, data) => {
     if (!hqId) return false
@@ -137,6 +158,7 @@ export default function OnboardingForm() {
 
   const goToStep = (step) => {
     setCurrentStep(step)
+    window.location.hash = step
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
