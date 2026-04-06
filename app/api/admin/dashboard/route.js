@@ -2,9 +2,14 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
-import { fetchHqRecords } from '@/lib/hqAirtable'
 
+const HQ_BASE = 'appL7c4Wtotpz07KS'
 const INVOICES_TABLE = 'tblKbU8VkdlOHXoJj'
+
+const hqHeaders = () => ({
+  Authorization: `Bearer ${process.env.AIRTABLE_PAT}`,
+  'Content-Type': 'application/json',
+})
 
 const INV_FIELDS = [
   'fldCimhMbOOeOQrFJ', // Invoice (formula)
@@ -21,6 +26,27 @@ const INV_FIELDS = [
   'fldQEjYB0DxpNWxhU', // Invoice Status
   'fldOTpRmDWDfwz8FH', // Due Date
 ]
+
+async function fetchInvoices() {
+  const records = []
+  let offset = null
+  do {
+    const params = new URLSearchParams()
+    params.set('returnFieldsByFieldId', 'true')
+    INV_FIELDS.forEach(f => params.append('fields[]', f))
+    params.set('sort[0][field]', 'fldeucG0jEvjem841')
+    params.set('sort[0][direction]', 'desc')
+    if (offset) params.set('offset', offset)
+    const res = await fetch(
+      `https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}?${params}`,
+      { headers: hqHeaders(), cache: 'no-store' }
+    )
+    const data = await res.json()
+    if (data.records) records.push(...data.records)
+    offset = data.offset || null
+  } while (offset)
+  return records
+}
 
 function toETDateStr(isoStr) {
   if (!isoStr) return ''
@@ -53,11 +79,8 @@ export async function GET() {
       inspoRecords,
       inspoSources,
     ] = await Promise.all([
-      // HQ base — invoices
-      fetchHqRecords(INVOICES_TABLE, {
-        fields: INV_FIELDS,
-        sort: [{ field: 'fldeucG0jEvjem841', direction: 'desc' }],
-      }),
+      // HQ base — invoices (raw fetch with returnFieldsByFieldId)
+      fetchInvoices(),
       // OPS — creators
       fetchAirtableRecords('Palm Creators', {
         filterByFormula: '{Social Media Editing}=1',
