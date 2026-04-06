@@ -191,42 +191,50 @@ export async function GET() {
     }
 
     // Revenue by creator (grouped by AKA, showing most recent period + trend)
+    // Periods are sorted newest-first, so index 0 = current, 1 = previous, etc.
     const creatorRevenue = {}
     for (const inv of invoices) {
       const name = inv.aka || inv.accountName
       if (!creatorRevenue[name]) {
-        creatorRevenue[name] = { name, accounts: {}, currentTR: 0, currentPalmCut: 0, commissionPct: 0, status: '' }
+        creatorRevenue[name] = { name, periodTotals: {}, currentTR: 0, currentPalmCut: 0, previousTR: 0, commissionPct: 0, status: '' }
       }
-      // Sum by account for current period
+      const periodKey = `${inv.periodStart}|${inv.periodEnd}`
+      // Sum by period
+      if (!creatorRevenue[name].periodTotals[periodKey]) {
+        creatorRevenue[name].periodTotals[periodKey] = 0
+      }
+      creatorRevenue[name].periodTotals[periodKey] += inv.earnings
+      // Current period
       if (currentPeriod && inv.periodStart === currentPeriod.start && inv.periodEnd === currentPeriod.end) {
         creatorRevenue[name].currentTR += inv.earnings
         creatorRevenue[name].currentPalmCut += inv.netProfit
         creatorRevenue[name].commissionPct = inv.commissionPct
         creatorRevenue[name].status = inv.status
       }
-      // Track per-account trend (last 4 periods)
-      if (!creatorRevenue[name].accounts[inv.accountName]) {
-        creatorRevenue[name].accounts[inv.accountName] = []
+      // Previous period
+      const previousPeriod = periods[1] || null
+      if (previousPeriod && inv.periodStart === previousPeriod.start && inv.periodEnd === previousPeriod.end) {
+        creatorRevenue[name].previousTR += inv.earnings
       }
-      creatorRevenue[name].accounts[inv.accountName].push(inv.earnings)
     }
-    const revenueByCreator = Object.values(creatorRevenue).map(c => ({
-      name: c.name,
-      currentTR: c.currentTR,
-      commissionPct: c.commissionPct,
-      palmCut: c.currentPalmCut,
-      status: c.status,
-      // Last 4 periods of total earnings across accounts
-      trend: (() => {
-        const allEarnings = {}
-        for (const acctEarnings of Object.values(c.accounts)) {
-          acctEarnings.forEach((e, i) => {
-            allEarnings[i] = (allEarnings[i] || 0) + e
-          })
-        }
-        return Object.values(allEarnings).slice(0, 4)
-      })(),
-    })).sort((a, b) => b.currentTR - a.currentTR)
+    // Build period keys list (newest first) for trend ordering
+    const periodKeys = periods.map(p => `${p.start}|${p.end}`)
+    const revenueByCreator = Object.values(creatorRevenue).map(c => {
+      // Trend: oldest → newest (reverse of period order), last 4 periods
+      const trend = periodKeys.slice(0, 4).map(k => c.periodTotals[k] || 0).reverse()
+      // Period-over-period change
+      const delta = c.previousTR > 0 ? (c.currentTR - c.previousTR) / c.previousTR : null
+      return {
+        name: c.name,
+        currentTR: c.currentTR,
+        previousTR: c.previousTR,
+        delta,
+        commissionPct: c.commissionPct,
+        palmCut: c.currentPalmCut,
+        status: c.status,
+        trend,
+      }
+    }).sort((a, b) => b.currentTR - a.currentTR)
 
     const activeCreators = new Set(invoices
       .filter(i => currentPeriod && i.periodStart === currentPeriod.start)
@@ -450,6 +458,15 @@ export async function GET() {
       }
     }
 
+    // Period-over-period deltas for KPIs
+    const previousPeriod = periods[1] || null
+    const previousPeriodTR = previousPeriod
+      ? previousPeriod.invoices.reduce((s, i) => s + i.earnings, 0) : 0
+    const previousPeriodNetProfit = previousPeriod
+      ? previousPeriod.invoices.reduce((s, i) => s + i.netProfit, 0) : 0
+    const trDelta = previousPeriodTR > 0 ? (currentPeriodTR - previousPeriodTR) / previousPeriodTR : null
+    const profitDelta = previousPeriodNetProfit > 0 ? (currentPeriodNetProfit - previousPeriodNetProfit) / previousPeriodNetProfit : null
+
     return NextResponse.json({
       revenue: {
         activeCreators,
@@ -457,6 +474,8 @@ export async function GET() {
         totalCommission: currentPeriodCommission,
         totalChatCost: currentPeriodChatCost,
         netProfit: currentPeriodNetProfit,
+        trDelta,
+        profitDelta,
         projectedMonthlyRevenue: Math.round(projectedMonthlyRevenue),
         projectedMonthlyNetProfit: Math.round(projectedMonthlyNetProfit),
         outstandingInvoices: { count: outstandingCount, total: Math.round(outstandingTotal) },

@@ -8,6 +8,11 @@ const fmtK = n => {
   return fmt(n)
 }
 const pct = n => (n * 100).toFixed(0) + '%'
+const deltaPct = n => {
+  if (n === null || n === undefined) return null
+  const sign = n >= 0 ? '+' : ''
+  return sign + (n * 100).toFixed(0) + '%'
+}
 
 const CARD = {
   background: '#ffffff',
@@ -33,59 +38,62 @@ const LABEL = {
   color: '#999',
 }
 
-const VALUE = {
-  fontSize: '28px',
-  fontWeight: 700,
-  color: '#1a1a1a',
-}
-
-/* ─── Stat Card ─── */
-function StatCard({ label, value, sub, color }) {
+/* ─── Stat Card with optional delta ─── */
+function StatCard({ label, value, sub, color, delta }) {
+  const deltaStr = deltaPct(delta)
+  const deltaColor = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#999'
   return (
     <div style={{ ...CARD, flex: '1 1 160px', minWidth: '140px' }}>
       <div style={LABEL}>{label}</div>
-      <div style={{ ...VALUE, color: color || '#1a1a1a', marginTop: '4px' }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+        <span style={{ fontSize: '28px', fontWeight: 700, color: color || '#1a1a1a' }}>{value}</span>
+        {deltaStr && (
+          <span style={{ fontSize: '12px', fontWeight: 600, color: deltaColor }}>{deltaStr}</span>
+        )}
+      </div>
       {sub && <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>{sub}</div>}
     </div>
   )
 }
 
-/* ─── Status Badge ─── */
+/* ─── Status Badge (only renders for non-Draft) ─── */
 function StatusBadge({ status }) {
-  const colors = {
-    Paid: '#22c55e', Sent: '#3b82f6', Draft: '#999', Overdue: '#ef4444',
-  }
-  const bg = { Paid: '#f0fdf4', Sent: '#eff6ff', Draft: '#f5f5f5', Overdue: '#fef2f2' }
+  if (!status || status === 'Draft') return null
+  const colors = { Paid: '#22c55e', Sent: '#3b82f6', Overdue: '#ef4444' }
+  const bg = { Paid: '#f0fdf4', Sent: '#eff6ff', Overdue: '#fef2f2' }
   return (
     <span style={{
-      display: 'inline-block',
-      padding: '2px 8px',
-      borderRadius: '4px',
-      fontSize: '11px',
-      fontWeight: 600,
-      color: colors[status] || '#999',
-      background: bg[status] || '#f5f5f5',
+      display: 'inline-block', padding: '2px 8px', borderRadius: '4px',
+      fontSize: '11px', fontWeight: 600,
+      color: colors[status] || '#999', background: bg[status] || '#f5f5f5',
     }}>
       {status}
     </span>
   )
 }
 
-/* ─── Mini Trend Bar ─── */
-function TrendBar({ values }) {
+/* ─── Mini Trend Bar (oldest→newest, left→right) ─── */
+function TrendBar({ values, delta }) {
   if (!values || !values.length) return null
   const max = Math.max(...values, 1)
+  const deltaColor = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#999'
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '24px' }}>
-      {values.map((v, i) => (
-        <div key={i} style={{
-          width: '12px',
-          height: `${Math.max(2, (v / max) * 24)}px`,
-          background: i === values.length - 1 ? '#E88FAC' : '#f3d1dc',
-          borderRadius: '2px',
-          transition: 'height 0.3s ease',
-        }} />
-      ))}
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '28px' }}>
+        {values.map((v, i) => (
+          <div key={i} style={{
+            width: '10px',
+            height: `${Math.max(2, (v / max) * 28)}px`,
+            background: i === values.length - 1 ? '#E88FAC' : '#f3d1dc',
+            borderRadius: '2px',
+          }} />
+        ))}
+      </div>
+      {delta !== null && delta !== undefined && (
+        <span style={{ fontSize: '10px', fontWeight: 600, color: deltaColor, marginLeft: '4px' }}>
+          {deltaPct(delta)}
+        </span>
+      )}
     </div>
   )
 }
@@ -97,9 +105,7 @@ function RunwayBar({ days }) {
   const width = Math.min(100, (days / 7) * 100)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{
-        flex: 1, height: '6px', background: '#f0f0f0', borderRadius: '3px', overflow: 'hidden',
-      }}>
+      <div style={{ flex: 1, height: '6px', background: '#f0f0f0', borderRadius: '3px', overflow: 'hidden' }}>
         <div style={{
           width: `${width}%`, height: '100%', background: color, borderRadius: '3px',
           transition: 'width 0.4s ease',
@@ -118,20 +124,20 @@ function RunwayBar({ days }) {
 /* ─── Alert Pill ─── */
 function AlertPill({ alert }) {
   const config = {
-    low_runway: { color: '#ef4444', bg: '#fef2f2', label: `${alert.creator}: ${alert.bufferDays}d runway` },
-    overdue_invoice: { color: '#ef4444', bg: '#fef2f2', label: `${alert.creator}: overdue invoice` },
-    revision_stuck: { color: '#f59e0b', bg: '#fffbeb', label: `${alert.creator}: ${alert.count} revision${alert.count > 1 ? 's' : ''}` },
-    analysis_errors: { color: '#f59e0b', bg: '#fffbeb', label: `${alert.count} analysis error${alert.count > 1 ? 's' : ''}` },
-    empty_library: { color: '#f59e0b', bg: '#fffbeb', label: `${alert.creator}: empty library` },
+    low_runway: { color: '#ef4444', bg: '#fef2f2', icon: '!', label: `${alert.creator}: ${alert.bufferDays}d runway` },
+    overdue_invoice: { color: '#ef4444', bg: '#fef2f2', icon: '$', label: `${alert.creator}: overdue` },
+    revision_stuck: { color: '#f59e0b', bg: '#fffbeb', icon: '!', label: `${alert.creator}: ${alert.count} revision${(alert.count || 0) > 1 ? 's' : ''}` },
+    analysis_errors: { color: '#f59e0b', bg: '#fffbeb', icon: '!', label: `${alert.count} analysis error${(alert.count || 0) > 1 ? 's' : ''}` },
+    empty_library: { color: '#f59e0b', bg: '#fffbeb', icon: '0', label: `${alert.creator}: no content` },
   }
-  const c = config[alert.type] || { color: '#999', bg: '#f5f5f5', label: alert.type }
+  const c = config[alert.type] || { color: '#999', bg: '#f5f5f5', icon: '?', label: alert.type }
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: '6px',
-      padding: '4px 10px', borderRadius: '8px', fontSize: '12px',
+      padding: '3px 10px', borderRadius: '6px', fontSize: '11px',
       fontWeight: 600, color: c.color, background: c.bg,
     }}>
-      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: c.color }} />
+      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: c.color, flexShrink: 0 }} />
       {c.label}
     </span>
   )
@@ -150,9 +156,9 @@ function MiniCalendar({ calendar }) {
           <div key={date} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '9px', color: '#999', marginBottom: '2px' }}>{dayLabel}</div>
             <div style={{
-              width: '24px', height: '24px', borderRadius: '4px',
+              width: '22px', height: '22px', borderRadius: '4px',
               background: bg, color, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: '11px', fontWeight: 600,
+              justifyContent: 'center', fontSize: '10px', fontWeight: 600,
             }}>
               {count || ''}
             </div>
@@ -163,6 +169,14 @@ function MiniCalendar({ calendar }) {
   )
 }
 
+/* ─── Format period label to be human-readable ─── */
+function formatPeriodLabel(label) {
+  if (!label) return ''
+  // "2026-03 Mar 29-14" → "Mar 29 – Apr 14" (approximate)
+  // Just clean up the raw label
+  return label.replace(/^\d{4}-\d{2}\s*/, '')
+}
+
 /* ─────────────────────────────────────────────── */
 /* MAIN DASHBOARD */
 /* ─────────────────────────────────────────────── */
@@ -170,6 +184,7 @@ export default function AdminDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [alertsExpanded, setAlertsExpanded] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
@@ -212,34 +227,91 @@ export default function AdminDashboard() {
 
   const { revenue, editorRunway, creatorLibrary, pipeline, posting, alerts } = data
 
+  // Sort alerts: red first (low_runway, overdue), then yellow
+  const redAlerts = alerts.filter(a => a.type === 'low_runway' || a.type === 'overdue_invoice')
+  const yellowAlerts = alerts.filter(a => a.type !== 'low_runway' && a.type !== 'overdue_invoice')
+  const sortedAlerts = [...redAlerts, ...yellowAlerts]
+  const MAX_COLLAPSED_ALERTS = 4
+  const visibleAlerts = alertsExpanded ? sortedAlerts : sortedAlerts.slice(0, MAX_COLLAPSED_ALERTS)
+  const hiddenCount = sortedAlerts.length - MAX_COLLAPSED_ALERTS
+
+  // Build unified creator map for the combined table
+  const creatorMap = {}
+  // Revenue data (all creators)
+  for (const c of revenue.byCreator) {
+    creatorMap[c.name] = { ...creatorMap[c.name], name: c.name, revenue: c }
+  }
+  // Runway data (Social Media Editing creators only)
+  for (const c of editorRunway) {
+    if (!creatorMap[c.name]) creatorMap[c.name] = { name: c.name }
+    creatorMap[c.name].runway = c
+  }
+  // Library data
+  for (const c of creatorLibrary) {
+    if (!creatorMap[c.name]) creatorMap[c.name] = { name: c.name }
+    creatorMap[c.name].library = c
+  }
+  // Posting data
+  for (const c of posting) {
+    if (!creatorMap[c.name]) creatorMap[c.name] = { name: c.name }
+    creatorMap[c.name].posting = c
+  }
+  // Sort by revenue descending, creators without revenue at bottom
+  const unifiedCreators = Object.values(creatorMap).sort((a, b) =>
+    (b.revenue?.currentTR || 0) - (a.revenue?.currentTR || 0)
+  )
+
   return (
     <div style={{ maxWidth: '1200px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '20px' }}>
         <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Dashboard</h1>
-        <span style={{ fontSize: '12px', color: '#999' }}>{revenue.currentPeriodLabel}</span>
+        <span style={{ fontSize: '12px', color: '#999' }}>{formatPeriodLabel(revenue.currentPeriodLabel)}</span>
       </div>
 
       {/* ─── ALERTS ─── */}
-      {alerts.length > 0 && (
+      {sortedAlerts.length > 0 && (
         <div style={{
-          ...CARD, marginBottom: '16px', padding: '12px 16px',
-          display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center',
+          ...CARD, marginBottom: '16px', padding: '10px 16px',
+          display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center',
           border: '1px solid #fde8e8',
         }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Action Items
+          <span style={{
+            fontSize: '11px', fontWeight: 600, color: '#ef4444', marginRight: '4px',
+          }}>
+            {sortedAlerts.length}
           </span>
-          {alerts.map((a, i) => <AlertPill key={i} alert={a} />)}
+          {visibleAlerts.map((a, i) => <AlertPill key={i} alert={a} />)}
+          {hiddenCount > 0 && !alertsExpanded && (
+            <button onClick={() => setAlertsExpanded(true)} style={{
+              padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+              color: '#999', background: '#f5f5f5', border: 'none', cursor: 'pointer',
+            }}>
+              +{hiddenCount} more
+            </button>
+          )}
+          {alertsExpanded && sortedAlerts.length > MAX_COLLAPSED_ALERTS && (
+            <button onClick={() => setAlertsExpanded(false)} style={{
+              padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+              color: '#999', background: '#f5f5f5', border: 'none', cursor: 'pointer',
+            }}>
+              show less
+            </button>
+          )}
         </div>
       )}
 
       {/* ─── ROW 1: Revenue KPIs ─── */}
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
         <StatCard label="Active Creators" value={revenue.activeCreators} />
-        <StatCard label="Current Period TR" value={fmtK(revenue.currentPeriodTR)} />
-        <StatCard label="Palm Net Profit" value={fmtK(revenue.netProfit)} color="#22c55e" />
-        <StatCard label="Projected Monthly" value={fmtK(revenue.projectedMonthlyNetProfit)} sub="net profit / 30d" color="#E88FAC" />
+        <StatCard label="Period Revenue" value={fmtK(revenue.currentPeriodTR)} delta={revenue.trDelta} />
+        <StatCard label="Palm's Cut" value={fmtK(revenue.netProfit)} color="#22c55e" delta={revenue.profitDelta} />
+        <StatCard
+          label="Projected Monthly"
+          value={fmtK(revenue.projectedMonthlyRevenue)}
+          sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net`}
+          color="#E88FAC"
+        />
         <StatCard
           label="Outstanding"
           value={revenue.outstandingInvoices.count}
@@ -248,110 +320,118 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* ─── ROW 2: Revenue by Creator + Editor Runway ─── */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+      {/* ─── ROW 2: Unified Creator Table ─── */}
+      <div style={{ ...CARD, marginBottom: '16px' }}>
+        <div style={SECTION_TITLE}>Creators</div>
 
-        {/* Revenue by Creator */}
-        <div style={{ ...CARD, flex: '3 1 400px', minWidth: '320px' }}>
-          <div style={SECTION_TITLE}>Revenue by Creator</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {revenue.byCreator.map(c => (
-              <div key={c.name} style={{
-                display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0',
-                borderBottom: '1px solid #f5f5f5',
+        {/* Header row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '100px 90px 44px 80px 60px 120px 90px 60px 1fr',
+          gap: '8px', padding: '4px 0 8px', borderBottom: '1px solid #f0f0f0',
+          alignItems: 'center',
+        }}>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Creator</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Revenue</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Rate</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Palm's Cut</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Runway</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Editor Queue</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Library</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Status</span>
+          <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Trend</span>
+        </div>
+
+        {unifiedCreators.map(c => {
+          const rev = c.revenue
+          const rwy = c.runway
+          const lib = c.library
+          const bufferDays = rwy?.bufferDays ?? null
+          const runwayColor = bufferDays === null ? '#ddd' : bufferDays < 1 ? '#ef4444' : bufferDays < 2 ? '#f59e0b' : '#22c55e'
+          const runwayBg = bufferDays === null ? '#fafafa' : bufferDays < 1 ? '#fef2f2' : bufferDays < 2 ? '#fffbeb' : '#f0fdf4'
+          const editQueue = rwy ? (rwy.toEdit + rwy.inProgress + rwy.needsRevision + rwy.inReview) : null
+
+          return (
+            <div key={c.name} style={{
+              display: 'grid',
+              gridTemplateColumns: '100px 90px 44px 80px 60px 120px 90px 60px 1fr',
+              gap: '8px', padding: '8px 0',
+              borderBottom: '1px solid #fafafa',
+              alignItems: 'center',
+            }}>
+              {/* Name */}
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</span>
+
+              {/* Revenue */}
+              <span style={{ fontSize: '13px', fontWeight: 700, color: rev ? '#1a1a1a' : '#ddd' }}>
+                {rev ? fmtK(rev.currentTR) : '—'}
+              </span>
+
+              {/* Commission rate */}
+              <span style={{ fontSize: '11px', color: '#999' }}>
+                {rev ? pct(rev.commissionPct) : ''}
+              </span>
+
+              {/* Palm's cut */}
+              <span style={{ fontSize: '13px', fontWeight: 600, color: rev ? '#22c55e' : '#ddd' }}>
+                {rev ? fmtK(rev.palmCut) : '—'}
+              </span>
+
+              {/* Runway */}
+              <span style={{
+                fontSize: '12px', fontWeight: 700, color: runwayColor, background: runwayBg,
+                padding: '2px 6px', borderRadius: '4px', textAlign: 'center', display: 'inline-block',
               }}>
-                <div style={{ width: '80px', fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</div>
-                <div style={{ width: '80px', fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{fmtK(c.currentTR)}</div>
-                <div style={{ width: '44px', fontSize: '11px', color: '#999' }}>{pct(c.commissionPct)}</div>
-                <div style={{ width: '70px', fontSize: '13px', fontWeight: 600, color: '#22c55e' }}>{fmtK(c.palmCut)}</div>
-                <StatusBadge status={c.status || 'Draft'} />
-                <div style={{ marginLeft: 'auto' }}>
-                  <TrendBar values={c.trend} />
-                </div>
-              </div>
-            ))}
-            {revenue.byCreator.length === 0 && (
-              <div style={{ fontSize: '13px', color: '#999', padding: '12px 0' }}>No invoice data yet</div>
-            )}
-          </div>
-        </div>
+                {bufferDays !== null ? `${bufferDays}d` : '—'}
+              </span>
 
-        {/* Editor Runway */}
-        <div style={{ ...CARD, flex: '2 1 280px', minWidth: '260px' }}>
-          <div style={SECTION_TITLE}>Editor Runway</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {editorRunway.map(c => (
-              <div key={c.name}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</span>
-                  <span style={{ fontSize: '11px', color: '#999' }}>
-                    {c.approvedPosts} posts | {c.quotaDone}/{c.quotaTarget} weekly
-                  </span>
-                </div>
-                <RunwayBar days={c.bufferDays} />
-                <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '11px', color: '#999' }}>
-                  {c.toEdit > 0 && <span>{c.toEdit} to edit</span>}
-                  {c.inProgress > 0 && <span>{c.inProgress} in progress</span>}
-                  {c.inReview > 0 && <span style={{ color: '#3b82f6' }}>{c.inReview} in review</span>}
-                  {c.needsRevision > 0 && <span style={{ color: '#ef4444' }}>{c.needsRevision} needs revision</span>}
-                </div>
+              {/* Editor queue breakdown */}
+              <div style={{ fontSize: '11px', color: '#666', display: 'flex', gap: '6px' }}>
+                {rwy ? (
+                  editQueue > 0 ? (
+                    <>
+                      {rwy.toEdit > 0 && <span>{rwy.toEdit} queue</span>}
+                      {rwy.inProgress > 0 && <span>{rwy.inProgress} active</span>}
+                      {rwy.needsRevision > 0 && <span style={{ color: '#ef4444' }}>{rwy.needsRevision} rev</span>}
+                      {rwy.inReview > 0 && <span style={{ color: '#3b82f6' }}>{rwy.inReview} review</span>}
+                    </>
+                  ) : <span style={{ color: '#ccc' }}>empty</span>
+                ) : <span style={{ color: '#ddd' }}>—</span>}
               </div>
-            ))}
-            {editorRunway.length === 0 && (
-              <div style={{ fontSize: '13px', color: '#999' }}>No active creators</div>
-            )}
-          </div>
-        </div>
+
+              {/* Library count */}
+              <span style={{
+                fontSize: '12px', fontWeight: 600,
+                color: lib ? (lib.total === 0 ? '#ef4444' : '#666') : '#ddd',
+              }}>
+                {lib ? `${lib.total} files` : '—'}
+              </span>
+
+              {/* Status badge (only non-Draft) */}
+              <StatusBadge status={rev?.status} />
+
+              {/* Trend */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* ─── ROW 3: Creator Library + Pipeline Health ─── */}
+      {/* ─── ROW 3: Pipeline Health + Posting Activity side by side ─── */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-
-        {/* Creator Library */}
-        <div style={{ ...CARD, flex: '1 1 280px', minWidth: '260px' }}>
-          <div style={SECTION_TITLE}>Creator Library</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 60px 60px 60px',
-              gap: '4px', padding: '4px 0', borderBottom: '1px solid #f0f0f0',
-            }}>
-              <span style={{ ...LABEL, fontSize: '10px' }}>Creator</span>
-              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Photos</span>
-              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Videos</span>
-              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Total</span>
-            </div>
-            {creatorLibrary.map(c => (
-              <div key={c.name} style={{
-                display: 'grid', gridTemplateColumns: '1fr 60px 60px 60px',
-                gap: '4px', padding: '4px 0', borderBottom: '1px solid #fafafa',
-              }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</span>
-                <span style={{ fontSize: '13px', color: '#666', textAlign: 'right' }}>{c.photos}</span>
-                <span style={{ fontSize: '13px', color: '#666', textAlign: 'right' }}>{c.videos}</span>
-                <span style={{
-                  fontSize: '13px', fontWeight: 700, textAlign: 'right',
-                  color: c.total === 0 ? '#ef4444' : '#1a1a1a',
-                }}>
-                  {c.total}
-                </span>
-              </div>
-            ))}
-            {creatorLibrary.length === 0 && (
-              <div style={{ fontSize: '13px', color: '#999', padding: '12px 0' }}>No creators</div>
-            )}
-          </div>
-        </div>
 
         {/* Pipeline Health */}
         <div style={{ ...CARD, flex: '1 1 280px', minWidth: '260px' }}>
-          <div style={SECTION_TITLE}>Pipeline Health</div>
+          <div style={SECTION_TITLE}>Pipeline</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
               <div style={LABEL}>Scraped Today</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedToday}</div>
             </div>
             <div>
-              <div style={LABEL}>Scraped This Week</div>
+              <div style={LABEL}>This Week</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedThisWeek}</div>
             </div>
             <div>
@@ -369,11 +449,11 @@ export default function AdminDashboard() {
               }}>{pipeline.analysisQueue}</div>
             </div>
             <div>
-              <div style={LABEL}>Promoted This Week</div>
+              <div style={LABEL}>Promoted</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: '#E88FAC', marginTop: '2px' }}>{pipeline.promotedThisWeek}</div>
             </div>
             <div>
-              <div style={LABEL}>Sources Enabled</div>
+              <div style={LABEL}>Sources</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.sourcesEnabled}</div>
             </div>
           </div>
@@ -383,62 +463,73 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* ─── ROW 4: Posting Activity ─── */}
-      <div style={{ ...CARD }}>
-        <div style={SECTION_TITLE}>Posting Activity (Last 7 Days)</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {posting.map(c => (
-            <div key={c.name} style={{
-              display: 'flex', alignItems: 'center', gap: '16px', padding: '8px 0',
-              borderBottom: '1px solid #fafafa',
-            }}>
-              <div style={{ width: '80px', fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</div>
-              <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#666', minWidth: '180px' }}>
-                <span><strong style={{ color: '#1a1a1a' }}>{c.postedToday}</strong> today</span>
-                <span><strong style={{ color: '#1a1a1a' }}>{c.postedThisWeek}</strong> this week</span>
-                {c.telegramPending > 0 && (
-                  <span style={{ color: '#f59e0b' }}><strong>{c.telegramPending}</strong> TG pending</span>
-                )}
+        {/* Posting Activity */}
+        <div style={{ ...CARD, flex: '1 1 340px', minWidth: '300px' }}>
+          <div style={SECTION_TITLE}>Posting (Last 7 Days)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {posting.map(c => (
+              <div key={c.name} style={{
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0',
+                borderBottom: '1px solid #fafafa',
+              }}>
+                <div style={{ width: '70px', fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</div>
+                <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: '#666', minWidth: '120px' }}>
+                  <span><strong style={{ color: '#1a1a1a' }}>{c.postedToday}</strong> today</span>
+                  <span><strong style={{ color: '#1a1a1a' }}>{c.postedThisWeek}</strong>/wk</span>
+                  {c.telegramPending > 0 && (
+                    <span style={{ color: '#f59e0b' }}><strong>{c.telegramPending}</strong> TG</span>
+                  )}
+                </div>
+                <div style={{ marginLeft: 'auto' }}>
+                  <MiniCalendar calendar={c.calendar} />
+                </div>
               </div>
-              <div style={{ marginLeft: 'auto' }}>
-                <MiniCalendar calendar={c.calendar} />
-              </div>
-            </div>
-          ))}
-          {posting.length === 0 && (
-            <div style={{ fontSize: '13px', color: '#999', padding: '12px 0' }}>No posting data</div>
-          )}
+            ))}
+            {posting.length === 0 && (
+              <div style={{ fontSize: '13px', color: '#999' }}>No posting data</div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ─── Period History ─── */}
       {revenue.periods.length > 1 && (
-        <div style={{ ...CARD, marginTop: '16px' }}>
+        <div style={{ ...CARD }}>
           <div style={SECTION_TITLE}>Period History</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 100px 100px',
+              display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px',
               gap: '8px', padding: '4px 0', borderBottom: '1px solid #f0f0f0',
             }}>
               <span style={{ ...LABEL, fontSize: '10px' }}>Period</span>
               <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Total TR</span>
-              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Net Profit</span>
+              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Palm's Cut</span>
+              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Change</span>
             </div>
-            {revenue.periods.map((p, i) => (
-              <div key={i} style={{
-                display: 'grid', gridTemplateColumns: '1fr 100px 100px',
-                gap: '8px', padding: '6px 0', borderBottom: '1px solid #fafafa',
-                opacity: i === 0 ? 1 : 0.7,
-              }}>
-                <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: i === 0 ? 600 : 400 }}>
-                  {p.label || `${p.start} - ${p.end}`}
-                </span>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#22c55e', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
-              </div>
-            ))}
+            {revenue.periods.map((p, i) => {
+              const prevPeriod = revenue.periods[i + 1]
+              const periodDelta = prevPeriod && prevPeriod.totalTR > 0
+                ? (p.totalTR - prevPeriod.totalTR) / prevPeriod.totalTR : null
+              const deltaStr = deltaPct(periodDelta)
+              const deltaColor = periodDelta > 0 ? '#22c55e' : periodDelta < 0 ? '#ef4444' : '#999'
+              return (
+                <div key={i} style={{
+                  display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px',
+                  gap: '8px', padding: '6px 0', borderBottom: '1px solid #fafafa',
+                  opacity: i === 0 ? 1 : 0.7,
+                }}>
+                  <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: i === 0 ? 600 : 400 }}>
+                    {formatPeriodLabel(p.label) || `${p.start} – ${p.end}`}
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#22c55e', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
+                    {deltaStr || '—'}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
