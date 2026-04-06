@@ -1368,6 +1368,7 @@ function CreatorSection({ creator, onRefresh }) {
   const [taskModal, setTaskModal] = useState(null)
   const [libraryModal, setLibraryModal] = useState(false)
   const [toast, setToast] = useState(null)
+  const [dnaModal, setDnaModal] = useState(false)
 
   const showToast = (msg, error = false) => {
     setToast({ msg, error })
@@ -1564,6 +1565,12 @@ function CreatorSection({ creator, onRefresh }) {
               style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: '#999', border: '1px solid #E8C4CC', textDecoration: 'none', flexShrink: 0 }}>
               See More →
             </Link>
+            {creator.profileSummary && (
+              <button onClick={() => setDnaModal(true)}
+                style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', cursor: 'pointer', flexShrink: 0 }}>
+                DNA
+              </button>
+            )}
           </div>
           <span style={{ fontSize: '9px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0, paddingTop: '4px' }}>Weekly</span>
         </div>
@@ -1711,6 +1718,62 @@ function CreatorSection({ creator, onRefresh }) {
           onClose={() => setSubmitModal(null)}
           onSubmit={handleSubmit}
         />
+      )}
+
+      {/* Creator DNA Modal */}
+      {dnaModal && (
+        <div onClick={() => setDnaModal(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '560px',
+            maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }}>
+            <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</div>
+                <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>Creator DNA</div>
+              </div>
+              <button onClick={() => setDnaModal(false)} style={{
+                background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+                cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>✕</button>
+            </div>
+            <div style={{ padding: '20px 28px 28px' }}>
+              {creator.profileSummary && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Profile</div>
+                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{creator.profileSummary}</div>
+                </div>
+              )}
+              {creator.contentDirectionNotes && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{creator.contentDirectionNotes}</div>
+                </div>
+              )}
+              {creator.dosDonts && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Do / Don't</div>
+                  <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{creator.dosDonts}</div>
+                </div>
+              )}
+              {creator.topTags?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Top Tags</div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {creator.topTags.map(tw => (
+                      <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid rgba(0,0,0,0.04)' }}>
+                        {tw.tag} · {tw.weight}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {toast && (

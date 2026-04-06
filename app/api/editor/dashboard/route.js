@@ -33,7 +33,7 @@ export async function GET() {
   try {
     const creators = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: '{Social Media Editing}=1',
-      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Assets'],
+      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Assets', 'Profile Summary', 'Brand Voice Notes', 'Content Direction Notes', 'Dos and Donts'],
     })
     if (!creators.length) return NextResponse.json({ creators: [] })
 
@@ -52,7 +52,7 @@ export async function GET() {
     const weekStartStr = estDateStr(sunday)
 
     // Fetch tasks + library assets + inspo-linked creator clips + future posts in parallel
-    const [tasks, libraryAssets, inspoLinkedAssets, allPosts] = await Promise.all([
+    const [tasks, libraryAssets, inspoLinkedAssets, allPosts, allTagWeights] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
           'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
@@ -85,6 +85,10 @@ export async function GET() {
       fetchAirtableRecords('Posts', {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -60, 'days'))`,
         fields: ['Creator', 'Scheduled Date', 'Task', 'Telegram Sent At'],
+      }),
+      // Tag weights for creator DNA display
+      fetchAirtableRecords('Creator Tag Weights', {
+        fields: ['Tag', 'Weight', 'Tag Category', 'Creator'],
       }),
     ])
 
@@ -262,6 +266,25 @@ export async function GET() {
       }
     }
 
+    // Build per-creator top tag weights for DNA display
+    const tagWeightsByCreator = {}
+    for (const tw of allTagWeights) {
+      const creatorId = (tw.fields?.Creator || [])[0]
+      if (!creatorId || !creatorIdSet.has(creatorId)) continue
+      const weight = tw.fields?.Weight || 0
+      if (weight <= 0) continue
+      if (!tagWeightsByCreator[creatorId]) tagWeightsByCreator[creatorId] = []
+      tagWeightsByCreator[creatorId].push({
+        tag: tw.fields?.Tag || '',
+        weight,
+        category: tw.fields?.['Tag Category'] || '',
+      })
+    }
+    for (const id of Object.keys(tagWeightsByCreator)) {
+      tagWeightsByCreator[id].sort((a, b) => b.weight - a.weight)
+      tagWeightsByCreator[id] = tagWeightsByCreator[id].slice(0, 8)
+    }
+
     const POSTS_PER_DAY = 2 // 12 PM and 9 PM slots
 
     const result = creators.map(c => {
@@ -296,6 +319,10 @@ export async function GET() {
       return {
         id: c.id,
         name: f.AKA || f.Creator || '',
+        profileSummary: f['Profile Summary'] || '',
+        brandVoiceNotes: f['Brand Voice Notes'] || '',
+        contentDirectionNotes: f['Content Direction Notes'] || '',
+        dosDonts: f['Dos and Donts'] || '',
         quota: weeklyQuota,
         dailyQuota,
         doneToday: doneThisWeek,
@@ -311,6 +338,7 @@ export async function GET() {
         library,
         inspoClips,
         postsByDate: postsByDateByCreator[c.id] || {},
+        topTags: tagWeightsByCreator[c.id] || [],
       }
     })
 
