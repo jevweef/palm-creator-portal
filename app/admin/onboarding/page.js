@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const STATUS_COLORS = {
   'Not Started': { bg: '#f5f5f5', color: '#999' },
@@ -22,6 +22,45 @@ export default function AdminOnboarding() {
   const [copied, setCopied] = useState(null)
   const [filter, setFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const sigCanvasRef = useRef(null)
+  const [isSigDrawing, setIsSigDrawing] = useState(false)
+  const [hasSigDrawn, setHasSigDrawn] = useState(false)
+
+  const getSigPos = (e) => {
+    const canvas = sigCanvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    return { x: clientX - rect.left, y: clientY - rect.top }
+  }
+  const startSigDraw = (e) => {
+    e.preventDefault()
+    const ctx = sigCanvasRef.current.getContext('2d')
+    const pos = getSigPos(e)
+    ctx.beginPath()
+    ctx.moveTo(pos.x, pos.y)
+    setIsSigDrawing(true)
+  }
+  const sigDraw = (e) => {
+    if (!isSigDrawing) return
+    e.preventDefault()
+    const ctx = sigCanvasRef.current.getContext('2d')
+    const pos = getSigPos(e)
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#000'
+    ctx.lineTo(pos.x, pos.y)
+    ctx.stroke()
+    setHasSigDrawn(true)
+  }
+  const endSigDraw = () => setIsSigDrawing(false)
+  const clearSigCanvas = () => {
+    const canvas = sigCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    setHasSigDrawn(false)
+  }
 
   const fetchCreators = useCallback(async () => {
     try {
@@ -40,12 +79,14 @@ export default function AdminOnboarding() {
   const handleStartOnboarding = async (e) => {
     e.preventDefault()
     if (!formName || !formEmail) return
+    if (!hasSigDrawn) return
     setSubmitting(true)
     try {
+      const agencySignature = sigCanvasRef.current?.toDataURL('image/png') || null
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formName, email: formEmail, commission: formCommission, creatorState: formState }),
+        body: JSON.stringify({ name: formName, email: formEmail, commission: formCommission, creatorState: formState, agencySignature }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -57,6 +98,7 @@ export default function AdminOnboarding() {
         setFormEmail('')
         setFormCommission('')
         setFormState('')
+        setHasSigDrawn(false)
         fetchCreators()
       }
     } catch (err) {
@@ -96,8 +138,10 @@ export default function AdminOnboarding() {
   const handleStartExisting = async (e) => {
     e.preventDefault()
     if (!editCreator) return
+    if (!hasSigDrawn) return
     setSubmitting(true)
     try {
+      const agencySignature = sigCanvasRef.current?.toDataURL('image/png') || null
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,6 +150,7 @@ export default function AdminOnboarding() {
           email: formEmail || editCreator.email,
           commission: formCommission,
           creatorState: formState,
+          agencySignature,
         }),
       })
       const data = await res.json()
@@ -451,10 +496,50 @@ export default function AdminOnboarding() {
                 </div>
               </div>
 
+              {/* Agency Signature */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Agency Signature (Josh Voto)
+                </label>
+                <canvas
+                  ref={sigCanvasRef}
+                  width={360}
+                  height={80}
+                  onMouseDown={startSigDraw}
+                  onMouseMove={sigDraw}
+                  onMouseUp={endSigDraw}
+                  onMouseLeave={endSigDraw}
+                  onTouchStart={startSigDraw}
+                  onTouchMove={sigDraw}
+                  onTouchEnd={endSigDraw}
+                  style={{
+                    border: `1px solid ${hasSigDrawn ? '#E88FAC' : '#e0e0e0'}`,
+                    borderRadius: '8px',
+                    cursor: 'crosshair',
+                    width: '100%',
+                    maxWidth: '360px',
+                    touchAction: 'none',
+                    display: 'block',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={clearSigCanvas}
+                    style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                  >
+                    Clear
+                  </button>
+                  {!hasSigDrawn && (
+                    <span style={{ fontSize: '11px', color: '#E88FAC' }}>Signature required</span>
+                  )}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => { setShowModal(false); setHasSigDrawn(false) }}
                   style={{
                     padding: '9px 18px',
                     background: '#f5f5f5',
@@ -469,16 +554,16 @@ export default function AdminOnboarding() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !hasSigDrawn}
                   style={{
                     padding: '9px 18px',
-                    background: submitting ? '#F0D0D8' : '#E88FAC',
+                    background: (submitting || !hasSigDrawn) ? '#F0D0D8' : '#E88FAC',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    cursor: (submitting || !hasSigDrawn) ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {submitting ? 'Creating...' : 'Create & Copy Link'}
@@ -564,26 +649,66 @@ export default function AdminOnboarding() {
                 </div>
               )}
 
+              {/* Agency Signature */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Agency Signature (Josh Voto)
+                </label>
+                <canvas
+                  ref={sigCanvasRef}
+                  width={360}
+                  height={80}
+                  onMouseDown={startSigDraw}
+                  onMouseMove={sigDraw}
+                  onMouseUp={endSigDraw}
+                  onMouseLeave={endSigDraw}
+                  onTouchStart={startSigDraw}
+                  onTouchMove={sigDraw}
+                  onTouchEnd={endSigDraw}
+                  style={{
+                    border: `1px solid ${hasSigDrawn ? '#E88FAC' : '#e0e0e0'}`,
+                    borderRadius: '8px',
+                    cursor: 'crosshair',
+                    width: '100%',
+                    maxWidth: '360px',
+                    touchAction: 'none',
+                    display: 'block',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={clearSigCanvas}
+                    style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                  >
+                    Clear
+                  </button>
+                  {!hasSigDrawn && (
+                    <span style={{ fontSize: '11px', color: '#E88FAC' }}>Signature required</span>
+                  )}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  onClick={() => setEditCreator(null)}
+                  onClick={() => { setEditCreator(null); setHasSigDrawn(false) }}
                   style={{ padding: '9px 18px', background: '#f5f5f5', color: '#666', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !hasSigDrawn}
                   style={{
                     padding: '9px 18px',
-                    background: submitting ? '#F0D0D8' : '#E88FAC',
+                    background: (submitting || !hasSigDrawn) ? '#F0D0D8' : '#E88FAC',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    cursor: (submitting || !hasSigDrawn) ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {submitting ? 'Starting...' : 'Start & Copy Link'}

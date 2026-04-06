@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { patchHqRecord, fetchHqRecord } from '@/lib/hqAirtable'
-import { generateContractPdf } from '@/lib/generateContractPdf'
+import { generateContractPdf, buildContractHtml } from '@/lib/generateContractPdf'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
@@ -30,15 +30,18 @@ export async function POST(request) {
     const c = record.fields || {}
     const creatorName = c['Creator'] || 'creator'
 
-    // Generate signed PDF
+    // Generate signed PDF with both signatures
     const contractData = {
       creatorName,
       commissionPct: c['Commission %'] || 0,
       creatorState: c['Creator State'] || '',
-      effectiveDate: new Date().toISOString(),
+      effectiveDate: c['Onboarding Token Created At'] || new Date().toISOString(),
       signatureDataUrl: signatureDataUrl || null,
       signedName: signedName || '',
       signedDate: new Date().toISOString(),
+      agencySignature: c['Agency Signature'] || null,
+      agencyName: 'Josh Voto',
+      agencySignDate: c['Onboarding Token Created At'] || new Date().toISOString(),
     }
 
     const pdfBuffer = await generateContractPdf(contractData)
@@ -61,7 +64,10 @@ export async function POST(request) {
       'Contract Sign Date': new Date().toISOString().split('T')[0],
     })
 
-    return NextResponse.json({ success: true, dropboxUrl: sharedLink })
+    // Return signed HTML so frontend can display the completed contract
+    const signedHtml = buildContractHtml(contractData)
+
+    return NextResponse.json({ success: true, dropboxUrl: sharedLink, signedHtml })
   } catch (err) {
     console.error('[contract/sign] Error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })

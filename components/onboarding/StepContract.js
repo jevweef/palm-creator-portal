@@ -9,6 +9,7 @@ export default function StepContract({ hqId, onComplete }) {
   const [typedName, setTypedName] = useState('')
   const [signing, setSigning] = useState(false)
   const [signed, setSigned] = useState(false)
+  const [signedHtml, setSignedHtml] = useState(null)
   const canvasRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasDrawn, setHasDrawn] = useState(false)
@@ -83,8 +84,10 @@ export default function StepContract({ hqId, onComplete }) {
         body: JSON.stringify({ hqId, signatureDataUrl, signedName: name || typedName }),
       })
 
+      const data = await res.json()
       if (res.ok) {
         setSigned(true)
+        if (data.signedHtml) setSignedHtml(data.signedHtml)
       }
     } catch (err) {
       console.error('Sign error:', err)
@@ -101,29 +104,55 @@ export default function StepContract({ hqId, onComplete }) {
 
   if (signed) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <div style={{ fontSize: '40px', marginBottom: '12px' }}>✅</div>
-        <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
-          Contract Signed
-        </h2>
-        <p style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
-          Your signed contract has been saved. You can download a copy from your dashboard later.
-        </p>
-        <button
-          onClick={onComplete}
-          style={{
-            padding: '10px 32px',
-            background: '#E88FAC',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          Continue
-        </button>
+      <div>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#E8F5E9', padding: '8px 16px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '16px' }}>✅</span>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: '#2E7D32' }}>Contract Signed Successfully</span>
+          </div>
+        </div>
+
+        {/* Show the signed contract */}
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: '12px',
+          maxHeight: '500px',
+          overflow: 'auto',
+          marginBottom: '20px',
+        }}>
+          <iframe
+            srcDoc={signedHtml || contractHtml}
+            style={{
+              width: '100%',
+              height: '500px',
+              border: 'none',
+              borderRadius: '12px',
+            }}
+            title="Signed Contract"
+          />
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: '13px', color: '#999', marginBottom: '16px' }}>
+            Your signed contract has been saved. You can download a copy from your dashboard later.
+          </p>
+          <button
+            onClick={onComplete}
+            style={{
+              padding: '10px 32px',
+              background: '#E88FAC',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Continue
+          </button>
+        </div>
       </div>
     )
   }

@@ -32,7 +32,10 @@ export async function GET(request) {
       creatorName: c['Creator'] || '',
       commissionPct: c['Commission %'] || 0,
       creatorState: c['Creator State'] || '',
-      effectiveDate: new Date().toISOString(),
+      effectiveDate: c['Onboarding Token Created At'] || new Date().toISOString(),
+      agencySignature: c['Agency Signature'] || null,
+      agencyName: 'Josh Voto',
+      agencySignDate: c['Onboarding Token Created At'] || new Date().toISOString(),
     }
 
     // Return the contract HTML for in-browser preview
