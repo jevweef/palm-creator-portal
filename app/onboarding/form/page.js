@@ -9,6 +9,7 @@ import StepAccounts from '@/components/onboarding/StepAccounts'
 import StepSurvey from '@/components/onboarding/StepSurvey'
 import StepContract from '@/components/onboarding/StepContract'
 import StepVoiceMemo from '@/components/onboarding/StepVoiceMemo'
+import StepReview from '@/components/onboarding/StepReview'
 
 export default function OnboardingForm() {
   const { user, isLoaded } = useUser()
@@ -306,7 +307,13 @@ export default function OnboardingForm() {
           {currentStep === 'voice-memo' && (
             <StepVoiceMemo hqId={hqId} onComplete={handleVoiceMemoComplete} />
           )}
-          {currentStep === 'review' && renderComingSoon('Review & Submit')}
+          {currentStep === 'review' && (
+            <StepReview
+              hqId={hqId}
+              completedSteps={completedSteps}
+              onGoToStep={goToStep}
+            />
+          )}
         </div>
 
         {/* Step navigation for completed steps */}
