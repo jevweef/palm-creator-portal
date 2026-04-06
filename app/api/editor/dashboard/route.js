@@ -98,7 +98,7 @@ export async function GET() {
       if (s === 'To Do' || s === 'In Progress') return true
       if (s === 'Done') {
         const completedAt = t.fields?.['Completed At'] || ''
-        return completedAt >= weekStartStr
+        return completedAt >= twoWeeksAgoStr
           || rev === 'Pending Review'
           || rev === 'Needs Revision'
       }
