@@ -9,7 +9,7 @@ export default function StepContract({ hqId, onComplete }) {
   const [typedName, setTypedName] = useState('')
   const [signing, setSigning] = useState(false)
   const [signed, setSigned] = useState(false)
-  const [signedHtml, setSignedHtml] = useState(null)
+  const [pdfDataUrl, setPdfDataUrl] = useState(null)
   const canvasRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasDrawn, setHasDrawn] = useState(false)
@@ -81,13 +81,13 @@ export default function StepContract({ hqId, onComplete }) {
       const res = await fetch('/api/onboarding/contract/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hqId, signatureDataUrl, signedName: name || typedName }),
+        body: JSON.stringify({ hqId, signatureDataUrl, signedName: name || typedName || '' }),
       })
 
       const data = await res.json()
       if (res.ok) {
         setSigned(true)
-        if (data.signedHtml) setSignedHtml(data.signedHtml)
+        if (data.pdfBase64) setPdfDataUrl(`data:application/pdf;base64,${data.pdfBase64}`)
       }
     } catch (err) {
       console.error('Sign error:', err)
@@ -112,26 +112,26 @@ export default function StepContract({ hqId, onComplete }) {
           </div>
         </div>
 
-        {/* Show the signed contract */}
-        <div style={{
-          background: '#fff',
-          border: '1px solid #e0e0e0',
-          borderRadius: '12px',
-          maxHeight: '500px',
-          overflow: 'auto',
-          marginBottom: '20px',
-        }}>
-          <iframe
-            srcDoc={signedHtml || contractHtml}
-            style={{
-              width: '100%',
-              height: '500px',
-              border: 'none',
-              borderRadius: '12px',
-            }}
-            title="Signed Contract"
-          />
-        </div>
+        {/* Show the signed PDF */}
+        {pdfDataUrl && (
+          <div style={{
+            background: '#fff',
+            border: '1px solid #e0e0e0',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            marginBottom: '20px',
+          }}>
+            <iframe
+              src={pdfDataUrl}
+              style={{
+                width: '100%',
+                height: '600px',
+                border: 'none',
+              }}
+              title="Signed Contract PDF"
+            />
+          </div>
+        )}
 
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: '13px', color: '#999', marginBottom: '16px' }}>

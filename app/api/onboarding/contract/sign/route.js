@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { patchHqRecord, fetchHqRecord } from '@/lib/hqAirtable'
-import { generateContractPdf, buildContractHtml } from '@/lib/generateContractPdf'
+import { generateContractPdf } from '@/lib/generateContractPdf'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
@@ -64,10 +64,10 @@ export async function POST(request) {
       'Contract Sign Date': new Date().toISOString().split('T')[0],
     })
 
-    // Return signed HTML so frontend can display the completed contract
-    const signedHtml = buildContractHtml(contractData)
+    // Return the PDF as base64 so frontend can display the final document
+    const pdfBase64 = pdfBuffer.toString('base64')
 
-    return NextResponse.json({ success: true, dropboxUrl: sharedLink, signedHtml })
+    return NextResponse.json({ success: true, dropboxUrl: sharedLink, pdfBase64 })
   } catch (err) {
     console.error('[contract/sign] Error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
