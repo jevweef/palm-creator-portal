@@ -598,6 +598,23 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
 function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }) {
   const videoSrc = rawUrl && isVideo(link) ? rawUrl : null
   const photoSrc = rawUrl && isPhoto(link) ? rawUrl : null
+  const [copied, setCopied] = useState(false)
+
+  const filename = (() => {
+    if (!link) return ''
+    try {
+      const pathname = new URL(link).pathname
+      return decodeURIComponent(pathname.split('/').pop() || '')
+    } catch { return '' }
+  })()
+
+  const copyFilename = async (e) => {
+    e.preventDefault()
+    if (!filename) return
+    await navigator.clipboard.writeText(filename)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
@@ -616,10 +633,18 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
         )}
       </div>
       {link && (
-        <a href={link} target="_blank" rel="noopener noreferrer"
-          style={{ display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: '#FFF5F7', color: accentColor, border: `1px solid #E8C4CC`, borderRadius: '7px', textDecoration: 'none' }}>
-          Open ↗
-        </a>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <a href={link} target="_blank" rel="noopener noreferrer"
+            style={{ flex: 1, display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: '#FFF5F7', color: accentColor, border: `1px solid #E8C4CC`, borderRadius: '7px', textDecoration: 'none' }}>
+            Open ↗
+          </a>
+          {filename && (
+            <button onClick={copyFilename}
+              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: copied ? '#dcfce7' : '#FFF5F7', color: copied ? '#22c55e' : '#999', border: `1px solid ${copied ? '#bbf7d0' : '#E8C4CC'}`, borderRadius: '7px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
+              {copied ? '✓' : 'Copy Name'}
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
