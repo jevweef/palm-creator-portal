@@ -557,6 +557,8 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
 
 function WhaleRow({ whale: w, index: i, fmtMoney }) {
   const [expanded, setExpanded] = useState(false)
+  const [miniHover, setMiniHover] = useState(null)
+  const miniSvgRef = useRef(null)
   const fullTimeline = w.timeline || []
 
   // Center the investigation zone in the visible timeline
@@ -657,7 +659,19 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
               </div>
             )}
           </div>
-          <svg viewBox={`0 0 ${MW} ${MH}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+          <svg ref={miniSvgRef} viewBox={`0 0 ${MW} ${MH}`}
+            style={{ width: '100%', height: 'auto', overflow: 'visible', cursor: 'crosshair' }}
+            onMouseMove={e => {
+              const svg = miniSvgRef.current
+              if (!svg) return
+              const rect = svg.getBoundingClientRect()
+              const mx = ((e.clientX - rect.left) / rect.width) * MW
+              const idx = Math.round(((mx - MP.l) / mW) * (timeline.length - 1))
+              if (idx < 0 || idx >= timeline.length) { setMiniHover(null); return }
+              const t = timeline[idx]
+              setMiniHover({ idx, cx: mpx(idx), cy: mpy(t.spend), spend: t.spend, date: t.week })
+            }}
+            onMouseLeave={() => setMiniHover(null)}>
             <defs>
               <linearGradient id={`whaleGrad${i}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="rgba(232,143,172,0.2)" />
@@ -665,15 +679,10 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
               </linearGradient>
             </defs>
 
-            {/* Investigation zone (one month after peak) */}
+            {/* Investigation zone */}
             {inspectStartIdx >= 0 && inspectEnd >= 0 && (
-              <rect
-                x={mpx(inspectStartIdx)} y={MP.t}
-                width={mpx(inspectEnd) - mpx(inspectStartIdx)}
-                height={mH}
-                fill="rgba(220,38,38,0.06)" stroke="rgba(220,38,38,0.15)" strokeWidth={1} strokeDasharray="4,3"
-                rx={4}
-              />
+              <rect x={mpx(inspectStartIdx)} y={MP.t} width={mpx(inspectEnd) - mpx(inspectStartIdx)} height={mH}
+                fill="rgba(220,38,38,0.06)" stroke="rgba(220,38,38,0.15)" strokeWidth={1} strokeDasharray="4,3" rx={4} />
             )}
 
             {/* Peak period highlight */}
@@ -681,39 +690,37 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
               const peakStartIdx = timeline.findIndex(t => t.week >= w.peakStart)
               const peakEndIdx = w.peakEnd ? timeline.findIndex(t => t.week >= w.peakEnd) : peakStartIdx + 4
               if (peakStartIdx >= 0) {
-                return (
-                  <rect
-                    x={mpx(peakStartIdx)} y={MP.t}
-                    width={mpx(Math.min(peakEndIdx, timeline.length - 1)) - mpx(peakStartIdx)}
-                    height={mH}
-                    fill="rgba(232,143,172,0.08)" stroke="rgba(232,143,172,0.2)" strokeWidth={1}
-                    rx={4}
-                  />
-                )
+                return <rect x={mpx(peakStartIdx)} y={MP.t} width={mpx(Math.min(peakEndIdx, timeline.length - 1)) - mpx(peakStartIdx)} height={mH}
+                  fill="rgba(232,143,172,0.08)" stroke="rgba(232,143,172,0.2)" strokeWidth={1} rx={4} />
               }
               return null
             })()}
 
-            {/* Area */}
+            {/* Area + Line */}
             {miniArea && <path d={miniArea} fill={`url(#whaleGrad${i})`} />}
-            {/* Line */}
             {miniPath && <path d={miniPath} fill="none" stroke="#E88FAC" strokeWidth={1} />}
 
-            {/* Data points */}
-            {timeline.map((t, idx) => (
-              <circle key={idx} cx={mpx(idx)} cy={mpy(t.spend)} r={2}
-                fill={t.spend === 0 ? '#DC2626' : '#E88FAC'} />
-            ))}
-
-            {/* X labels (every 4th week) */}
+            {/* X labels */}
             {timeline.filter((_, idx) => idx % Math.max(Math.floor(timeline.length / 6), 1) === 0).map((t, idx) => {
               const realIdx = timeline.indexOf(t)
-              return (
-                <text key={idx} x={mpx(realIdx)} y={MH - 3} textAnchor="middle" fill="#999" fontSize={9}>
-                  {t.week}
-                </text>
-              )
+              return <text key={idx} x={mpx(realIdx)} y={MH - 3} textAnchor="middle" fill="#999" fontSize={9}>{t.week}</text>
             })}
+
+            {/* Hover interaction */}
+            {miniHover && (() => {
+              const ttW = 130, ttH = 38
+              const ttX = Math.max(5, Math.min(miniHover.cx - ttW/2, MW - ttW - 5))
+              const ttY = miniHover.cy > ttH + 25 ? miniHover.cy - ttH - 10 : miniHover.cy + 14
+              return (
+                <g>
+                  <line x1={miniHover.cx} x2={miniHover.cx} y1={MP.t} y2={MP.t + mH} stroke="rgba(0,0,0,0.1)" strokeWidth={1} />
+                  <circle cx={miniHover.cx} cy={miniHover.cy} r={3.5} fill="#E88FAC" stroke="#fff" strokeWidth={2} />
+                  <rect x={ttX} y={ttY} width={ttW} height={ttH} rx={5} fill="#fff" stroke="rgba(0,0,0,0.08)" strokeWidth={1} style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.06))' }} />
+                  <text x={ttX + ttW/2} y={ttY + 15} textAnchor="middle" fill="#1a1a1a" fontSize={10} fontWeight={600}>{miniHover.date}</text>
+                  <text x={ttX + ttW/2} y={ttY + 29} textAnchor="middle" fill="#E88FAC" fontSize={11} fontWeight={700}>{fmtMoney(miniHover.spend)}</text>
+                </g>
+              )
+            })()}
           </svg>
         </div>
       )}
