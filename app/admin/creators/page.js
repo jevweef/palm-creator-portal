@@ -741,35 +741,49 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
   const [showBrief, setShowBrief] = useState(false)
+  const [loadedFromAirtable, setLoadedFromAirtable] = useState(false)
   const chatFileRef = useRef(null)
   const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
+
+  // Load existing analysis from Airtable when expanded
+  useEffect(() => {
+    if (!expanded || analysis || loadedFromAirtable) return
+    setLoadedFromAirtable(true)
+    fetch(`/api/admin/creator-earnings/analyze-chat?fan=${encodeURIComponent(a.fan)}&creator=${encodeURIComponent(creatorName || '')}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.analysis) setAnalysis(data) })
+      .catch(() => {})
+  }, [expanded])
+
+  function buildFormData() {
+    const formData = new FormData()
+    formData.append('file', chatFile)
+    formData.append('fanName', a.fan)
+    formData.append('fanUsername', a.username || '')
+    formData.append('lifetime', a.lifetime)
+    formData.append('medianGap', a.medianGap)
+    formData.append('currentGap', a.currentGap)
+    formData.append('rolling30', a.rolling30)
+    formData.append('monthlyAvg90', a.monthlyAvg90)
+    formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
+    formData.append('creatorName', creatorName || '')
+    if (a.monthlyHistory) {
+      const timeline = a.monthlyHistory.map(m => `${m.month}: $${m.spend.toFixed(2)}`).join('\n')
+      formData.append('spendingTimeline', timeline)
+    }
+    return formData
+  }
 
   async function handleAnalyze() {
     if (!chatFile) return
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-      const formData = new FormData()
-      formData.append('file', chatFile)
-      formData.append('fanName', a.fan)
-      formData.append('fanUsername', a.username || '')
-      formData.append('lifetime', a.lifetime)
-      formData.append('medianGap', a.medianGap)
-      formData.append('currentGap', a.currentGap)
-      formData.append('rolling30', a.rolling30)
-      formData.append('monthlyAvg90', a.monthlyAvg90)
-      formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
-      formData.append('creatorName', creatorName || '')
-      // Pass monthly spending timeline for correlation
-      if (a.monthlyHistory) {
-        const timeline = a.monthlyHistory.map(m => `${m.month}: $${m.spend.toFixed(2)}`).join('\n')
-        formData.append('spendingTimeline', timeline)
-      }
-      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: formData })
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: buildFormData() })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       setAnalysis(data)
-      setChatFile(null)
+      // Don't clear chatFile — keep it for re-analyze
     } catch (e) {
       setAnalysisError(e.message)
     } finally {
@@ -911,12 +925,22 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
                     )}
                     {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>✓ Saved</span>}
                   </div>
-                  <button
-                    onClick={() => { setAnalysis(null); setChatFile(null); setShowBrief(false) }}
-                    style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-                  >
-                    Re-analyze
-                  </button>
+                  {chatFile ? (
+                    <button
+                      onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }}
+                      disabled={analyzing}
+                      style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
+                    >
+                      {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setAnalysis(null); setShowBrief(false) }}
+                      style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      Upload new chat
+                    </button>
+                  )}
                 </div>
                 <div style={{
                   background: showBrief ? '#F8FAFC' : '#FFFBF5',

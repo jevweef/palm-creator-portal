@@ -127,6 +127,50 @@ function parseChatHtml(html) {
   }
 }
 
+// ── GET (load existing analysis from Airtable) ────────────────────────────
+
+export async function GET(request) {
+  const { userId } = await auth()
+  if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const fan = searchParams.get('fan')
+  const creator = searchParams.get('creator')
+  if (!fan) return Response.json({ error: 'Missing fan param' }, { status: 400 })
+
+  try {
+    // Fetch most recent analysis for this fan+creator from Airtable
+    const params = new URLSearchParams()
+    params.set('maxRecords', '1')
+    params.set('sort[0][field]', 'Analyzed Date')
+    params.set('sort[0][direction]', 'desc')
+    params.set('filterByFormula', `AND({Fan Name} = "${fan.replace(/"/g, '\\"')}"${creator ? `, {Creator} = "${creator.replace(/"/g, '\\"')}"` : ''})`)
+
+    const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}?${params}`, {
+      headers: AIRTABLE_HEADERS, cache: 'no-store',
+    })
+    const data = await res.json()
+    const rec = data.records?.[0]
+    if (!rec) return Response.json({})
+
+    const f = rec.fields || {}
+    return Response.json({
+      analysis: f['Full Analysis'] || '',
+      managerBrief: f['Manager Brief'] || '',
+      analysisType: f['Analysis Type']?.name === 'Deep Dive' ? 'deep' : 'quick',
+      messageCount: f['Message Count'] || 0,
+      fanMessages: f['Fan Messages'] || 0,
+      creatorMessages: f['Creator Messages'] || 0,
+      saved: true,
+      loadedFrom: 'airtable',
+      analyzedAt: f['Analyzed Date'] || '',
+    })
+  } catch (err) {
+    console.error('Load analysis error:', err)
+    return Response.json({})
+  }
+}
+
 // ── POST ───────────────────────────────────────────────────────────────────
 
 export async function POST(request) {
