@@ -213,8 +213,10 @@ function detectGoingCold(transactions, now) {
     const currentGap = Math.floor((now - lastPurchase) / 86400000)
 
     // Minimum 14-day gap before any alert fires (avoids false alarms on high-frequency buyers)
+    // Maximum 90-day gap — beyond this they're already lost, not "going cold"
     const MIN_GAP_DAYS = 14
-    if (currentGap < MIN_GAP_DAYS) continue
+    const MAX_GAP_DAYS = 90
+    if (currentGap < MIN_GAP_DAYS || currentGap > MAX_GAP_DAYS) continue
 
     // Signal 1: Gap exceeds 2x personal median
     const gapTriggered = medianGap > 0 && currentGap > medianGap * 2

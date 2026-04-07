@@ -854,7 +854,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
             const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
             return (
               <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '6px' }}>Monthly Spending (last 6 months)</div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '16px' }}>Monthly Spending (last 6 months)</div>
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', height: '60px' }}>
                   {a.monthlyHistory.map(m => {
                     const h = Math.max((m.spend / maxMo) * 50, m.spend > 0 ? 3 : 0)
