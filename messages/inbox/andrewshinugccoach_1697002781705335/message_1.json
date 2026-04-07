@@ -1,0 +1,32 @@
+{
+  "participants": [
+    {
+      "name": "Andrew Shin \u00e2\u0080\u00a0 | UGC Coach"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Andrew Shin \u00e2\u0080\u00a0 | UGC Coach",
+      "timestamp_ms": 1767724769204,
+      "content": "What's got you looking into UGC?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Andrew Shin \u00e2\u0080\u00a0 | UGC Coach",
+      "timestamp_ms": 1767724765801,
+      "content": "Yoo Josh, appreciate the follow bro",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Andrew Shin \u00e2\u0080\u00a0 | UGC Coach",
+  "is_still_participant": true,
+  "thread_path": "inbox/andrewshinugccoach_1697002781705335",
+  "magic_words": [
+    
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "participants": [
+    {
+      "name": "Tai'Aysha \u00e2\u00ad\u0090\u00ef\u00b8\u008f"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771292849879,
+      "content": "Hey! Who\u00e2\u0080\u0099s managing your OG currently? Would love to talk about it! Hope you\u00e2\u0080\u0099re doing amazing!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768530112244,
+      "content": "Hey!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Tai'Aysha \u00e2\u00ad\u0090\u00ef\u00b8\u008f",
+  "is_still_participant": true,
+  "thread_path": "inbox/taiaysha_1111215720284047",
+  "magic_words": [
+    
+  ]
+}

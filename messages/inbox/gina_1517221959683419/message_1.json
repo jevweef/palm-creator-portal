@@ -1,0 +1,46 @@
+{
+  "participants": [
+    {
+      "name": "\u00f0\u009d\u0090\u00ba\u00f0\u009d\u0091\u0096\u00f0\u009d\u0091\u009b\u00f0\u009d\u0091\u008e"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769836314123,
+      "content": "Let me know when you\u00e2\u0080\u0099re available",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769836307452,
+      "content": "Sounds good",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "\u00f0\u009d\u0090\u00ba\u00f0\u009d\u0091\u0096\u00f0\u009d\u0091\u009b\u00f0\u009d\u0091\u008e",
+      "timestamp_ms": 1769834778641,
+      "content": "Sure",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769834207676,
+      "content": "Hey it\u00e2\u0080\u0099s been a minute. If you\u00e2\u0080\u0099re around this month would love to finally get together",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "\u00f0\u009d\u0090\u00ba\u00f0\u009d\u0091\u0096\u00f0\u009d\u0091\u009b\u00f0\u009d\u0091\u008e",
+  "is_still_participant": true,
+  "thread_path": "inbox/gina_1517221959683419",
+  "magic_words": [
+    
+  ]
+}

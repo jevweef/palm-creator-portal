@@ -1,0 +1,38 @@
+{
+  "participants": [
+    {
+      "name": "Josh"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Josh",
+      "timestamp_ms": 1772238292727,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772232441066,
+      "content": "\u00f0\u009f\u0091\u008f",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Josh"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Josh",
+  "is_still_participant": true,
+  "thread_path": "inbox/josh_1213075170098101",
+  "magic_words": [
+    
+  ]
+}

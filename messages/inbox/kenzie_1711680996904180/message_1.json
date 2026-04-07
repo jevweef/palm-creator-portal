@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Kenzie"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769306538132,
+      "content": "\u00f0\u009f\u0091\u008f",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Kenzie",
+  "is_still_participant": true,
+  "thread_path": "inbox/kenzie_1711680996904180",
+  "magic_words": [
+    
+  ]
+}

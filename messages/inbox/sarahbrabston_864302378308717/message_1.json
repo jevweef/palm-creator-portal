@@ -1,0 +1,39 @@
+{
+  "participants": [
+    {
+      "name": "Sarah Brabston"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773229459443,
+      "content": "Okay no worries haha",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Sarah Brabston",
+      "timestamp_ms": 1773200302758,
+      "content": "Haha ugh I was just in LA on Sunday bc my brother lives there. But I\u00e2\u0080\u0099ll be working in La Jolla Wed and Thurs sadly \u00f0\u009f\u0098\u0095",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773193528244,
+      "content": "Very random but I\u00e2\u0080\u0099ll be in LA next week if you happen to be in the area haha. Specifically on Wednesday and Thursday",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Sarah Brabston",
+  "is_still_participant": true,
+  "thread_path": "inbox/sarahbrabston_864302378308717",
+  "magic_words": [
+    
+  ]
+}

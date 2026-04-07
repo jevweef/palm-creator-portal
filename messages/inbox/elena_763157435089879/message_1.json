@@ -1,0 +1,28 @@
+{
+  "participants": [
+    {
+      "name": "Elena\u00f0\u009f\u0090\u0089"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Elena\u00f0\u009f\u0090\u0089",
+      "timestamp_ms": 1767922586308,
+      "content": "what is the journal?",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3805642381610366944"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Elena\u00f0\u009f\u0090\u0089",
+  "is_still_participant": true,
+  "thread_path": "inbox/elena_763157435089879",
+  "magic_words": [
+    
+  ]
+}

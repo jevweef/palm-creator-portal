@@ -472,7 +472,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
 
 // ─── Library Picker Modal (for empty slots) ────────────────────────────────────
 
-function LibraryPickerModal({ creator, onClose, onRefresh }) {
+function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
   const [library, setLibrary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [assigning, setAssigning] = useState(null)
@@ -497,9 +497,14 @@ function LibraryPickerModal({ creator, onClose, onRefresh }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assetId: asset.id, creatorId: creator.id }),
       })
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
-      onRefresh()
-      onClose()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      if (onTaskCreated) {
+        onTaskCreated(data.taskId, asset)
+      } else {
+        await onRefresh()
+        onClose()
+      }
     } catch (e) {
       setErr(e.message)
       setAssigning(null)
@@ -593,6 +598,23 @@ function LibraryPickerModal({ creator, onClose, onRefresh }) {
 function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }) {
   const videoSrc = rawUrl && isVideo(link) ? rawUrl : null
   const photoSrc = rawUrl && isPhoto(link) ? rawUrl : null
+  const [copied, setCopied] = useState(false)
+
+  const filename = (() => {
+    if (!link) return ''
+    try {
+      const pathname = new URL(link).pathname
+      return decodeURIComponent(pathname.split('/').pop() || '')
+    } catch { return '' }
+  })()
+
+  const copyFilename = async (e) => {
+    e.preventDefault()
+    if (!filename) return
+    await navigator.clipboard.writeText(filename)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
@@ -611,10 +633,18 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
         )}
       </div>
       {link && (
-        <a href={link} target="_blank" rel="noopener noreferrer"
-          style={{ display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: '#FFF5F7', color: accentColor, border: `1px solid #E8C4CC`, borderRadius: '7px', textDecoration: 'none' }}>
-          Open ↗
-        </a>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <a href={link} target="_blank" rel="noopener noreferrer"
+            style={{ flex: 1, display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: '#FFF5F7', color: accentColor, border: `1px solid #E8C4CC`, borderRadius: '7px', textDecoration: 'none' }}>
+            Open ↗
+          </a>
+          {filename && (
+            <button onClick={copyFilename}
+              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: copied ? '#dcfce7' : '#FFF5F7', color: copied ? '#22c55e' : '#999', border: `1px solid ${copied ? '#bbf7d0' : '#E8C4CC'}`, borderRadius: '7px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
+              {copied ? '✓' : 'Copy Name'}
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -813,8 +843,10 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Save failed')
       setSaved(true)
-      if (onSaved) onSaved()
-      setTimeout(onClose, 1200)
+      setTimeout(() => {
+        if (onSaved) onSaved(task)
+        else onClose()
+      }, 1200)
     } catch (err) {
       setSaveErr(err.message)
     } finally {
@@ -959,7 +991,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
             {/* Action button */}
             {slot.type === 'toDo' && (
-              <button onClick={() => { onAction('startEditing', task); onClose() }} disabled={updating}
+              <button onClick={() => onAction('startEditing', task)} disabled={updating}
                 style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: '#dcfce7', color: '#22c55e', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
                 {updating ? 'Starting...' : 'Start Editing →'}
               </button>
@@ -1368,6 +1400,7 @@ function CreatorSection({ creator, onRefresh }) {
   const [taskModal, setTaskModal] = useState(null)
   const [libraryModal, setLibraryModal] = useState(false)
   const [toast, setToast] = useState(null)
+  const [dnaModal, setDnaModal] = useState(false)
 
   const showToast = (msg, error = false) => {
     setToast({ msg, error })
@@ -1385,7 +1418,10 @@ function CreatorSection({ creator, onRefresh }) {
         })
         if (!res.ok) throw new Error((await res.json()).error || 'Update failed')
         showToast('Started editing')
-        onRefresh()
+        // Update task modal in-place to show In Progress state — set before refresh
+        // so the modal stays open and shows the editing tools immediately
+        setTaskModal({ type: 'inProgress', task: { ...task, status: 'In Progress' } })
+        await onRefresh()
       } catch (err) {
         showToast(err.message, true)
       } finally {
@@ -1416,9 +1452,12 @@ function CreatorSection({ creator, onRefresh }) {
       body: JSON.stringify({ taskId, newStatus: 'Done', editedFileLink, editedFilePath, editorNotes, isRevision }),
     })
     if (!res.ok) throw new Error((await res.json()).error || 'Submit failed')
+    const submittedTask = submitModal?.task
     setSubmitModal(null)
     showToast(isRevision ? 'Revision submitted' : 'Edit submitted for review')
-    onRefresh()
+    // Update task modal to show In Review state
+    setTaskModal({ type: 'inReview', task: { ...submittedTask, status: 'Done', adminReviewStatus: 'Pending Review' } })
+    await onRefresh()
   }
 
   const dailyQuota = creator.dailyQuota || 2
@@ -1564,6 +1603,12 @@ function CreatorSection({ creator, onRefresh }) {
               style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: '#999', border: '1px solid #E8C4CC', textDecoration: 'none', flexShrink: 0 }}>
               See More →
             </Link>
+            {creator.profileSummary && (
+              <button onClick={() => setDnaModal(true)}
+                style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', cursor: 'pointer', flexShrink: 0 }}>
+                DNA
+              </button>
+            )}
           </div>
           <span style={{ fontSize: '9px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0, paddingTop: '4px' }}>Weekly</span>
         </div>
@@ -1691,6 +1736,10 @@ function CreatorSection({ creator, onRefresh }) {
           updating={updating}
           onClose={() => setTaskModal(null)}
           onRefresh={onRefresh}
+          onSaved={async (task) => {
+            setTaskModal({ type: 'inReview', task: { ...task, status: 'Done', adminReviewStatus: 'Pending Review' } })
+            await onRefresh()
+          }}
         />
       )}
 
@@ -1699,6 +1748,32 @@ function CreatorSection({ creator, onRefresh }) {
           creator={creator}
           onClose={() => setLibraryModal(false)}
           onRefresh={onRefresh}
+          onTaskCreated={async (taskId, asset) => {
+            setLibraryModal(false)
+            // Open task detail modal immediately in editing state (skip the "Start Editing" step)
+            const newTask = {
+              id: taskId,
+              name: `Edit: ${asset.name || ''}`,
+              status: 'In Progress',
+              asset: {
+                id: asset.id,
+                dropboxLinks: asset.dropboxLinks || [],
+                dropboxLink: asset.dropboxLink || '',
+                thumbnail: asset.thumbnail || '',
+                creatorNotes: asset.creatorNotes || '',
+              },
+            }
+            setTaskModal({ type: 'inProgress', task: newTask })
+            // Fire the status change to In Progress in the background
+            try {
+              await fetch('/api/admin/editor', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ taskId, newStatus: 'In Progress' }),
+              })
+              onRefresh()
+            } catch {}
+          }}
         />
       )}
 
@@ -1711,6 +1786,62 @@ function CreatorSection({ creator, onRefresh }) {
           onClose={() => setSubmitModal(null)}
           onSubmit={handleSubmit}
         />
+      )}
+
+      {/* Creator DNA Modal */}
+      {dnaModal && (
+        <div onClick={() => setDnaModal(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '560px',
+            maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }}>
+            <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</div>
+                <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>Creator DNA</div>
+              </div>
+              <button onClick={() => setDnaModal(false)} style={{
+                background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+                cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>✕</button>
+            </div>
+            <div style={{ padding: '20px 28px 28px' }}>
+              {creator.profileSummary && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Profile</div>
+                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{creator.profileSummary}</div>
+                </div>
+              )}
+              {creator.contentDirectionNotes && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{creator.contentDirectionNotes}</div>
+                </div>
+              )}
+              {creator.dosDonts && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Do / Don't</div>
+                  <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{creator.dosDonts}</div>
+                </div>
+              )}
+              {creator.topTags?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Top Tags</div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {creator.topTags.map(tw => (
+                      <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid rgba(0,0,0,0.04)' }}>
+                        {tw.tag} · {tw.weight}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {toast && (
@@ -1827,9 +1958,9 @@ export function EditorDashboardContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    if (!silent) setError(null)
     try {
       const res = await fetch('/api/editor/dashboard')
       if (!res.ok) {
@@ -1839,9 +1970,9 @@ export function EditorDashboardContent() {
       const data = await res.json()
       setCreators(data.creators || [])
     } catch (err) {
-      setError(err.message)
+      if (!silent) setError(err.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
@@ -1881,7 +2012,7 @@ export function EditorDashboardContent() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           {creators.map(creator => (
             <div key={creator.id} style={{ minWidth: 0 }}>
-              <CreatorSection creator={creator} onRefresh={fetchData} />
+              <CreatorSection creator={creator} onRefresh={() => fetchData(true)} />
             </div>
           ))}
         </div>

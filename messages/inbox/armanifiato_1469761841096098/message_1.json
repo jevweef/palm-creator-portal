@@ -1,0 +1,121 @@
+{
+  "participants": [
+    {
+      "name": "Armani Fiato"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772594643138,
+      "content": "Nope lol",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Armani Fiato",
+      "timestamp_ms": 1771992760796,
+      "content": "Any other questions?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Armani Fiato",
+      "timestamp_ms": 1771992749383,
+      "content": "That\u00e2\u0080\u0099s why it\u00e2\u0080\u0099s not iMessage",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Armani Fiato",
+      "timestamp_ms": 1771992727299,
+      "content": "Yup, on my work phone",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771991152725,
+      "content": "They\u00e2\u0080\u0099re allowed to text you lol ?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Armani Fiato",
+      "timestamp_ms": 1770171780418,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770170386279,
+      "content": "Haha yes! Blessed for sure but still love mass of course",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Armani Fiato"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Armani Fiato",
+      "timestamp_ms": 1770170127283,
+      "content": "Enjoy it nice views and weather lol",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770169413536,
+      "content": "Yeah it makes sense why New England can be harsh . Because everyone\u00e2\u0080\u0099s super fucked up from the winters. It\u00e2\u0080\u0099s like going to war.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Armani Fiato",
+      "timestamp_ms": 1770169359310,
+      "content": "Like my students say \u00e2\u0080\u009cmiss, we\u00e2\u0080\u0099re thuggin\u00e2\u0080\u0099 it out\u00e2\u0080\u009d lol",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1770169053268,
+      "content": "Hahaha it\u00e2\u0080\u0099s tough up there",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Armani Fiato",
+      "timestamp_ms": 1770168999733,
+      "content": "New England wants u back lol",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3824072891340600771"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Armani Fiato",
+      "timestamp_ms": 1770168989487,
+      "content": "\u00f0\u009f\u0098\u0082",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3824072891340600771"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Armani Fiato",
+  "is_still_participant": true,
+  "thread_path": "inbox/armanifiato_1469761841096098",
+  "magic_words": [
+    
+  ]
+}

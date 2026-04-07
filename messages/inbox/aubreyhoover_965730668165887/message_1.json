@@ -1,0 +1,34 @@
+{
+  "participants": [
+    {
+      "name": "Aubrey Hoover"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Aubrey Hoover",
+      "timestamp_ms": 1772475187032,
+      "content": "Wow wow wowwwww",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3844085367876204272"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Aubrey Hoover",
+  "is_still_participant": true,
+  "thread_path": "inbox/aubreyhoover_965730668165887",
+  "magic_words": [
+    
+  ]
+}

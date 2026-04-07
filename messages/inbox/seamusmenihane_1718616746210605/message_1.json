@@ -1,0 +1,49 @@
+{
+  "participants": [
+    {
+      "name": "Seamus Menihane"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769983364461,
+      "content": "Oh 1000% dude for sure you guys should come down",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Seamus Menihane",
+      "timestamp_ms": 1769983325735,
+      "content": "No Florida I\u00e2\u0080\u0099ll come down with Jarrad",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769983203669,
+      "content": "Yeah bro haha in mass??",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Seamus Menihane",
+      "timestamp_ms": 1769981186633,
+      "content": "let\u00e2\u0080\u0099s play some golf this month",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3822570804198921043"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Seamus Menihane",
+  "is_still_participant": true,
+  "thread_path": "inbox/seamusmenihane_1718616746210605",
+  "magic_words": [
+    
+  ]
+}

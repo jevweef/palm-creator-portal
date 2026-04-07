@@ -1,0 +1,79 @@
+{
+  "participants": [
+    {
+      "name": "Jayde \u00f0\u009f\u0090\u0086\u00f0\u009f\u0087\u00a8\u00f0\u009f\u0087\u00a6"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773683138002,
+      "content": "How have they been doing for you? We just changed a ton of stuff out on the backend and built a really crazy telegram system and social media funnel that\u00e2\u0080\u0099s been killing it. We\u00e2\u0080\u0099ve been bringing in some awesome creators plus specializing a lot in YouTubers and oftv girls now too",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772992229171,
+      "content": "Hey how\u00e2\u0080\u0099s the page doing!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768589814400,
+      "content": "Definitely register for oftv before hand so we can get you running. It can take a week or two to get that going. Stay in touch!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768589759689,
+      "content": "No worries!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Jayde \u00f0\u009f\u0090\u0086\u00f0\u009f\u0087\u00a8\u00f0\u009f\u0087\u00a6",
+      "timestamp_ms": 1768589696837,
+      "content": "Omg\u00f0\u009f\u0098\u00bb switching over to give you guys a test run is definitely something I want to try in the near future I just have a few loose ends to tie up with my agency beforehand",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768582085920,
+      "videos": [
+        {
+          "uri": "your_instagram_activity/messages/inbox/jayde_510479357024356/videos/807145089041652.mp4",
+          "creation_timestamp": 1768582069
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768582075699,
+      "content": "Girl just hit front page with us on OFTV did 36 k in 48 hours",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768582057552,
+      "content": "Hey I knew we spoke about OFTV check this out\u00e2\u0080\u00a6haha",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Jayde \u00f0\u009f\u0090\u0086\u00f0\u009f\u0087\u00a8\u00f0\u009f\u0087\u00a6",
+  "is_still_participant": true,
+  "thread_path": "inbox/jayde_510479357024356",
+  "magic_words": [
+    
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "participants": [
+    {
+      "name": "Ana V"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769008096000,
+      "videos": [
+        {
+          "uri": "your_instagram_activity/messages/inbox/anav_1413389693399980/videos/1328238942678167.mp4",
+          "creation_timestamp": 1769008084
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768273263795,
+      "content": "Hey we spoke a while ago! How\u00e2\u0080\u0099s your account been doing?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Ana V",
+  "is_still_participant": true,
+  "thread_path": "inbox/anav_1413389693399980",
+  "magic_words": [
+    
+  ]
+}

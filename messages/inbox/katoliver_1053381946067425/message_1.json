@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Kat & Oliver"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1769309350738,
+      "content": "lol",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Kat & Oliver",
+  "is_still_participant": true,
+  "thread_path": "inbox/katoliver_1053381946067425",
+  "magic_words": [
+    
+  ]
+}

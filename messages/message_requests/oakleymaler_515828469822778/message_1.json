@@ -1,0 +1,26 @@
+{
+  "participants": [
+    {
+      "name": "Oakley Maler"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Oakley Maler",
+      "timestamp_ms": 1767454598209,
+      "content": "Happy New Year, Josh! \u00f0\u009f\u008c\u00b4 Love the fusion of retail fashion and art in your brand. With 13.6k followers, your aesthetic is clearly resonating. But given your business owner role, imagine the direct sales and brand authority you could unlock by strategically growing that engaged community. Curious, what's your biggest goal for your brand's visibility this year?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Oakley Maler",
+  "is_still_participant": true,
+  "thread_path": "message_requests/oakleymaler_515828469822778",
+  "magic_words": [
+    
+  ],
+  "is_pending": true
+}

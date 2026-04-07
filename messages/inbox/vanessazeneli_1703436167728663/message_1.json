@@ -1,0 +1,235 @@
+{
+  "participants": [
+    {
+      "name": "Vanessa Zeneli"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771257036146,
+      "content": "Hey hope you\u00e2\u0080\u0099re doing well! Totally cool if you\u00e2\u0080\u0099re not interested anymore! Just wanted to circle back one last time",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768927846729,
+      "content": "Hi! Just checking if you saw my message!",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768864326809,
+      "content": "Hey! We have tomorrow open so let me know if there\u00e2\u0080\u0099s a time that works. Ideally after 12 pm est!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768838590646,
+      "content": "Hi! Just confirming our call! If you need to reschedule let me know :) no worries!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768577897481,
+      "content": "Ok super !",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768577245542,
+      "content": "Hi here is call invite for Monday!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768577239306,
+      "content": "Call with Vanessa\nMonday, Jan 19 \u00c2\u00b7 11\u00e2\u0080\u00afAM\u00e2\u0080\u009312\u00e2\u0080\u00afPM\nGoogle Meet joining info\nVideo call link: https://meet.google.com/oyz-ygxm-jum\nOr dial: +1 508-779-6089 PIN: 606568167\nMore phone numbers: https://tel.meet/oyz-ygxm-jum?pin=9585423777237",
+      "share": {
+        "link": "https://meet.google.com/oyz-ygxm-jum",
+        "share_text": "Call with Vanessa\nMonday, Jan 19 \u00c2\u00b7 11\u00e2\u0080\u00afAM\u00e2\u0080\u009312\u00e2\u0080\u00afPM\nGoogle Meet joining info\nVideo call link: https://meet.google.com/oyz-ygxm-jum\nOr dial: +1 508-779-6089 PIN: 606568167\nMore phone numbers: https://tel.meet/oyz-ygxm-jum?pin=9585423777237"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768547315973,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768518519486,
+      "content": "Okay amazing I\u00e2\u0080\u0099ll send calendar invite for Monday at 5 pm your time!",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Vanessa Zeneli"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768517654067,
+      "content": "that\u00e2\u0080\u0099s fine.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768517114073,
+      "content": "Could you do slightly later like 5 pm ?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768512379381,
+      "content": "Shall we do Monday at 3 PM?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768505432649,
+      "content": "Hi can you do Sunday or Monday at 5 pm your time?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768493468318,
+      "content": "Ok \u00f0\u009f\u0091\u008c\u00f0\u009f\u008f\u00bc",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768493286906,
+      "content": "I will send you google meet invite once they confirm! (edited)",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768493278597,
+      "content": "I will send you google meet invite once the confirm!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768493216589,
+      "content": "Yes tomorrow this time works for us as well. Let me message my team to ensure they have availability tomorrow at this time",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768493167595,
+      "content": "Here it\u00e2\u0080\u0099s 5 PM right now, so tomorrow around this time would be good. But let me know what works for you as well, and we\u00e2\u0080\u0099ll arrange it.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768493067721,
+      "content": "Okay yes that is important to have both languages! And yes what time zone are you on?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768492792981,
+      "content": "I understand, I only have one profile, but everything is written in both English and Italian, for example in the stories, posts, etc.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768492691865,
+      "content": "Yes, can we talk in the afternoon? Anyway, I only started taking OF seriously very recently, about 5 months ago. I make around 10K per month, maybe a little more, but roughly around that.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768492577319,
+      "content": "We would advise to also setup an additional social media completely in English as well. The English speaking fans tend to pay higher and spend more money so it\u00e2\u0080\u0099s good to have both English and Italian!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768492461175,
+      "content": "Okay I can send a google meet invite there. Do you have availability sometime tomorrow or Monday? Also how has your revenue been throughout the last year?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768492277632,
+      "content": "vanessazeneli99@gmail.com",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768492252838,
+      "content": "Most of them speak Italian.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768487653208,
+      "content": "Hi Vanessa. Yes we manage both OF and Instagram accounts for our creators. We also manage Reddit and X as well as YouTube and OFTV. Are most of your fans English speaking or Italian? We can setup a call with my team if you\u00e2\u0080\u0099d have availability. What is your WhatsApp or email?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Vanessa Zeneli",
+      "timestamp_ms": 1768487401129,
+      "content": "Hi, nice to meet you, i\u00e2\u0080\u0099m Vanessa. I\u00e2\u0080\u0099m from Udine, Italy. At the moment I\u00e2\u0080\u0099m being managed on OF by an agency that also offers Instagram management, but I\u00e2\u0080\u0099m thinking about some more powerful alternatives to grow better and on a larger scale. I\u00e2\u0080\u0099m interested, let me know if we can talk and discuss it further.\nThank you and have a nice day.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768448433724,
+      "content": "Hey! Love the content! I actually manage some of the top creators on OF and Telegram (mostly within the top 1% and some in the top .1%)! We specialize in 360 marketing and work with a select group of niche creators and other creators we know we can scale. What are you doing for marketing right now? We manage a bunch of platforms and have many systems in place for our creators, which most agencies don\u00e2\u0080\u0099t do. This includes full chat team and managers, IG, Reddit, X, Telgram and we do OFTV creation and content houses every month or two. Would love to talk about you joining our team. You have a great page and I think we could scale you a lot. Plus we have a competitive commission scale. Let me know if you want to setup a phone call or group chat with my team to discuss what we can do! We have all female account management as well and our teams based between Palm Beach and LA! Let me know if you have any questions. Would love to talk more!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Vanessa Zeneli",
+  "is_still_participant": true,
+  "thread_path": "inbox/vanessazeneli_1703436167728663",
+  "magic_words": [
+    
+  ]
+}

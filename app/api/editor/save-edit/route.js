@@ -31,7 +31,7 @@ export async function POST(req) {
         fields: {
           Status: 'Done',
           'Admin Review Status': 'Pending Review',
-          'Completed At': new Date().toISOString().split('T')[0],
+          'Completed At': new Date().toISOString(),
         },
       }),
     }) : null,

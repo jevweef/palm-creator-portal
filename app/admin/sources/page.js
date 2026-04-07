@@ -20,7 +20,7 @@ function StatusPill({ status }) {
   const colors = {
     Processing: { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
     Complete: { bg: '#dcfce7', text: '#22c55e', border: '#bbf7d0' },
-    Error: { bg: '#2d1515', text: '#ef4444', border: '#5c2020' },
+    Error: { bg: '#FEF2F2', text: '#ef4444', border: '#FECACA' },
   }
   const c = colors[status] || { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' }
   return (
@@ -189,9 +189,9 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
                     style={{
                       padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                       borderRadius: '20px', cursor: 'pointer', border: 'none',
-                      background: assigned ? '#FFF0F3' : '#1c1c1c',
-                      color: assigned ? '#E88FAC' : '#999',
-                      outline: assigned ? '1px solid #E88FAC' : '1px solid #27272a',
+                      background: assigned ? '#FFF0F3' : '#ffffff',
+                      color: assigned ? '#E88FAC' : '#666',
+                      outline: assigned ? '1px solid #E88FAC' : '1px solid #E8C4CC',
                       transition: 'all 0.15s',
                     }}
                   >
@@ -247,7 +247,7 @@ const COST_PER_REEL = 0.0084
 
 function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
   const [saving, setSaving] = useState(false)
-  const oldLimit = source.apifyLimit || 15
+  const oldLimit = source.apifyLimit || 100
   const estCost = (newLimit * COST_PER_REEL).toFixed(2)
 
   const confirm = async () => {
@@ -287,7 +287,7 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
           Limit: <span style={{ color: '#999' }}>{oldLimit}</span> → <span style={{ color: '#E88FAC', fontWeight: 600 }}>{newLimit}</span> reels
         </p>
 
-        <div style={{ background: '#1a1000', border: '1px solid #fde68a', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
+        <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '32px', fontWeight: 800, color: '#f59e0b', marginBottom: '4px' }}>~${estCost}</div>
           <div style={{ fontSize: '12px', color: '#a3a3a3' }}>Estimated Apify cost for {newLimit} reels</div>
           <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '8px' }}>Duplicates auto-skipped (free)</div>
@@ -306,7 +306,7 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
 
 function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
   const [lookback, setLookback] = useState(source.lookbackDays || 180)
-  const [limit, setLimit] = useState(source.apifyLimit || 15)
+  const [limit, setLimit] = useState(source.apifyLimit || 100)
   const [saving, setSaving] = useState(false)
 
   const estCost = (limit * COST_PER_REEL).toFixed(2)
@@ -383,7 +383,7 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
         <input type="text" inputMode="numeric" value={limit} onChange={e => setLimit(parseInt(e.target.value.replace(/\D/g, '')) || '')} onBlur={e => { if (!e.target.value) setLimit(15) }} style={inputStyle} />
         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Limits the number of reels Apify will return</div>
 
-        <div style={{ background: '#1a1000', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
+        <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#f59e0b' }}>~${estCost}</div>
           <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Est. Apify cost for {limit} reels</div>
         </div>
@@ -410,31 +410,71 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
   )
 }
 
-function AddSourceModal({ onClose, onAdd, allCreators }) {
-  const [handle, setHandle] = useState('')
-  const [lookbackDays, setLookbackDays] = useState(180)
-  const [apifyLimit, setApifyLimit] = useState('')
-  const [selectedCreators, setSelectedCreators] = useState([])
+function parseHandles(text, existingHandles, deadHandles) {
+  return text.split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const urlMatch = line.match(/instagram\.com\/([A-Za-z0-9._]+)/)
+      if (urlMatch) return urlMatch[1].toLowerCase()
+      return line.replace(/^@/, '').replace(/\/$/, '').toLowerCase()
+    })
+    .filter((h, i, arr) => h && arr.indexOf(h) === i)
+    .map(h => ({ handle: h, creators: [], exists: existingHandles.has(h), dead: deadHandles.has(h), markedDead: false }))
+}
+
+function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, deadHandles }) {
+  const [step, setStep] = useState(1)
+  const [rawText, setRawText] = useState('')
+  const [parsed, setParsed] = useState([])
+  const [currentIdx, setCurrentIdx] = useState(0)
   const [saving, setSaving] = useState(false)
 
-  const toggleCreator = (id) => setSelectedCreators(prev =>
-    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-  )
+  const goToTag = () => {
+    const items = parseHandles(rawText, existingHandles, deadHandles)
+    if (items.length === 0) return
+    setParsed(items)
+    const firstNew = items.findIndex(i => !i.exists && !i.dead)
+    if (firstNew === -1) { setStep(3); return }
+    setCurrentIdx(firstNew)
+    setStep(2)
+  }
 
-  const submit = async (e) => {
-    e.preventDefault()
-    if (!handle.trim()) return
+  const toggleCreator = (id) => {
+    setParsed(prev => prev.map((item, i) =>
+      i === currentIdx
+        ? { ...item, creators: item.creators.includes(id) ? item.creators.filter(x => x !== id) : [...item.creators, id] }
+        : item
+    ))
+  }
+
+  const markDead = () => {
+    setParsed(prev => prev.map((item, i) => i === currentIdx ? { ...item, markedDead: true, creators: [] } : item))
+    const nextNew = parsed.findIndex((item, i) => i > currentIdx && !item.exists && !item.dead && !item.markedDead)
+    if (nextNew === -1) { setStep(3); return }
+    setCurrentIdx(nextNew)
+  }
+
+  const nextHandle = () => {
+    const nextNew = parsed.findIndex((item, i) => i > currentIdx && !item.exists && !item.dead && !item.markedDead)
+    if (nextNew === -1) { setStep(3); return }
+    setCurrentIdx(nextNew)
+  }
+
+  const submit = async () => {
+    const toCreate = parsed.filter(p => !p.exists && !p.dead)
+    if (toCreate.length === 0 && deadCount === 0) { onClose(); return }
     setSaving(true)
     try {
+      const allToCreate = [
+        ...toCreate.filter(p => !p.markedDead).map(p => ({ handle: p.handle, palmCreators: p.creators })),
+        ...parsed.filter(p => p.markedDead).map(p => ({ handle: p.handle, accountStatus: 'Dead' })),
+      ]
+      if (allToCreate.length === 0) { onClose(); return }
       const res = await fetch('/api/admin/sources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          handle: handle.trim(),
-          lookbackDays,
-          apifyLimit: apifyLimit ? parseInt(apifyLimit) : null,
-          palmCreators: selectedCreators,
-        }),
+        body: JSON.stringify({ sources: allToCreate }),
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       onAdd()
@@ -446,59 +486,153 @@ function AddSourceModal({ onClose, onAdd, allCreators }) {
     }
   }
 
+  const newCount = parsed.filter(p => !p.exists && !p.dead).length
+  const deadCount = parsed.filter(p => p.markedDead).length
+  const current = parsed[currentIdx]
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
-      <form
-        onClick={e => e.stopPropagation()}
-        onSubmit={submit}
-        style={{
-          background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
-          padding: '24px', width: '400px',
-        }}
-      >
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '16px' }}>Add Source</h3>
-        <label style={labelStyle}>Instagram Handle</label>
-        <input value={handle} onChange={e => setHandle(e.target.value)} placeholder="username" style={inputStyle} autoFocus />
-        <label style={labelStyle}>Lookback Days</label>
-        <input type="number" value={lookbackDays} onChange={e => setLookbackDays(parseInt(e.target.value) || 180)} style={inputStyle} />
-        <label style={labelStyle}>Apify Limit (optional)</label>
-        <input type="number" value={apifyLimit} onChange={e => setApifyLimit(e.target.value)} placeholder="No limit" style={inputStyle} />
-        {allCreators?.length > 0 && (
-          <>
-            <label style={labelStyle}>For Creator (optional)</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-              {allCreators.map(c => {
-                const selected = selectedCreators.includes(c.id)
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => toggleCreator(c.id)}
-                    style={{
-                      padding: '4px 10px', fontSize: '12px', fontWeight: 600,
-                      borderRadius: '20px', cursor: 'pointer', border: 'none',
-                      background: selected ? '#FFF0F3' : '#1c1c1c',
-                      color: selected ? '#E88FAC' : '#999',
-                      outline: selected ? '1px solid #E88FAC' : '1px solid #27272a',
-                    }}
-                  >
-                    {c.aka || c.name}
-                  </button>
-                )
-              })}
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#ffffff', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
+        padding: '24px', width: '460px', maxHeight: '85vh', overflow: 'auto',
+      }}>
+        {step === 1 && (<>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Add Sources</h3>
+          <p style={{ fontSize: '12px', color: '#999', marginBottom: '16px' }}>Paste Instagram handles or URLs, one per line</p>
+          <textarea
+            value={rawText}
+            onChange={e => setRawText(e.target.value)}
+            placeholder={"@username\nhttps://instagram.com/username\nusername"}
+            autoFocus
+            rows={8}
+            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.6 }}
+          />
+          {rawText.trim() && (() => {
+            const preview = parseHandles(rawText, existingHandles, deadHandles)
+            const newCount = preview.filter(p => !p.exists && !p.dead).length
+            const existCount = preview.filter(p => p.exists).length
+            const deadCount = preview.filter(p => p.dead).length
+            return (
+              <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
+                {newCount} new
+                {existCount > 0 && <> · {existCount} already exist</>}
+                {deadCount > 0 && <> · <span style={{ color: '#ef4444' }}>{deadCount} dead (auto-skipped)</span></>}
+              </div>
+            )
+          })()}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+            <button onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+            <button onClick={goToTag} disabled={!rawText.trim()} style={{ ...btnStyle, background: '#E88FAC', opacity: !rawText.trim() ? 0.5 : 1 }}>
+              Next — Tag Creators
+            </button>
+          </div>
+        </>)}
+
+        {step === 2 && current && (<>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+                @{current.handle}
+              </h3>
+              <a
+                href={`https://instagram.com/${current.handle}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                  background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC',
+                  borderRadius: '6px', textDecoration: 'none', whiteSpace: 'nowrap',
+                }}
+              >
+                View IG ↗
+              </a>
             </div>
-          </>
-        )}
-        <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
-          <button type="submit" disabled={saving} style={{ ...btnStyle, background: '#E88FAC', opacity: saving ? 0.6 : 1 }}>
-            {saving ? 'Adding...' : 'Add Source'}
-          </button>
-        </div>
-      </form>
+            <span style={{ fontSize: '12px', color: '#999' }}>
+              {parsed.filter(p => !p.exists).indexOf(current) + 1} of {newCount}
+            </span>
+          </div>
+
+          {allCreators?.length > 0 && (
+            <>
+              <label style={labelStyle}>Assign to Creator (optional)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                {allCreators.map(c => {
+                  const selected = current.creators.includes(c.id)
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleCreator(c.id)}
+                      style={{
+                        padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                        borderRadius: '20px', cursor: 'pointer', border: 'none',
+                        background: selected ? '#FFF0F3' : '#ffffff',
+                        color: selected ? '#E88FAC' : '#666',
+                        outline: selected ? '1px solid #E88FAC' : '1px solid #E8C4CC',
+                      }}
+                    >
+                      {c.aka || c.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'space-between' }}>
+            <button onClick={markDead} style={{ ...btnStyle, background: '#FEF2F2', color: '#ef4444', border: '1px solid #FECACA', fontSize: '11px' }}>
+              Dead Account
+            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={nextHandle} style={{ ...btnStyle, background: '#E8C4CC' }}>Skip</button>
+              <button onClick={nextHandle} style={{ ...btnStyle, background: '#E88FAC' }}>
+                {parsed.filter((p, i) => i > currentIdx && !p.exists && !p.dead && !p.markedDead).length > 0 ? 'Next' : 'Review'}
+              </button>
+            </div>
+          </div>
+        </>)}
+
+        {step === 3 && (<>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+            Add {newCount - deadCount} Source{newCount - deadCount !== 1 ? 's' : ''}
+            {deadCount > 0 && <span style={{ color: '#ef4444', fontSize: '13px', fontWeight: 500 }}> + {deadCount} dead</span>}
+          </h3>
+          <p style={{ fontSize: '11px', color: '#999', marginBottom: '12px' }}>
+            {deadCount > 0 && 'Dead accounts will be logged and hidden from the sources list.'}
+          </p>
+          <div style={{ maxHeight: '300px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {parsed.map((item, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', borderRadius: '8px',
+                background: item.markedDead ? '#FEF2F2' : item.dead ? '#f5f5f5' : item.exists ? '#f5f5f5' : '#FFF5F7',
+                opacity: item.exists || item.dead ? 0.5 : 1,
+              }}>
+                <span style={{ fontSize: '13px', fontWeight: 500, color: item.markedDead ? '#ef4444' : '#1a1a1a' }}>
+                  @{item.handle}
+                  {item.exists && <span style={{ color: '#999', fontSize: '11px', marginLeft: '8px' }}>already exists</span>}
+                  {item.dead && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>dead account</span>}
+                  {item.markedDead && <span style={{ fontSize: '11px', marginLeft: '8px' }}>will be logged as dead</span>}
+                </span>
+                {!item.exists && !item.dead && !item.markedDead && item.creators.length > 0 && (
+                  <span style={{ fontSize: '11px', color: '#E88FAC' }}>
+                    {item.creators.length} creator{item.creators.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+            <button onClick={() => setStep(1)} style={{ ...btnStyle, background: '#E8C4CC' }}>Back</button>
+            <button onClick={submit} disabled={saving || newCount === 0} style={{ ...btnStyle, background: '#E88FAC', opacity: saving || newCount === 0 ? 0.5 : 1 }}>
+              {saving ? 'Adding...' : `Add All ${newCount} Sources`}
+            </button>
+          </div>
+        </>)}
+      </div>
     </div>
   )
 }
@@ -518,6 +652,8 @@ export default function AdminSources() {
   const [batch, setBatch] = useState([]) // queued sources for batch scrape
   const [batchScraping, setBatchScraping] = useState(false)
   const [allCreators, setAllCreators] = useState([])
+  const [activeFilters, setActiveFilters] = useState(new Set(['all']))
+  const [showScrapeAll, setShowScrapeAll] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/palm-creators')
@@ -540,6 +676,16 @@ export default function AdminSources() {
   }, [])
 
   useEffect(() => { fetchSources() }, [fetchSources])
+
+  // Auto-refresh while any source is Processing
+  useEffect(() => {
+    const hasProcessing = sources.some(s => s.pipelineStatus === 'Processing')
+    if (!hasProcessing) return
+    const interval = setInterval(() => {
+      fetchSources()
+    }, 15000) // poll every 15 seconds
+    return () => clearInterval(interval)
+  }, [sources, fetchSources])
 
   const toggleEnabled = async (source) => {
     if (!source.enabled) {
@@ -617,15 +763,111 @@ export default function AdminSources() {
     }
   }
 
+  const toggleFilter = (filter) => {
+    setActiveFilters(prev => {
+      if (filter === 'all') return new Set(['all'])
+      if (filter === 'dead') return prev.has('dead') ? new Set(['all']) : new Set(['dead'])
+      const next = new Set(prev)
+      next.delete('all')
+      next.delete('dead')
+      if (filter === 'enabled') next.delete('disabled')
+      if (filter === 'disabled') next.delete('enabled')
+      if (next.has(filter)) next.delete(filter)
+      else next.add(filter)
+      if (next.size === 0) return new Set(['all'])
+      return next
+    })
+  }
+
+  // Live sources = everything except Dead
+  const liveSources = sources.filter(s => s.accountStatus !== 'Dead')
+
+  const filteredSources = activeFilters.has('dead')
+    ? sources.filter(s => s.accountStatus === 'Dead')
+    : activeFilters.has('all')
+      ? liveSources
+      : liveSources.filter(s => {
+          if (activeFilters.has('unscraped') && s.lastScrapedAt) return false
+          if (activeFilters.has('18+') && !s.ageRestricted) return false
+          if (activeFilters.has('enabled') && !s.enabled) return false
+          if (activeFilters.has('disabled') && s.enabled) return false
+          return true
+        })
+
+  const filterCounts = {
+    all: liveSources.length,
+    unscraped: liveSources.filter(s => !s.lastScrapedAt).length,
+    '18+': liveSources.filter(s => s.ageRestricted).length,
+    enabled: liveSources.filter(s => s.enabled).length,
+    disabled: liveSources.filter(s => !s.enabled).length,
+    dead: sources.filter(s => s.accountStatus === 'Dead').length,
+  }
+
+  const existingHandles = new Set(sources.map(s => s.handle.toLowerCase()))
+  const deadHandles = new Set(sources.filter(s => s.accountStatus === 'Dead').map(s => s.handle.toLowerCase()))
+
+  const scrapeAllVisible = async () => {
+    const handles = filteredSources.filter(s => s.enabled).map(s => s.handle)
+    if (handles.length === 0) return
+    setBatchScraping(true)
+    try {
+      const res = await fetch('/api/admin/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handles, force: true }),
+      })
+      if (!res.ok) throw new Error('Scrape failed')
+      setSources(prev => prev.map(s => handles.includes(s.handle) ? { ...s, pipelineStatus: 'Processing' } : s))
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setBatchScraping(false)
+      setShowScrapeAll(false)
+    }
+  }
+
   if (loading) {
     return <div style={{ color: '#555', fontSize: '14px', padding: '40px' }}>Loading sources...</div>
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>Inspo Sources</h1>
-        <button onClick={() => setShowAdd(true)} style={{ ...btnStyle, background: '#E88FAC' }}>+ Add Source</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {!activeFilters.has('all') && filteredSources.length > 0 && (
+            <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
+              {batchScraping ? 'Scraping...' : `Scrape All Visible (${filteredSources.filter(s => s.enabled).length})`}
+            </button>
+          )}
+          <button onClick={() => setShowAdd(true)} style={{ ...btnStyle, background: '#E88FAC' }}>+ Add Sources</button>
+        </div>
+      </div>
+
+      {/* Filter pills */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        {['all', 'unscraped', '18+', 'enabled', 'disabled', 'dead'].map(filter => {
+          const active = activeFilters.has(filter)
+          const count = filterCounts[filter]
+          if (filter !== 'all' && count === 0) return null
+          return (
+            <button
+              key={filter}
+              onClick={() => toggleFilter(filter)}
+              style={{
+                padding: '5px 14px', fontSize: '12px', fontWeight: 600,
+                borderRadius: '20px', cursor: 'pointer', border: 'none',
+                background: active ? '#FFF0F3' : '#ffffff',
+                color: active ? '#E88FAC' : '#999',
+                outline: active ? '1.5px solid #E88FAC' : '1px solid #E8C4CC',
+                transition: 'all 0.15s',
+              }}
+            >
+              {filter === 'all' ? 'All' : filter === 'unscraped' ? 'Unscraped' : filter === '18+' ? '18+' : filter === 'enabled' ? 'Enabled' : filter === 'disabled' ? 'Disabled' : 'Dead'}
+              <span style={{ marginLeft: '4px', fontSize: '11px', opacity: 0.7 }}>({count})</span>
+            </button>
+          )
+        })}
       </div>
 
       <div style={{
@@ -638,7 +880,7 @@ export default function AdminSources() {
         {/* Table header */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 120px 80px 70px 90px 120px 90px 70px 90px',
+          gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 90px',
           padding: '10px 16px',
           borderBottom: '1px solid rgba(0,0,0,0.04)',
           fontSize: '11px',
@@ -657,16 +899,17 @@ export default function AdminSources() {
           <div>Last Scraped</div>
           <div style={{ textAlign: 'right' }}>Scraped</div>
           <div style={{ textAlign: 'right' }}>Added</div>
+          <div>Date Added</div>
           <div></div>
         </div>
 
         {/* Table rows */}
-        {sources.map(source => (
+        {filteredSources.map(source => (
           <div
             key={source.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 120px 80px 70px 90px 120px 90px 70px 90px',
+              gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 90px',
               padding: '10px 16px',
               borderBottom: '1px solid rgba(0,0,0,0.04)',
               alignItems: 'center',
@@ -700,11 +943,11 @@ export default function AdminSources() {
               style={{ color: '#1a1a1a', fontWeight: 500, cursor: 'pointer' }}
               onClick={() => setReelsSource(source)}
               onMouseEnter={e => e.currentTarget.style.color = '#E88FAC'}
-              onMouseLeave={e => e.currentTarget.style.color = '#fff'}
+              onMouseLeave={e => e.currentTarget.style.color = '#1a1a1a'}
             >
               @{source.handle}
               {source.ageRestricted && (
-                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#ef4444', background: '#2d1515', border: '1px solid #5c2020', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
+                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#ef4444', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
               )}
               {source.addedBy && (
                 <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 500, color: '#999', verticalAlign: 'middle' }}>by {source.addedBy}</span>
@@ -750,17 +993,20 @@ export default function AdminSources() {
               <input
                 type="text"
                 inputMode="numeric"
-                value={source._editingLimit != null ? source._editingLimit : (source.apifyLimit || 15)}
+                value={source._editingLimit != null ? source._editingLimit : (source.apifyLimit || 100)}
                 onChange={e => {
                   const val = e.target.value.replace(/\D/g, '')
                   setSources(prev => prev.map(s => s.id === source.id ? { ...s, _editingLimit: val } : s))
                 }}
                 onBlur={e => {
-                  const newVal = parseInt(e.target.value) || 15
-                  const oldVal = source.apifyLimit || 15
-                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, _editingLimit: undefined } : s))
-                  if (newVal !== oldVal) {
-                    setRescrapeSource({ source, newLimit: newVal })
+                  const newVal = parseInt(e.target.value) || 100
+                  setSources(prev => prev.map(s => s.id === source.id ? { ...s, _editingLimit: undefined, apifyLimit: newVal } : s))
+                  if (newVal !== (source.apifyLimit || 100)) {
+                    fetch('/api/admin/sources', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: source.id, fields: { 'Apify Limit': newVal } }),
+                    })
                   }
                 }}
                 onKeyDown={e => {
@@ -784,6 +1030,9 @@ export default function AdminSources() {
             {/* Added */}
             <div style={{ color: '#4a4a4a', textAlign: 'right' }}>{source.sourceReelsAdded || '—'}</div>
 
+            {/* Date Added */}
+            <div style={{ color: '#999', fontSize: '11px' }}>{source.dateAdded ? formatTime(source.dateAdded + 'T12:00:00') : '—'}</div>
+
             {/* Scrape button */}
             <div>
               <button
@@ -797,7 +1046,7 @@ export default function AdminSources() {
                   cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
                 }}
               >
-                {scraping[source.id] ? '...' : 'Scrape New'}
+                {scraping[source.id] ? '...' : (source.lastScrapedAt ? 'Rescrape' : 'Scrape')}
               </button>
             </div>
           </div>
@@ -810,8 +1059,40 @@ export default function AdminSources() {
         )}
       </div>
 
-      {showAdd && <AddSourceModal onClose={() => setShowAdd(false)} onAdd={fetchSources} allCreators={allCreators} />}
-      {reelsSource && <ReelsModal source={reelsSource} sources={sources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} />}
+      {showAdd && <BulkAddSourcesModal onClose={() => setShowAdd(false)} onAdd={fetchSources} allCreators={allCreators} existingHandles={existingHandles} deadHandles={deadHandles} />}
+      {reelsSource && <ReelsModal source={reelsSource} sources={filteredSources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} />}
+
+      {/* Scrape All Visible confirmation */}
+      {showScrapeAll && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowScrapeAll(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#ffffff', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '420px', maxHeight: '80vh', overflow: 'auto' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Scrape All Visible?</h3>
+            <p style={{ fontSize: '12px', color: '#999', marginBottom: '16px' }}>
+              {filteredSources.filter(s => s.enabled).length} enabled source{filteredSources.filter(s => s.enabled).length !== 1 ? 's' : ''} will be scraped
+            </p>
+            <div style={{ maxHeight: '200px', overflow: 'auto', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {filteredSources.filter(s => s.enabled).map(s => (
+                <div key={s.id} style={{ fontSize: '12px', color: '#4a4a4a', padding: '4px 8px', background: '#FFF5F7', borderRadius: '6px' }}>
+                  @{s.handle} <span style={{ color: '#999' }}>({s.apifyLimit || 100} reels)</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '10px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b' }}>
+                ~${filteredSources.filter(s => s.enabled).reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
+              </div>
+              <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Estimated Apify cost</div>
+              <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '6px' }}>Duplicates auto-skipped (free)</div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowScrapeAll(false)} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+              <button onClick={scrapeAllVisible} disabled={batchScraping} style={{ ...btnStyle, background: '#E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
+                {batchScraping ? 'Scraping...' : 'Scrape All'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {enableSource && <EnableModal source={enableSource} onClose={() => setEnableSource(null)} onConfirm={handleEnableConfirm} onAddToBatch={handleAddToBatch} batchCount={batch.length} />}
       {rescrapeSource && (
         <RescrapeModal
@@ -851,7 +1132,7 @@ export default function AdminSources() {
             </div>
             <div style={{ width: '1px', height: '20px', background: '#E8C4CC' }} />
             <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600 }}>
-              ~${batch.reduce((sum, s) => sum + (s.apifyLimit || 15) * COST_PER_REEL, 0).toFixed(2)}
+              ~${batch.reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
             </div>
             <button
               onClick={() => setBatch([])}

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useMemo } from 'react'
+import DOMPurify from 'dompurify'
 import { tagStyle } from '@/lib/tagStyle'
 
 function gradeColor(grade) {
@@ -71,10 +72,15 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
     ? record.dbShareLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
     : null)
 
-  // Pre-built responsive embed from Airtable formula — inject directly if available
-  const embedHtml = record.dbEmbedCode
-    ? record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
-    : null
+  // Pre-built responsive embed from Airtable — sanitize to prevent XSS
+  const embedHtml = useMemo(() => {
+    if (!record.dbEmbedCode) return null
+    const raw = record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
+    return DOMPurify.sanitize(raw, {
+      ADD_TAGS: ['video', 'source'],
+      ADD_ATTR: ['autoplay', 'muted', 'loop', 'controls', 'playsinline', 'src', 'type', 'poster'],
+    })
+  }, [record.dbEmbedCode])
 
   return (
     <div

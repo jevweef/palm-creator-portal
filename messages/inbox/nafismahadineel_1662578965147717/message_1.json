@@ -1,0 +1,28 @@
+{
+  "participants": [
+    {
+      "name": "Nafis Mahadi Neel"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766081142571,
+      "content": "Hey bro did you get my dm",
+      "share": {
+        "link": "https://www.instagram.com/stories/neelnafis/3790475114614876462"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Nafis Mahadi Neel",
+  "is_still_participant": true,
+  "thread_path": "inbox/nafismahadineel_1662578965147717",
+  "magic_words": [
+    
+  ]
+}

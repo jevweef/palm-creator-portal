@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords, airtableHeaders, OPS_BASE } from '@/lib/adminAuth'
 
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
@@ -13,10 +13,19 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Ownership check — creators can only access their own profile
+    const user = await currentUser()
+    const role = user?.publicMetadata?.role
+    const isAdmin = role === 'admin' || role === 'super_admin' || role === 'editor'
+
     const { searchParams } = new URL(request.url)
     const creatorOpsId = searchParams.get('creatorOpsId')
     if (!creatorOpsId) {
       return NextResponse.json({ error: 'creatorOpsId required' }, { status: 400 })
+    }
+
+    if (!isAdmin && user?.publicMetadata?.airtableOpsId !== creatorOpsId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const res = await fetch(

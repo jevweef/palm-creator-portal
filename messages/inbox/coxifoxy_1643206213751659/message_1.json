@@ -1,0 +1,32 @@
+{
+  "participants": [
+    {
+      "name": "CoxiFoxy"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773745657012,
+      "content": "Hey! How\u00e2\u0080\u0099s it been going? I noticed you haven\u00e2\u0080\u0099t been posting much on IG!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1767797833691,
+      "content": "Hey! How has it been going for you?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "CoxiFoxy",
+  "is_still_participant": true,
+  "thread_path": "inbox/coxifoxy_1643206213751659",
+  "magic_words": [
+    
+  ]
+}

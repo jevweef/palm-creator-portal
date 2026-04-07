@@ -1,0 +1,32 @@
+{
+  "participants": [
+    {
+      "name": "Heritage Traveler"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Heritage Traveler",
+      "timestamp_ms": 1768876537261,
+      "content": "Hi! Please let us know how we can help you.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768876537083,
+      "content": "You opened this chat through an ad. View ad(https://www.instagram.com/p/DREdw_eDLRL/)",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Heritage Traveler",
+  "is_still_participant": true,
+  "thread_path": "inbox/heritagetraveler_1707480260657587",
+  "magic_words": [
+    
+  ]
+}

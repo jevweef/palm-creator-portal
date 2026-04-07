@@ -5,6 +5,8 @@ const APIFY_TOKEN = process.env.APIFY_TOKEN
 const ACTOR_ID = 'apify/instagram-reel-scraper'
 const COOLDOWN_HOURS = 48
 
+export const maxDuration = 120
+
 export async function POST(request) {
   try {
     await requireAdmin()

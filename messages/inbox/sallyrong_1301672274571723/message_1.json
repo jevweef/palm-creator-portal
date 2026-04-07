@@ -1,0 +1,59 @@
+{
+  "participants": [
+    {
+      "name": "Sally Rong"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Sally Rong",
+      "timestamp_ms": 1772938036425,
+      "content": "Yeah let us know. Next weekend we are in NyC",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Sally Rong",
+      "timestamp_ms": 1772938020891,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772936033353,
+      "content": "Awesome let\u00e2\u0080\u0099s meet up soon!",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Sally Rong"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Sally Rong",
+      "timestamp_ms": 1772935272856,
+      "content": "Yes just got back!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772891726330,
+      "content": "Are you back in town?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Sally Rong",
+  "is_still_participant": true,
+  "thread_path": "inbox/sallyrong_1301672274571723",
+  "magic_words": [
+    
+  ]
+}

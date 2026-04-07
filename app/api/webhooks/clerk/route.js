@@ -93,6 +93,27 @@ export async function POST(request) {
 
     console.log(`[clerk-webhook] Set metadata for ${match.name}: ${JSON.stringify(metadata)}`)
 
+    // Update onboarding status if this creator was in "Link Sent" state
+    try {
+      const hqStatusUrl = `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}/${match.hqId}?fields%5B%5D=Onboarding+Status`
+      const statusRes = await fetch(hqStatusUrl, { headers: atHeaders })
+      const statusData = await statusRes.json()
+      const currentStatus = statusData.fields?.['Onboarding Status']
+      if (currentStatus === 'Link Sent') {
+        await fetch(
+          `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}/${match.hqId}`,
+          {
+            method: 'PATCH',
+            headers: atHeaders,
+            body: JSON.stringify({ fields: { 'Onboarding Status': 'In Progress' } }),
+          }
+        )
+        console.log(`[clerk-webhook] Updated onboarding status to In Progress for ${match.name}`)
+      }
+    } catch (obErr) {
+      console.error('[clerk-webhook] Failed to update onboarding status:', obErr.message)
+    }
+
     return NextResponse.json({ received: true, matched: true, creator: match.name })
   } catch (err) {
     console.error('[clerk-webhook] Error:', err.message)

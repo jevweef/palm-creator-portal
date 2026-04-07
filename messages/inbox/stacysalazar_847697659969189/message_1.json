@@ -1,0 +1,39 @@
+{
+  "participants": [
+    {
+      "name": "Stacy Salazar"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768087143880,
+      "content": "Yeah how\u00e2\u0080\u0099s the revenue been? Check your message revenue vs sub revenue if you have a paid page.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Stacy Salazar",
+      "timestamp_ms": 1768086391152,
+      "content": "It could be doing better, I feel like the chatting could be better",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768084577127,
+      "content": "How\u00e2\u0080\u0099s your page doing!?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Stacy Salazar",
+  "is_still_participant": true,
+  "thread_path": "inbox/stacysalazar_847697659969189",
+  "magic_words": [
+    
+  ]
+}

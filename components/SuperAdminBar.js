@@ -77,7 +77,7 @@ export default function SuperAdminBar() {
     transition: 'all 0.15s',
   })
 
-  const handleAdminTab = () => router.push('/admin')
+  const handleAdminTab = () => router.push('/admin/inspo')
   const handleEditorTab = () => router.push('/editor')
   const handleCreatorSelect = (creator) => {
     setSelectedCreator(creator)

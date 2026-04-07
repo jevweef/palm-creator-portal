@@ -1,0 +1,27 @@
+{
+  "participants": [
+    {
+      "name": "Brigid Voto"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766449437431,
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3793575251670883922"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Brigid Voto",
+  "is_still_participant": true,
+  "thread_path": "inbox/brigidvoto_508835283855430",
+  "magic_words": [
+    
+  ]
+}

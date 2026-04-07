@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Eeviee"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768355997586,
+      "content": "Hey!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Eeviee",
+  "is_still_participant": true,
+  "thread_path": "inbox/eeviee_1499529904785958",
+  "magic_words": [
+    
+  ]
+}

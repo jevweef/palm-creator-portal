@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "Julian Masjedi"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768790671535,
+      "content": "Hahaha miss you guys",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Julian Masjedi",
+  "is_still_participant": true,
+  "thread_path": "inbox/julianmasjedi_1319654959440121",
+  "magic_words": [
+    
+  ]
+}

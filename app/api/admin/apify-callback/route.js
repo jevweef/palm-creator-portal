@@ -169,7 +169,7 @@ async function fetchFollowerCount(username) {
   }
 }
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 export async function POST(request) {
   try {
@@ -276,23 +276,33 @@ export async function POST(request) {
     }
 
     // Batch create — just the basic reel data, no scores yet
+    let createSuccess = false
     if (newRecords.length > 0) {
-      await batchCreateRecords('Source Reels', newRecords)
-      console.log(`[Apify Callback] Created ${newRecords.length} records for @${handle}`)
+      try {
+        await batchCreateRecords('Source Reels', newRecords)
+        createSuccess = true
+        console.log(`[Apify Callback] Created ${newRecords.length} records for @${handle}`)
+      } catch (err) {
+        console.error(`[Apify Callback] Failed to create records for @${handle}:`, err.message)
+      }
     }
 
-    // Update source record
+    // Update source record — always update even if create failed (so it's not stuck in Processing)
     if (sourceId) {
-      const sourceUpdate = {
-        'Last Scraped At': now.toISOString(),
-        'Reels Scraped': useItems.length,
-        'Too New Skipped': tooNewSkipped,
-        'Source Reels Added': newRecords.length,
-        'Pipeline Status': 'Complete',
+      try {
+        const sourceUpdate = {
+          'Last Scraped At': now.toISOString(),
+          'Reels Scraped': useItems.length,
+          'Too New Skipped': tooNewSkipped,
+          'Source Reels Added': createSuccess ? newRecords.length : 0,
+          'Pipeline Status': createSuccess ? 'Complete' : 'Error',
+        }
+        if (followerCount) sourceUpdate['Follower Count'] = followerCount
+        if (dataSource === 'rapidapi-fallback') sourceUpdate['Age Restricted'] = true
+        await patchAirtableRecord('Inspo Sources', sourceId, sourceUpdate)
+      } catch (err) {
+        console.error(`[Apify Callback] Failed to update source @${handle}:`, err.message)
       }
-      if (followerCount) sourceUpdate['Follower Count'] = followerCount
-      if (dataSource === 'rapidapi-fallback') sourceUpdate['Age Restricted'] = true
-      await patchAirtableRecord('Inspo Sources', sourceId, sourceUpdate)
     }
 
     console.log(`[Apify Callback] @${handle}: added ${newRecords.length}, skipped ${tooNewSkipped} too new`)

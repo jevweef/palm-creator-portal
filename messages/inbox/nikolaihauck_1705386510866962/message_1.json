@@ -1,0 +1,58 @@
+{
+  "participants": [
+    {
+      "name": "Nikolai Hauck"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Nikolai Hauck",
+      "timestamp_ms": 1768816398086,
+      "content": "350 people\n\nlots of us trade full time in there so we're calling things, analyzing, helping beginners etc. just a really close group of people trading all day every day together.\n\nand then I call any of coins in there before I post them anywhere else (launching a big one tomorrow), lots of other really good devs inside too.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Nikolai Hauck",
+      "timestamp_ms": 1768816388285,
+      "photos": [
+        {
+          "uri": "your_instagram_activity/messages/inbox/nikolaihauck_1705386510866962/photos/1411505820649013.png",
+          "creation_timestamp": 1768816386
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768742726845,
+      "content": "Any chance you have some sort  like info site to look over quick? Im down for sure .",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Nikolai Hauck",
+      "timestamp_ms": 1768714596528,
+      "content": "Would love to have you. The price is 1k lifetime entry. Normally 3k. Sale ending tomorrow since I\u00e2\u0080\u0099m calling a pretty big coin in there.\n\nLet me know if you want to pay with crypto or zelle and we\u00e2\u0080\u0099ll get you in today.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768651259198,
+      "content": "Hey man can I get a bit more information?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Nikolai Hauck",
+  "is_still_participant": true,
+  "thread_path": "inbox/nikolaihauck_1705386510866962",
+  "magic_words": [
+    
+  ]
+}

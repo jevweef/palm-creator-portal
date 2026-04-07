@@ -1,0 +1,43 @@
+{
+  "participants": [
+    {
+      "name": "Amali"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Amali",
+      "timestamp_ms": 1770585658908,
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Amali",
+      "timestamp_ms": 1767492726500,
+      "content": "Hey - Amalis Management here. If you want models / help with your agency message @xx_mgmt \n\nThank you brother \u00f0\u009f\u00a4\u009d",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Amali",
+  "is_still_participant": true,
+  "thread_path": "inbox/amali_1499533358118946",
+  "magic_words": [
+    
+  ]
+}

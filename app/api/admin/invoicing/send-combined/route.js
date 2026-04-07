@@ -205,8 +205,8 @@ export async function POST(request) {
     email = cr.fields?.['Communication Email'] || null
   }
 
-  // TESTING: hardcode recipient
-  const recipient = 'josh@palm-mgmt.com'
+  // TESTING: hardcode recipients
+  const recipient = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
 
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
   const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
@@ -223,6 +223,25 @@ export async function POST(request) {
     })
   }
 
+  // Download PDFs and attach to email
+  const attachments = []
+  for (const inv of invoices) {
+    const pdfUrl = inv.dropboxLink ? inv.dropboxLink.replace('?dl=0', '?dl=1') : null
+    if (pdfUrl) {
+      try {
+        const pdfRes = await fetch(pdfUrl)
+        if (pdfRes.ok) {
+          const pdfBuffer = await pdfRes.arrayBuffer()
+          const akaSlug = aka.toLowerCase().replace(/ /g, '_')
+          attachments.push({
+            filename: `invoice_${akaSlug}_${inv.accountName.toLowerCase().replace(/ /g, '_')}.pdf`,
+            content: Buffer.from(pdfBuffer).toString('base64'),
+          })
+        }
+      } catch (_) {}
+    }
+  }
+
   const sendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -231,9 +250,10 @@ export async function POST(request) {
     },
     body: JSON.stringify({
       from: 'Evan <evan@palm-mgmt.com>',
-      to: [recipient],
+      to: Array.isArray(recipient) ? recipient : [recipient],
       subject,
       html,
+      attachments,
     }),
   })
 

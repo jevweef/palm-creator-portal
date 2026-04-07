@@ -38,20 +38,24 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     const allPdfs = recs.every(r => r.hasPdf)
     const allSentOrPaid = recs.every(r => r.status === 'Sent' || r.status === 'Paid')
     const allPaid = recs.every(r => r.status === 'Paid')
+    const anySent = recs.some(r => r.sentAt || r.status === 'Sent' || r.status === 'Paid')
     if (allPaid) return 4
     if (allSentOrPaid) return 4
+    if (anySent) return 3 // email was sent, go to Send step to show confirmation
     if (allPdfs) return 1
     return 0
   }
-  const [activeStep, setActiveStep] = useState(() => {
-    const step = getNextUnfinishedStep(rows)
-    console.log('Modal init — rows hasPdf:', rows.map(r => r.hasPdf), 'initial step:', step)
-    return step
-  })
+  const [activeStep, setActiveStep] = useState(() => getNextUnfinishedStep(rows))
   const [generating, setGenerating] = useState(false)
   const [genProgress, setGenProgress] = useState({ done: 0, total: 0 })
   const [pdfTab, setPdfTab] = useState(0)
-  const [pdfApproved, setPdfApproved] = useState(false)
+  const [pdfApproved, setPdfApproved] = useState(() => {
+    // If email was already sent, PDFs were approved
+    return rows.some(r => r.sentAt || r.status === 'Sent' || r.status === 'Paid')
+  })
+  const [emailApproved, setEmailApproved] = useState(() => {
+    return rows.some(r => r.sentAt || r.status === 'Sent' || r.status === 'Paid')
+  })
   const [emailPreview, setEmailPreview] = useState(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [sending, setSending] = useState(false)
@@ -81,7 +85,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     switch (i) {
       case 0: return allHavePdfs ? 'complete' : 'ready'
       case 1: return pdfApproved ? 'complete' : allHavePdfs ? 'ready' : 'locked'
-      case 2: return allHavePdfs ? 'ready' : 'locked'
+      case 2: return emailApproved ? 'complete' : allHavePdfs ? 'ready' : 'locked'
       case 3: return allSent ? 'complete' : allHavePdfs ? 'ready' : 'locked'
       case 4: return allPaid ? 'complete' : 'ready'
       default: return 'locked'
@@ -104,6 +108,11 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ recordId: targets[i].id }),
         })
+        if (!res.ok) {
+          const text = await res.text()
+          try { const err = JSON.parse(text); setError(`Failed: ${err.error}`) } catch (_) { setError(`Generation failed (${res.status}). May have timed out — try again.`) }
+          continue
+        }
         const data = await res.json()
         if (data.ok) {
           onRecordsUpdate(prev => prev.map(r => r.id === targets[i].id ? {
@@ -249,19 +258,43 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                const embedUrl = rec?.pdfUrl || (rec?.dropboxLink ? rec.dropboxLink.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '') : null)
-                return embedUrl ? (
+                const embedUrl = rec?.pdfUrl || null // Airtable URL works in iframes
+                const dropboxView = rec?.dropboxLink || null // Dropbox browsable link for "open in new tab"
+                return (embedUrl || dropboxView) ? (
                   <div>
-                    <iframe
-                      src={embedUrl + '#view=FitH&toolbar=0&navpanes=0&scrollbar=0'}
-                      style={{ width: '100%', height: 'calc(90vh - 320px)', border: '1px solid #eee', borderRadius: '10px' }}
-                      title="Invoice PDF"
-                    />
+                    {embedUrl ? (
+                      <div style={{
+                        width: '100%', height: 'calc(90vh - 380px)',
+                        borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
+                      }}>
+                        <iframe
+                          src={embedUrl + '#view=FitH&toolbar=1&navpanes=0'}
+                          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                          title="Invoice PDF"
+                        />
+                      </div>
+                    ) : (
+                      <div style={{
+                        width: '100%', height: '200px', borderRadius: '10px', border: '1px solid #eee',
+                        background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexDirection: 'column', gap: '8px',
+                      }}>
+                        <span style={{ color: '#aaa', fontSize: '13px' }}>PDF preview loading — try refreshing the page</span>
+                        {dropboxView && (
+                          <a href={dropboxView} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: '12px', color: '#E88FAC', fontWeight: 500 }}>
+                            View on Dropbox ↗
+                          </a>
+                        )}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-                      <a href={rec.dropboxLink || embedUrl} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '11px', color: '#E88FAC' }}>
-                        Open in new tab ↗
-                      </a>
+                      {dropboxView ? (
+                        <a href={dropboxView} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '11px', color: '#E88FAC' }}>
+                          Open in new tab ↗
+                        </a>
+                      ) : <span />}
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
                           background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px',
@@ -295,8 +328,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px', padding: '14px 16px', background: '#fafafa', borderRadius: '10px' }}>
                 {[
-                  { label: 'To', value: `josh@palm-mgmt.com (test)` },
-                  { label: 'From', value: 'evan@palm-mgmt.com' },
+                  { label: 'To', value: `evan@palm-mgmt.com, josh@palm-mgmt.com (test)` },
+                  { label: 'From', value: 'evan@palm-mgmt.com, josh@palm-mgmt.com' },
                   { label: 'Subject', value: `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
                 ].map(r => (
                   <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
@@ -305,18 +338,22 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   </div>
                 ))}
               </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+                <button onClick={() => { setEmailApproved(true); setActiveStep(3) }} style={{
+                  background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px',
+                  padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                }}>
+                  Looks Good → Send
+                </button>
+              </div>
               <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden' }}>
                 <iframe
                   srcDoc={emailPreview.html || emailPreview.manual?.html || '<p>No preview available</p>'}
-                  style={{ width: '100%', height: '500px', border: 'none' }}
+                  style={{ width: '100%', height: 'calc(90vh - 420px)', border: 'none' }}
                   sandbox="allow-same-origin"
                   title="Email Preview"
                 />
               </div>
-              <button onClick={() => { setEmailPreview(null); handleLoadPreview() }}
-                style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer', marginTop: '8px' }}>
-                ↻ Refresh preview
-              </button>
             </div>
           ) : (
             <div style={{ padding: '20px 0' }}>
@@ -349,7 +386,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div style={{ padding: '20px 0' }}>
               <div style={{ padding: '14px 16px', background: '#fafafa', borderRadius: '10px', marginBottom: '16px' }}>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '6px' }}>
-                  Sending to <strong style={{ color: '#4a4a4a' }}>josh@palm-mgmt.com</strong> (test mode)
+                  Sending to <strong style={{ color: '#4a4a4a' }}>evan@palm-mgmt.com, josh@palm-mgmt.com</strong> (test mode)
                 </div>
                 <div style={{ fontSize: '12px', color: '#999' }}>
                   {sorted.length} account{sorted.length > 1 ? 's' : ''} · Management fee: <strong style={{ color: '#E88FAC' }}>{fmt(totalCommission)}</strong>
@@ -492,7 +529,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           </div>
 
           {/* Right content */}
-          <div style={{ flex: 1, padding: '20px 28px', overflow: 'auto' }}>
+          <div style={{ flex: 1, padding: '20px 28px', overflow: activeStep === 1 ? 'hidden' : 'auto' }}>
             {error && (
               <div style={{
                 marginBottom: '14px', padding: '10px 14px', background: '#fef2f2',

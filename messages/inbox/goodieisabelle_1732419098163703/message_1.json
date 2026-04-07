@@ -1,0 +1,73 @@
+{
+  "participants": [
+    {
+      "name": "Goodie Isabelle"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Goodie Isabelle",
+      "timestamp_ms": 1771354389671,
+      "content": "I sent tg",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Goodie Isabelle",
+      "timestamp_ms": 1771354378185,
+      "content": "I did",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771354249050,
+      "content": "Just sent you a TG",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771353897721,
+      "content": "Do you have WhatsApp?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Goodie Isabelle",
+      "timestamp_ms": 1771352349974,
+      "content": "When do u wanna manage call?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Goodie Isabelle",
+      "timestamp_ms": 1771336029833,
+      "content": "Out of curiosity why not, tg: magic_is_comming",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771296114802,
+      "content": "Hey! Love the content. I actually manage some of the top creators on OF and Telegram (mostly within the top 1% and some in the top .1%)! We specialize in 360 marketing and work with a select group of niche creators and other creators we know we can scale. What are you doing for marketing right now? We manage a bunch of platforms, which most agencies don\u00e2\u0080\u0099t do. This includes full chat team and managers, IG, Reddit, X, Telgram and we do OFTV creation and content houses every month or two. Would love to talk about you joining our team. You have a great page and I think we could scale you a lot. Plus we have a competitive commission scale. Let me know if you want to setup a phone call or group chat with my team to discuss what we can do! We have all female account management as well and our teams based between Palm Beach and LA! Let me know if you have any questions. Would love to talk more!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Goodie Isabelle",
+  "is_still_participant": true,
+  "thread_path": "inbox/goodieisabelle_1732419098163703",
+  "magic_words": [
+    
+  ]
+}

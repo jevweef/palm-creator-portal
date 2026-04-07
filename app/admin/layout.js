@@ -6,14 +6,14 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 
 const ADMIN_NAV = [
-  { href: '/admin', label: 'Pipeline', icon: '⚡' },
-  { href: '/admin/invoicing', label: 'Invoicing', icon: '💸' },
-  { href: '/admin/sources', label: 'Sources', icon: '📡' },
-  { href: '/admin/review', label: 'Review', icon: '✅' },
-  { href: '/admin/import', label: 'Import', icon: '📥' },
+  { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
+  { href: '/admin/inspo', label: 'Inspo Board', icon: '🎬' },
   { href: '/admin/editor', label: 'Editor', icon: '✂️' },
-  { href: '/admin/posts', label: 'Post Prep', icon: '✈️' },
   { href: '/admin/creators', label: 'Creators', icon: '🎭' },
+  { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
+  { href: '/admin/invoicing', label: 'Invoicing', icon: '💸' },
+  { href: '/admin/help', label: 'Help', icon: '❓' },
+      { href: '/admin/tonio', label: 'Hi Tonio', icon: '👋' },
 ]
 
 const EDITOR_NAV = [
@@ -66,7 +66,11 @@ export default function AdminLayout({ children }) {
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {NAV_ITEMS.map(item => {
-            const isActive = pathname === item.href
+            const isActive = item.href === '/admin/dashboard'
+              ? (pathname === '/admin/dashboard' || pathname === '/admin')
+              : item.href === '/admin/inspo'
+              ? (pathname === '/admin/inspo' || pathname === '/admin/sources' || pathname === '/admin/review' || pathname === '/admin/import')
+              : pathname === item.href || pathname?.startsWith(item.href + '/')
             return (
               <Link
                 key={item.href}

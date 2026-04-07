@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "kkrystal.maddison1.0"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768355880488,
+      "content": "Hey\u00e2\u0080\u0099 happy new year!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "kkrystal.maddison1.0",
+  "is_still_participant": true,
+  "thread_path": "inbox/kkrystalmaddison10_1455995962472686",
+  "magic_words": [
+    
+  ]
+}

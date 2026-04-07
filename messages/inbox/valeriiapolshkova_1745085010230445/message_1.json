@@ -1,0 +1,39 @@
+{
+  "participants": [
+    {
+      "name": "Valeriia Polshkova \u00f0\u009f\u0087\u00ba\u00f0\u009f\u0087\u00a6"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772577326321,
+      "content": "Based up near Palm beach actually ! Near Delray. Are you from Florida originally!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Valeriia Polshkova \u00f0\u009f\u0087\u00ba\u00f0\u009f\u0087\u00a6",
+      "timestamp_ms": 1772575535756,
+      "content": "Hi \u00e2\u0098\u00ba\u00ef\u00b8\u008f \nYes, I am in Aventura. What about you",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772561237571,
+      "content": "Hey! I saw you matched w me on bumble. Are you based in Florida?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Valeriia Polshkova \u00f0\u009f\u0087\u00ba\u00f0\u009f\u0087\u00a6",
+  "is_still_participant": true,
+  "thread_path": "inbox/valeriiapolshkova_1745085010230445",
+  "magic_words": [
+    
+  ]
+}

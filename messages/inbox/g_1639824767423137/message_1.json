@@ -1,0 +1,46 @@
+{
+  "participants": [
+    {
+      "name": "G\u00f0\u009f\u00a4\u008d"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771968178010,
+      "content": "Hey! How\u00e2\u0080\u0099s it\u00e2\u0080\u0099s been going?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768356383545,
+      "content": "Okay! No worries if anything changes let me know!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "G\u00f0\u009f\u00a4\u008d",
+      "timestamp_ms": 1768355989734,
+      "content": "Sorry I\u00e2\u0080\u0099m no longer interested in a management :)",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768355853986,
+      "content": "Hey! Would love to setup a call! I know we spoke a bit last month!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "G\u00f0\u009f\u00a4\u008d",
+  "is_still_participant": true,
+  "thread_path": "inbox/g_1639824767423137",
+  "magic_words": [
+    
+  ]
+}

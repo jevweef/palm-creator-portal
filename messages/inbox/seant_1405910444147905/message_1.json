@@ -1,0 +1,28 @@
+{
+  "participants": [
+    {
+      "name": "Sean T"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Sean T",
+      "timestamp_ms": 1768593326443,
+      "content": "yeah. turn it upside down. swingerz symbol",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3811443704985457666"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Sean T",
+  "is_still_participant": true,
+  "thread_path": "inbox/seant_1405910444147905",
+  "magic_words": [
+    
+  ]
+}

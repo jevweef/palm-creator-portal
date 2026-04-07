@@ -1,0 +1,26 @@
+{
+  "participants": [
+    {
+      "name": "Evelyn"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Evelyn",
+      "timestamp_ms": 1770581543026,
+      "content": "Hii I saw you outside and i stalked u till I didnt find your ig\u00f0\u009f\u0099\u0088i hope its not a problemm, i wrote to you with my alt account because i were too shy to write with my main one, id love to get to know you if you're down text me on my Instagram @alicesmelodyy",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Evelyn",
+  "is_still_participant": true,
+  "thread_path": "message_requests/evelyn_1724980972240849",
+  "magic_words": [
+    
+  ],
+  "is_pending": true
+}

@@ -255,9 +255,9 @@ export default function AdminReview() {
         <div style={{
           position: 'fixed', top: '20px', right: '20px', zIndex: 999,
           padding: '10px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-          background: toast.error ? '#2d1515' : '#152d15',
-          color: toast.error ? '#ff8888' : '#88ff88',
-          border: `1px solid ${toast.error ? '#5c2020' : '#205c20'}`,
+          background: toast.error ? '#FEF2F2' : '#F0FDF4',
+          color: toast.error ? '#ef4444' : '#16a34a',
+          border: `1px solid ${toast.error ? '#FECACA' : '#BBF7D0'}`,
         }}>
           {toast.msg}
         </div>
@@ -307,13 +307,12 @@ export default function AdminReview() {
               </span>
             )}
             {sc && (
-              <a
-                href={`https://instagram.com/reel/${sc}/`}
-                target="inspo_reel_viewer"
-                style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '4px', textDecoration: 'none' }}
+              <button
+                onClick={() => window.open(`https://www.instagram.com/reel/${sc}/`, 'inspo_reel_viewer', 'width=450,height=850,left=50,top=50')}
+                style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#E88FAC', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
               >
-                Open ↗
-              </a>
+                Open Reel ↗
+              </button>
             )}
           </div>
         </div>
@@ -334,9 +333,9 @@ export default function AdminReview() {
         {record.dataSource && (
           <span style={{
             fontSize: '10px', padding: '2px 8px', borderRadius: '3px', fontWeight: 600,
-            background: record.dataSource === 'IG Export' ? '#FFF0F3' : '#1a2e1a',
-            color: record.dataSource === 'IG Export' ? '#E88FAC' : '#22c55e',
-            border: `1px solid ${record.dataSource === 'IG Export' ? '#E88FAC44' : '#22c55e44'}`,
+            background: record.dataSource === 'IG Export' ? '#FFF0F3' : '#F0FDF4',
+            color: record.dataSource === 'IG Export' ? '#E88FAC' : '#16a34a',
+            border: `1px solid ${record.dataSource === 'IG Export' ? '#E88FAC44' : '#BBF7D0'}`,
           }}>
             {record.dataSource}
           </span>
@@ -370,8 +369,8 @@ export default function AdminReview() {
           style={{
             width: '100%',
             padding: '10px',
-            background: isRecording ? '#3d1515' : '#FFF0F3',
-            border: `1px solid ${isRecording ? '#5c2020' : '#E8C4CC'}`,
+            background: isRecording ? '#FEF2F2' : '#FFF0F3',
+            border: `1px solid ${isRecording ? '#FECACA' : '#E8C4CC'}`,
             borderRadius: '6px',
             color: isRecording ? '#ef4444' : '#888',
             fontSize: '13px',
@@ -444,9 +443,9 @@ export default function AdminReview() {
               disabled={saving}
               style={{
                 width: '44px', height: '44px',
-                background: n >= 8 ? '#1a2e1a' : n >= 5 ? '#FFF0F3' : '#FFF0F3',
-                color: n >= 8 ? '#22c55e' : n >= 5 ? '#E88FAC' : '#999',
-                border: `1px solid ${n >= 8 ? '#22c55e44' : n >= 5 ? '#E88FAC44' : '#E8C4CC'}`,
+                background: n >= 8 ? '#F0FDF4' : n >= 5 ? '#FFF0F3' : '#FFF0F3',
+                color: n >= 8 ? '#16a34a' : n >= 5 ? '#E88FAC' : '#999',
+                border: `1px solid ${n >= 8 ? '#BBF7D0' : n >= 5 ? '#E88FAC44' : '#E8C4CC'}`,
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 700,
@@ -462,9 +461,9 @@ export default function AdminReview() {
             disabled={saving}
             style={{
               width: '44px', height: '44px',
-              background: '#2d1515',
+              background: '#FEF2F2',
               color: '#ef4444',
-              border: '1px solid #5c2020',
+              border: '1px solid #FECACA',
               borderRadius: '6px',
               fontSize: '16px',
               cursor: saving ? 'not-allowed' : 'pointer',

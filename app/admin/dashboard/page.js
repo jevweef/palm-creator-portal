@@ -1,0 +1,538 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+
+const fmt = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtK = n => {
+  if (n >= 10000) return '$' + (n / 1000).toFixed(1) + 'k'
+  return fmt(n)
+}
+const pct = n => (n * 100).toFixed(0) + '%'
+const deltaPct = n => {
+  if (n === null || n === undefined) return null
+  const sign = n >= 0 ? '+' : ''
+  return sign + (n * 100).toFixed(0) + '%'
+}
+
+const CARD = {
+  background: '#ffffff',
+  borderRadius: '18px',
+  padding: '20px',
+  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+}
+
+const SECTION_TITLE = {
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: '#999',
+  marginBottom: '12px',
+}
+
+const LABEL = {
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: '#999',
+}
+
+/* ─── Stat Card with optional delta ─── */
+function StatCard({ label, value, sub, color, delta }) {
+  const deltaStr = deltaPct(delta)
+  const deltaColor = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#999'
+  return (
+    <div style={{ ...CARD, flex: '1 1 160px', minWidth: '140px' }}>
+      <div style={LABEL}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+        <span style={{ fontSize: '28px', fontWeight: 700, color: color || '#1a1a1a' }}>{value}</span>
+        {deltaStr && (
+          <span style={{ fontSize: '12px', fontWeight: 600, color: deltaColor }}>{deltaStr}</span>
+        )}
+      </div>
+      {sub && <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>{sub}</div>}
+    </div>
+  )
+}
+
+/* ─── Status Badge (only renders for non-Draft) ─── */
+function StatusBadge({ status }) {
+  if (!status || status === 'Draft') return null
+  const colors = { Paid: '#22c55e', Sent: '#3b82f6', Overdue: '#ef4444' }
+  const bg = { Paid: '#f0fdf4', Sent: '#eff6ff', Overdue: '#fef2f2' }
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 8px', borderRadius: '4px',
+      fontSize: '11px', fontWeight: 600,
+      color: colors[status] || '#999', background: bg[status] || '#f5f5f5',
+    }}>
+      {status}
+    </span>
+  )
+}
+
+/* ─── Mini Trend Bar (oldest→newest, left→right) ─── */
+function TrendBar({ values, delta }) {
+  if (!values || !values.length) return null
+  const max = Math.max(...values, 1)
+  const deltaColor = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#999'
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '28px' }}>
+        {values.map((v, i) => (
+          <div key={i} style={{
+            width: '10px',
+            height: `${Math.max(2, (v / max) * 28)}px`,
+            background: i === values.length - 1 ? '#E88FAC' : '#f3d1dc',
+            borderRadius: '2px',
+          }} />
+        ))}
+      </div>
+      {delta !== null && delta !== undefined && (
+        <span style={{ fontSize: '10px', fontWeight: 600, color: deltaColor, marginLeft: '4px' }}>
+          {deltaPct(delta)}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/* ─── Runway Bar ─── */
+function RunwayBar({ days }) {
+  const color = days < 1 ? '#ef4444' : days < 2 ? '#f59e0b' : '#22c55e'
+  const bg = days < 1 ? '#fef2f2' : days < 2 ? '#fffbeb' : '#f0fdf4'
+  const width = Math.min(100, (days / 7) * 100)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ flex: 1, height: '6px', background: '#f0f0f0', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{
+          width: `${width}%`, height: '100%', background: color, borderRadius: '3px',
+          transition: 'width 0.4s ease',
+        }} />
+      </div>
+      <span style={{
+        fontSize: '13px', fontWeight: 700, color, background: bg,
+        padding: '2px 6px', borderRadius: '4px', minWidth: '40px', textAlign: 'center',
+      }}>
+        {days}d
+      </span>
+    </div>
+  )
+}
+
+/* ─── Alert Pill ─── */
+function AlertPill({ alert }) {
+  const config = {
+    low_runway: { color: '#ef4444', bg: '#fef2f2', icon: '!', label: `${alert.creator}: ${alert.bufferDays}d runway` },
+    overdue_invoice: { color: '#ef4444', bg: '#fef2f2', icon: '$', label: `${alert.creator}: overdue` },
+    revision_stuck: { color: '#f59e0b', bg: '#fffbeb', icon: '!', label: `${alert.creator}: ${alert.count} revision${(alert.count || 0) > 1 ? 's' : ''}` },
+    analysis_errors: { color: '#f59e0b', bg: '#fffbeb', icon: '!', label: `${alert.count} analysis error${(alert.count || 0) > 1 ? 's' : ''}` },
+    empty_library: { color: '#f59e0b', bg: '#fffbeb', icon: '0', label: `${alert.creator}: no content` },
+  }
+  const c = config[alert.type] || { color: '#999', bg: '#f5f5f5', icon: '?', label: alert.type }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
+      padding: '3px 10px', borderRadius: '6px', fontSize: '11px',
+      fontWeight: 600, color: c.color, background: c.bg,
+    }}>
+      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+      {c.label}
+    </span>
+  )
+}
+
+/* ─── Mini Calendar (7 days) ─── */
+function MiniCalendar({ calendar }) {
+  const days = Object.entries(calendar)
+  return (
+    <div style={{ display: 'flex', gap: '3px' }}>
+      {days.map(([date, count]) => {
+        const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' })
+        const bg = count >= 2 ? '#22c55e' : count === 1 ? '#fbbf24' : '#f0f0f0'
+        const color = count >= 2 ? '#fff' : count === 1 ? '#78350f' : '#ccc'
+        return (
+          <div key={date} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#999', marginBottom: '2px' }}>{dayLabel}</div>
+            <div style={{
+              width: '22px', height: '22px', borderRadius: '4px',
+              background: bg, color, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: '10px', fontWeight: 600,
+            }}>
+              {count || ''}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─── Format period label to be human-readable ─── */
+function formatPeriodLabel(label) {
+  if (!label) return ''
+  // "2026-03 Mar 29-14" → "Mar 29 – Apr 14" (approximate)
+  // Just clean up the raw label
+  return label.replace(/^\d{4}-\d{2}\s*/, '')
+}
+
+/* ─────────────────────────────────────────────── */
+/* MAIN DASHBOARD */
+/* ─────────────────────────────────────────────── */
+export default function AdminDashboard() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [alertsExpanded, setAlertsExpanded] = useState(false)
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await fetch('/api/admin/dashboard')
+      if (!res.ok) throw new Error('Failed to fetch dashboard data')
+      setData(await res.json())
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+        <div style={{ color: '#999', fontSize: '14px' }}>Loading dashboard...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ ...CARD, color: '#ef4444', textAlign: 'center', padding: '40px' }}>
+        <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>Error loading dashboard</div>
+        <div style={{ fontSize: '13px', color: '#999' }}>{error}</div>
+        <button onClick={fetchData} style={{
+          marginTop: '12px', padding: '8px 16px', background: '#E88FAC', color: '#fff',
+          border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+        }}>
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  const { revenue, editorRunway, creatorLibrary, pipeline, posting, alerts } = data
+
+  // Sort alerts: red first (low_runway, overdue), then yellow
+  const redAlerts = alerts.filter(a => a.type === 'low_runway' || a.type === 'overdue_invoice')
+  const yellowAlerts = alerts.filter(a => a.type !== 'low_runway' && a.type !== 'overdue_invoice')
+  const sortedAlerts = [...redAlerts, ...yellowAlerts]
+  const MAX_COLLAPSED_ALERTS = 4
+  const visibleAlerts = alertsExpanded ? sortedAlerts : sortedAlerts.slice(0, MAX_COLLAPSED_ALERTS)
+  const hiddenCount = sortedAlerts.length - MAX_COLLAPSED_ALERTS
+
+  // Build unified creator map for the combined table
+  const creatorMap = {}
+  // Revenue data (all creators)
+  for (const c of revenue.byCreator) {
+    creatorMap[c.name] = { ...creatorMap[c.name], name: c.name, revenue: c }
+  }
+  // Runway data (Social Media Editing creators only)
+  for (const c of editorRunway) {
+    if (!creatorMap[c.name]) creatorMap[c.name] = { name: c.name }
+    creatorMap[c.name].runway = c
+  }
+  // Library data
+  for (const c of creatorLibrary) {
+    if (!creatorMap[c.name]) creatorMap[c.name] = { name: c.name }
+    creatorMap[c.name].library = c
+  }
+  // Posting data
+  for (const c of posting) {
+    if (!creatorMap[c.name]) creatorMap[c.name] = { name: c.name }
+    creatorMap[c.name].posting = c
+  }
+  // Sort by revenue descending, creators without revenue at bottom
+  const unifiedCreators = Object.values(creatorMap).sort((a, b) =>
+    (b.revenue?.currentTR || 0) - (a.revenue?.currentTR || 0)
+  )
+
+  return (
+    <div style={{ maxWidth: '1200px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Dashboard</h1>
+        <span style={{ fontSize: '12px', color: '#999' }}>{formatPeriodLabel(revenue.currentPeriodLabel)}</span>
+      </div>
+
+      {/* ─── ALERTS ─── */}
+      {sortedAlerts.length > 0 && (
+        <div style={{
+          ...CARD, marginBottom: '16px', padding: '10px 16px',
+          display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center',
+          border: '1px solid #fde8e8',
+        }}>
+          <span style={{
+            fontSize: '11px', fontWeight: 600, color: '#ef4444', marginRight: '4px',
+          }}>
+            {sortedAlerts.length}
+          </span>
+          {visibleAlerts.map((a, i) => <AlertPill key={i} alert={a} />)}
+          {hiddenCount > 0 && !alertsExpanded && (
+            <button onClick={() => setAlertsExpanded(true)} style={{
+              padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+              color: '#999', background: '#f5f5f5', border: 'none', cursor: 'pointer',
+            }}>
+              +{hiddenCount} more
+            </button>
+          )}
+          {alertsExpanded && sortedAlerts.length > MAX_COLLAPSED_ALERTS && (
+            <button onClick={() => setAlertsExpanded(false)} style={{
+              padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+              color: '#999', background: '#f5f5f5', border: 'none', cursor: 'pointer',
+            }}>
+              show less
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ─── ROW 1: Revenue KPIs ─── */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+        <StatCard label="Active Creators" value={revenue.activeCreators} />
+        <StatCard label="Period Revenue" value={fmtK(revenue.currentPeriodTR)} delta={revenue.trDelta} />
+        <StatCard label="Palm's Cut" value={fmtK(revenue.netProfit)} color="#22c55e" delta={revenue.profitDelta} />
+        <StatCard
+          label="Projected Monthly"
+          value={fmtK(revenue.projectedMonthlyRevenue)}
+          sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net`}
+          color="#E88FAC"
+        />
+        <StatCard
+          label="Outstanding"
+          value={revenue.outstandingInvoices.count}
+          sub={revenue.outstandingInvoices.count > 0 ? fmtK(revenue.outstandingInvoices.total) : 'all clear'}
+          color={revenue.outstandingInvoices.count > 0 ? '#f59e0b' : '#22c55e'}
+        />
+      </div>
+
+      {/* ─── ROW 2: Unified Creator Table ─── */}
+      <div style={{ ...CARD, marginBottom: '16px' }}>
+        <div style={SECTION_TITLE}>Creators</div>
+
+        {/* Header row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '100px 90px 44px 80px 60px 120px 90px 60px 1fr',
+          gap: '8px', padding: '4px 0 8px', borderBottom: '1px solid #f0f0f0',
+          alignItems: 'center',
+        }}>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Creator</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Revenue</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Rate</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Palm's Cut</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Runway</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Editor Queue</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Library</span>
+          <span style={{ ...LABEL, fontSize: '10px' }}>Status</span>
+          <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Trend</span>
+        </div>
+
+        {unifiedCreators.map(c => {
+          const rev = c.revenue
+          const rwy = c.runway
+          const lib = c.library
+          const bufferDays = rwy?.bufferDays ?? null
+          const runwayColor = bufferDays === null ? '#ddd' : bufferDays < 1 ? '#ef4444' : bufferDays < 2 ? '#f59e0b' : '#22c55e'
+          const runwayBg = bufferDays === null ? '#fafafa' : bufferDays < 1 ? '#fef2f2' : bufferDays < 2 ? '#fffbeb' : '#f0fdf4'
+          const editQueue = rwy ? (rwy.toEdit + rwy.inProgress + rwy.needsRevision + rwy.inReview) : null
+
+          return (
+            <div key={c.name} style={{
+              display: 'grid',
+              gridTemplateColumns: '100px 90px 44px 80px 60px 120px 90px 60px 1fr',
+              gap: '8px', padding: '8px 0',
+              borderBottom: '1px solid #fafafa',
+              alignItems: 'center',
+            }}>
+              {/* Name */}
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</span>
+
+              {/* Revenue */}
+              <span style={{ fontSize: '13px', fontWeight: 700, color: rev ? '#1a1a1a' : '#ddd' }}>
+                {rev ? fmtK(rev.currentTR) : '—'}
+              </span>
+
+              {/* Commission rate */}
+              <span style={{ fontSize: '11px', color: '#999' }}>
+                {rev ? pct(rev.commissionPct) : ''}
+              </span>
+
+              {/* Palm's cut */}
+              <span style={{ fontSize: '13px', fontWeight: 600, color: rev ? '#22c55e' : '#ddd' }}>
+                {rev ? fmtK(rev.palmCut) : '—'}
+              </span>
+
+              {/* Runway */}
+              <span style={{
+                fontSize: '12px', fontWeight: 700, color: runwayColor, background: runwayBg,
+                padding: '2px 6px', borderRadius: '4px', textAlign: 'center', display: 'inline-block',
+              }}>
+                {bufferDays !== null ? `${bufferDays}d` : '—'}
+              </span>
+
+              {/* Editor queue breakdown */}
+              <div style={{ fontSize: '11px', color: '#666', display: 'flex', gap: '6px' }}>
+                {rwy ? (
+                  editQueue > 0 ? (
+                    <>
+                      {rwy.toEdit > 0 && <span>{rwy.toEdit} queue</span>}
+                      {rwy.inProgress > 0 && <span>{rwy.inProgress} active</span>}
+                      {rwy.needsRevision > 0 && <span style={{ color: '#ef4444' }}>{rwy.needsRevision} rev</span>}
+                      {rwy.inReview > 0 && <span style={{ color: '#3b82f6' }}>{rwy.inReview} review</span>}
+                    </>
+                  ) : <span style={{ color: '#ccc' }}>empty</span>
+                ) : <span style={{ color: '#ddd' }}>—</span>}
+              </div>
+
+              {/* Library count */}
+              <span style={{
+                fontSize: '12px', fontWeight: 600,
+                color: lib ? (lib.total === 0 ? '#ef4444' : '#666') : '#ddd',
+              }}>
+                {lib ? `${lib.total} files` : '—'}
+              </span>
+
+              {/* Status badge (only non-Draft) */}
+              <StatusBadge status={rev?.status} />
+
+              {/* Trend */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ─── ROW 3: Pipeline Health + Posting Activity side by side ─── */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+
+        {/* Pipeline Health */}
+        <div style={{ ...CARD, flex: '1 1 280px', minWidth: '260px' }}>
+          <div style={SECTION_TITLE}>Pipeline</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <div style={LABEL}>Scraped Today</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedToday}</div>
+            </div>
+            <div>
+              <div style={LABEL}>This Week</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedThisWeek}</div>
+            </div>
+            <div>
+              <div style={LABEL}>Review Queue</div>
+              <div style={{
+                fontSize: '22px', fontWeight: 700, marginTop: '2px',
+                color: pipeline.reviewQueue > 20 ? '#f59e0b' : '#1a1a1a',
+              }}>{pipeline.reviewQueue}</div>
+            </div>
+            <div>
+              <div style={LABEL}>Analysis Queue</div>
+              <div style={{
+                fontSize: '22px', fontWeight: 700, marginTop: '2px',
+                color: pipeline.analysisQueue > 0 ? '#3b82f6' : '#1a1a1a',
+              }}>{pipeline.analysisQueue}</div>
+            </div>
+            <div>
+              <div style={LABEL}>Promoted</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#E88FAC', marginTop: '2px' }}>{pipeline.promotedThisWeek}</div>
+            </div>
+            <div>
+              <div style={LABEL}>Sources</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.sourcesEnabled}</div>
+            </div>
+          </div>
+          {pipeline.lastScrape && (
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '12px' }}>
+              Last scrape: {new Date(pipeline.lastScrape).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            </div>
+          )}
+        </div>
+
+        {/* Posting Activity */}
+        <div style={{ ...CARD, flex: '1 1 340px', minWidth: '300px' }}>
+          <div style={SECTION_TITLE}>Posting (Last 7 Days)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {posting.map(c => (
+              <div key={c.name} style={{
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0',
+                borderBottom: '1px solid #fafafa',
+              }}>
+                <div style={{ width: '70px', fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</div>
+                <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: '#666', minWidth: '120px' }}>
+                  <span><strong style={{ color: '#1a1a1a' }}>{c.postedToday}</strong> today</span>
+                  <span><strong style={{ color: '#1a1a1a' }}>{c.postedThisWeek}</strong>/wk</span>
+                  {c.telegramPending > 0 && (
+                    <span style={{ color: '#f59e0b' }}><strong>{c.telegramPending}</strong> TG</span>
+                  )}
+                </div>
+                <div style={{ marginLeft: 'auto' }}>
+                  <MiniCalendar calendar={c.calendar} />
+                </div>
+              </div>
+            ))}
+            {posting.length === 0 && (
+              <div style={{ fontSize: '13px', color: '#999' }}>No posting data</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Period History ─── */}
+      {revenue.periods.length > 1 && (
+        <div style={{ ...CARD }}>
+          <div style={SECTION_TITLE}>Period History</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px',
+              gap: '8px', padding: '4px 0', borderBottom: '1px solid #f0f0f0',
+            }}>
+              <span style={{ ...LABEL, fontSize: '10px' }}>Period</span>
+              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Total TR</span>
+              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Palm's Cut</span>
+              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Change</span>
+            </div>
+            {revenue.periods.map((p, i) => {
+              const prevPeriod = revenue.periods[i + 1]
+              const periodDelta = prevPeriod && prevPeriod.totalTR > 0
+                ? (p.totalTR - prevPeriod.totalTR) / prevPeriod.totalTR : null
+              const deltaStr = deltaPct(periodDelta)
+              const deltaColor = periodDelta > 0 ? '#22c55e' : periodDelta < 0 ? '#ef4444' : '#999'
+              return (
+                <div key={i} style={{
+                  display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px',
+                  gap: '8px', padding: '6px 0', borderBottom: '1px solid #fafafa',
+                  opacity: i === 0 ? 1 : 0.7,
+                }}>
+                  <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: i === 0 ? 600 : 400 }}>
+                    {formatPeriodLabel(p.label) || `${p.start} – ${p.end}`}
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#22c55e', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
+                    {deltaStr || '—'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

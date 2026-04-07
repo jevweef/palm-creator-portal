@@ -1,0 +1,94 @@
+{
+  "participants": [
+    {
+      "name": "Alexy"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773743845306,
+      "content": "How\u00e2\u0080\u0099s the revenue been?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexy",
+      "timestamp_ms": 1773741119157,
+      "content": "Not much these days",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773683193925,
+      "content": "Hey really good! Has your page been progressing well?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexy",
+      "timestamp_ms": 1773681176917,
+      "content": "Hi Joshua, pretty good, you?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773669184779,
+      "content": "Hi! How\u00e2\u0080\u0099s everything been going!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexy",
+      "timestamp_ms": 1768934869403,
+      "content": "Thankyou \u00f0\u009f\u0098\u0098",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexy",
+      "timestamp_ms": 1768934861619,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768915615680,
+      "content": "Hi! Okay no worries :) if you change your mind or ever have any questions let me know \u00f0\u009f\u00ab\u00b6\u00f0\u009f\u008f\u00bd",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Alexy"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Alexy",
+      "timestamp_ms": 1768912502064,
+      "content": "Hi Joshua, thankyou for this message, but I don\u00e2\u0080\u0099t need it right now \u00f0\u009f\u0098\u0098",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1768874301606,
+      "content": "Hey! Love the content. I actually manage some of the top creators on OF and Telegram (mostly within the top 1% and some in the top .1%)! We specialize in 360 marketing and work with a select group of niche creators and other creators we know we can scale. What are you doing for marketing right now? We manage a bunch of platforms, which most agencies don\u00e2\u0080\u0099t do. This includes full chat team and managers, IG, Reddit, X, Telgram and we do OFTV creation and content houses every month or two. Would love to talk about you joining our team. You have a great page and I think we could scale you a lot. Plus we have a competitive commission scale. Let me know if you want to setup a phone call or group chat with my team to discuss what we can do! We have all female account management as well and our teams based between Palm Beach and LA! Let me know if you have any questions. Would love to talk more!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Alexy",
+  "is_still_participant": true,
+  "thread_path": "inbox/alexy_1707460963992850",
+  "magic_words": [
+    
+  ]
+}

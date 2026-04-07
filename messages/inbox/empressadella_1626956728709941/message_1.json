@@ -1,0 +1,92 @@
+{
+  "participants": [
+    {
+      "name": "Empress Adella"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1773021779636,
+      "content": "Okay! Any questions you ever have feel free to reach out",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Empress Adella",
+      "timestamp_ms": 1772694581255,
+      "content": "I think I\u00e2\u0080\u0099m okay thanks tho",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771244488594,
+      "content": "Would love to setup a call sometime soon if you need some help!",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771244476473,
+      "content": "Yeah totally get the burnout thing",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Empress Adella",
+      "timestamp_ms": 1771226814803,
+      "content": "It\u00e2\u0080\u0099s been a bit slow bc I get burnt out but it\u00e2\u0080\u0099s fun",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Joshua Voto"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Empress Adella",
+      "timestamp_ms": 1771226806291,
+      "content": "I\u00e2\u0080\u0099m going to get some 3rd party help soon with messages so that\u00e2\u0080\u0099ll be cool",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Empress Adella",
+      "timestamp_ms": 1771226790478,
+      "content": "Hey pretty decent",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1771210198870,
+      "content": "Hey! I know we spoke this fall! How have things been going for you!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Empress Adella",
+  "is_still_participant": true,
+  "thread_path": "inbox/empressadella_1626956728709941",
+  "magic_words": [
+    
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "name": "BB Stockwell"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766290705554,
+      "content": "Where in New England are you from?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "BB Stockwell",
+  "is_still_participant": true,
+  "thread_path": "inbox/bbstockwell_1684660069606273",
+  "magic_words": [
+    
+  ]
+}

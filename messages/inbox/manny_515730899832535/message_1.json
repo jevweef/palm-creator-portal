@@ -1,0 +1,38 @@
+{
+  "participants": [
+    {
+      "name": "MANNY \u00f0\u009f\u00a7\u00bf"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "MANNY \u00f0\u009f\u00a7\u00bf",
+      "timestamp_ms": 1769988345303,
+      "content": "\u00e2\u009d\u00a4\u00ef\u00b8\u008f Happy Birthday to your mom \u00f0\u009f\u00a5\u0082\u00f0\u009f\u00a5\u0082\u00f0\u009f\u00a5\u0082\u00f0\u009f\u00a5\u0082",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3822604077209927301"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "MANNY \u00f0\u009f\u00a7\u00bf",
+      "timestamp_ms": 1767557273952,
+      "content": "Happy New Year lovebug \u00f0\u009f\u00a5\u0082 Hope it\u00e2\u0080\u0099s a wonderful year for you!",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3802659853081416174"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "MANNY \u00f0\u009f\u00a7\u00bf",
+  "is_still_participant": true,
+  "thread_path": "inbox/manny_515730899832535",
+  "magic_words": [
+    
+  ]
+}

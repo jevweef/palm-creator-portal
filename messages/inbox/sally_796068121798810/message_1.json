@@ -1,0 +1,78 @@
+{
+  "participants": [
+    {
+      "name": "Sally"
+    },
+    {
+      "name": "Joshua Voto"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Sally",
+      "timestamp_ms": 1772683015487,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1772682526196,
+      "content": "In his element \u00f0\u009f\u0091\u008f\u00f0\u009f\u008f\u00bd\u00f0\u009f\u0091\u008f\u00f0\u009f\u008f\u00bd",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Sally"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Sally",
+      "timestamp_ms": 1767571095500,
+      "content": "\u00f0\u009f\u0098\u0082",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3802883922288772845"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Sally",
+      "timestamp_ms": 1766099366017,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Joshua Voto",
+      "timestamp_ms": 1766097853510,
+      "content": "The 27!",
+      "reactions": [
+        {
+          "reaction": "\u00e2\u009d\u00a4",
+          "actor": "Sally"
+        }
+      ],
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "Sally",
+      "timestamp_ms": 1766097790677,
+      "content": "When are you back?",
+      "share": {
+        "link": "https://www.instagram.com/stories/whoisjoshvoto/3789922546234590833"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "Sally",
+  "is_still_participant": true,
+  "thread_path": "inbox/sally_796068121798810",
+  "magic_words": [
+    
+  ]
+}

@@ -1,8 +1,8 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { useEffect, useState } from 'react'
-import { useSearchParams, useParams } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
+import { useSearchParams, useParams, useRouter } from 'next/navigation'
 
 function fmt$(val) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0) }
 function fmtPct(val) { return `${Math.round((val || 0) * 100)}%` }
@@ -250,6 +250,7 @@ export default function CreatorDashboard() {
   const { user, isLoaded } = useUser()
   const searchParams = useSearchParams()
   const params = useParams()
+  const router = useRouter()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savedReels, setSavedReels] = useState([])
@@ -265,10 +266,16 @@ export default function CreatorDashboard() {
 
   // inspo board path for this creator
   const inspoPath = `/creator/${creatorOpsId}/inspo`
+  const vaultPath = `/creator/${creatorOpsId}/vault`
 
   const [creatorProfile, setCreatorProfile] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const profileRef = useRef(null)
   const [invoiceModal, setInvoiceModal] = useState(null)
+  const [showAllInvoices, setShowAllInvoices] = useState(false)
+  const [showAllTags, setShowAllTags] = useState(false)
+  const [topReels, setTopReels] = useState([])
 
   useEffect(() => {
     if (!isLoaded) return
@@ -280,15 +287,46 @@ export default function CreatorDashboard() {
       fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then((r) => r.json()).catch(() => ({ tagWeights: {} })),
     ])
       .then(([profileData, savedData, pipelineData, cpData, tagData]) => {
+        // Redirect to onboarding if not completed (skip for admins)
+        const role = user?.publicMetadata?.role
+        const isAdmin = role === 'admin' || role === 'super_admin'
+        const obStatus = profileData?.profile?.onboardingStatus
+        if (!isAdmin && obStatus && obStatus !== 'Completed') {
+          router.replace('/onboarding/form')
+          return
+        }
         setData(profileData)
         setSavedReels(savedData.records || [])
         setPipeline(pipelineData)
         if (cpData && cpData.profileAnalysisStatus === 'Complete') {
-          setCreatorProfile({ ...cpData, tagWeights: tagData.tagWeights || {} })
+          setCreatorProfile({ ...cpData, tagWeights: tagData.tagWeights || {}, allTags: tagData.allTags || [] })
         }
         setLoading(false)
       })
       .catch((err) => { console.error(err); setLoading(false) })
+
+    // Fetch reels for preview strip (non-blocking, cached 5min on server)
+    Promise.all([
+      fetch('/api/inspiration').then(r => r.json()).catch(() => ({ records: [] })),
+      fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then(r => r.json()).catch(() => ({ tagWeights: {} })),
+    ]).then(([inspoData, twData]) => {
+      const recs = (inspoData.records || []).filter(r => r.thumbnail)
+      const tw = twData.tagWeights || {}
+      const hasForYou = Object.keys(tw).length > 0
+      if (hasForYou) {
+        // Score by tag overlap, then sort
+        const scored = recs.map(r => {
+          const tags = [...(r.tags || []), ...(r.suggestedTags || [])]
+          const score = tags.reduce((sum, t) => sum + (tw[t] || 0), 0)
+          return { ...r, forYouScore: score }
+        })
+        scored.sort((a, b) => b.forYouScore - a.forYouScore)
+        setTopReels(scored.slice(0, 6))
+      } else {
+        recs.sort((a, b) => (b.views || 0) - (a.views || 0))
+        setTopReels(recs.slice(0, 6))
+      }
+    }).catch(() => {})
   }, [isLoaded, creatorOpsId, hqId])
 
   if (!isLoaded || loading) {
@@ -307,143 +345,267 @@ export default function CreatorDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-8">
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-4 md:py-8">
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-          <div>
-            <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
+        {/* ── Header + Earnings ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginBottom: '12px' }}>
+          <div className="md:pl-5" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <h1 className="text-[22px] md:text-[28px]" style={{ fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
             <p style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
+          <Card>
+            {(() => {
+              const groups = invoices?.length > 0 ? groupInvoicesByPeriod(invoices).sort((a, b) => (b.periodEnd || '').localeCompare(a.periodEnd || '')) : []
+              const latestPeriod = groups[0]
+              return <Label>{latestPeriod ? formatPeriod(latestPeriod.periodStart, latestPeriod.periodEnd) : 'Earnings'}</Label>
+            })()}
+            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0', justifyContent: 'center', textAlign: 'center' }}>
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(p.previousMonthTR)}</div>
+                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
+              </div>
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(p.previousMonthTR * (1 - (p.commission || 0)))}</div>
+                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
+              </div>
+            </div>
+          </Card>
         </div>
 
-        {/* ── Row 1: Profile + Earnings + Quick Actions ── */}
-        <div style={{ display: 'grid', gap: '12px', marginBottom: '12px' }} className="grid-cols-1 md:grid-cols-12">
-
-          {/* Profile — spans 5 cols on desktop, full on mobile */}
-          <Card className="md:col-span-5">
-            <Label>Profile</Label>
-            <Row label="Name" value={p.name} />
-            <Row label="Stage Name" value={p.aka} />
-            <Row label="Management Fee" value={fmtPct(p.commission)} />
-            <Row label="Started" value={fmtDate(p.managementStartDate)} />
-            <Row label="OnlyFans" value={p.onlyfansUrl?.replace('https://', '')} href={p.onlyfansUrl} />
-            {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
-            {p.ofEmail && <Row label="OF Email" value={p.ofEmail} />}
-            {p.communicationEmail && p.communicationEmail !== p.ofEmail && <Row label="Email" value={p.communicationEmail} />}
-            {p.telegram && <Row label="Telegram" value={p.telegram} />}
-            {p.contractUrl && <Row label="Contract" value="View PDF" href={p.contractUrl} />}
+        {/* ── Browse Inspo + Quick Actions ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginBottom: '12px' }}>
+          {/* Browse Inspo — visual card with sort shortcuts */}
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '20px 20px 16px' }}>
+              <Label>Browse Inspo</Label>
+              <p style={{ fontSize: '13px', color: '#888', margin: '4px 0 14px' }}>Find reels to recreate for your audience</p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {[
+                  ...(creatorProfile ? [{ key: 'foryou', label: 'For You', icon: '✨' }] : []),
+                  { key: 'top', label: 'Top', icon: '🔥' },
+                  { key: 'viral', label: 'Viral', icon: '🚀' },
+                  { key: 'recent', label: 'Recent', icon: '🕐' },
+                ].map(s => (
+                  <a
+                    key={s.key}
+                    href={`${inspoPath}?sort=${s.key}`}
+                    className="card-hover"
+                    style={{
+                      flex: 1, minWidth: '70px', textDecoration: 'none',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                      padding: '12px 8px', borderRadius: '14px',
+                      background: s.key === 'foryou' ? '#FFF0F3' : '#FAFAFA',
+                      border: s.key === 'foryou' ? '1px solid #E88FAC' : '1px solid rgba(0,0,0,0.04)',
+                      transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>{s.icon}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: s.key === 'foryou' ? '#E88FAC' : '#666' }}>{s.label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+            {/* Reel preview strip — For You if available, otherwise Viral */}
+            {topReels.length > 0 && (() => {
+              const isForYou = creatorProfile && topReels[0]?.forYouScore !== undefined
+              const stripLabel = isForYou ? 'Picked For You' : 'Viral Right Now'
+              const stripSort = isForYou ? 'foryou' : 'viral'
+              return (
+                <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', padding: '12px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{stripLabel}</span>
+                    <a href={`${inspoPath}?sort=${stripSort}`} style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${topReels.length}, 1fr)`, gap: '6px' }}>
+                    {topReels.map(r => (
+                      <a key={r.id} href={`${inspoPath}?sort=${stripSort}`} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: '#FFF0F3', display: 'block' }}>
+                        {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </Card>
 
-          {/* Right column — Earnings + Actions stacked */}
-          <div className="md:col-span-7" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-            {/* Earnings row */}
-            <Card>
-              <Label>Last Month</Label>
-              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0' }}>
-                <div style={{ flex: 1, minWidth: '140px' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(p.previousMonthTR * (1 - (p.commission || 0)))}</div>
-                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
-                </div>
-                <div style={{ flex: 1, minWidth: '140px' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(p.previousMonthTR)}</div>
-                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Quick Actions grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+          {/* Quick Actions + Invoices */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="quick-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               {uploads?.socialUploadUrl && (
                 <ActionCard href={uploads.socialUploadUrl} icon="📱" title="Upload Social" subtitle="Dropbox" />
               )}
               {uploads?.longformUploadUrl && (
                 <ActionCard href={uploads.longformUploadUrl} icon="🎬" title="Upload Longform" subtitle="Dropbox" />
               )}
-              <ActionCard href={inspoPath} icon="✨" title="Browse Inspo" subtitle="Find reels" />
-              <ActionCard href="#" icon="📂" title="My Files" subtitle="Coming soon" />
+              <ActionCard href={vaultPath} icon="🔐" title="OF Vault Upload" subtitle="OnlyFans" />
             </div>
 
-            {/* Stats placeholder */}
+            {/* Invoices fills remaining space */}
             <Card style={{ flex: 1 }}>
-              <Label>Growth & Stats</Label>
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
-                <StatBox value="—" label="IG Followers" />
-                <StatBox value="—" label="TikTok Followers" />
-                <StatBox value="—" label="OF Subscribers" />
-                <StatBox value="—" label="Week-over-Week" />
-              </div>
-              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+              <Label>Invoices</Label>
+            {invoices && invoices.length > 0 ? (() => {
+              const allGroups = groupInvoicesByPeriod(invoices).sort((a, b) => (b.periodEnd || '').localeCompare(a.periodEnd || ''))
+              const hasMore = allGroups.length > 3
+              const visible = hasMore ? allGroups.slice(0, 2) : allGroups
+
+              return (<>
+                {visible.map((group) => {
+                  const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
+                  const allPaid = statuses.every(s => s === 'Paid')
+                  const allSent = statuses.every(s => s === 'Sent')
+                  const somePaid = statuses.some(s => s === 'Paid')
+                  const someSent = statuses.some(s => s === 'Sent')
+                  const now = new Date()
+                  const periodEnd = group.periodEnd ? new Date(group.periodEnd + 'T23:59:59') : null
+                  const isActive = periodEnd && now <= periodEnd
+
+                  let statusLabel, statusColor, statusBg
+                  if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
+                  else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                  else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
+                  else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+
+                  return (
+                    <div
+                      key={`${group.periodStart}|${group.periodEnd}`}
+                      onClick={() => setInvoiceModal(group)}
+                      className="card-hover"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 14px', marginBottom: '6px', cursor: 'pointer',
+                        borderRadius: '12px', background: '#FAFAFA',
+                        border: '1px solid rgba(0,0,0,0.04)',
+                        transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
+                          {formatPeriod(group.periodStart, group.periodEnd)}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>
+                          {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
+                          {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
+                        {group.dueDate && !allPaid && (
+                          <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
+                        )}
+                        <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {hasMore && (
+                  <div
+                    onClick={() => setShowAllInvoices(true)}
+                    className="card-hover"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '12px 14px', cursor: 'pointer',
+                      borderRadius: '12px', background: '#FFF0F3',
+                      border: '1px solid rgba(232,143,172,0.15)',
+                      transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                      gap: '6px',
+                    }}
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#E88FAC' }}>
+                      View All {allGroups.length} Periods
+                    </span>
+                    <span style={{ color: '#E88FAC', fontSize: '14px' }}>›</span>
+                  </div>
+                )}
+              </>)
+            })() : (
+              <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No invoices yet</div>
+            )}
             </Card>
           </div>
         </div>
 
-        {/* ── Row 2: Invoices + Saved Inspo ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px' }}>
+        {/* Invoice detail modal */}
+        {invoiceModal && <InvoiceModal group={invoiceModal} onClose={() => setInvoiceModal(null)} />}
 
-          {/* Invoices */}
-          <Card>
-            <Label>Invoices</Label>
-            {invoices && invoices.length > 0 ? (
-              groupInvoicesByPeriod(invoices).map((group) => {
-                const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
-                const allPaid = statuses.every(s => s === 'Paid')
-                const allSent = statuses.every(s => s === 'Sent')
-                const somePaid = statuses.some(s => s === 'Paid')
-                const someSent = statuses.some(s => s === 'Sent')
-                const now = new Date()
-                const periodEnd = group.periodEnd ? new Date(group.periodEnd + 'T23:59:59') : null
-                const isActive = periodEnd && now <= periodEnd
+        {/* All Invoices modal */}
+        {showAllInvoices && invoices?.length > 0 && (
+          <div onClick={() => setShowAllInvoices(false)} style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '640px',
+              maxHeight: '85vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              display: 'flex', flexDirection: 'column',
+            }}>
+              <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>All Invoices</div>
+                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>{groupInvoicesByPeriod(invoices).length} billing periods</div>
+                </div>
+                <button onClick={() => setShowAllInvoices(false)} style={{
+                  background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+                  cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflow: 'auto', padding: '16px 28px 28px' }}>
+                {groupInvoicesByPeriod(invoices).sort((a, b) => (b.periodEnd || '').localeCompare(a.periodEnd || '')).map((group) => {
+                  const statuses = group.invoices.map(inv => inv.invoiceStatus || 'Draft')
+                  const allPaid = statuses.every(s => s === 'Paid')
+                  const allSent = statuses.every(s => s === 'Sent')
+                  const somePaid = statuses.some(s => s === 'Paid')
+                  const someSent = statuses.some(s => s === 'Sent')
+                  const now = new Date()
+                  const periodEnd = group.periodEnd ? new Date(group.periodEnd + 'T23:59:59') : null
+                  const isActive = periodEnd && now <= periodEnd
 
-                let statusLabel, statusColor, statusBg
-                if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
-                else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
-                else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
-                else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
-                else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+                  let statusLabel, statusColor, statusBg
+                  if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
+                  else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
+                  else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
+                  else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
 
-                return (
-                  <div
-                    key={`${group.periodStart}|${group.periodEnd}`}
-                    onClick={() => setInvoiceModal(group)}
-                    className="card-hover"
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '12px 14px', marginBottom: '6px', cursor: 'pointer',
-                      borderRadius: '12px', background: '#FAFAFA',
-                      border: '1px solid rgba(0,0,0,0.04)',
-                      transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
-                        {formatPeriod(group.periodStart, group.periodEnd)}
+                  return (
+                    <div
+                      key={`all-${group.periodStart}|${group.periodEnd}`}
+                      onClick={() => { setShowAllInvoices(false); setInvoiceModal(group) }}
+                      className="card-hover"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '14px 16px', marginBottom: '8px', cursor: 'pointer',
+                        borderRadius: '12px', background: '#FAFAFA',
+                        border: '1px solid rgba(0,0,0,0.04)',
+                        transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>
+                          {formatPeriod(group.periodStart, group.periodEnd)}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                          {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
+                          {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>
-                        {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
-                        {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
+                        {group.dueDate && !allPaid && (
+                          <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
+                        )}
+                        <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
-                      {group.dueDate && !allPaid && (
-                        <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
-                      )}
-                      <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
-                    </div>
-                  </div>
-                )
-              })
-            ) : (
-              <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No invoices yet</div>
-            )}
-          </Card>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
-          {/* Invoice detail modal */}
-          {invoiceModal && <InvoiceModal group={invoiceModal} onClose={() => setInvoiceModal(null)} />}
-
-          {/* Content Pipeline — shows saved, in progress, and completed content */}
+        {/* ── My Content + Growth & Stats ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginTop: '12px' }}>
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <Label>My Content</Label>
@@ -533,85 +695,227 @@ export default function CreatorDashboard() {
               </>)
             })()}
           </Card>
-        </div>
 
-        {/* ── Creator Profile (collapsible) ── */}
-        {creatorProfile && (
-          <div style={{ marginTop: '12px' }}>
-            <button onClick={() => setProfileOpen(!profileOpen)} className="card-hover" style={{
-              width: '100%', background: '#ffffff', borderRadius: '18px', border: 'none',
-              padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>Your Creator Profile</span>
-                {(() => {
-                  const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 3)
-                  return topTags.length > 0 && (
-                    <div style={{ display: 'flex', gap: '4px' }}>
+          {/* Content DNA preview — next to My Content */}
+          {creatorProfile ? (
+            <Card style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>&#x1F9EC;</span>
+                  <Label style={{ marginBottom: 0 }}>Your Content DNA</Label>
+                </div>
+                <button
+                  onClick={() => {
+                    setProfileOpen(true)
+                    setTimeout(() => profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                  }}
+                  style={{
+                    background: '#FFF0F3', border: 'none', borderRadius: '9999px',
+                    padding: '4px 12px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, color: '#E88FAC',
+                  }}
+                >
+                  Full Profile →
+                </button>
+              </div>
+
+              {/* Profile summary snippet */}
+              {creatorProfile.profileSummary && (
+                <div style={{
+                  fontSize: '12px', color: '#666', lineHeight: '1.6', marginBottom: '14px',
+                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>
+                  {creatorProfile.profileSummary}
+                </div>
+              )}
+
+              {/* Top tags */}
+              {(() => {
+                const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 6)
+                if (topTags.length === 0) return null
+                const maxWeight = topTags[0]?.[1] || 1
+                return (
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>Top Tags</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {topTags.map(([tag, weight]) => (
-                        <span key={tag} style={{ fontSize: '10px', color: '#E88FAC', background: '#FFF0F3', padding: '2px 8px', borderRadius: '10px', fontWeight: 500 }}>
-                          {tag} · {weight}
-                        </span>
+                        <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '12px', color: '#4a4a4a', fontWeight: 500, width: '110px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
+                          <div style={{ flex: 1, height: '6px', background: '#FFF0F3', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.round((weight / maxWeight) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, #E88FAC, #D4A0B0)', borderRadius: '3px' }} />
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  )
-                })()}
+                  </div>
+                )
+              })()}
+            </Card>
+          ) : (
+            <Card>
+              <Label>Growth & Stats</Label>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '8px 0' }}>
+                <StatBox value="—" label="IG Followers" />
+                <StatBox value="—" label="TikTok Followers" />
+                <StatBox value="—" label="OF Subscribers" />
+                <StatBox value="—" label="Week-over-Week" />
               </div>
-              <span style={{ color: '#ccc', fontSize: '18px', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
-            </button>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+            </Card>
+          )}
+        </div>
 
-            {profileOpen && (
-              <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }} className="grid-cols-1 md:grid-cols-2">
-                <Card>
-                  {creatorProfile.profileSummary && (
-                    <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>
-                      {creatorProfile.profileSummary}
+        {/* ── Collapsible bars: Content DNA + Profile ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+          {/* Content DNA */}
+          {creatorProfile && (
+            <div ref={profileRef}>
+              <button
+                onClick={() => {
+                  const willOpen = !profileOpen
+                  setProfileOpen(willOpen)
+                  if (willOpen) {
+                    setTimeout(() => profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                  }
+                }}
+                className="card-hover"
+                style={{
+                  width: '100%', background: '#ffffff', borderRadius: profileOpen ? '18px 18px 0 0' : '18px', border: 'none',
+                  padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '16px' }}>&#x1F9EC;</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Your Content DNA</span>
+                </div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: profileOpen ? '#E88FAC' : '#FFF0F3',
+                  padding: '4px 12px', borderRadius: '9999px', transition: 'all 0.2s',
+                }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: profileOpen ? '#fff' : '#E88FAC' }}>{profileOpen ? 'Hide' : 'View'}</span>
+                  <span style={{ fontSize: '12px', color: profileOpen ? '#fff' : '#E88FAC', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#x25BE;</span>
+                </div>
+              </button>
+              {profileOpen && (
+                <div style={{ background: '#ffffff', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+                  <div style={{ display: 'grid', gap: '0' }} className="grid-cols-1 md:grid-cols-2">
+                    <div style={{ padding: '20px 24px' }}>
+                      {creatorProfile.profileSummary && (
+                        <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>{creatorProfile.profileSummary}</div>
+                      )}
+                      {creatorProfile.contentDirectionNotes && (
+                        <>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                          <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>{creatorProfile.contentDirectionNotes}</div>
+                        </>
+                      )}
+                      {creatorProfile.dosDonts && (
+                        <>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
+                          <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{creatorProfile.dosDonts}</div>
+                        </>
+                      )}
                     </div>
-                  )}
-                  {creatorProfile.contentDirectionNotes && (
-                    <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
-                      <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>
-                        {creatorProfile.contentDirectionNotes}
-                      </div>
-                    </>
-                  )}
-                  {creatorProfile.dosDonts && (
-                    <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
-                      <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>
-                        {creatorProfile.dosDonts}
-                      </div>
-                    </>
-                  )}
-                </Card>
-                <Card>
-                  <Label>Your Top Tags</Label>
-                  {(() => {
-                    const topTags = Object.entries(creatorProfile.tagWeights || {}).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).slice(0, 10)
-                    if (topTags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {topTags.map(([tag, weight]) => (
-                          <div key={tag}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                              <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#E88FAC' }}>{weight}</span>
-                            </div>
-                            <div style={{ height: '4px', background: '#F5F0F2', borderRadius: '2px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${weight}%`, background: '#E88FAC', borderRadius: '2px' }} />
-                            </div>
+                    <div style={{ padding: '20px 24px', borderLeft: '1px solid rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
+                      <Label>All Tags</Label>
+                      {(() => {
+                        const TAG_CATEGORIES = ['Setting / Location', 'Persona / Niche', 'Tone / Energy', 'Visual / Body', 'Viewer Experience', 'Film Format']
+                        const CAT_COLORS = {
+                          'Setting / Location': '#06b6d4',
+                          'Persona / Niche': '#E88FAC',
+                          'Tone / Energy': '#f472b6',
+                          'Visual / Body': '#fb923c',
+                          'Viewer Experience': '#60a5fa',
+                          'Film Format': '#34d399',
+                        }
+                        const tags = (creatorProfile.allTags || []).filter(t => t.weight > 0)
+                        if (tags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
+
+                        const byCategory = {}
+                        tags.forEach(t => {
+                          const cat = t.category || 'Other'
+                          if (!byCategory[cat]) byCategory[cat] = []
+                          byCategory[cat].push(t)
+                        })
+
+                        return (
+                          <div style={{
+                            display: 'flex', flexDirection: 'column', gap: '16px', flex: 1,
+                            maxHeight: '500px', overflowY: 'auto', paddingRight: '4px',
+                          }}>
+                            {TAG_CATEGORIES.map(cat => {
+                              const catTags = (byCategory[cat] || []).sort((a, b) => b.weight - a.weight)
+                              if (!catTags.length) return null
+                              const color = CAT_COLORS[cat] || '#E88FAC'
+                              return (
+                                <div key={cat}>
+                                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{cat}</div>
+                                  {catTags.map(t => (
+                                    <div key={t.tag} style={{ marginBottom: '5px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                        <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{t.tag}</span>
+                                        <span style={{ fontSize: '12px', fontWeight: 600, color, minWidth: '28px', textAlign: 'right' }}>{t.weight}</span>
+                                      </div>
+                                      <div style={{ height: '4px', background: 'rgba(0,0,0,0.04)', borderRadius: '2px', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${t.weight}%`, background: color, borderRadius: '2px' }} />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )
+                            })}
                           </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </Card>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Profile — collapsible bar */}
+          <div>
+            <button
+              onClick={() => setShowProfile(!showProfile)}
+              className="card-hover"
+              style={{
+                width: '100%', background: '#ffffff', borderRadius: showProfile ? '18px 18px 0 0' : '18px', border: 'none',
+                padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '16px' }}>&#x1F464;</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Account Details</span>
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                background: showProfile ? '#E88FAC' : '#FFF0F3',
+                padding: '4px 12px', borderRadius: '9999px', transition: 'all 0.2s',
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: showProfile ? '#fff' : '#E88FAC' }}>{showProfile ? 'Hide' : 'View'}</span>
+                <span style={{ fontSize: '12px', color: showProfile ? '#fff' : '#E88FAC', transition: 'transform 0.2s', transform: showProfile ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#x25BE;</span>
+              </div>
+            </button>
+            {showProfile && (
+              <div style={{ background: '#ffffff', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '4px 20px 20px', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+                <Row label="Name" value={p.name} />
+                <Row label="Stage Name" value={p.aka} />
+                <Row label="Your Rate" value={fmtPct(1 - (p.commission || 0))} />
+                <Row label="Management Fee" value={fmtPct(p.commission)} />
+                <Row label="Started" value={fmtDate(p.managementStartDate)} />
+                <Row label="OnlyFans" value={p.onlyfansUrl?.replace('https://', '')} href={p.onlyfansUrl} />
+                {igHandle && <Row label="Instagram" value={igHandle} href={igHref} />}
+                {p.ofEmail && <Row label="OF Email" value={p.ofEmail} />}
+                {p.communicationEmail && p.communicationEmail !== p.ofEmail && <Row label="Email" value={p.communicationEmail} />}
+                {p.telegram && <Row label="Telegram" value={p.telegram} />}
+                {p.contractUrl && <Row label="Contract" value="View PDF" href={p.contractUrl} />}
               </div>
             )}
           </div>
-        )}
+        </div>
 
       </div>
 
@@ -631,9 +935,11 @@ export default function CreatorDashboard() {
           [style*="grid-column: span 7"] { grid-column: span 1 !important; }
           [style*="grid-template-columns: repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
         }
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
           [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: repeat(2"] { grid-template-columns: 1fr !important; }
+          [style*="gap: 32px"] { gap: 16px !important; }
+          .quick-actions-grid { grid-template-columns: repeat(3, 1fr) !important; }
         }
       `}</style>
     </div>
