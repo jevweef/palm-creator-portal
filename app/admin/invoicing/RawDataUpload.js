@@ -13,7 +13,7 @@ function fmtCutoff(iso) {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
-const CREATORS = ['Taby']
+const CREATORS = ['Laurel', 'Taby']
 
 export default function RawDataUpload() {
   const [creator, setCreator] = useState(CREATORS[0])
