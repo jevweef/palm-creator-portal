@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 function fmt(n) {
   if (!n && n !== 0) return '—'
@@ -13,19 +13,18 @@ function fmtCutoff(iso) {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
-// Known creators — can be extended
 const CREATORS = ['Taby']
 
 export default function RawDataUpload() {
   const [creator, setCreator] = useState(CREATORS[0])
-  const [dataType, setDataType] = useState('auto')
-  const [rawData, setRawData] = useState('')
+  const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [cutoffs, setCutoffs] = useState({})
   const [spreadsheetUrl, setSpreadsheetUrl] = useState(null)
-  const [loadingCutoffs, setLoadingCutoffs] = useState(true)
+  const [dragOver, setDragOver] = useState(false)
+  const fileRef = useRef(null)
 
   const loadCutoffs = useCallback(async () => {
     try {
@@ -36,28 +35,31 @@ export default function RawDataUpload() {
         setSpreadsheetUrl(data.spreadsheetUrl)
       }
     } catch {}
-    finally { setLoadingCutoffs(false) }
   }, [])
 
   useEffect(() => { loadCutoffs() }, [loadCutoffs])
 
   async function handleUpload() {
-    if (!rawData.trim()) return
+    if (!file) return
     setUploading(true)
     setError(null)
     setResult(null)
 
     try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('creator', creator)
+
       const res = await fetch('/api/admin/invoicing/upload-transactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawData, creator, dataType }),
+        body: formData,
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Upload failed')
       setResult(data)
-      setRawData('')
-      loadCutoffs() // refresh cutoffs
+      setFile(null)
+      if (fileRef.current) fileRef.current.value = ''
+      loadCutoffs()
     } catch (e) {
       setError(e.message)
     } finally {
@@ -65,7 +67,18 @@ export default function RawDataUpload() {
     }
   }
 
-  // Find cutoff for current creator
+  function handleDrop(e) {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files[0]
+    if (f && (f.name.endsWith('.html') || f.name.endsWith('.htm'))) {
+      setFile(f)
+      setError(null)
+    } else {
+      setError('Please drop an HTML file (.html)')
+    }
+  }
+
   const salesCutoff = cutoffs[`${creator} - Sales`]
   const cbCutoff = cutoffs[`${creator} - Chargebacks`]
 
@@ -78,7 +91,7 @@ export default function RawDataUpload() {
             Raw Data Upload
           </h2>
           <p style={{ fontSize: '13px', color: '#999', margin: '4px 0 0' }}>
-            Paste transaction data from OnlyFans
+            Upload saved OF statements page to extract transactions
           </p>
         </div>
         {spreadsheetUrl && (
@@ -92,34 +105,18 @@ export default function RawDataUpload() {
         )}
       </div>
 
-      {/* Creator + Data Type selectors */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
-            Creator
-          </label>
-          <select value={creator} onChange={e => setCreator(e.target.value)}
-            style={{
-              width: '100%', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
-              color: '#1a1a1a', fontSize: '14px', padding: '10px 12px', outline: 'none',
-            }}>
-            {CREATORS.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
-            Data Type
-          </label>
-          <select value={dataType} onChange={e => setDataType(e.target.value)}
-            style={{
-              width: '100%', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
-              color: '#1a1a1a', fontSize: '14px', padding: '10px 12px', outline: 'none',
-            }}>
-            <option value="auto">Auto-detect</option>
-            <option value="sales">Sales</option>
-            <option value="chargebacks">Chargebacks</option>
-          </select>
-        </div>
+      {/* Creator selector */}
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+          Creator
+        </label>
+        <select value={creator} onChange={e => setCreator(e.target.value)}
+          style={{
+            width: '100%', maxWidth: '300px', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
+            color: '#1a1a1a', fontSize: '14px', padding: '10px 12px', outline: 'none',
+          }}>
+          {CREATORS.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       {/* Cutoff notices */}
@@ -144,42 +141,73 @@ export default function RawDataUpload() {
         </div>
       )}
 
-      {/* Paste area */}
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
-          Paste OF Data
-        </label>
-        <textarea
-          value={rawData}
-          onChange={e => setRawData(e.target.value)}
-          placeholder="Copy transaction data from OnlyFans and paste here..."
-          rows={12}
-          style={{
-            width: '100%', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
-            color: '#1a1a1a', fontSize: '13px', padding: '14px', outline: 'none',
-            fontFamily: 'ui-monospace, monospace', resize: 'vertical', lineHeight: '1.5',
-            boxSizing: 'border-box',
-          }}
+      {/* How-to */}
+      <div style={{
+        background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px',
+        padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: '#64748B',
+      }}>
+        <strong style={{ color: '#475569' }}>How to upload:</strong>
+        <ol style={{ margin: '6px 0 0', paddingLeft: '18px', lineHeight: '1.7' }}>
+          <li>Go to the creator's OF Statements → Earnings page</li>
+          <li>Scroll down as far as you want to load transactions</li>
+          <li>File → Save As → "Webpage, Complete"</li>
+          <li>Upload the .html file below</li>
+        </ol>
+      </div>
+
+      {/* File upload / drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => fileRef.current?.click()}
+        style={{
+          border: `2px dashed ${dragOver ? '#E88FAC' : file ? '#22c55e' : '#e5e7eb'}`,
+          borderRadius: '12px', padding: '40px 20px', textAlign: 'center',
+          cursor: 'pointer', marginBottom: '16px', transition: 'all 0.15s',
+          background: dragOver ? '#FFF0F3' : file ? '#F0FDF4' : '#FAFAFA',
+        }}
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".html,.htm"
+          onChange={e => { if (e.target.files[0]) { setFile(e.target.files[0]); setError(null) }}}
+          style={{ display: 'none' }}
         />
-        {rawData && (
-          <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
-            {rawData.split('\n').filter(l => l.trim()).length} lines pasted
-          </div>
+        {file ? (
+          <>
+            <div style={{ fontSize: '28px', marginBottom: '8px' }}>✓</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#166534' }}>{file.name}</div>
+            <div style={{ fontSize: '12px', color: '#22c55e', marginTop: '4px' }}>
+              {(file.size / 1024 / 1024).toFixed(1)} MB — Ready to upload
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: '28px', marginBottom: '8px', opacity: 0.4 }}>📄</div>
+            <div style={{ fontSize: '14px', color: '#999' }}>
+              Drop HTML file here or <span style={{ color: '#E88FAC', fontWeight: 600 }}>click to browse</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#ccc', marginTop: '4px' }}>
+              Accepts .html files saved from OF Statements page
+            </div>
+          </>
         )}
       </div>
 
       {/* Upload button */}
-      <button onClick={handleUpload} disabled={uploading || !rawData.trim()}
+      <button onClick={handleUpload} disabled={uploading || !file}
         style={{
-          background: rawData.trim() ? '#E88FAC' : '#f3f4f6',
+          background: file ? '#E88FAC' : '#f3f4f6',
           border: 'none', borderRadius: '8px',
-          color: rawData.trim() ? '#fff' : '#999',
+          color: file ? '#fff' : '#999',
           fontSize: '14px', fontWeight: 600, padding: '12px 24px',
-          cursor: rawData.trim() && !uploading ? 'pointer' : 'not-allowed',
+          cursor: file && !uploading ? 'pointer' : 'not-allowed',
           opacity: uploading ? 0.6 : 1, width: '100%',
           transition: 'all 0.15s',
         }}>
-        {uploading ? 'Uploading...' : 'Upload Transactions'}
+        {uploading ? 'Uploading & parsing...' : 'Upload Transactions'}
       </button>
 
       {/* Error */}
@@ -202,12 +230,12 @@ export default function RawDataUpload() {
             {result.message}
           </div>
 
-          {/* Stats */}
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
             {[
               { label: 'Parsed', value: result.parsed },
               { label: 'Uploaded', value: result.uploaded },
               { label: 'Skipped', value: result.skipped },
+              { label: 'With Usernames', value: result.withUsernames },
               { label: 'Gross', value: fmt(result.totalGross) },
               { label: 'Net', value: fmt(result.totalNet) },
             ].map(s => (
@@ -218,7 +246,6 @@ export default function RawDataUpload() {
             ))}
           </div>
 
-          {/* Type breakdown */}
           {result.typeBreakdown && (
             <div style={{ marginBottom: '10px' }}>
               <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600, marginBottom: '4px' }}>By Type:</div>
@@ -230,7 +257,6 @@ export default function RawDataUpload() {
             </div>
           )}
 
-          {/* Top fans */}
           {result.topFans?.length > 0 && (
             <div>
               <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600, marginBottom: '4px' }}>Top Fans:</div>
@@ -242,10 +268,9 @@ export default function RawDataUpload() {
             </div>
           )}
 
-          {/* Cutoff update */}
           {result.cutoff && (
             <div style={{ marginTop: '10px', fontSize: '12px', color: '#15803D', fontStyle: 'italic' }}>
-              Next upload: only paste data after {fmtCutoff(result.cutoff)}
+              Next upload: only include data after {fmtCutoff(result.cutoff)}
             </div>
           )}
         </div>
