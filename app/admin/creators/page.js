@@ -306,6 +306,7 @@ const PERIOD_PRESETS = [
   { key: 'qtd', label: 'This Quarter' },
   { key: 'lastQuarter', label: 'Last Quarter' },
   { key: 'ytd', label: 'YTD' },
+  { key: 'last365', label: 'Last 365 Days' },
   { key: 'all', label: 'All Time' },
 ]
 
@@ -320,6 +321,8 @@ function getPeriodRange(key) {
     case 'qtd': { const q = Math.floor(now.getMonth() / 3) * 3; return [new Date(now.getFullYear(), q, 1), today] }
     case 'lastQuarter': { const q = Math.floor(now.getMonth() / 3) * 3; const s = new Date(now.getFullYear(), q - 3, 1); const e = new Date(now.getFullYear(), q, 0); return [s, e] }
     case 'ytd': return [new Date(now.getFullYear(), 0, 1), today]
+    case 'last365': { const d = new Date(today); d.setDate(d.getDate() - 365); return [d, today] }
+    case 'all': return [null, null]
     default: return [null, null]
   }
 }
@@ -1107,10 +1110,10 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
   // Compute top fans for current period
   const topFans = useMemo(() => {
-    if (!allTxns || allTxns.length === 0) return allTimeTopFans || []
+    if (!allTxns || !Array.isArray(allTxns) || allTxns.length === 0) return allTimeTopFans || []
     const fanMap = {}
     for (const t of allTxns) {
-      if (periodStart) {
+      if (periodStart && periodEnd) {
         const dt = new Date(t.date + ' 12:00:00')
         if (dt < periodStart || dt > new Date(periodEnd.getTime() + 86400000)) continue
       }
