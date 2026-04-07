@@ -480,8 +480,9 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
         </button>
       </div>
 
+      <div style={{ position: 'relative' }}>
       <svg ref={svgRef} viewBox={`0 0 ${CW} ${CH}`}
-        style={{ width: '100%', height: 'auto', overflow: 'visible', cursor: 'crosshair' }}
+        style={{ width: '100%', height: 'auto', overflow: 'visible', cursor: 'crosshair', display: 'block' }}
         onMouseMove={onMove} onMouseLeave={() => setHover(null)}
         onTouchMove={e => { const t = e.touches[0]; if (t) onMove({ clientX: t.clientX }) }}
         onTouchEnd={() => setHover(null)}>
@@ -531,24 +532,59 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
           )
         })}
 
-        {/* Hover */}
-        {hover && (() => {
-          const ttW = 150, ttH = 42
-          const ttX = Math.max(10, Math.min(hover.cx - ttW/2, CW - ttW - 10))
-          const ttY = hover.cyE > ttH + 30 ? hover.cyE - ttH - 12 : hover.cyE + 16
-          return (
-            <g>
-              <line x1={hover.cx} x2={hover.cx} y1={pad.t} y2={pad.t + ch} stroke="rgba(0,0,0,0.1)" strokeWidth={1} />
-              <circle cx={hover.cx} cy={hover.cyE} r={4} fill="#E88FAC" stroke="#fff" strokeWidth={2} />
-              <rect x={ttX} y={ttY} width={ttW} height={ttH} rx={6} fill="#fff" stroke="rgba(0,0,0,0.08)" strokeWidth={1} style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.06))' }} />
-              <text x={ttX + ttW/2} y={ttY + 16} textAnchor="middle" fill="#1a1a1a" fontSize={11} fontWeight={700} fontFamily="system-ui">{hover.date}</text>
-              <circle cx={ttX + 14} cy={ttY + 32} r={3.5} fill="#E88FAC" />
-              <text x={ttX + 24} y={ttY + 35} fill="#999" fontSize={10} fontFamily="system-ui">Earnings</text>
-              <text x={ttX + ttW - 12} y={ttY + 35} textAnchor="end" fill="#1a1a1a" fontSize={10} fontWeight={600} fontFamily="system-ui">{fmtM(hover.net)}</text>
-            </g>
-          )
-        })()}
+        {/* Hover guide line (stays in SVG) */}
+        {hover && (
+          <line x1={hover.cx} x2={hover.cx} y1={pad.t} y2={pad.t + ch} stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
+        )}
       </svg>
+
+      {/* Hover dot + tooltip — HTML overlay for smooth transitions */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        opacity: hover ? 1 : 0, transition: 'opacity 0.15s ease',
+      }}>
+        {hover && (() => {
+          // Convert SVG coords to percentages
+          const dotLeft = `${(hover.cx / CW) * 100}%`
+          const dotTop = `${(hover.cyE / CH) * 100}%`
+          const ttAbove = hover.cyE > CH * 0.35
+          const fmtDate = (d) => {
+            if (!d) return ''
+            const [y,m,day] = d.split('-')
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            return `${months[parseInt(m)-1]} ${parseInt(day)}, ${y}`
+          }
+          return (<>
+            {/* Dot */}
+            <div style={{
+              position: 'absolute', left: dotLeft, top: dotTop,
+              width: '10px', height: '10px', marginLeft: '-5px', marginTop: '-5px',
+              borderRadius: '50%', background: '#E88FAC', border: '2px solid #fff',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+              transform: 'scale(1)', transition: 'left 0.08s ease, top 0.08s ease',
+              animation: 'dotPulse 0.2s ease-out',
+            }} />
+            {/* Tooltip */}
+            <div style={{
+              position: 'absolute',
+              left: `clamp(10px, calc(${dotLeft} - 70px), calc(100% - 150px))`,
+              top: ttAbove ? `calc(${dotTop} - 56px)` : `calc(${dotTop} + 16px)`,
+              background: '#fff', borderRadius: '8px', padding: '8px 14px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)',
+              transition: 'left 0.08s ease, top 0.08s ease, opacity 0.12s ease',
+              whiteSpace: 'nowrap',
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#1a1a1a', marginBottom: '2px' }}>{fmtDate(hover.date)}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#E88FAC' }} />
+                <span style={{ fontSize: '11px', color: '#999' }}>Earnings</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', marginLeft: 'auto' }}>{fmtM(hover.net)}</span>
+              </div>
+            </div>
+          </>)
+        })()}
+      </div>
+      </div>
     </div>
   )
 }
