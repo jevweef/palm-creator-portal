@@ -364,7 +364,7 @@ function buildMonotonePath(pts) {
   return d
 }
 
-function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
+function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, milestones }) {
   const [hover, setHover] = useState(null)
   const [scaleMode, setScaleMode] = useState('fit') // 'fit' | 'relative'
   const svgRef = useRef(null)
@@ -457,6 +457,16 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
           <span style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmtM(totalNet)}</span>
           <span style={{ fontSize: '14px', color: '#999' }}>({fmtM(totalGross)} Gross)</span>
+          {pctChange !== null && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '3px',
+              background: pctChange >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+              color: pctChange >= 0 ? '#16a34a' : '#dc2626',
+              padding: '3px 10px', borderRadius: '14px', fontSize: '13px', fontWeight: 600, marginLeft: '8px',
+            }}>
+              {pctChange >= 0 ? '↗' : '↘'} {Math.abs(pctChange).toFixed(1)}%
+            </span>
+          )}
         </div>
         <button onClick={() => setScaleMode(scaleMode === 'fit' ? 'relative' : 'fit')}
           title={scaleMode === 'fit' ? 'Scale: Fit to visible data — click for relative' : 'Scale: Relative to all-time peak — click to fit'}
@@ -747,6 +757,22 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   }
   const periodTypeTotal = Object.values(periodByType).reduce((s, v) => s + v, 0)
 
+  // Compute previous period of same duration for % change
+  let prevPeriodNet = 0
+  if (periodStart && periodEnd) {
+    const durationMs = periodEnd.getTime() - periodStart.getTime()
+    const prevEnd = new Date(periodStart.getTime() - 1) // day before current period start
+    const prevStart = new Date(prevEnd.getTime() - durationMs)
+    for (const d of dailyData) {
+      const dt = new Date(d.date + ' 12:00:00')
+      if (dt >= prevStart && dt <= new Date(prevEnd.getTime() + 86400000)) {
+        if (typeFilter === 'all') prevPeriodNet += d.net
+        else prevPeriodNet += d.byType?.[typeFilter] || 0
+      }
+    }
+  }
+  const pctChange = prevPeriodNet > 0 ? ((periodNet - prevPeriodNet) / prevPeriodNet) * 100 : null
+
   // Unique types for filter buttons
   const allTypes = [...new Set(Object.keys(byType))]
 
@@ -817,7 +843,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
       {/* Revenue chart — immediately visible */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px' }}>
-        <RevenueChart dailyData={filteredDaily} allDailyData={dailyData} typeFilter={typeFilter} milestones={[
+        <RevenueChart dailyData={filteredDaily} allDailyData={dailyData} typeFilter={typeFilter} pctChange={pctChange} milestones={[
           ...(creator?.managementStartDate ? [{ date: creator.managementStartDate, label: 'Joined Palm' }] : []),
         ]} />
       </div>
