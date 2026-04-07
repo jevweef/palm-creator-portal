@@ -760,6 +760,11 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
       formData.append('monthlyAvg90', a.monthlyAvg90)
       formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
       formData.append('creatorName', creatorName || '')
+      // Pass monthly spending timeline for correlation
+      if (a.monthlyHistory) {
+        const timeline = a.monthlyHistory.map(m => `${m.month}: $${m.spend.toFixed(2)}`).join('\n')
+        formData.append('spendingTimeline', timeline)
+      }
       const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Analysis failed')

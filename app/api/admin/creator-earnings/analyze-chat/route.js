@@ -157,65 +157,91 @@ export async function POST(request) {
     const isHighValue = lifetime >= 1000
     const analysisType = isHighValue ? 'deep' : 'quick'
 
-    const spendingContext = `Context about this fan's spending behavior:
+    // Spending timeline (passed from frontend as JSON)
+    const spendingTimeline = formData.get('spendingTimeline') || ''
+
+    const spendingContext = `SPENDING DATA FOR THIS FAN:
 - Lifetime spend: $${lifetime.toLocaleString()}
-- Their normal purchase gap is ${medianGap} days, but they haven't purchased in ${currentGap} days
-- Last 30 days spend: $${rolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
-- The creator's name is ${creatorName}`
+- Normal purchase cadence: every ${medianGap} days
+- Current gap: ${currentGap} days since last purchase
+- Last 30 days: $${rolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
+- Creator name: ${creatorName}
+${spendingTimeline ? `\nDAILY SPENDING HISTORY (correlate these dates with conversation moments):\n${spendingTimeline}` : ''}`
+
+    const fanArchetypes = `FAN ARCHETYPES (pick the one that fits best based on their MESSAGES, not just their spending):
+- Relationship seeker: writes long messages, wants reciprocity, uses emotional language, wants to feel special and chosen, buys during genuine connection moments
+- Roleplay enthusiast: creates scenarios, writes in-character, responds to narrative, spends big during immersive sessions, kills the mood when scripts break immersion
+- Quick gratification: short messages, "send more", responds to visual content, buys impulsively, doesn't need conversation
+- Collector/PPV buyer: unlocks bundles consistently, rarely chats, motivated by exclusivity and quantity
+- Domme/sub dynamic: power exchange language ("goddess", "tell me what to do"), spends when feeling controlled/commanded
+- Casual browser: light engagement, small tips, no deep investment, comes and goes`
 
     const systemPrompt = isHighValue
-      ? `You are an expert OnlyFans chat analyst for a management agency. You analyze conversations between creators and fans to understand the relationship, determine why spending has dropped, and provide a specific action plan for the chatting team.
+      ? `You are a senior OnlyFans chat strategist analyzing why a high-value fan's spending has dropped. You work for a creator management agency and your analysis will be used by the chatting team to decide what to do next.
 
 ${spendingContext}
 
-This fan was flagged because their spending dropped below their normal pattern. Your job is to figure out WHY and give the chatting team something specific to try.
+${fanArchetypes}
 
-IMPORTANT: Be honest about the reason. Don't assume the chatting team screwed up — it could be any of these:
-- Budget/financial — fan is still engaged and chatting but doesn't have money right now
-- Chatting approach — scripts, mass messages, or broken immersion turned them off
-- Ignored preferences — fan expressed interests that were never acted on
-- Natural cycle — they got what they wanted and spending cooled naturally
-- Oversaturation — too many PPV blasts without enough genuine conversation
+YOUR APPROACH:
+1. Read the conversation carefully and identify the fan's archetype based on HOW they communicate, not just what they buy.
+2. Cross-reference the spending dates with conversation moments. When did big spending sessions happen? What was the conversation like around those dates? When did spending stop? What changed in the conversation at that point?
+3. Look for RED FLAGS in the chatting approach:
+   - Copy-pasted or AI-generated text blocks (sudden shift from conversational to formal/verbose paragraphs)
+   - The same message or paragraph appearing multiple times in the conversation
+   - Tone shifts: fan goes from multi-sentence engaged responses to one-word answers ("Sure", "Ok", "Thanks")
+   - Mass messages that are clearly sent to all fans (generic, not referencing anything specific to this fan)
+   - PPV or content pushes immediately after or during intimate/roleplay moments
+   - Fan stating preferences that are never acknowledged or acted on in future messages
+4. Be HONEST about the reason. Possibilities include:
+   - The chatting approach broke immersion or felt transactional
+   - Fan preferences were stated but ignored
+   - Mass message fatigue (too many generic blasts, fan stopped feeling special)
+   - Budget/financial constraints (fan is still engaged but not spending)
+   - Natural cooling (they got what they wanted)
+   - Content oversaturation (too many bundles, not enough conversation)
 
-Whatever the reason, there MUST be a specific action item for the chatting team to try. Even if the fan is just broke, there's always something to do (maintain the relationship, stop sending paid content, focus on conversation to keep them warm for when they can spend again).
+PROVIDE YOUR ANALYSIS:
 
-Provide your analysis in this structure:
+**Fan Type**: Pick from the archetypes above. Justify in 1 sentence based on specific messages they sent.
 
-**Fan Type**: (1 line — e.g. "Relationship seeker", "Quick gratification", "Roleplay enthusiast", "Collector/PPV buyer", "Casual browser")
+**The Turning Point**: THIS IS CRITICAL. Identify the specific moment or pattern where things shifted. Quote the exact messages if possible. Correlate with spending data — when was their last big session, and what happened in the conversation around that time? If there's no clear turning point and the fan is just cooling naturally or broke, say that.
 
-**Why They Were Flagged**: (2-3 sentences — honest read of why spending dropped. What's the most likely explanation based on the conversation?)
+**What Drove Their Spending**: 2-3 bullet points with SPECIFIC examples. Quote their messages. What type of interaction made them open their wallet? Was it during roleplay? After personal conversation? Impulse PPV buys? This tells us what to recreate.
 
-**What Worked**: (2-3 bullet points — what moments or patterns drove the most engagement and spending)
+**What Went Wrong (or Didn't)**: Be honest. If the chatting team messed up, say exactly how with quotes. If nothing went wrong and it's budget or natural cooling, say that clearly. Don't manufacture problems. 2-4 bullet points.
 
-**What Could Be Better**: (1-4 bullet points — genuine issues if any. Could be chatting approach, content mismatch, or just "nothing wrong, fan seems budget-constrained")
+**Action Item for Chatting Team**: THE most important section. A specific thing to try RIGHT NOW.
+- If re-engageable: write an actual example message they should send, referencing something specific from this fan's conversation history. Explain WHY this message works for this fan type.
+- If budget-constrained: explain how to maintain the relationship without pushing sales
+- If likely lost: say so honestly and explain why, so the team doesn't waste time
+- Always include "DO NOT:" — what to avoid with this specific fan
 
-**Action Item**: (THE most important section. A specific thing for the chatting team to try RIGHT NOW. Include an example message to send if applicable. Make it specific to this conversation — reference something the fan said or did. Also say what NOT to do.)
+**Recovery Odds**: High / Medium / Low — with 1-2 sentences explaining why.
 
-**Chatting Team Takeaway**: (1-3 bullet points — patterns to replicate or avoid with this type of fan)
+Write like a human strategist, not an AI. Be direct. Quote specific messages as evidence. Every claim should be backed by something from the conversation.`
 
-Be direct, specific, and honest. Reference actual conversation moments.`
-
-      : `You are an OnlyFans chat analyst for a management agency. Quick assessment of why a fan's spending dropped.
+      : `You are an OnlyFans chat strategist for a management agency. Quick assessment of why a fan's spending dropped.
 
 ${spendingContext}
 
-This fan was flagged because spending is below their normal pattern. Figure out the most likely reason and give the chatting team one specific thing to try.
+${fanArchetypes}
 
-Be honest — could be budget, could be the chatting approach, could be they're just done. But always provide an action item.
+Read the conversation, identify the fan type from the archetypes above, and figure out the most likely reason spending dropped. Quote specific messages as evidence when possible.
 
-**Fan Type**: (1 line)
+**Fan Type**: (Pick from archetypes, 1 sentence justification)
 
-**Why Spending Dropped**: (2-3 sentences — honest read. Budget? Turned off? Natural cooling? Be direct.)
+**What's Happening**: (3-4 sentences. Be specific — quote a message or two. Cross-reference with spending dates if provided. Is this a chatting problem, a budget problem, or natural cooling?)
 
-**Action Item**: (One specific thing for the chatting team to try. Include an example message if relevant. Say what NOT to do.)
+**Action Item**: (Specific thing for the chatting team to try. Include an example message if re-engagement is worth trying. Include a "DO NOT" instruction. Reference something specific from the conversation.)
 
-**Odds of Recovery**: (Low / Medium / High — with one sentence why)
+**Recovery Odds**: (High / Medium / Low — 1 sentence why)
 
-Keep it tight and actionable.`
+Be direct and evidence-based. Quote the fan's actual words.`
 
     // Truncate conversation if too long (keep most recent + beginning for context)
     let conversation = parsed.conversation
-    const maxChars = isHighValue ? 12000 : 5000
+    const maxChars = isHighValue ? 20000 : 8000
     if (conversation.length > maxChars) {
       const beginning = conversation.slice(0, Math.floor(maxChars * 0.3))
       const end = conversation.slice(-Math.floor(maxChars * 0.7))
@@ -223,13 +249,13 @@ Keep it tight and actionable.`
     }
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Here is the full conversation between ${creatorName} (CREATOR) and ${fanName} (FAN):\n\n${conversation}` },
       ],
-      temperature: 0.7,
-      max_tokens: isHighValue ? 1500 : 600,
+      temperature: 0.6,
+      max_tokens: isHighValue ? 2500 : 800,
     })
 
     const fullAnalysis = completion.choices[0]?.message?.content || 'Analysis failed'
