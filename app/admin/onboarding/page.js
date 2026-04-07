@@ -16,6 +16,8 @@ export default function AdminOnboarding() {
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
   const [formCommission, setFormCommission] = useState('')
+  const [formTierPct, setFormTierPct] = useState('')
+  const [formTierThreshold, setFormTierThreshold] = useState('')
   const [formState, setFormState] = useState('')
   const [editCreator, setEditCreator] = useState(null) // for inline "Start Onboarding" modal
   const [submitting, setSubmitting] = useState(false)
@@ -86,7 +88,7 @@ export default function AdminOnboarding() {
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formName, email: formEmail, commission: formCommission, creatorState: formState, agencySignature }),
+        body: JSON.stringify({ name: formName, email: formEmail, commission: formCommission, tierPct: formTierPct, tierThreshold: formTierThreshold, creatorState: formState, agencySignature }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -97,6 +99,8 @@ export default function AdminOnboarding() {
         setFormName('')
         setFormEmail('')
         setFormCommission('')
+        setFormTierPct('')
+        setFormTierThreshold('')
         setFormState('')
         setHasSigDrawn(false)
         fetchCreators()
@@ -132,6 +136,8 @@ export default function AdminOnboarding() {
     setFormName(creator.name || '')
     setFormEmail(creator.email || '')
     setFormCommission('')
+    setFormTierPct('')
+    setFormTierThreshold('')
     setFormState('')
   }
 
@@ -149,6 +155,8 @@ export default function AdminOnboarding() {
           name: formName || editCreator.name,
           email: formEmail || editCreator.email,
           commission: formCommission,
+          tierPct: formTierPct,
+          tierThreshold: formTierThreshold,
           creatorState: formState,
           agencySignature,
         }),
@@ -464,7 +472,7 @@ export default function AdminOnboarding() {
                     max="100"
                     value={formCommission}
                     onChange={e => setFormCommission(e.target.value)}
-                    placeholder="e.g. 45"
+                    placeholder="e.g. 27"
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -484,6 +492,49 @@ export default function AdminOnboarding() {
                     value={formState}
                     onChange={e => setFormState(e.target.value)}
                     placeholder="e.g. Idaho"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    Increases to % <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formTierPct}
+                    onChange={e => setFormTierPct(e.target.value)}
+                    placeholder="e.g. 30"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    After $/month <span style={{ color: '#999', fontWeight: 400 }}>(threshold)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formTierThreshold}
+                    onChange={e => setFormTierThreshold(e.target.value)}
+                    placeholder="e.g. 12000"
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -616,7 +667,7 @@ export default function AdminOnboarding() {
                     max="100"
                     value={formCommission}
                     onChange={e => setFormCommission(e.target.value)}
-                    placeholder="e.g. 45"
+                    placeholder="e.g. 27"
                     style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
                   />
                 </div>
@@ -629,6 +680,35 @@ export default function AdminOnboarding() {
                     value={formState}
                     onChange={e => setFormState(e.target.value)}
                     placeholder="e.g. Idaho"
+                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    Increases to % <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formTierPct}
+                    onChange={e => setFormTierPct(e.target.value)}
+                    placeholder="e.g. 30"
+                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                    After $/month <span style={{ color: '#999', fontWeight: 400 }}>(threshold)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formTierThreshold}
+                    onChange={e => setFormTierThreshold(e.target.value)}
+                    placeholder="e.g. 12000"
                     style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
                   />
                 </div>

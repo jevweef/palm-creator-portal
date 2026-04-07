@@ -31,9 +31,13 @@ export async function POST(request) {
     const creatorName = c['Creator'] || 'creator'
 
     // Generate signed PDF with both signatures
+    let commissionTier = null
+    try { commissionTier = c['Commission Tier'] ? JSON.parse(c['Commission Tier']) : null } catch {}
+
     const contractData = {
       creatorName,
       commissionPct: c['Commission %'] || 0,
+      commissionTier,
       creatorState: c['Creator State'] || '',
       effectiveDate: c['Onboarding Token Created At'] || new Date().toISOString(),
       signatureDataUrl: signatureDataUrl || null,
