@@ -364,8 +364,9 @@ function buildMonotonePath(pts) {
   return d
 }
 
-function RevenueChart({ dailyData, typeFilter, milestones }) {
+function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
   const [hover, setHover] = useState(null)
+  const [scaleMode, setScaleMode] = useState('fit') // 'fit' | 'relative'
   const svgRef = useRef(null)
 
   const chartData = useMemo(() => {
@@ -382,9 +383,39 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
   const totalNet = chartData.reduce((s, d) => s + d.net, 0)
   const totalGross = chartData.reduce((s, d) => s + d.gross, 0)
 
-  // Dual axes
-  const maxEarnings = Math.max(...chartData.map(d => d.net), 1) * 1.12
+  // Compute all-time max for relative mode
+  const allTimeMax = useMemo(() => {
+    const source = allDailyData || dailyData
+    let max = 0
+    for (const d of source) {
+      const val = typeFilter !== 'all' ? (d.byType?.[typeFilter] || 0) : d.net
+      if (val > max) max = val
+    }
+    return max
+  }, [allDailyData, dailyData, typeFilter])
+
+  // Pick max based on scale mode
+  const visibleMax = Math.max(...chartData.map(d => d.net), 1)
+  const rawMax = scaleMode === 'relative' ? Math.max(allTimeMax, 1) : visibleMax
+
+  // Round up to nice number for consistent grid
+  function niceMax(v) {
+    const mag = Math.pow(10, Math.floor(Math.log10(v)))
+    const norm = v / mag
+    if (norm <= 1.5) return 1.5 * mag
+    if (norm <= 2) return 2 * mag
+    if (norm <= 3) return 3 * mag
+    if (norm <= 5) return 5 * mag
+    if (norm <= 7.5) return 7.5 * mag
+    return 10 * mag
+  }
+  const maxEarnings = niceMax(rawMax * 1.05)
   const maxTxns = Math.max(...chartData.map(d => d.txnCount), 1) * 1.3
+
+  // Fixed 4 grid lines
+  const GRID_COUNT = 4
+  const eSteps = []
+  for (let i = 1; i <= GRID_COUNT; i++) eSteps.push(Math.round(maxEarnings * (i / GRID_COUNT)))
 
   const CW = CHART_W, CH = CHART_H
   const pad = { t: 10, r: 50, b: 45, l: 10 }
@@ -403,15 +434,9 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
   const txnPoints = chartData.map((d, i) => [px(i), pyT(d.txnCount)])
   const txnPath = buildMonotonePath(txnPoints)
 
-  // Y-axis steps (earnings — right side like OF)
-  const eStep = maxEarnings > 5000 ? 1000 : maxEarnings > 2000 ? 500 : maxEarnings > 500 ? 250 : 50
-  const eSteps = []
-  for (let v = eStep; v <= maxEarnings; v += eStep) eSteps.push(v)
-
-  // Y-axis steps (txns — far right)
-  const tStep = maxTxns > 200 ? 50 : maxTxns > 100 ? 25 : maxTxns > 50 ? 10 : 5
+  // Txn count grid (4 lines to match)
   const tSteps = []
-  for (let v = tStep; v <= maxTxns; v += tStep) tSteps.push(v)
+  for (let i = 1; i <= GRID_COUNT; i++) tSteps.push(Math.round(maxTxns * (i / GRID_COUNT)))
 
   // X-axis labels (4-5 evenly spaced, formatted like "Mar 10,\n2026")
   const xCount = Math.min(5, chartData.length)
@@ -438,9 +463,21 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
   return (
     <div>
       {/* Chart header — OF style */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-        <span style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmtM(totalNet)}</span>
-        <span style={{ fontSize: '14px', color: '#999' }}>({fmtM(totalGross)} Gross)</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+          <span style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmtM(totalNet)}</span>
+          <span style={{ fontSize: '14px', color: '#999' }}>({fmtM(totalGross)} Gross)</span>
+        </div>
+        <button onClick={() => setScaleMode(scaleMode === 'fit' ? 'relative' : 'fit')}
+          title={scaleMode === 'fit' ? 'Scale: Fit to visible data — click for relative' : 'Scale: Relative to all-time peak — click to fit'}
+          style={{
+            background: scaleMode === 'relative' ? '#FFF0F3' : '#f9f9f9',
+            border: scaleMode === 'relative' ? '1px solid #E88FAC' : '1px solid #e5e7eb',
+            borderRadius: '5px', padding: '3px 8px', fontSize: '10px', color: scaleMode === 'relative' ? '#E88FAC' : '#999',
+            cursor: 'pointer', fontWeight: 500,
+          }}>
+          {scaleMode === 'fit' ? 'Fit' : 'Relative'}
+        </button>
       </div>
 
       <svg ref={svgRef} viewBox={`0 0 ${CW} ${CH}`}
@@ -797,7 +834,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
       {/* Revenue chart — immediately visible */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px' }}>
-        <RevenueChart dailyData={filteredDaily} typeFilter={typeFilter} milestones={[
+        <RevenueChart dailyData={filteredDaily} allDailyData={dailyData} typeFilter={typeFilter} milestones={[
           ...(creator?.managementStartDate ? [{ date: creator.managementStartDate, label: 'Joined Palm' }] : []),
         ]} />
       </div>
