@@ -626,42 +626,10 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 
   return (
     <div>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', gap: '12px' }}>
-        <div>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</div>
-          {creator.aka && <div style={{ fontSize: '13px', color: '#999', marginTop: '2px' }}>aka {creator.aka}</div>}
-          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <StatusPill status={status} />
-            {c.profileLastAnalyzed && (
-              <span style={{ fontSize: '11px', color: '#555' }}>Last analyzed {c.profileLastAnalyzed}</span>
-            )}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-          <button onClick={() => setShowUpload(true)}
-            style={{ background: '#FFF0F3', color: '#1a1a1a', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
-            + Upload
-          </button>
-          {(status === 'Analyzed' || status === 'Reanalyze' || status === 'Analyzing') && (
-            <button onClick={resetAnalysis} disabled={resetting}
-              style={{
-                background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC',
-                borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500,
-                cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.5 : 1,
-              }}>
-              {resetting ? 'Resetting...' : 'Reset'}
-            </button>
-          )}
-          <button onClick={runAnalysis} disabled={analyzing}
-            style={{
-              background: analyzing ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
-              borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
-              cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.7 : 1,
-            }}>
-            {analyzing ? 'Analyzing...' : (status === 'Analyzed' || status === 'Reanalyze' ? 'Reanalyze' : 'Run Analysis')}
-          </button>
-        </div>
+      {/* Header — name only, DNA buttons moved inside DNA section */}
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</div>
+        {creator.aka && <div style={{ fontSize: '13px', color: '#999', marginTop: '2px' }}>aka {creator.aka}</div>}
       </div>
 
       {/* Section toggle: DNA vs Earnings */}
@@ -691,6 +659,40 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 
       {/* ── DNA section ──────────────────────────────────────────────────── */}
       {activeSection === 'dna' && (<>
+      {/* DNA header: status + action buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <StatusPill status={status} />
+          {c.profileLastAnalyzed && (
+            <span style={{ fontSize: '11px', color: '#555' }}>Last analyzed {c.profileLastAnalyzed}</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => setShowUpload(true)}
+            style={{ background: '#FFF0F3', color: '#1a1a1a', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+            + Upload
+          </button>
+          {(status === 'Analyzed' || status === 'Reanalyze' || status === 'Analyzing') && (
+            <button onClick={resetAnalysis} disabled={resetting}
+              style={{
+                background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC',
+                borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500,
+                cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.5 : 1,
+              }}>
+              {resetting ? 'Resetting...' : 'Reset'}
+            </button>
+          )}
+          <button onClick={runAnalysis} disabled={analyzing}
+            style={{
+              background: analyzing ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
+              borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
+              cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.7 : 1,
+            }}>
+            {analyzing ? 'Analyzing...' : (status === 'Analyzed' || status === 'Reanalyze' ? 'Reanalyze' : 'Run Analysis')}
+          </button>
+        </div>
+      </div>
+
       {analyzeResult && (
         <div style={{ background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#22c55e' }}>
           Analysis complete. {analyzeResult.documentsAnalyzed} document(s) analyzed.
