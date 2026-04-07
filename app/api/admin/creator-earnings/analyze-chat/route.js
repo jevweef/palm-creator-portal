@@ -300,7 +300,7 @@ SPECIFIC PATTERNS TO DETECT (check for ALL of these):
 - **Tone shifts**: Fan goes from multi-sentence engaged responses to one-word answers ("Sure", "Ok", "Thanks"). This is the moment immersion broke.
 - **PPV timing**: Sales asks during or immediately after intimate/roleplay moments.
 - **Mass messages**: Generic messages clearly sent to all fans ("CONGRATS!!! I chose you...", "$5 bundle because...", "75% off my NEWEST...").
-- **Unanswered streak**: Count consecutive creator messages with no fan response. If there are 10+ unanswered messages in a row, note the exact count.
+- **Unanswered streak**: Count consecutive creator messages with no fan response. This is CRITICAL — count the TOTAL number of creator messages sent after the fan's last response. If there are 10+ unanswered messages, state the exact count prominently (e.g. "The creator sent 150+ messages with zero replies over 2 months"). This number alone tells you how badly the re-engagement was handled.
 - **Stated preferences ignored**: Fan explicitly says "I like X" and X is never referenced again. Track what they said and whether it was acted on.
 - **Budget signals**: Fan explicitly mentioning money, negotiating prices, saying they can't afford something, bank issues, waiting for payday.
 
@@ -318,13 +318,30 @@ STRUCTURE YOUR ANALYSIS EXACTLY LIKE THE EXAMPLE ABOVE:
 
 **What Went Wrong**: Numbered list, each point backed by evidence from the conversation. If nothing went wrong, explain the real reason (budget, natural cooling, etc.) with evidence.
 
-**Personal Details to Leverage**: THIS SECTION IS CRITICAL for relationship-type fans. Scan the entire conversation and extract every personal detail the fan shared about themselves — their real name, location, age, hobbies, job, pets, relationship status, fantasies, preferences, things they said they like, questions they asked that showed what they care about. Then for each detail, write a specific example of how to casually bring it up in conversation to make the fan feel known and remembered. Format:
-- "[Detail they shared]" → Example: "[How to bring it up naturally]"
-For example:
-- "He mentioned he plays drums and likes art museums" → "I saw this crazy drum solo video and thought of you 😏 do you still play?"
-- "He said he lives in Copenhagen and has a cat" → "How's Copenhagen treating you? And how's your cat doing? 😘"
-- "He initiated the step-brother fantasy" → "I keep thinking about that scenario we played out... I have an idea for how it ends differently this time 😈"
-The goal is to give the chatting team 3-5 ready-to-use conversation starters that prove the creator remembers and cares about this specific person. These should feel natural, not like a checklist. Mix personal life details with intimate ones.
+**Personal Details to Leverage**: THIS SECTION IS CRITICAL. Scan the entire conversation and extract two categories of details:
+
+LIFE DETAILS (these prove "I actually know you as a person"):
+- Real name (vs username), age, location, timezone, job/work schedule
+- Pets, hobbies, interests, music taste, sports, foods mentioned
+- Relationship status, living situation, daily routines they described
+- Specific situations they mentioned (couldn't sleep, going to a concert, election day, hungover, at a friend's house)
+- Questions THEY asked that reveal what they care about (asked about her art school, asked if she's single, asked about her favorite painting style)
+
+INTIMATE DETAILS (these prove "I remember what turns you on"):
+- Specific fantasies or scenarios THEY initiated (not ones the creator pitched)
+- Kinks or dynamics they expressed (domme/sub, roleplay themes, body preferences)
+- Things they said they like during sessions (audio/moaning, specific acts, pace preferences)
+- Pet names they used or responded to
+- How they like to end sessions (aftercare, shower, casual conversation)
+
+For EACH detail, write a specific example message showing how to bring it up naturally:
+- "He said he couldn't sleep (Jan 14)" → "Hey... can't sleep again? Last time that happened things got pretty interesting between us 😏"
+- "He lives in Copenhagen and has a cat" → "How's Copenhagen? Hope your cat isn't judging you for being on here 😘"
+- "He initiated the step-brother fantasy" → "I keep thinking about that scenario you came up with... I have a different ending in mind this time 😈"
+- "He said 'Yes goddess tell me what to do'" → "I've been thinking about taking control again... are you ready to listen? 😈"
+- "He told her he loves hearing her moan" → "I recorded something with just my voice for you... no screen, just sound 🎧"
+
+Provide at least 5 details (mix of life + intimate). The chatting team should be able to pick any of these and use them as openers. They should feel natural, not like a script.
 
 **Action Item**: Specific re-engagement approach. Write 2-3 example messages the chatting team could send (not just one). Each should reference a different personal detail from the section above. Rank them by which one is most likely to get a response from this fan type. Include DO NOT instructions.
 
