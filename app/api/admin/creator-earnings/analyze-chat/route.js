@@ -318,7 +318,15 @@ STRUCTURE YOUR ANALYSIS EXACTLY LIKE THE EXAMPLE ABOVE:
 
 **What Went Wrong**: Numbered list, each point backed by evidence from the conversation. If nothing went wrong, explain the real reason (budget, natural cooling, etc.) with evidence.
 
-**Action Item**: Specific re-engagement approach. Write an actual example message. Explain why it works for this fan type. Include DO NOT instructions.
+**Personal Details to Leverage**: THIS SECTION IS CRITICAL for relationship-type fans. Scan the entire conversation and extract every personal detail the fan shared about themselves — their real name, location, age, hobbies, job, pets, relationship status, fantasies, preferences, things they said they like, questions they asked that showed what they care about. Then for each detail, write a specific example of how to casually bring it up in conversation to make the fan feel known and remembered. Format:
+- "[Detail they shared]" → Example: "[How to bring it up naturally]"
+For example:
+- "He mentioned he plays drums and likes art museums" → "I saw this crazy drum solo video and thought of you 😏 do you still play?"
+- "He said he lives in Copenhagen and has a cat" → "How's Copenhagen treating you? And how's your cat doing? 😘"
+- "He initiated the step-brother fantasy" → "I keep thinking about that scenario we played out... I have an idea for how it ends differently this time 😈"
+The goal is to give the chatting team 3-5 ready-to-use conversation starters that prove the creator remembers and cares about this specific person. These should feel natural, not like a checklist. Mix personal life details with intimate ones.
+
+**Action Item**: Specific re-engagement approach. Write 2-3 example messages the chatting team could send (not just one). Each should reference a different personal detail from the section above. Rank them by which one is most likely to get a response from this fan type. Include DO NOT instructions.
 
 **Recovery Odds**: High / Medium / Low with honest reasoning.
 
@@ -337,7 +345,9 @@ Read the conversation and identify:
 
 **What's Happening**: (3-5 sentences. Cross-reference spending dates with conversation. Quote specific messages. Be direct about whether this is a chatting problem, budget issue, or natural cooling.)
 
-**Action Item**: (Specific re-engagement approach. Example message if applicable. "DO NOT" instruction.)
+**Personal Details**: List 2-3 personal things the fan shared (name, location, hobbies, preferences, fantasies) with a quick example of how to reference each one in a message.
+
+**Action Item**: (Specific re-engagement approach. 1-2 example messages that reference personal details from above. "DO NOT" instruction.)
 
 **Recovery Odds**: (High / Medium / Low — 1 sentence why)
 
