@@ -452,6 +452,157 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
   )
 }
 
+// ── Whale Row (expandable) ──────────────────────────────────────────────────
+
+function WhaleRow({ whale: w, index: i, fmtMoney }) {
+  const [expanded, setExpanded] = useState(false)
+  const timeline = w.timeline || []
+
+  // Mini chart dimensions
+  const MW = 700, MH = 120
+  const MP = { t: 15, r: 10, b: 20, l: 10 }
+  const mW = MW - MP.l - MP.r, mH = MH - MP.t - MP.b
+
+  const maxSpend = Math.max(...timeline.map(t => t.spend), 1)
+  const mpx = (idx) => MP.l + (idx / Math.max(timeline.length - 1, 1)) * mW
+  const mpy = (v) => MP.t + mH - (v / maxSpend) * mH
+
+  // Build smooth path for mini chart
+  const miniPoints = timeline.map((t, idx) => [mpx(idx), mpy(t.spend)])
+  let miniPath = ''
+  if (miniPoints.length >= 2) {
+    const pts = miniPoints
+    const n = pts.length
+    const slopes = []
+    for (let j = 0; j < n; j++) {
+      if (j === 0) slopes.push((pts[1][1] - pts[0][1]) / (pts[1][0] - pts[0][0] || 1))
+      else if (j === n - 1) slopes.push((pts[n-1][1] - pts[n-2][1]) / (pts[n-1][0] - pts[n-2][0] || 1))
+      else {
+        const d0 = (pts[j][1] - pts[j-1][1]) / (pts[j][0] - pts[j-1][0] || 1)
+        const d1 = (pts[j+1][1] - pts[j][1]) / (pts[j+1][0] - pts[j][0] || 1)
+        slopes.push(d0 * d1 <= 0 ? 0 : (d0 + d1) / 2)
+      }
+    }
+    miniPath = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+    for (let j = 0; j < n - 1; j++) {
+      const dx = (pts[j+1][0] - pts[j][0]) / 3
+      miniPath += `C${(pts[j][0]+dx).toFixed(1)},${(pts[j][1]+slopes[j]*dx).toFixed(1)},${(pts[j+1][0]-dx).toFixed(1)},${(pts[j+1][1]-slopes[j+1]*dx).toFixed(1)},${pts[j+1][0].toFixed(1)},${pts[j+1][1].toFixed(1)}`
+    }
+  }
+  const miniArea = miniPath ? miniPath + `L${(MP.l + mW).toFixed(1)},${MP.t + mH}L${MP.l},${MP.t + mH}Z` : ''
+
+  // Find inspect zone indices
+  const inspectStartIdx = w.inspectFrom ? timeline.findIndex(t => t.week >= w.inspectFrom) : -1
+  const inspectEndIdx = timeline.length - 1
+
+  return (
+    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+      {/* Summary row */}
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          display: 'grid', gridTemplateColumns: '24px 1fr 140px 100px 100px 100px 90px 70px', padding: '8px 16px',
+          fontSize: '12px', cursor: 'pointer',
+          background: expanded ? '#FFF8F8' : i % 2 === 0 ? '#fff' : '#FAFAFA',
+          transition: 'background 0.1s',
+        }}
+        onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = '#FAFAFA' }}
+        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#FAFAFA' }}
+      >
+        <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{expanded ? '▼' : '▶'}</span>
+        <div>
+          <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{w.fan}</span>
+          {w.username && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{w.username}</span>}
+        </div>
+        <span style={{ color: '#666', fontSize: '11px' }}>{w.peakStart} → {w.peakEnd}</span>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(w.peak30)}</span>
+        <span style={{ textAlign: 'right', color: w.last30 === 0 ? '#DC2626' : '#f59e0b', fontWeight: 600 }}>{fmtMoney(w.last30)}</span>
+        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(w.lifetime)}</span>
+        <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{w.lastTxnDate}</span>
+        <span style={{ textAlign: 'center' }}>
+          <span style={{
+            background: w.status === 'gone' ? '#FEE2E2' : '#FEF3C7',
+            color: w.status === 'gone' ? '#DC2626' : '#D97706',
+            padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+          }}>{w.status === 'gone' ? 'GONE' : 'DROP'}</span>
+        </span>
+      </div>
+
+      {/* Expanded: spending graph + inspect zone */}
+      {expanded && timeline.length > 0 && (
+        <div style={{ padding: '12px 16px 16px 40px', background: '#FEFBFB' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', color: '#999' }}>Weekly spending — <span style={{ color: '#E88FAC', fontWeight: 600 }}>peak period</span> and <span style={{ color: '#DC2626', fontWeight: 600 }}>investigation zone</span></div>
+            {w.inspectFrom && (
+              <div style={{ fontSize: '11px', color: '#DC2626', fontWeight: 500 }}>
+                Investigate DMs from {w.inspectFrom} onward
+              </div>
+            )}
+          </div>
+          <svg viewBox={`0 0 ${MW} ${MH}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+            <defs>
+              <linearGradient id={`whaleGrad${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(232,143,172,0.2)" />
+                <stop offset="100%" stopColor="rgba(232,143,172,0.02)" />
+              </linearGradient>
+            </defs>
+
+            {/* Investigation zone (gray overlay) */}
+            {inspectStartIdx >= 0 && (
+              <rect
+                x={mpx(inspectStartIdx)} y={MP.t}
+                width={mpx(inspectEndIdx) - mpx(inspectStartIdx)}
+                height={mH}
+                fill="rgba(220,38,38,0.06)" stroke="rgba(220,38,38,0.15)" strokeWidth={1} strokeDasharray="4,3"
+                rx={4}
+              />
+            )}
+
+            {/* Peak period highlight */}
+            {w.peakStart && (() => {
+              const peakStartIdx = timeline.findIndex(t => t.week >= w.peakStart)
+              const peakEndIdx = w.peakEnd ? timeline.findIndex(t => t.week >= w.peakEnd) : peakStartIdx + 4
+              if (peakStartIdx >= 0) {
+                return (
+                  <rect
+                    x={mpx(peakStartIdx)} y={MP.t}
+                    width={mpx(Math.min(peakEndIdx, timeline.length - 1)) - mpx(peakStartIdx)}
+                    height={mH}
+                    fill="rgba(232,143,172,0.08)" stroke="rgba(232,143,172,0.2)" strokeWidth={1}
+                    rx={4}
+                  />
+                )
+              }
+              return null
+            })()}
+
+            {/* Area */}
+            {miniArea && <path d={miniArea} fill={`url(#whaleGrad${i})`} />}
+            {/* Line */}
+            {miniPath && <path d={miniPath} fill="none" stroke="#E88FAC" strokeWidth={1.5} />}
+
+            {/* Data points */}
+            {timeline.map((t, idx) => (
+              <circle key={idx} cx={mpx(idx)} cy={mpy(t.spend)} r={2}
+                fill={t.spend === 0 ? '#DC2626' : '#E88FAC'} />
+            ))}
+
+            {/* X labels (every 4th week) */}
+            {timeline.filter((_, idx) => idx % Math.max(Math.floor(timeline.length / 6), 1) === 0).map((t, idx) => {
+              const realIdx = timeline.indexOf(t)
+              return (
+                <text key={idx} x={mpx(realIdx)} y={MH - 3} textAnchor="middle" fill="#999" fontSize={9}>
+                  {t.week}
+                </text>
+              )
+            })}
+          </svg>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Panel ──────────────────────────────────────────────────────────────
 
 function EarningsPanel({ data, loading, error, onRefresh, creator }) {
@@ -566,34 +717,14 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         </button>
       )}
 
-      {/* Whale details */}
+      {/* Whale details — expandable */}
       {showWhales && whaleAlerts && (
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', marginBottom: '20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px 100px 90px 70px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span>Fan</span><span style={{ textAlign: 'right' }}>Peak 30-day</span><span style={{ textAlign: 'right' }}>Last 30 days</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last Txn</span><span style={{ textAlign: 'center' }}>Status</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 140px 100px 100px 100px 90px 70px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span></span><span>Fan</span><span>Peak Period</span><span style={{ textAlign: 'right' }}>Peak 30-day</span><span style={{ textAlign: 'right' }}>Last 30 days</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last Txn</span><span style={{ textAlign: 'center' }}>Status</span>
           </div>
           {whaleAlerts.map((w, i) => (
-            <div key={w.fan} style={{
-              display: 'grid', gridTemplateColumns: '1fr 120px 100px 100px 90px 70px', padding: '8px 16px',
-              fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)',
-              background: i % 2 === 0 ? '#fff' : '#FAFAFA',
-            }}>
-              <div>
-                <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{w.fan}</span>
-                {w.username && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{w.username}</span>}
-              </div>
-              <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(w.peak30)}</span>
-              <span style={{ textAlign: 'right', color: w.last30 === 0 ? '#DC2626' : '#f59e0b', fontWeight: 600 }}>{fmtMoney(w.last30)}</span>
-              <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(w.lifetime)}</span>
-              <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{w.lastTxnDate}</span>
-              <span style={{ textAlign: 'center' }}>
-                <span style={{
-                  background: w.status === 'gone' ? '#FEE2E2' : '#FEF3C7',
-                  color: w.status === 'gone' ? '#DC2626' : '#D97706',
-                  padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                }}>{w.status === 'gone' ? 'GONE' : 'DROP'}</span>
-              </span>
-            </div>
+            <WhaleRow key={w.fan} whale={w} index={i} fmtMoney={fmtMoney} />
           ))}
         </div>
       )}

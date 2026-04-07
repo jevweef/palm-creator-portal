@@ -107,17 +107,46 @@ function detectWhales(transactions, now) {
     const ratio = peak30 > 0 ? last30 / peak30 : 0
 
     if (ratio <= 0.25) {
+      // Build weekly spending timeline for this fan
+      const weeklySpend = {}
+      for (const t of ts) {
+        if (!t.dt) continue
+        // Group by week (Monday start)
+        const d = new Date(t.dt)
+        const day = d.getDay()
+        const monday = new Date(d)
+        monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+        const weekKey = monday.toISOString().split('T')[0]
+        weeklySpend[weekKey] = (weeklySpend[weekKey] || 0) + t.net
+      }
+      const timeline = Object.entries(weeklySpend)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([week, spend]) => ({ week, spend }))
+
+      // Peak period end
+      const peakEnd = peakStart ? new Date(peakStart) : null
+      if (peakEnd) peakEnd.setDate(peakEnd.getDate() + 30)
+
+      // Find the drop-off point: first week after peak where spending drops significantly
+      const peakEndStr = peakEnd?.toISOString()?.split('T')[0] || ''
+      const dropOffStart = peakEndStr // investigate from end of peak period
+      const dropOffEnd = lastTxn?.toISOString()?.split('T')[0] || ''
+
       alerts.push({
         fan,
         username: ts[0]?.ofUsername || '',
         peak30,
-        peakStart: peakStart?.toISOString() || '',
+        peakStart: peakStart?.toISOString()?.split('T')[0] || '',
+        peakEnd: peakEnd?.toISOString()?.split('T')[0] || '',
         last30,
         ratio,
         lastTxnDate: lastTxn?.toISOString()?.split('T')[0] || '',
         daysSince,
         lifetime: ts.reduce((s, t) => s + t.net, 0),
         status: last30 === 0 ? 'gone' : 'dropping',
+        timeline,
+        inspectFrom: dropOffStart,
+        inspectTo: dropOffEnd,
       })
     }
   }
