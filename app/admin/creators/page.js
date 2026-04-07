@@ -772,6 +772,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [customEnd, setCustomEnd] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [showWhales, setShowWhales] = useState(false)
+  const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
+  const [slideKey, setSlideKey] = useState(0)
 
   if (loading) return <div style={{ color: '#999', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>Loading earnings data...</div>
   if (error) return (
@@ -839,8 +841,19 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
     <div>
       {/* Controls bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <select value={period} onChange={e => setPeriod(e.target.value)}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button onClick={() => {
+            const shift = -7
+            const [s, e] = periodStart && periodEnd ? [periodStart, periodEnd] : [new Date(Date.now() - 30*86400000), new Date()]
+            const ns = new Date(s); ns.setDate(ns.getDate() + shift)
+            const ne = new Date(e); ne.setDate(ne.getDate() + shift)
+            setCustomStart(ns.toISOString().split('T')[0])
+            setCustomEnd(ne.toISOString().split('T')[0])
+            setPeriod('custom')
+            setSlideDir('right'); setSlideKey(k => k + 1)
+            setTimeout(() => setSlideDir(null), 250)
+          }} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>‹</button>
+          <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null) }}
             style={{
               background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px',
               color: '#1a1a1a', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
@@ -848,6 +861,18 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             {PERIOD_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
             <option value="custom">Custom Range</option>
           </select>
+          <button onClick={() => {
+            const shift = 7
+            const [s, e] = periodStart && periodEnd ? [periodStart, periodEnd] : [new Date(Date.now() - 30*86400000), new Date()]
+            const ns = new Date(s); ns.setDate(ns.getDate() + shift)
+            const ne = new Date(e); ne.setDate(ne.getDate() + shift)
+            if (ne > new Date()) return // don't go past today
+            setCustomStart(ns.toISOString().split('T')[0])
+            setCustomEnd(ne.toISOString().split('T')[0])
+            setPeriod('custom')
+            setSlideDir('left'); setSlideKey(k => k + 1)
+            setTimeout(() => setSlideDir(null), 250)
+          }} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>›</button>
           {period === 'custom' && (
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
               <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
@@ -901,10 +926,18 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       </div>
 
       {/* Revenue chart — immediately visible */}
-      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px' }}>
-        <RevenueChart dailyData={filteredDaily} allDailyData={dailyData} typeFilter={typeFilter} pctChange={pctChange} milestones={[
-          ...(creator?.managementStartDate ? [{ date: creator.managementStartDate, label: 'Joined Palm' }] : []),
-        ]} />
+      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
+        <div key={slideKey} style={{
+          animation: slideDir ? `slide${slideDir === 'left' ? 'Left' : 'Right'} 0.25s ease-out` : 'none',
+        }}>
+          <style>{`
+            @keyframes slideLeft { from { transform: translateX(40px); opacity: 0.6; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes slideRight { from { transform: translateX(-40px); opacity: 0.6; } to { transform: translateX(0); opacity: 1; } }
+          `}</style>
+          <RevenueChart dailyData={filteredDaily} allDailyData={dailyData} typeFilter={typeFilter} pctChange={pctChange} milestones={[
+            ...(creator?.managementStartDate ? [{ date: creator.managementStartDate, label: 'Joined Palm' }] : []),
+          ]} />
+        </div>
       </div>
 
       {/* Whale alerts banner */}
