@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 const TAG_CATEGORIES = [
   'Setting / Location',
@@ -287,6 +287,161 @@ function UploadModal({ creator, onClose, onUploaded }) {
   )
 }
 
+// ── Earnings Panel ──────────────────────────────────────────────────────────
+
+const TYPE_COLORS = {
+  'Tip': '#E88FAC',
+  'Subscription': '#60a5fa',
+  'Payment for message': '#fb923c',
+}
+
+function EarningsPanel({ data, loading, error, onRefresh }) {
+  const [showAll, setShowAll] = useState(false)
+
+  if (loading) return <div style={{ color: '#999', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>Loading earnings data...</div>
+  if (error) return (
+    <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#DC2626' }}>
+      {error}
+      <button onClick={onRefresh} style={{ marginLeft: '12px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: '5px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>Retry</button>
+    </div>
+  )
+  if (!data || data.empty) return (
+    <div style={{ color: '#999', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>
+      No sales data found. Upload transactions from the Invoicing → Raw Data Upload tab.
+    </div>
+  )
+
+  const { summary, last30Days, byType, topFans, transactions, cachedAt } = data
+  const fmtMoney = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fmtNum = n => Number(n || 0).toLocaleString()
+  const typeTotal = Object.values(byType).reduce((s, v) => s + v, 0)
+  const displayTxns = showAll ? transactions : transactions.slice(0, 100)
+
+  return (
+    <div>
+      {/* Refresh indicator */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+        {cachedAt && <span style={{ fontSize: '11px', color: '#ccc' }}>Data as of {new Date(cachedAt).toLocaleTimeString()}</span>}
+        <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px', color: '#999' }}>↺</button>
+      </div>
+
+      {/* Summary cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+        {[
+          { label: 'Total Revenue', value: fmtMoney(summary.totalNet), accent: true },
+          { label: 'Transactions', value: fmtNum(summary.transactionCount) },
+          { label: 'Avg Transaction', value: fmtMoney(summary.avgTransaction) },
+          { label: 'Last 30 Days', value: fmtMoney(last30Days.net) },
+        ].map(card => (
+          <div key={card.label} style={{
+            background: '#fff', borderRadius: '10px', padding: '16px',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+            borderLeft: card.accent ? '3px solid #E88FAC' : 'none',
+          }}>
+            <div style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{card.label}</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{card.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Revenue by type */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Revenue by Type</div>
+        {/* Bar */}
+        <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', height: '8px', marginBottom: '10px', background: '#f3f4f6' }}>
+          {Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
+            <div key={type} style={{ width: `${(net / typeTotal) * 100}%`, background: TYPE_COLORS[type] || '#999', minWidth: '2px' }} />
+          ))}
+        </div>
+        {/* Pills */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
+            <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: TYPE_COLORS[type] || '#999' }} />
+              <span style={{ color: '#666' }}>{type === 'Payment for message' ? 'PPV' : type}:</span>
+              <span style={{ fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(net)}</span>
+              <span style={{ color: '#ccc' }}>({Math.round((net / typeTotal) * 100)}%)</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Top fans */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Fans</div>
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+          {/* Header */}
+          <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span>#</span><span>Name</span><span>Username</span><span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
+          </div>
+          {topFans.map((fan, i) => (
+            <div key={fan.displayName} style={{
+              display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '8px 16px',
+              fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)',
+              background: i % 2 === 0 ? '#fff' : '#FAFAFA',
+            }}>
+              <span style={{ color: '#ccc', fontWeight: 600 }}>{fan.rank}</span>
+              <span style={{ color: '#1a1a1a', fontWeight: 500 }}>{fan.displayName}</span>
+              <span>{fan.ofUsername ? (
+                <a href={`https://onlyfans.com/${fan.ofUsername}`} target="_blank" rel="noopener noreferrer"
+                  style={{ color: '#E88FAC', textDecoration: 'none', fontSize: '11px' }}>
+                  @{fan.ofUsername}
+                </a>
+              ) : <span style={{ color: '#ccc' }}>—</span>}</span>
+              <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(fan.totalNet)}</span>
+              <span style={{ textAlign: 'right', color: '#666' }}>{fan.transactionCount}</span>
+              <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{fan.lastDate}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Transaction history */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Transaction History <span style={{ color: '#ccc', fontWeight: 400, textTransform: 'none' }}>({fmtNum(transactions.length)} total)</span>
+          </div>
+        </div>
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+          {/* Header */}
+          <div style={{ display: 'grid', gridTemplateColumns: '90px 70px 120px 90px 1fr 120px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span>Date</span><span>Time</span><span>Type</span><span style={{ textAlign: 'right' }}>Amount</span><span style={{ paddingLeft: '16px' }}>Fan</span><span>Username</span>
+          </div>
+          <div style={{ maxHeight: showAll ? 'none' : '500px', overflowY: 'auto' }}>
+            {displayTxns.map((t, i) => (
+              <div key={i} style={{
+                display: 'grid', gridTemplateColumns: '90px 70px 120px 90px 1fr 120px', padding: '6px 16px',
+                fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.02)',
+                background: i % 2 === 0 ? '#fff' : '#FAFAFA',
+              }}>
+                <span style={{ color: '#666' }}>{t.date}</span>
+                <span style={{ color: '#999', fontSize: '11px' }}>{t.time}</span>
+                <span><span style={{
+                  background: (TYPE_COLORS[t.type] || '#999') + '18',
+                  color: TYPE_COLORS[t.type] || '#999',
+                  padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                }}>{t.type === 'Payment for message' ? 'PPV' : t.type || '—'}</span></span>
+                <span style={{ textAlign: 'right', fontWeight: 500, color: '#1a1a1a' }}>{fmtMoney(t.net)}</span>
+                <span style={{ color: '#666', paddingLeft: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.displayName || '—'}</span>
+                <span style={{ color: '#999', fontSize: '11px' }}>{t.ofUsername ? `@${t.ofUsername}` : ''}</span>
+              </div>
+            ))}
+          </div>
+          {!showAll && transactions.length > 100 && (
+            <button onClick={() => setShowAll(true)} style={{
+              width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)',
+              color: '#E88FAC', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+            }}>
+              Show all {fmtNum(transactions.length)} transactions
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CreatorDetail({ creator, onProfileUpdated }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -301,6 +456,9 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const [showUpload, setShowUpload] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
   const [feedback, setFeedback] = useState('')
+  const [earningsData, setEarningsData] = useState(null)
+  const [earningsLoading, setEarningsLoading] = useState(false)
+  const [earningsError, setEarningsError] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -316,7 +474,41 @@ function CreatorDetail({ creator, onProfileUpdated }) {
     }
   }
 
-  useEffect(() => { load() }, [creator.id])
+  useEffect(() => { load(); setEarningsData(null); setEarningsError(null) }, [creator.id])
+
+  // Lazy-load earnings when tab is opened
+  useEffect(() => {
+    if (activeTab === 'earnings' && !earningsData && !earningsLoading) {
+      setEarningsLoading(true)
+      setEarningsError(null)
+      const name = creator.aka || creator.name
+      fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.error === 'no_sheet') setEarningsData({ empty: true })
+          else if (data.error) setEarningsError(data.error)
+          else setEarningsData(data)
+        })
+        .catch(e => setEarningsError(e.message))
+        .finally(() => setEarningsLoading(false))
+    }
+  }, [activeTab, earningsData, earningsLoading, creator])
+
+  const refreshEarnings = useCallback(() => {
+    setEarningsData(null)
+    setEarningsLoading(true)
+    setEarningsError(null)
+    const name = creator.aka || creator.name
+    fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}&refresh=true`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error === 'no_sheet') setEarningsData({ empty: true })
+        else if (data.error) setEarningsError(data.error)
+        else setEarningsData(data)
+      })
+      .catch(e => setEarningsError(e.message))
+      .finally(() => setEarningsLoading(false))
+  }, [creator])
 
   const resetAnalysis = async () => {
     setResetting(true)
@@ -639,7 +831,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 
       {/* Tabs — hidden during refine preview */}
       {!refinePreview && <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
-        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
+        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ['earnings', 'Earnings'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400,
@@ -758,6 +950,16 @@ function CreatorDetail({ creator, onProfileUpdated }) {
             ))
           )}
         </div>
+      )}
+
+      {/* Earnings tab */}
+      {!refinePreview && activeTab === 'earnings' && (
+        <EarningsPanel
+          data={earningsData}
+          loading={earningsLoading}
+          error={earningsError}
+          onRefresh={refreshEarnings}
+        />
       )}
 
       {showUpload && (
