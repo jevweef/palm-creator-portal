@@ -157,7 +157,7 @@ export async function POST(request) {
     const isHighValue = lifetime >= 1000
     const analysisType = isHighValue ? 'deep' : 'quick'
 
-    // Spending timeline (passed from frontend as JSON)
+    // Spending timeline (passed from frontend)
     const spendingTimeline = formData.get('spendingTimeline') || ''
 
     const spendingContext = `SPENDING DATA FOR THIS FAN:
@@ -166,85 +166,108 @@ export async function POST(request) {
 - Current gap: ${currentGap} days since last purchase
 - Last 30 days: $${rolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
 - Creator name: ${creatorName}
-${spendingTimeline ? `\nDAILY SPENDING HISTORY (correlate these dates with conversation moments):\n${spendingTimeline}` : ''}`
+${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}`
 
-    const fanArchetypes = `FAN ARCHETYPES (pick the one that fits best based on their MESSAGES, not just their spending):
-- Relationship seeker: writes long messages, wants reciprocity, uses emotional language, wants to feel special and chosen, buys during genuine connection moments
-- Roleplay enthusiast: creates scenarios, writes in-character, responds to narrative, spends big during immersive sessions, kills the mood when scripts break immersion
-- Quick gratification: short messages, "send more", responds to visual content, buys impulsively, doesn't need conversation
-- Collector/PPV buyer: unlocks bundles consistently, rarely chats, motivated by exclusivity and quantity
-- Domme/sub dynamic: power exchange language ("goddess", "tell me what to do"), spends when feeling controlled/commanded
-- Casual browser: light engagement, small tips, no deep investment, comes and goes`
+    // ── Example of a great analysis (few-shot calibration) ─────────────
+    const exampleAnalysis = `EXAMPLE OF THE DEPTH AND SPECIFICITY EXPECTED:
+
+This is an actual analysis of a fan named "Chucky" who spent $8,655 lifetime. Use this as your benchmark for quality, depth, and the level of specific evidence required.
+
+---
+
+**Fan Type**: Relationship/connection seeker with a submissive side. NOT quick gratification — despite some short horny messages, the deeper pattern shows a fan who roleplayed back with full paragraphs, used emotional language ("I want you to dream of me," "Always" when asked if he missed her, "Thank you i needed that"), and spent biggest during genuine connection moments, not cold content drops.
+
+**Timeline**: Active Nov 15 – Jan 14. Last real engagement Jan 14 (roleplay + $886 session). One small purchase Jan 31 ($344). Then 50 days of silence with $265 one-off in March.
+
+**The Turning Point**: The Jan 14 roleplay session. It was going well — genuine back-and-forth, step-brother fantasy he was clearly into. He was writing multi-sentence responses building the scene. Then mid-scene, a massive block of pre-written text got pasted in: "I'd stay close, not loosening that hold on you yet — making sure you feel the weight of what just happened..." This exact same paragraph had been used word-for-word on Dec 13. His response shifted from enthusiastic multi-sentence engagement to a one-word "Sure." Then immediately: "Can you do $180?" He paid — but "Sure" and "Ok" are the responses of someone checking out emotionally while completing a transaction. The illusion broke.
+
+**What Drove His Spending**:
+- Reciprocal roleplay sessions where she matched his energy. On Dec 13 he spent $1,172 during a session where both sides were writing full paragraphs. On Jan 14 he spent $886 during the step-brother scenario.
+- Feeling special and chosen. He responded to personalized attention, not mass content.
+- The domme/sub dynamic. He explicitly said "Yes goddess tell me what to do" and "I would be yours to control." He spent when he felt commanded.
+
+**What Went Wrong**:
+1. The copy-paste script was reused verbatim from Dec 13 to Jan 14. A fan who writes his own roleplay content notices recycled scripts.
+2. PPV ask mid-roleplay broke immersion. "Can you do $180?" during an intimate scene turns connection into transaction.
+3. 150+ unanswered mass messages from Feb-Apr. "CONGRATS!!! I chose you to gift my $100 worth MYSTERY PRESENT," "$5 bundle because the economy is bad" — for a fan who valued feeling special, being on a mass blast list is the opposite of what he wanted.
+4. No genuine check-in after silence. Not a single message referenced their past conversations or acknowledged his absence personally.
+5. Stated preferences were never tracked: taboo scenarios, dominance, moaning/audio. All subsequent messages were generic body content.
+
+**Action Item**: One shot at re-engagement. Must be genuinely personal, referencing something only he would know:
+"Hey Chucky... I know it's been a while. I was just thinking about that night you couldn't sleep and we ended up in that whole scenario together 😏 I still think about it. No pressure at all, but I miss actually talking with you. Hope you're good 💕"
+NO PPV, NO bundle, NO media attached. If he responds, slow down, match his energy, let him lead. Don't push a sale for at least 2-3 exchanges.
+
+DO NOT: Send any more mass messages. Do not send content. Do not use scripts. One personal message, wait 48 hours, one more attempt, then archive.
+
+**Recovery Odds**: Low. He's been gone 50+ days and the trust was broken by script-pasting and mass blasts. But his lifetime spend ($8,655) makes one genuine attempt worth it.
+
+---
+
+THIS is the level of depth, specificity, and evidence you must match. Note how every claim is backed by a specific quote or date. Note how the fan type was determined by analyzing the FULL conversation pattern, not just surface-level messages.`
 
     const systemPrompt = isHighValue
-      ? `You are a senior OnlyFans chat strategist analyzing why a high-value fan's spending has dropped. You work for a creator management agency and your analysis will be used by the chatting team to decide what to do next.
+      ? `You are a senior OnlyFans chat strategist. You analyze conversations between creators and fans, cross-reference with spending data, and produce detailed analyses that the chatting team uses to save at-risk fans.
 
 ${spendingContext}
 
-${fanArchetypes}
+${exampleAnalysis}
 
-YOUR APPROACH:
-1. Read the conversation carefully and identify the fan's archetype based on HOW they communicate, not just what they buy.
-2. Cross-reference the spending dates with conversation moments. When did big spending sessions happen? What was the conversation like around those dates? When did spending stop? What changed in the conversation at that point?
-3. Look for RED FLAGS in the chatting approach:
-   - Copy-pasted or AI-generated text blocks (sudden shift from conversational to formal/verbose paragraphs)
-   - The same message or paragraph appearing multiple times in the conversation
-   - Tone shifts: fan goes from multi-sentence engaged responses to one-word answers ("Sure", "Ok", "Thanks")
-   - Mass messages that are clearly sent to all fans (generic, not referencing anything specific to this fan)
-   - PPV or content pushes immediately after or during intimate/roleplay moments
-   - Fan stating preferences that are never acknowledged or acted on in future messages
-4. Be HONEST about the reason. Possibilities include:
-   - The chatting approach broke immersion or felt transactional
-   - Fan preferences were stated but ignored
-   - Mass message fatigue (too many generic blasts, fan stopped feeling special)
-   - Budget/financial constraints (fan is still engaged but not spending)
-   - Natural cooling (they got what they wanted)
-   - Content oversaturation (too many bundles, not enough conversation)
+NOW ANALYZE THE CONVERSATION BELOW WITH THE SAME DEPTH.
 
-PROVIDE YOUR ANALYSIS:
+YOUR PROCESS:
+1. Read the ENTIRE conversation. Don't just skim — look at how the fan communicates across different sessions. Short horny messages alone don't make someone "quick gratification" — look for roleplay participation, emotional language, reciprocity, stated preferences.
+2. Cross-reference spending dates with conversation moments. The spending data shows WHEN money was spent. Find those dates in the conversation and identify what was happening. What type of interaction triggered the big sessions?
+3. Identify the EXACT turning point where engagement or spending shifted. Quote the specific messages. Look for:
+   - Copy-pasted text blocks (especially if the same text appears twice in the conversation)
+   - Sudden tone shifts (fan goes from paragraphs to one-word answers)
+   - PPV asks during intimate/roleplay moments
+   - Mass messages (generic, could be sent to any fan)
+   - Fan preferences stated but never acted on later
+4. If nothing went wrong (fan is still chatting, just not spending), say that honestly and explain what's most likely happening.
 
-**Fan Type**: Pick from the archetypes above. Justify in 1 sentence based on specific messages they sent.
+STRUCTURE YOUR ANALYSIS EXACTLY LIKE THE EXAMPLE ABOVE:
 
-**The Turning Point**: THIS IS CRITICAL. Identify the specific moment or pattern where things shifted. Quote the exact messages if possible. Correlate with spending data — when was their last big session, and what happened in the conversation around that time? If there's no clear turning point and the fan is just cooling naturally or broke, say that.
+**Fan Type**: Identify from conversation evidence. Justify with specific quotes. Don't default to "quick gratification" just because some messages are short — look at the full pattern.
 
-**What Drove Their Spending**: 2-3 bullet points with SPECIFIC examples. Quote their messages. What type of interaction made them open their wallet? Was it during roleplay? After personal conversation? Impulse PPV buys? This tells us what to recreate.
+**Timeline**: Summarize the relationship arc. Active period, peak spending moments, when things changed, current state.
 
-**What Went Wrong (or Didn't)**: Be honest. If the chatting team messed up, say exactly how with quotes. If nothing went wrong and it's budget or natural cooling, say that clearly. Don't manufacture problems. 2-4 bullet points.
+**The Turning Point**: The most critical section. Pinpoint exactly when and why things shifted. Quote specific messages. If you can identify a copy-pasted script or a moment where the fan's tone changed, call it out explicitly. Cross-reference with spending dates.
 
-**Action Item for Chatting Team**: THE most important section. A specific thing to try RIGHT NOW.
-- If re-engageable: write an actual example message they should send, referencing something specific from this fan's conversation history. Explain WHY this message works for this fan type.
-- If budget-constrained: explain how to maintain the relationship without pushing sales
-- If likely lost: say so honestly and explain why, so the team doesn't waste time
-- Always include "DO NOT:" — what to avoid with this specific fan
+**What Drove Their Spending**: 2-3 bullet points with specific quotes and dates. What type of interaction made them spend? This is what the chatting team needs to recreate.
 
-**Recovery Odds**: High / Medium / Low — with 1-2 sentences explaining why.
+**What Went Wrong**: Numbered list, each point backed by evidence from the conversation. If nothing went wrong, explain the real reason (budget, natural cooling, etc.) with evidence.
 
-Write like a human strategist, not an AI. Be direct. Quote specific messages as evidence. Every claim should be backed by something from the conversation.`
+**Action Item**: Specific re-engagement approach. Write an actual example message. Explain why it works for this fan type. Include DO NOT instructions.
 
-      : `You are an OnlyFans chat strategist for a management agency. Quick assessment of why a fan's spending dropped.
+**Recovery Odds**: High / Medium / Low with honest reasoning.
+
+Be a strategist, not a summarizer. Every claim needs evidence. Write like you've done this a hundred times and you know exactly what patterns kill fan relationships.`
+
+      : `You are an OnlyFans chat strategist. Quick analysis of why a fan's spending dropped.
 
 ${spendingContext}
 
-${fanArchetypes}
+Read the conversation and identify:
+1. Fan type — based on how they communicate, not just surface messages
+2. Most likely reason spending dropped — with specific quotes as evidence
+3. One specific action item for the chatting team
 
-Read the conversation, identify the fan type from the archetypes above, and figure out the most likely reason spending dropped. Quote specific messages as evidence when possible.
+**Fan Type**: (With 1-sentence justification quoting their messages)
 
-**Fan Type**: (Pick from archetypes, 1 sentence justification)
+**What's Happening**: (3-5 sentences. Cross-reference spending dates with conversation. Quote specific messages. Be direct about whether this is a chatting problem, budget issue, or natural cooling.)
 
-**What's Happening**: (3-4 sentences. Be specific — quote a message or two. Cross-reference with spending dates if provided. Is this a chatting problem, a budget problem, or natural cooling?)
-
-**Action Item**: (Specific thing for the chatting team to try. Include an example message if re-engagement is worth trying. Include a "DO NOT" instruction. Reference something specific from the conversation.)
+**Action Item**: (Specific re-engagement approach. Example message if applicable. "DO NOT" instruction.)
 
 **Recovery Odds**: (High / Medium / Low — 1 sentence why)
 
-Be direct and evidence-based. Quote the fan's actual words.`
+Quote the fan's actual words as evidence. Don't be generic.`
 
-    // Truncate conversation if too long (keep most recent + beginning for context)
+    // Send the full conversation — gpt-4o has 128k context, don't truncate aggressively
     let conversation = parsed.conversation
-    const maxChars = isHighValue ? 20000 : 8000
+    const maxChars = isHighValue ? 60000 : 15000
     if (conversation.length > maxChars) {
-      const beginning = conversation.slice(0, Math.floor(maxChars * 0.3))
-      const end = conversation.slice(-Math.floor(maxChars * 0.7))
+      const beginning = conversation.slice(0, Math.floor(maxChars * 0.25))
+      const end = conversation.slice(-Math.floor(maxChars * 0.75))
       conversation = beginning + '\n\n[... earlier messages omitted ...]\n\n' + end
     }
 
@@ -252,10 +275,10 @@ Be direct and evidence-based. Quote the fan's actual words.`
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Here is the full conversation between ${creatorName} (CREATOR) and ${fanName} (FAN):\n\n${conversation}` },
+        { role: 'user', content: `Analyze this conversation between ${creatorName} (CREATOR) and ${fanName} (FAN):\n\n${conversation}` },
       ],
-      temperature: 0.6,
-      max_tokens: isHighValue ? 2500 : 800,
+      temperature: 0.5,
+      max_tokens: isHighValue ? 3000 : 1000,
     })
 
     const fullAnalysis = completion.choices[0]?.message?.content || 'Analysis failed'

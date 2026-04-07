@@ -922,15 +922,69 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
                   background: showBrief ? '#F8FAFC' : '#FFFBF5',
                   border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
                   borderRadius: '8px',
-                  padding: '14px 16px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.6',
-                  whiteSpace: 'pre-wrap',
+                  padding: '16px 20px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
                 }}>
-                  {(showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis).split(/(\*\*[^*]+\*\*)/).map((part, idx) => {
-                    if (part.startsWith('**') && part.endsWith('**')) {
-                      return <strong key={idx} style={{ color: showBrief ? '#334155' : '#EA580C', display: 'block', marginTop: idx > 0 ? '10px' : 0, marginBottom: '2px', fontSize: '12px' }}>{part.slice(2, -2)}</strong>
-                    }
-                    return <span key={idx}>{part}</span>
-                  })}
+                  {(() => {
+                    const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
+                    const accentColor = showBrief ? '#334155' : '#EA580C'
+                    return text.split('\n').map((line, idx) => {
+                      const trimmed = line.trim()
+                      if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
+
+                      // Section header: line starts with **
+                      if (/^\*\*[^*]+\*\*/.test(trimmed)) {
+                        const headerMatch = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                        if (headerMatch) {
+                          const rest = headerMatch[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
+                          return (
+                            <div key={idx} style={{ marginTop: idx > 0 ? '14px' : 0, marginBottom: '4px' }}>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{headerMatch[1]}</div>
+                              {rest && <div style={{ marginTop: '2px' }}>{rest}</div>}
+                            </div>
+                          )
+                        }
+                      }
+
+                      // Numbered item: 1. or 2.
+                      if (/^\d+\.\s/.test(trimmed)) {
+                        const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                        const numMatch = trimmed.match(/^(\d+)\./)
+                        return (
+                          <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}>
+                            <span style={{ color: accentColor, fontWeight: 700, fontSize: '12px', minWidth: '16px' }}>{numMatch[1]}.</span>
+                            <span>{content}</span>
+                          </div>
+                        )
+                      }
+
+                      // Bullet point
+                      if (/^[-•]\s/.test(trimmed)) {
+                        const content = trimmed.replace(/^[-•]\s*/, '')
+                        // Handle bold label at start of bullet: **Label**: rest
+                        const labelMatch = content.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                        if (labelMatch) {
+                          return (
+                            <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}>
+                              <span style={{ color: '#ccc', marginTop: '2px' }}>•</span>
+                              <span><strong style={{ color: '#333' }}>{labelMatch[1]}:</strong> {labelMatch[2]}</span>
+                            </div>
+                          )
+                        }
+                        return (
+                          <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}>
+                            <span style={{ color: '#ccc', marginTop: '2px' }}>•</span>
+                            <span>{content.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</span>
+                          </div>
+                        )
+                      }
+
+                      // Quoted message (in "quotes")
+                      const withQuotes = trimmed.replace(/"([^"]+)"/g, (_, q) => `"${q}"`)
+                      // Inline bold
+                      const withBold = withQuotes.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                      return <div key={idx} style={{ marginBottom: '2px' }}>{withBold}</div>
+                    })
+                  })()}
                 </div>
               </div>
             )}
