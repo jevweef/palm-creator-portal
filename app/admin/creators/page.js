@@ -1015,15 +1015,36 @@ export default function CreatorsPage() {
   const [selected, setSelected] = useState(null)
 
   useEffect(() => {
-    fetch('/api/admin/palm-creators')
-      .then(r => r.json())
-      .then(data => {
-        const list = data.creators || []
-        setCreators(list)
-        if (list.length > 0 && !selected) setSelected(list[0])
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    Promise.all([
+      fetch('/api/admin/palm-creators').then(r => r.json()),
+      fetch('/api/admin/invoicing').then(r => r.json()),
+    ]).then(([creatorsData, invoicingData]) => {
+      const list = creatorsData.creators || []
+      setCreators(list)
+
+      // Auto-select highest earner from most recent pay period
+      const records = invoicingData.records || []
+      const periods = invoicingData.periods || []
+      if (list.length > 0 && !selected) {
+        let topCreator = list[0]
+        if (periods.length > 0) {
+          const latestKey = periods[0].key
+          const periodRecords = records.filter(r => `${r.periodStart}|${r.periodEnd}` === latestKey)
+          // Sum earnings by aka
+          const byAka = {}
+          for (const r of periodRecords) {
+            byAka[r.aka] = (byAka[r.aka] || 0) + (r.earnings || 0)
+          }
+          const topAka = Object.entries(byAka).sort((a, b) => b[1] - a[1])[0]
+          if (topAka) {
+            const match = list.find(c => c.aka === topAka[0])
+            if (match) topCreator = match
+          }
+        }
+        setSelected(topCreator)
+      }
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }, [])
 
   const handleProfileUpdated = (creatorId, status) => {
