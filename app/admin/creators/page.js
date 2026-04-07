@@ -351,23 +351,32 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
   const px = (i) => CP.l + (i / (chartData.length - 1)) * chartW
   const py = (v) => CP.t + chartH - (v / maxVal) * chartH
 
-  // Smooth curve using catmull-rom → cubic bezier conversion
+  // Monotone cubic interpolation — smooth but never overshoots data points
   const points = chartData.map((d, i) => [px(i), py(d.net)])
   function smoothPath(pts) {
     if (pts.length < 2) return ''
     if (pts.length === 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`
+    // Compute tangent slopes (monotone-constrained)
+    const n = pts.length
+    const slopes = []
+    for (let i = 0; i < n; i++) {
+      if (i === 0) slopes.push((pts[1][1] - pts[0][1]) / (pts[1][0] - pts[0][0] || 1))
+      else if (i === n - 1) slopes.push((pts[n-1][1] - pts[n-2][1]) / (pts[n-1][0] - pts[n-2][0] || 1))
+      else {
+        const d0 = (pts[i][1] - pts[i-1][1]) / (pts[i][0] - pts[i-1][0] || 1)
+        const d1 = (pts[i+1][1] - pts[i][1]) / (pts[i+1][0] - pts[i][0] || 1)
+        // Monotone: if slopes differ in sign, flat tangent
+        slopes.push(d0 * d1 <= 0 ? 0 : (d0 + d1) / 2)
+      }
+    }
     let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[Math.max(i - 1, 0)]
-      const p1 = pts[i]
-      const p2 = pts[i + 1]
-      const p3 = pts[Math.min(i + 2, pts.length - 1)]
-      const tension = 0.3
-      const cp1x = p1[0] + (p2[0] - p0[0]) * tension
-      const cp1y = p1[1] + (p2[1] - p0[1]) * tension
-      const cp2x = p2[0] - (p3[0] - p1[0]) * tension
-      const cp2y = p2[1] - (p3[1] - p1[1]) * tension
-      d += `C${cp1x.toFixed(1)},${cp1y.toFixed(1)},${cp2x.toFixed(1)},${cp2y.toFixed(1)},${p2[0].toFixed(1)},${p2[1].toFixed(1)}`
+    for (let i = 0; i < n - 1; i++) {
+      const dx = (pts[i+1][0] - pts[i][0]) / 3
+      const cp1x = pts[i][0] + dx
+      const cp1y = pts[i][1] + slopes[i] * dx
+      const cp2x = pts[i+1][0] - dx
+      const cp2y = pts[i+1][1] - slopes[i+1] * dx
+      d += `C${cp1x.toFixed(1)},${cp1y.toFixed(1)},${cp2x.toFixed(1)},${cp2y.toFixed(1)},${pts[i+1][0].toFixed(1)},${pts[i+1][1].toFixed(1)}`
     }
     return d
   }
