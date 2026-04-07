@@ -21,8 +21,8 @@ function parseHtml(html) {
 
     // Description — two patterns: <a href> (has username) or <span> (deleted account)
     let type = '', username = '', displayName = ''
-    const linkM = row.match(/(Tip|Subscription|Payment for message|Referral bonus|Stream)\s+from\s+<a href="https:\/\/onlyfans\.com\/([^"]+)">([^<]+)<\/a>/)
-    const spanM = row.match(/(Tip|Subscription|Payment for message|Referral bonus|Stream)\s+from\s+<span>([^<]+)<\/span>/)
+    const linkM = row.match(/(Tip|Recurring subscription|Subscription|Payment for message|Referral bonus|Stream)\s+from\s+<a href="https:\/\/onlyfans\.com\/([^"]+)">([^<]+)<\/a>/)
+    const spanM = row.match(/(Tip|Recurring subscription|Subscription|Payment for message|Referral bonus|Stream)\s+from\s+<span>([^<]+)<\/span>/)
 
     if (linkM) {
       type = linkM[1]

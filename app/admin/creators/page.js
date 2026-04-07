@@ -292,6 +292,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
 const TYPE_COLORS = {
   'Tip': '#E88FAC',
   'Subscription': '#60a5fa',
+  'Recurring subscription': '#60a5fa',
   'Payment for message': '#fb923c',
 }
 
