@@ -338,8 +338,7 @@ function fmtChartDate(dateStr) {
 }
 
 function fmtChartMoney(v) {
-  if (v >= 1000) return '$' + (v/1000).toFixed(v >= 10000 ? 0 : 1) + 'k'
-  return '$' + Math.round(v)
+  return '$' + Math.round(v).toLocaleString('en-US')
 }
 
 function buildMonotonePath(pts) {
@@ -421,7 +420,7 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
   for (let i = 1; i <= GRID_COUNT; i++) eSteps.push(Math.round(maxEarnings * (i / GRID_COUNT)))
 
   const CW = CHART_W, CH = CHART_H
-  const pad = { t: 10, r: 50, b: 25, l: 10 }
+  const pad = { t: 10, r: 60, b: 25, l: 35 }
   const cw = CW - pad.l - pad.r, ch = CH - pad.t - pad.b
 
   const px = (i) => pad.l + (i / Math.max(chartData.length - 1, 1)) * cw
