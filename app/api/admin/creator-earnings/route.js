@@ -107,21 +107,15 @@ function detectWhales(transactions, now) {
     const ratio = peak30 > 0 ? last30 / peak30 : 0
 
     if (ratio <= 0.25) {
-      // Build weekly spending timeline for this fan
-      const weeklySpend = {}
+      // Build daily spending timeline for this fan
+      const dailySpend = {}
       for (const t of ts) {
-        if (!t.dt) continue
-        // Group by week (Monday start)
-        const d = new Date(t.dt)
-        const day = d.getDay()
-        const monday = new Date(d)
-        monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
-        const weekKey = monday.toISOString().split('T')[0]
-        weeklySpend[weekKey] = (weeklySpend[weekKey] || 0) + t.net
+        if (!t.date) continue
+        dailySpend[t.date] = (dailySpend[t.date] || 0) + t.net
       }
-      const timeline = Object.entries(weeklySpend)
+      const timeline = Object.entries(dailySpend)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([week, spend]) => ({ week, spend }))
+        .map(([day, spend]) => ({ week: day, spend }))
 
       // Peak period end
       const peakEnd = peakStart ? new Date(peakStart) : null

@@ -371,7 +371,7 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
     }
     let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
     for (let i = 0; i < n - 1; i++) {
-      const dx = (pts[i+1][0] - pts[i][0]) / 3
+      const dx = (pts[i+1][0] - pts[i][0]) / 5
       const cp1x = pts[i][0] + dx
       const cp1y = pts[i][1] + slopes[i] * dx
       const cp2x = pts[i+1][0] - dx
@@ -421,7 +421,7 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
       {/* Area */}
       <path d={areaPath} fill="url(#earningsGrad)" />
       {/* Line */}
-      <path d={linePath} fill="none" stroke="#E88FAC" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={linePath} fill="none" stroke="#E88FAC" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
       {/* Milestone lines */}
       {milestones?.map((m, idx) => {
         const mIdx = chartData.findIndex(d => d.date === m.date)
@@ -485,7 +485,7 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
     }
     miniPath = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
     for (let j = 0; j < n - 1; j++) {
-      const dx = (pts[j+1][0] - pts[j][0]) / 3
+      const dx = (pts[j+1][0] - pts[j][0]) / 5
       miniPath += `C${(pts[j][0]+dx).toFixed(1)},${(pts[j][1]+slopes[j]*dx).toFixed(1)},${(pts[j+1][0]-dx).toFixed(1)},${(pts[j+1][1]-slopes[j+1]*dx).toFixed(1)},${pts[j+1][0].toFixed(1)},${pts[j+1][1].toFixed(1)}`
     }
   }
@@ -579,7 +579,7 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
             {/* Area */}
             {miniArea && <path d={miniArea} fill={`url(#whaleGrad${i})`} />}
             {/* Line */}
-            {miniPath && <path d={miniPath} fill="none" stroke="#E88FAC" strokeWidth={1.5} />}
+            {miniPath && <path d={miniPath} fill="none" stroke="#E88FAC" strokeWidth={1} />}
 
             {/* Data points */}
             {timeline.map((t, idx) => (
