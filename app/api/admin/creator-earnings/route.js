@@ -151,6 +151,125 @@ function detectWhales(transactions, now) {
   return alerts
 }
 
+// ── Going Cold detection ───────────────────────────────────────────────────
+
+function detectGoingCold(transactions, now) {
+  const ninetyDaysAgo = new Date(now)
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+  const thirtyDaysAgo = new Date(now)
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+  // Group by fan
+  const fanTxns = {}
+  for (const t of transactions) {
+    if (t.type === 'Chargeback') continue
+    const key = t.displayName || 'Unknown'
+    if (!fanTxns[key]) fanTxns[key] = []
+    fanTxns[key].push(t)
+  }
+
+  const alerts = []
+  for (const [fan, txns] of Object.entries(fanTxns)) {
+    // Sort chronologically
+    const sorted = txns.filter(t => t.dt).sort((a, b) => a.dt - b.dt)
+    if (sorted.length < 3) continue // need enough history for median
+
+    // Trailing 90-day spend
+    const trailing90 = sorted.filter(t => t.dt >= ninetyDaysAgo).reduce((s, t) => s + t.net, 0)
+    if (trailing90 < 500) continue // only track significant spenders
+
+    // Calculate purchase gaps (days between consecutive purchase dates)
+    const purchaseDates = []
+    let lastDate = null
+    for (const t of sorted) {
+      const dateStr = t.date
+      if (dateStr !== lastDate) {
+        purchaseDates.push(t.dt)
+        lastDate = dateStr
+      }
+    }
+    if (purchaseDates.length < 3) continue
+
+    const gaps = []
+    for (let i = 1; i < purchaseDates.length; i++) {
+      gaps.push(Math.round((purchaseDates[i] - purchaseDates[i - 1]) / 86400000))
+    }
+
+    // Median of last 15 gaps (or all if fewer)
+    const recentGaps = gaps.slice(-15).sort((a, b) => a - b)
+    const medianGap = recentGaps[Math.floor(recentGaps.length / 2)]
+    const p90Gap = recentGaps[Math.floor(recentGaps.length * 0.9)]
+
+    // Current gap (days since last purchase)
+    const lastPurchase = purchaseDates[purchaseDates.length - 1]
+    const currentGap = Math.floor((now - lastPurchase) / 86400000)
+
+    // Signal 1: Gap exceeds 2x personal median
+    const gapTriggered = medianGap > 0 && currentGap > medianGap * 2
+
+    // Signal 2: Rolling 30-day spend < 25% of trailing 90-day monthly avg
+    const rolling30 = sorted.filter(t => t.dt >= thirtyDaysAgo).reduce((s, t) => s + t.net, 0)
+    const monthlyAvg90 = trailing90 / 3
+    const spendTriggered = monthlyAvg90 > 0 && rolling30 < monthlyAvg90 * 0.25
+
+    if (!gapTriggered && !spendTriggered) continue
+
+    // Determine trigger reason and urgency
+    let triggerReason = gapTriggered && spendTriggered ? 'both' : gapTriggered ? 'gap' : 'spend_drop'
+    const gapRatio = medianGap > 0 ? currentGap / medianGap : 0
+    const spendDropRatio = monthlyAvg90 > 0 ? rolling30 / monthlyAvg90 : 0
+
+    let urgency = 'warning'
+    if (gapRatio > 4 || (spendTriggered && rolling30 === 0)) urgency = 'critical'
+    else if (gapRatio > 3 || (spendTriggered && spendDropRatio < 0.1)) urgency = 'high'
+
+    const lifetime = txns.reduce((s, t) => s + t.net, 0)
+
+    // Monthly spending history (last 6 months)
+    const sixMonthsAgo = new Date(now)
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    const monthlySpend = {}
+    for (const t of sorted) {
+      if (!t.dt || t.dt < sixMonthsAgo) continue
+      const mo = t.date.slice(0, 7) // YYYY-MM
+      monthlySpend[mo] = (monthlySpend[mo] || 0) + t.net
+    }
+    // Fill in zero months
+    const cursor = new Date(sixMonthsAgo)
+    while (cursor <= now) {
+      const mo = cursor.toISOString().slice(0, 7)
+      if (!monthlySpend[mo]) monthlySpend[mo] = 0
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+    const monthlyHistory = Object.entries(monthlySpend)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, spend]) => ({ month, spend }))
+
+    alerts.push({
+      fan,
+      username: txns[0]?.ofUsername || '',
+      medianGap,
+      p90Gap,
+      currentGap,
+      gapRatio: Math.round(gapRatio * 10) / 10,
+      rolling30,
+      monthlyAvg90: Math.round(monthlyAvg90),
+      spendDropRatio: Math.round(spendDropRatio * 100) / 100,
+      lastPurchaseDate: sorted[sorted.length - 1]?.date || '',
+      lifetime,
+      triggerReason,
+      urgency,
+      monthlyHistory,
+      totalPurchases: purchaseDates.length,
+    })
+  }
+
+  // Sort: critical first, then by gap ratio
+  const urgencyOrder = { critical: 0, high: 1, warning: 2 }
+  alerts.sort((a, b) => (urgencyOrder[a.urgency] - urgencyOrder[b.urgency]) || b.gapRatio - a.gapRatio)
+  return alerts
+}
+
 // ── GET ─────────────────────────────────────────────────────────────────────
 
 export async function GET(request) {
@@ -280,6 +399,9 @@ export async function GET(request) {
     // ── Whale alerts ──────────────────────────────────────────────────────
     const whaleAlerts = detectWhales(transactions, now)
 
+    // ── Going cold alerts ────────────────────────────────────────────────
+    const goingColdAlerts = detectGoingCold(transactions, now)
+
     // ── Period summaries ──────────────────────────────────────────────────
     const periods = {}
     const periodDefs = [
@@ -316,6 +438,8 @@ export async function GET(request) {
       topFans,
       whaleAlerts: whaleAlerts.slice(0, 20),
       whaleCount: whaleAlerts.length,
+      goingColdAlerts: goingColdAlerts.slice(0, 20),
+      goingColdCount: goingColdAlerts.length,
       dailyData,
       cachedAt: new Date().toISOString(),
       totalRows: transactions.length,

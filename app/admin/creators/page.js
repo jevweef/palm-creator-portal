@@ -732,6 +732,88 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
   )
 }
 
+// ── Going Cold Row ─────────────────────────────────────────────────────────
+
+function GoingColdRow({ alert: a, index: i, fmtMoney }) {
+  const [expanded, setExpanded] = useState(false)
+  const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
+  const uc = urgColors[a.urgency] || urgColors.warning
+
+  return (
+    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px',
+          fontSize: '12px', cursor: 'pointer',
+          background: expanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
+        }}
+      >
+        <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{expanded ? '▼' : '▶'}</span>
+        <div>
+          <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{a.fan}</span>
+          {a.username && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{a.username}</span>}
+        </div>
+        <span style={{ textAlign: 'right', color: '#666' }}>{a.medianGap}d</span>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: a.currentGap > a.medianGap * 3 ? '#DC2626' : '#EA580C' }}>{a.currentGap}d <span style={{ fontSize: '10px', color: '#999', fontWeight: 400 }}>({a.gapRatio}x)</span></span>
+        <span style={{ textAlign: 'right', color: a.rolling30 === 0 ? '#DC2626' : '#666', fontWeight: a.rolling30 === 0 ? 600 : 400 }}>{fmtMoney(a.rolling30)}</span>
+        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(a.monthlyAvg90)}</span>
+        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(a.lifetime)}</span>
+        <span style={{ textAlign: 'center' }}>
+          <span style={{ background: uc.bg, color: uc.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase' }}>{a.urgency}</span>
+        </span>
+      </div>
+
+      {expanded && (
+        <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Trigger</div>
+              <div style={{ fontSize: '12px', color: '#1a1a1a' }}>
+                {a.triggerReason === 'gap' && `Purchase gap ${a.currentGap}d exceeds ${a.medianGap * 2}d threshold (2× median)`}
+                {a.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(a.spendDropRatio * 100)}% of normal`}
+                {a.triggerReason === 'both' && `Gap ${a.gapRatio}× overdue + spending at ${Math.round(a.spendDropRatio * 100)}% of normal`}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Purchase</div>
+              <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{a.lastPurchaseDate}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Total Purchases</div>
+              <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{a.totalPurchases} sessions</div>
+            </div>
+          </div>
+
+          {/* Monthly spend mini bars */}
+          {a.monthlyHistory && a.monthlyHistory.length > 0 && (() => {
+            const maxMo = Math.max(...a.monthlyHistory.map(m => m.spend), 1)
+            const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            return (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '6px' }}>Monthly Spending (last 6 months)</div>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', height: '60px' }}>
+                  {a.monthlyHistory.map(m => {
+                    const h = Math.max((m.spend / maxMo) * 50, m.spend > 0 ? 3 : 0)
+                    const moNum = parseInt(m.month.slice(5))
+                    return (
+                      <div key={m.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                        <div style={{ fontSize: '9px', color: '#666', marginBottom: '2px' }}>{m.spend > 0 ? fmtMoney(m.spend) : ''}</div>
+                        <div style={{ width: '100%', maxWidth: '40px', height: h + 'px', background: m.spend === 0 ? '#F3F4F6' : m.spend < a.monthlyAvg90 * 0.25 ? '#FECACA' : '#E88FAC', borderRadius: '3px 3px 0 0', minHeight: '2px' }} />
+                        <div style={{ fontSize: '9px', color: '#999', marginTop: '3px' }}>{moNames[moNum]}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Panel ──────────────────────────────────────────────────────────────
 
 function EarningsPanel({ data, loading, error, onRefresh, creator }) {
@@ -740,6 +822,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [customEnd, setCustomEnd] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [showWhales, setShowWhales] = useState(false)
+  const [showGoingCold, setShowGoingCold] = useState(false)
   const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
   const [slideKey, setSlideKey] = useState(0)
 
@@ -756,7 +839,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
     </div>
   )
 
-  const { summary, byType, topFans, dailyData, whaleAlerts, whaleCount, cachedAt } = data
+  const { summary, byType, topFans, dailyData, whaleAlerts, whaleCount, goingColdAlerts, goingColdCount, cachedAt } = data
   const fmtMoney = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtNum = n => Number(n || 0).toLocaleString()
 
@@ -924,6 +1007,33 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           ]} />
         </div>
       </div>
+
+      {/* Going Cold alerts */}
+      {goingColdCount > 0 && (
+        <button onClick={() => setShowGoingCold(!showGoingCold)}
+          style={{
+            width: '100%', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '8px',
+            padding: '8px 14px', marginBottom: '10px', cursor: 'pointer', textAlign: 'left',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+          <div>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#EA580C' }}>{goingColdCount} fan{goingColdCount !== 1 ? 's' : ''} going cold</span>
+            <span style={{ fontSize: '11px', color: '#999', marginLeft: '6px' }}>Spending below their normal cadence</span>
+          </div>
+          <span style={{ color: '#EA580C', fontSize: '14px' }}>{showGoingCold ? '▲' : '▼'}</span>
+        </button>
+      )}
+
+      {showGoingCold && goingColdAlerts && (
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
+          </div>
+          {goingColdAlerts.map((a, i) => (
+            <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} />
+          ))}
+        </div>
+      )}
 
       {/* Whale alerts banner */}
       {whaleCount > 0 && (
