@@ -493,6 +493,100 @@ const HELP_SECTIONS = [
       'The stats cards at the top give you a snapshot: how many sources, source reels, and inspo board items exist, and their status breakdown.',
     ],
   },
+  {
+    id: 'earnings',
+    title: 'Earnings & Fan Analysis',
+    icon: '📊',
+    link: '/admin/creators',
+    tags: ['earnings', 'revenue', 'fans', 'going cold', 'whale', 'spending', 'chat analysis', 'transactions', 'upload', 'top fans'],
+    scenario: 'You want to see how a creator\'s revenue is trending, who their top fans are, and which fans are at risk of dropping off.',
+    steps: [
+      {
+        heading: 'Go to Creators and select a creator',
+        detail: 'Click "Creators" in the sidebar, pick a creator from the dropdown. The Earnings tab loads by default showing their revenue chart.',
+      },
+      {
+        heading: 'Upload transaction data',
+        detail: 'Before you see earnings, you need to upload their OnlyFans transaction data. Go to Invoicing → Raw Data Upload tab. Save the OF statements page as "Webpage, Complete" HTML, then upload it and select the creator. This pushes all transactions to Google Sheets.',
+      },
+      {
+        heading: 'Read the revenue chart',
+        detail: 'The chart shows daily net revenue for the selected period. Use the dropdown to switch between Last 30 Days, Last 90 Days, MTD, YTD, Last 365 Days, or All Time. Use the ‹ › arrows to shift one week forward or back. The pink line is revenue, the % badge shows change vs the previous period of the same length.',
+      },
+      {
+        heading: 'Filter by transaction type',
+        detail: 'The type pills (Messages, Subscription, Tip) filter the chart to show revenue from just that type. Click a pill to toggle it, click again to go back to All.',
+      },
+      {
+        heading: 'Check "Fans Going Cold"',
+        detail: 'Below the chart, you\'ll see a list of fans whose spending has dropped below their personal normal cadence. Each fan has a "Normal Gap" (how often they usually buy) and "Current Gap" (how long since their last purchase). The system only flags fans in the 14-90 day window — early enough to intervene, not so late they\'re already gone.',
+      },
+      {
+        heading: 'Expand a fan to see details',
+        detail: 'Click any fan row to expand it. You\'ll see: the trigger reason, their last purchase date, a monthly spending bar chart, and the Chat Analysis section.',
+      },
+      {
+        heading: 'Run a Chat Analysis',
+        detail: 'To understand WHY a fan\'s spending dropped, save their OF chat as HTML (go to their DM on OnlyFans → right-click → Save As → Webpage Complete). Upload the HTML file in the expanded row and click "Analyze Conversation." AI reads the full conversation, cross-references with spending dates, and produces a detailed report.',
+      },
+      {
+        heading: 'Read the analysis',
+        detail: 'The analysis includes: Fan Type (what kind of fan they are), Timeline, The Turning Point (exact moment things shifted), What Drove Their Spending, What Went Wrong, Personal Details to Leverage (specific conversation starters), and Action Items with example messages to send. Toggle between "Full" and "Manager Brief" views.',
+      },
+      {
+        heading: 'Act on it',
+        detail: 'The Personal Details section gives you 5+ ready-to-use conversation starters based on things the fan actually said. Pick the one that fits, send it to the chatting team, and have them reach out. The analysis also says what NOT to do — usually "no PPV, no mass messages, personal touch only."',
+      },
+    ],
+    tips: [
+      'Analyses are saved to Airtable automatically. If you refresh the page, the last analysis for each fan loads back in — you don\'t need to re-upload.',
+      'The "Re-analyze" button re-runs AI on the same HTML file with the latest prompt — useful when we\'ve improved the analysis quality.',
+      'Fans with deleted OF accounts (grayed-out names on OF) are automatically filtered out — no point trying to re-engage someone who doesn\'t exist on the platform.',
+      'The 14-day minimum gap prevents false alarms on fans who buy frequently but just had a slow week. The 90-day maximum filters out fans who are already long gone.',
+      'Top Fans table below the alerts changes based on the selected period — so "Top Fans — Last 30 Days" shows who spent the most recently, not all-time.',
+      'Deep dive analysis ($1000+ lifetime fans) is more detailed than quick snapshots (<$1000 fans). Both include action items.',
+    ],
+  },
+  {
+    id: 'upload-transactions',
+    title: 'Uploading OF Transaction Data',
+    icon: '💳',
+    link: '/admin/invoicing',
+    tags: ['upload', 'transactions', 'sales', 'chargebacks', 'HTML', 'OnlyFans', 'statements', 'data'],
+    scenario: 'You need to get a creator\'s OnlyFans sales data into the system for earnings tracking and fan analysis.',
+    steps: [
+      {
+        heading: 'Go to OnlyFans Statements page',
+        detail: 'Log into the creator\'s OF account. Go to Statements (under the menu or at onlyfans.com/my/banking/statements). Make sure you\'re on the "Earnings" tab showing individual transactions.',
+      },
+      {
+        heading: 'Scroll down to load history',
+        detail: 'The page loads transactions as you scroll. Scroll all the way down to load as much history as you want. The more history, the better the fan analysis will be.',
+      },
+      {
+        heading: 'Save the page as HTML',
+        detail: 'Right-click anywhere → "Save As" → choose "Webpage, Complete" (not "Webpage, HTML Only"). This saves the full page with all the transaction data.',
+      },
+      {
+        heading: 'Go to Invoicing → Raw Data Upload',
+        detail: 'In the admin portal, click Invoicing in the sidebar, then the "Raw Data Upload" tab.',
+      },
+      {
+        heading: 'Select the creator and upload',
+        detail: 'Pick the creator from the dropdown, then drag the saved HTML file into the upload zone (or click to browse). Click Upload.',
+      },
+      {
+        heading: 'Check the results',
+        detail: 'You\'ll see a summary: how many transactions were parsed, the date range, and total amounts. The data goes straight to Google Sheets.',
+      },
+    ],
+    tips: [
+      'You can upload the same creator multiple times — the system tracks a cutoff date and skips duplicates.',
+      'For chargebacks, go to the Chargebacks tab on OF Statements and save that page separately. Upload it the same way.',
+      'The system extracts usernames from the HTML, so fan-level analysis works automatically. Fans with deleted accounts show up without a username (grayed-out on OF).',
+      'Dates are converted to UTC to match how OnlyFans groups daily totals. If a number seems off by a few dollars vs OF, it\'s likely a timezone boundary difference — this is expected and usually <1%.',
+    ],
+  },
 ]
 
 // ─── Component ───────────────────────────────────────────────────────

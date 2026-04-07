@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 const TAG_CATEGORIES = [
   'Setting / Location',
@@ -1159,7 +1160,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setCustomEnd(ne.toISOString().split('T')[0])
             setPeriod('custom')
             setSlideDir('right'); setSlideKey(k => k + 1)
-            setTimeout(() => setSlideDir(null), 250)
+            setTimeout(() => setSlideDir(null), 350)
           }} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>‹</button>
           <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null); setShowAllFans(false) }}
             style={{
@@ -1179,7 +1180,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setCustomEnd(ne.toISOString().split('T')[0])
             setPeriod('custom')
             setSlideDir('left'); setSlideKey(k => k + 1)
-            setTimeout(() => setSlideDir(null), 250)
+            setTimeout(() => setSlideDir(null), 350)
           }} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>›</button>
           {period === 'custom' && (
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -1242,11 +1243,19 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         </div>
         {/* Sliding chart */}
         <div key={slideKey} style={{
-          animation: slideDir ? `slide${slideDir === 'left' ? 'Left' : 'Right'} 0.25s ease-out` : 'none',
+          animation: slideDir ? `chartSlide${slideDir === 'left' ? 'Left' : 'Right'} 0.35s cubic-bezier(0.25, 0.1, 0.25, 1)` : 'none',
         }}>
           <style>{`
-            @keyframes slideLeft { from { transform: translateX(40px); opacity: 0.6; } to { transform: translateX(0); opacity: 1; } }
-            @keyframes slideRight { from { transform: translateX(-40px); opacity: 0.6; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes chartSlideLeft {
+              0% { transform: translateX(60px); opacity: 0; }
+              40% { opacity: 0.7; }
+              100% { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes chartSlideRight {
+              0% { transform: translateX(-60px); opacity: 0; }
+              40% { opacity: 0.7; }
+              100% { transform: translateX(0); opacity: 1; }
+            }
           `}</style>
           <RevenueChart dailyData={filteredDaily} allDailyData={dailyData} typeFilter={typeFilter} pctChange={pctChange} milestones={[
             ...(creator?.managementStartDate ? [{ date: creator.managementStartDate, label: 'Joined Palm' }] : []),
@@ -1869,10 +1878,12 @@ function ProfileSection({ label, text, mono }) {
 }
 
 export default function CreatorsPage() {
+  const searchParams = useSearchParams()
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
-  const [activeSection, setActiveSection] = useState('earnings')
+  const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'earnings')
+  useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveSection(t) }, [searchParams])
 
   useEffect(() => {
     Promise.all([
