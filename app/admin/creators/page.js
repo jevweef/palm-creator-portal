@@ -410,7 +410,6 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
     return 10 * mag
   }
   const maxEarnings = niceMax(rawMax * 1.05)
-  const maxTxns = Math.max(...chartData.map(d => d.txnCount), 1) * 1.3
 
   // Fixed 4 grid lines
   const GRID_COUNT = 4
@@ -422,23 +421,14 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
   const cw = CW - pad.l - pad.r, ch = CH - pad.t - pad.b
 
   const px = (i) => pad.l + (i / Math.max(chartData.length - 1, 1)) * cw
-  const pyE = (v) => pad.t + ch - (v / maxEarnings) * ch  // earnings (left)
-  const pyT = (v) => pad.t + ch - (v / maxTxns) * ch      // txns (right)
+  const pyE = (v) => pad.t + ch - (v / maxEarnings) * ch
 
   // Earnings line + area
   const earningsPoints = chartData.map((d, i) => [px(i), pyE(d.net)])
   const earningsPath = buildMonotonePath(earningsPoints)
   const earningsArea = earningsPath + `L${(pad.l + cw).toFixed(1)},${pad.t + ch}L${pad.l},${pad.t + ch}Z`
 
-  // Txn count line
-  const txnPoints = chartData.map((d, i) => [px(i), pyT(d.txnCount)])
-  const txnPath = buildMonotonePath(txnPoints)
-
-  // Txn count grid (4 lines to match)
-  const tSteps = []
-  for (let i = 1; i <= GRID_COUNT; i++) tSteps.push(Math.round(maxTxns * (i / GRID_COUNT)))
-
-  // X-axis labels (4-5 evenly spaced, formatted like "Mar 10,\n2026")
+  // X-axis labels (4-5 evenly spaced)
   const xCount = Math.min(5, chartData.length)
   const xLabels = []
   for (let j = 0; j < xCount; j++) {
@@ -455,8 +445,8 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
     const i = Math.round(((mx - pad.l) / cw) * (chartData.length - 1))
     if (i < 0 || i >= chartData.length) { setHover(null); return }
     const d = chartData[i]
-    setHover({ i, cx: px(i), cyE: pyE(d.net), cyT: pyT(d.txnCount), net: d.net, txnCount: d.txnCount, date: d.date })
-  }, [chartData, maxEarnings, maxTxns])
+    setHover({ i, cx: px(i), cyE: pyE(d.net), net: d.net, date: d.date })
+  }, [chartData, maxEarnings])
 
   const fmtM = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -501,8 +491,6 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
         {/* Earnings line */}
         <path d={earningsPath} fill="none" stroke="#E88FAC" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
 
-        {/* Transaction count line (gray, thinner) */}
-        <path d={txnPath} fill="none" stroke="#bbb" strokeWidth={1} strokeLinejoin="round" strokeLinecap="round" />
 
         {/* Milestone lines */}
         {milestones?.map((m, idx) => {
@@ -520,8 +508,6 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
         {/* Y labels — earnings (right) */}
         {eSteps.map(v => <text key={`e${v}`} x={pad.l + cw + 6} y={pyE(v) + 4} fill="#999" fontSize={10} fontFamily="system-ui">{fmtChartMoney(v)}</text>)}
 
-        {/* Y labels — txn count (far right, smaller) */}
-        {tSteps.map(v => <text key={`t${v}`} x={pad.l + cw + 6} y={pyT(v) + 4} fill="#ccc" fontSize={9} fontFamily="system-ui">{v}</text>)}
 
         {/* X labels */}
         {xLabels.map(({ pos, label }, i) => {
@@ -537,30 +523,18 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, milestones }) {
 
         {/* Hover */}
         {hover && (() => {
-          const ttW = 160, ttH = 58
+          const ttW = 150, ttH = 42
           const ttX = Math.max(10, Math.min(hover.cx - ttW/2, CW - ttW - 10))
           const ttY = hover.cyE > ttH + 30 ? hover.cyE - ttH - 12 : hover.cyE + 16
           return (
             <g>
-              {/* Vertical guide */}
               <line x1={hover.cx} x2={hover.cx} y1={pad.t} y2={pad.t + ch} stroke="rgba(0,0,0,0.1)" strokeWidth={1} />
-              {/* Dots */}
               <circle cx={hover.cx} cy={hover.cyE} r={4} fill="#E88FAC" stroke="#fff" strokeWidth={2} />
-              <circle cx={hover.cx} cy={hover.cyT} r={3} fill="#bbb" stroke="#fff" strokeWidth={1.5} />
-              {/* Tooltip card */}
               <rect x={ttX} y={ttY} width={ttW} height={ttH} rx={6} fill="#fff" stroke="rgba(0,0,0,0.08)" strokeWidth={1} style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.06))' }} />
-              {/* Date */}
-              <text x={ttX + ttW/2} y={ttY + 16} textAnchor="middle" fill="#1a1a1a" fontSize={11} fontWeight={700} fontFamily="system-ui">
-                {hover.date}
-              </text>
-              {/* Earnings row */}
+              <text x={ttX + ttW/2} y={ttY + 16} textAnchor="middle" fill="#1a1a1a" fontSize={11} fontWeight={700} fontFamily="system-ui">{hover.date}</text>
               <circle cx={ttX + 14} cy={ttY + 32} r={3.5} fill="#E88FAC" />
               <text x={ttX + 24} y={ttY + 35} fill="#999" fontSize={10} fontFamily="system-ui">Earnings</text>
               <text x={ttX + ttW - 12} y={ttY + 35} textAnchor="end" fill="#1a1a1a" fontSize={10} fontWeight={600} fontFamily="system-ui">{fmtM(hover.net)}</text>
-              {/* Txn count row */}
-              <circle cx={ttX + 14} cy={ttY + 48} r={3.5} fill="#bbb" />
-              <text x={ttX + 24} y={ttY + 51} fill="#999" fontSize={10} fontFamily="system-ui">Transactions</text>
-              <text x={ttX + ttW - 12} y={ttY + 51} textAnchor="end" fill="#1a1a1a" fontSize={10} fontWeight={600} fontFamily="system-ui">{hover.txnCount}</text>
             </g>
           )
         })()}
