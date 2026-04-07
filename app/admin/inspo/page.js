@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import AdminPipeline from '@/app/admin/page'
 import AdminSources from '@/app/admin/sources/page'
 import AdminReview from '@/app/admin/review/page'
@@ -14,7 +15,9 @@ const TABS = [
 ]
 
 export default function InspoBoard() {
-  const [activeTab, setActiveTab] = useState('pipeline')
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'pipeline')
+  useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
 
   return (
     <div>

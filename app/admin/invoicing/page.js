@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import InvoiceWorkflowModal from './InvoiceWorkflowModal'
 import RawDataUpload from './RawDataUpload'
 
@@ -401,7 +401,9 @@ export default function InvoicingPage() {
   const [savingId, setSavingId] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [workflowModal, setWorkflowModal] = useState(null) // { aka, rows }
-  const [activeTab, setActiveTab] = useState('invoices') // 'invoices' | 'upload'
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'invoices')
+  useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
 
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin'

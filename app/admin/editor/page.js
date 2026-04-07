@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { EditorDashboardContent, getSlotLabel } from '@/components/EditorDashboard'
 import PostsPage from '@/app/admin/posts/page'
@@ -1580,7 +1581,9 @@ function ForReview({ showToast }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function EditorQueue() {
-  const [activeSection, setActiveSection] = useState('editorview')
+  const searchParams = useSearchParams()
+  const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'editorview')
+  useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveSection(t) }, [searchParams])
   const [toast, setToast] = useState(null)
   const [notifStatus, setNotifStatus] = useState('idle') // 'idle' | 'subscribed' | 'denied'
 

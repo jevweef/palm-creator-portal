@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 const TAG_CATEGORIES = [
   'Setting / Location',
@@ -1877,10 +1878,12 @@ function ProfileSection({ label, text, mono }) {
 }
 
 export default function CreatorsPage() {
+  const searchParams = useSearchParams()
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
-  const [activeSection, setActiveSection] = useState('earnings')
+  const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'earnings')
+  useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveSection(t) }, [searchParams])
 
   useEffect(() => {
     Promise.all([
