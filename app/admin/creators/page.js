@@ -330,125 +330,205 @@ const CHART_W = 900, CHART_H = 280
 const CP = { t: 25, r: 55, b: 40, l: 10 }
 const chartW = CHART_W - CP.l - CP.r, chartH = CHART_H - CP.t - CP.b
 
+function fmtChartDate(dateStr) {
+  if (!dateStr) return ''
+  const [y, m, d] = dateStr.split('-')
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${months[parseInt(m)-1]} ${parseInt(d)},\n${y}`
+}
+
+function fmtChartMoney(v) {
+  if (v >= 1000) return '$' + (v/1000).toFixed(v >= 10000 ? 0 : 1) + 'k'
+  return '$' + Math.round(v)
+}
+
+function buildMonotonePath(pts) {
+  if (pts.length < 2) return ''
+  if (pts.length === 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`
+  const n = pts.length
+  const slopes = []
+  for (let i = 0; i < n; i++) {
+    if (i === 0) slopes.push((pts[1][1] - pts[0][1]) / (pts[1][0] - pts[0][0] || 1))
+    else if (i === n - 1) slopes.push((pts[n-1][1] - pts[n-2][1]) / (pts[n-1][0] - pts[n-2][0] || 1))
+    else {
+      const d0 = (pts[i][1] - pts[i-1][1]) / (pts[i][0] - pts[i-1][0] || 1)
+      const d1 = (pts[i+1][1] - pts[i][1]) / (pts[i+1][0] - pts[i][0] || 1)
+      slopes.push(d0 * d1 <= 0 ? 0 : (d0 + d1) / 2)
+    }
+  }
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 0; i < n - 1; i++) {
+    const dx = (pts[i+1][0] - pts[i][0]) / 5
+    d += `C${(pts[i][0]+dx).toFixed(1)},${(pts[i][1]+slopes[i]*dx).toFixed(1)},${(pts[i+1][0]-dx).toFixed(1)},${(pts[i+1][1]-slopes[i+1]*dx).toFixed(1)},${pts[i+1][0].toFixed(1)},${pts[i+1][1].toFixed(1)}`
+  }
+  return d
+}
+
 function RevenueChart({ dailyData, typeFilter, milestones }) {
   const [hover, setHover] = useState(null)
   const svgRef = useRef(null)
 
-  // Filter data by type if needed
   const chartData = useMemo(() => {
     return dailyData.map(d => {
       let val = d.net
-      if (typeFilter !== 'all') {
-        val = d.byType?.[typeFilter] || 0
-      }
-      return { date: d.date, net: val }
+      if (typeFilter !== 'all') val = d.byType?.[typeFilter] || 0
+      return { date: d.date, net: val, gross: d.gross || 0, txnCount: d.txnCount || 0 }
     })
   }, [dailyData, typeFilter])
 
   if (chartData.length === 0) return null
 
-  const maxVal = Math.max(...chartData.map(d => d.net), 1) * 1.1
-  const px = (i) => CP.l + (i / (chartData.length - 1)) * chartW
-  const py = (v) => CP.t + chartH - (v / maxVal) * chartH
+  // Summary for header
+  const totalNet = chartData.reduce((s, d) => s + d.net, 0)
+  const totalGross = chartData.reduce((s, d) => s + d.gross, 0)
 
-  // Monotone cubic interpolation — smooth but never overshoots data points
-  const points = chartData.map((d, i) => [px(i), py(d.net)])
-  function smoothPath(pts) {
-    if (pts.length < 2) return ''
-    if (pts.length === 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`
-    // Compute tangent slopes (monotone-constrained)
-    const n = pts.length
-    const slopes = []
-    for (let i = 0; i < n; i++) {
-      if (i === 0) slopes.push((pts[1][1] - pts[0][1]) / (pts[1][0] - pts[0][0] || 1))
-      else if (i === n - 1) slopes.push((pts[n-1][1] - pts[n-2][1]) / (pts[n-1][0] - pts[n-2][0] || 1))
-      else {
-        const d0 = (pts[i][1] - pts[i-1][1]) / (pts[i][0] - pts[i-1][0] || 1)
-        const d1 = (pts[i+1][1] - pts[i][1]) / (pts[i+1][0] - pts[i][0] || 1)
-        // Monotone: if slopes differ in sign, flat tangent
-        slopes.push(d0 * d1 <= 0 ? 0 : (d0 + d1) / 2)
-      }
-    }
-    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
-    for (let i = 0; i < n - 1; i++) {
-      const dx = (pts[i+1][0] - pts[i][0]) / 5
-      const cp1x = pts[i][0] + dx
-      const cp1y = pts[i][1] + slopes[i] * dx
-      const cp2x = pts[i+1][0] - dx
-      const cp2y = pts[i+1][1] - slopes[i+1] * dx
-      d += `C${cp1x.toFixed(1)},${cp1y.toFixed(1)},${cp2x.toFixed(1)},${cp2y.toFixed(1)},${pts[i+1][0].toFixed(1)},${pts[i+1][1].toFixed(1)}`
-    }
-    return d
+  // Dual axes
+  const maxEarnings = Math.max(...chartData.map(d => d.net), 1) * 1.12
+  const maxTxns = Math.max(...chartData.map(d => d.txnCount), 1) * 1.3
+
+  const CW = CHART_W, CH = CHART_H
+  const pad = { t: 10, r: 50, b: 45, l: 10 }
+  const cw = CW - pad.l - pad.r, ch = CH - pad.t - pad.b
+
+  const px = (i) => pad.l + (i / Math.max(chartData.length - 1, 1)) * cw
+  const pyE = (v) => pad.t + ch - (v / maxEarnings) * ch  // earnings (left)
+  const pyT = (v) => pad.t + ch - (v / maxTxns) * ch      // txns (right)
+
+  // Earnings line + area
+  const earningsPoints = chartData.map((d, i) => [px(i), pyE(d.net)])
+  const earningsPath = buildMonotonePath(earningsPoints)
+  const earningsArea = earningsPath + `L${(pad.l + cw).toFixed(1)},${pad.t + ch}L${pad.l},${pad.t + ch}Z`
+
+  // Txn count line
+  const txnPoints = chartData.map((d, i) => [px(i), pyT(d.txnCount)])
+  const txnPath = buildMonotonePath(txnPoints)
+
+  // Y-axis steps (earnings — right side like OF)
+  const eStep = maxEarnings > 5000 ? 1000 : maxEarnings > 2000 ? 500 : maxEarnings > 500 ? 250 : 50
+  const eSteps = []
+  for (let v = eStep; v <= maxEarnings; v += eStep) eSteps.push(v)
+
+  // Y-axis steps (txns — far right)
+  const tStep = maxTxns > 200 ? 50 : maxTxns > 100 ? 25 : maxTxns > 50 ? 10 : 5
+  const tSteps = []
+  for (let v = tStep; v <= maxTxns; v += tStep) tSteps.push(v)
+
+  // X-axis labels (4-5 evenly spaced, formatted like "Mar 10,\n2026")
+  const xCount = Math.min(5, chartData.length)
+  const xLabels = []
+  for (let j = 0; j < xCount; j++) {
+    const pos = j / (xCount - 1)
+    const idx = Math.round(pos * (chartData.length - 1))
+    xLabels.push({ pos, label: fmtChartDate(chartData[idx]?.date) })
   }
-  const linePath = smoothPath(points)
-  const areaPath = linePath + `L${(CP.l + chartW).toFixed(1)},${CP.t + chartH}L${CP.l},${CP.t + chartH}Z`
-
-  // Y-axis steps
-  const yStep = maxVal > 2000 ? 500 : maxVal > 1000 ? 250 : maxVal > 500 ? 100 : 50
-  const ySteps = []
-  for (let v = yStep; v <= maxVal; v += yStep) ySteps.push(v)
-
-  // X-axis labels (5 evenly spaced)
-  const xLabels = [0, 0.25, 0.5, 0.75, 1].map(p => {
-    const idx = Math.round(p * (chartData.length - 1))
-    return { pos: p, label: chartData[idx]?.date || '' }
-  })
 
   const onMove = useCallback((e) => {
     const svg = svgRef.current
     if (!svg) return
     const rect = svg.getBoundingClientRect()
-    const mx = ((e.clientX - rect.left) / rect.width) * CHART_W
-    const i = Math.round(((mx - CP.l) / chartW) * (chartData.length - 1))
+    const mx = ((e.clientX - rect.left) / rect.width) * CW
+    const i = Math.round(((mx - pad.l) / cw) * (chartData.length - 1))
     if (i < 0 || i >= chartData.length) { setHover(null); return }
-    setHover({ i, cx: px(i), cy: py(chartData[i].net), value: chartData[i].net, date: chartData[i].date })
-  }, [chartData, maxVal])
+    const d = chartData[i]
+    setHover({ i, cx: px(i), cyE: pyE(d.net), cyT: pyT(d.txnCount), net: d.net, txnCount: d.txnCount, date: d.date })
+  }, [chartData, maxEarnings, maxTxns])
+
+  const fmtM = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-      style={{ width: '100%', height: 'auto', overflow: 'visible', cursor: 'crosshair' }}
-      onMouseMove={onMove} onMouseLeave={() => setHover(null)}
-      onTouchMove={e => { const t = e.touches[0]; if (t) onMove({ clientX: t.clientX }) }}
-      onTouchEnd={() => setHover(null)}>
-      <defs>
-        <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(232,143,172,0.25)" />
-          <stop offset="100%" stopColor="rgba(232,143,172,0.02)" />
-        </linearGradient>
-      </defs>
-      {/* Grid */}
-      {ySteps.map(v => <line key={v} x1={CP.l} x2={CP.l + chartW} y1={py(v)} y2={py(v)} stroke="rgba(0,0,0,0.06)" strokeWidth={1} />)}
-      {/* Area */}
-      <path d={areaPath} fill="url(#earningsGrad)" />
-      {/* Line */}
-      <path d={linePath} fill="none" stroke="#E88FAC" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-      {/* Milestone lines */}
-      {milestones?.map((m, idx) => {
-        const mIdx = chartData.findIndex(d => d.date === m.date)
-        if (mIdx < 0) return null
-        const mx = px(mIdx)
-        return (
-          <g key={idx}>
-            <line x1={mx} x2={mx} y1={CP.t} y2={CP.t + chartH} stroke="rgba(232,143,172,0.45)" strokeWidth={1.5} strokeDasharray="6,4" />
-            <text x={mx} y={CP.t - 8} textAnchor="middle" fill="#E88FAC" fontSize={10} fontWeight={600}>{m.label}</text>
-          </g>
-        )
-      })}
-      {/* Y labels */}
-      {ySteps.map(v => <text key={v} x={CP.l + chartW + 8} y={py(v) + 4} fill="#999" fontSize={10}>${v >= 1000 ? (v/1000).toFixed(1) + 'k' : v}</text>)}
-      {/* X labels */}
-      {xLabels.map(({ pos, label }, i) => <text key={i} x={CP.l + pos * chartW} y={CHART_H - 8} textAnchor="middle" fill="#999" fontSize={10}>{label}</text>)}
-      {/* Hover */}
-      {hover && (
-        <g>
-          <line x1={hover.cx} x2={hover.cx} y1={CP.t} y2={CP.t + chartH} stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
-          <circle cx={hover.cx} cy={hover.cy} r={4} fill="#E88FAC" stroke="#fff" strokeWidth={2} />
-          <rect x={Math.max(60, Math.min(hover.cx - 60, CHART_W - 130))} y={hover.cy > 80 ? hover.cy - 48 : hover.cy + 14} width={120} height={38} rx={6} fill="#fff" stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
-          <text x={Math.max(60, Math.min(hover.cx - 60, CHART_W - 130)) + 60} y={(hover.cy > 80 ? hover.cy - 48 : hover.cy + 14) + 16} textAnchor="middle" fill="#1a1a1a" fontSize={10} fontWeight={600}>{hover.date}</text>
-          <text x={Math.max(60, Math.min(hover.cx - 60, CHART_W - 130)) + 60} y={(hover.cy > 80 ? hover.cy - 48 : hover.cy + 14) + 30} textAnchor="middle" fill="#E88FAC" fontSize={11} fontWeight={700}>${hover.value.toFixed(2)}</text>
-        </g>
-      )}
-    </svg>
+    <div>
+      {/* Chart header — OF style */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
+        <span style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmtM(totalNet)}</span>
+        <span style={{ fontSize: '14px', color: '#999' }}>({fmtM(totalGross)} Gross)</span>
+      </div>
+
+      <svg ref={svgRef} viewBox={`0 0 ${CW} ${CH}`}
+        style={{ width: '100%', height: 'auto', overflow: 'visible', cursor: 'crosshair' }}
+        onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+        onTouchMove={e => { const t = e.touches[0]; if (t) onMove({ clientX: t.clientX }) }}
+        onTouchEnd={() => setHover(null)}>
+        <defs>
+          <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(232,143,172,0.18)" />
+            <stop offset="100%" stopColor="rgba(232,143,172,0.01)" />
+          </linearGradient>
+        </defs>
+
+        {/* Horizontal grid lines */}
+        {eSteps.map(v => <line key={v} x1={pad.l} x2={pad.l + cw} y1={pyE(v)} y2={pyE(v)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />)}
+
+        {/* Earnings area fill */}
+        <path d={earningsArea} fill="url(#earningsGrad)" />
+
+        {/* Earnings line */}
+        <path d={earningsPath} fill="none" stroke="#E88FAC" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* Transaction count line (gray, thinner) */}
+        <path d={txnPath} fill="none" stroke="#bbb" strokeWidth={1} strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* Milestone lines */}
+        {milestones?.map((m, idx) => {
+          const mIdx = chartData.findIndex(d => d.date === m.date)
+          if (mIdx < 0) return null
+          const mx = px(mIdx)
+          return (
+            <g key={idx}>
+              <line x1={mx} x2={mx} y1={pad.t} y2={pad.t + ch} stroke="rgba(232,143,172,0.45)" strokeWidth={1.5} strokeDasharray="6,4" />
+              <text x={mx} y={pad.t - 4} textAnchor="middle" fill="#E88FAC" fontSize={9} fontWeight={600}>{m.label}</text>
+            </g>
+          )
+        })}
+
+        {/* Y labels — earnings (right) */}
+        {eSteps.map(v => <text key={`e${v}`} x={pad.l + cw + 6} y={pyE(v) + 4} fill="#999" fontSize={10} fontFamily="system-ui">{fmtChartMoney(v)}</text>)}
+
+        {/* Y labels — txn count (far right, smaller) */}
+        {tSteps.map(v => <text key={`t${v}`} x={pad.l + cw + 6} y={pyT(v) + 4} fill="#ccc" fontSize={9} fontFamily="system-ui">{v}</text>)}
+
+        {/* X labels */}
+        {xLabels.map(({ pos, label }, i) => {
+          const lines = label.split('\n')
+          return (
+            <text key={i} x={pad.l + pos * cw} y={CH - 18} textAnchor="middle" fill="#999" fontSize={10} fontFamily="system-ui">
+              {lines.map((line, li) => (
+                <tspan key={li} x={pad.l + pos * cw} dy={li === 0 ? 0 : 12}>{line}</tspan>
+              ))}
+            </text>
+          )
+        })}
+
+        {/* Hover */}
+        {hover && (() => {
+          const ttW = 160, ttH = 58
+          const ttX = Math.max(10, Math.min(hover.cx - ttW/2, CW - ttW - 10))
+          const ttY = hover.cyE > ttH + 30 ? hover.cyE - ttH - 12 : hover.cyE + 16
+          return (
+            <g>
+              {/* Vertical guide */}
+              <line x1={hover.cx} x2={hover.cx} y1={pad.t} y2={pad.t + ch} stroke="rgba(0,0,0,0.1)" strokeWidth={1} />
+              {/* Dots */}
+              <circle cx={hover.cx} cy={hover.cyE} r={4} fill="#E88FAC" stroke="#fff" strokeWidth={2} />
+              <circle cx={hover.cx} cy={hover.cyT} r={3} fill="#bbb" stroke="#fff" strokeWidth={1.5} />
+              {/* Tooltip card */}
+              <rect x={ttX} y={ttY} width={ttW} height={ttH} rx={6} fill="#fff" stroke="rgba(0,0,0,0.08)" strokeWidth={1} style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.06))' }} />
+              {/* Date */}
+              <text x={ttX + ttW/2} y={ttY + 16} textAnchor="middle" fill="#1a1a1a" fontSize={11} fontWeight={700} fontFamily="system-ui">
+                {hover.date}
+              </text>
+              {/* Earnings row */}
+              <circle cx={ttX + 14} cy={ttY + 32} r={3.5} fill="#E88FAC" />
+              <text x={ttX + 24} y={ttY + 35} fill="#999" fontSize={10} fontFamily="system-ui">Earnings</text>
+              <text x={ttX + ttW - 12} y={ttY + 35} textAnchor="end" fill="#1a1a1a" fontSize={10} fontWeight={600} fontFamily="system-ui">{fmtM(hover.net)}</text>
+              {/* Txn count row */}
+              <circle cx={ttX + 14} cy={ttY + 48} r={3.5} fill="#bbb" />
+              <text x={ttX + 24} y={ttY + 51} fill="#999" fontSize={10} fontFamily="system-ui">Transactions</text>
+              <text x={ttX + ttW - 12} y={ttY + 51} textAnchor="end" fill="#1a1a1a" fontSize={10} fontWeight={600} fontFamily="system-ui">{hover.txnCount}</text>
+            </g>
+          )
+        })()}
+      </svg>
+    </div>
   )
 }
 

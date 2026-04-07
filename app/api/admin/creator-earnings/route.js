@@ -217,17 +217,22 @@ export async function GET(request) {
     // ── Daily aggregation for chart ───────────────────────────────────────
     const dailyMap = {}
     const dailyByType = {}
+    const dailyGross = {}
+    const dailyCount = {}
     for (const t of transactions) {
       if (!t.date) continue
       if (!dailyMap[t.date]) dailyMap[t.date] = 0
-      // Chargebacks are negative
+      if (!dailyGross[t.date]) dailyGross[t.date] = 0
+      if (!dailyCount[t.date]) dailyCount[t.date] = 0
       const netVal = t.type === 'Chargeback' ? -t.net : t.net
       dailyMap[t.date] += netVal
+      dailyGross[t.date] += t.type === 'Chargeback' ? -t.gross : t.gross
+      dailyCount[t.date] += 1
 
       const tp = t.type || 'Unknown'
       if (!dailyByType[t.date]) dailyByType[t.date] = {}
       if (!dailyByType[t.date][tp]) dailyByType[t.date][tp] = 0
-      dailyByType[t.date][tp] += t.net // keep positive for type breakdown
+      dailyByType[t.date][tp] += t.net
     }
 
     // Build daily array sorted chronologically
@@ -235,6 +240,8 @@ export async function GET(request) {
       .map(([date, net]) => ({
         date,
         net,
+        gross: dailyGross[date] || 0,
+        txnCount: dailyCount[date] || 0,
         byType: dailyByType[date] || {},
         dt: parseSheetDate(date),
       }))
