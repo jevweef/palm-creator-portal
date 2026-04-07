@@ -734,9 +734,40 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
 
 // ── Going Cold Row ─────────────────────────────────────────────────────────
 
-function GoingColdRow({ alert: a, index: i, fmtMoney }) {
+function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
   const [expanded, setExpanded] = useState(false)
+  const [chatFile, setChatFile] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState(null)
+  const [analysisError, setAnalysisError] = useState(null)
+  const chatFileRef = useRef(null)
   const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
+
+  async function handleAnalyze() {
+    if (!chatFile) return
+    setAnalyzing(true)
+    setAnalysisError(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', chatFile)
+      formData.append('fanName', a.fan)
+      formData.append('lifetime', a.lifetime)
+      formData.append('medianGap', a.medianGap)
+      formData.append('currentGap', a.currentGap)
+      formData.append('rolling30', a.rolling30)
+      formData.append('monthlyAvg90', a.monthlyAvg90)
+      formData.append('creatorName', creatorName || '')
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Analysis failed')
+      setAnalysis(data)
+      setChatFile(null)
+    } catch (e) {
+      setAnalysisError(e.message)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
   const uc = urgColors[a.urgency] || urgColors.warning
 
   return (
@@ -808,6 +839,90 @@ function GoingColdRow({ alert: a, index: i, fmtMoney }) {
               </div>
             )
           })()}
+
+          {/* Chat analysis section */}
+          <div style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
+            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+              Chat Analysis {a.lifetime >= 1000 ? '(Deep Dive)' : '(Quick Snapshot)'}
+            </div>
+
+            {!analysis && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  ref={chatFileRef}
+                  type="file"
+                  accept=".html,.htm"
+                  onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  onClick={() => chatFileRef.current?.click()}
+                  style={{
+                    background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                    color: chatFile ? '#166534' : '#64748B',
+                  }}
+                >
+                  {chatFile ? `✓ ${chatFile.name}` : 'Upload OF chat HTML'}
+                </button>
+                {chatFile && (
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={analyzing}
+                    style={{
+                      background: '#EA580C', border: 'none', borderRadius: '6px',
+                      padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                      cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                    }}
+                  >
+                    {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                  </button>
+                )}
+                <span style={{ fontSize: '11px', color: '#bbb' }}>
+                  Save chat page as HTML → upload here
+                </span>
+              </div>
+            )}
+
+            {analysisError && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+                {analysisError}
+              </div>
+            )}
+
+            {analysis && (
+              <div style={{ marginTop: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#999' }}>
+                    <span>{analysis.messageCount} messages</span>
+                    <span>Fan: {analysis.fanMessages}</span>
+                    <span>Creator: {analysis.creatorMessages}</span>
+                    <span style={{ color: analysis.analysisType === 'deep' ? '#EA580C' : '#64748B', fontWeight: 600 }}>
+                      {analysis.analysisType === 'deep' ? 'Deep Dive' : 'Quick Snapshot'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => { setAnalysis(null); setChatFile(null) }}
+                    style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Re-analyze
+                  </button>
+                </div>
+                <div style={{
+                  background: '#FFFBF5', border: '1px solid #FED7AA', borderRadius: '8px',
+                  padding: '14px 16px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.6',
+                  whiteSpace: 'pre-wrap',
+                }}>
+                  {analysis.analysis.split(/(\*\*[^*]+\*\*)/).map((part, idx) => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                      return <strong key={idx} style={{ color: '#EA580C', display: 'block', marginTop: idx > 0 ? '10px' : 0, marginBottom: '2px', fontSize: '12px' }}>{part.slice(2, -2)}</strong>
+                    }
+                    return <span key={idx}>{part}</span>
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1029,7 +1144,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
           </div>
           {goingColdAlerts.map((a, i) => (
-            <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} />
+            <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || ''} />
           ))}
         </div>
       )}
