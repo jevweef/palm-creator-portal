@@ -657,71 +657,91 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
   return (
     <div>
-      {/* Period selector + refresh */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+      {/* Compact controls: period + type + stats all in one row area */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
           {PERIOD_PRESETS.map(p => (
             <button key={p.key} onClick={() => setPeriod(p.key)}
               style={{
-                background: period === p.key ? '#FFF0F3' : '#fff',
-                border: period === p.key ? '1px solid #E88FAC' : '1px solid #e5e7eb',
-                borderRadius: '6px', color: period === p.key ? '#E88FAC' : '#999',
-                padding: '5px 10px', fontSize: '11px', fontWeight: period === p.key ? 600 : 400,
+                background: period === p.key ? '#FFF0F3' : 'transparent',
+                border: period === p.key ? '1px solid #E88FAC' : '1px solid transparent',
+                borderRadius: '5px', color: period === p.key ? '#E88FAC' : '#bbb',
+                padding: '3px 8px', fontSize: '10px', fontWeight: period === p.key ? 600 : 400,
                 cursor: 'pointer', whiteSpace: 'nowrap',
               }}>
               {p.label}
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {cachedAt && <span style={{ fontSize: '11px', color: '#ccc' }}>as of {new Date(cachedAt).toLocaleTimeString()}</span>}
-          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px', color: '#999' }}>↺</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '13px', color: '#999' }}>Period: <strong style={{ color: '#1a1a1a' }}>{fmtMoney(periodNet)}</strong></span>
+          <span style={{ color: '#e5e7eb' }}>|</span>
+          <span style={{ fontSize: '13px', color: '#999' }}>All-time: <strong style={{ color: '#1a1a1a' }}>{fmtMoney(summary.totalNet)}</strong></span>
+          <span style={{ color: '#e5e7eb' }}>|</span>
+          <span style={{ fontSize: '13px', color: '#999' }}>{fmtNum(summary.transactionCount)} txns</span>
+          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ccc' }}>↺</button>
         </div>
       </div>
 
-      {/* Type filter toggles */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+      {/* Type filters inline */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => setTypeFilter('all')}
           style={{
-            background: typeFilter === 'all' ? '#1a1a1a' : '#fff',
-            color: typeFilter === 'all' ? '#fff' : '#666',
-            border: '1px solid ' + (typeFilter === 'all' ? '#1a1a1a' : '#e5e7eb'),
-            borderRadius: '20px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+            background: typeFilter === 'all' ? '#1a1a1a' : 'transparent',
+            color: typeFilter === 'all' ? '#fff' : '#bbb',
+            border: typeFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
+            borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
           }}>All</button>
         {allTypes.map(t => (
           <button key={t} onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
             style={{
-              background: typeFilter === t ? (TYPE_COLORS[t] || '#999') + '18' : '#fff',
-              color: typeFilter === t ? TYPE_COLORS[t] || '#999' : '#666',
-              border: '1px solid ' + (typeFilter === t ? TYPE_COLORS[t] || '#999' : '#e5e7eb'),
-              borderRadius: '20px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+              background: typeFilter === t ? (TYPE_COLORS[t] || '#999') + '18' : 'transparent',
+              color: typeFilter === t ? TYPE_COLORS[t] || '#999' : '#bbb',
+              border: typeFilter === t ? `1px solid ${TYPE_COLORS[t] || '#999'}` : '1px solid transparent',
+              borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
             }}>
-            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TYPE_COLORS[t] || '#999', marginRight: '5px' }} />
+            <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: TYPE_COLORS[t] || '#999', marginRight: '4px' }} />
             {typeLabel(t)}
           </button>
         ))}
+        {/* Type breakdown inline */}
+        <div style={{ marginLeft: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
+            <span key={type} style={{ fontSize: '10px', color: '#999' }}>
+              {typeLabel(type)}: <strong style={{ color: '#666' }}>{fmtMoney(net)}</strong>
+              <span style={{ color: '#ddd' }}> ({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Revenue chart — immediately visible */}
+      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px' }}>
+        <RevenueChart dailyData={filteredDaily} typeFilter={typeFilter} milestones={[
+          ...(creator?.managementStartDate ? [{ date: creator.managementStartDate, label: 'Joined Palm' }] : []),
+        ]} />
       </div>
 
       {/* Whale alerts banner */}
       {whaleCount > 0 && (
         <button onClick={() => setShowWhales(!showWhales)}
           style={{
-            width: '100%', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px',
-            padding: '12px 16px', marginBottom: '16px', cursor: 'pointer', textAlign: 'left',
+            width: '100%', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px',
+            padding: '8px 14px', marginBottom: '10px', cursor: 'pointer', textAlign: 'left',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
           <div>
-            <span style={{ fontSize: '14px', fontWeight: 700, color: '#DC2626' }}>{whaleCount} whale{whaleCount !== 1 ? 's' : ''} gone cold</span>
-            <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>Top spenders whose last 30 days dropped below 25% of their peak</span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#DC2626' }}>{whaleCount} whale{whaleCount !== 1 ? 's' : ''} gone cold</span>
+            <span style={{ fontSize: '11px', color: '#999', marginLeft: '6px' }}>Last 30 days below 25% of peak</span>
           </div>
-          <span style={{ color: '#DC2626', fontSize: '16px' }}>{showWhales ? '▲' : '▼'}</span>
+          <span style={{ color: '#DC2626', fontSize: '14px' }}>{showWhales ? '▲' : '▼'}</span>
         </button>
       )}
 
       {/* Whale details — expandable */}
       {showWhales && whaleAlerts && (
-        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', marginBottom: '20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 140px 100px 100px 100px 90px 70px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 140px 100px 100px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <span></span><span>Fan</span><span>Peak Period</span><span style={{ textAlign: 'right' }}>Peak 30-day</span><span style={{ textAlign: 'right' }}>Last 30 days</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last Txn</span><span style={{ textAlign: 'center' }}>Status</span>
           </div>
           {whaleAlerts.map((w, i) => (
@@ -729,51 +749,6 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           ))}
         </div>
       )}
-
-      {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
-        {[
-          { label: 'Period Revenue', value: fmtMoney(periodNet), accent: true },
-          { label: 'All-Time Revenue', value: fmtMoney(summary.totalNet) },
-          { label: 'Avg Transaction', value: fmtMoney(summary.avgTransaction) },
-          { label: 'Total Transactions', value: fmtNum(summary.transactionCount) },
-        ].map(card => (
-          <div key={card.label} style={{
-            background: '#fff', borderRadius: '10px', padding: '16px',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-            borderLeft: card.accent ? '3px solid #E88FAC' : 'none',
-          }}>
-            <div style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{card.label}</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{card.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Revenue chart */}
-      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '20px', marginBottom: '20px' }}>
-        <RevenueChart dailyData={filteredDaily} typeFilter={typeFilter} milestones={[
-          ...(creator?.managementStartDate ? [{ date: creator.managementStartDate, label: 'Joined Palm' }] : []),
-        ]} />
-      </div>
-
-      {/* Revenue by type breakdown */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', height: '8px', marginBottom: '10px', background: '#f3f4f6' }}>
-          {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
-            <div key={type} style={{ width: `${(net / periodTypeTotal) * 100}%`, background: TYPE_COLORS[type] || '#999', minWidth: '2px' }} />
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
-            <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: TYPE_COLORS[type] || '#999' }} />
-              <span style={{ color: '#666' }}>{typeLabel(type)}:</span>
-              <span style={{ fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(net)}</span>
-              <span style={{ color: '#ccc' }}>({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Top fans */}
       <div>
@@ -807,7 +782,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   )
 }
 
-function CreatorDetail({ creator, onProfileUpdated }) {
+function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
@@ -819,7 +794,6 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const [refinePreview, setRefinePreview] = useState(null)
   const [analyzeError, setAnalyzeError] = useState('')
   const [showUpload, setShowUpload] = useState(false)
-  const [activeSection, setActiveSection] = useState('earnings') // 'dna' | 'earnings'
   const [activeTab, setActiveTab] = useState('profile')
   const [feedback, setFeedback] = useState('')
   const [earningsData, setEarningsData] = useState(null)
@@ -990,26 +964,6 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 
   return (
     <div>
-      {/* Header — name only, DNA buttons moved inside DNA section */}
-      <div style={{ marginBottom: '16px' }}>
-        <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</div>
-        {creator.aka && <div style={{ fontSize: '13px', color: '#999', marginTop: '2px' }}>aka {creator.aka}</div>}
-      </div>
-
-      {/* Section toggle: DNA vs Earnings */}
-      <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
-        {[['dna', 'Creator DNA'], ['earnings', 'Earnings']].map(([key, label]) => (
-          <button key={key} onClick={() => setActiveSection(key)}
-            style={{
-              padding: '10px 20px', fontSize: '14px', fontWeight: activeSection === key ? 700 : 400,
-              color: activeSection === key ? '#1a1a1a' : '#999', background: 'none', border: 'none',
-              borderBottom: activeSection === key ? '2px solid #E88FAC' : '2px solid transparent',
-              cursor: 'pointer', marginBottom: '-2px', transition: 'all 0.15s',
-            }}>
-            {label}
-          </button>
-        ))}
-      </div>
 
       {/* ── Earnings section ─────────────────────────────────────────────── */}
       {activeSection === 'earnings' && (
@@ -1380,6 +1334,7 @@ export default function CreatorsPage() {
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
+  const [activeSection, setActiveSection] = useState('earnings')
 
   useEffect(() => {
     Promise.all([
@@ -1420,9 +1375,8 @@ export default function CreatorsPage() {
 
   return (
     <div>
-      {/* Header with dropdown */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-        <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>Creators</div>
+      {/* Header: dropdown + section buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
         <select
           value={selected?.id || ''}
           onChange={e => {
@@ -1441,6 +1395,21 @@ export default function CreatorsPage() {
             </option>
           ))}
         </select>
+        {selected && (
+          <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
+            {[['earnings', 'Earnings'], ['dna', 'DNA Profile']].map(([key, label]) => (
+              <button key={key} onClick={() => setActiveSection(key)}
+                style={{
+                  padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,
+                  color: activeSection === key ? '#1a1a1a' : '#bbb', background: 'none', border: 'none',
+                  borderBottom: activeSection === key ? '2px solid #E88FAC' : '2px solid transparent',
+                  cursor: 'pointer', marginBottom: '-2px',
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {loading && <span style={{ color: '#999', fontSize: '13px' }}>Loading...</span>}
       </div>
 
@@ -1450,11 +1419,12 @@ export default function CreatorsPage() {
           Select a creator above to get started.
         </div>
       ) : (
-        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '24px' }}>
+        <div style={{ background: activeSection === 'earnings' ? 'transparent' : '#ffffff', border: 'none', boxShadow: activeSection === 'earnings' ? 'none' : '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: activeSection === 'earnings' ? '0' : '24px' }}>
           <CreatorDetail
             key={selected.id}
             creator={selected}
             onProfileUpdated={handleProfileUpdated}
+            activeSection={activeSection}
           />
         </div>
       )}
