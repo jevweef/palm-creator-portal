@@ -295,7 +295,7 @@ const TYPE_COLORS = {
   'Recurring subscription': '#60a5fa',
   'Payment for message': '#fb923c',
 }
-const TYPE_LABELS = { 'Payment for message': 'PPV', 'Recurring subscription': 'Subscription' }
+const TYPE_LABELS = { 'Payment for message': 'Messages', 'Recurring subscription': 'Subscription' }
 const typeLabel = t => TYPE_LABELS[t] || t
 
 const PERIOD_PRESETS = [
@@ -334,7 +334,7 @@ function fmtChartDate(dateStr) {
   if (!dateStr) return ''
   const [y, m, d] = dateStr.split('-')
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return `${months[parseInt(m)-1]} ${parseInt(d)},\n${y}`
+  return `${months[parseInt(m)-1]} ${String(parseInt(d)).padStart(2, '0')}, ${y.slice(2)}`
 }
 
 function fmtChartMoney(v) {
@@ -372,7 +372,10 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
   const chartData = useMemo(() => {
     return dailyData.map(d => {
       let val = d.net
-      if (typeFilter !== 'all') val = d.byType?.[typeFilter] || 0
+      if (typeFilter !== 'all') {
+        val = d.byType?.[typeFilter] || 0
+        if (typeFilter === 'Subscription') val += d.byType?.['Recurring subscription'] || 0
+      }
       return { date: d.date, net: val, gross: d.gross || 0, txnCount: d.txnCount || 0 }
     })
   }, [dailyData, typeFilter])
@@ -388,7 +391,8 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
     const source = allDailyData || dailyData
     let max = 0
     for (const d of source) {
-      const val = typeFilter !== 'all' ? (d.byType?.[typeFilter] || 0) : d.net
+      let val = typeFilter !== 'all' ? (d.byType?.[typeFilter] || 0) : d.net
+      if (typeFilter === 'Subscription') val += d.byType?.['Recurring subscription'] || 0
       if (val > max) max = val
     }
     return max
@@ -417,7 +421,7 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
   for (let i = 1; i <= GRID_COUNT; i++) eSteps.push(Math.round(maxEarnings * (i / GRID_COUNT)))
 
   const CW = CHART_W, CH = CHART_H
-  const pad = { t: 10, r: 50, b: 45, l: 10 }
+  const pad = { t: 10, r: 50, b: 25, l: 10 }
   const cw = CW - pad.l - pad.r, ch = CH - pad.t - pad.b
 
   const px = (i) => pad.l + (i / Math.max(chartData.length - 1, 1)) * cw
@@ -452,34 +456,6 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
 
   return (
     <div>
-      {/* Chart header — OF style */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-          <span style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmtM(totalNet)}</span>
-          <span style={{ fontSize: '14px', color: '#999' }}>({fmtM(totalGross)} Gross)</span>
-          {pctChange !== null && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '3px',
-              background: pctChange >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-              color: pctChange >= 0 ? '#16a34a' : '#dc2626',
-              padding: '3px 10px', borderRadius: '14px', fontSize: '13px', fontWeight: 600, marginLeft: '8px',
-            }}>
-              {pctChange >= 0 ? '↗' : '↘'} {Math.abs(pctChange).toFixed(1)}%
-            </span>
-          )}
-        </div>
-        <button onClick={() => setScaleMode(scaleMode === 'fit' ? 'relative' : 'fit')}
-          title={scaleMode === 'fit' ? 'Scale: Fit to visible data — click for relative' : 'Scale: Relative to all-time peak — click to fit'}
-          style={{
-            background: scaleMode === 'relative' ? '#FFF0F3' : '#f9f9f9',
-            border: scaleMode === 'relative' ? '1px solid #E88FAC' : '1px solid #e5e7eb',
-            borderRadius: '5px', padding: '3px 8px', fontSize: '10px', color: scaleMode === 'relative' ? '#E88FAC' : '#999',
-            cursor: 'pointer', fontWeight: 500,
-          }}>
-          {scaleMode === 'fit' ? 'Fit' : 'Relative'}
-        </button>
-      </div>
-
       <div style={{ position: 'relative' }}>
       <svg ref={svgRef} viewBox={`0 0 ${CW} ${CH}`}
         style={{ width: '100%', height: 'auto', overflow: 'visible', cursor: 'crosshair', display: 'block' }}
@@ -521,16 +497,9 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
 
 
         {/* X labels */}
-        {xLabels.map(({ pos, label }, i) => {
-          const lines = label.split('\n')
-          return (
-            <text key={i} x={pad.l + pos * cw} y={CH - 18} textAnchor="middle" fill="#999" fontSize={10} fontFamily="system-ui">
-              {lines.map((line, li) => (
-                <tspan key={li} x={pad.l + pos * cw} dy={li === 0 ? 0 : 12}>{line}</tspan>
-              ))}
-            </text>
-          )
-        })}
+        {xLabels.map(({ pos, label }, i) => (
+          <text key={i} x={pad.l + pos * cw} y={CH - 8} textAnchor="middle" fill="#aaa" fontSize={8} fontFamily="system-ui">{label}</text>
+        ))}
 
         {/* Hover guide line (stays in SVG) */}
         {hover && (
@@ -816,6 +785,11 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       periodByType[tp] = (periodByType[tp] || 0) + val
     }
   }
+  // Merge Subscription + Recurring subscription
+  if (periodByType['Recurring subscription']) {
+    periodByType['Subscription'] = (periodByType['Subscription'] || 0) + periodByType['Recurring subscription']
+    delete periodByType['Recurring subscription']
+  }
   const periodTypeTotal = Object.values(periodByType).reduce((s, v) => s + v, 0)
 
   // Compute previous period of same duration for % change
@@ -835,7 +809,13 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const pctChange = prevPeriodNet > 0 ? ((periodNet - prevPeriodNet) / prevPeriodNet) * 100 : null
 
   // Unique types for filter buttons
-  const allTypes = [...new Set(Object.keys(byType))]
+  // Merge subscription types for filter buttons, rename PPV
+  const mergedByType = { ...byType }
+  if (mergedByType['Recurring subscription']) {
+    mergedByType['Subscription'] = (mergedByType['Subscription'] || 0) + mergedByType['Recurring subscription']
+    delete mergedByType['Recurring subscription']
+  }
+  const allTypes = [...new Set(Object.keys(mergedByType))].filter(t => t !== 'Chargeback')
 
   return (
     <div>
@@ -883,50 +863,56 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '13px', color: '#999' }}>Period: <strong style={{ color: '#1a1a1a' }}>{fmtMoney(periodNet)}</strong></span>
-          <span style={{ color: '#e5e7eb' }}>|</span>
-          <span style={{ fontSize: '13px', color: '#999' }}>All-time: <strong style={{ color: '#1a1a1a' }}>{fmtMoney(summary.totalNet)}</strong></span>
-          <span style={{ color: '#e5e7eb' }}>|</span>
-          <span style={{ fontSize: '13px', color: '#999' }}>{fmtNum(summary.transactionCount)} txns</span>
-          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ccc' }}>↺</button>
-        </div>
-      </div>
-
-      {/* Type filters inline */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={() => setTypeFilter('all')}
-          style={{
-            background: typeFilter === 'all' ? '#1a1a1a' : 'transparent',
-            color: typeFilter === 'all' ? '#fff' : '#bbb',
-            border: typeFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
-            borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
-          }}>All</button>
-        {allTypes.map(t => (
-          <button key={t} onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
+        {/* Type filters + breakdown */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => setTypeFilter('all')}
             style={{
-              background: typeFilter === t ? (TYPE_COLORS[t] || '#999') + '18' : 'transparent',
-              color: typeFilter === t ? TYPE_COLORS[t] || '#999' : '#bbb',
-              border: typeFilter === t ? `1px solid ${TYPE_COLORS[t] || '#999'}` : '1px solid transparent',
+              background: typeFilter === 'all' ? '#1a1a1a' : 'transparent',
+              color: typeFilter === 'all' ? '#fff' : '#bbb',
+              border: typeFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
               borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
-            }}>
-            <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: TYPE_COLORS[t] || '#999', marginRight: '4px' }} />
-            {typeLabel(t)}
-          </button>
-        ))}
-        {/* Type breakdown inline */}
-        <div style={{ marginLeft: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            }}>All</button>
+          {allTypes.map(t => (
+            <button key={t} onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
+              style={{
+                background: typeFilter === t ? (TYPE_COLORS[t] || '#999') + '18' : 'transparent',
+                color: typeFilter === t ? TYPE_COLORS[t] || '#999' : '#bbb',
+                border: typeFilter === t ? `1px solid ${TYPE_COLORS[t] || '#999'}` : '1px solid transparent',
+                borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
+              }}>
+              <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: TYPE_COLORS[t] || '#999', marginRight: '4px' }} />
+              {typeLabel(t)}
+            </button>
+          ))}
+          <span style={{ color: '#e5e7eb', margin: '0 2px' }}>|</span>
           {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
             <span key={type} style={{ fontSize: '10px', color: '#999' }}>
               {typeLabel(type)}: <strong style={{ color: '#666' }}>{fmtMoney(net)}</strong>
               <span style={{ color: '#ddd' }}> ({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
             </span>
           ))}
+          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ccc', marginLeft: '4px' }}>↺</button>
         </div>
       </div>
 
       {/* Revenue chart — immediately visible */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
+        {/* Chart header — stays static during slide */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
+          <span style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmtMoney(periodNet)}</span>
+          <span style={{ fontSize: '14px', color: '#999' }}>({fmtMoney(periodNet / 0.8)} Gross)</span>
+          {pctChange !== null && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '3px',
+              background: pctChange >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+              color: pctChange >= 0 ? '#16a34a' : '#dc2626',
+              padding: '3px 10px', borderRadius: '14px', fontSize: '13px', fontWeight: 600,
+            }}>
+              {pctChange >= 0 ? '↗' : '↘'} {Math.abs(pctChange).toFixed(1)}%
+            </span>
+          )}
+        </div>
+        {/* Sliding chart */}
         <div key={slideKey} style={{
           animation: slideDir ? `slide${slideDir === 'left' ? 'Left' : 'Right'} 0.25s ease-out` : 'none',
         }}>
