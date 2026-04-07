@@ -821,7 +821,6 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
-  const [showWhales, setShowWhales] = useState(false)
   const [showGoingCold, setShowGoingCold] = useState(false)
   const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
   const [slideKey, setSlideKey] = useState(0)
@@ -839,7 +838,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
     </div>
   )
 
-  const { summary, byType, topFans, dailyData, whaleAlerts, whaleCount, goingColdAlerts, goingColdCount, cachedAt } = data
+  const { summary, byType, topFans, dailyData, goingColdAlerts, goingColdCount, cachedAt } = data
   const fmtMoney = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtNum = n => Number(n || 0).toLocaleString()
 
@@ -1031,34 +1030,6 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           </div>
           {goingColdAlerts.map((a, i) => (
             <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} />
-          ))}
-        </div>
-      )}
-
-      {/* Whale alerts banner */}
-      {whaleCount > 0 && (
-        <button onClick={() => setShowWhales(!showWhales)}
-          style={{
-            width: '100%', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px',
-            padding: '8px 14px', marginBottom: '10px', cursor: 'pointer', textAlign: 'left',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-          <div>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#DC2626' }}>{whaleCount} whale{whaleCount !== 1 ? 's' : ''} gone cold</span>
-            <span style={{ fontSize: '11px', color: '#999', marginLeft: '6px' }}>Last 30 days below 25% of peak</span>
-          </div>
-          <span style={{ color: '#DC2626', fontSize: '14px' }}>{showWhales ? '▲' : '▼'}</span>
-        </button>
-      )}
-
-      {/* Whale details — expandable */}
-      {showWhales && whaleAlerts && (
-        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', marginBottom: '12px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 140px 100px 100px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span></span><span>Fan</span><span>Peak Period</span><span style={{ textAlign: 'right' }}>Peak 30-day</span><span style={{ textAlign: 'right' }}>Last 30 days</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last Txn</span><span style={{ textAlign: 'center' }}>Status</span>
-          </div>
-          {whaleAlerts.map((w, i) => (
-            <WhaleRow key={w.fan} whale={w} index={i} fmtMoney={fmtMoney} />
           ))}
         </div>
       )}

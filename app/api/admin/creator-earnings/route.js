@@ -181,9 +181,10 @@ function detectGoingCold(transactions, now) {
     const sorted = txns.filter(t => t.dt).sort((a, b) => a.dt - b.dt)
     if (sorted.length < 3) continue // need enough history for median
 
-    // Trailing 90-day spend
+    // Only track significant spenders (>$500 in trailing 90 days OR >$1000 lifetime)
     const trailing90 = sorted.filter(t => t.dt >= ninetyDaysAgo).reduce((s, t) => s + t.net, 0)
-    if (trailing90 < 500) continue // only track significant spenders
+    const lifetime = txns.reduce((s, t) => s + t.net, 0)
+    if (trailing90 < 500 && lifetime < 1000) continue
 
     // Calculate purchase gaps (days between consecutive purchase dates)
     const purchaseDates = []
@@ -229,8 +230,6 @@ function detectGoingCold(transactions, now) {
     let urgency = 'warning'
     if (gapRatio > 4 || (spendTriggered && rolling30 === 0)) urgency = 'critical'
     else if (gapRatio > 3 || (spendTriggered && spendDropRatio < 0.1)) urgency = 'high'
-
-    const lifetime = txns.reduce((s, t) => s + t.net, 0)
 
     // Monthly spending history (last 6 months)
     const sixMonthsAgo = new Date(now)
@@ -403,9 +402,6 @@ export async function GET(request) {
       .slice(0, 25)
       .map((f, i) => ({ rank: i + 1, ...f }))
 
-    // ── Whale alerts ──────────────────────────────────────────────────────
-    const whaleAlerts = detectWhales(transactions, now)
-
     // ── Going cold alerts ────────────────────────────────────────────────
     const goingColdAlerts = detectGoingCold(transactions, now)
 
@@ -443,9 +439,7 @@ export async function GET(request) {
       periods,
       byType,
       topFans,
-      whaleAlerts: whaleAlerts.slice(0, 20),
-      whaleCount: whaleAlerts.length,
-      goingColdAlerts: goingColdAlerts.slice(0, 20),
+      goingColdAlerts: goingColdAlerts.slice(0, 30),
       goingColdCount: goingColdAlerts.length,
       dailyData,
       cachedAt: new Date().toISOString(),
