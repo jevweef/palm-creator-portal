@@ -212,6 +212,10 @@ function detectGoingCold(transactions, now) {
     const lastPurchase = purchaseDates[purchaseDates.length - 1]
     const currentGap = Math.floor((now - lastPurchase) / 86400000)
 
+    // Minimum 14-day gap before any alert fires (avoids false alarms on high-frequency buyers)
+    const MIN_GAP_DAYS = 14
+    if (currentGap < MIN_GAP_DAYS) continue
+
     // Signal 1: Gap exceeds 2x personal median
     const gapTriggered = medianGap > 0 && currentGap > medianGap * 2
 
