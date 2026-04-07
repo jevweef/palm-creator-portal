@@ -247,7 +247,37 @@ DO NOT: Send any more mass messages. Do not send content. Do not use scripts. On
 
 ---
 
-THIS is the level of depth, specificity, and evidence you must match. Note how every claim is backed by a specific quote or date. Note how the fan type was determined by analyzing the FULL conversation pattern, not just surface-level messages.`
+---
+
+EXAMPLE 2: A fan named "Vito" who spent $1,027 in 2 weeks — NOTHING WENT WRONG, budget issue:
+
+**Fan Type**: Relationship seeker / Romantic connection. Vito is a 49-year-old single man from Copenhagen who found the creator through her art on Instagram. He writes long personal messages, shares life details, asks genuine questions, sends good morning messages daily, and treats this like a real relationship. He signs off with "Best regards Vito," talks about his cat, his concerts, his friends. NOT quick gratification.
+
+**Timeline**: Subbed Mar 20. First conversation Mar 21. Spent every day Mar 21-28 ($734 in 8 days), then spending slowed to $40-70 every 2-3 days. Still actively chatting daily as of last message.
+
+**The Turning Point**: There IS no turning point — Vito is still fully engaged. His spending slowed because he ran out of money. He said it explicitly: "I cant afford at the moment," "Its alot of money!!" "I do not have a ton off money," "Sorry I have to wait until pay day." He negotiates every PPV — $35→$25, $200→$140, $100→$60. His bank card had issues on Mar 31. The first week was honeymoon splurge that was never sustainable for him.
+
+**What Drove His Spending**: The sexting sessions where both sides participated. He writes his own roleplay content, builds scenarios (jazz music, wine, massage, shower scenes). He spent $275 on Mar 28 during a long mutual session.
+
+**What Went Wrong**:
+1. Creator called him "Shawn" twice (his profile name). He corrected it on Mar 21 ("Call me Vito") but it happened again on Mar 27: "fuck me like you own me Shawn!" For a relationship fan, getting the wrong name is a major immersion break.
+2. Same sexting script "Do you want me to bend over like this so you can doggy fuck me..." appeared 7+ times across the conversation. He stopped responding enthusiastically to it.
+3. Quote-back pattern: the creator frequently quotes his messages with no actual response, then pivots to a PPV ask.
+4. Mass messages ("CONGRATS!!! i chose you to gift my $100 worth MYSTERY PRESENT") landing alongside personal conversation.
+
+**Action Item**: Vito is NOT going cold — he's just broke. Stop pushing paid content. Send a personal message about her art: "Hey Vito 💚 I just finished a new painting and I thought of you — you're the only one who actually cares about my art here. How's Copenhagen? Hope your cat's behaving 😘" NO PPV, NO bundles until after his payday.
+
+DO NOT: Send any more PPV bundles or mass messages. Use his name correctly (Vito, never Shawn).
+
+**Recovery Odds**: High — he's still chatting daily, sending good morning messages, sharing personal details. This is a budget issue, not a relationship issue.
+
+---
+
+THIS is the level of depth, specificity, and evidence you must match. Note:
+- Every claim is backed by a specific quote or date
+- Fan type is determined by analyzing the FULL conversation pattern, not surface-level messages
+- The Vito example shows that sometimes NOTHING went wrong — be honest when that's the case
+- Specific details like wrong names, repeated scripts, and quote-back patterns are called out`
 
     const systemPrompt = isHighValue
       ? `You are a senior OnlyFans chat strategist. You analyze conversations between creators and fans, cross-reference with spending data, and produce detailed analyses that the chatting team uses to save at-risk fans.
@@ -260,14 +290,21 @@ NOW ANALYZE THE CONVERSATION BELOW WITH THE SAME DEPTH.
 
 YOUR PROCESS:
 1. Read the ENTIRE conversation. Don't just skim — look at how the fan communicates across different sessions. Short horny messages alone don't make someone "quick gratification" — look for roleplay participation, emotional language, reciprocity, stated preferences.
-2. Cross-reference spending dates with conversation moments. The spending data shows WHEN money was spent. Find those dates in the conversation and identify what was happening. What type of interaction triggered the big sessions?
-3. Identify the EXACT turning point where engagement or spending shifted. Quote the specific messages. Look for:
-   - Copy-pasted text blocks (especially if the same text appears twice in the conversation)
-   - Sudden tone shifts (fan goes from paragraphs to one-word answers)
-   - PPV asks during intimate/roleplay moments
-   - Mass messages (generic, could be sent to any fan)
-   - Fan preferences stated but never acted on later
-4. If nothing went wrong (fan is still chatting, just not spending), say that honestly and explain what's most likely happening.
+2. Cross-reference spending dates with conversation moments. Dates annotated with [💰 $X spent] show WHEN money was spent. Find those dates and identify what was happening in the chat. What type of interaction triggered the big sessions?
+3. Identify the EXACT turning point where engagement or spending shifted. Quote the specific messages.
+
+SPECIFIC PATTERNS TO DETECT (check for ALL of these):
+- **Repeated scripts**: Scan for the SAME text block appearing 2+ times in the conversation. If you find one, count how many times it appears and note it explicitly. This is a major red flag for relationship-type fans.
+- **Wrong name**: Check if the creator ever calls the fan by the wrong name (e.g. using their profile username instead of their stated real name). Fans who share their real name and then get called by the wrong one feel the interaction is fake.
+- **Quote-back pattern**: Creator quotes the fan's message (marked with ") but doesn't actually respond to it, then pivots to a PPV or sales message. Count how often this happens.
+- **Tone shifts**: Fan goes from multi-sentence engaged responses to one-word answers ("Sure", "Ok", "Thanks"). This is the moment immersion broke.
+- **PPV timing**: Sales asks during or immediately after intimate/roleplay moments.
+- **Mass messages**: Generic messages clearly sent to all fans ("CONGRATS!!! I chose you...", "$5 bundle because...", "75% off my NEWEST...").
+- **Unanswered streak**: Count consecutive creator messages with no fan response. If there are 10+ unanswered messages in a row, note the exact count.
+- **Stated preferences ignored**: Fan explicitly says "I like X" and X is never referenced again. Track what they said and whether it was acted on.
+- **Budget signals**: Fan explicitly mentioning money, negotiating prices, saying they can't afford something, bank issues, waiting for payday.
+
+4. If nothing went wrong (fan is still chatting, just not spending), say that honestly. Check for budget signals in the conversation — direct quotes about money difficulties are strong evidence.
 
 STRUCTURE YOUR ANALYSIS EXACTLY LIKE THE EXAMPLE ABOVE:
 
@@ -306,9 +343,30 @@ Read the conversation and identify:
 
 Quote the fan's actual words as evidence. Don't be generic.`
 
-    // Send the full conversation — gpt-4o has 128k context, don't truncate aggressively
+    // Annotate conversation with daily spend amounts at each date
     let conversation = parsed.conversation
-    const maxChars = isHighValue ? 60000 : 15000
+    if (spendingTimeline) {
+      // Parse "YYYY-MM: $X.XX" monthly data — but also accept daily "YYYY-MM-DD: $X.XX"
+      const spendByDate = {}
+      for (const line of spendingTimeline.split('\n')) {
+        const match = line.match(/([\d-]+):\s*\$([\d,.]+)/)
+        if (match) spendByDate[match[1]] = parseFloat(match[2].replace(',', ''))
+      }
+      // Insert spend annotations after date headers in conversation
+      conversation = conversation.replace(/--- ([^-]+) ---/g, (full, dateStr) => {
+        // Try to find spend for this date
+        const totalForDate = Object.entries(spendByDate)
+          .filter(([k]) => dateStr.includes(k) || k.includes(dateStr.trim()))
+          .reduce((s, [, v]) => s + v, 0)
+        if (totalForDate > 0) {
+          return `${full}\n[💰 $${totalForDate.toFixed(2)} spent this day]`
+        }
+        return full
+      })
+    }
+
+    // Don't truncate aggressively — gpt-4o has 128k context
+    const maxChars = isHighValue ? 80000 : 20000
     if (conversation.length > maxChars) {
       const beginning = conversation.slice(0, Math.floor(maxChars * 0.25))
       const end = conversation.slice(-Math.floor(maxChars * 0.75))

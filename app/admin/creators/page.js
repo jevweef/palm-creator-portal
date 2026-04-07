@@ -734,7 +734,7 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
 
 // ── Going Cold Row ─────────────────────────────────────────────────────────
 
-function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
+function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
   const [expanded, setExpanded] = useState(false)
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
@@ -767,9 +767,19 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
     formData.append('monthlyAvg90', a.monthlyAvg90)
     formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
     formData.append('creatorName', creatorName || '')
-    if (a.monthlyHistory) {
-      const timeline = a.monthlyHistory.map(m => `${m.month}: $${m.spend.toFixed(2)}`).join('\n')
-      formData.append('spendingTimeline', timeline)
+    // Compute daily spend for this fan from transaction data
+    if (allTxns) {
+      const dailySpend = {}
+      for (const t of allTxns) {
+        if ((t.displayName || '') === a.fan || (t.ofUsername || '') === a.username) {
+          dailySpend[t.date] = (dailySpend[t.date] || 0) + (t.net || 0)
+        }
+      }
+      const timeline = Object.entries(dailySpend)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, spend]) => `${date}: $${spend.toFixed(2)}`)
+        .join('\n')
+      if (timeline) formData.append('spendingTimeline', timeline)
     }
     return formData
   }
@@ -1249,7 +1259,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
             </div>
             {(showAllCold ? goingColdAlerts : goingColdAlerts.slice(0, 10)).map((a, i) => (
-              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || ''} />
+              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || ''} allTxns={allTxns} />
             ))}
             {goingColdAlerts.length > 10 && !showAllCold && (
               <button onClick={() => setShowAllCold(true)}
