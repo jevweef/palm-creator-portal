@@ -1,8 +1,8 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 const ADMIN_NAV = [
@@ -65,8 +65,12 @@ export default function AdminLayout({ children }) {
   }
 
   const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
-  const searchParams = useSearchParams()
-  const activeTab = searchParams.get('tab')
+  // Read tab from URL without useSearchParams (avoids Suspense boundary requirement)
+  const [activeTab, setActiveTab] = useState(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setActiveTab(params.get('tab'))
+  }, [pathname])
 
   return (
     <div style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
