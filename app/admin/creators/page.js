@@ -455,7 +455,7 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
       {/* Chart header — OF style */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-          <span style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmtM(totalNet)}</span>
+          <span style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmtM(totalNet)}</span>
           <span style={{ fontSize: '14px', color: '#999' }}>({fmtM(totalGross)} Gross)</span>
           {pctChange !== null && (
             <span style={{
