@@ -45,17 +45,25 @@ export default function AdminLayout({ children }) {
   const isAdmin = role === 'admin'
   const isEditor = role === 'editor'
 
+  // ALL hooks must be before any early returns
+  const [activeTab, setActiveTab] = useState(null)
+
   useEffect(() => {
     if (!isLoaded) return
     if (!isAdmin && !isEditor) {
       router.replace('/dashboard')
     }
-    // Editors get redirected to their own dedicated dashboard
     if (isEditor) {
       router.replace('/editor')
     }
   }, [isLoaded, user, router, pathname, isAdmin, isEditor])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setActiveTab(params.get('tab'))
+  }, [pathname])
+
+  // Early returns AFTER all hooks
   if (!isLoaded || (!isAdmin && !isEditor)) {
     return (
       <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -65,12 +73,6 @@ export default function AdminLayout({ children }) {
   }
 
   const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
-  // Read tab from URL without useSearchParams (avoids Suspense boundary requirement)
-  const [activeTab, setActiveTab] = useState(null)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    setActiveTab(params.get('tab'))
-  }, [pathname])
 
   return (
     <div style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
