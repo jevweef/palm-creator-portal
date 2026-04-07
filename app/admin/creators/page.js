@@ -1026,7 +1026,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
-  const [showGoingCold, setShowGoingCold] = useState(false)
+  const [showAllCold, setShowAllCold] = useState(false)
+  const [showAllFans, setShowAllFans] = useState(false)
   const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
   const [slideKey, setSlideKey] = useState(0)
 
@@ -1212,30 +1213,29 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         </div>
       </div>
 
-      {/* Going Cold alerts */}
-      {goingColdCount > 0 && (
-        <button onClick={() => setShowGoingCold(!showGoingCold)}
-          style={{
-            width: '100%', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '8px',
-            padding: '8px 14px', marginBottom: '10px', cursor: 'pointer', textAlign: 'left',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-          <div>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#EA580C' }}>{goingColdCount} fan{goingColdCount !== 1 ? 's' : ''} going cold</span>
-            <span style={{ fontSize: '11px', color: '#999', marginLeft: '6px' }}>Spending below their normal cadence</span>
+      {/* Going Cold alerts — auto-expanded */}
+      {goingColdAlerts && goingColdAlerts.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#EA580C' }}>{goingColdCount} fan{goingColdCount !== 1 ? 's' : ''} going cold</span>
+              <span style={{ fontSize: '11px', color: '#999', marginLeft: '6px' }}>Spending below their normal cadence</span>
+            </div>
           </div>
-          <span style={{ color: '#EA580C', fontSize: '14px' }}>{showGoingCold ? '▲' : '▼'}</span>
-        </button>
-      )}
-
-      {showGoingCold && goingColdAlerts && (
-        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', marginBottom: '12px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
+          <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+              <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
+            </div>
+            {(showAllCold ? goingColdAlerts : goingColdAlerts.slice(0, 10)).map((a, i) => (
+              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || ''} />
+            ))}
+            {goingColdAlerts.length > 10 && !showAllCold && (
+              <button onClick={() => setShowAllCold(true)}
+                style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer', fontSize: '12px', color: '#EA580C', fontWeight: 600 }}>
+                Show all {goingColdCount} fans
+              </button>
+            )}
           </div>
-          {goingColdAlerts.map((a, i) => (
-            <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || ''} />
-          ))}
         </div>
       )}
 
@@ -1246,7 +1246,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <span>#</span><span>Name</span><span>Username</span><span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
           </div>
-          {topFans.map((fan, i) => (
+          {(showAllFans ? topFans : topFans.slice(0, 5)).map((fan, i) => (
             <div key={fan.displayName} style={{
               display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '8px 16px',
               fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)',
@@ -1265,6 +1265,12 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{fan.lastDate}</span>
             </div>
           ))}
+          {topFans.length > 5 && !showAllFans && (
+            <button onClick={() => setShowAllFans(true)}
+              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
+              Show all {topFans.length} fans
+            </button>
+          )}
         </div>
       </div>
     </div>
