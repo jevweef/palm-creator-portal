@@ -699,6 +699,8 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
 
 function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [period, setPeriod] = useState('last30')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [showWhales, setShowWhales] = useState(false)
 
@@ -720,7 +722,9 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const fmtNum = n => Number(n || 0).toLocaleString()
 
   // Filter daily data by period
-  const [periodStart, periodEnd] = getPeriodRange(period)
+  const [periodStart, periodEnd] = period === 'custom' && customStart && customEnd
+    ? [new Date(customStart + 'T00:00:00'), new Date(customEnd + 'T00:00:00')]
+    : getPeriodRange(period)
   const filteredDaily = periodStart
     ? dailyData.filter(d => {
         const dt = new Date(d.date + ' 12:00:00')
@@ -748,21 +752,26 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
   return (
     <div>
-      {/* Compact controls: period + type + stats all in one row area */}
+      {/* Controls bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-          {PERIOD_PRESETS.map(p => (
-            <button key={p.key} onClick={() => setPeriod(p.key)}
-              style={{
-                background: period === p.key ? '#FFF0F3' : 'transparent',
-                border: period === p.key ? '1px solid #E88FAC' : '1px solid transparent',
-                borderRadius: '5px', color: period === p.key ? '#E88FAC' : '#bbb',
-                padding: '3px 8px', fontSize: '10px', fontWeight: period === p.key ? 600 : 400,
-                cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>
-              {p.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <select value={period} onChange={e => setPeriod(e.target.value)}
+            style={{
+              background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px',
+              color: '#1a1a1a', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
+            }}>
+            {PERIOD_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+            <option value="custom">Custom Range</option>
+          </select>
+          {period === 'custom' && (
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: '#1a1a1a', outline: 'none' }} />
+              <span style={{ color: '#ccc', fontSize: '11px' }}>→</span>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: '#1a1a1a', outline: 'none' }} />
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '13px', color: '#999' }}>Period: <strong style={{ color: '#1a1a1a' }}>{fmtMoney(periodNet)}</strong></span>
