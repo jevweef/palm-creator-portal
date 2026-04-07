@@ -557,7 +557,23 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
 
 function WhaleRow({ whale: w, index: i, fmtMoney }) {
   const [expanded, setExpanded] = useState(false)
-  const timeline = w.timeline || []
+  const fullTimeline = w.timeline || []
+
+  // Center the investigation zone in the visible timeline
+  const timeline = useMemo(() => {
+    if (!w.inspectFrom || !w.inspectTo || fullTimeline.length === 0) return fullTimeline
+    const inspStart = fullTimeline.findIndex(t => t.week >= w.inspectFrom)
+    const inspEnd = fullTimeline.findIndex(t => t.week >= w.inspectTo)
+    if (inspStart < 0) return fullTimeline
+    const end = inspEnd >= 0 ? inspEnd : Math.min(inspStart + 30, fullTimeline.length - 1)
+    const inspCenter = Math.floor((inspStart + end) / 2)
+    const inspWidth = end - inspStart
+    // Show 3x the investigation zone width on each side (or at least 60 days)
+    const padding = Math.max(inspWidth * 3, 60)
+    const viewStart = Math.max(0, inspCenter - padding)
+    const viewEnd = Math.min(fullTimeline.length - 1, inspCenter + padding)
+    return fullTimeline.slice(viewStart, viewEnd + 1)
+  }, [fullTimeline, w.inspectFrom, w.inspectTo])
 
   // Mini chart dimensions
   const MW = 700, MH = 120
