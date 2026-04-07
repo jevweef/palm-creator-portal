@@ -491,9 +491,10 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
   }
   const miniArea = miniPath ? miniPath + `L${(MP.l + mW).toFixed(1)},${MP.t + mH}L${MP.l},${MP.t + mH}Z` : ''
 
-  // Find inspect zone indices
+  // Find inspect zone indices (one month after peak)
   const inspectStartIdx = w.inspectFrom ? timeline.findIndex(t => t.week >= w.inspectFrom) : -1
-  const inspectEndIdx = timeline.length - 1
+  const inspectEndIdx = w.inspectTo ? timeline.findIndex(t => t.week >= w.inspectTo) : -1
+  const inspectEnd = inspectEndIdx >= 0 ? inspectEndIdx : (inspectStartIdx >= 0 ? Math.min(inspectStartIdx + 30, timeline.length - 1) : -1)
 
   return (
     <div style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
@@ -533,9 +534,9 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
         <div style={{ padding: '12px 16px 16px 40px', background: '#FEFBFB' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <div style={{ fontSize: '11px', color: '#999' }}>Weekly spending — <span style={{ color: '#E88FAC', fontWeight: 600 }}>peak period</span> and <span style={{ color: '#DC2626', fontWeight: 600 }}>investigation zone</span></div>
-            {w.inspectFrom && (
+            {w.inspectFrom && w.inspectTo && (
               <div style={{ fontSize: '11px', color: '#DC2626', fontWeight: 500 }}>
-                Investigate DMs from {w.inspectFrom} onward
+                Investigate DMs: {w.inspectFrom} → {w.inspectTo}
               </div>
             )}
           </div>
@@ -547,11 +548,11 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
               </linearGradient>
             </defs>
 
-            {/* Investigation zone (gray overlay) */}
-            {inspectStartIdx >= 0 && (
+            {/* Investigation zone (one month after peak) */}
+            {inspectStartIdx >= 0 && inspectEnd >= 0 && (
               <rect
                 x={mpx(inspectStartIdx)} y={MP.t}
-                width={mpx(inspectEndIdx) - mpx(inspectStartIdx)}
+                width={mpx(inspectEnd) - mpx(inspectStartIdx)}
                 height={mH}
                 fill="rgba(220,38,38,0.06)" stroke="rgba(220,38,38,0.15)" strokeWidth={1} strokeDasharray="4,3"
                 rx={4}

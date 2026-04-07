@@ -121,10 +121,12 @@ function detectWhales(transactions, now) {
       const peakEnd = peakStart ? new Date(peakStart) : null
       if (peakEnd) peakEnd.setDate(peakEnd.getDate() + 30)
 
-      // Find the drop-off point: first week after peak where spending drops significantly
+      // Investigation zone: one month after the peak period ends
       const peakEndStr = peakEnd?.toISOString()?.split('T')[0] || ''
-      const dropOffStart = peakEndStr // investigate from end of peak period
-      const dropOffEnd = lastTxn?.toISOString()?.split('T')[0] || ''
+      const dropOffStart = peakEndStr
+      const inspectEnd = peakEnd ? new Date(peakEnd) : null
+      if (inspectEnd) inspectEnd.setDate(inspectEnd.getDate() + 30)
+      const dropOffEnd = inspectEnd?.toISOString()?.split('T')[0] || ''
 
       alerts.push({
         fan,
