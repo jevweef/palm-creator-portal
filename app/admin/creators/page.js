@@ -427,7 +427,7 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
 
 // ── Main Panel ──────────────────────────────────────────────────────────────
 
-function EarningsPanel({ data, loading, error, onRefresh }) {
+function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [period, setPeriod] = useState('last30')
   const [typeFilter, setTypeFilter] = useState('all')
   const [showWhales, setShowWhales] = useState(false)
@@ -592,7 +592,9 @@ function EarningsPanel({ data, loading, error, onRefresh }) {
 
       {/* Revenue chart */}
       <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '20px', marginBottom: '20px' }}>
-        <RevenueChart dailyData={filteredDaily} typeFilter={typeFilter} milestones={[]} />
+        <RevenueChart dailyData={filteredDaily} typeFilter={typeFilter} milestones={[
+          ...(creator?.managementStartDate ? [{ date: creator.managementStartDate, label: 'Joined Palm' }] : []),
+        ]} />
       </div>
 
       {/* Revenue by type breakdown */}
@@ -857,6 +859,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
           loading={earningsLoading}
           error={earningsError}
           onRefresh={refreshEarnings}
+          creator={creator}
         />
       )}
 

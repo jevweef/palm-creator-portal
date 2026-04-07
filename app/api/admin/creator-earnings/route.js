@@ -38,27 +38,19 @@ function parseMoney(s) {
 
 const MONTHS = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 }
 
-function parseSheetDate(dateStr, timeStr) {
+function parseSheetDate(dateStr) {
   if (!dateStr) return null
   try {
+    // Handle YYYY-MM-DD format (new UTC dates)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [y, m, d] = dateStr.split('-').map(Number)
+      return new Date(y, m - 1, d)
+    }
+    // Handle "Apr 6, 2026" format (legacy)
     const parts = dateStr.replace(',', '').split(/\s+/)
     const mon = MONTHS[parts[0]]
-    if (mon === undefined) return new Date(`${dateStr} ${timeStr || '12:00 AM'}`)
-    const day = parseInt(parts[1])
-    const year = parseInt(parts[2])
-    // Parse time
-    let hours = 0, mins = 0
-    if (timeStr) {
-      const tm = timeStr.trim().match(/(\d{1,2}):(\d{2})\s*([ap]m)/i)
-      if (tm) {
-        hours = parseInt(tm[1])
-        mins = parseInt(tm[2])
-        const ampm = tm[3].toLowerCase()
-        if (ampm === 'pm' && hours !== 12) hours += 12
-        if (ampm === 'am' && hours === 12) hours = 0
-      }
-    }
-    return new Date(year, mon, day, hours, mins)
+    if (mon === undefined) return new Date(dateStr)
+    return new Date(parseInt(parts[2]), mon, parseInt(parts[1]))
   } catch { return null }
 }
 
@@ -180,7 +172,7 @@ export async function GET(request) {
     for (const row of rows) {
       const [date, time, gross, ofFee, net, type, displayName, ofUsername, originalDate, description] = row
       if (!date) continue
-      const dt = parseSheetDate(date, time)
+      const dt = parseSheetDate(date)
       transactions.push({
         date: date || '', time: time || '',
         gross: parseMoney(gross), ofFee: parseMoney(ofFee), net: parseMoney(net),
@@ -193,18 +185,24 @@ export async function GET(request) {
 
     const now = new Date()
 
+    // Separate sales and chargebacks
+    const salesTxns = transactions.filter(t => t.type !== 'Chargeback')
+    const chargebackTxns = transactions.filter(t => t.type === 'Chargeback')
+
     // ── Daily aggregation for chart ───────────────────────────────────────
     const dailyMap = {}
     const dailyByType = {}
     for (const t of transactions) {
       if (!t.date) continue
       if (!dailyMap[t.date]) dailyMap[t.date] = 0
-      dailyMap[t.date] += t.net
+      // Chargebacks are negative
+      const netVal = t.type === 'Chargeback' ? -t.net : t.net
+      dailyMap[t.date] += netVal
 
       const tp = t.type || 'Unknown'
       if (!dailyByType[t.date]) dailyByType[t.date] = {}
       if (!dailyByType[t.date][tp]) dailyByType[t.date][tp] = 0
-      dailyByType[t.date][tp] += t.net
+      dailyByType[t.date][tp] += t.net // keep positive for type breakdown
     }
 
     // Build daily array sorted chronologically
@@ -213,20 +211,25 @@ export async function GET(request) {
         date,
         net,
         byType: dailyByType[date] || {},
-        dt: parseSheetDate(date, '12:00 am'),
+        dt: parseSheetDate(date),
       }))
       .sort((a, b) => (a.dt || 0) - (b.dt || 0))
       .map(({ dt, ...rest }) => rest)
 
     // ── Summary (all time) ────────────────────────────────────────────────
-    let totalGross = 0, totalNet = 0
+    let totalGross = 0, totalNet = 0, chargebackTotal = 0
     const byType = {}
-    for (const t of transactions) {
+    for (const t of salesTxns) {
       totalGross += t.gross
       totalNet += t.net
       const tp = t.type || 'Unknown'
       byType[tp] = (byType[tp] || 0) + t.net
     }
+    for (const t of chargebackTxns) {
+      chargebackTotal += t.net
+    }
+    // Net after chargebacks
+    totalNet -= chargebackTotal
 
     // ── Top fans (all time) ───────────────────────────────────────────────
     const fanMap = {}
@@ -270,11 +273,16 @@ export async function GET(request) {
     const cleanTxns = transactions.map(({ dt, ...rest }) => rest)
 
     const result = {
-      summary: { totalNet, totalGross, transactionCount: transactions.length, avgTransaction: transactions.length > 0 ? totalNet / transactions.length : 0 },
+      summary: {
+        totalNet, totalGross, chargebackTotal,
+        transactionCount: salesTxns.length,
+        chargebackCount: chargebackTxns.length,
+        avgTransaction: salesTxns.length > 0 ? (totalNet + chargebackTotal) / salesTxns.length : 0,
+      },
       periods,
       byType,
       topFans,
-      whaleAlerts: whaleAlerts.slice(0, 20), // top 20 alerts
+      whaleAlerts: whaleAlerts.slice(0, 20),
       whaleCount: whaleAlerts.length,
       dailyData,
       cachedAt: new Date().toISOString(),
