@@ -454,6 +454,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const [refinePreview, setRefinePreview] = useState(null)
   const [analyzeError, setAnalyzeError] = useState('')
   const [showUpload, setShowUpload] = useState(false)
+  const [activeSection, setActiveSection] = useState('dna') // 'dna' | 'earnings'
   const [activeTab, setActiveTab] = useState('profile')
   const [feedback, setFeedback] = useState('')
   const [earningsData, setEarningsData] = useState(null)
@@ -476,9 +477,9 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 
   useEffect(() => { load(); setEarningsData(null); setEarningsError(null) }, [creator.id])
 
-  // Lazy-load earnings when tab is opened
+  // Lazy-load earnings when section is opened
   useEffect(() => {
-    if (activeTab === 'earnings' && !earningsData && !earningsLoading) {
+    if (activeSection === 'earnings' && !earningsData && !earningsLoading) {
       setEarningsLoading(true)
       setEarningsError(null)
       const name = creator.aka || creator.name
@@ -492,7 +493,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
         .catch(e => setEarningsError(e.message))
         .finally(() => setEarningsLoading(false))
     }
-  }, [activeTab, earningsData, earningsLoading, creator])
+  }, [activeSection, earningsData, earningsLoading, creator])
 
   const refreshEarnings = useCallback(() => {
     setEarningsData(null)
@@ -662,6 +663,33 @@ function CreatorDetail({ creator, onProfileUpdated }) {
         </div>
       </div>
 
+      {/* Section toggle: DNA vs Earnings */}
+      <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
+        {[['dna', 'Creator DNA'], ['earnings', 'Earnings']].map(([key, label]) => (
+          <button key={key} onClick={() => setActiveSection(key)}
+            style={{
+              padding: '10px 20px', fontSize: '14px', fontWeight: activeSection === key ? 700 : 400,
+              color: activeSection === key ? '#1a1a1a' : '#999', background: 'none', border: 'none',
+              borderBottom: activeSection === key ? '2px solid #E88FAC' : '2px solid transparent',
+              cursor: 'pointer', marginBottom: '-2px', transition: 'all 0.15s',
+            }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Earnings section ─────────────────────────────────────────────── */}
+      {activeSection === 'earnings' && (
+        <EarningsPanel
+          data={earningsData}
+          loading={earningsLoading}
+          error={earningsError}
+          onRefresh={refreshEarnings}
+        />
+      )}
+
+      {/* ── DNA section ──────────────────────────────────────────────────── */}
+      {activeSection === 'dna' && (<>
       {analyzeResult && (
         <div style={{ background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#22c55e' }}>
           Analysis complete. {analyzeResult.documentsAnalyzed} document(s) analyzed.
@@ -831,7 +859,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
 
       {/* Tabs — hidden during refine preview */}
       {!refinePreview && <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
-        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ['earnings', 'Earnings'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
+        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400,
@@ -952,15 +980,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
         </div>
       )}
 
-      {/* Earnings tab */}
-      {!refinePreview && activeTab === 'earnings' && (
-        <EarningsPanel
-          data={earningsData}
-          loading={earningsLoading}
-          error={earningsError}
-          onRefresh={refreshEarnings}
-        />
-      )}
+      </>)}
 
       {showUpload && (
         <UploadModal
