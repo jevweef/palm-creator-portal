@@ -1358,7 +1358,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       setEarningsLoading(true)
       setEarningsError(null)
       const name = creator.aka || creator.name
-      fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}&refresh=true`)
+      fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
         .then(r => r.json())
         .then(data => {
           if (data.error === 'no_sheet') setEarningsData({ empty: true })

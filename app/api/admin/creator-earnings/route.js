@@ -1,6 +1,8 @@
 import { auth } from '@clerk/nextjs/server'
 import { google } from 'googleapis'
 
+export const maxDuration = 30
+
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 function getAuth() {
