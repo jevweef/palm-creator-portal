@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import InvoiceWorkflowModal from './InvoiceWorkflowModal'
+import RawDataUpload from './RawDataUpload'
 
 const STATUS_CONFIG = {
   Draft: { color: '#9ca3af', bg: '#f3f4f6', next: 'Sent' },
@@ -400,6 +401,7 @@ export default function InvoicingPage() {
   const [savingId, setSavingId] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [workflowModal, setWorkflowModal] = useState(null) // { aka, rows }
+  const [activeTab, setActiveTab] = useState('invoices') // 'invoices' | 'upload'
 
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin'
@@ -501,9 +503,34 @@ export default function InvoicingPage() {
         ) : null
       })()}
 
-      {/* Title */}
+      {/* Title + Tab switcher */}
       <div style={{ marginBottom: '20px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Invoicing</h1>
+        <div style={{ display: 'flex', gap: '4px', marginTop: '12px' }}>
+          {[
+            { key: 'invoices', label: 'Invoices' },
+            { key: 'upload', label: 'Raw Data Upload' },
+          ].map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              style={{
+                background: activeTab === tab.key ? '#FFF0F3' : 'transparent',
+                border: activeTab === tab.key ? '1px solid #E88FAC' : '1px solid transparent',
+                borderRadius: '6px', color: activeTab === tab.key ? '#E88FAC' : '#999',
+                padding: '6px 14px', fontSize: '13px', fontWeight: activeTab === tab.key ? 600 : 400,
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Raw Data Upload tab */}
+      {activeTab === 'upload' && <RawDataUpload />}
+
+      {/* Invoices tab */}
+      {activeTab === 'invoices' && (<>
+      <div style={{ marginBottom: '20px' }}>
         {currentPeriod && (
           <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
             {fmtDate(currentPeriod.start)} – {fmtDate(currentPeriod.end)}, {new Date(currentPeriod.start + 'T12:00:00').getFullYear()}
@@ -578,6 +605,7 @@ export default function InvoicingPage() {
           No invoice records for this period.
         </div>
       )}
+      </>)}
     </div>
   )
 }
