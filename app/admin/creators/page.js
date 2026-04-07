@@ -740,6 +740,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
+  const [showBrief, setShowBrief] = useState(false)
   const chatFileRef = useRef(null)
   const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
 
@@ -751,11 +752,13 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
       const formData = new FormData()
       formData.append('file', chatFile)
       formData.append('fanName', a.fan)
+      formData.append('fanUsername', a.username || '')
       formData.append('lifetime', a.lifetime)
       formData.append('medianGap', a.medianGap)
       formData.append('currentGap', a.currentGap)
       formData.append('rolling30', a.rolling30)
       formData.append('monthlyAvg90', a.monthlyAvg90)
+      formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
       formData.append('creatorName', creatorName || '')
       const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: formData })
       const data = await res.json()
@@ -893,29 +896,33 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName }) {
             {analysis && (
               <div style={{ marginTop: '4px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#999' }}>
-                    <span>{analysis.messageCount} messages</span>
-                    <span>Fan: {analysis.fanMessages}</span>
-                    <span>Creator: {analysis.creatorMessages}</span>
-                    <span style={{ color: analysis.analysisType === 'deep' ? '#EA580C' : '#64748B', fontWeight: 600 }}>
-                      {analysis.analysisType === 'deep' ? 'Deep Dive' : 'Quick Snapshot'}
-                    </span>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
+                    <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
+                    {analysis.managerBrief && (
+                      <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                      </div>
+                    )}
+                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>✓ Saved</span>}
                   </div>
                   <button
-                    onClick={() => { setAnalysis(null); setChatFile(null) }}
+                    onClick={() => { setAnalysis(null); setChatFile(null); setShowBrief(false) }}
                     style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                   >
                     Re-analyze
                   </button>
                 </div>
                 <div style={{
-                  background: '#FFFBF5', border: '1px solid #FED7AA', borderRadius: '8px',
+                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
+                  border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
+                  borderRadius: '8px',
                   padding: '14px 16px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.6',
                   whiteSpace: 'pre-wrap',
                 }}>
-                  {analysis.analysis.split(/(\*\*[^*]+\*\*)/).map((part, idx) => {
+                  {(showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis).split(/(\*\*[^*]+\*\*)/).map((part, idx) => {
                     if (part.startsWith('**') && part.endsWith('**')) {
-                      return <strong key={idx} style={{ color: '#EA580C', display: 'block', marginTop: idx > 0 ? '10px' : 0, marginBottom: '2px', fontSize: '12px' }}>{part.slice(2, -2)}</strong>
+                      return <strong key={idx} style={{ color: showBrief ? '#334155' : '#EA580C', display: 'block', marginTop: idx > 0 ? '10px' : 0, marginBottom: '2px', fontSize: '12px' }}>{part.slice(2, -2)}</strong>
                     }
                     return <span key={idx}>{part}</span>
                   })}

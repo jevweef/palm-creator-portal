@@ -3,6 +3,43 @@ import OpenAI from 'openai'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+// ── Airtable ───────────────────────────────────────────────────────────────
+
+const OPS_BASE = 'applLIT2t83plMqNx'
+const FAN_ANALYSIS_TABLE = 'tblNMtOEg2AIzvLDK'
+const AIRTABLE_HEADERS = { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' }
+
+// Field IDs
+const F = {
+  fanName: 'fldaRJeys4CsOYLkU',
+  ofUsername: 'fldbPgIn9KTUO02ev',
+  creator: 'fld8LSL8nUbYg686Z',
+  lifetimeSpend: 'fldCcOeorfk2pTMvy',
+  currentGap: 'fldNSGbGXpWkE20KX',
+  medianGap: 'fldB395m0qd7XEUgO',
+  lastPurchase: 'fldPN6pgCwEihy6Qx',
+  analysisType: 'fldOGE29iDhxZ6893',
+  fullAnalysis: 'fldxqTBznWX86bvMH',
+  managerBrief: 'fldXcc6Yj7qcxh2vT',
+  messageCount: 'fldst7ql724cUi7Pi',
+  fanMessages: 'fldz7Z7rae0ler6O0',
+  creatorMessages: 'fldO1fc8EqZvWegkf',
+  status: 'fldaG3E41OfKKtK2g',
+  analyzedDate: 'fldamFzJZ9VPLNIOm',
+}
+
+async function saveToAirtable(record) {
+  try {
+    await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}`, {
+      method: 'POST',
+      headers: AIRTABLE_HEADERS,
+      body: JSON.stringify({ records: [{ fields: record }], typecast: true }),
+    })
+  } catch (e) {
+    console.error('Failed to save analysis to Airtable:', e)
+  }
+}
+
 // ── Parse OF chat HTML ─────────────────────────────────────────────────────
 
 function parseChatHtml(html) {
@@ -127,52 +164,54 @@ export async function POST(request) {
 - The creator's name is ${creatorName}`
 
     const systemPrompt = isHighValue
-      ? `You are an expert OnlyFans chat analyst for a management agency. You analyze conversations between creators and fans to understand the relationship, what's driving (or not driving) spending, and what the team should do next.
+      ? `You are an expert OnlyFans chat analyst for a management agency. You analyze conversations between creators and fans to understand the relationship, determine why spending has dropped, and provide a specific action plan for the chatting team.
 
 ${spendingContext}
 
-IMPORTANT: Do NOT assume something went wrong. Read the conversation objectively. Possible explanations include:
-- The fan is still engaged and chatting but just not buying right now (budget, timing, already bought a lot recently)
-- The chatting approach turned them off (script-pasting, too many mass messages, broke immersion)
-- Their preferences were ignored or never identified
-- They got what they wanted and moved on naturally
-- The fan's account situation changed
+This fan was flagged because their spending dropped below their normal pattern. Your job is to figure out WHY and give the chatting team something specific to try.
 
-Let the conversation tell you what's actually happening. If the fan is still actively engaged and chatting, say so — don't force a "what went wrong" narrative.
+IMPORTANT: Be honest about the reason. Don't assume the chatting team screwed up — it could be any of these:
+- Budget/financial — fan is still engaged and chatting but doesn't have money right now
+- Chatting approach — scripts, mass messages, or broken immersion turned them off
+- Ignored preferences — fan expressed interests that were never acted on
+- Natural cycle — they got what they wanted and spending cooled naturally
+- Oversaturation — too many PPV blasts without enough genuine conversation
+
+Whatever the reason, there MUST be a specific action item for the chatting team to try. Even if the fan is just broke, there's always something to do (maintain the relationship, stop sending paid content, focus on conversation to keep them warm for when they can spend again).
 
 Provide your analysis in this structure:
 
 **Fan Type**: (1 line — e.g. "Relationship seeker", "Quick gratification", "Roleplay enthusiast", "Collector/PPV buyer", "Casual browser")
 
-**Current State**: (2-3 sentences — what's actually happening based on the conversation. Are they still engaged? Did they ghost? Did something specific happen? Be honest about what you see.)
+**Why They Were Flagged**: (2-3 sentences — honest read of why spending dropped. What's the most likely explanation based on the conversation?)
 
 **What Worked**: (2-3 bullet points — what moments or patterns drove the most engagement and spending)
 
-**What Could Be Better**: (1-4 bullet points — only if there are genuine issues. If the conversation looks healthy, say so. Don't manufacture problems.)
+**What Could Be Better**: (1-4 bullet points — genuine issues if any. Could be chatting approach, content mismatch, or just "nothing wrong, fan seems budget-constrained")
 
-**Recommendation**: (What to do next — could be a specific message, a change in approach, or "keep doing what you're doing." If suggesting a message, make it specific to this conversation, not generic. Also note what NOT to do.)
+**Action Item**: (THE most important section. A specific thing for the chatting team to try RIGHT NOW. Include an example message to send if applicable. Make it specific to this conversation — reference something the fan said or did. Also say what NOT to do.)
 
 **Chatting Team Takeaway**: (1-3 bullet points — patterns to replicate or avoid with this type of fan)
 
-Be direct, specific, and honest. Reference actual conversation moments. If there's nothing wrong, say there's nothing wrong.`
+Be direct, specific, and honest. Reference actual conversation moments.`
 
-      : `You are an OnlyFans chat analyst for a management agency. Quick assessment of a fan's conversation.
+      : `You are an OnlyFans chat analyst for a management agency. Quick assessment of why a fan's spending dropped.
 
 ${spendingContext}
 
-IMPORTANT: Don't assume something went wrong. The fan might still be engaged but just not buying, or they might have genuinely lost interest. Let the conversation tell you.
+This fan was flagged because spending is below their normal pattern. Figure out the most likely reason and give the chatting team one specific thing to try.
 
-Provide a brief analysis:
+Be honest — could be budget, could be the chatting approach, could be they're just done. But always provide an action item.
 
 **Fan Type**: (1 line)
 
-**What's Happening**: (2-3 sentences — honest read of the situation. Still engaged? Lost interest? Budget issue? Be direct.)
+**Why Spending Dropped**: (2-3 sentences — honest read. Budget? Turned off? Natural cooling? Be direct.)
 
-**Recommendation**: (One specific action to take, based on what you actually see in the conversation)
+**Action Item**: (One specific thing for the chatting team to try. Include an example message if relevant. Say what NOT to do.)
 
 **Odds of Recovery**: (Low / Medium / High — with one sentence why)
 
-Keep it short and honest. Don't force a negative narrative if the conversation looks fine.`
+Keep it tight and actionable.`
 
     // Truncate conversation if too long (keep most recent + beginning for context)
     let conversation = parsed.conversation
@@ -193,14 +232,58 @@ Keep it short and honest. Don't force a negative narrative if the conversation l
       max_tokens: isHighValue ? 1500 : 600,
     })
 
-    const analysis = completion.choices[0]?.message?.content || 'Analysis failed'
+    const fullAnalysis = completion.choices[0]?.message?.content || 'Analysis failed'
+
+    // Generate manager brief from the full analysis
+    const briefCompletion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `You write concise chat manager briefs for an OnlyFans management agency. Take a full fan analysis and distill it into a brief that a chat manager can read in under a minute and act on immediately.
+
+Format:
+**${fanName}** (@${formData.get('fanUsername') || '?'}) — $${lifetime.toLocaleString()} lifetime | ${currentGap}d since last purchase
+
+**Situation**: (1-2 sentences max — what's happening)
+**Action**: (1-2 sentences — exactly what to do or not do)
+**Key Insight**: (1 sentence — the most important thing to know about this fan)
+
+Keep it tight. No filler. The chat manager has 50 of these to review.` },
+        { role: 'user', content: fullAnalysis },
+      ],
+      temperature: 0.5,
+      max_tokens: 300,
+    })
+
+    const managerBrief = briefCompletion.choices[0]?.message?.content || ''
+
+    // Save to Airtable (async, don't block response)
+    const lastPurchaseDate = formData.get('lastPurchaseDate') || ''
+    saveToAirtable({
+      [F.fanName]: fanName,
+      [F.ofUsername]: formData.get('fanUsername') || '',
+      [F.creator]: creatorName,
+      [F.lifetimeSpend]: lifetime,
+      [F.currentGap]: currentGap,
+      [F.medianGap]: medianGap,
+      [F.lastPurchase]: lastPurchaseDate || null,
+      [F.analysisType]: isHighValue ? 'Deep Dive' : 'Quick Snapshot',
+      [F.fullAnalysis]: fullAnalysis,
+      [F.managerBrief]: managerBrief,
+      [F.messageCount]: parsed.messageCount,
+      [F.fanMessages]: parsed.fanMessages,
+      [F.creatorMessages]: parsed.creatorMessages,
+      [F.status]: 'New',
+      [F.analyzedDate]: new Date().toISOString(),
+    })
 
     return Response.json({
-      analysis,
+      analysis: fullAnalysis,
+      managerBrief,
       analysisType,
       messageCount: parsed.messageCount,
       fanMessages: parsed.fanMessages,
       creatorMessages: parsed.creatorMessages,
+      saved: true,
     })
   } catch (err) {
     console.error('Chat analysis error:', err)
