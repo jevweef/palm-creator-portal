@@ -439,6 +439,7 @@ export async function GET(request) {
       periods,
       byType,
       topFans,
+      transactions: cleanTxns,
       goingColdAlerts: goingColdAlerts.slice(0, 30),
       goingColdCount: goingColdAlerts.length,
       dailyData,

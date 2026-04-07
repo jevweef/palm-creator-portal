@@ -1044,7 +1044,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
     </div>
   )
 
-  const { summary, byType, topFans, dailyData, goingColdAlerts, goingColdCount, cachedAt } = data
+  const { summary, byType, topFans: allTimeTopFans, transactions: allTxns, dailyData, goingColdAlerts, goingColdCount, cachedAt } = data
   const fmtMoney = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtNum = n => Number(n || 0).toLocaleString()
 
@@ -1095,6 +1095,28 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   }
   const pctChange = prevPeriodNet > 0 ? ((periodNet - prevPeriodNet) / prevPeriodNet) * 100 : null
 
+  // Compute top fans for current period
+  const topFans = useMemo(() => {
+    if (!allTxns || allTxns.length === 0) return allTimeTopFans || []
+    const fanMap = {}
+    for (const t of allTxns) {
+      if (periodStart) {
+        const dt = new Date(t.date + ' 12:00:00')
+        if (dt < periodStart || dt > new Date(periodEnd.getTime() + 86400000)) continue
+      }
+      const key = t.displayName || 'Unknown'
+      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      fanMap[key].totalNet += t.net
+      fanMap[key].transactionCount += 1
+      if (!fanMap[key].lastDate || t.date > fanMap[key].lastDate) fanMap[key].lastDate = t.date
+    }
+    return Object.values(fanMap)
+      .filter(f => f.totalNet > 0)
+      .sort((a, b) => b.totalNet - a.totalNet)
+      .slice(0, 25)
+      .map((f, i) => ({ rank: i + 1, ...f }))
+  }, [allTxns, periodStart, periodEnd])
+
   // Unique types for filter buttons
   // Merge subscription types for filter buttons, rename PPV
   const mergedByType = { ...byType }
@@ -1120,7 +1142,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setSlideDir('right'); setSlideKey(k => k + 1)
             setTimeout(() => setSlideDir(null), 250)
           }} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>‹</button>
-          <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null) }}
+          <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null); setShowAllFans(false) }}
             style={{
               background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px',
               color: '#1a1a1a', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
@@ -1241,7 +1263,9 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
       {/* Top fans */}
       <div>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Fans</div>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+          Top Fans — {PERIOD_PRESETS.find(p => p.key === period)?.label || (period === 'custom' ? 'Custom Range' : 'All Time')}
+        </div>
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <span>#</span><span>Name</span><span>Username</span><span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
