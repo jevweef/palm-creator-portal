@@ -351,9 +351,27 @@ function RevenueChart({ dailyData, typeFilter, milestones }) {
   const px = (i) => CP.l + (i / (chartData.length - 1)) * chartW
   const py = (v) => CP.t + chartH - (v / maxVal) * chartH
 
-  const linePath = chartData.map((d, i) =>
-    `${i ? 'L' : 'M'}${px(i).toFixed(1)},${py(d.net).toFixed(1)}`
-  ).join('')
+  // Smooth curve using catmull-rom → cubic bezier conversion
+  const points = chartData.map((d, i) => [px(i), py(d.net)])
+  function smoothPath(pts) {
+    if (pts.length < 2) return ''
+    if (pts.length === 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`
+    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(i - 1, 0)]
+      const p1 = pts[i]
+      const p2 = pts[i + 1]
+      const p3 = pts[Math.min(i + 2, pts.length - 1)]
+      const tension = 0.3
+      const cp1x = p1[0] + (p2[0] - p0[0]) * tension
+      const cp1y = p1[1] + (p2[1] - p0[1]) * tension
+      const cp2x = p2[0] - (p3[0] - p1[0]) * tension
+      const cp2y = p2[1] - (p3[1] - p1[1]) * tension
+      d += `C${cp1x.toFixed(1)},${cp1y.toFixed(1)},${cp2x.toFixed(1)},${cp2y.toFixed(1)},${p2[0].toFixed(1)},${p2[1].toFixed(1)}`
+    }
+    return d
+  }
+  const linePath = smoothPath(points)
   const areaPath = linePath + `L${(CP.l + chartW).toFixed(1)},${CP.t + chartH}L${CP.l},${CP.t + chartH}Z`
 
   // Y-axis steps
