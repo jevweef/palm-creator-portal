@@ -1044,6 +1044,36 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
   const [slideKey, setSlideKey] = useState(0)
 
+  // Extract data safely — all hooks must run before any early returns
+  const { summary, byType, topFans: allTimeTopFans, transactions: allTxns, dailyData: rawDailyData, goingColdAlerts, goingColdCount, cachedAt } = data || {}
+  const dailyData = rawDailyData || []
+
+  // Compute top fans for current period (hook must be before early returns)
+  const topFans = useMemo(() => {
+    if (!allTxns || !Array.isArray(allTxns) || allTxns.length === 0) return allTimeTopFans || []
+    const [ps, pe] = period === 'custom' && customStart && customEnd
+      ? [new Date(customStart + 'T00:00:00'), new Date(customEnd + 'T00:00:00')]
+      : getPeriodRange(period)
+    const fanMap = {}
+    for (const t of allTxns) {
+      if (ps && pe) {
+        const dt = new Date(t.date + ' 12:00:00')
+        if (dt < ps || dt > new Date(pe.getTime() + 86400000)) continue
+      }
+      const key = t.displayName || 'Unknown'
+      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      fanMap[key].totalNet += t.net
+      fanMap[key].transactionCount += 1
+      if (!fanMap[key].lastDate || t.date > fanMap[key].lastDate) fanMap[key].lastDate = t.date
+    }
+    return Object.values(fanMap)
+      .filter(f => f.totalNet > 0)
+      .sort((a, b) => b.totalNet - a.totalNet)
+      .slice(0, 25)
+      .map((f, i) => ({ rank: i + 1, ...f }))
+  }, [allTxns, period, customStart, customEnd])
+
+  // Early returns AFTER all hooks
   if (loading) return <div style={{ color: '#999', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>Loading earnings data...</div>
   if (error) return (
     <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#DC2626' }}>
@@ -1057,7 +1087,6 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
     </div>
   )
 
-  const { summary, byType, topFans: allTimeTopFans, transactions: allTxns, dailyData, goingColdAlerts, goingColdCount, cachedAt } = data
   const fmtMoney = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtNum = n => Number(n || 0).toLocaleString()
 
@@ -1096,7 +1125,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   let prevPeriodNet = 0
   if (periodStart && periodEnd) {
     const durationMs = periodEnd.getTime() - periodStart.getTime()
-    const prevEnd = new Date(periodStart.getTime() - 1) // day before current period start
+    const prevEnd = new Date(periodStart.getTime() - 1)
     const prevStart = new Date(prevEnd.getTime() - durationMs)
     for (const d of dailyData) {
       const dt = new Date(d.date + ' 12:00:00')
@@ -1108,34 +1137,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   }
   const pctChange = prevPeriodNet > 0 ? ((periodNet - prevPeriodNet) / prevPeriodNet) * 100 : null
 
-  // Compute top fans for current period
-  // Use period+customStart+customEnd as deps (stable strings), not Date objects
-  const topFans = useMemo(() => {
-    if (!allTxns || !Array.isArray(allTxns) || allTxns.length === 0) return allTimeTopFans || []
-    const [ps, pe] = period === 'custom' && customStart && customEnd
-      ? [new Date(customStart + 'T00:00:00'), new Date(customEnd + 'T00:00:00')]
-      : getPeriodRange(period)
-    const fanMap = {}
-    for (const t of allTxns) {
-      if (ps && pe) {
-        const dt = new Date(t.date + ' 12:00:00')
-        if (dt < ps || dt > new Date(pe.getTime() + 86400000)) continue
-      }
-      const key = t.displayName || 'Unknown'
-      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
-      fanMap[key].totalNet += t.net
-      fanMap[key].transactionCount += 1
-      if (!fanMap[key].lastDate || t.date > fanMap[key].lastDate) fanMap[key].lastDate = t.date
-    }
-    return Object.values(fanMap)
-      .filter(f => f.totalNet > 0)
-      .sort((a, b) => b.totalNet - a.totalNet)
-      .slice(0, 25)
-      .map((f, i) => ({ rank: i + 1, ...f }))
-  }, [allTxns, period, customStart, customEnd])
-
   // Unique types for filter buttons
-  // Merge subscription types for filter buttons, rename PPV
   const mergedByType = { ...byType }
   if (mergedByType['Recurring subscription']) {
     mergedByType['Subscription'] = (mergedByType['Subscription'] || 0) + mergedByType['Recurring subscription']
