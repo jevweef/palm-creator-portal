@@ -455,7 +455,7 @@ function CreatorDetail({ creator, onProfileUpdated }) {
   const [refinePreview, setRefinePreview] = useState(null)
   const [analyzeError, setAnalyzeError] = useState('')
   const [showUpload, setShowUpload] = useState(false)
-  const [activeSection, setActiveSection] = useState('dna') // 'dna' | 'earnings'
+  const [activeSection, setActiveSection] = useState('earnings') // 'dna' | 'earnings'
   const [activeTab, setActiveTab] = useState('profile')
   const [feedback, setFeedback] = useState('')
   const [earningsData, setEarningsData] = useState(null)
@@ -1018,7 +1018,9 @@ export default function CreatorsPage() {
     fetch('/api/admin/palm-creators')
       .then(r => r.json())
       .then(data => {
-        setCreators(data.creators || [])
+        const list = data.creators || []
+        setCreators(list)
+        if (list.length > 0 && !selected) setSelected(list[0])
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -1029,7 +1031,7 @@ export default function CreatorsPage() {
   }
 
   return (
-    <div style={{ maxWidth: '1100px' }}>
+    <div>
       {/* Header with dropdown */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
         <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>Creators</div>
