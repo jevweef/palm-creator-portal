@@ -1029,56 +1029,45 @@ export default function CreatorsPage() {
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>Creator Profiles</div>
-        <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>Upload documents and generate AI-powered creator profiles and tag weights.</div>
+    <div style={{ maxWidth: '1100px' }}>
+      {/* Header with dropdown */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>Creators</div>
+        <select
+          value={selected?.id || ''}
+          onChange={e => {
+            const c = creators.find(c => c.id === e.target.value)
+            setSelected(c || null)
+          }}
+          style={{
+            background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
+            color: '#1a1a1a', fontSize: '14px', padding: '8px 14px', outline: 'none',
+            minWidth: '220px', cursor: 'pointer',
+          }}>
+          {!selected && <option value="">Select a creator...</option>}
+          {creators.map(c => (
+            <option key={c.id} value={c.id}>
+              {c.name || c.aka}{c.aka && c.name ? ` (${c.aka})` : ''}
+            </option>
+          ))}
+        </select>
+        {loading && <span style={{ color: '#999', fontSize: '13px' }}>Loading...</span>}
       </div>
 
-      <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-        {/* Creator list */}
-        <div style={{ width: '220px', flexShrink: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Creators</div>
-          {loading && <div style={{ color: '#555', fontSize: '13px' }}>Loading...</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {creators.map(c => (
-              <button key={c.id} onClick={() => setSelected(c)}
-                style={{
-                  width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '8px',
-                  background: selected?.id === c.id ? '#ffffff' : 'transparent',
-                  border: selected?.id === c.id ? '1px solid #E88FAC' : '1px solid transparent',
-                  boxShadow: selected?.id === c.id ? '0 2px 12px rgba(0,0,0,0.06)' : 'none',
-                  cursor: 'pointer', transition: 'all 0.15s',
-                }}>
-                <div style={{ fontSize: '13px', fontWeight: selected?.id === c.id ? 600 : 400, color: '#1a1a1a' }}>
-                  {c.name || c.aka}
-                </div>
-                {c.aka && c.name && (
-                  <div style={{ fontSize: '11px', color: '#555', marginTop: '1px' }}>{c.aka}</div>
-                )}
-                <div style={{ marginTop: '4px' }}>
-                  <StatusPill status={c.profileAnalysisStatus === 'Complete' ? 'Analyzed' : (c.profileAnalysisStatus || 'Not Started')} />
-                </div>
-              </button>
-            ))}
-          </div>
+      {/* Detail panel */}
+      {!selected ? (
+        <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '60px 0' }}>
+          Select a creator above to get started.
         </div>
-
-        {/* Detail panel */}
-        <div style={{ flex: 1, minWidth: 0, background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '24px' }}>
-          {!selected ? (
-            <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '60px 0' }}>
-              Select a creator to view or build their profile.
-            </div>
-          ) : (
-            <CreatorDetail
-              key={selected.id}
-              creator={selected}
-              onProfileUpdated={handleProfileUpdated}
-            />
-          )}
+      ) : (
+        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '24px' }}>
+          <CreatorDetail
+            key={selected.id}
+            creator={selected}
+            onProfileUpdated={handleProfileUpdated}
+          />
         </div>
-      </div>
+      )}
     </div>
   )
 }
