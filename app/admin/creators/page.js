@@ -295,9 +295,142 @@ const TYPE_COLORS = {
   'Recurring subscription': '#60a5fa',
   'Payment for message': '#fb923c',
 }
+const TYPE_LABELS = { 'Payment for message': 'PPV', 'Recurring subscription': 'Subscription' }
+const typeLabel = t => TYPE_LABELS[t] || t
+
+const PERIOD_PRESETS = [
+  { key: 'last30', label: 'Last 30 Days', days: 30 },
+  { key: 'last90', label: 'Last 90 Days', days: 90 },
+  { key: 'mtd', label: 'MTD' },
+  { key: 'lastMonth', label: 'Last Month' },
+  { key: 'qtd', label: 'This Quarter' },
+  { key: 'lastQuarter', label: 'Last Quarter' },
+  { key: 'ytd', label: 'YTD' },
+  { key: 'all', label: 'All Time' },
+]
+
+function getPeriodRange(key) {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  switch (key) {
+    case 'last30': { const d = new Date(today); d.setDate(d.getDate() - 30); return [d, today] }
+    case 'last90': { const d = new Date(today); d.setDate(d.getDate() - 90); return [d, today] }
+    case 'mtd': return [new Date(now.getFullYear(), now.getMonth(), 1), today]
+    case 'lastMonth': { const s = new Date(now.getFullYear(), now.getMonth() - 1, 1); const e = new Date(now.getFullYear(), now.getMonth(), 0); return [s, e] }
+    case 'qtd': { const q = Math.floor(now.getMonth() / 3) * 3; return [new Date(now.getFullYear(), q, 1), today] }
+    case 'lastQuarter': { const q = Math.floor(now.getMonth() / 3) * 3; const s = new Date(now.getFullYear(), q - 3, 1); const e = new Date(now.getFullYear(), q, 0); return [s, e] }
+    case 'ytd': return [new Date(now.getFullYear(), 0, 1), today]
+    default: return [null, null]
+  }
+}
+
+// ── SVG Chart ───────────────────────────────────────────────────────────────
+
+const CHART_W = 900, CHART_H = 280
+const CP = { t: 25, r: 55, b: 40, l: 10 }
+const chartW = CHART_W - CP.l - CP.r, chartH = CHART_H - CP.t - CP.b
+
+function RevenueChart({ dailyData, typeFilter, milestones }) {
+  const [hover, setHover] = useState(null)
+  const svgRef = useRef(null)
+
+  // Filter data by type if needed
+  const chartData = useMemo(() => {
+    return dailyData.map(d => {
+      let val = d.net
+      if (typeFilter !== 'all') {
+        val = d.byType?.[typeFilter] || 0
+      }
+      return { date: d.date, net: val }
+    })
+  }, [dailyData, typeFilter])
+
+  if (chartData.length === 0) return null
+
+  const maxVal = Math.max(...chartData.map(d => d.net), 1) * 1.1
+  const px = (i) => CP.l + (i / (chartData.length - 1)) * chartW
+  const py = (v) => CP.t + chartH - (v / maxVal) * chartH
+
+  const linePath = chartData.map((d, i) =>
+    `${i ? 'L' : 'M'}${px(i).toFixed(1)},${py(d.net).toFixed(1)}`
+  ).join('')
+  const areaPath = linePath + `L${(CP.l + chartW).toFixed(1)},${CP.t + chartH}L${CP.l},${CP.t + chartH}Z`
+
+  // Y-axis steps
+  const yStep = maxVal > 2000 ? 500 : maxVal > 1000 ? 250 : maxVal > 500 ? 100 : 50
+  const ySteps = []
+  for (let v = yStep; v <= maxVal; v += yStep) ySteps.push(v)
+
+  // X-axis labels (5 evenly spaced)
+  const xLabels = [0, 0.25, 0.5, 0.75, 1].map(p => {
+    const idx = Math.round(p * (chartData.length - 1))
+    return { pos: p, label: chartData[idx]?.date || '' }
+  })
+
+  const onMove = useCallback((e) => {
+    const svg = svgRef.current
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const mx = ((e.clientX - rect.left) / rect.width) * CHART_W
+    const i = Math.round(((mx - CP.l) / chartW) * (chartData.length - 1))
+    if (i < 0 || i >= chartData.length) { setHover(null); return }
+    setHover({ i, cx: px(i), cy: py(chartData[i].net), value: chartData[i].net, date: chartData[i].date })
+  }, [chartData, maxVal])
+
+  return (
+    <svg ref={svgRef} viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+      style={{ width: '100%', height: 'auto', overflow: 'visible', cursor: 'crosshair' }}
+      onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+      onTouchMove={e => { const t = e.touches[0]; if (t) onMove({ clientX: t.clientX }) }}
+      onTouchEnd={() => setHover(null)}>
+      <defs>
+        <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(232,143,172,0.25)" />
+          <stop offset="100%" stopColor="rgba(232,143,172,0.02)" />
+        </linearGradient>
+      </defs>
+      {/* Grid */}
+      {ySteps.map(v => <line key={v} x1={CP.l} x2={CP.l + chartW} y1={py(v)} y2={py(v)} stroke="rgba(0,0,0,0.06)" strokeWidth={1} />)}
+      {/* Area */}
+      <path d={areaPath} fill="url(#earningsGrad)" />
+      {/* Line */}
+      <path d={linePath} fill="none" stroke="#E88FAC" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      {/* Milestone lines */}
+      {milestones?.map((m, idx) => {
+        const mIdx = chartData.findIndex(d => d.date === m.date)
+        if (mIdx < 0) return null
+        const mx = px(mIdx)
+        return (
+          <g key={idx}>
+            <line x1={mx} x2={mx} y1={CP.t} y2={CP.t + chartH} stroke="rgba(232,143,172,0.45)" strokeWidth={1.5} strokeDasharray="6,4" />
+            <text x={mx} y={CP.t - 8} textAnchor="middle" fill="#E88FAC" fontSize={10} fontWeight={600}>{m.label}</text>
+          </g>
+        )
+      })}
+      {/* Y labels */}
+      {ySteps.map(v => <text key={v} x={CP.l + chartW + 8} y={py(v) + 4} fill="#999" fontSize={10}>${v >= 1000 ? (v/1000).toFixed(1) + 'k' : v}</text>)}
+      {/* X labels */}
+      {xLabels.map(({ pos, label }, i) => <text key={i} x={CP.l + pos * chartW} y={CHART_H - 8} textAnchor="middle" fill="#999" fontSize={10}>{label}</text>)}
+      {/* Hover */}
+      {hover && (
+        <g>
+          <line x1={hover.cx} x2={hover.cx} y1={CP.t} y2={CP.t + chartH} stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
+          <circle cx={hover.cx} cy={hover.cy} r={4} fill="#E88FAC" stroke="#fff" strokeWidth={2} />
+          <rect x={Math.max(60, Math.min(hover.cx - 60, CHART_W - 130))} y={hover.cy > 80 ? hover.cy - 48 : hover.cy + 14} width={120} height={38} rx={6} fill="#fff" stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
+          <text x={Math.max(60, Math.min(hover.cx - 60, CHART_W - 130)) + 60} y={(hover.cy > 80 ? hover.cy - 48 : hover.cy + 14) + 16} textAnchor="middle" fill="#1a1a1a" fontSize={10} fontWeight={600}>{hover.date}</text>
+          <text x={Math.max(60, Math.min(hover.cx - 60, CHART_W - 130)) + 60} y={(hover.cy > 80 ? hover.cy - 48 : hover.cy + 14) + 30} textAnchor="middle" fill="#E88FAC" fontSize={11} fontWeight={700}>${hover.value.toFixed(2)}</text>
+        </g>
+      )}
+    </svg>
+  )
+}
+
+// ── Main Panel ──────────────────────────────────────────────────────────────
 
 function EarningsPanel({ data, loading, error, onRefresh }) {
-  const [showAll, setShowAll] = useState(false)
+  const [period, setPeriod] = useState('last30')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [showWhales, setShowWhales] = useState(false)
 
   if (loading) return <div style={{ color: '#999', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>Loading earnings data...</div>
   if (error) return (
@@ -312,27 +445,139 @@ function EarningsPanel({ data, loading, error, onRefresh }) {
     </div>
   )
 
-  const { summary, last30Days, byType, topFans, transactions, cachedAt } = data
+  const { summary, byType, topFans, dailyData, whaleAlerts, whaleCount, cachedAt } = data
   const fmtMoney = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtNum = n => Number(n || 0).toLocaleString()
-  const typeTotal = Object.values(byType).reduce((s, v) => s + v, 0)
-  const displayTxns = showAll ? transactions : transactions.slice(0, 100)
+
+  // Filter daily data by period
+  const [periodStart, periodEnd] = getPeriodRange(period)
+  const filteredDaily = periodStart
+    ? dailyData.filter(d => {
+        const dt = new Date(d.date + ' 12:00:00')
+        return dt >= periodStart && dt <= new Date(periodEnd.getTime() + 86400000)
+      })
+    : dailyData
+
+  // Compute period summary from filtered daily data
+  let periodNet = 0, periodGross = 0, periodCount = 0
+  const periodByType = {}
+  for (const d of filteredDaily) {
+    if (typeFilter === 'all') {
+      periodNet += d.net
+    } else {
+      periodNet += d.byType?.[typeFilter] || 0
+    }
+    for (const [tp, val] of Object.entries(d.byType || {})) {
+      periodByType[tp] = (periodByType[tp] || 0) + val
+    }
+  }
+  const periodTypeTotal = Object.values(periodByType).reduce((s, v) => s + v, 0)
+
+  // Unique types for filter buttons
+  const allTypes = [...new Set(Object.keys(byType))]
 
   return (
     <div>
-      {/* Refresh indicator */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-        {cachedAt && <span style={{ fontSize: '11px', color: '#ccc' }}>Data as of {new Date(cachedAt).toLocaleTimeString()}</span>}
-        <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px', color: '#999' }}>↺</button>
+      {/* Period selector + refresh */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {PERIOD_PRESETS.map(p => (
+            <button key={p.key} onClick={() => setPeriod(p.key)}
+              style={{
+                background: period === p.key ? '#FFF0F3' : '#fff',
+                border: period === p.key ? '1px solid #E88FAC' : '1px solid #e5e7eb',
+                borderRadius: '6px', color: period === p.key ? '#E88FAC' : '#999',
+                padding: '5px 10px', fontSize: '11px', fontWeight: period === p.key ? 600 : 400,
+                cursor: 'pointer', whiteSpace: 'nowrap',
+              }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {cachedAt && <span style={{ fontSize: '11px', color: '#ccc' }}>as of {new Date(cachedAt).toLocaleTimeString()}</span>}
+          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px', color: '#999' }}>↺</button>
+        </div>
       </div>
 
+      {/* Type filter toggles */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <button onClick={() => setTypeFilter('all')}
+          style={{
+            background: typeFilter === 'all' ? '#1a1a1a' : '#fff',
+            color: typeFilter === 'all' ? '#fff' : '#666',
+            border: '1px solid ' + (typeFilter === 'all' ? '#1a1a1a' : '#e5e7eb'),
+            borderRadius: '20px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+          }}>All</button>
+        {allTypes.map(t => (
+          <button key={t} onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
+            style={{
+              background: typeFilter === t ? (TYPE_COLORS[t] || '#999') + '18' : '#fff',
+              color: typeFilter === t ? TYPE_COLORS[t] || '#999' : '#666',
+              border: '1px solid ' + (typeFilter === t ? TYPE_COLORS[t] || '#999' : '#e5e7eb'),
+              borderRadius: '20px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+            }}>
+            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TYPE_COLORS[t] || '#999', marginRight: '5px' }} />
+            {typeLabel(t)}
+          </button>
+        ))}
+      </div>
+
+      {/* Whale alerts banner */}
+      {whaleCount > 0 && (
+        <button onClick={() => setShowWhales(!showWhales)}
+          style={{
+            width: '100%', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px',
+            padding: '12px 16px', marginBottom: '16px', cursor: 'pointer', textAlign: 'left',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+          <div>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: '#DC2626' }}>{whaleCount} whale{whaleCount !== 1 ? 's' : ''} gone cold</span>
+            <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>Top spenders whose last 30 days dropped below 25% of their peak</span>
+          </div>
+          <span style={{ color: '#DC2626', fontSize: '16px' }}>{showWhales ? '▲' : '▼'}</span>
+        </button>
+      )}
+
+      {/* Whale details */}
+      {showWhales && whaleAlerts && (
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', marginBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px 100px 90px 70px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span>Fan</span><span style={{ textAlign: 'right' }}>Peak 30-day</span><span style={{ textAlign: 'right' }}>Last 30 days</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last Txn</span><span style={{ textAlign: 'center' }}>Status</span>
+          </div>
+          {whaleAlerts.map((w, i) => (
+            <div key={w.fan} style={{
+              display: 'grid', gridTemplateColumns: '1fr 120px 100px 100px 90px 70px', padding: '8px 16px',
+              fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)',
+              background: i % 2 === 0 ? '#fff' : '#FAFAFA',
+            }}>
+              <div>
+                <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{w.fan}</span>
+                {w.username && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{w.username}</span>}
+              </div>
+              <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(w.peak30)}</span>
+              <span style={{ textAlign: 'right', color: w.last30 === 0 ? '#DC2626' : '#f59e0b', fontWeight: 600 }}>{fmtMoney(w.last30)}</span>
+              <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(w.lifetime)}</span>
+              <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{w.lastTxnDate}</span>
+              <span style={{ textAlign: 'center' }}>
+                <span style={{
+                  background: w.status === 'gone' ? '#FEE2E2' : '#FEF3C7',
+                  color: w.status === 'gone' ? '#DC2626' : '#D97706',
+                  padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                }}>{w.status === 'gone' ? 'GONE' : 'DROP'}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
         {[
-          { label: 'Total Revenue', value: fmtMoney(summary.totalNet), accent: true },
-          { label: 'Transactions', value: fmtNum(summary.transactionCount) },
+          { label: 'Period Revenue', value: fmtMoney(periodNet), accent: true },
+          { label: 'All-Time Revenue', value: fmtMoney(summary.totalNet) },
           { label: 'Avg Transaction', value: fmtMoney(summary.avgTransaction) },
-          { label: 'Last 30 Days', value: fmtMoney(last30Days.net) },
+          { label: 'Total Transactions', value: fmtNum(summary.transactionCount) },
         ].map(card => (
           <div key={card.label} style={{
             background: '#fff', borderRadius: '10px', padding: '16px',
@@ -345,33 +590,34 @@ function EarningsPanel({ data, loading, error, onRefresh }) {
         ))}
       </div>
 
-      {/* Revenue by type */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Revenue by Type</div>
-        {/* Bar */}
+      {/* Revenue chart */}
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '20px', marginBottom: '20px' }}>
+        <RevenueChart dailyData={filteredDaily} typeFilter={typeFilter} milestones={[]} />
+      </div>
+
+      {/* Revenue by type breakdown */}
+      <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', height: '8px', marginBottom: '10px', background: '#f3f4f6' }}>
-          {Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
-            <div key={type} style={{ width: `${(net / typeTotal) * 100}%`, background: TYPE_COLORS[type] || '#999', minWidth: '2px' }} />
+          {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
+            <div key={type} style={{ width: `${(net / periodTypeTotal) * 100}%`, background: TYPE_COLORS[type] || '#999', minWidth: '2px' }} />
           ))}
         </div>
-        {/* Pills */}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
+          {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
             <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: TYPE_COLORS[type] || '#999' }} />
-              <span style={{ color: '#666' }}>{type === 'Payment for message' ? 'PPV' : type}:</span>
+              <span style={{ color: '#666' }}>{typeLabel(type)}:</span>
               <span style={{ fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(net)}</span>
-              <span style={{ color: '#ccc' }}>({Math.round((net / typeTotal) * 100)}%)</span>
+              <span style={{ color: '#ccc' }}>({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Top fans */}
-      <div style={{ marginBottom: '24px' }}>
+      <div>
         <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Fans</div>
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          {/* Header */}
           <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <span>#</span><span>Name</span><span>Username</span><span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
           </div>
@@ -394,49 +640,6 @@ function EarningsPanel({ data, loading, error, onRefresh }) {
               <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{fan.lastDate}</span>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Transaction history */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Transaction History <span style={{ color: '#ccc', fontWeight: 400, textTransform: 'none' }}>({fmtNum(transactions.length)} total)</span>
-          </div>
-        </div>
-        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          {/* Header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '90px 70px 120px 90px 1fr 120px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span>Date</span><span>Time</span><span>Type</span><span style={{ textAlign: 'right' }}>Amount</span><span style={{ paddingLeft: '16px' }}>Fan</span><span>Username</span>
-          </div>
-          <div style={{ maxHeight: showAll ? 'none' : '500px', overflowY: 'auto' }}>
-            {displayTxns.map((t, i) => (
-              <div key={i} style={{
-                display: 'grid', gridTemplateColumns: '90px 70px 120px 90px 1fr 120px', padding: '6px 16px',
-                fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.02)',
-                background: i % 2 === 0 ? '#fff' : '#FAFAFA',
-              }}>
-                <span style={{ color: '#666' }}>{t.date}</span>
-                <span style={{ color: '#999', fontSize: '11px' }}>{t.time}</span>
-                <span><span style={{
-                  background: (TYPE_COLORS[t.type] || '#999') + '18',
-                  color: TYPE_COLORS[t.type] || '#999',
-                  padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                }}>{t.type === 'Payment for message' ? 'PPV' : t.type || '—'}</span></span>
-                <span style={{ textAlign: 'right', fontWeight: 500, color: '#1a1a1a' }}>{fmtMoney(t.net)}</span>
-                <span style={{ color: '#666', paddingLeft: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.displayName || '—'}</span>
-                <span style={{ color: '#999', fontSize: '11px' }}>{t.ofUsername ? `@${t.ofUsername}` : ''}</span>
-              </div>
-            ))}
-          </div>
-          {!showAll && transactions.length > 100 && (
-            <button onClick={() => setShowAll(true)} style={{
-              width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)',
-              color: '#E88FAC', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-            }}>
-              Show all {fmtNum(transactions.length)} transactions
-            </button>
-          )}
         </div>
       </div>
     </div>
