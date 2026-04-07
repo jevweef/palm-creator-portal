@@ -1109,13 +1109,17 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const pctChange = prevPeriodNet > 0 ? ((periodNet - prevPeriodNet) / prevPeriodNet) * 100 : null
 
   // Compute top fans for current period
+  // Use period+customStart+customEnd as deps (stable strings), not Date objects
   const topFans = useMemo(() => {
     if (!allTxns || !Array.isArray(allTxns) || allTxns.length === 0) return allTimeTopFans || []
+    const [ps, pe] = period === 'custom' && customStart && customEnd
+      ? [new Date(customStart + 'T00:00:00'), new Date(customEnd + 'T00:00:00')]
+      : getPeriodRange(period)
     const fanMap = {}
     for (const t of allTxns) {
-      if (periodStart && periodEnd) {
+      if (ps && pe) {
         const dt = new Date(t.date + ' 12:00:00')
-        if (dt < periodStart || dt > new Date(periodEnd.getTime() + 86400000)) continue
+        if (dt < ps || dt > new Date(pe.getTime() + 86400000)) continue
       }
       const key = t.displayName || 'Unknown'
       if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
@@ -1128,7 +1132,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       .sort((a, b) => b.totalNet - a.totalNet)
       .slice(0, 25)
       .map((f, i) => ({ rank: i + 1, ...f }))
-  }, [allTxns, periodStart, periodEnd])
+  }, [allTxns, period, customStart, customEnd])
 
   // Unique types for filter buttons
   // Merge subscription types for filter buttons, rename PPV
