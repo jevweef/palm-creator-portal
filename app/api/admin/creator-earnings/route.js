@@ -83,6 +83,9 @@ function detectWhales(transactions, now) {
 
   const alerts = []
   for (const [fan, ts] of Object.entries(fanTxns)) {
+    // Skip fans with no username (deleted/deactivated accounts)
+    if (!ts.some(t => t.ofUsername)) continue
+
     const recent = ts.filter(t => t.dt && t.dt >= sixMonthsAgo)
     if (recent.length === 0) continue
 
@@ -170,6 +173,10 @@ function detectGoingCold(transactions, now) {
 
   const alerts = []
   for (const [fan, txns] of Object.entries(fanTxns)) {
+    // Skip fans with no username (deleted/deactivated accounts — can't re-engage)
+    const hasUsername = txns.some(t => t.ofUsername)
+    if (!hasUsername) continue
+
     // Sort chronologically
     const sorted = txns.filter(t => t.dt).sort((a, b) => a.dt - b.dt)
     if (sorted.length < 3) continue // need enough history for median
