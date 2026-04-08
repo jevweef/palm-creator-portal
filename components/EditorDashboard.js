@@ -804,10 +804,13 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId }) {
         const data = await res.json()
         if (data.fallback) {
           // Copy Spotify URL to clipboard so user can paste in spotdown
-          if (data.links?.spotify) navigator.clipboard?.writeText(data.links.spotify).catch(() => {})
+          if (data.links?.spotify) {
+            await navigator.clipboard?.writeText(data.links.spotify).catch(() => {})
+            setError('URL copied — paste in spotdown (Cmd+V)')
+            setTimeout(() => setError(''), 4000)
+          }
           window.open(data.links?.spotdown || 'https://spotdown.org', '_blank')
         }
-        else if (data.fallback && data.links?.youtube) window.open(data.links.youtube, '_blank')
       }
     } catch (e) {
       setError(e.message)

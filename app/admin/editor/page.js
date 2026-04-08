@@ -268,7 +268,11 @@ function MusicPanel({ task }) {
       } else {
         const data = await res.json()
         if (data.fallback) {
-          if (data.links?.spotify) navigator.clipboard?.writeText(data.links.spotify).catch(() => {})
+          if (data.links?.spotify) {
+            await navigator.clipboard?.writeText(data.links.spotify).catch(() => {})
+            setError('URL copied — paste in spotdown (Cmd+V)')
+            setTimeout(() => setError(''), 4000)
+          }
           window.open(data.links?.spotdown || 'https://spotdown.org', '_blank')
         }
       }
@@ -774,7 +778,11 @@ function CreatorMusicRadio({ creatorId, creatorName }) {
       } else {
         const data = await res.json()
         if (data.fallback) {
-          if (data.links?.spotify) navigator.clipboard?.writeText(data.links.spotify).catch(() => {})
+          if (data.links?.spotify) {
+            await navigator.clipboard?.writeText(data.links.spotify).catch(() => {})
+            setError('URL copied — paste in spotdown (Cmd+V)')
+            setTimeout(() => setError(''), 4000)
+          }
           window.open(data.links?.spotdown || 'https://spotdown.org', '_blank')
         }
       }
