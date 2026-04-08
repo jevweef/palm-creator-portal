@@ -58,14 +58,45 @@ export default function AdminOnboarding() {
     ctx.stroke()
     setHasSigDrawn(true)
   }
-  const endSigDraw = () => setIsSigDrawing(false)
-  const clearSigCanvas = () => {
+  const endSigDraw = () => {
+    setIsSigDrawing(false)
+    // Auto-save signature after each stroke
+    if (sigCanvasRef.current && hasSigDrawn) {
+      try { localStorage.setItem('palm_agency_sig', sigCanvasRef.current.toDataURL('image/png')) } catch {}
+    }
+  }
+  const loadSavedSig = useCallback(() => {
+    const canvas = sigCanvasRef.current
+    if (!canvas) return
+    const saved = localStorage.getItem('palm_agency_sig')
+    if (!saved) return
+    const img = new Image()
+    img.onload = () => {
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0)
+      setHasSigDrawn(true)
+    }
+    img.src = saved
+  }, [])
+  const clearSigCanvas = (clearSaved = false) => {
     const canvas = sigCanvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     setHasSigDrawn(false)
+    if (clearSaved) {
+      try { localStorage.removeItem('palm_agency_sig') } catch {}
+    }
   }
+
+  // Load saved signature when either modal opens
+  useEffect(() => {
+    if (showModal || editCreator) {
+      // Small delay to ensure canvas is mounted
+      setTimeout(() => loadSavedSig(), 50)
+    }
+  }, [showModal, editCreator, loadSavedSig])
 
   const fetchCreators = useCallback(async () => {
     try {
@@ -594,11 +625,20 @@ export default function AdminOnboarding() {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
                   <button
                     type="button"
-                    onClick={clearSigCanvas}
+                    onClick={() => clearSigCanvas(false)}
                     style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
                   >
-                    Clear
+                    Redraw
                   </button>
+                  {localStorage.getItem('palm_agency_sig') && (
+                    <button
+                      type="button"
+                      onClick={() => clearSigCanvas(true)}
+                      style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                    >
+                      Clear Saved
+                    </button>
+                  )}
                   {!hasSigDrawn && (
                     <span style={{ fontSize: '11px', color: '#E88FAC' }}>Signature required</span>
                   )}
@@ -792,11 +832,20 @@ export default function AdminOnboarding() {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
                   <button
                     type="button"
-                    onClick={clearSigCanvas}
+                    onClick={() => clearSigCanvas(false)}
                     style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
                   >
-                    Clear
+                    Redraw
                   </button>
+                  {localStorage.getItem('palm_agency_sig') && (
+                    <button
+                      type="button"
+                      onClick={() => clearSigCanvas(true)}
+                      style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                    >
+                      Clear Saved
+                    </button>
+                  )}
                   {!hasSigDrawn && (
                     <span style={{ fontSize: '11px', color: '#E88FAC' }}>Signature required</span>
                   )}
