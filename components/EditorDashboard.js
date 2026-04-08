@@ -1574,9 +1574,8 @@ function CreatorSection({ creator, onRefresh }) {
       : (creator.recentDone || []).filter(t => t.etCompletedDate === selectedDate)
   )
 
-  // Active fill items — queued tasks that haven't been started yet
-  const activeFillItems = [
-    ...creator.inProgress.map(t => ({ type: 'inProgress', task: t })),
+  // Queue = items waiting to be worked on (To Do tasks + inspo clips without tasks)
+  const queueItems = [
     ...creator.queue.map(t => ({ type: 'toDo', task: t })),
     ...(creator.inspoClips || []).map(c => ({ type: 'inspoClip', clip: c })),
   ]
@@ -1584,42 +1583,31 @@ function CreatorSection({ creator, onRefresh }) {
   const slots = []
   selectedDoneList.forEach(t => slots.push({ type: 'done', task: t }))
 
-  // For today and future days, distribute queued tasks across daily slots
-  // Today gets the first N, tomorrow gets the next N, etc.
+  // For today and future days, distribute queue items across daily slots
+  // Today: in-progress fills first, then queue items start at index 0
+  // Future days: queue items continue from where the previous day left off
   const isFutureOrToday = selectedDate >= todayDateStr
-  if (isFutureOrToday && activeFillItems.length > 0) {
-    const todayD = new Date(todayDateStr + 'T12:00:00')
-    const selD = new Date(selectedDate + 'T12:00:00')
-    const daysAhead = Math.round((selD - todayD) / (1000 * 60 * 60 * 24))
-
-    // Today's occupied slots = done + in-progress (these aren't in the queue)
-    const todayOccupied = (creator.doneTodayList || []).length + (creator.inProgress || []).length
-    // How many queue-only items fit in today's remaining slots
-    const todayQueueSlots = Math.max(0, dailyQuota - todayOccupied)
-
-    // For the selected day: skip items consumed by today + intervening days
-    // Today consumes todayQueueSlots from queue, each future day consumes dailyQuota
-    let skipCount = 0
-    if (!isToday) {
-      skipCount = todayQueueSlots + (daysAhead - 1) * dailyQuota
-    }
-
+  if (isFutureOrToday) {
     const remaining = Math.max(0, dailyQuota - slots.length)
-    // Only slice from queue items (exclude inProgress which are already on today)
-    const queueOnlyItems = [
-      ...creator.queue.map(t => ({ type: 'toDo', task: t })),
-      ...(creator.inspoClips || []).map(c => ({ type: 'inspoClip', clip: c })),
-    ]
 
     if (isToday) {
-      // Today: show inProgress first, then fill remaining with queue
-      const todayItems = [
-        ...creator.inProgress.map(t => ({ type: 'inProgress', task: t })),
-        ...queueOnlyItems.slice(0, Math.max(0, remaining - creator.inProgress.length)),
-      ]
+      // Today: show in-progress tasks first, then fill from queue
+      const inProgressItems = creator.inProgress.map(t => ({ type: 'inProgress', task: t }))
+      const queueSpace = Math.max(0, remaining - inProgressItems.length)
+      const todayItems = [...inProgressItems, ...queueItems.slice(0, queueSpace)]
       todayItems.slice(0, remaining).forEach(item => slots.push(item))
     } else {
-      queueOnlyItems.slice(skipCount, skipCount + remaining).forEach(item => slots.push(item))
+      // Future day: figure out how many queue items today consumed
+      const todayOccupied = (creator.doneTodayList || []).length + (creator.inProgress || []).length
+      const todayQueueConsumed = Math.max(0, dailyQuota - todayOccupied)
+
+      // Each intervening future day consumes dailyQuota items from the queue
+      const todayD = new Date(todayDateStr + 'T12:00:00')
+      const selD = new Date(selectedDate + 'T12:00:00')
+      const daysAhead = Math.round((selD - todayD) / (1000 * 60 * 60 * 24))
+      const skipCount = todayQueueConsumed + (daysAhead - 1) * dailyQuota
+
+      queueItems.slice(skipCount, skipCount + remaining).forEach(item => slots.push(item))
     }
   }
 
