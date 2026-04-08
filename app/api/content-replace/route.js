@@ -107,6 +107,7 @@ export async function POST(request) {
             'Creator Notes': notes || '',
             'Dropbox Shared Link': uploadedFiles.map(f => f.sharedLink).filter(Boolean).join('\n') || '',
             'Dropbox Path (Current)': uploadedFiles.map(f => f.path).filter(Boolean).join('\n') || '',
+            'Thumbnail': [], // Clear old thumbnail before re-uploading
           },
         }),
       }
