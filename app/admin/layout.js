@@ -1,7 +1,7 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
@@ -45,8 +45,8 @@ export default function AdminLayout({ children }) {
   const isAdmin = role === 'admin'
   const isEditor = role === 'editor'
 
-  // ALL hooks must be before any early returns
-  const [activeTab, setActiveTab] = useState(null)
+  const searchParams = useSearchParams()
+  const activeTab = searchParams.get('tab')
 
   useEffect(() => {
     if (!isLoaded) return
@@ -57,11 +57,6 @@ export default function AdminLayout({ children }) {
       router.replace('/editor')
     }
   }, [isLoaded, user, router, pathname, isAdmin, isEditor])
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    setActiveTab(params.get('tab'))
-  }, [pathname])
 
   // Early returns AFTER all hooks
   if (!isLoaded || (!isAdmin && !isEditor)) {
