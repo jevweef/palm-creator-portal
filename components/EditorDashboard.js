@@ -1574,7 +1574,7 @@ function CreatorSection({ creator, onRefresh }) {
       : (creator.recentDone || []).filter(t => t.etCompletedDate === selectedDate)
   )
 
-  // Active fill items only apply to today (past days show history, future shows queue)
+  // Active fill items — queued tasks that haven't been started yet
   const activeFillItems = [
     ...creator.inProgress.map(t => ({ type: 'inProgress', task: t })),
     ...creator.queue.map(t => ({ type: 'toDo', task: t })),
@@ -1583,10 +1583,28 @@ function CreatorSection({ creator, onRefresh }) {
 
   const slots = []
   selectedDoneList.forEach(t => slots.push({ type: 'done', task: t }))
-  if (isToday) {
+
+  // For today and future days, distribute queued tasks across daily slots
+  // Today gets the first N, tomorrow gets the next N, etc.
+  const isFutureOrToday = selectedDate >= todayDateStr
+  if (isFutureOrToday && activeFillItems.length > 0) {
+    // Count how many days from today to the selected date
+    const todayD = new Date(todayDateStr + 'T12:00:00')
+    const selD = new Date(selectedDate + 'T12:00:00')
+    const daysAhead = Math.round((selD - todayD) / (1000 * 60 * 60 * 24))
+
+    // How many items are used up by today + previous future days
+    // Each day consumes up to (dailyQuota - done tasks on that day) items
+    // Simplified: assume each future day consumes dailyQuota slots
+    // Today's done tasks reduce today's available slots
+    const todayDoneCount = isToday ? selectedDoneList.length : 0
+    const todayAvail = Math.max(0, dailyQuota - todayDoneCount)
+    const skipCount = isToday ? 0 : (todayAvail + (daysAhead - 1) * dailyQuota)
+
     const remaining = Math.max(0, dailyQuota - slots.length)
-    activeFillItems.slice(0, remaining).forEach(item => slots.push(item))
+    activeFillItems.slice(skipCount, skipCount + remaining).forEach(item => slots.push(item))
   }
+
   while (slots.length < dailyQuota) slots.push({ type: 'empty' })
 
   const allDone = selectedDoneList.length >= dailyQuota
