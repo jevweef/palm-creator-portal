@@ -198,23 +198,26 @@ export async function POST(request) {
     const rawUrl = rawDropboxUrl(editedFileLink)
     const chatId = parseInt(TELEGRAM_CHAT_ID)
 
-    // Download the file from Dropbox
-    console.log('[Telegram Send] Downloading file from Dropbox...')
-    const fileRes = await fetch(rawUrl)
-    if (!fileRes.ok) throw new Error(`Failed to download file from Dropbox: ${fileRes.status}`)
-    const fileBuffer = await fileRes.arrayBuffer()
-    const fileSize = fileBuffer.byteLength
-    console.log(`[Telegram Send] File size: ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
+    const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
+    const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
+    // MP4: always use URL method (fastest, no download needed). MOV: download + remux up to 50MB.
+    const URL_THRESHOLD = needsRemux ? MAX_UPLOAD_BYTES : 0
+
+    // Check file size with HEAD request first (avoids downloading huge files just to check)
+    let fileSize = 0
+    try {
+      const headRes = await fetch(rawUrl, { method: 'HEAD' })
+      fileSize = parseInt(headRes.headers.get('content-length') || '0')
+      console.log(`[Telegram Send] File size (HEAD): ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
+    } catch {
+      console.log('[Telegram Send] HEAD request failed, will download to check size')
+    }
 
     let result
 
-    const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
-    const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
-    const URL_THRESHOLD = needsRemux ? MAX_UPLOAD_BYTES : 20 * 1024 * 1024 // 20MB for mp4, 50MB for mov
-
-    if (fileSize > URL_THRESHOLD) {
-      // Large file — send via URL to avoid timeout (skip download+remux+upload cycle)
-      console.log(`[Telegram Send] File ${(fileSize / 1024 / 1024).toFixed(1)}MB > threshold, using URL method`)
+    if (!needsRemux || fileSize > URL_THRESHOLD) {
+      // Send via URL — no download needed. Fastest path for MP4 files.
+      console.log(`[Telegram Send] Using URL method (${needsRemux ? 'too large' : 'MP4, no remux needed'})`)
       const baseParams = { chat_id: chatId, message_thread_id: threadId, ...(caption ? { caption } : {}) }
       if (isVideo(editedFileLink)) {
         result = await telegramJson('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
@@ -224,7 +227,13 @@ export async function POST(request) {
         result = await telegramJson('sendDocument', { ...baseParams, document: rawUrl })
       }
     } else {
-      // Under 50MB — upload directly as multipart
+      // MOV under 50MB — download, remux, upload as multipart
+      console.log('[Telegram Send] Downloading file from Dropbox for remux...')
+      const fileRes = await fetch(rawUrl)
+      if (!fileRes.ok) throw new Error(`Failed to download file from Dropbox: ${fileRes.status}`)
+      const fileBuffer = await fileRes.arrayBuffer()
+      console.log(`[Telegram Send] Downloaded: ${(fileBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`)
+
       const form = new FormData()
       form.append('chat_id', String(chatId))
       form.append('message_thread_id', String(threadId))
