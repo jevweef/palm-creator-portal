@@ -169,9 +169,11 @@ export async function GET() {
         editorNotes: task.fields?.['Editor Notes'] || '',
         completedAt: task.fields?.['Completed At'] || null,
         etCompletedDate: toETDateStr(task.fields?.['Completed At'] || ''),
-        // Editor dashboard: tasks show on the day the editor completed them.
-        // Post scheduling is a separate concern (Post Prep tab).
-        etSlotDate: toETDateStr(task.fields?.['Completed At'] || ''),
+        // Done tasks with a post: show on the post's scheduled date (the slot they were assigned to).
+        // Done tasks without a post (in review): show on completion date.
+        etSlotDate: taskScheduledDateMap[task.id]
+          ? toETDateStr(taskScheduledDateMap[task.id])
+          : toETDateStr(task.fields?.['Completed At'] || ''),
         telegramSentAt: taskTelegramMap[task.id] || null,
         postScheduledDate: taskScheduledDateMap[task.id] || null,
         asset: {
