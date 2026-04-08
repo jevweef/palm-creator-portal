@@ -11,6 +11,30 @@ import { join } from 'path'
 
 ffmpeg.setFfmpegPath(ffmpegStatic)
 
+// Resize image to fit Telegram limits (max 1280px longest side, JPEG output)
+async function resizeImage(inputBuffer, inputName) {
+  const id = Date.now()
+  const ext = inputName.split('.').pop().toLowerCase()
+  const inputPath = join(tmpdir(), `tg_img_in_${id}.${ext}`)
+  const outputPath = join(tmpdir(), `tg_img_out_${id}.jpg`)
+  await writeFile(inputPath, Buffer.from(inputBuffer))
+  await new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease',
+        '-q:v', '2', // high quality JPEG
+      ])
+      .output(outputPath)
+      .on('end', resolve)
+      .on('error', reject)
+      .run()
+  })
+  const outputBuffer = await readFile(outputPath)
+  await unlink(inputPath).catch(() => {})
+  await unlink(outputPath).catch(() => {})
+  return outputBuffer
+}
+
 // Remux MOV → MP4 using -c copy (zero quality loss, just container change)
 async function remuxToMp4(inputBuffer, inputName) {
   const id = Date.now()
@@ -230,9 +254,14 @@ export async function POST(request) {
         // Set thumbnail on the video so it shows a preview frame instead of black
         const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
         if (!thumbRes.ok) throw new Error('Failed to download thumbnail from Dropbox')
-        const thumbBuffer = await thumbRes.arrayBuffer()
-        const thumbMime = getMimeType(thumbnailUrl)
-        const thumbFilename = getFilename(thumbnailUrl)
+        const rawThumbBuffer = await thumbRes.arrayBuffer()
+
+        // Resize thumbnail to fit Telegram limits (max 1280px, <10MB)
+        console.log(`[Telegram Send] Resizing thumbnail (${(rawThumbBuffer.byteLength / 1024 / 1024).toFixed(1)}MB)...`)
+        const thumbBuffer = await resizeImage(rawThumbBuffer, getFilename(thumbnailUrl))
+        console.log(`[Telegram Send] Thumbnail resized to ${(thumbBuffer.length / 1024).toFixed(0)}KB`)
+        const thumbMime = 'image/jpeg'
+        const thumbFilename = 'thumbnail.jpg'
 
         const mediaGroup = [
           { type: 'video', media: 'attach://video_file', thumbnail: 'attach://thumb_file', supports_streaming: true, width: 1080, height: 1920, ...(caption ? { caption } : {}) },
