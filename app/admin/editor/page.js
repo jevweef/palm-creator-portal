@@ -189,6 +189,207 @@ function SubmitModal({ task, onClose, onSubmit }) {
   )
 }
 
+// ─── Music Panel (inside task card) ──────────────────────────────────────────
+
+function MusicPanel({ task }) {
+  const [identifying, setIdentifying] = useState(false)
+  const [suggestions, setSuggestions] = useState(null)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [downloading, setDownloading] = useState(null)
+  const [identifiedSong, setIdentifiedSong] = useState(task.inspo.identifiedSongData || null)
+  const [identifiedLabel, setIdentifiedLabel] = useState(task.inspo.identifiedSong || '')
+  const [error, setError] = useState('')
+  const [playingPreview, setPlayingPreview] = useState(null)
+  const audioRef = useRef(null)
+
+  const audioType = typeof task.inspo.audioType === 'object' ? task.inspo.audioType?.name : task.inspo.audioType
+
+  async function handleIdentify() {
+    const videoUrl = task.inspo.dbShareLink || task.asset.dropboxLink
+    if (!videoUrl) { setError('No video URL available'); return }
+    setIdentifying(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/music/identify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspoId: task.inspo.id, videoUrl }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Identification failed')
+      if (data.match) {
+        setIdentifiedSong(data.song)
+        setIdentifiedLabel(`${data.song.artist} - ${data.song.title}`)
+      } else {
+        setError('No song match found')
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setIdentifying(false)
+    }
+  }
+
+  async function handleGetSuggestions() {
+    setLoadingSuggestions(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/music/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspoId: task.inspo.id, creatorId: task.creator.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to get suggestions')
+      setSuggestions(data.suggestions || [])
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoadingSuggestions(false)
+    }
+  }
+
+  async function handleDownload(track) {
+    setDownloading(track.spotifyId)
+    try {
+      const res = await fetch('/api/admin/music/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spotifyUrl: track.spotifyUrl, artist: track.artist, title: track.track }),
+      })
+      if (res.headers.get('content-type')?.includes('audio')) {
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${track.artist} - ${track.track}.mp3`
+        a.click()
+        URL.revokeObjectURL(url)
+      } else {
+        const data = await res.json()
+        if (data.fallback) {
+          if (data.links?.spotdown) window.open(data.links.spotdown, '_blank')
+          else if (data.links?.youtube) window.open(data.links.youtube, '_blank')
+        }
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  function togglePreview(track) {
+    if (playingPreview === track.spotifyId) {
+      audioRef.current?.pause()
+      setPlayingPreview(null)
+    } else if (track.previewUrl) {
+      if (audioRef.current) audioRef.current.pause()
+      const audio = new Audio(track.previewUrl)
+      audio.play()
+      audio.onended = () => setPlayingPreview(null)
+      audioRef.current = audio
+      setPlayingPreview(track.spotifyId)
+    }
+  }
+
+  return (
+    <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '8px' }}>
+      <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Music</div>
+
+      {/* Audio type + identified song */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+        {audioType && (
+          <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#FFF0F3', color: '#888', border: '1px solid #E8C4CC' }}>
+            {audioType}
+          </span>
+        )}
+        {identifiedLabel ? (
+          <span style={{ fontSize: '12px', fontWeight: 500, color: '#1a1a1a' }}>
+            {identifiedLabel}
+          </span>
+        ) : (
+          <button onClick={handleIdentify} disabled={identifying}
+            style={{
+              padding: '3px 10px', fontSize: '11px', fontWeight: 500,
+              background: identifying ? '#f0f0f0' : '#F0F4FF', color: identifying ? '#999' : '#6B7FE3',
+              border: '1px solid rgba(107,127,227,0.2)', borderRadius: '4px', cursor: identifying ? 'default' : 'pointer',
+            }}>
+            {identifying ? 'Identifying...' : 'Identify Song'}
+          </button>
+        )}
+      </div>
+
+      {/* Spotify link for identified song */}
+      {identifiedSong?.spotifyUrl && (
+        <div style={{ marginBottom: '6px' }}>
+          <a href={identifiedSong.spotifyUrl} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: '11px', color: '#1DB954', textDecoration: 'none' }}>
+            Open in Spotify ↗
+          </a>
+        </div>
+      )}
+
+      {/* Get suggestions button */}
+      {(identifiedLabel || task.creator.id) && !suggestions && (
+        <button onClick={handleGetSuggestions} disabled={loadingSuggestions}
+          style={{
+            padding: '5px 12px', fontSize: '11px', fontWeight: 500, marginBottom: '6px',
+            background: loadingSuggestions ? '#f0f0f0' : '#E88FAC', color: loadingSuggestions ? '#999' : '#fff',
+            border: 'none', borderRadius: '4px', cursor: loadingSuggestions ? 'default' : 'pointer',
+          }}>
+          {loadingSuggestions ? 'Loading...' : 'Get Similar Songs'}
+        </button>
+      )}
+
+      {/* Suggestions list */}
+      {suggestions && suggestions.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '200px', overflowY: 'auto' }}>
+          {suggestions.map((track, i) => (
+            <div key={track.spotifyId || i} style={{
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 6px',
+              borderRadius: '4px', background: i % 2 === 0 ? '#fafafa' : 'transparent', fontSize: '11px',
+            }}>
+              {/* Album art */}
+              {track.albumArt && (
+                <img src={track.albumArt} alt="" style={{ width: '28px', height: '28px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
+              )}
+              {/* Track info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.track}</div>
+                <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px' }}>{track.artist}</div>
+              </div>
+              {/* Preview button */}
+              {track.previewUrl && (
+                <button onClick={() => togglePreview(track)}
+                  style={{ padding: '2px 6px', fontSize: '10px', background: playingPreview === track.spotifyId ? '#E88FAC' : '#f0f0f0', color: playingPreview === track.spotifyId ? '#fff' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
+                  {playingPreview === track.spotifyId ? '■' : '▶'}
+                </button>
+              )}
+              {/* Download button */}
+              <button onClick={() => handleDownload(track)} disabled={downloading === track.spotifyId}
+                style={{
+                  padding: '2px 6px', fontSize: '10px', fontWeight: 500, flexShrink: 0,
+                  background: downloading === track.spotifyId ? '#f0f0f0' : '#dcfce7',
+                  color: downloading === track.spotifyId ? '#999' : '#22c55e',
+                  border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
+                }}>
+                {downloading === track.spotifyId ? '...' : '↓'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {suggestions && suggestions.length === 0 && (
+        <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>No suggestions found. Try adding Music DNA to the creator profile.</div>
+      )}
+
+      {error && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{error}</div>}
+    </div>
+  )
+}
+
 // ─── Inspo Tasks Section ──────────────────────────────────────────────────────
 
 function InspoTasks({ showToast }) {
@@ -485,14 +686,8 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
                     </div>
                   </div>
                 )}
-                {task.inspo.audioType && (
-                  <div>
-                    <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Audio</div>
-                    <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#FFF0F3', color: '#888', border: '1px solid #E8C4CC' }}>
-                      {typeof task.inspo.audioType === 'object' ? task.inspo.audioType.name : task.inspo.audioType}
-                    </span>
-                  </div>
-                )}
+                {/* Music Panel */}
+                <MusicPanel task={task} />
               </div>
             )}
           </>
