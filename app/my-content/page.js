@@ -25,21 +25,30 @@ const STATUS_COLORS = {
   Posted: { bg: '#dcfce7', color: '#4ade80' },
 }
 
-function PipelineCard({ item }) {
+function PipelineCard({ item, onClick }) {
   const statusStyle = STATUS_COLORS[item.pipelineStatus] || STATUS_COLORS.Uploaded
+  // Show the creator's uploaded clip, fall back to inspo thumbnail
+  const cardThumb = item.assetThumbnail || item.inspoThumbnail
 
   return (
-    <div style={{
-      background: '#ffffff',
-      border: 'none',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-      borderRadius: '18px',
-      overflow: 'hidden',
-    }}>
-      {item.inspoThumbnail && (
+    <div
+      onClick={onClick}
+      style={{
+        background: '#ffffff',
+        border: 'none',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        borderRadius: '18px',
+        overflow: 'hidden',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'transform 0.15s, box-shadow 0.15s',
+      }}
+      onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' } }}
+      onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' } }}
+    >
+      {cardThumb && (
         <div style={{ aspectRatio: '9/16', background: '#000' }}>
           <img
-            src={item.inspoThumbnail}
+            src={cardThumb}
             alt={item.inspoTitle}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -85,6 +94,128 @@ function PipelineCard({ item }) {
   )
 }
 
+function rawDropboxUrl(url) {
+  if (!url) return ''
+  const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
+  return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
+}
+
+function PipelineDetailModal({ item, onClose }) {
+  const clipUrl = item.dropboxLink ? rawDropboxUrl(item.dropboxLink) : ''
+  const inspoUrl = item.inspoDbShareLink ? rawDropboxUrl(item.inspoDbShareLink) : ''
+  const statusStyle = STATUS_COLORS[item.pipelineStatus] || STATUS_COLORS.Uploaded
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+        padding: '24px',
+      }}
+    >
+      <div style={{
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '900px',
+        maxHeight: '90vh', overflow: 'auto',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '20px 24px', borderBottom: '1px solid rgba(0,0,0,0.06)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item.inspoTitle || item.assetName}
+              </h2>
+              <span style={{
+                fontSize: '10px', fontWeight: 600, padding: '3px 10px', borderRadius: '9999px',
+                background: statusStyle.bg, color: statusStyle.color, flexShrink: 0,
+              }}>
+                {item.pipelineStatus}
+              </span>
+            </div>
+            {item.inspoUsername && (
+              <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>@{item.inspoUsername}</p>
+            )}
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', fontSize: '22px', cursor: 'pointer', lineHeight: 1, flexShrink: 0, marginLeft: '16px' }}>×</button>
+        </div>
+
+        {/* Two-column video comparison */}
+        <div style={{ padding: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+          {/* My Clip */}
+          <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#E88FAC', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+              My Clip
+            </div>
+            {clipUrl ? (
+              <video
+                src={clipUrl}
+                controls
+                playsInline
+                style={{ width: '100%', maxHeight: '500px', borderRadius: '12px', background: '#000', objectFit: 'contain' }}
+              />
+            ) : (
+              <div style={{ aspectRatio: '9/16', background: '#f5f5f5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '13px' }}>
+                No clip available
+              </div>
+            )}
+          </div>
+
+          {/* Inspo Reference */}
+          <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+              Inspo Reference
+            </div>
+            {inspoUrl ? (
+              <video
+                src={inspoUrl}
+                controls
+                playsInline
+                style={{ width: '100%', maxHeight: '500px', borderRadius: '12px', background: '#000', objectFit: 'contain' }}
+              />
+            ) : item.inspoThumbnail ? (
+              <img src={item.inspoThumbnail} alt="" style={{ width: '100%', maxHeight: '500px', borderRadius: '12px', objectFit: 'contain' }} />
+            ) : (
+              <div style={{ aspectRatio: '9/16', background: '#f5f5f5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '13px' }}>
+                No inspo linked
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Details section */}
+        <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {item.creatorNotes && (
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Your Notes</div>
+              <p style={{ fontSize: '13px', color: '#555', lineHeight: 1.5, fontStyle: 'italic', margin: 0 }}>&quot;{item.creatorNotes}&quot;</p>
+            </div>
+          )}
+          {item.inspoNotes && (
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Inspo Direction</div>
+              <p style={{ fontSize: '13px', color: '#555', lineHeight: 1.5, margin: 0 }}>{item.inspoNotes}</p>
+            </div>
+          )}
+          {item.inspoTags?.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {item.inspoTags.map((tag) => (
+                <span key={tag} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '9999px', ...tagStyle(tag) }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function EmptyState({ tab }) {
   const messages = {
     saved: 'No saved inspo yet. Browse the Inspo Board to save reels you want to recreate.',
@@ -109,6 +240,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
   const [loading, setLoading] = useState(true)
   const [modalIndex, setModalIndex] = useState(null) // index into data.saved for InspoModal
   const [uploadRecord, setUploadRecord] = useState(null) // inspo record for upload modal
+  const [pipelineItem, setPipelineItem] = useState(null) // pipeline card detail modal
 
   const creatorOpsId = opsIdOverride || user?.publicMetadata?.airtableOpsId || null
   const creatorHqId = hqIdOverride || user?.publicMetadata?.airtableHqId || null
@@ -305,7 +437,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             data.uploaded.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {data.uploaded.map((item) => (
-                  <PipelineCard key={item.assetId} item={item} />
+                  <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
               </div>
             ) : <EmptyState tab="uploaded" />
@@ -315,7 +447,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             data.editing.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {data.editing.map((item) => (
-                  <PipelineCard key={item.assetId} item={item} />
+                  <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
               </div>
             ) : <EmptyState tab="editing" />
@@ -325,7 +457,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             data.scheduled.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {data.scheduled.map((item) => (
-                  <PipelineCard key={item.assetId} item={item} />
+                  <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
               </div>
             ) : <EmptyState tab="scheduled" />
@@ -335,7 +467,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             data.posted.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {data.posted.map((item) => (
-                  <PipelineCard key={item.assetId} item={item} />
+                  <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
               </div>
             ) : <EmptyState tab="posted" />
@@ -355,6 +487,14 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
           onUpload={handleUploadFromModal}
           isSaved={true}
           onSave={handleUnsave}
+        />
+      )}
+
+      {/* Pipeline detail modal — shows uploaded clip + inspo side by side */}
+      {pipelineItem && (
+        <PipelineDetailModal
+          item={pipelineItem}
+          onClose={() => setPipelineItem(null)}
         />
       )}
 

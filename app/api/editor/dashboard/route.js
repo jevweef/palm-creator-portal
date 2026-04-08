@@ -197,8 +197,11 @@ export async function GET() {
     }
 
     // Group inspo-linked creator assets by creator
+    // Exclude assets that already have editing tasks (prevents duplicate cards)
+    const taskAssetIdSet = new Set(taskAssetIds)
     const inspoClipsByCreator = {}
     for (const asset of inspoLinkedAssets) {
+      if (taskAssetIdSet.has(asset.id)) continue // already shown as a task card
       const creatorId = (asset.fields?.['Palm Creators'] || [])[0]
       if (!creatorId) continue
       if (!inspoClipsByCreator[creatorId]) inspoClipsByCreator[creatorId] = []

@@ -89,7 +89,7 @@ export async function GET(request) {
     const assetParams = new URLSearchParams()
     ;['Asset Name', 'Palm Creators', 'Inspiration Source', 'Pipeline Status',
       'Creator Notes', 'Upload Week', 'Source Type', 'Dropbox Shared Link',
-      'Dropbox Path (Current)', 'Asset Type',
+      'Dropbox Path (Current)', 'Asset Type', 'Thumbnail',
     ].forEach((f) => assetParams.append('fields[]', f))
 
     const [inspoRecords, assetRecords, creatorRes] = await Promise.all([
@@ -177,6 +177,7 @@ export async function GET(request) {
         : null
 
       const inspoThumb = inspoRecord?.fields['Thumbnail']
+      const assetThumb = a.fields['Thumbnail']
 
       const item = {
         assetId: a.id,
@@ -184,11 +185,15 @@ export async function GET(request) {
         pipelineStatus: status || 'Uploaded',
         creatorNotes: a.fields['Creator Notes'] || '',
         dropboxLink: a.fields['Dropbox Shared Link'] || '',
+        // Creator's uploaded clip thumbnail (what the card should show)
+        assetThumbnail: assetThumb && assetThumb.length > 0 ? assetThumb[0].url : null,
         inspoId: inspoSourceIds[0] || null,
         inspoTitle: inspoRecord?.fields['Title'] || '',
         inspoThumbnail: inspoThumb && inspoThumb.length > 0 ? inspoThumb[0].url : null,
         inspoTags: inspoRecord?.fields['Tags'] || [],
         inspoUsername: inspoRecord?.fields['Username'] || '',
+        inspoDbShareLink: inspoRecord?.fields['DB Share Link'] || '',
+        inspoNotes: inspoRecord?.fields['Notes'] || '',
       }
 
       if (status === 'In Editing') editing.push(item)
