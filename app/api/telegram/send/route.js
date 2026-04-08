@@ -242,7 +242,19 @@ export async function POST(request) {
         form.append('video_file', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
         form.append('thumb_file', new Blob([thumbBuffer], { type: thumbMime }), thumbFilename)
         form.append('photo_file', new Blob([thumbBuffer], { type: thumbMime }), thumbFilename)
-        result = await telegramUpload('sendMediaGroup', form)
+        try {
+          result = await telegramUpload('sendMediaGroup', form)
+        } catch (mediaErr) {
+          console.warn('[Telegram Send] sendMediaGroup failed, falling back to sendVideo:', mediaErr.message)
+          // Fall back to video-only send without thumbnail
+          const fallbackForm = new FormData()
+          fallbackForm.append('chat_id', String(chatId))
+          fallbackForm.append('message_thread_id', String(threadId))
+          if (caption) fallbackForm.append('caption', caption)
+          fallbackForm.append('video', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
+          fallbackForm.append('supports_streaming', 'true')
+          result = await telegramUpload('sendVideo', fallbackForm)
+        }
       } else if (isVideo(editedFileLink)) {
         // No thumbnail — send video only
         form.append('video', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
