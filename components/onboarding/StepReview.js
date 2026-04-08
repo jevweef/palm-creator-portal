@@ -39,7 +39,13 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
     }).catch(() => setLoading(false))
   }, [hqId])
 
-  const allComplete = STEPS.every(s => completedSteps.includes(s.key))
+  // Use real completion data from Airtable for contract/voice memo instead of just click-through tracking
+  const getStepComplete = (key) => {
+    if (key === 'contract') return profileData?.hasContract || false
+    if (key === 'voice-memo') return profileData?.hasVoiceMemo || false
+    return completedSteps.includes(key)
+  }
+  const allComplete = !loading && profileData && STEPS.every(s => getStepComplete(s.key))
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -106,7 +112,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
         marginBottom: '24px',
       }}>
         {STEPS.map((step, i) => {
-          const isComplete = completedSteps.includes(step.key)
+          const isComplete = getStepComplete(step.key)
           return (
             <div
               key={step.key}
