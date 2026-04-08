@@ -363,7 +363,7 @@ export default function AdminOnboarding() {
                     </td>
                     <td style={tdStyle}>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        {!c.onboardingStatus && (
+                        {(!c.onboardingStatus || c.onboardingStatus === 'Not Started') && (
                           <button
                             onClick={() => openEditModal(c)}
                             style={{ ...actionBtnStyle, background: '#E88FAC', color: '#fff' }}
@@ -371,7 +371,7 @@ export default function AdminOnboarding() {
                             Start Onboarding
                           </button>
                         )}
-                        {c.onboardingStatus && c.onboardingStatus !== 'Completed' && (
+                        {c.onboardingStatus && c.onboardingStatus !== 'Completed' && c.onboardingStatus !== 'Not Started' && (
                           <button
                             onClick={() => handleResend(c.id)}
                             style={actionBtnStyle}
