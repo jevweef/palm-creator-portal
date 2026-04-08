@@ -86,8 +86,9 @@ export async function GET() {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -60, 'days'))`,
         fields: ['Creator', 'Scheduled Date', 'Task', 'Telegram Sent At'],
       }),
-      // Tag weights for creator DNA display
+      // Tag weights for creator DNA display — only non-zero weights
       fetchAirtableRecords('Creator Tag Weights', {
+        filterByFormula: '{Weight}>0',
         fields: ['Tag', 'Weight', 'Tag Category', 'Creator'],
       }),
     ])
