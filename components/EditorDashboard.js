@@ -866,34 +866,48 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId }) {
 
       {/* Suggestions */}
       {suggestions && suggestions.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '200px', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '300px', overflowY: 'auto' }}>
           {suggestions.map((track, i) => (
-            <div key={track.spotifyId || i} style={{
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 6px',
-              borderRadius: '4px', background: i % 2 === 0 ? '#fff' : 'transparent', fontSize: '11px',
-            }}>
-              {track.albumArt && (
-                <img src={track.albumArt} alt="" style={{ width: '28px', height: '28px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.track}</div>
-                <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px' }}>{track.artist}</div>
-              </div>
-              {track.previewUrl && (
-                <button onClick={() => togglePreview(track)}
-                  style={{ padding: '2px 6px', fontSize: '10px', background: playingPreview === track.spotifyId ? '#8B5CF6' : '#f0f0f0', color: playingPreview === track.spotifyId ? '#fff' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
-                  {playingPreview === track.spotifyId ? '■' : '▶'}
+            <div key={track.spotifyId || i}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 6px',
+                borderRadius: '4px', background: i % 2 === 0 ? '#fff' : 'transparent', fontSize: '11px',
+              }}>
+                {track.albumArt && (
+                  <img src={track.albumArt} alt="" style={{ width: '28px', height: '28px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.track}</div>
+                  <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px' }}>{track.artist}</div>
+                </div>
+                {track.spotifyId && (
+                  <button onClick={() => setPlayingPreview(playingPreview === track.spotifyId ? null : track.spotifyId)}
+                    style={{ padding: '2px 6px', fontSize: '10px', background: playingPreview === track.spotifyId ? '#8B5CF6' : '#f0f0f0', color: playingPreview === track.spotifyId ? '#fff' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
+                    {playingPreview === track.spotifyId ? '■' : '▶'}
+                  </button>
+                )}
+                <button onClick={() => handleDownload(track)} disabled={downloading === track.spotifyId}
+                  style={{
+                    padding: '2px 6px', fontSize: '10px', fontWeight: 500, flexShrink: 0,
+                    background: downloading === track.spotifyId ? '#f0f0f0' : '#dcfce7',
+                    color: downloading === track.spotifyId ? '#999' : '#22c55e',
+                    border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
+                  }}>
+                  {downloading === track.spotifyId ? '...' : '↓'}
                 </button>
+              </div>
+              {/* Spotify embed player — shows when ▶ is clicked */}
+              {playingPreview === track.spotifyId && track.spotifyId && (
+                <div style={{ padding: '4px 6px' }}>
+                  <iframe
+                    src={`https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator&theme=0`}
+                    width="100%" height="80" frameBorder="0"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    style={{ borderRadius: '8px' }}
+                  />
+                </div>
               )}
-              <button onClick={() => handleDownload(track)} disabled={downloading === track.spotifyId}
-                style={{
-                  padding: '2px 6px', fontSize: '10px', fontWeight: 500, flexShrink: 0,
-                  background: downloading === track.spotifyId ? '#f0f0f0' : '#dcfce7',
-                  color: downloading === track.spotifyId ? '#999' : '#22c55e',
-                  border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
-                }}>
-                {downloading === track.spotifyId ? '...' : '↓'}
-              </button>
             </div>
           ))}
         </div>
