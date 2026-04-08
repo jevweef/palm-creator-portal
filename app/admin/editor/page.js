@@ -1646,37 +1646,9 @@ export default function EditorQueue() {
 
   return (
     <div>
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Editor Dashboard</h1>
-          <p style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
-            Manage editing tasks and review uploaded clips
-          </p>
-        </div>
-        {/* Notification opt-in */}
-        {'Notification' in (typeof window !== 'undefined' ? window : {}) && (
-          <div style={{ flexShrink: 0, marginTop: '4px' }}>
-            {notifStatus === 'idle' && (
-              <button onClick={handleEnableNotifications}
-                style={{ fontSize: '12px', fontWeight: 600, padding: '6px 14px', borderRadius: '8px', border: '1px solid #E8C4CC', background: 'transparent', color: '#999', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                🔔 Enable review notifications
-              </button>
-            )}
-            {notifStatus === 'subscribed' && (
-              <span style={{ fontSize: '11px', color: '#22c55e', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                🔔 Notifications on
-              </span>
-            )}
-            {notifStatus === 'denied' && (
-              <span style={{ fontSize: '11px', color: '#999' }}>Notifications blocked in browser</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Section tabs */}
-      <div style={{ display: 'flex', gap: '0', marginBottom: '24px', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
+      {/* Header row: tabs + notification */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -1691,6 +1663,24 @@ export default function EditorQueue() {
             {tab.label}
           </button>
         ))}
+        </div>
+        {/* Notification opt-in */}
+        {'Notification' in (typeof window !== 'undefined' ? window : {}) && (
+          <div style={{ flexShrink: 0 }}>
+            {notifStatus === 'idle' && (
+              <button onClick={handleEnableNotifications}
+                style={{ fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '8px', border: '1px solid #E8C4CC', background: 'transparent', color: '#999', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                🔔 Notifications
+              </button>
+            )}
+            {notifStatus === 'subscribed' && (
+              <span style={{ fontSize: '11px', color: '#22c55e', display: 'flex', alignItems: 'center', gap: '4px' }}>🔔 On</span>
+            )}
+            {notifStatus === 'denied' && (
+              <span style={{ fontSize: '11px', color: '#999' }}>🔔 Blocked</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Section content */}
