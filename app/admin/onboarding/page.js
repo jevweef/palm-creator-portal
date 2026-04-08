@@ -293,7 +293,7 @@ export default function AdminOnboarding() {
             <thead>
               <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <th style={thStyle}>Creator</th>
-                <th style={thStyle}>Email</th>
+                <th style={thStyle}>Communication Email</th>
                 <th style={thStyle}>Status</th>
                 <th style={thStyle}>Onboarding</th>
                 <th style={thStyle}>Link Sent</th>
@@ -415,7 +415,7 @@ export default function AdminOnboarding() {
               Start Onboarding
             </h2>
             <p style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
-              Enter the creator&apos;s name and email. We&apos;ll check for an existing record first.
+              Enter the creator&apos;s name and communication email. This email will be their portal login.
             </p>
 
             <form onSubmit={handleStartOnboarding}>
@@ -441,13 +441,13 @@ export default function AdminOnboarding() {
               </div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Email
+                  Communication Email <span style={{ color: '#999', fontWeight: 400 }}>(used to log into their portal)</span>
                 </label>
                 <input
                   type="email"
                   value={formEmail}
                   onChange={e => setFormEmail(e.target.value)}
-                  placeholder="Their communication email"
+                  placeholder="The email they'll use to log in"
                   required
                   style={{
                     width: '100%',
@@ -752,13 +752,13 @@ export default function AdminOnboarding() {
               {!editCreator.email && (
                 <div style={{ marginBottom: '14px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Email
+                    Communication Email <span style={{ color: '#999', fontWeight: 400 }}>(used to log into their portal)</span>
                   </label>
                   <input
                     type="email"
                     value={formEmail}
                     onChange={e => setFormEmail(e.target.value)}
-                    placeholder="Their communication email"
+                    placeholder="The email they'll use to log in"
                     required
                     style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
                   />
