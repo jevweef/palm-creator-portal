@@ -1548,7 +1548,7 @@ function CreatorSection({ creator, onRefresh }) {
       const isToday = ds === todayDateStr
       const isFuture = ds > todayDateStr
       const doneTasks = sortBySlot((creator.recentDone || [])
-        .filter(t => t.etCompletedDate === ds))
+        .filter(t => (t.etSlotDate || t.etCompletedDate) === ds))
       const ipTasks = isToday ? (creator.inProgress || []) : []
       const qTasks = isToday ? (creator.queue || []) : []
       for (let s = 0; s < dailyQuota; s++) {
@@ -1567,16 +1567,18 @@ function CreatorSection({ creator, onRefresh }) {
     return colors
   })()
 
-  // Done tasks for selected date, sorted by completion time (earliest = Morning slot)
+  // Done tasks for selected date — pinned to their slot date (post scheduled date if approved,
+  // otherwise completion date). These are locked in and don't move.
   const selectedDoneList = sortBySlot(
     isToday
       ? (creator.doneTodayList || [])
-      : (creator.recentDone || []).filter(t => t.etCompletedDate === selectedDate)
+      : (creator.recentDone || []).filter(t => (t.etSlotDate || t.etCompletedDate) === selectedDate)
   )
 
-  // All active items = in-progress + to-do + inspo clips (in priority order)
-  // In-progress stays in the same position it was when it was in the queue
-  const allActiveItems = [
+  // Queue = active items not yet done. These float forward with time —
+  // they always fill the next available slots starting from TODAY.
+  // Past days never get queue items (past is locked).
+  const queueItems = [
     ...creator.inProgress.map(t => ({ type: 'inProgress', task: t })),
     ...creator.queue.map(t => ({ type: 'toDo', task: t })),
     ...(creator.inspoClips || []).map(c => ({ type: 'inspoClip', clip: c })),
@@ -1585,11 +1587,9 @@ function CreatorSection({ creator, onRefresh }) {
   const slots = []
   selectedDoneList.forEach(t => slots.push({ type: 'done', task: t }))
 
-  // Distribute active items across today + future days
-  // Today's done tasks take up today's slots first, then active items fill the rest
-  // Future days each get dailyQuota items from the remaining active list
+  // Only fill queue items into today and future days. Past = locked.
   const isFutureOrToday = selectedDate >= todayDateStr
-  if (isFutureOrToday && allActiveItems.length > 0) {
+  if (isFutureOrToday && queueItems.length > 0) {
     const todayDoneCount = (creator.doneTodayList || []).length
     const todayAvail = Math.max(0, dailyQuota - todayDoneCount)
 
@@ -1597,11 +1597,11 @@ function CreatorSection({ creator, onRefresh }) {
     const selD = new Date(selectedDate + 'T12:00:00')
     const daysAhead = Math.round((selD - todayD) / (1000 * 60 * 60 * 24))
 
-    // Today takes first todayAvail items, each future day takes dailyQuota
+    // Today takes first todayAvail from queue, each future day takes dailyQuota
     const skipCount = isToday ? 0 : (todayAvail + (daysAhead - 1) * dailyQuota)
     const remaining = Math.max(0, dailyQuota - slots.length)
 
-    allActiveItems.slice(skipCount, skipCount + remaining).forEach(item => slots.push(item))
+    queueItems.slice(skipCount, skipCount + remaining).forEach(item => slots.push(item))
   }
 
   while (slots.length < dailyQuota) slots.push({ type: 'empty' })
@@ -1718,7 +1718,7 @@ function CreatorSection({ creator, onRefresh }) {
               let slotLabel
               if (slot.type === 'done') {
                 // Use the ET calendar date of completion + position-based slot name
-                const etDate = slot.task?.etCompletedDate || selectedDate
+                const etDate = slot.task?.etSlotDate || slot.task?.etCompletedDate || selectedDate
                 const [ey, em, ed] = etDate.split('-').map(Number)
                 const completionDateLabel = `${em}/${ed}`
                 slotLabel = `${completionDateLabel} / ${slotNames[i] || `Slot ${i + 1}`}`
