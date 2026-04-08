@@ -47,16 +47,8 @@ function PipelineCard({ item, onClick }) {
       onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' } }}
       onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' } }}
     >
-      <div style={{ aspectRatio: '9/16', background: '#000' }}>
-        {clipUrl ? (
-          <video
-            src={clipUrl}
-            muted
-            playsInline
-            preload="metadata"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
-          />
-        ) : cardThumb ? (
+      <div style={{ aspectRatio: '9/16', background: '#FFF0F3' }}>
+        {cardThumb ? (
           <img
             src={cardThumb}
             alt={item.inspoTitle}
