@@ -749,21 +749,19 @@ export default function AdminOnboarding() {
                 </button>
               </div>
 
-              {!editCreator.email && (
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Communication Email <span style={{ color: '#999', fontWeight: 400 }}>(used to log into their portal)</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={formEmail}
-                    onChange={e => setFormEmail(e.target.value)}
-                    placeholder="The email they'll use to log in"
-                    required
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
-              )}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Communication Email <span style={{ color: '#999', fontWeight: 400 }}>(used to log into their portal)</span>
+                </label>
+                <input
+                  type="email"
+                  value={formEmail}
+                  onChange={e => setFormEmail(e.target.value)}
+                  placeholder="The email they'll use to log in"
+                  required
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                />
+              </div>
 
               {/* Agency Signature */}
               <div style={{ marginBottom: '14px' }}>
