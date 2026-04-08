@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { tagStyle } from '@/lib/tagStyle'
 import QuotaBar from '@/components/QuotaBar'
 import InspoCard from '@/components/InspoCard'
@@ -216,7 +216,13 @@ function EmptyState({ tab }) {
 export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
   const { user } = useUser()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'saved')
+
+  const switchTab = (tab) => {
+    setActiveTab(tab)
+    router.replace(`/my-content?tab=${tab}`, { scroll: false })
+  }
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [modalIndex, setModalIndex] = useState(null) // index into data.saved for InspoModal
@@ -327,7 +333,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
         {TABS.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => switchTab(tab.key)}
             style={{
               padding: '10px 12px',
               fontSize: '13px',
