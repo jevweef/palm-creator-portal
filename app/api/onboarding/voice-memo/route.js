@@ -133,7 +133,7 @@ export async function POST(request) {
           'Upload Date': new Date().toISOString().split('T')[0],
           'Analysis Status': 'Pending',
           'Extracted Text': '',
-          'Notes': 'Onboarding voice memo',
+          'Notes': 'Palm Creator Profile & Content Strategy Intake',
           'Creator': [opsId],
         })
       } catch (docErr) {
