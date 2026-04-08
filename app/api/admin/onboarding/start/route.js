@@ -11,7 +11,7 @@ export async function POST(request) {
   try {
     await requireAdmin()
 
-    const { name, email, commission, creatorState, agencySignature } = await request.json()
+    const { name, email, commission, tierPct, tierThreshold, creatorState, agencySignature } = await request.json()
     if (!name || !email) {
       return NextResponse.json({ error: 'name and email are required' }, { status: 400 })
     }
@@ -39,6 +39,7 @@ export async function POST(request) {
         'Onboarding Status': 'Link Sent',
       }
       if (commission) hqFields['Commission %'] = parseFloat(commission) / 100
+      if (tierPct && tierThreshold) hqFields['Commission Tier'] = JSON.stringify({ tierPct: parseFloat(tierPct), threshold: parseFloat(tierThreshold) })
       if (creatorState) hqFields['Creator State'] = creatorState
       const hqRecord = await createHqRecord(HQ_CREATORS, hqFields)
       hqId = hqRecord.id
@@ -52,6 +53,7 @@ export async function POST(request) {
       'Onboarding Status': 'Link Sent',
     }
     if (commission) tokenFields['Commission %'] = parseFloat(commission) / 100
+    if (tierPct && tierThreshold) tokenFields['Commission Tier'] = JSON.stringify({ tierPct: parseFloat(tierPct), threshold: parseFloat(tierThreshold) })
     if (creatorState) tokenFields['Creator State'] = creatorState
     if (agencySignature) tokenFields['Agency Signature'] = agencySignature
     tokenFields['Status'] = 'Onboarding'

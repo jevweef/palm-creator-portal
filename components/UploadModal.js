@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 
-export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose, onSuccess }) {
+export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose, onSuccess, replaceAssetId }) {
   const [files, setFiles] = useState([])
   const [notes, setNotes] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -187,18 +187,17 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
         }
       } catch {}
 
-      // Step 4: Create Airtable records (Asset + Task) via our API
-      setProgress('Creating records...')
-      const recordRes = await fetch('/api/content-upload', {
+      // Step 4: Create or replace Airtable records via our API
+      setProgress(replaceAssetId ? 'Replacing clip...' : 'Creating records...')
+      const endpoint = replaceAssetId ? '/api/content-replace' : '/api/content-upload'
+      const payload = replaceAssetId
+        ? { assetId: replaceAssetId, creatorOpsId, notes, uploadedFiles, thumbnailBase64 }
+        : { inspoRecordId: record.id, creatorOpsId, notes, uploadedFiles, thumbnailBase64 }
+
+      const recordRes = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inspoRecordId: record.id,
-          creatorOpsId,
-          notes,
-          uploadedFiles,
-          thumbnailBase64,
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!recordRes.ok) {
@@ -230,7 +229,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
         }}>
           <div>
             <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
-              Upload Clips
+              {replaceAssetId ? 'Replace Clip' : 'Upload Clips'}
             </h2>
             <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
               {record.title}
@@ -256,10 +255,10 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 </svg>
               </div>
               <p style={{ fontSize: '16px', fontWeight: 600, color: '#16a34a', marginBottom: '8px' }}>
-                Clips uploaded!
+                {replaceAssetId ? 'Clip replaced!' : 'Clips uploaded!'}
               </p>
               <p style={{ fontSize: '13px', color: '#999' }}>
-                Your clips are now in the editing queue.
+                {replaceAssetId ? 'Your new clip has replaced the original.' : 'Your clips are now in the editing queue.'}
               </p>
               <button
                 onClick={onClose}

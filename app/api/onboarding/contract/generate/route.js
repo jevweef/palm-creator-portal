@@ -28,9 +28,13 @@ export async function GET(request) {
     const record = await fetchHqRecord(HQ_CREATORS, hqId)
     const c = record.fields || {}
 
+    let commissionTier = null
+    try { commissionTier = c['Commission Tier'] ? JSON.parse(c['Commission Tier']) : null } catch {}
+
     const contractData = {
       creatorName: c['Creator'] || '',
       commissionPct: c['Commission %'] || 0,
+      commissionTier,
       creatorState: c['Creator State'] || '',
       effectiveDate: c['Onboarding Token Created At'] || new Date().toISOString(),
       agencySignature: c['Agency Signature'] || null,

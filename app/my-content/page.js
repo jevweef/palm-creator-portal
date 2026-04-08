@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { tagStyle } from '@/lib/tagStyle'
 import QuotaBar from '@/components/QuotaBar'
 import InspoCard from '@/components/InspoCard'
@@ -25,26 +25,45 @@ const STATUS_COLORS = {
   Posted: { bg: '#dcfce7', color: '#4ade80' },
 }
 
-function PipelineCard({ item }) {
+function PipelineCard({ item, onClick }) {
   const statusStyle = STATUS_COLORS[item.pipelineStatus] || STATUS_COLORS.Uploaded
+  // Show the creator's uploaded clip, fall back to inspo thumbnail
+  const cardThumb = item.assetThumbnail || item.inspoThumbnail
+  // Creator's clip as playable video (Dropbox raw URL)
+  const clipUrl = item.dropboxLink ? rawDropboxUrl(item.dropboxLink) : ''
 
   return (
-    <div style={{
-      background: '#ffffff',
-      border: 'none',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-      borderRadius: '18px',
-      overflow: 'hidden',
-    }}>
-      {item.inspoThumbnail && (
-        <div style={{ aspectRatio: '9/16', background: '#000' }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: '#ffffff',
+        border: 'none',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        borderRadius: '18px',
+        overflow: 'hidden',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'transform 0.15s, box-shadow 0.15s',
+      }}
+      onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' } }}
+      onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' } }}
+    >
+      <div style={{ aspectRatio: '9/16', background: '#000' }}>
+        {clipUrl ? (
+          <video
+            src={clipUrl}
+            muted
+            playsInline
+            preload="metadata"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+          />
+        ) : cardThumb ? (
           <img
-            src={item.inspoThumbnail}
+            src={cardThumb}
             alt={item.inspoTitle}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
-        </div>
-      )}
+        ) : null}
+      </div>
       <div style={{ padding: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
           <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', margin: 0, lineHeight: 1.3, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -85,6 +104,99 @@ function PipelineCard({ item }) {
   )
 }
 
+function rawDropboxUrl(url) {
+  if (!url) return ''
+  const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
+  return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
+}
+
+function PipelineDetailModal({ item, onClose, onReplace }) {
+  const clipUrl = item.dropboxLink ? rawDropboxUrl(item.dropboxLink) : ''
+  const inspoUrl = item.inspoDbShareLink ? rawDropboxUrl(item.inspoDbShareLink) : ''
+  const canReplace = item.pipelineStatus === 'Uploaded'
+
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handleKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
+
+  const handleReplace = () => {
+    if (!confirm('This will permanently delete your current clip and replace it with a new one. Continue?')) return
+    onReplace(item)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '720px',
+        maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        margin: '24px',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+              {item.inspoTitle || item.assetName}
+            </h2>
+            {item.inspoUsername && (
+              <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>@{item.inspoUsername}</p>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {canReplace && (
+              <button
+                onClick={handleReplace}
+                style={{
+                  padding: '6px 14px', fontSize: '12px', fontWeight: 600,
+                  background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC',
+                  borderRadius: '9999px', cursor: 'pointer', transition: 'all 0.15s',
+                }}
+              >
+                Replace Clip
+              </button>
+            )}
+            <button onClick={onClose} style={{ color: '#999', background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', lineHeight: 1 }}>×</button>
+          </div>
+        </div>
+
+        {/* Two videos side by side */}
+        <div style={{ display: 'flex', gap: '16px', padding: '20px 24px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#E88FAC', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>My Clip</div>
+            <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
+              {clipUrl ? (
+                <video src={clipUrl} controls playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '13px' }}>No clip</div>
+              )}
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Inspo</div>
+            <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
+              {inspoUrl ? (
+                <video src={inspoUrl} controls playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : item.inspoThumbnail ? (
+                <img src={item.inspoThumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '13px' }}>No inspo</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function EmptyState({ tab }) {
   const messages = {
     saved: 'No saved inspo yet. Browse the Inspo Board to save reels you want to recreate.',
@@ -104,11 +216,19 @@ function EmptyState({ tab }) {
 export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
   const { user } = useUser()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'saved')
+
+  const switchTab = (tab) => {
+    setActiveTab(tab)
+    router.replace(`/my-content?tab=${tab}`, { scroll: false })
+  }
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [modalIndex, setModalIndex] = useState(null) // index into data.saved for InspoModal
   const [uploadRecord, setUploadRecord] = useState(null) // inspo record for upload modal
+  const [pipelineItem, setPipelineItem] = useState(null) // pipeline card detail modal
+  const [replaceInfo, setReplaceInfo] = useState(null) // { assetId, record } for replace flow
 
   const creatorOpsId = opsIdOverride || user?.publicMetadata?.airtableOpsId || null
   const creatorHqId = hqIdOverride || user?.publicMetadata?.airtableHqId || null
@@ -213,7 +333,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
         {TABS.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => switchTab(tab.key)}
             style={{
               padding: '10px 12px',
               fontSize: '13px',
@@ -305,7 +425,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             data.uploaded.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {data.uploaded.map((item) => (
-                  <PipelineCard key={item.assetId} item={item} />
+                  <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
               </div>
             ) : <EmptyState tab="uploaded" />
@@ -315,7 +435,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             data.editing.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {data.editing.map((item) => (
-                  <PipelineCard key={item.assetId} item={item} />
+                  <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
               </div>
             ) : <EmptyState tab="editing" />
@@ -325,7 +445,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             data.scheduled.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {data.scheduled.map((item) => (
-                  <PipelineCard key={item.assetId} item={item} />
+                  <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
               </div>
             ) : <EmptyState tab="scheduled" />
@@ -335,7 +455,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
             data.posted.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {data.posted.map((item) => (
-                  <PipelineCard key={item.assetId} item={item} />
+                  <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
               </div>
             ) : <EmptyState tab="posted" />
@@ -355,6 +475,34 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
           onUpload={handleUploadFromModal}
           isSaved={true}
           onSave={handleUnsave}
+        />
+      )}
+
+      {/* Pipeline detail modal — shows uploaded clip + inspo side by side */}
+      {pipelineItem && (
+        <PipelineDetailModal
+          item={pipelineItem}
+          onClose={() => setPipelineItem(null)}
+          onReplace={(item) => {
+            setPipelineItem(null)
+            // Open upload modal in replace mode — build a minimal record object for UploadModal
+            setReplaceInfo({ assetId: item.assetId, record: { id: item.inspoId, title: item.inspoTitle || item.assetName } })
+          }}
+        />
+      )}
+
+      {/* Replace clip modal */}
+      {replaceInfo && (
+        <UploadModal
+          record={replaceInfo.record}
+          replaceAssetId={replaceInfo.assetId}
+          creatorOpsId={creatorOpsId}
+          creatorHqId={creatorHqId}
+          onClose={() => setReplaceInfo(null)}
+          onSuccess={() => {
+            setReplaceInfo(null)
+            fetchData()
+          }}
         />
       )}
 
