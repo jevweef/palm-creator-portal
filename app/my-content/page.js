@@ -110,9 +110,10 @@ function rawDropboxUrl(url) {
   return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
 
-function PipelineDetailModal({ item, onClose }) {
+function PipelineDetailModal({ item, onClose, onReplace }) {
   const clipUrl = item.dropboxLink ? rawDropboxUrl(item.dropboxLink) : ''
   const inspoUrl = item.inspoDbShareLink ? rawDropboxUrl(item.inspoDbShareLink) : ''
+  const canReplace = item.pipelineStatus === 'Uploaded'
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -123,6 +124,11 @@ function PipelineDetailModal({ item, onClose }) {
       document.body.style.overflow = ''
     }
   }, [onClose])
+
+  const handleReplace = () => {
+    if (!confirm('This will permanently delete your current clip and replace it with a new one. Continue?')) return
+    onReplace(item)
+  }
 
   return (
     <div
@@ -144,7 +150,21 @@ function PipelineDetailModal({ item, onClose }) {
               <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>@{item.inspoUsername}</p>
             )}
           </div>
-          <button onClick={onClose} style={{ color: '#999', background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', lineHeight: 1 }}>×</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {canReplace && (
+              <button
+                onClick={handleReplace}
+                style={{
+                  padding: '6px 14px', fontSize: '12px', fontWeight: 600,
+                  background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC',
+                  borderRadius: '9999px', cursor: 'pointer', transition: 'all 0.15s',
+                }}
+              >
+                Replace Clip
+              </button>
+            )}
+            <button onClick={onClose} style={{ color: '#999', background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', lineHeight: 1 }}>×</button>
+          </div>
         </div>
 
         {/* Two videos side by side */}
@@ -202,6 +222,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
   const [modalIndex, setModalIndex] = useState(null) // index into data.saved for InspoModal
   const [uploadRecord, setUploadRecord] = useState(null) // inspo record for upload modal
   const [pipelineItem, setPipelineItem] = useState(null) // pipeline card detail modal
+  const [replaceInfo, setReplaceInfo] = useState(null) // { assetId, record } for replace flow
 
   const creatorOpsId = opsIdOverride || user?.publicMetadata?.airtableOpsId || null
   const creatorHqId = hqIdOverride || user?.publicMetadata?.airtableHqId || null
@@ -456,6 +477,26 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
         <PipelineDetailModal
           item={pipelineItem}
           onClose={() => setPipelineItem(null)}
+          onReplace={(item) => {
+            setPipelineItem(null)
+            // Open upload modal in replace mode — build a minimal record object for UploadModal
+            setReplaceInfo({ assetId: item.assetId, record: { id: item.inspoId, title: item.inspoTitle || item.assetName } })
+          }}
+        />
+      )}
+
+      {/* Replace clip modal */}
+      {replaceInfo && (
+        <UploadModal
+          record={replaceInfo.record}
+          replaceAssetId={replaceInfo.assetId}
+          creatorOpsId={creatorOpsId}
+          creatorHqId={creatorHqId}
+          onClose={() => setReplaceInfo(null)}
+          onSuccess={() => {
+            setReplaceInfo(null)
+            fetchData()
+          }}
         />
       )}
 
