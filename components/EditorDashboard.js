@@ -1541,26 +1541,41 @@ function CreatorSection({ creator, onRefresh }) {
     }
     const sun = new Date(todayDateStr + 'T12:00:00')
     sun.setDate(sun.getDate() - sun.getDay())
+    // Build queue items list (same as slot distribution)
+    const dotQueueItems = [
+      ...creator.inProgress.map(() => 'inProgress'),
+      ...creator.queue.map(() => 'toDo'),
+      ...(creator.inspoClips || []).map(() => 'inspoClip'),
+    ]
+    let queueIdx = 0 // tracks how many queue items have been consumed by previous days
+
     const colors = []
     for (let d = 0; d < 7; d++) {
       const dayDate = new Date(sun); dayDate.setDate(sun.getDate() + d)
       const ds = estDs(dayDate)
-      const isToday = ds === todayDateStr
+      const isDayToday = ds === todayDateStr
       const isFuture = ds > todayDateStr
+      const isPast = ds < todayDateStr
       const doneTasks = sortBySlot((creator.recentDone || [])
         .filter(t => (t.etSlotDate || t.etCompletedDate) === ds))
-      const ipTasks = isToday ? (creator.inProgress || []) : []
-      const qTasks = isToday ? (creator.queue || []) : []
+
       for (let s = 0; s < dailyQuota; s++) {
         if (s < doneTasks.length) {
           colors.push(statusColor(doneTasks[s].adminReviewStatus))
-        } else if (isToday) {
-          const ipIdx = s - doneTasks.length
-          if (ipIdx < ipTasks.length) colors.push('#60a5fa')
-          else if (ipIdx - ipTasks.length < qTasks.length) colors.push('#E88FAC')
-          else colors.push('#F0D0D8')
-        } else {
+        } else if (isPast) {
+          // Past day, unfilled slot = locked empty
           colors.push('#F0D0D8')
+        } else {
+          // Today or future: fill from queue
+          if (queueIdx < dotQueueItems.length) {
+            const type = dotQueueItems[queueIdx]
+            queueIdx++
+            if (type === 'inProgress') colors.push('#3b82f6')       // blue
+            else if (type === 'inspoClip') colors.push('#f59e0b')   // yellow/amber
+            else colors.push('#E88FAC')                              // pink (To Do)
+          } else {
+            colors.push('#F0D0D8') // empty
+          }
         }
       }
     }
