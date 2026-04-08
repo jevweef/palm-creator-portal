@@ -38,7 +38,7 @@ export async function GET(request) {
       creatorState: c['Creator State'] || '',
       effectiveDate: c['Onboarding Token Created At'] || new Date().toISOString(),
       agencySignature: c['Agency Signature'] || null,
-      agencyName: 'Josh Voto',
+      agencyName: c['Agency Signer Name'] || 'Josh Voto',
       agencySignDate: c['Onboarding Token Created At'] || new Date().toISOString(),
     }
 

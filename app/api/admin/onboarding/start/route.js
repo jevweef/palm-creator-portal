@@ -11,7 +11,7 @@ export async function POST(request) {
   try {
     await requireAdmin()
 
-    const { name, email, commissionTiers, creatorState, agencySignature } = await request.json()
+    const { name, email, commissionTiers, creatorState, agencySignature, agencyName } = await request.json()
     if (!name || !email) {
       return NextResponse.json({ error: 'name and email are required' }, { status: 400 })
     }
@@ -61,6 +61,7 @@ export async function POST(request) {
     if (tierData) tokenFields['Commission Tier'] = tierData
     if (creatorState) tokenFields['Creator State'] = creatorState
     if (agencySignature) tokenFields['Agency Signature'] = agencySignature
+    if (agencyName) tokenFields['Agency Signer Name'] = agencyName
     tokenFields['Status'] = 'Onboarding'
     await patchHqRecord(HQ_CREATORS, hqId, tokenFields)
 

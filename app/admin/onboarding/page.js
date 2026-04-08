@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useUser } from '@clerk/nextjs'
 
 const STATUS_COLORS = {
   'Not Started': { bg: '#f5f5f5', color: '#999' },
@@ -10,6 +11,8 @@ const STATUS_COLORS = {
 }
 
 export default function AdminOnboarding() {
+  const { user } = useUser()
+  const adminName = user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Agency Representative'
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -86,7 +89,7 @@ export default function AdminOnboarding() {
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formName, email: formEmail, commissionTiers, creatorState: formState, agencySignature }),
+        body: JSON.stringify({ name: formName, email: formEmail, commissionTiers, creatorState: formState, agencySignature, agencyName: adminName }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -151,6 +154,7 @@ export default function AdminOnboarding() {
           commissionTiers,
           creatorState: formState,
           agencySignature,
+          agencyName: adminName,
         }),
       })
       const data = await res.json()
@@ -562,7 +566,7 @@ export default function AdminOnboarding() {
               {/* Agency Signature */}
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Agency Signature (Josh Voto)
+                  Agency Signature ({adminName})
                 </label>
                 <canvas
                   ref={sigCanvasRef}
@@ -762,7 +766,7 @@ export default function AdminOnboarding() {
               {/* Agency Signature */}
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Agency Signature (Josh Voto)
+                  Agency Signature ({adminName})
                 </label>
                 <canvas
                   ref={sigCanvasRef}

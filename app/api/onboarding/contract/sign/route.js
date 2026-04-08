@@ -44,7 +44,7 @@ export async function POST(request) {
       signedName: signedName || '',
       signedDate: new Date().toISOString(),
       agencySignature: c['Agency Signature'] || null,
-      agencyName: 'Josh Voto',
+      agencyName: c['Agency Signer Name'] || 'Josh Voto',
       agencySignDate: c['Onboarding Token Created At'] || new Date().toISOString(),
     }
 
