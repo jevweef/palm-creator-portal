@@ -802,7 +802,11 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId }) {
         URL.revokeObjectURL(url)
       } else {
         const data = await res.json()
-        if (data.fallback && data.links?.spotdown) window.open(data.links.spotdown, '_blank')
+        if (data.fallback) {
+          // Copy Spotify URL to clipboard so user can paste in spotdown
+          if (data.links?.spotify) navigator.clipboard?.writeText(data.links.spotify).catch(() => {})
+          window.open(data.links?.spotdown || 'https://spotdown.org', '_blank')
+        }
         else if (data.fallback && data.links?.youtube) window.open(data.links.youtube, '_blank')
       }
     } catch (e) {
