@@ -11,10 +11,15 @@ export async function POST(request) {
   try {
     await requireAdmin()
 
-    const { name, email, commission, tierPct, tierThreshold, creatorState, agencySignature } = await request.json()
+    const { name, email, commissionTiers, creatorState, agencySignature, agencyName } = await request.json()
     if (!name || !email) {
       return NextResponse.json({ error: 'name and email are required' }, { status: 400 })
     }
+
+    // Parse commission tiers into base rate + tier structure
+    const tiers = (commissionTiers || []).filter(t => t.pct)
+    const basePct = tiers.length > 0 ? parseFloat(tiers[0].pct) / 100 : null
+    const tierData = tiers.length > 1 ? JSON.stringify(tiers.map(t => ({ pct: parseFloat(t.pct), upTo: t.upTo ? parseFloat(t.upTo) : null }))) : null
 
     const lower = email.toLowerCase()
 
@@ -38,8 +43,8 @@ export async function POST(request) {
         'Communication Email': email,
         'Onboarding Status': 'Link Sent',
       }
-      if (commission) hqFields['Commission %'] = parseFloat(commission) / 100
-      if (tierPct && tierThreshold) hqFields['Commission Tier'] = JSON.stringify({ tierPct: parseFloat(tierPct), threshold: parseFloat(tierThreshold) })
+      if (basePct !== null) hqFields['Commission %'] = basePct
+      if (tierData) hqFields['Commission Tier'] = tierData
       if (creatorState) hqFields['Creator State'] = creatorState
       const hqRecord = await createHqRecord(HQ_CREATORS, hqFields)
       hqId = hqRecord.id
@@ -52,10 +57,11 @@ export async function POST(request) {
       'Onboarding Token Created At': new Date().toISOString(),
       'Onboarding Status': 'Link Sent',
     }
-    if (commission) tokenFields['Commission %'] = parseFloat(commission) / 100
-    if (tierPct && tierThreshold) tokenFields['Commission Tier'] = JSON.stringify({ tierPct: parseFloat(tierPct), threshold: parseFloat(tierThreshold) })
+    if (basePct !== null) tokenFields['Commission %'] = basePct
+    if (tierData) tokenFields['Commission Tier'] = tierData
     if (creatorState) tokenFields['Creator State'] = creatorState
     if (agencySignature) tokenFields['Agency Signature'] = agencySignature
+    if (agencyName) tokenFields['Agency Signer Name'] = agencyName
     tokenFields['Status'] = 'Onboarding'
     await patchHqRecord(HQ_CREATORS, hqId, tokenFields)
 

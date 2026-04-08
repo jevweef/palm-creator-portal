@@ -4,6 +4,83 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 
+// ─── Lazy-loaded Creator DNA Modal ────────────────────────────────────────────
+
+function CreatorDnaModal({ creatorId, creatorName, onClose }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/editor/creator/${creatorId}/dna`)
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [creatorId])
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '560px',
+        maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{creatorName}</div>
+            <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>Creator DNA</div>
+          </div>
+          <button onClick={onClose} style={{
+            background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+            cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>✕</button>
+        </div>
+        <div style={{ padding: '20px 28px 28px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', color: '#999', padding: '20px', fontSize: '13px' }}>Loading...</div>
+          ) : !data ? (
+            <div style={{ textAlign: 'center', color: '#999', padding: '20px', fontSize: '13px' }}>No profile data</div>
+          ) : (
+            <>
+              {data.profileSummary && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Profile</div>
+                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{data.profileSummary}</div>
+                </div>
+              )}
+              {data.contentDirectionNotes && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{data.contentDirectionNotes}</div>
+                </div>
+              )}
+              {data.dosDonts && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Do / Don't</div>
+                  <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{data.dosDonts}</div>
+                </div>
+              )}
+              {data.topTags?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Top Tags</div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {data.topTags.map(tw => (
+                      <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid rgba(0,0,0,0.04)' }}>
+                        {tw.tag} · {tw.weight}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Library helpers ───────────────────────────────────────────────────────────
 
 function rawDropboxUrl(url) {
@@ -650,6 +727,208 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
   )
 }
 
+// ─── Music Section (identify + radio, used inside task detail modal) ─────────
+
+function MusicSection({ creatorId, creatorName, videoUrl, inspoId }) {
+  const [identifying, setIdentifying] = useState(false)
+  const [identifiedSong, setIdentifiedSong] = useState(null)
+  const [suggestions, setSuggestions] = useState(null)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [downloading, setDownloading] = useState(null)
+  const [playingPreview, setPlayingPreview] = useState(null)
+  const [error, setError] = useState('')
+  const audioRef = useRef(null)
+
+  async function handleIdentify() {
+    if (!videoUrl) { setError('No video URL available'); return }
+    setIdentifying(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/music/identify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspoId: inspoId || 'temp', videoUrl }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Identification failed')
+      if (data.match) {
+        setIdentifiedSong(data.song)
+      } else {
+        setError('No song match found in this clip')
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setIdentifying(false)
+    }
+  }
+
+  async function handleGetSuggestions() {
+    setLoadingSuggestions(true)
+    setError('')
+    try {
+      const body = { creatorId }
+      if (inspoId) body.inspoId = inspoId
+      const res = await fetch('/api/admin/music/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to get suggestions')
+      setSuggestions(data.suggestions || [])
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoadingSuggestions(false)
+    }
+  }
+
+  async function handleDownload(track) {
+    setDownloading(track.spotifyId)
+    try {
+      const res = await fetch('/api/admin/music/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spotifyUrl: track.spotifyUrl, artist: track.artist, title: track.track }),
+      })
+      if (res.headers.get('content-type')?.includes('audio')) {
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${track.artist} - ${track.track}.mp3`
+        a.click()
+        URL.revokeObjectURL(url)
+      } else {
+        const data = await res.json()
+        if (data.fallback) {
+          // Copy Spotify URL to clipboard so user can paste in spotdown
+          if (data.links?.spotify) {
+            await navigator.clipboard?.writeText(data.links.spotify).catch(() => {})
+            setError('URL copied — paste in spotdown (Cmd+V)')
+            setTimeout(() => setError(''), 4000)
+          }
+          window.open(data.links?.spotdown || 'https://spotdown.org', '_blank')
+        }
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  function togglePreview(track) {
+    if (playingPreview === track.spotifyId) {
+      audioRef.current?.pause()
+      setPlayingPreview(null)
+    } else if (track.previewUrl) {
+      if (audioRef.current) audioRef.current.pause()
+      const audio = new Audio(track.previewUrl)
+      audio.play()
+      audio.onended = () => setPlayingPreview(null)
+      audioRef.current = audio
+      setPlayingPreview(track.spotifyId)
+    }
+  }
+
+  return (
+    <div style={{ background: '#F8F4FF', border: '1px solid #E0D4F0', borderRadius: '8px', padding: '10px 12px' }}>
+      <div style={{ fontSize: '10px', fontWeight: 700, color: '#8B5CF6', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+        Music
+      </div>
+
+      {/* Identify + Radio buttons */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+        {videoUrl && !identifiedSong && (
+          <button onClick={handleIdentify} disabled={identifying}
+            style={{ flex: 1, padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: identifying ? '#f0f0f0' : '#EDE9FE', color: identifying ? '#999' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: identifying ? 'default' : 'pointer' }}>
+            {identifying ? 'Identifying...' : 'Identify Song'}
+          </button>
+        )}
+        {!suggestions && (
+          <button onClick={handleGetSuggestions} disabled={loadingSuggestions}
+            style={{ flex: 1, padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: loadingSuggestions ? '#f0f0f0' : '#EDE9FE', color: loadingSuggestions ? '#999' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: loadingSuggestions ? 'default' : 'pointer' }}>
+            {loadingSuggestions ? 'Loading...' : 'Music Radio'}
+          </button>
+        )}
+      </div>
+
+      {/* Identified song */}
+      {identifiedSong && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '6px 8px', background: '#fff', borderRadius: '6px', border: '1px solid #E0D4F0' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{identifiedSong.title}</div>
+            <div style={{ fontSize: '11px', color: '#999' }}>{identifiedSong.artist}</div>
+          </div>
+          {identifiedSong.spotifyUrl && (
+            <a href={identifiedSong.spotifyUrl} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '10px', color: '#1DB954', textDecoration: 'none', fontWeight: 600, flexShrink: 0 }}>
+              Spotify ↗
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Suggestions */}
+      {suggestions && suggestions.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '300px', overflowY: 'auto' }}>
+          {suggestions.map((track, i) => (
+            <div key={track.spotifyId || i}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 6px',
+                borderRadius: '4px', background: i % 2 === 0 ? '#fff' : 'transparent', fontSize: '11px',
+              }}>
+                {track.albumArt && (
+                  <img src={track.albumArt} alt="" style={{ width: '28px', height: '28px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.track}</div>
+                  <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px' }}>{track.artist}</div>
+                </div>
+                {track.spotifyId && (
+                  <button onClick={() => setPlayingPreview(playingPreview === track.spotifyId ? null : track.spotifyId)}
+                    style={{ padding: '2px 6px', fontSize: '10px', background: playingPreview === track.spotifyId ? '#8B5CF6' : '#f0f0f0', color: playingPreview === track.spotifyId ? '#fff' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
+                    {playingPreview === track.spotifyId ? '■' : '▶'}
+                  </button>
+                )}
+                <button onClick={() => handleDownload(track)} disabled={downloading === track.spotifyId}
+                  style={{
+                    padding: '2px 6px', fontSize: '10px', fontWeight: 500, flexShrink: 0,
+                    background: downloading === track.spotifyId ? '#f0f0f0' : '#dcfce7',
+                    color: downloading === track.spotifyId ? '#999' : '#22c55e',
+                    border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
+                  }}>
+                  {downloading === track.spotifyId ? '...' : '↓'}
+                </button>
+              </div>
+              {/* Spotify embed player — shows when ▶ is clicked */}
+              {playingPreview === track.spotifyId && track.spotifyId && (
+                <div style={{ padding: '4px 6px' }}>
+                  <iframe
+                    src={`https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator&theme=0`}
+                    width="100%" height="80" frameBorder="0"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    style={{ borderRadius: '8px' }}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {suggestions && suggestions.length === 0 && (
+        <div style={{ fontSize: '11px', color: '#999' }}>No suggestions. Add Music DNA to this creator's profile first.</div>
+      )}
+
+      {error && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{error}</div>}
+    </div>
+  )
+}
+
 function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, onClose, onSaved, onRefresh }) {
   const task = slot.task || null
   const clip = slot.clip || null
@@ -984,6 +1263,16 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   <span key={tag} style={{ fontSize: '11px', color: '#999', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '4px', padding: '2px 8px' }}>{tag}</span>
                 ))}
               </div>
+            )}
+
+            {/* Music section */}
+            {creator?.id && (
+              <MusicSection
+                creatorId={creator.id}
+                creatorName={creator.name}
+                videoUrl={task?.asset?.dropboxLink || clip?.dropboxLink || ''}
+                inspoId={task?.inspo?.id || null}
+              />
             )}
 
             {/* Spacer */}
@@ -1626,7 +1915,7 @@ function CreatorSection({ creator, onRefresh }) {
               style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: '#999', border: '1px solid #E8C4CC', textDecoration: 'none', flexShrink: 0 }}>
               See More →
             </Link>
-            {creator.profileSummary && (
+            {creator.hasProfile && (
               <button onClick={() => setDnaModal(true)}
                 style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', cursor: 'pointer', flexShrink: 0 }}>
                 DNA
@@ -1813,58 +2102,7 @@ function CreatorSection({ creator, onRefresh }) {
 
       {/* Creator DNA Modal */}
       {dnaModal && (
-        <div onClick={() => setDnaModal(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '560px',
-            maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-          }}>
-            <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</div>
-                <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>Creator DNA</div>
-              </div>
-              <button onClick={() => setDnaModal(false)} style={{
-                background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
-                cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>✕</button>
-            </div>
-            <div style={{ padding: '20px 28px 28px' }}>
-              {creator.profileSummary && (
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Profile</div>
-                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{creator.profileSummary}</div>
-                </div>
-              )}
-              {creator.contentDirectionNotes && (
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
-                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{creator.contentDirectionNotes}</div>
-                </div>
-              )}
-              {creator.dosDonts && (
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Do / Don't</div>
-                  <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{creator.dosDonts}</div>
-                </div>
-              )}
-              {creator.topTags?.length > 0 && (
-                <div>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Top Tags</div>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {creator.topTags.map(tw => (
-                      <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid rgba(0,0,0,0.04)' }}>
-                        {tw.tag} · {tw.weight}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <CreatorDnaModal creatorId={creator.id} creatorName={creator.name} onClose={() => setDnaModal(false)} />
       )}
 
       {toast && (

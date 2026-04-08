@@ -176,6 +176,7 @@ export async function GET() {
         fields: [
           'Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail',
           'Username', 'Audio Type', 'DB Share Link', 'Rating', 'On-Screen Text', 'Transcript',
+          'Identified Song', 'Identified Song Data',
         ],
       }) : [],
     ])
@@ -231,6 +232,8 @@ export async function GET() {
           rating: inspo.Rating || null,
           onScreenText: inspo['On-Screen Text'] || '',
           transcript: inspo.Transcript || '',
+          identifiedSong: inspo['Identified Song'] || '',
+          identifiedSongData: (() => { try { return JSON.parse(inspo['Identified Song Data'] || 'null') } catch { return null } })(),
         },
       }
     })

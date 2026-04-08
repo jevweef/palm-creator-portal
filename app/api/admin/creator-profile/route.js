@@ -41,6 +41,9 @@ export async function GET(request) {
       profileLastAnalyzed: f['Profile Last Analyzed'] || null,
       adminFeedback: f['Admin Feedback'] || '',
       refinementHistory: (() => { try { return JSON.parse(f['Refinement History'] || '[]') } catch { return [] } })(),
+      musicDnaInput: f['Music DNA Input'] || '',
+      musicDnaType: f['Music DNA Type'] || '',
+      musicDnaProcessed: (() => { try { return JSON.parse(f['Music DNA Processed'] || 'null') } catch { return null } })(),
     }
 
     // Fetch documents for this creator

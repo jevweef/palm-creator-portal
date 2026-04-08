@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useUser } from '@clerk/nextjs'
 
 const STATUS_COLORS = {
   'Not Started': { bg: '#f5f5f5', color: '#999' },
@@ -10,14 +11,14 @@ const STATUS_COLORS = {
 }
 
 export default function AdminOnboarding() {
+  const { user } = useUser()
+  const adminName = user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Agency Representative'
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
-  const [formCommission, setFormCommission] = useState('')
-  const [formTierPct, setFormTierPct] = useState('')
-  const [formTierThreshold, setFormTierThreshold] = useState('')
+  const [commissionTiers, setCommissionTiers] = useState([{ pct: '', upTo: '' }])
   const [formState, setFormState] = useState('')
   const [editCreator, setEditCreator] = useState(null) // for inline "Start Onboarding" modal
   const [submitting, setSubmitting] = useState(false)
@@ -33,7 +34,9 @@ export default function AdminOnboarding() {
     const rect = canvas.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    return { x: clientX - rect.left, y: clientY - rect.top }
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY }
   }
   const startSigDraw = (e) => {
     e.preventDefault()
@@ -55,14 +58,45 @@ export default function AdminOnboarding() {
     ctx.stroke()
     setHasSigDrawn(true)
   }
-  const endSigDraw = () => setIsSigDrawing(false)
-  const clearSigCanvas = () => {
+  const endSigDraw = () => {
+    setIsSigDrawing(false)
+    // Auto-save signature after each stroke
+    if (sigCanvasRef.current && hasSigDrawn) {
+      try { localStorage.setItem('palm_agency_sig', sigCanvasRef.current.toDataURL('image/png')) } catch {}
+    }
+  }
+  const loadSavedSig = useCallback(() => {
+    const canvas = sigCanvasRef.current
+    if (!canvas) return
+    const saved = localStorage.getItem('palm_agency_sig')
+    if (!saved) return
+    const img = new Image()
+    img.onload = () => {
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0)
+      setHasSigDrawn(true)
+    }
+    img.src = saved
+  }, [])
+  const clearSigCanvas = (clearSaved = false) => {
     const canvas = sigCanvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     setHasSigDrawn(false)
+    if (clearSaved) {
+      try { localStorage.removeItem('palm_agency_sig') } catch {}
+    }
   }
+
+  // Load saved signature when either modal opens
+  useEffect(() => {
+    if (showModal || editCreator) {
+      // Small delay to ensure canvas is mounted
+      setTimeout(() => loadSavedSig(), 50)
+    }
+  }, [showModal, editCreator, loadSavedSig])
 
   const fetchCreators = useCallback(async () => {
     try {
@@ -88,7 +122,7 @@ export default function AdminOnboarding() {
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formName, email: formEmail, commission: formCommission, tierPct: formTierPct, tierThreshold: formTierThreshold, creatorState: formState, agencySignature }),
+        body: JSON.stringify({ name: formName, email: formEmail, commissionTiers, creatorState: formState, agencySignature, agencyName: adminName }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -98,9 +132,7 @@ export default function AdminOnboarding() {
         setShowModal(false)
         setFormName('')
         setFormEmail('')
-        setFormCommission('')
-        setFormTierPct('')
-        setFormTierThreshold('')
+        setCommissionTiers([{ pct: '', upTo: '' }])
         setFormState('')
         setHasSigDrawn(false)
         fetchCreators()
@@ -135,9 +167,7 @@ export default function AdminOnboarding() {
     setEditCreator(creator)
     setFormName(creator.name || '')
     setFormEmail(creator.email || '')
-    setFormCommission('')
-    setFormTierPct('')
-    setFormTierThreshold('')
+    setCommissionTiers([{ pct: '', upTo: '' }])
     setFormState('')
   }
 
@@ -154,11 +184,10 @@ export default function AdminOnboarding() {
         body: JSON.stringify({
           name: formName || editCreator.name,
           email: formEmail || editCreator.email,
-          commission: formCommission,
-          tierPct: formTierPct,
-          tierThreshold: formTierThreshold,
+          commissionTiers,
           creatorState: formState,
           agencySignature,
+          agencyName: adminName,
         }),
       })
       const data = await res.json()
@@ -295,7 +324,7 @@ export default function AdminOnboarding() {
             <thead>
               <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <th style={thStyle}>Creator</th>
-                <th style={thStyle}>Email</th>
+                <th style={thStyle}>Communication Email</th>
                 <th style={thStyle}>Status</th>
                 <th style={thStyle}>Onboarding</th>
                 <th style={thStyle}>Link Sent</th>
@@ -363,7 +392,7 @@ export default function AdminOnboarding() {
                     </td>
                     <td style={tdStyle}>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        {!c.onboardingStatus && (
+                        {(!c.onboardingStatus || c.onboardingStatus === 'Not Started') && (
                           <button
                             onClick={() => openEditModal(c)}
                             style={{ ...actionBtnStyle, background: '#E88FAC', color: '#fff' }}
@@ -371,7 +400,7 @@ export default function AdminOnboarding() {
                             Start Onboarding
                           </button>
                         )}
-                        {c.onboardingStatus && c.onboardingStatus !== 'Completed' && (
+                        {c.onboardingStatus && c.onboardingStatus !== 'Completed' && c.onboardingStatus !== 'Not Started' && (
                           <button
                             onClick={() => handleResend(c.id)}
                             style={actionBtnStyle}
@@ -417,7 +446,7 @@ export default function AdminOnboarding() {
               Start Onboarding
             </h2>
             <p style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
-              Enter the creator&apos;s name and email. We&apos;ll check for an existing record first.
+              Enter the creator&apos;s name and communication email. This email will be their portal login.
             </p>
 
             <form onSubmit={handleStartOnboarding}>
@@ -443,13 +472,13 @@ export default function AdminOnboarding() {
               </div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Email
+                  Communication Email <span style={{ color: '#999', fontWeight: 400 }}>(used to log into their portal)</span>
                 </label>
                 <input
                   type="email"
                   value={formEmail}
                   onChange={e => setFormEmail(e.target.value)}
-                  placeholder="Their communication email"
+                  placeholder="The email they'll use to log in"
                   required
                   style={{
                     width: '100%',
@@ -461,96 +490,116 @@ export default function AdminOnboarding() {
                   }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Commission %
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formCommission}
-                    onChange={e => setFormCommission(e.target.value)}
-                    placeholder="e.g. 27"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Creator&apos;s State
-                  </label>
-                  <input
-                    type="text"
-                    value={formState}
-                    onChange={e => setFormState(e.target.value)}
-                    placeholder="e.g. Idaho"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Creator&apos;s State
+                </label>
+                <input
+                  type="text"
+                  value={formState}
+                  onChange={e => setFormState(e.target.value)}
+                  placeholder="e.g. Idaho"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '14px',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    outline: 'none',
+                  }}
+                />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Increases to % <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formTierPct}
-                    onChange={e => setFormTierPct(e.target.value)}
-                    placeholder="e.g. 30"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    After $/month <span style={{ color: '#999', fontWeight: 400 }}>(threshold)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formTierThreshold}
-                    onChange={e => setFormTierThreshold(e.target.value)}
-                    placeholder="e.g. 12000"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
+
+              {/* Commission Tiers */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '8px' }}>
+                  Commission Structure
+                </label>
+                {commissionTiers.map((tier, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={tier.pct}
+                      onChange={e => {
+                        const updated = [...commissionTiers]
+                        updated[i] = { ...updated[i], pct: e.target.value }
+                        setCommissionTiers(updated)
+                      }}
+                      placeholder="%"
+                      style={{
+                        width: '70px',
+                        padding: '10px 12px',
+                        fontSize: '14px',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px',
+                        outline: 'none',
+                        textAlign: 'center',
+                      }}
+                    />
+                    <span style={{ fontSize: '13px', color: '#666', whiteSpace: 'nowrap' }}>
+                      {i === 0 ? 'up to' : 'above'}
+                    </span>
+                    {i < commissionTiers.length - 1 ? (
+                      <input
+                        type="number"
+                        min="0"
+                        value={tier.upTo}
+                        onChange={e => {
+                          const updated = [...commissionTiers]
+                          updated[i] = { ...updated[i], upTo: e.target.value }
+                          setCommissionTiers(updated)
+                        }}
+                        placeholder="$/month"
+                        style={{
+                          width: '120px',
+                          padding: '10px 12px',
+                          fontSize: '14px',
+                          border: '1px solid #e0e0e0',
+                          borderRadius: '8px',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '13px', color: '#666' }}>
+                        {commissionTiers.length > 1 ? `$${Number(commissionTiers[i - 1]?.upTo || 0).toLocaleString()}/month` : '—'}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '13px', color: '#999' }}>/month</span>
+                    {commissionTiers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCommissionTiers(commissionTiers.filter((_, j) => j !== i))}
+                        style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
+                      >
+                        x
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCommissionTiers([...commissionTiers, { pct: '', upTo: '' }])}
+                  style={{
+                    background: 'none',
+                    border: '1px dashed #ddd',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    color: '#999',
+                    cursor: 'pointer',
+                    width: '100%',
+                  }}
+                >
+                  + Add Tier
+                </button>
               </div>
 
               {/* Agency Signature */}
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Agency Signature (Josh Voto)
+                  Agency Signature ({adminName})
                 </label>
                 <canvas
                   ref={sigCanvasRef}
@@ -576,11 +625,20 @@ export default function AdminOnboarding() {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
                   <button
                     type="button"
-                    onClick={clearSigCanvas}
+                    onClick={() => clearSigCanvas(false)}
                     style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
                   >
-                    Clear
+                    Redraw
                   </button>
+                  {localStorage.getItem('palm_agency_sig') && (
+                    <button
+                      type="button"
+                      onClick={() => clearSigCanvas(true)}
+                      style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                    >
+                      Clear Saved
+                    </button>
+                  )}
                   {!hasSigDrawn && (
                     <span style={{ fontSize: '11px', color: '#E88FAC' }}>Signature required</span>
                   )}
@@ -656,83 +714,99 @@ export default function AdminOnboarding() {
             </p>
 
             <form onSubmit={handleStartExisting}>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Commission %
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formCommission}
-                    onChange={e => setFormCommission(e.target.value)}
-                    placeholder="e.g. 27"
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Creator&apos;s State
-                  </label>
-                  <input
-                    type="text"
-                    value={formState}
-                    onChange={e => setFormState(e.target.value)}
-                    placeholder="e.g. Idaho"
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Creator&apos;s State
+                </label>
+                <input
+                  type="text"
+                  value={formState}
+                  onChange={e => setFormState(e.target.value)}
+                  placeholder="e.g. Idaho"
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Increases to % <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formTierPct}
-                    onChange={e => setFormTierPct(e.target.value)}
-                    placeholder="e.g. 30"
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    After $/month <span style={{ color: '#999', fontWeight: 400 }}>(threshold)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formTierThreshold}
-                    onChange={e => setFormTierThreshold(e.target.value)}
-                    placeholder="e.g. 12000"
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
+
+              {/* Commission Tiers */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '8px' }}>
+                  Commission Structure
+                </label>
+                {commissionTiers.map((tier, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={tier.pct}
+                      onChange={e => {
+                        const updated = [...commissionTiers]
+                        updated[i] = { ...updated[i], pct: e.target.value }
+                        setCommissionTiers(updated)
+                      }}
+                      placeholder="%"
+                      style={{ width: '70px', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none', textAlign: 'center' }}
+                    />
+                    <span style={{ fontSize: '13px', color: '#666', whiteSpace: 'nowrap' }}>
+                      {i === 0 ? 'up to' : 'above'}
+                    </span>
+                    {i < commissionTiers.length - 1 ? (
+                      <input
+                        type="number"
+                        min="0"
+                        value={tier.upTo}
+                        onChange={e => {
+                          const updated = [...commissionTiers]
+                          updated[i] = { ...updated[i], upTo: e.target.value }
+                          setCommissionTiers(updated)
+                        }}
+                        placeholder="$/month"
+                        style={{ width: '120px', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '13px', color: '#666' }}>
+                        {commissionTiers.length > 1 ? `$${Number(commissionTiers[i - 1]?.upTo || 0).toLocaleString()}/month` : '—'}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '13px', color: '#999' }}>/month</span>
+                    {commissionTiers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCommissionTiers(commissionTiers.filter((_, j) => j !== i))}
+                        style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
+                      >
+                        x
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCommissionTiers([...commissionTiers, { pct: '', upTo: '' }])}
+                  style={{ background: 'none', border: '1px dashed #ddd', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', color: '#999', cursor: 'pointer', width: '100%' }}
+                >
+                  + Add Tier
+                </button>
               </div>
-              {!editCreator.email && (
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formEmail}
-                    onChange={e => setFormEmail(e.target.value)}
-                    placeholder="Their communication email"
-                    required
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
-              )}
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Communication Email <span style={{ color: '#999', fontWeight: 400 }}>(used to log into their portal)</span>
+                </label>
+                <input
+                  type="email"
+                  value={formEmail}
+                  onChange={e => setFormEmail(e.target.value)}
+                  placeholder="The email they'll use to log in"
+                  required
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                />
+              </div>
 
               {/* Agency Signature */}
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Agency Signature (Josh Voto)
+                  Agency Signature ({adminName})
                 </label>
                 <canvas
                   ref={sigCanvasRef}
@@ -758,11 +832,20 @@ export default function AdminOnboarding() {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
                   <button
                     type="button"
-                    onClick={clearSigCanvas}
+                    onClick={() => clearSigCanvas(false)}
                     style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
                   >
-                    Clear
+                    Redraw
                   </button>
+                  {localStorage.getItem('palm_agency_sig') && (
+                    <button
+                      type="button"
+                      onClick={() => clearSigCanvas(true)}
+                      style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                    >
+                      Clear Saved
+                    </button>
+                  )}
                   {!hasSigDrawn && (
                     <span style={{ fontSize: '11px', color: '#E88FAC' }}>Signature required</span>
                   )}

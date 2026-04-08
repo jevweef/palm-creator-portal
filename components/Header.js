@@ -19,8 +19,8 @@ export default function Header() {
   const hqId = searchParams?.get('hqId')
   const hqSuffix = hqId ? `?hqId=${hqId}` : ''
 
-  // Don't show header on sign-in/sign-up pages
-  if (pathname?.startsWith('/sign-')) return null
+  // Don't show header on sign-in/sign-up or onboarding pages
+  if (pathname?.startsWith('/sign-') || pathname?.startsWith('/onboarding')) return null
 
   return (
     <>

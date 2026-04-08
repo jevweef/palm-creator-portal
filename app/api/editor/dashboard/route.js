@@ -33,7 +33,7 @@ export async function GET() {
   try {
     const creators = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: '{Social Media Editing}=1',
-      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Assets', 'Profile Summary', 'Brand Voice Notes', 'Content Direction Notes', 'Dos and Donts'],
+      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Profile Summary'],
     })
     if (!creators.length) return NextResponse.json({ creators: [] })
 
@@ -51,8 +51,10 @@ export async function GET() {
     sunday.setDate(estNow.getDate() - dayOfWeek)
     const weekStartStr = estDateStr(sunday)
 
-    // Fetch tasks + library assets + inspo-linked creator clips + future posts in parallel
-    const [tasks, libraryAssets, inspoLinkedAssets, allPosts, allTagWeights] = await Promise.all([
+    // Fetch only what's needed for the main dashboard view:
+    // Tasks, inspo-linked creator clips, and recent posts (14 days back + future)
+    // Library assets and tag weights are lazy-loaded by their respective modals
+    const [tasks, inspoLinkedAssets, allPosts] = await Promise.all([
       fetchByIds('Tasks', allTaskIds, {
         fields: [
           'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
@@ -60,16 +62,6 @@ export async function GET() {
           'Admin Review Status', 'Admin Feedback', 'Admin Screenshots',
         ],
       }),
-      fetchAirtableRecords('Assets', {
-        filterByFormula: `AND(OR({Pipeline Status}='Uploaded',{Pipeline Status}=BLANK()),{Source Type}!='Inspo Upload')`,
-        fields: [
-          'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
-          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week',
-        ],
-      }).then(assets => assets.filter(a => {
-        const creatorId = (a.fields?.['Palm Creators'] || [])[0]
-        return creatorId && creatorIdSet.has(creatorId)
-      })),
       // Creator-uploaded clips tied to a specific inspo record (priority fills)
       fetchAirtableRecords('Assets', {
         filterByFormula: `AND({Pipeline Status}='Uploaded', NOT({Inspiration Source}=''))`,
@@ -81,15 +73,10 @@ export async function GET() {
         const creatorId = (a.fields?.['Palm Creators'] || [])[0]
         return creatorId && creatorIdSet.has(creatorId)
       })),
-      // Posts from last 60 days + all future — drives buffer + calendar coloring + telegram sent status
+      // Posts from last 14 days + all future — drives buffer + calendar coloring + telegram sent
       fetchAirtableRecords('Posts', {
-        filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -60, 'days'))`,
+        filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -14, 'days'))`,
         fields: ['Creator', 'Scheduled Date', 'Task', 'Telegram Sent At'],
-      }),
-      // Tag weights for creator DNA display — only non-zero weights
-      fetchAirtableRecords('Creator Tag Weights', {
-        filterByFormula: '{Weight}>0',
-        fields: ['Tag', 'Weight', 'Tag Category', 'Creator'],
       }),
     ])
 
@@ -236,29 +223,7 @@ export async function GET() {
       })
     }
 
-    const libraryByCreator = {}
-    for (const asset of libraryAssets) {
-      const creatorId = (asset.fields?.['Palm Creators'] || [])[0]
-      if (!creatorId) continue
-      if (!libraryByCreator[creatorId]) libraryByCreator[creatorId] = []
-      libraryByCreator[creatorId].push({
-        id: asset.id,
-        name: asset.fields?.['Asset Name'] || '',
-        sourceType: asset.fields?.['Source Type'] || '',
-        dropboxLink: asset.fields?.['Dropbox Shared Link'] || '',
-        dropboxLinks: (asset.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
-        dropboxPath: asset.fields?.['Dropbox Path (Current)'] || '',
-        creatorNotes: asset.fields?.['Creator Notes'] || '',
-        thumbnail: asset.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || asset.fields?.Thumbnail?.[0]?.url || '',
-        uploadWeek: asset.fields?.['Upload Week'] || '',
-        createdTime: asset.createdTime || '',
-      })
-    }
-    for (const id of Object.keys(libraryByCreator)) {
-      libraryByCreator[id].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime))
-    }
-
-    // Group posts by creator: total future count + per-date breakdown (past 60 days + future)
+    // Group posts by creator: total future count + per-date breakdown
     // Use ET date for all grouping so evening posts (23:00 UTC = 7 PM ET) land on the correct day
     const futurePostsByCreator = {}
     const postsByDateByCreator = {}
@@ -276,31 +241,11 @@ export async function GET() {
       }
     }
 
-    // Build per-creator top tag weights for DNA display
-    const tagWeightsByCreator = {}
-    for (const tw of allTagWeights) {
-      const creatorId = (tw.fields?.Creator || [])[0]
-      if (!creatorId || !creatorIdSet.has(creatorId)) continue
-      const weight = tw.fields?.Weight || 0
-      if (weight <= 0) continue
-      if (!tagWeightsByCreator[creatorId]) tagWeightsByCreator[creatorId] = []
-      tagWeightsByCreator[creatorId].push({
-        tag: tw.fields?.Tag || '',
-        weight,
-        category: tw.fields?.['Tag Category'] || '',
-      })
-    }
-    for (const id of Object.keys(tagWeightsByCreator)) {
-      tagWeightsByCreator[id].sort((a, b) => b.weight - a.weight)
-      tagWeightsByCreator[id] = tagWeightsByCreator[id].slice(0, 8)
-    }
-
-    const POSTS_PER_DAY = 2 // 12 PM and 9 PM slots
+    const POSTS_PER_DAY = 2
 
     const result = creators.map(c => {
       const f = c.fields || {}
       const ctasks = tasksByCreator[c.id] || []
-      const library = libraryByCreator[c.id] || []
       const inspoClips = inspoClipsByCreator[c.id] || []
       const weeklyQuota = f['Weekly Reel Quota'] || 14
       const dailyQuota = Math.ceil(weeklyQuota / 7)
@@ -329,10 +274,7 @@ export async function GET() {
       return {
         id: c.id,
         name: f.AKA || f.Creator || '',
-        profileSummary: f['Profile Summary'] || '',
-        brandVoiceNotes: f['Brand Voice Notes'] || '',
-        contentDirectionNotes: f['Content Direction Notes'] || '',
-        dosDonts: f['Dos and Donts'] || '',
+        hasProfile: !!(f['Profile Summary']),
         quota: weeklyQuota,
         dailyQuota,
         doneToday: doneThisWeek,
@@ -345,10 +287,8 @@ export async function GET() {
         inProgress: ctasks.filter(t => t.status === 'In Progress'),
         inReview: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Pending Review'),
         approved: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Approved' && (t.completedAt || '') >= weekStartStr),
-        library,
         inspoClips,
         postsByDate: postsByDateByCreator[c.id] || {},
-        topTags: tagWeightsByCreator[c.id] || [],
       }
     })
 

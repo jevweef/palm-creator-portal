@@ -71,6 +71,140 @@ function WeightBar({ tag, weight, category }) {
   )
 }
 
+function MusicDnaPanel({ creator, creatorId, onUpdate }) {
+  const [inputType, setInputType] = useState('spotify_playlist')
+  const [rawInput, setRawInput] = useState(creator?.musicDnaInput || '')
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState('')
+  const dna = creator?.musicDnaProcessed || null
+
+  async function handleProcess() {
+    if (!rawInput.trim()) return
+    setProcessing(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/music/process-dna', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, inputType, rawInput: rawInput.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to process')
+      onUpdate?.(data)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const typeOptions = [
+    ['spotify_playlist', 'Spotify Playlist'],
+    ['text_list', 'Text List'],
+    ['apple_music', 'Apple Music'],
+  ]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Input section */}
+      <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)', padding: '16px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Music DNA Input</div>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+          {typeOptions.map(([value, label]) => (
+            <button key={value} onClick={() => setInputType(value)}
+              style={{
+                padding: '5px 12px', fontSize: '12px', fontWeight: inputType === value ? 600 : 400,
+                background: inputType === value ? '#FFF0F3' : '#fafafa',
+                color: inputType === value ? '#E88FAC' : '#999',
+                border: inputType === value ? '1px solid #E88FAC' : '1px solid rgba(0,0,0,0.06)',
+                borderRadius: '6px', cursor: 'pointer',
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={rawInput}
+          onChange={(e) => setRawInput(e.target.value)}
+          placeholder={inputType === 'spotify_playlist' ? 'Paste Spotify playlist URL...' : inputType === 'text_list' ? 'One song per line: Artist - Song Title' : 'Paste Apple Music playlist URL...'}
+          style={{
+            width: '100%', minHeight: '80px', padding: '10px', fontSize: '13px',
+            border: '1px solid rgba(0,0,0,0.08)', borderRadius: '6px', resize: 'vertical',
+            fontFamily: 'inherit', background: '#fafafa', boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+          <button onClick={handleProcess} disabled={processing || !rawInput.trim()}
+            style={{
+              padding: '8px 16px', fontSize: '13px', fontWeight: 600,
+              background: processing ? '#E8C4CC' : '#E88FAC', color: '#fff',
+              border: 'none', borderRadius: '6px', cursor: processing ? 'default' : 'pointer',
+              opacity: (!rawInput.trim() || processing) ? 0.5 : 1,
+            }}>
+            {processing ? 'Processing...' : 'Process Music DNA'}
+          </button>
+          {error && <span style={{ fontSize: '12px', color: '#ef4444' }}>{error}</span>}
+        </div>
+      </div>
+
+      {/* Processed DNA display */}
+      {dna && (
+        <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)', padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Processed DNA
+            </div>
+            <span style={{ fontSize: '11px', color: '#999' }}>
+              {dna.trackCount} tracks · {dna.processedAt ? new Date(dna.processedAt).toLocaleDateString() : ''}
+            </span>
+          </div>
+
+          {/* Top genres */}
+          {dna.topGenres?.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Top Genres</div>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {dna.topGenres.map(g => (
+                  <span key={g} style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '11px', background: '#F0F4FF', color: '#6B7FE3', border: '1px solid rgba(107,127,227,0.15)' }}>
+                    {g}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Track list */}
+          <div>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Tracks</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '300px', overflowY: 'auto' }}>
+              {(dna.tracks || []).map((t, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: '4px', background: i % 2 === 0 ? '#fafafa' : 'transparent' }}>
+                  <div>
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#1a1a1a' }}>{t.track}</span>
+                    {t.artist && <span style={{ fontSize: '12px', color: '#999', marginLeft: '6px' }}>— {t.artist}</span>}
+                  </div>
+                  {t.spotifyUrl && (
+                    <a href={t.spotifyUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '10px', color: '#1DB954', textDecoration: 'none', flexShrink: 0 }}>
+                      Spotify ↗
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!dna && (
+        <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
+          No music DNA yet. Paste a playlist URL or song list above and hit Process.
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TagWeightPanel({ tagWeights }) {
   if (!tagWeights || tagWeights.length === 0) {
     return <div style={{ color: '#555', fontSize: '13px', padding: '12px 0' }}>No tag weights yet — run analysis first.</div>
@@ -1728,7 +1862,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
       {/* Tabs — hidden during refine preview */}
       {!refinePreview && <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
-        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
+        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ['music', 'Music DNA'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400,
@@ -1805,6 +1939,13 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       {/* Tag weights tab */}
       {!refinePreview && activeTab === 'tags' && (
         <TagWeightPanel tagWeights={tagWeights} />
+      )}
+
+      {/* Music DNA tab */}
+      {!refinePreview && activeTab === 'music' && (
+        <MusicDnaPanel creator={c} creatorId={creator.id} onUpdate={(dna) => {
+          setProfile(prev => prev ? { ...prev, creator: { ...prev.creator, musicDnaProcessed: dna } } : prev)
+        }} />
       )}
 
       {/* Adjustments tab */}
@@ -1886,22 +2027,20 @@ export default function CreatorsPage() {
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveSection(t) }, [searchParams])
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/admin/palm-creators').then(r => r.json()),
-      fetch('/api/admin/invoicing').then(r => r.json()),
-    ]).then(([creatorsData, invoicingData]) => {
+    // Load creators first (fast), show page immediately, then load invoicing in background
+    fetch('/api/admin/palm-creators').then(r => r.json()).then(creatorsData => {
       const list = creatorsData.creators || []
       setCreators(list)
+      if (list.length > 0 && !selected) setSelected(list[0])
+      setLoading(false)
 
-      // Auto-select highest earner from most recent pay period
-      const records = invoicingData.records || []
-      const periods = invoicingData.periods || []
-      if (list.length > 0 && !selected) {
-        let topCreator = list[0]
-        if (periods.length > 0) {
+      // Background: load invoicing to re-sort by top earner
+      fetch('/api/admin/invoicing').then(r => r.json()).then(invoicingData => {
+        const records = invoicingData.records || []
+        const periods = invoicingData.periods || []
+        if (list.length > 0 && periods.length > 0) {
           const latestKey = periods[0].key
           const periodRecords = records.filter(r => `${r.periodStart}|${r.periodEnd}` === latestKey)
-          // Sum earnings by aka
           const byAka = {}
           for (const r of periodRecords) {
             byAka[r.aka] = (byAka[r.aka] || 0) + (r.earnings || 0)
@@ -1909,12 +2048,10 @@ export default function CreatorsPage() {
           const topAka = Object.entries(byAka).sort((a, b) => b[1] - a[1])[0]
           if (topAka) {
             const match = list.find(c => c.aka === topAka[0])
-            if (match) topCreator = match
+            if (match) setSelected(match)
           }
         }
-        setSelected(topCreator)
-      }
-      setLoading(false)
+      }).catch(() => {})
     }).catch(() => setLoading(false))
   }, [])
 
