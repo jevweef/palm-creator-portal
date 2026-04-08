@@ -61,7 +61,7 @@ export async function GET() {
         ],
       }),
       fetchAirtableRecords('Assets', {
-        filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}!='Inspo Upload')`,
+        filterByFormula: `AND(OR({Pipeline Status}='Uploaded',{Pipeline Status}=BLANK()),{Source Type}!='Inspo Upload')`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week',

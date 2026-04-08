@@ -14,7 +14,7 @@ export async function GET() {
     // Fetch assets that are NOT from the inspo upload flow — these come from
     // the Make automation that watches 00_INCOMING_FILE_REQUEST and moves to 10_UNREVIEWED_LIBRARY
     const assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: "AND({Pipeline Status}='Uploaded', {Source Type}!='Inspo Upload')",
+      filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK()), {Source Type}!='Inspo Upload')",
       fields: [
         'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
         'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators',
