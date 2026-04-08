@@ -1191,98 +1191,75 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
 // ─── Today's Work slot components ─────────────────────────────────────────────
 
-function SlotContent({ slot }) {
+// Thumbnail for the left side of the slot card — 1:1 aspect ratio, fills card height
+function SlotThumbnail({ slot }) {
   const task = slot.task
   const clip = slot.clip
-  const isDone = slot.type === 'done'
-  const isEditing = slot.type === 'inProgress' || slot.type === 'toDo'
-  const isClipSlot = slot.type === 'inspoClip'
+  const size = '64px'
+  const style = { width: size, height: size, borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }
+
+  if (slot.type === 'empty') return null
+
+  if (slot.type === 'done') {
+    const editedUrl = task?.asset?.editedFileLink ? rawDropboxUrl(task.asset.editedFileLink) : ''
+    const thumb = task?.asset?.thumbnail || task?.inspo?.thumbnail || ''
+    if (editedUrl) return <video src={editedUrl} muted playsInline style={{ ...style, opacity: 0.7 }} />
+    if (thumb) return <img src={thumb} alt="" style={{ ...style, opacity: 0.6 }} />
+    return null
+  }
+
+  if (slot.type === 'inspoClip') {
+    const thumb = clip?.thumbnail || clip?.inspo?.thumbnail || ''
+    return thumb ? <img src={thumb} alt="" style={style} /> : null
+  }
+
+  // toDo or inProgress
+  const thumb = task?.inspo?.thumbnail || task?.asset?.thumbnail || ''
+  const rawClipUrl = !thumb ? rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '') : ''
+  if (thumb) return <img src={thumb} alt="" style={{ ...style, ...(task?.adminReviewStatus === 'Needs Revision' ? { border: '1px solid #fecaca' } : {}) }} />
+  if (rawClipUrl) return <video src={rawClipUrl} muted playsInline style={style} />
+  return null
+}
+
+// Text content for the right side of the slot card
+function SlotText({ slot }) {
+  const task = slot.task
+  const clip = slot.clip
 
   if (slot.type === 'empty') {
     return <div style={{ fontSize: '12px', color: '#E8C4CC' }}>+ Assign from library</div>
   }
 
-  // Done/submitted: prefer submitted edit video, fall back to thumbnails
-  if (isDone) {
-    const editedUrl = task?.asset?.editedFileLink ? rawDropboxUrl(task.asset.editedFileLink) : ''
-    const thumb = task?.asset?.thumbnail || task?.inspo?.thumbnail || ''
+  if (slot.type === 'done') {
     const title = task?.inspo?.title || task?.name || ''
     return (
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        {editedUrl ? (
-          <video src={editedUrl} muted playsInline style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, opacity: 0.7 }} />
-        ) : thumb ? (
-          <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, opacity: 0.6 }} />
-        ) : null}
-        <div style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 600, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {title || 'Edit task'}
-        </div>
+      <div style={{ fontSize: '13px', fontWeight: 600, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {title || 'Edit task'}
       </div>
     )
   }
 
-  // Needs Revision: show red title + feedback snippet
-  if (isEditing && task?.adminReviewStatus === 'Needs Revision') {
-    const thumb = task?.inspo?.thumbnail || task?.asset?.thumbnail || ''
-    const title = task?.inspo?.title || task?.name || ''
+  if (slot.type === 'inspoClip') {
+    const title = clip?.inspo?.title || clip?.name || ''
+    const username = clip?.inspo?.username || ''
     return (
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0, border: '1px solid #fecaca' }} />}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#ef4444', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
-          {task.adminFeedback && <div style={{ fontSize: '11px', color: '#999', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>}
-        </div>
-      </div>
-    )
-  }
-
-  // Editing with inspo: show inspo thumbnail + creator clip thumbnail side by side
-  if (isEditing && task?.inspo?.thumbnail && task?.asset?.thumbnail) {
-    return (
-      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-        <img src={task.inspo.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
-        <img src={task.asset.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.inspo.title || task.name}</div>
-          {task.inspo.username && <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>@{task.inspo.username}</div>}
-        </div>
-      </div>
-    )
-  }
-
-  // Editing with only inspo (no clip yet) or only a library asset
-  if (isEditing) {
-    const thumb = task?.inspo?.thumbnail || task?.asset?.thumbnail || ''
-    const rawClipUrl = !thumb ? rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '') : ''
-    const title = task?.inspo?.title || task?.name || ''
-    const username = task?.inspo?.username || ''
-    return (
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        {thumb ? (
-          <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
-        ) : rawClipUrl ? (
-          <video src={rawClipUrl} muted playsInline style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
-        ) : null}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
-          {username && <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>@{username}</div>}
-        </div>
-      </div>
-    )
-  }
-
-  // inspoClip slot
-  const thumb = clip?.thumbnail || clip?.inspo?.thumbnail || ''
-  const title = clip?.inspo?.title || clip?.name || ''
-  const username = clip?.inspo?.username || ''
-  return (
-    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-      {thumb && <img src={thumb} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <>
         <div style={{ fontSize: '13px', fontWeight: 600, color: '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Creator clip'}</div>
-        {username && <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>@{username}</div>}
-      </div>
-    </div>
+        {username && <div style={{ fontSize: '11px', color: '#aaa' }}>@{username}</div>}
+      </>
+    )
+  }
+
+  // toDo or inProgress
+  const title = task?.inspo?.title || task?.name || ''
+  const username = task?.inspo?.username || ''
+  const isRevision = task?.adminReviewStatus === 'Needs Revision'
+  return (
+    <>
+      <div style={{ fontSize: '13px', fontWeight: 600, color: isRevision ? '#ef4444' : '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
+      {isRevision && task.adminFeedback && <div style={{ fontSize: '11px', color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>}
+      {!isRevision && username && <div style={{ fontSize: '11px', color: '#aaa' }}>@{username}</div>}
+    </>
   )
 }
 
@@ -1374,22 +1351,25 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
   return (
     <div
       onClick={clickable ? () => onSlotClick(slot) : undefined}
-      style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '14px 16px', height: '100px', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: clickable ? 'pointer' : 'default', transition: 'border-color 0.15s', opacity }}
+      style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '12px 14px', minHeight: '90px', overflow: 'hidden', display: 'flex', gap: '12px', alignItems: 'center', cursor: clickable ? 'pointer' : 'default', transition: 'border-color 0.15s', opacity }}
       onMouseEnter={e => { if (clickable) e.currentTarget.style.borderColor = typeStyle.dotColor }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = typeStyle.borderColor }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: typeStyle.dotColor, flexShrink: 0 }} />
-          <span style={{ fontSize: '10px', fontWeight: 700, color: typeStyle.dotColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {typeStyle.label}
-          </span>
+      <SlotThumbnail slot={slot} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+            <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: typeStyle.dotColor, flexShrink: 0 }} />
+            <span style={{ fontSize: '10px', fontWeight: 700, color: typeStyle.dotColor, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+              {typeStyle.label}
+            </span>
+          </div>
+          {slotLabel && (
+            <span style={{ fontSize: '10px', color: '#aaa', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{slotLabel}</span>
+          )}
         </div>
-        {slotLabel && (
-          <span style={{ fontSize: '10px', color: '#aaa', marginLeft: 'auto' }}>{slotLabel}</span>
-        )}
+        <SlotText slot={slot} />
       </div>
-      <SlotContent slot={slot} />
     </div>
   )
 }
