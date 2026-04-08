@@ -125,7 +125,7 @@ export async function PATCH(request) {
     const { postId, fields } = await request.json()
     if (!postId) return NextResponse.json({ error: 'postId required' }, { status: 400 })
 
-    const allowedFields = ['Post Name', 'Status', 'Platform', 'Caption', 'Hashtags', 'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link', 'Admin Notes', 'Telegram Message ID']
+    const allowedFields = ['Post Name', 'Status', 'Platform', 'Caption', 'Hashtags', 'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link', 'Admin Notes', 'Telegram Message ID', 'Thumbnail']
     const update = Object.fromEntries(
       Object.entries(fields).filter(([k]) => allowedFields.includes(k))
     )
