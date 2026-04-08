@@ -133,8 +133,11 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
       <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
         Palm Creator Profile & Content Strategy Intake
       </h2>
+      <p style={{ fontSize: '13px', color: '#666', marginBottom: '6px', lineHeight: '1.5' }}>
+        This voice memo is used to build your personalized content strategy and creator DNA profile — it helps us understand your style, personality, and what kind of content fits you best.
+      </p>
       <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px', lineHeight: '1.5' }}>
-        For the voice memo, just ramble for like 10–15 minutes. Don&apos;t overthink it at all.
+        Just ramble for like 10–15 minutes. Don&apos;t overthink it at all.
       </p>
 
       <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: 500 }}>
