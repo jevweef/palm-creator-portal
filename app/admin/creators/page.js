@@ -1943,8 +1943,8 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
       {/* Music DNA tab */}
       {!refinePreview && activeTab === 'music' && (
-        <MusicDnaPanel creator={c} creatorId={selectedCreator} onUpdate={(dna) => {
-          setCreators(prev => prev.map(cr => cr.id === selectedCreator ? { ...cr, musicDnaProcessed: dna } : cr))
+        <MusicDnaPanel creator={c} creatorId={creator.id} onUpdate={(dna) => {
+          setProfile(prev => prev ? { ...prev, creator: { ...prev.creator, musicDnaProcessed: dna } } : prev)
         }} />
       )}
 
