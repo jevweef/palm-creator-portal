@@ -54,8 +54,9 @@ function getNextPostingSlot(existingSlotISOs, submissionISO) {
 
     for (const etHour of SLOT_HOURS_ET) {
       const candidate = etToUTC(etDateStr, etHour)
-      // Never schedule in the past
-      if (candidate <= now) continue
+      // Skip past DAYS entirely, but allow any slot within today
+      // (morning slot stays open even if it's afternoon — day ends at midnight ET)
+      if (etDateStr < startDateStr) continue
       if (!existingSet.has(candidate.toISOString())) return candidate
     }
   }
