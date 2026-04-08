@@ -169,11 +169,9 @@ export async function GET() {
         editorNotes: task.fields?.['Editor Notes'] || '',
         completedAt: task.fields?.['Completed At'] || null,
         etCompletedDate: toETDateStr(task.fields?.['Completed At'] || ''),
-        // Slot date: if this task has a post with a scheduled date, use that (the slot it was assigned to).
-        // Otherwise fall back to completion date (for in-review tasks not yet approved).
-        etSlotDate: taskScheduledDateMap[task.id]
-          ? toETDateStr(taskScheduledDateMap[task.id])
-          : toETDateStr(task.fields?.['Completed At'] || ''),
+        // Editor dashboard: tasks show on the day the editor completed them.
+        // Post scheduling is a separate concern (Post Prep tab).
+        etSlotDate: toETDateStr(task.fields?.['Completed At'] || ''),
         telegramSentAt: taskTelegramMap[task.id] || null,
         postScheduledDate: taskScheduledDateMap[task.id] || null,
         asset: {
