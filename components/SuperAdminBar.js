@@ -61,7 +61,7 @@ export default function SuperAdminBar() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  if (!isSuperAdmin) return null
+  if (!isSuperAdmin || pathname?.startsWith('/onboarding')) return null
 
   const tabStyle = (active) => ({
     padding: '4px 14px',
