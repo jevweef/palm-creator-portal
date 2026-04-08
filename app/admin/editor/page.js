@@ -1676,17 +1676,16 @@ export default function EditorQueue() {
       </div>
 
       {/* Section tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: '#ffffff', borderRadius: '8px', padding: '4px', width: 'fit-content', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <div style={{ display: 'flex', gap: '0', marginBottom: '24px', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => switchSection(tab.key)}
             style={{
-              padding: '8px 20px', fontSize: '13px', fontWeight: 600,
-              background: activeSection === tab.key ? '#FFF0F3' : 'transparent',
-              color: activeSection === tab.key ? '#E88FAC' : '#999',
-              border: `1px solid ${activeSection === tab.key ? '#E88FAC30' : 'transparent'}`,
-              borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
+              padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === tab.key ? 700 : 400,
+              color: activeSection === tab.key ? '#1a1a1a' : '#bbb', background: 'none', border: 'none',
+              borderBottom: activeSection === tab.key ? '2px solid #E88FAC' : '2px solid transparent',
+              cursor: 'pointer', marginBottom: '-2px', transition: 'all 0.15s',
             }}
           >
             {tab.label}
