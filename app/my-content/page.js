@@ -29,6 +29,8 @@ function PipelineCard({ item, onClick }) {
   const statusStyle = STATUS_COLORS[item.pipelineStatus] || STATUS_COLORS.Uploaded
   // Show the creator's uploaded clip, fall back to inspo thumbnail
   const cardThumb = item.assetThumbnail || item.inspoThumbnail
+  // Creator's clip as playable video (Dropbox raw URL)
+  const clipUrl = item.dropboxLink ? rawDropboxUrl(item.dropboxLink) : ''
 
   return (
     <div
@@ -45,15 +47,23 @@ function PipelineCard({ item, onClick }) {
       onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' } }}
       onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' } }}
     >
-      {cardThumb && (
-        <div style={{ aspectRatio: '9/16', background: '#000' }}>
+      <div style={{ aspectRatio: '9/16', background: '#000' }}>
+        {clipUrl ? (
+          <video
+            src={clipUrl}
+            muted
+            playsInline
+            preload="metadata"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+          />
+        ) : cardThumb ? (
           <img
             src={cardThumb}
             alt={item.inspoTitle}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
-        </div>
-      )}
+        ) : null}
+      </div>
       <div style={{ padding: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
           <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', margin: 0, lineHeight: 1.3, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -100,34 +110,44 @@ function rawDropboxUrl(url) {
   return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
 
+function parseNotes(notes) {
+  if (!notes) return { inspoDirection: '', whatMattersMost: '' }
+  const inspoMatch = notes.match(/Inspo direction:\n?([\s\S]*?)(?=What matters most:|$)/i)
+  const wmmMatch = notes.match(/What matters most:\n?([\s\S]*?)$/i)
+  return {
+    inspoDirection: inspoMatch ? inspoMatch[1].trim() : '',
+    whatMattersMost: wmmMatch ? wmmMatch[1].trim() : '',
+  }
+}
+
 function PipelineDetailModal({ item, onClose }) {
   const clipUrl = item.dropboxLink ? rawDropboxUrl(item.dropboxLink) : ''
   const inspoUrl = item.inspoDbShareLink ? rawDropboxUrl(item.inspoDbShareLink) : ''
   const statusStyle = STATUS_COLORS[item.pipelineStatus] || STATUS_COLORS.Uploaded
+  const { inspoDirection, whatMattersMost } = parseNotes(item.inspoNotes)
+
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handleKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
 
   return (
     <div
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 500,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-        padding: '24px',
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '900px',
-        maxHeight: '90vh', overflow: 'auto',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-      }}>
+      <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-white overflow-hidden flex flex-col" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.15)', border: 'none' }}>
+
         {/* Header */}
-        <div style={{
-          padding: '20px 24px', borderBottom: '1px solid rgba(0,0,0,0.06)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '16px 22px', borderBottom: '1px solid rgba(0,0,0,0.06)', gap: '16px' }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', lineHeight: 1.4, margin: 0 }}>
                 {item.inspoTitle || item.assetName}
               </h2>
               <span style={{
@@ -138,78 +158,87 @@ function PipelineDetailModal({ item, onClose }) {
               </span>
             </div>
             {item.inspoUsername && (
-              <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>@{item.inspoUsername}</p>
+              <p style={{ fontSize: '12px', color: '#999', marginTop: '6px' }}>@{item.inspoUsername}</p>
             )}
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', fontSize: '22px', cursor: 'pointer', lineHeight: 1, flexShrink: 0, marginLeft: '16px' }}>×</button>
+          <button onClick={onClose} style={{ color: '#999', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', marginTop: '2px' }}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        {/* Two-column video comparison */}
-        <div style={{ padding: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-          {/* My Clip */}
-          <div style={{ flex: '1 1 300px', minWidth: 0 }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#E88FAC', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-              My Clip
-            </div>
+        {/* Body — video drives height, right side scrolls */}
+        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto md:overflow-visible md:relative md:flex-none">
+
+          {/* Creator's clip — 9:16 aspect ratio */}
+          <div className="w-full shrink-0 md:shrink md:w-[280px] bg-black overflow-hidden" style={{ aspectRatio: '9/16' }}>
             {clipUrl ? (
-              <video
-                src={clipUrl}
-                controls
-                playsInline
-                style={{ width: '100%', maxHeight: '500px', borderRadius: '12px', background: '#000', objectFit: 'contain' }}
-              />
+              <video src={clipUrl} controls autoPlay muted loop playsInline className="w-full md:h-full object-cover" />
             ) : (
-              <div style={{ aspectRatio: '9/16', background: '#f5f5f5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '13px' }}>
-                No clip available
+              <div className="w-full h-full flex items-center justify-center text-[#D4A0B0]">
+                <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
               </div>
             )}
           </div>
 
-          {/* Inspo Reference */}
-          <div style={{ flex: '1 1 300px', minWidth: 0 }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-              Inspo Reference
-            </div>
-            {inspoUrl ? (
-              <video
-                src={inspoUrl}
-                controls
-                playsInline
-                style={{ width: '100%', maxHeight: '500px', borderRadius: '12px', background: '#000', objectFit: 'contain' }}
-              />
-            ) : item.inspoThumbnail ? (
-              <img src={item.inspoThumbnail} alt="" style={{ width: '100%', maxHeight: '500px', borderRadius: '12px', objectFit: 'contain' }} />
-            ) : (
-              <div style={{ aspectRatio: '9/16', background: '#f5f5f5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '13px' }}>
-                No inspo linked
+          {/* Details panel — absolute on desktop */}
+          <div className="flex flex-col gap-5 p-[22px_28px] bg-white md:absolute md:top-0 md:bottom-0 md:left-[280px] md:right-0 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[rgba(0,0,0,0.06)]">
+
+            {/* Creator notes */}
+            {item.creatorNotes && (
+              <div>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#999', marginBottom: '8px' }}>Your Notes</p>
+                <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.6, fontStyle: 'italic' }}>&quot;{item.creatorNotes}&quot;</p>
+              </div>
+            )}
+
+            {/* Tags */}
+            {item.inspoTags?.length > 0 && (
+              <div>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#999', marginBottom: '12px' }}>Tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {item.inspoTags.map((tag) => (
+                    <span key={tag} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '9999px', ...tagStyle(tag) }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Inspo Direction */}
+            {inspoDirection && (
+              <div>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#999', marginBottom: '8px' }}>Inspo Direction</p>
+                <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.6 }}>{inspoDirection}</p>
+              </div>
+            )}
+
+            {/* What Matters Most */}
+            {whatMattersMost && (
+              <div>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#999', marginBottom: '8px' }}>What Matters Most</p>
+                <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.6 }}>{whatMattersMost}</p>
+              </div>
+            )}
+
+            {/* Inspo reference video */}
+            {(inspoUrl || item.inspoThumbnail) && (
+              <div>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#999', marginBottom: '10px' }}>Inspo Reference</p>
+                <div style={{ maxWidth: '220px', borderRadius: '12px', overflow: 'hidden', background: '#000' }}>
+                  {inspoUrl ? (
+                    <video src={inspoUrl} controls playsInline muted style={{ width: '100%', display: 'block' }} />
+                  ) : (
+                    <img src={item.inspoThumbnail} alt="" style={{ width: '100%', display: 'block' }} />
+                  )}
+                </div>
               </div>
             )}
           </div>
-        </div>
-
-        {/* Details section */}
-        <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {item.creatorNotes && (
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Your Notes</div>
-              <p style={{ fontSize: '13px', color: '#555', lineHeight: 1.5, fontStyle: 'italic', margin: 0 }}>&quot;{item.creatorNotes}&quot;</p>
-            </div>
-          )}
-          {item.inspoNotes && (
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Inspo Direction</div>
-              <p style={{ fontSize: '13px', color: '#555', lineHeight: 1.5, margin: 0 }}>{item.inspoNotes}</p>
-            </div>
-          )}
-          {item.inspoTags?.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {item.inspoTags.map((tag) => (
-                <span key={tag} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '9999px', ...tagStyle(tag) }}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>
