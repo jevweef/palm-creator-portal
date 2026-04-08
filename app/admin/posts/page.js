@@ -485,7 +485,7 @@ function PostCard({ post, onRefresh, onSend }) {
             'Hashtags': hashtags,
             'Platform': platforms,
             ...(scheduledDate ? { 'Scheduled Date': etLocalToUTC(scheduledDate) } : {}),
-            ...(thumbnailUrl ? { 'Thumbnail': [{ url: thumbnailUrl }] } : {}),
+            ...(thumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }] } : {}),
           },
         }),
       })
