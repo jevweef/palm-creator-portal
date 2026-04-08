@@ -1358,6 +1358,8 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
     ? { borderColor: '#fecaca', bg: '#fef2f2', dotColor: '#ef4444', label: 'Needs Revision' }
     : slot.type === 'done'
     ? doneSlotStyle(slot.task)
+    : (slot.type === 'toDo' && slot.task?.isInspoUpload)
+    ? { borderColor: '#fde68a', bg: '#fefce8', dotColor: '#f59e0b', label: 'Creator clip uploaded' }
     : {
         inProgress: { borderColor: '#bfdbfe', bg: '#eff6ff', dotColor: '#3b82f6', label: 'In editing' },
         toDo:       { borderColor: '#E8C4CC', bg: '#FFF5F7', dotColor: '#E88FAC', label: 'Ready to edit' },
@@ -1544,7 +1546,7 @@ function CreatorSection({ creator, onRefresh }) {
     // Build queue items list (same as slot distribution)
     const dotQueueItems = [
       ...creator.inProgress.map(() => 'inProgress'),
-      ...creator.queue.map(() => 'toDo'),
+      ...creator.queue.map(t => t.isInspoUpload ? 'inspoClip' : 'toDo'),
       ...(creator.inspoClips || []).map(() => 'inspoClip'),
     ]
     let queueIdx = 0 // tracks how many queue items have been consumed by previous days

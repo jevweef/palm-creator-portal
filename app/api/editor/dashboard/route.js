@@ -117,7 +117,7 @@ export async function GET() {
     const [taskAssets, inspoRecords] = await Promise.all([
       fetchByIds('Assets', taskAssetIds, {
         fields: [
-          'Asset Name', 'Pipeline Status', 'Dropbox Shared Link',
+          'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Edited File Link',
         ],
       }),
@@ -161,6 +161,7 @@ export async function GET() {
         id: task.id,
         name: task.fields?.Name || '',
         status: task.fields?.Status || '',
+        isInspoUpload: !!(inspoId && asset['Source Type'] === 'Inspo Upload'),
         adminReviewStatus: task.fields?.['Admin Review Status'] || '',
         adminFeedback: task.fields?.['Admin Feedback'] || '',
         adminScreenshots: screenshots,
