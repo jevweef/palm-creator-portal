@@ -24,12 +24,15 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
       fetch(`/api/onboarding/voice-memo?hqId=${hqId}`).then(r => r.json()),
       fetch(`/api/onboarding/contract/generate?hqId=${hqId}`).then(r => r.json()),
     ]).then(([profile, voiceMemo, contract]) => {
+      const vmStatus = voiceMemo.voiceMemoStatus
       setProfileData({
         name: profile.profile?.name || '',
         aka: profile.profile?.aka || '',
         email: profile.profile?.communicationEmail || '',
         hasContract: contract.alreadySigned || false,
         hasVoiceMemo: voiceMemo.hasVoiceMemo || false,
+        voiceMemoStatus: vmStatus || null,
+        voiceMemoComplete: voiceMemo.hasVoiceMemo || vmStatus === 'Skipped' || vmStatus === 'Confirmed Sent',
         onboardingStatus: profile.profile?.onboardingStatus || '',
       })
       if (profile.profile?.onboardingStatus === 'Completed') {
@@ -42,7 +45,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
   // Use real completion data from Airtable for contract/voice memo instead of just click-through tracking
   const getStepComplete = (key) => {
     if (key === 'contract') return profileData?.hasContract || false
-    if (key === 'voice-memo') return profileData?.hasVoiceMemo || false
+    if (key === 'voice-memo') return profileData?.voiceMemoComplete || false
     return completedSteps.includes(key)
   }
   const allComplete = !loading && profileData && STEPS.every(s => getStepComplete(s.key))
@@ -214,8 +217,8 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#999', marginBottom: '2px' }}>Voice Memo</div>
-              <div style={{ fontSize: '13px', color: profileData.hasVoiceMemo ? '#43A047' : '#999' }}>
-                {profileData.hasVoiceMemo ? 'Uploaded' : 'Not uploaded'}
+              <div style={{ fontSize: '13px', color: profileData.voiceMemoComplete ? (profileData.voiceMemoStatus === 'Skipped' ? '#F57F17' : '#43A047') : '#999' }}>
+                {profileData.hasVoiceMemo ? 'Uploaded' : profileData.voiceMemoStatus === 'Skipped' ? 'Skipped' : profileData.voiceMemoStatus === 'Confirmed Sent' ? 'Confirmed sent' : 'Not uploaded'}
               </div>
             </div>
           </div>
