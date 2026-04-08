@@ -126,7 +126,6 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
   }, [onClose])
 
   const handleReplace = () => {
-    if (!confirm('This will permanently delete your current clip and replace it with a new one. Continue?')) return
     onReplace(item)
   }
 

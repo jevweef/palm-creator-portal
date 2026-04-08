@@ -273,6 +273,18 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
             </div>
           ) : (
             <>
+              {/* Replace warning */}
+              {replaceAssetId && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '10px 14px', marginBottom: '16px',
+                  background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '10px',
+                  fontSize: '12px', color: '#92400e', lineHeight: 1.4,
+                }}>
+                  <span style={{ fontSize: '16px', flexShrink: 0 }}>⚠️</span>
+                  <span>This will permanently delete your current clip and replace it with the new one.</span>
+                </div>
+              )}
               {/* Drop zone */}
               <div
                 onDrop={handleDrop}
