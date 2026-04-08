@@ -134,7 +134,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
         Palm Creator Profile & Content Strategy Intake
       </h2>
       <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px', lineHeight: '1.5' }}>
-        For the voice memo, just ramble for like 5–10 minutes. Don&apos;t overthink it at all.
+        For the voice memo, just ramble for like 10–15 minutes. Don&apos;t overthink it at all.
       </p>
 
       <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: 500 }}>
