@@ -512,7 +512,7 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
   }
 
   const sortedLibrary = library ? [...library].sort((a, b) => {
-    const da = new Date(a.createdAt || 0), db = new Date(b.createdAt || 0)
+    const da = new Date(a.createdTime || a.createdAt || 0), db = new Date(b.createdTime || b.createdAt || 0)
     return sortOrder === 'newest' ? db - da : da - db
   }) : []
   const videos = sortedLibrary.filter(a => a.assetType === 'Video' || (!a.assetType && isVideo(a.dropboxLinks?.[0] || a.dropboxLink || '')))
