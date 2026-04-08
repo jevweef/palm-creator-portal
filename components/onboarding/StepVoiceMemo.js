@@ -329,7 +329,8 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
     return <div style={{ color: '#999', fontSize: '14px', padding: '20px' }}>Loading...</div>
   }
 
-  // Already uploaded
+  // Already uploaded/skipped/confirmed
+  const isSkipped = existingMemo?.voiceMemoStatus === 'Skipped'
   if (recState === 'done') {
     return (
       <div>
@@ -337,23 +338,29 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
           Voice Memo
         </h2>
         <p style={{ fontSize: '13px', color: '#999', marginBottom: '24px' }}>
-          {confirmed
-            ? 'You confirmed your voice memo was already sent.'
-            : 'Your voice memo has been saved!'}
+          {isSkipped
+            ? 'You skipped this step. Your manager will follow up if needed.'
+            : confirmed
+              ? 'You confirmed your voice memo was already sent.'
+              : 'Your voice memo has been saved!'}
         </p>
 
         <div style={{
-          background: '#E8F5E9',
+          background: isSkipped ? '#FFF8E1' : '#E8F5E9',
           borderRadius: '12px',
           padding: '24px',
           textAlign: 'center',
           marginBottom: '24px',
         }}>
           <div style={{ marginBottom: '8px' }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="#2E7D32"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            {isSkipped ? (
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="#F57F17"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+            ) : (
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="#2E7D32"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            )}
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#2E7D32' }}>
-            Voice memo {confirmed ? 'confirmed' : 'uploaded'}
+          <div style={{ fontSize: '14px', fontWeight: 600, color: isSkipped ? '#F57F17' : '#2E7D32' }}>
+            {isSkipped ? 'Skipped — manager will follow up' : confirmed ? 'Voice memo confirmed' : 'Voice memo uploaded'}
           </div>
           {existingMemo?.voiceMemoFilename && (
             <div style={{ fontSize: '12px', color: '#66BB6A', marginTop: '4px' }}>
@@ -660,7 +667,11 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
 
           {confirmed && (
             <button
-              onClick={() => {
+              onClick={async () => {
+                const formData = new FormData()
+                formData.append('hqId', hqId)
+                formData.append('confirmed', 'true')
+                await fetch('/api/onboarding/voice-memo', { method: 'POST', body: formData })
                 setRecState('done')
                 onComplete()
               }}
@@ -677,6 +688,33 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
             >
               Continue
             </button>
+          )}
+
+          {/* Skip option */}
+          {!confirmed && (
+            <div style={{ textAlign: 'center', marginTop: '8px' }}>
+              <button
+                onClick={async () => {
+                  const formData = new FormData()
+                  formData.append('hqId', hqId)
+                  formData.append('skipped', 'true')
+                  await fetch('/api/onboarding/voice-memo', { method: 'POST', body: formData })
+                  setRecState('done')
+                  onComplete()
+                }}
+                style={{
+                  padding: '8px 20px',
+                  background: 'transparent',
+                  color: '#999',
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                }}
+              >
+                Skip for now
+              </button>
+            </div>
           )}
         </>
       )}
