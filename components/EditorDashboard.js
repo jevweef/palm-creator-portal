@@ -1590,17 +1590,26 @@ function CreatorSection({ creator, onRefresh }) {
   // Only fill queue items into today and future days. Past = locked.
   const isFutureOrToday = selectedDate >= todayDateStr
   if (isFutureOrToday && queueItems.length > 0) {
-    const todayDoneCount = (creator.doneTodayList || []).length
-    const todayAvail = Math.max(0, dailyQuota - todayDoneCount)
-
+    // Count how many queue items are consumed by each day from today to the selected date.
+    // Each day's done tasks reduce that day's available queue slots.
     const todayD = new Date(todayDateStr + 'T12:00:00')
     const selD = new Date(selectedDate + 'T12:00:00')
     const daysAhead = Math.round((selD - todayD) / (1000 * 60 * 60 * 24))
 
-    // Today takes first todayAvail from queue, each future day takes dailyQuota
-    const skipCount = isToday ? 0 : (todayAvail + (daysAhead - 1) * dailyQuota)
-    const remaining = Math.max(0, dailyQuota - slots.length)
+    let skipCount = 0
+    if (!isToday) {
+      for (let d = 0; d < daysAhead; d++) {
+        const iterDate = new Date(todayD)
+        iterDate.setDate(iterDate.getDate() + d)
+        const ds = `${iterDate.getFullYear()}-${String(iterDate.getMonth()+1).padStart(2,'0')}-${String(iterDate.getDate()).padStart(2,'0')}`
+        // Count done tasks pinned to this day
+        const doneOnDay = (creator.recentDone || []).filter(t => (t.etSlotDate || t.etCompletedDate) === ds).length
+        const availOnDay = Math.max(0, dailyQuota - doneOnDay)
+        skipCount += availOnDay
+      }
+    }
 
+    const remaining = Math.max(0, dailyQuota - slots.length)
     queueItems.slice(skipCount, skipCount + remaining).forEach(item => slots.push(item))
   }
 
@@ -1675,7 +1684,7 @@ function CreatorSection({ creator, onRefresh }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <button onClick={() => shiftDate(-1)}
             style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', minWidth: '180px' }}>
             <button onClick={() => setShowDatePicker(p => !p)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '11px', fontWeight: 700, color: isToday ? '#E88FAC' : '#999', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
