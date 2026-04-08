@@ -184,9 +184,13 @@ export async function POST(request) {
 
     let result
 
-    if (fileSize > MAX_UPLOAD_BYTES) {
-      // Over 50MB — fall back to URL method
-      console.log('[Telegram Send] File too large for upload, falling back to URL method')
+    const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
+    const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
+    const URL_THRESHOLD = needsRemux ? MAX_UPLOAD_BYTES : 20 * 1024 * 1024 // 20MB for mp4, 50MB for mov
+
+    if (fileSize > URL_THRESHOLD) {
+      // Large file — send via URL to avoid timeout (skip download+remux+upload cycle)
+      console.log(`[Telegram Send] File ${(fileSize / 1024 / 1024).toFixed(1)}MB > threshold, using URL method`)
       const baseParams = { chat_id: chatId, message_thread_id: threadId, ...(caption ? { caption } : {}) }
       if (isVideo(editedFileLink)) {
         result = await telegramJson('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
@@ -205,18 +209,20 @@ export async function POST(request) {
       const filename = getFilename(editedFileLink)
       const mimeType = getMimeType(editedFileLink)
 
-      // Always remux video to MP4 with faststart — ensures Telegram can render inline
-      // preview and show the correct thumbnail. Without faststart the moov atom is at
-      // the end of the file and Telegram can't seek to generate a preview frame.
+      // Remux non-MP4 videos to MP4 with faststart for Telegram inline preview.
+      // Skip remux for .mp4 files to avoid timeout on large files.
       let uploadBuffer = fileBuffer
       let uploadFilename = filename
       let uploadMime = mimeType
-      if (isVideo(editedFileLink)) {
-        console.log('[Telegram Send] Remuxing to MP4 with faststart...')
+      const ext = (filename.split('.').pop() || '').toLowerCase()
+      if (isVideo(editedFileLink) && ext !== 'mp4') {
+        console.log(`[Telegram Send] Remuxing ${ext} to MP4 with faststart...`)
         uploadBuffer = await remuxToMp4(fileBuffer, filename)
         uploadFilename = filename.replace(/\.[^.]+$/, '.mp4')
         uploadMime = 'video/mp4'
         console.log(`[Telegram Send] Remux done, size: ${(uploadBuffer.length / 1024 / 1024).toFixed(1)}MB`)
+      } else if (isVideo(editedFileLink)) {
+        uploadMime = 'video/mp4'
       }
 
       if (isVideo(editedFileLink) && thumbnailUrl) {
