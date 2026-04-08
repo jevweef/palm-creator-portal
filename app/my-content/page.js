@@ -318,9 +318,13 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 16px 0' }}>
           My Content
         </h1>
-        {data?.quota && (
-          <QuotaBar used={data.quota.used} target={data.quota.target} />
-        )}
+        <div style={{ minHeight: '24px' }}>
+          {data?.quota ? (
+            <QuotaBar used={data.quota.used} target={data.quota.target} />
+          ) : (
+            <div style={{ height: '12px', borderRadius: '6px', background: 'rgba(0,0,0,0.04)' }} />
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
