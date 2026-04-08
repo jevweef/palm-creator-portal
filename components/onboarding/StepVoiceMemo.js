@@ -92,9 +92,10 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
     fetch(`/api/onboarding/voice-memo?hqId=${hqId}`)
       .then(r => r.json())
       .then(data => {
-        if (data.hasVoiceMemo) {
+        if (data.hasVoiceMemo || data.voiceMemoStatus === 'Skipped' || data.voiceMemoStatus === 'Confirmed Sent') {
           setExistingMemo(data)
           setRecState('done')
+          if (data.voiceMemoStatus === 'Confirmed Sent') setConfirmed(true)
         }
         setLoading(false)
       })

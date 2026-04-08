@@ -25,12 +25,14 @@ export async function GET(request) {
     const record = await fetchHqRecord(HQ_CREATORS, hqId)
     const c = record.fields || {}
     const voiceMemo = c['Voice Memo']
+    const voiceMemoStatus = c['Voice Memo Status'] || null
     const hasVoiceMemo = !!(voiceMemo && voiceMemo.length > 0)
 
     return NextResponse.json({
       hasVoiceMemo,
       voiceMemoUrl: hasVoiceMemo ? voiceMemo[0].url : null,
       voiceMemoFilename: hasVoiceMemo ? voiceMemo[0].filename : null,
+      voiceMemoStatus,
     })
   } catch (err) {
     console.error('[voice-memo/GET] Error:', err.message)
@@ -59,10 +61,22 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const skipped = formData.get('skipped') // "true" if they chose to skip
+
     // If they just confirmed they already sent it, mark it in Airtable
     if (confirmed === 'true') {
-      // No file to upload — just mark completion
+      await patchHqRecord(HQ_CREATORS, hqId, {
+        'Voice Memo Status': { name: 'Confirmed Sent' },
+      })
       return NextResponse.json({ success: true, confirmed: true })
+    }
+
+    // If they chose to skip, mark it so admin knows
+    if (skipped === 'true') {
+      await patchHqRecord(HQ_CREATORS, hqId, {
+        'Voice Memo Status': { name: 'Skipped' },
+      })
+      return NextResponse.json({ success: true, skipped: true })
     }
 
     if (!audioFile) {
@@ -104,6 +118,7 @@ export async function POST(request) {
     // Save to Airtable
     await patchHqRecord(HQ_CREATORS, hqId, {
       'Voice Memo': [{ url: directUrl, filename }],
+      'Voice Memo Status': { name: 'Uploaded' },
     })
 
     return NextResponse.json({ success: true, filename, dropboxUrl: sharedLink })
