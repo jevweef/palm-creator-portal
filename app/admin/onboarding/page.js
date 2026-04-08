@@ -15,9 +15,7 @@ export default function AdminOnboarding() {
   const [showModal, setShowModal] = useState(false)
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
-  const [formCommission, setFormCommission] = useState('')
-  const [formTierPct, setFormTierPct] = useState('')
-  const [formTierThreshold, setFormTierThreshold] = useState('')
+  const [commissionTiers, setCommissionTiers] = useState([{ pct: '', upTo: '' }])
   const [formState, setFormState] = useState('')
   const [editCreator, setEditCreator] = useState(null) // for inline "Start Onboarding" modal
   const [submitting, setSubmitting] = useState(false)
@@ -88,7 +86,7 @@ export default function AdminOnboarding() {
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formName, email: formEmail, commission: formCommission, tierPct: formTierPct, tierThreshold: formTierThreshold, creatorState: formState, agencySignature }),
+        body: JSON.stringify({ name: formName, email: formEmail, commissionTiers, creatorState: formState, agencySignature }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -98,9 +96,7 @@ export default function AdminOnboarding() {
         setShowModal(false)
         setFormName('')
         setFormEmail('')
-        setFormCommission('')
-        setFormTierPct('')
-        setFormTierThreshold('')
+        setCommissionTiers([{ pct: '', upTo: '' }])
         setFormState('')
         setHasSigDrawn(false)
         fetchCreators()
@@ -135,9 +131,7 @@ export default function AdminOnboarding() {
     setEditCreator(creator)
     setFormName(creator.name || '')
     setFormEmail(creator.email || '')
-    setFormCommission('')
-    setFormTierPct('')
-    setFormTierThreshold('')
+    setCommissionTiers([{ pct: '', upTo: '' }])
     setFormState('')
   }
 
@@ -154,9 +148,7 @@ export default function AdminOnboarding() {
         body: JSON.stringify({
           name: formName || editCreator.name,
           email: formEmail || editCreator.email,
-          commission: formCommission,
-          tierPct: formTierPct,
-          tierThreshold: formTierThreshold,
+          commissionTiers,
           creatorState: formState,
           agencySignature,
         }),
@@ -461,90 +453,110 @@ export default function AdminOnboarding() {
                   }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Commission %
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formCommission}
-                    onChange={e => setFormCommission(e.target.value)}
-                    placeholder="e.g. 27"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Creator&apos;s State
-                  </label>
-                  <input
-                    type="text"
-                    value={formState}
-                    onChange={e => setFormState(e.target.value)}
-                    placeholder="e.g. Idaho"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Creator&apos;s State
+                </label>
+                <input
+                  type="text"
+                  value={formState}
+                  onChange={e => setFormState(e.target.value)}
+                  placeholder="e.g. Idaho"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '14px',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    outline: 'none',
+                  }}
+                />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Increases to % <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formTierPct}
-                    onChange={e => setFormTierPct(e.target.value)}
-                    placeholder="e.g. 30"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    After $/month <span style={{ color: '#999', fontWeight: 400 }}>(threshold)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formTierThreshold}
-                    onChange={e => setFormTierThreshold(e.target.value)}
-                    placeholder="e.g. 12000"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
+
+              {/* Commission Tiers */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '8px' }}>
+                  Commission Structure
+                </label>
+                {commissionTiers.map((tier, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={tier.pct}
+                      onChange={e => {
+                        const updated = [...commissionTiers]
+                        updated[i] = { ...updated[i], pct: e.target.value }
+                        setCommissionTiers(updated)
+                      }}
+                      placeholder="%"
+                      style={{
+                        width: '70px',
+                        padding: '10px 12px',
+                        fontSize: '14px',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px',
+                        outline: 'none',
+                        textAlign: 'center',
+                      }}
+                    />
+                    <span style={{ fontSize: '13px', color: '#666', whiteSpace: 'nowrap' }}>
+                      {i === 0 ? 'up to' : 'above'}
+                    </span>
+                    {i < commissionTiers.length - 1 ? (
+                      <input
+                        type="number"
+                        min="0"
+                        value={tier.upTo}
+                        onChange={e => {
+                          const updated = [...commissionTiers]
+                          updated[i] = { ...updated[i], upTo: e.target.value }
+                          setCommissionTiers(updated)
+                        }}
+                        placeholder="$/month"
+                        style={{
+                          width: '120px',
+                          padding: '10px 12px',
+                          fontSize: '14px',
+                          border: '1px solid #e0e0e0',
+                          borderRadius: '8px',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '13px', color: '#666' }}>
+                        {commissionTiers.length > 1 ? `$${Number(commissionTiers[i - 1]?.upTo || 0).toLocaleString()}/month` : '—'}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '13px', color: '#999' }}>/month</span>
+                    {commissionTiers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCommissionTiers(commissionTiers.filter((_, j) => j !== i))}
+                        style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
+                      >
+                        x
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCommissionTiers([...commissionTiers, { pct: '', upTo: '' }])}
+                  style={{
+                    background: 'none',
+                    border: '1px dashed #ddd',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    color: '#999',
+                    cursor: 'pointer',
+                    width: '100%',
+                  }}
+                >
+                  + Add Tier
+                </button>
               </div>
 
               {/* Agency Signature */}
@@ -656,63 +668,81 @@ export default function AdminOnboarding() {
             </p>
 
             <form onSubmit={handleStartExisting}>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Commission %
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formCommission}
-                    onChange={e => setFormCommission(e.target.value)}
-                    placeholder="e.g. 27"
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Creator&apos;s State
-                  </label>
-                  <input
-                    type="text"
-                    value={formState}
-                    onChange={e => setFormState(e.target.value)}
-                    placeholder="e.g. Idaho"
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Creator&apos;s State
+                </label>
+                <input
+                  type="text"
+                  value={formState}
+                  onChange={e => setFormState(e.target.value)}
+                  placeholder="e.g. Idaho"
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    Increases to % <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formTierPct}
-                    onChange={e => setFormTierPct(e.target.value)}
-                    placeholder="e.g. 30"
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                    After $/month <span style={{ color: '#999', fontWeight: 400 }}>(threshold)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formTierThreshold}
-                    onChange={e => setFormTierThreshold(e.target.value)}
-                    placeholder="e.g. 12000"
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
-                  />
-                </div>
+
+              {/* Commission Tiers */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '8px' }}>
+                  Commission Structure
+                </label>
+                {commissionTiers.map((tier, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={tier.pct}
+                      onChange={e => {
+                        const updated = [...commissionTiers]
+                        updated[i] = { ...updated[i], pct: e.target.value }
+                        setCommissionTiers(updated)
+                      }}
+                      placeholder="%"
+                      style={{ width: '70px', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none', textAlign: 'center' }}
+                    />
+                    <span style={{ fontSize: '13px', color: '#666', whiteSpace: 'nowrap' }}>
+                      {i === 0 ? 'up to' : 'above'}
+                    </span>
+                    {i < commissionTiers.length - 1 ? (
+                      <input
+                        type="number"
+                        min="0"
+                        value={tier.upTo}
+                        onChange={e => {
+                          const updated = [...commissionTiers]
+                          updated[i] = { ...updated[i], upTo: e.target.value }
+                          setCommissionTiers(updated)
+                        }}
+                        placeholder="$/month"
+                        style={{ width: '120px', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '13px', color: '#666' }}>
+                        {commissionTiers.length > 1 ? `$${Number(commissionTiers[i - 1]?.upTo || 0).toLocaleString()}/month` : '—'}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '13px', color: '#999' }}>/month</span>
+                    {commissionTiers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCommissionTiers(commissionTiers.filter((_, j) => j !== i))}
+                        style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
+                      >
+                        x
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCommissionTiers([...commissionTiers, { pct: '', upTo: '' }])}
+                  style={{ background: 'none', border: '1px dashed #ddd', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', color: '#999', cursor: 'pointer', width: '100%' }}
+                >
+                  + Add Tier
+                </button>
               </div>
+
               {!editCreator.email && (
                 <div style={{ marginBottom: '14px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
