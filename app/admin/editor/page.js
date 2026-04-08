@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { EditorDashboardContent, getSlotLabel } from '@/components/EditorDashboard'
 import PostsPage from '@/app/admin/posts/page'
@@ -1582,8 +1582,15 @@ function ForReview({ showToast }) {
 
 export default function EditorQueue() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'editorview')
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveSection(t) }, [searchParams])
+
+  const switchSection = (key) => {
+    setActiveSection(key)
+    router.replace(`${pathname}?tab=${key}`, { scroll: false })
+  }
   const [toast, setToast] = useState(null)
   const [notifStatus, setNotifStatus] = useState('idle') // 'idle' | 'subscribed' | 'denied'
 
@@ -1673,7 +1680,7 @@ export default function EditorQueue() {
         {TABS.map(tab => (
           <button
             key={tab.key}
-            onClick={() => setActiveSection(tab.key)}
+            onClick={() => switchSection(tab.key)}
             style={{
               padding: '8px 20px', fontSize: '13px', fontWeight: 600,
               background: activeSection === tab.key ? '#FFF0F3' : 'transparent',
