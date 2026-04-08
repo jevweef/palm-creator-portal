@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { tagStyle } from '@/lib/tagStyle'
 import QuotaBar from '@/components/QuotaBar'
 import InspoCard from '@/components/InspoCard'
@@ -217,11 +217,12 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
   const { user } = useUser()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'saved')
 
   const switchTab = (tab) => {
     setActiveTab(tab)
-    router.replace(`/my-content?tab=${tab}`, { scroll: false })
+    router.replace(`${pathname}?tab=${tab}`, { scroll: false })
   }
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
