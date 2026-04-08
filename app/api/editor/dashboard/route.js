@@ -168,11 +168,6 @@ export async function GET() {
         editorNotes: task.fields?.['Editor Notes'] || '',
         completedAt: task.fields?.['Completed At'] || null,
         etCompletedDate: toETDateStr(task.fields?.['Completed At'] || ''),
-        // For approved/sent tasks, use the post scheduled date as the "slot date"
-        // so they stay on the day they're scheduled for, not the day they were completed
-        etSlotDate: taskScheduledDateMap[task.id]
-          ? toETDateStr(taskScheduledDateMap[task.id])
-          : toETDateStr(task.fields?.['Completed At'] || ''),
         telegramSentAt: taskTelegramMap[task.id] || null,
         postScheduledDate: taskScheduledDateMap[task.id] || null,
         asset: {
@@ -313,7 +308,7 @@ export async function GET() {
 
       const doneTodayList = ctasks.filter(t =>
         t.status === 'Done' &&
-        t.etSlotDate === todayStr &&
+        t.etCompletedDate === todayStr &&
         t.adminReviewStatus !== 'Needs Revision'
       )
 
@@ -321,7 +316,7 @@ export async function GET() {
       const recentDone = ctasks.filter(t =>
         t.status === 'Done' &&
         t.adminReviewStatus !== 'Needs Revision' &&
-        t.etSlotDate >= twoWeeksAgoStr
+        t.etCompletedDate >= twoWeeksAgoStr
       )
 
       return {

@@ -1548,7 +1548,7 @@ function CreatorSection({ creator, onRefresh }) {
       const isToday = ds === todayDateStr
       const isFuture = ds > todayDateStr
       const doneTasks = sortBySlot((creator.recentDone || [])
-        .filter(t => t.etSlotDate === ds))
+        .filter(t => t.etCompletedDate === ds))
       const ipTasks = isToday ? (creator.inProgress || []) : []
       const qTasks = isToday ? (creator.queue || []) : []
       for (let s = 0; s < dailyQuota; s++) {
@@ -1571,7 +1571,7 @@ function CreatorSection({ creator, onRefresh }) {
   const selectedDoneList = sortBySlot(
     isToday
       ? (creator.doneTodayList || [])
-      : (creator.recentDone || []).filter(t => t.etSlotDate === selectedDate)
+      : (creator.recentDone || []).filter(t => t.etCompletedDate === selectedDate)
   )
 
   // All active items = in-progress + to-do + inspo clips (in priority order)
@@ -1718,7 +1718,7 @@ function CreatorSection({ creator, onRefresh }) {
               let slotLabel
               if (slot.type === 'done') {
                 // Use the ET calendar date of completion + position-based slot name
-                const etDate = slot.task?.etSlotDate || slot.task?.etCompletedDate || selectedDate
+                const etDate = slot.task?.etCompletedDate || selectedDate
                 const [ey, em, ed] = etDate.split('-').map(Number)
                 const completionDateLabel = `${em}/${ed}`
                 slotLabel = `${completionDateLabel} / ${slotNames[i] || `Slot ${i + 1}`}`
