@@ -427,7 +427,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
 
           {activeTab === 'uploaded' && (
             data.uploaded.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {data.uploaded.map((item) => (
                   <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
@@ -437,7 +437,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
 
           {activeTab === 'editing' && (
             data.editing.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {data.editing.map((item) => (
                   <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
@@ -447,7 +447,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
 
           {activeTab === 'scheduled' && (
             data.scheduled.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {data.scheduled.map((item) => (
                   <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
@@ -457,7 +457,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
 
           {activeTab === 'posted' && (
             data.posted.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {data.posted.map((item) => (
                   <PipelineCard key={item.assetId} item={item} onClick={() => setPipelineItem(item)} />
                 ))}
