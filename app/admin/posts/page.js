@@ -96,7 +96,12 @@ function TelegramModal({ post, onClose, onSent }) {
           scheduledDate: post.scheduledDate ? etLocalToUTC(post.scheduledDate) : undefined,
         }),
       })
-      const data = await res.json()
+      let data
+      try {
+        data = await res.json()
+      } catch {
+        throw new Error(res.status === 504 ? 'Request timed out — the file may be too large. Try again.' : `Server error (${res.status})`)
+      }
       if (!res.ok) throw new Error(data.error || 'Send failed')
       onSent()
       onClose()
