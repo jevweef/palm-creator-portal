@@ -131,12 +131,44 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
   return (
     <div>
       <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
-        Voice Memo
+        Palm Creator Profile & Content Strategy Intake
       </h2>
+      <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px', lineHeight: '1.5' }}>
+        For the voice memo, just ramble for like 5–10 minutes. Don&apos;t overthink it at all.
+      </p>
+
+      <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: 500 }}>
+        A few things that would be helpful to touch on:
+      </div>
+      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '20px', paddingLeft: '18px' }}>
+        <li>What your normal week looks like (what you actually do day-to-day)</li>
+        <li>How you currently film content (random clips throughout the day vs batching vs full shoot days)</li>
+        <li>How much time you realistically have each week to film</li>
+        <li>What your living setup is like (apartment/house, lighting, space, etc.)</li>
+        <li>What places you regularly go to (gym, coffee shops, nightlife, work, etc.)</li>
+        <li>How often you go out, travel, or do anything social</li>
+        <li>Whether you have anyone who could film for you (friends, especially someone comfortable behind the camera)</li>
+        <li>Whether you prefer filming alone or with someone else</li>
+        <li>What types of clips you&apos;ve already filmed before (even if they&apos;re random)</li>
+        <li>What types of videos you&apos;d realistically be down to repeat every week (talking videos, GRWM, day in the life, going out, gym, etc.)</li>
+        <li>What types of videos you would NOT want to do consistently</li>
+        <li>What creators you like watching and what stands out about them</li>
+        <li>What kind of overall vibe you want your content to have (chill, outgoing, flirty, lifestyle, etc.)</li>
+        <li>What you feel like you already have easy access to that could be used for content (locations, routines, hobbies, etc.)</li>
+        <li>Anything you think could turn into a repeatable series</li>
+      </ul>
+
+      <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: 500 }}>
+        Also one important thing:
+      </div>
+      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '20px', paddingLeft: '18px' }}>
+        <li>We often add text/captions over videos that are flirty, suggestive, and sometimes a bit edgy to drive engagement. Are you comfortable with that overall direction?</li>
+        <li>Are there any hard boundaries we should not cross with captions or tone?</li>
+        <li>Are you okay with us handling captions/creative without needing to approve each one, as long as we stay within your boundaries?</li>
+      </ul>
+
       <p style={{ fontSize: '13px', color: '#999', marginBottom: '24px', lineHeight: '1.5' }}>
-        Record a voice memo telling us about yourself — your personality, how you talk to fans,
-        what makes you unique. Talk naturally, like you&apos;re explaining yourself to a friend.
-        2-5 minutes is perfect.
+        Doesn&apos;t need to be structured. Just talk through it casually.
       </p>
 
       {error && (
