@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchHqRecord, patchHqRecord } from '@/lib/hqAirtable'
+import { createAirtableRecord } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
@@ -115,11 +116,31 @@ export async function POST(request) {
     const sharedLink = await createDropboxSharedLink(accessToken, rootNs, dropboxPath)
     const directUrl = sharedLink.replace('?dl=0', '?raw=1').replace('&dl=0', '&raw=1')
 
-    // Save to Airtable
+    // Save to HQ Airtable
     await patchHqRecord(HQ_CREATORS, hqId, {
       'Voice Memo': [{ url: directUrl, filename }],
       'Voice Memo Status': { name: 'Uploaded' },
     })
+
+    // Register as a Creator Profile Document for DNA analysis
+    const opsId = user?.publicMetadata?.airtableOpsId
+    if (opsId) {
+      try {
+        await createAirtableRecord('Creator Profile Documents', {
+          'File Name': filename,
+          'File Type': 'Audio',
+          'Dropbox Path': dropboxPath,
+          'Upload Date': new Date().toISOString().split('T')[0],
+          'Analysis Status': 'Pending',
+          'Extracted Text': '',
+          'Notes': 'Onboarding voice memo',
+          'Creator': [opsId],
+        })
+      } catch (docErr) {
+        // Non-blocking — voice memo is saved even if doc registration fails
+        console.error('[voice-memo] Profile doc registration failed:', docErr.message)
+      }
+    }
 
     return NextResponse.json({ success: true, filename, dropboxUrl: sharedLink })
   } catch (err) {
