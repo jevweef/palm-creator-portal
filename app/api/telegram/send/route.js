@@ -216,15 +216,44 @@ export async function POST(request) {
     let result
 
     if (!needsRemux || fileSize > URL_THRESHOLD) {
-      // Send via URL — no download needed. Fastest path for MP4 files.
+      // URL method — video stays on Dropbox, only download/resize the thumbnail
       console.log(`[Telegram Send] Using URL method (${needsRemux ? 'too large' : 'MP4, no remux needed'})`)
-      const baseParams = { chat_id: chatId, message_thread_id: threadId, ...(caption ? { caption } : {}) }
-      if (isVideo(editedFileLink)) {
-        result = await telegramJson('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
-      } else if (isPhoto(editedFileLink)) {
-        result = await telegramJson('sendPhoto', { ...baseParams, photo: rawUrl })
+
+      if (isVideo(editedFileLink) && thumbnailUrl) {
+        // Download + resize thumbnail, then send as media group with video URL
+        try {
+          console.log('[Telegram Send] Downloading thumbnail for media group...')
+          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
+          if (!thumbRes.ok) throw new Error('Thumbnail download failed')
+          const rawThumbBuffer = await thumbRes.arrayBuffer()
+          console.log(`[Telegram Send] Resizing thumbnail (${(rawThumbBuffer.byteLength / 1024 / 1024).toFixed(1)}MB)...`)
+          const thumbBuffer = await resizeImage(rawThumbBuffer, getFilename(thumbnailUrl))
+          console.log(`[Telegram Send] Thumbnail resized to ${(thumbBuffer.length / 1024).toFixed(0)}KB`)
+
+          const form = new FormData()
+          form.append('chat_id', String(chatId))
+          form.append('message_thread_id', String(threadId))
+          const mediaGroup = [
+            { type: 'video', media: rawUrl, thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
+            { type: 'photo', media: 'attach://photo_file' },
+          ]
+          form.append('media', JSON.stringify(mediaGroup))
+          form.append('thumb_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
+          form.append('photo_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
+          result = await telegramUpload('sendMediaGroup', form)
+        } catch (err) {
+          console.warn('[Telegram Send] Media group with URL failed, falling back to sendVideo:', err.message)
+          result = await telegramJson('sendVideo', { chat_id: chatId, message_thread_id: threadId, video: rawUrl, supports_streaming: true, ...(caption ? { caption } : {}) })
+        }
       } else {
-        result = await telegramJson('sendDocument', { ...baseParams, document: rawUrl })
+        const baseParams = { chat_id: chatId, message_thread_id: threadId, ...(caption ? { caption } : {}) }
+        if (isVideo(editedFileLink)) {
+          result = await telegramJson('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
+        } else if (isPhoto(editedFileLink)) {
+          result = await telegramJson('sendPhoto', { ...baseParams, photo: rawUrl })
+        } else {
+          result = await telegramJson('sendDocument', { ...baseParams, document: rawUrl })
+        }
       }
     } else {
       // MOV under 50MB — download, remux, upload as multipart
