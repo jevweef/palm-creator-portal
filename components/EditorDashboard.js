@@ -931,7 +931,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
         </div>
       )}
 
-      {/* Music tabs: For Creator | Top 50 USA */}
+      {/* Music tabs: For Creator | Billboard Hot 100 */}
       <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid #E0D4F0', marginBottom: '8px' }}>
         <button onClick={() => { setMusicTab('creator'); if (!suggestions && hasPlaylist) handleGetSuggestions() }}
           style={{ flex: 1, padding: '5px 8px', fontSize: '10px', fontWeight: musicTab === 'creator' ? 700 : 400, color: musicTab === 'creator' ? '#7C3AED' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'creator' ? '2px solid #7C3AED' : '2px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
@@ -939,7 +939,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
         </button>
         <button onClick={() => { setMusicTab('top50'); fetchTop50() }}
           style={{ flex: 1, padding: '5px 8px', fontSize: '10px', fontWeight: musicTab === 'top50' ? 700 : 400, color: musicTab === 'top50' ? '#7C3AED' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'top50' ? '2px solid #7C3AED' : '2px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
-          Top 50 USA
+          Billboard Hot 100
         </button>
       </div>
 
@@ -964,7 +964,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
         </>
       )}
 
-      {/* Top 50 USA tab */}
+      {/* Billboard Hot 100 tab */}
       {musicTab === 'top50' && (
         loadingTop50 ? (
           <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
