@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId } from '@/lib/dropbox'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/creator-profile/upload-token?creatorName=Taby
 // Returns a short-lived Dropbox access token + namespace ID so the
 // browser can upload large files directly to Dropbox (bypasses Vercel body limit).

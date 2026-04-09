@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, airtableHeaders, OPS_BASE } from '@/lib/adminAuth'
 
+export const dynamic = 'force-dynamic'
+
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 const PROFILE_DOCS_TABLE = 'tblzRPH4149dUg0SL'
 const TAG_WEIGHTS_TABLE = 'tbljiwFQBknbUCpc6'

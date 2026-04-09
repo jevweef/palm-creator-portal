@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/creator/tag-weights?creatorOpsId=recXXX
 // Returns tag weights for a creator. Accessible by the creator themselves or admin.
 export async function GET(request) {

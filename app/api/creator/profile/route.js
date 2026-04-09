@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords, airtableHeaders, OPS_BASE } from '@/lib/adminAuth'
 
+export const dynamic = 'force-dynamic'
+
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 
 // GET /api/creator/profile?creatorOpsId=recXXX
