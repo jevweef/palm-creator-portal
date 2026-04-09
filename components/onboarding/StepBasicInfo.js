@@ -211,23 +211,6 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
       </div>
 
       <button
-        type="button"
-        onClick={() => onSave(null)}
-        style={{
-          marginTop: '28px',
-          marginRight: '10px',
-          padding: '10px 24px',
-          background: '#f5f5f5',
-          color: '#666',
-          border: 'none',
-          borderRadius: '8px',
-          fontSize: '14px',
-          cursor: 'pointer',
-        }}
-      >
-        Skip
-      </button>
-      <button
         type="submit"
         disabled={saving || !form.name}
         style={{

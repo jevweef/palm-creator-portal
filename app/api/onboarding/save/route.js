@@ -47,6 +47,12 @@ export async function POST(request) {
       if (data.ofPassword) fields['OF Password'] = data.ofPassword
       if (data.secondOfEmail) fields['2nd OF Email'] = data.secondOfEmail
       if (data.secondOfPassword) fields['2nd OF Password'] = data.secondOfPassword
+      if (data.tiktok) fields['TikTok'] = data.tiktok
+      if (data.twitter) fields['Twitter'] = data.twitter
+      if (data.reddit) fields['Reddit'] = data.reddit
+      if (data.youtube) fields['YouTube'] = data.youtube
+      if (data.oftv) fields['OFTV'] = data.oftv
+      if (data.otherSocials) fields['Other Socials'] = data.otherSocials
     }
 
     if (Object.keys(fields).length > 0) {

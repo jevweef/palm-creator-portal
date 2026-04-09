@@ -40,6 +40,13 @@ export default function OnboardingForm() {
       const data = await res.json()
       if (data.profile) {
         setProfileData(data.profile)
+
+        // Block re-entry if onboarding already completed
+        if (data.profile.onboardingStatus === 'Completed') {
+          router.replace('/dashboard')
+          return
+        }
+
         // Auto-detect completed steps based on saved data
         const completed = []
         if (data.profile.name && data.profile.onboardingStatus === 'In Progress') {
@@ -116,12 +123,6 @@ export default function OnboardingForm() {
   }
 
   const handleSaveBasicInfo = async (data) => {
-    if (!data) {
-      // Skip — advance without saving
-      setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
-      goToStep('accounts')
-      return
-    }
     const ok = await saveStep('basic-info', data)
     if (ok) {
       setCompletedSteps(prev => [...new Set([...prev, 'basic-info'])])
@@ -130,11 +131,6 @@ export default function OnboardingForm() {
   }
 
   const handleSaveAccounts = async (data) => {
-    if (!data) {
-      setCompletedSteps(prev => [...new Set([...prev, 'accounts'])])
-      goToStep('survey')
-      return
-    }
     const ok = await saveStep('accounts', data)
     if (ok) {
       setCompletedSteps(prev => [...new Set([...prev, 'accounts'])])
@@ -312,6 +308,9 @@ export default function OnboardingForm() {
               hqId={hqId}
               completedSteps={completedSteps}
               onGoToStep={goToStep}
+              onSubmitted={() => {
+                setTimeout(() => router.push('/dashboard'), 2000)
+              }}
             />
           )}
         </div>

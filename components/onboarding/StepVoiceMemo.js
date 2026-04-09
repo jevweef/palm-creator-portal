@@ -307,12 +307,18 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
       {confirmed && (
         <button
           onClick={async () => {
-            const formData = new FormData()
-            formData.append('hqId', hqId)
-            formData.append('confirmed', 'true')
-            await fetch('/api/onboarding/voice-memo', { method: 'POST', body: formData })
-            setRecState('done')
-            onComplete()
+            try {
+              const formData = new FormData()
+              formData.append('hqId', hqId)
+              formData.append('confirmed', 'true')
+              const res = await fetch('/api/onboarding/voice-memo', { method: 'POST', body: formData })
+              if (!res.ok) throw new Error('Failed to save')
+              setRecState('done')
+              onComplete()
+            } catch (err) {
+              console.error('Confirm error:', err)
+              setError('Failed to save confirmation. Please try again.')
+            }
           }}
           style={{
             padding: '10px 32px',

@@ -10,7 +10,7 @@ const STEPS = [
   { key: 'voice-memo', label: 'Voice Memo', num: 5 },
 ]
 
-export default function StepReview({ hqId, completedSteps, onGoToStep }) {
+export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitted }) {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [profileData, setProfileData] = useState(null)
@@ -60,6 +60,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep }) {
       })
       if (res.ok) {
         setSubmitted(true)
+        if (onSubmitted) onSubmitted()
       }
     } catch (err) {
       console.error('Submit error:', err)
