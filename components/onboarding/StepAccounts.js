@@ -179,22 +179,33 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
         otherSocials: initialData.otherSocials || '',
       }))
       // Restore selected platforms from initialData
-      const restored = []
+      const restored = initialData.selectedPlatforms?.length > 0
+        ? [...initialData.selectedPlatforms]
+        : []
       const restoredData = {}
+
+      // Restore from saved selectedPlatforms or detect from existing data
       if (initialData.ofUrl || initialData.ofEmail) {
-        // Try to detect which platform based on existing data
-        restored.push('freeOf')
+        if (!restored.includes('freeOf')) restored.push('freeOf')
         restoredData.freeOf = {
           username: initialData.ofUrl || '',
           email: initialData.ofEmail || '',
           password: '',
         }
       }
-      if (initialData.secondOfEmail) {
-        restored.push('vipOf')
+      if (initialData.secondOfUrl || initialData.secondOfEmail) {
+        if (!restored.includes('vipOf')) restored.push('vipOf')
         restoredData.vipOf = {
-          username: '',
+          username: initialData.secondOfUrl || '',
           email: initialData.secondOfEmail || '',
+          password: '',
+        }
+      }
+      if (initialData.fanslyUsername || initialData.fanslyEmail) {
+        if (!restored.includes('fansly')) restored.push('fansly')
+        restoredData.fansly = {
+          username: initialData.fanslyUsername || '',
+          email: initialData.fanslyEmail || '',
           password: '',
         }
       }

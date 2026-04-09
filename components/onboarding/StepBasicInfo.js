@@ -41,7 +41,6 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
     location: '',
     igAccount: '',
     timeZone: '',
-    address: '',
     communication: [],
     telegram: '',
   })
@@ -57,7 +56,6 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
         location: initialData.location || prev.location,
         igAccount: initialData.igAccount || prev.igAccount,
         timeZone: initialData.timeZone || prev.timeZone,
-        address: initialData.address || prev.address,
         communication: initialData.communication || prev.communication,
         telegram: initialData.telegram || prev.telegram,
       }))
@@ -133,17 +131,6 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
             value={form.location}
             onChange={e => update('location', e.target.value)}
             placeholder="City, State / Country"
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Mailing Address</label>
-          <input
-            type="text"
-            value={form.address}
-            onChange={e => update('address', e.target.value)}
-            placeholder="Full mailing address (for contracts & shipping)"
             style={inputStyle}
           />
         </div>
