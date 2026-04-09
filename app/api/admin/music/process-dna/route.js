@@ -4,6 +4,40 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
 import { getPlaylistTracks, searchAndEnrich } from '@/lib/spotify'
 
+// Scrape Apple Music playlist page for track names + artists
+async function scrapeAppleMusicPlaylist(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+  })
+  if (!res.ok) throw new Error(`Apple Music fetch failed: ${res.status}`)
+  const html = await res.text()
+
+  const jsonMatch = html.match(/<script[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/)
+  if (!jsonMatch) throw new Error('Could not find track data on Apple Music page')
+
+  const data = JSON.parse(jsonMatch[1])
+
+  // Find track-lockup items in the nested JSON
+  function findTrackItems(obj, results = []) {
+    if (!obj || typeof obj !== 'object') return results
+    if (obj.id && typeof obj.id === 'string' && obj.id.startsWith('track-lockup')) {
+      results.push(obj)
+      return results
+    }
+    const values = Array.isArray(obj) ? obj : Object.values(obj)
+    for (const val of values) findTrackItems(val, results)
+    return results
+  }
+
+  const trackItems = findTrackItems(data)
+  if (!trackItems.length) throw new Error('No tracks found on Apple Music page')
+
+  return trackItems.map(t => ({
+    title: t.title || '',
+    artist: t.artistName || t.subtitleLinks?.[0]?.title || '',
+  })).filter(t => t.title)
+}
+
 // POST — process a creator's music DNA input
 // Accepts: Spotify playlist URL, Apple Music playlist URL, or text list of songs
 // Enriches with Spotify metadata and saves to Airtable
@@ -89,12 +123,31 @@ export async function POST(request) {
       }
 
     } else if (inputType === 'apple_music') {
-      // Apple Music — extract track names and search Spotify
-      // For MVP: treat the URL as a hint and ask user to also provide text list
-      console.log('[Music DNA] Apple Music URL — falling back to text search...')
-      return NextResponse.json({
-        error: 'Apple Music playlist parsing is not yet supported. Please paste the song list as text instead.',
-      }, { status: 400 })
+      // Apple Music — scrape the web page for track data, then search Spotify
+      console.log('[Music DNA] Processing Apple Music playlist...')
+      const amTracks = await scrapeAppleMusicPlaylist(rawInput)
+
+      // Search Spotify for each track (batch 5 at a time)
+      for (let i = 0; i < amTracks.length; i += 5) {
+        const batch = amTracks.slice(i, i + 5)
+        const results = await Promise.all(batch.map(async (t) => {
+          try {
+            const result = await searchAndEnrich(`${t.artist} ${t.title}`)
+            if (result) return {
+              track: result.track, artist: result.artist, spotifyId: result.spotifyId,
+              spotifyUrl: result.spotifyUrl, previewUrl: result.previewUrl, album: result.album,
+              genres: result.genres || [],
+            }
+          } catch (e) {
+            console.warn(`[Music DNA] Spotify search failed for "${t.artist} ${t.title}":`, e.message)
+          }
+          return {
+            track: t.title, artist: t.artist, spotifyId: null,
+            spotifyUrl: null, previewUrl: null, album: '', genres: [],
+          }
+        }))
+        tracks.push(...results)
+      }
 
     } else {
       return NextResponse.json({ error: 'Invalid inputType. Use: spotify_playlist, text_list, or apple_music' }, { status: 400 })
