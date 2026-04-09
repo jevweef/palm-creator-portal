@@ -115,6 +115,18 @@ export default function Header() {
               >
                 Inspo Board
               </Link>
+              <Link
+                href={`/creator/${creatorIdFromPath}/content-request${hqSuffix}`}
+                style={{
+                  fontSize: '13px',
+                  fontWeight: pathname?.includes('/content-request') ? 600 : 400,
+                  color: pathname?.includes('/content-request') ? '#1a1a1a' : '#999',
+                  textDecoration: 'none',
+                  transition: 'color 0.15s',
+                }}
+              >
+                Content Request
+              </Link>
             </>
           ) : (
             <>
@@ -153,6 +165,18 @@ export default function Header() {
                 }}
               >
                 Inspo Board
+              </Link>
+              <Link
+                href="/content-request"
+                style={{
+                  fontSize: '13px',
+                  fontWeight: pathname === '/content-request' ? 600 : 400,
+                  color: pathname === '/content-request' ? '#1a1a1a' : '#999',
+                  textDecoration: 'none',
+                  transition: 'color 0.15s',
+                }}
+              >
+                Content Request
               </Link>
               {isAdmin && (
                 <Link
