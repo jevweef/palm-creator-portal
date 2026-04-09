@@ -731,7 +731,7 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
 
 function TrackList({ tracks, playingPreview, setPlayingPreview, downloading, handleDownload }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '300px', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '500px', overflowY: 'auto' }}>
       {tracks.map((track, i) => (
         <div key={track.spotifyId || i}>
           <div style={{
