@@ -6,38 +6,26 @@ const OPS_BASE = 'applLIT2t83plMqNx'
 const CONTENT_REQUESTS = 'tblr1QLpcyD7p5HRb'
 const CONTENT_REQUEST_ITEMS = 'tblXsW7GsyZrplVkq'
 const CONTENT_REQUEST_TEMPLATES = 'tblpvD4cbs8KlbexQ'
-const CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 
 const airtableHeaders = {
   Authorization: `Bearer ${AIRTABLE_PAT}`,
   'Content-Type': 'application/json',
 }
 
-async function fetchAllRecords(table, params = {}) {
-  const records = []
-  let offset = null
-  do {
-    const query = new URLSearchParams()
-    if (offset) query.set('offset', offset)
-    if (params.filterByFormula) query.set('filterByFormula', params.filterByFormula)
-    if (params.sort) {
-      params.sort.forEach((s, i) => {
-        query.set(`sort[${i}][field]`, s.field)
-        if (s.direction) query.set(`sort[${i}][direction]`, s.direction)
-      })
-    }
-    if (params.fields) {
-      params.fields.forEach(f => query.append('fields[]', f))
-    }
-    if (params.maxRecords) query.set('maxRecords', String(params.maxRecords))
-    const url = `https://api.airtable.com/v0/${OPS_BASE}/${table}?${query}`
-    const res = await fetch(url, { headers: airtableHeaders, cache: 'no-store' })
-    if (!res.ok) throw new Error(`Airtable ${res.status}: ${await res.text()}`)
-    const data = await res.json()
-    records.push(...(data.records || []))
-    offset = data.offset || null
-  } while (offset)
-  return records
+async function fetchRecords(table, params = {}) {
+  const query = new URLSearchParams()
+  if (params.filterByFormula) query.set('filterByFormula', params.filterByFormula)
+  if (params.sort) {
+    params.sort.forEach((s, i) => {
+      query.set(`sort[${i}][field]`, s.field)
+      if (s.direction) query.set(`sort[${i}][direction]`, s.direction)
+    })
+  }
+  const url = `https://api.airtable.com/v0/${OPS_BASE}/${table}?${query}`
+  const res = await fetch(url, { headers: airtableHeaders, cache: 'no-store' })
+  if (!res.ok) throw new Error(`Airtable ${res.status}: ${await res.text()}`)
+  const data = await res.json()
+  return data.records || []
 }
 
 export async function GET(request) {
@@ -59,55 +47,45 @@ export async function GET(request) {
       return NextResponse.json({ error: 'No creator profile linked' }, { status: 400 })
     }
 
-    // Fetch creator name for filtering (linked record fields show names in formulas)
-    const creatorRes = await fetch(
-      `https://api.airtable.com/v0/${OPS_BASE}/${CREATORS_TABLE}/${creatorOpsId}?fields%5B%5D=Creator`,
-      { headers: airtableHeaders, cache: 'no-store' }
-    )
-    if (!creatorRes.ok) {
-      return NextResponse.json({ request: null, sections: [], templates: [] })
-    }
-    const creator = await creatorRes.json()
-    const creatorName = creator.fields?.['Creator'] || ''
-
-    if (!creatorName) {
-      return NextResponse.json({ request: null, sections: [], templates: [] })
-    }
-
-    // Find active content request for this creator using creator name
-    const requests = await fetchAllRecords(CONTENT_REQUESTS, {
-      filterByFormula: `AND({Status}="Active", FIND("${creatorName}", ARRAYJOIN({Creator})))`,
-      maxRecords: 1,
+    // Step 1: Fetch templates (fast, always works — this is the structure)
+    const templates = await fetchRecords(CONTENT_REQUEST_TEMPLATES, {
+      sort: [{ field: 'Sort Order', direction: 'asc' }],
     })
 
-    if (!requests.length) {
-      return NextResponse.json({ request: null, sections: [], templates: [] })
+    // Step 2: Try to find an active content request for this creator
+    let contentRequest = null
+    let existingItems = []
+    try {
+      const allActive = await fetchRecords(CONTENT_REQUESTS, {
+        filterByFormula: `{Status}="Active"`,
+      })
+      // REST API linked records are plain arrays of record IDs
+      contentRequest = allActive.find(r => {
+        const links = r.fields['Creator'] || []
+        return links.includes(creatorOpsId)
+      })
+
+      // Step 3: If we have a request, fetch any existing uploaded items
+      if (contentRequest) {
+        const allItems = await fetchRecords(CONTENT_REQUEST_ITEMS, {})
+        existingItems = allItems.filter(item => {
+          const reqLinks = item.fields['Content Request'] || []
+          return reqLinks.includes(contentRequest.id)
+        })
+      }
+    } catch (err) {
+      // If content request / items fetch fails, still show structure from templates
+      console.warn('[content-request] Could not fetch request/items:', err.message)
     }
 
-    const contentRequest = requests[0]
-
-    // Fetch templates and existing items in parallel
-    const [templates, existingItems] = await Promise.all([
-      fetchAllRecords(CONTENT_REQUEST_TEMPLATES, {
-        sort: [{ field: 'Sort Order', direction: 'asc' }],
-      }),
-      fetchAllRecords(CONTENT_REQUEST_ITEMS, {
-        filterByFormula: `AND(FIND("${contentRequest.fields['Title']}", ARRAYJOIN({Content Request})), FIND("${creatorName}", ARRAYJOIN({Creator})))`,
-        sort: [
-          { field: 'Section Order', direction: 'asc' },
-          { field: 'Item Order', direction: 'asc' },
-        ],
-      }),
-    ])
-
-    // Build a lookup of existing items by section+order
+    // Build lookup of existing items
     const existingByKey = {}
     for (const item of existingItems) {
       const key = `${item.fields['Section']}|${item.fields['Item Order']}`
       existingByKey[key] = item
     }
 
-    // Build sections from templates, merging in any existing uploaded items
+    // Build sections from templates
     const sections = []
     const templateInfo = []
 
@@ -125,7 +103,11 @@ export async function GET(request) {
 
       const itemCount = f['Item Count'] || 0
       const labelPattern = f['Item Label Pattern'] || f['Name']
-      const scripts = f['Script Template'] ? JSON.parse(f['Script Template']) : []
+      let scripts = []
+      try {
+        scripts = f['Script Template'] ? JSON.parse(f['Script Template']) : []
+      } catch (e) { /* ignore parse errors */ }
+
       const sectionItems = []
 
       for (let i = 1; i <= itemCount; i++) {
@@ -134,7 +116,6 @@ export async function GET(request) {
         const existing = existingByKey[key]
 
         if (existing) {
-          // Use the real Airtable record
           sectionItems.push({
             id: existing.id,
             label: existing.fields['Label'] || label,
@@ -152,9 +133,8 @@ export async function GET(request) {
             itemOrder: i,
           })
         } else {
-          // Virtual item — no Airtable record yet (created on first upload)
           sectionItems.push({
-            id: null, // No record yet
+            id: null,
             label,
             status: 'Not Started',
             scriptText: scripts[i - 1] || '',
@@ -168,9 +148,8 @@ export async function GET(request) {
             acceptedFileTypes: f['Accepted File Types'] || '',
             sectionOrder: f['Sort Order'] || 0,
             itemOrder: i,
-            // Info needed to create the record on first upload
             _section: f['Name'],
-            _requestId: contentRequest.id,
+            _requestId: contentRequest?.id || '',
             _creatorOpsId: creatorOpsId,
           })
         }
@@ -184,12 +163,19 @@ export async function GET(request) {
     }
 
     return NextResponse.json({
-      request: {
+      request: contentRequest ? {
         id: contentRequest.id,
-        title: contentRequest.fields['Title'] || '',
+        title: contentRequest.fields['Title'] || 'Content Request',
         dueDate: contentRequest.fields['Due Date'] || '',
-        status: contentRequest.fields['Status'] || '',
+        status: contentRequest.fields['Status'] || 'Active',
         month: contentRequest.fields['Month'] || '',
+      } : {
+        // Fallback so the UI still renders the structure
+        id: null,
+        title: 'Content Request Preview',
+        dueDate: '',
+        status: 'Active',
+        month: '',
       },
       sections,
       templates: templateInfo,
