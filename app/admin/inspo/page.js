@@ -1,21 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import AdminPipeline from '@/app/admin/page'
 import AdminSources from '@/app/admin/sources/page'
 import AdminReview from '@/app/admin/review/page'
 import AdminImport from '@/app/admin/import/page'
+import TextTrainingPage from '@/app/admin/training/page'
 
 const TABS = [
   { key: 'pipeline', label: 'Pipeline', icon: '⚡' },
   { key: 'sources', label: 'Sources', icon: '📡' },
   { key: 'review', label: 'Review', icon: '✅' },
   { key: 'import', label: 'Import', icon: '📥' },
+  { key: 'training', label: 'Training', icon: '🧠' },
 ]
 
 export default function InspoBoard() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'pipeline')
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
 
@@ -31,7 +35,7 @@ export default function InspoBoard() {
         {TABS.map(tab => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => { setActiveTab(tab.key); router.replace(`${pathname}?tab=${tab.key}`, { scroll: false }) }}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === tab.key ? 600 : 400,
@@ -53,6 +57,7 @@ export default function InspoBoard() {
       {activeTab === 'sources' && <AdminSources />}
       {activeTab === 'review' && <AdminReview />}
       {activeTab === 'import' && <AdminImport />}
+      {activeTab === 'training' && <TextTrainingPage />}
     </div>
   )
 }
