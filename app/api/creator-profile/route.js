@@ -78,8 +78,20 @@ export async function GET(request) {
       address: c['Address'] || '',
       communication: c['Communication'] || [],
       ofPassword: c['OF Password'] ? '********' : '',
+      secondOfUrl: c['2nd OF URL'] || '',
       secondOfEmail: c['2nd OF Email'] || '',
       secondOfPassword: c['2nd OF Password'] ? '********' : '',
+      fanslyUsername: c['Fansly Username'] || '',
+      fanslyEmail: c['Fansly Email'] || '',
+      fanslyPassword: c['Fansly Password'] ? '********' : '',
+      selectedPlatforms: (() => { try { return JSON.parse(c['Selected Platforms'] || '[]') } catch { return [] } })(),
+      birthday: c['Birthday'] || '',
+      tiktok: c['TikTok'] || '',
+      twitter: c['Twitter'] || '',
+      reddit: c['Reddit'] || '',
+      youtube: c['YouTube'] || '',
+      oftv: c['OFTV'] || '',
+      otherSocials: c['Other Socials'] || '',
     }
 
     // Parse onboarding (Dropbox links)

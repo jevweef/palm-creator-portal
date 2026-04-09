@@ -29,12 +29,12 @@ export async function POST(request) {
 
     if (step === 'basic-info') {
       if (data.name) fields['Creator'] = data.name
-      if (data.stageName) fields['AKA'] = data.stageName
+      if (data.stageName !== undefined) fields['AKA'] = data.stageName
       if (data.birthday) fields['Birthday'] = data.birthday
-      if (data.location) fields['Address'] = data.location
-      if (data.igAccount) fields['IG Account'] = data.igAccount
-      if (data.timeZone) fields['Time Zone'] = data.timeZone
-      if (data.telegram) fields['Telegram'] = data.telegram
+      if (data.location !== undefined) fields['Address'] = data.location
+      if (data.igAccount !== undefined) fields['IG Account'] = data.igAccount
+      if (data.timeZone !== undefined) fields['Time Zone'] = data.timeZone
+      if (data.telegram !== undefined) fields['Telegram'] = data.telegram
       if (data.communication && data.communication.length > 0) {
         fields['Communication'] = data.communication
       }
@@ -42,11 +42,25 @@ export async function POST(request) {
     }
 
     if (step === 'accounts') {
-      if (data.ofUrl) fields['Onlyfans URL'] = data.ofUrl
-      if (data.ofEmail) fields['OF Email'] = data.ofEmail
+      // Platform credentials
+      if (data.ofUrl !== undefined) fields['Onlyfans URL'] = data.ofUrl
+      if (data.ofEmail !== undefined) fields['OF Email'] = data.ofEmail
       if (data.ofPassword) fields['OF Password'] = data.ofPassword
-      if (data.secondOfEmail) fields['2nd OF Email'] = data.secondOfEmail
+      if (data.secondOfUrl !== undefined) fields['2nd OF URL'] = data.secondOfUrl
+      if (data.secondOfEmail !== undefined) fields['2nd OF Email'] = data.secondOfEmail
       if (data.secondOfPassword) fields['2nd OF Password'] = data.secondOfPassword
+      if (data.fanslyUsername !== undefined) fields['Fansly Username'] = data.fanslyUsername
+      if (data.fanslyEmail !== undefined) fields['Fansly Email'] = data.fanslyEmail
+      if (data.fanslyPassword) fields['Fansly Password'] = data.fanslyPassword
+      // Social handles
+      if (data.tiktok !== undefined) fields['TikTok'] = data.tiktok
+      if (data.twitter !== undefined) fields['Twitter'] = data.twitter
+      if (data.reddit !== undefined) fields['Reddit'] = data.reddit
+      if (data.youtube !== undefined) fields['YouTube'] = data.youtube
+      if (data.oftv !== undefined) fields['OFTV'] = data.oftv
+      if (data.otherSocials !== undefined) fields['Other Socials'] = data.otherSocials
+      // Track which platforms were selected
+      if (data.selectedPlatforms) fields['Selected Platforms'] = JSON.stringify(data.selectedPlatforms)
     }
 
     if (Object.keys(fields).length > 0) {

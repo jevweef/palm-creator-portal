@@ -12,6 +12,7 @@ const ADMIN_NAV = [
     { key: 'sources', label: 'Sources' },
     { key: 'review', label: 'Review' },
     { key: 'import', label: 'Import' },
+    { key: 'training', label: 'Training' },
   ]},
   { href: '/admin/editor', label: 'Editor', icon: '✂️', children: [
     { key: 'editorview', label: 'Dashboard' },
@@ -29,7 +30,6 @@ const ADMIN_NAV = [
     { key: 'upload', label: 'Raw Data Upload' },
   ]},
   { href: '/admin/help', label: 'Help', icon: '❓' },
-  { href: '/admin/test', label: 'Test', icon: '🧪' },
 ]
 
 const EDITOR_NAV = [

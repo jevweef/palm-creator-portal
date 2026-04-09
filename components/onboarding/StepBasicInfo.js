@@ -31,7 +31,7 @@ const TIMEZONES = [
   { value: 'Other', label: 'Other' },
 ]
 
-const COMM_OPTIONS = ['iMessage', 'WhatsApp', 'Telegram', 'Email', 'Instagram DM']
+const COMM_OPTIONS = ['iMessage', 'WhatsApp', 'Telegram']
 
 export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
   const [form, setForm] = useState({
@@ -41,9 +41,9 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
     location: '',
     igAccount: '',
     timeZone: '',
-    address: '',
     communication: [],
     telegram: '',
+    noTelegram: false,
   })
 
   // Sync initialData when it changes (fixes persistence on navigate back)
@@ -57,7 +57,6 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
         location: initialData.location || prev.location,
         igAccount: initialData.igAccount || prev.igAccount,
         timeZone: initialData.timeZone || prev.timeZone,
-        address: initialData.address || prev.address,
         communication: initialData.communication || prev.communication,
         telegram: initialData.telegram || prev.telegram,
       }))
@@ -106,11 +105,14 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
 
         <div>
           <label style={labelStyle}>Stage Name / AKA</label>
+          <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', lineHeight: '1.4' }}>
+            The name we&apos;ll use on your social accounts, OF page, and bios. Can be your real name or a stage name — whatever your fans know you by.
+          </div>
           <input
             type="text"
             value={form.stageName}
             onChange={e => update('stageName', e.target.value)}
-            placeholder="The name your fans know you by"
+            placeholder='e.g. "Bella," "Mia Rose," or your first name'
             style={inputStyle}
           />
         </div>
@@ -133,17 +135,6 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
             value={form.location}
             onChange={e => update('location', e.target.value)}
             placeholder="City, State / Country"
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Mailing Address</label>
-          <input
-            type="text"
-            value={form.address}
-            onChange={e => update('address', e.target.value)}
-            placeholder="Full mailing address (for contracts & shipping)"
             style={inputStyle}
           />
         </div>
@@ -174,13 +165,38 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
 
         <div>
           <label style={labelStyle}>Telegram</label>
-          <input
-            type="text"
-            value={form.telegram}
-            onChange={e => update('telegram', e.target.value)}
-            placeholder="Your Telegram handle or phone number"
-            style={inputStyle}
-          />
+          <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', lineHeight: '1.4' }}>
+            We use Telegram for day-to-day communication. You can enter your username (e.g. @yourname) or the phone number linked to your account.
+          </div>
+          {!form.noTelegram && (
+            <input
+              type="text"
+              value={form.telegram}
+              onChange={e => update('telegram', e.target.value)}
+              placeholder="@username or phone number"
+              style={inputStyle}
+            />
+          )}
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginTop: '8px',
+            fontSize: '12px',
+            color: '#666',
+            cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={form.noTelegram}
+              onChange={e => {
+                update('noTelegram', e.target.checked)
+                if (e.target.checked) update('telegram', '')
+              }}
+              style={{ accentColor: '#E88FAC' }}
+            />
+            I don&apos;t have Telegram
+          </label>
         </div>
 
         <div>
@@ -210,23 +226,6 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => onSave(null)}
-        style={{
-          marginTop: '28px',
-          marginRight: '10px',
-          padding: '10px 24px',
-          background: '#f5f5f5',
-          color: '#666',
-          border: 'none',
-          borderRadius: '8px',
-          fontSize: '14px',
-          cursor: 'pointer',
-        }}
-      >
-        Skip
-      </button>
       <button
         type="submit"
         disabled={saving || !form.name}

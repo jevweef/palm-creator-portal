@@ -31,6 +31,7 @@ export default function QuestionField({ question, value, onChange, saving }) {
     }
   }
 
+
   const tag = question.teamTag.length === 2 || question.teamTag.includes('Both')
     ? 'Both'
     : question.teamTag[0]
