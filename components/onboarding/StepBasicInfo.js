@@ -43,6 +43,7 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
     timeZone: '',
     communication: [],
     telegram: '',
+    noTelegram: false,
   })
 
   // Sync initialData when it changes (fixes persistence on navigate back)
@@ -164,13 +165,38 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
 
         <div>
           <label style={labelStyle}>Telegram</label>
-          <input
-            type="text"
-            value={form.telegram}
-            onChange={e => update('telegram', e.target.value)}
-            placeholder="Your Telegram handle or phone number"
-            style={inputStyle}
-          />
+          <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', lineHeight: '1.4' }}>
+            We use Telegram for day-to-day communication. You can enter your username (e.g. @yourname) or the phone number linked to your account.
+          </div>
+          {!form.noTelegram && (
+            <input
+              type="text"
+              value={form.telegram}
+              onChange={e => update('telegram', e.target.value)}
+              placeholder="@username or phone number"
+              style={inputStyle}
+            />
+          )}
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginTop: '8px',
+            fontSize: '12px',
+            color: '#666',
+            cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={form.noTelegram}
+              onChange={e => {
+                update('noTelegram', e.target.checked)
+                if (e.target.checked) update('telegram', '')
+              }}
+              style={{ accentColor: '#E88FAC' }}
+            />
+            I don&apos;t have Telegram
+          </label>
         </div>
 
         <div>
