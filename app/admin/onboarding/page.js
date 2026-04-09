@@ -25,6 +25,8 @@ export default function AdminOnboarding() {
   const [copied, setCopied] = useState(null)
   const [filter, setFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [surveyModal, setSurveyModal] = useState(null) // { creatorName, hqId, sections, loading }
+
   const sigCanvasRef = useRef(null)
   const [isSigDrawing, setIsSigDrawing] = useState(false)
   const [hasSigDrawn, setHasSigDrawn] = useState(false)
@@ -161,6 +163,25 @@ export default function AdminOnboarding() {
     } catch (err) {
       console.error('Resend error:', err)
     }
+  }
+
+  const viewSurveyAnswers = async (creator) => {
+    setSurveyModal({ creatorName: creator.name || creator.aka, hqId: creator.id, sections: null, loading: true })
+    try {
+      const res = await fetch(`/api/admin/onboarding/survey-export?hqId=${creator.id}&format=json`)
+      const data = await res.json()
+      if (res.ok) {
+        setSurveyModal(prev => ({ ...prev, sections: data.sections, loading: false }))
+      } else {
+        setSurveyModal(prev => ({ ...prev, sections: {}, loading: false }))
+      }
+    } catch {
+      setSurveyModal(prev => ({ ...prev, sections: {}, loading: false }))
+    }
+  }
+
+  const downloadSurveyCsv = (hqId) => {
+    window.open(`/api/admin/onboarding/survey-export?hqId=${hqId}&format=csv`, '_blank')
   }
 
   const openEditModal = (creator) => {
@@ -406,6 +427,14 @@ export default function AdminOnboarding() {
                             style={actionBtnStyle}
                           >
                             {copied === c.id ? 'Copied!' : 'Copy Link'}
+                          </button>
+                        )}
+                        {(c.onboardingStatus === 'In Progress' || c.onboardingStatus === 'Completed') && (
+                          <button
+                            onClick={() => viewSurveyAnswers(c)}
+                            style={{ ...actionBtnStyle, background: '#E3F2FD', color: '#1E88E5' }}
+                          >
+                            View Answers
                           </button>
                         )}
                       </div>
@@ -878,6 +907,91 @@ export default function AdminOnboarding() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Survey Answers Modal */}
+      {surveyModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }} onClick={() => setSurveyModal(null)}>
+          <div
+            style={{
+              background: '#fff', borderRadius: '16px', padding: '28px',
+              width: '700px', maxWidth: '90vw', maxHeight: '85vh', overflow: 'auto',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', marginBottom: '2px' }}>
+                  Survey Answers — {surveyModal.creatorName}
+                </h2>
+                <p style={{ fontSize: '12px', color: '#999' }}>Onboarding questionnaire responses</p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => downloadSurveyCsv(surveyModal.hqId)}
+                  style={{
+                    padding: '7px 14px', background: '#E8F5E9', color: '#43A047',
+                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Download CSV
+                </button>
+                <button
+                  onClick={() => setSurveyModal(null)}
+                  style={{
+                    padding: '7px 14px', background: '#f5f5f5', color: '#666',
+                    border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {surveyModal.loading ? (
+              <p style={{ fontSize: '13px', color: '#999', textAlign: 'center', padding: '40px 0' }}>Loading answers...</p>
+            ) : (
+              Object.entries(surveyModal.sections || {}).map(([section, entries]) => {
+                const answered = entries.filter(e => e.answer)
+                if (answered.length === 0) return null
+                return (
+                  <div key={section} style={{ marginBottom: '20px' }}>
+                    <div style={{
+                      fontSize: '13px', fontWeight: 600, color: '#E88FAC',
+                      marginBottom: '10px', paddingBottom: '4px', borderBottom: '1px solid #f5f5f5',
+                    }}>
+                      {section}
+                    </div>
+                    {answered.map((entry, i) => (
+                      <div key={i} style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 500, color: '#333', marginBottom: '2px' }}>
+                          {entry.question}
+                          {entry.teamTag && (
+                            <span style={{
+                              fontSize: '9px', fontWeight: 600, marginLeft: '6px',
+                              padding: '1px 5px', borderRadius: '3px',
+                              background: entry.teamTag.includes('A-team') ? '#EDE7F6' : entry.teamTag.includes('B-team') ? '#E3F2FD' : '#F3E5F5',
+                              color: entry.teamTag.includes('A-team') ? '#7E57C2' : entry.teamTag.includes('B-team') ? '#1E88E5' : '#AB47BC',
+                            }}>
+                              {entry.teamTag}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#555', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                          {entry.answer}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       )}
