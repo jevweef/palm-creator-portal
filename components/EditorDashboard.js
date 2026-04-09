@@ -286,8 +286,19 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
           headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: result.path_display }),
         })
-        if (linkRes.ok) sharedLink = (await linkRes.json()).url || ''
+        if (linkRes.ok) {
+          sharedLink = (await linkRes.json()).url || ''
+        } else if (linkRes.status === 409) {
+          // Link already exists — fetch it
+          const existRes = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Path-Root': pathRoot, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: result.path_display, direct_only: true }),
+          })
+          if (existRes.ok) sharedLink = (await existRes.json()).links?.[0]?.url || ''
+        }
       } catch {}
+      if (!sharedLink) console.warn('[SubmitModal] Failed to create share link for', result.path_display)
 
       setProgress('Submitting...')
       await onSubmit(task.id, sharedLink, result.path_display, notes)
