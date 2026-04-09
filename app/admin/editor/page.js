@@ -810,7 +810,7 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
 
   function renderTrackList(tracks) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '280px', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '500px', overflowY: 'auto' }}>
         {tracks.map((track, i) => (
           <div key={track.spotifyId || i}>
             <div style={{
