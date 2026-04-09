@@ -794,6 +794,18 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
   const [loadingTop50, setLoadingTop50] = useState(false)
   const [billboard, setBillboard] = useState(null)
   const [loadingBillboard, setLoadingBillboard] = useState(false)
+  const [usedSongIds, setUsedSongIds] = useState(new Set())
+
+  // Fetch songs used by this creator in last 14 days
+  useEffect(() => {
+    if (!creatorId) return
+    fetch(`/api/admin/music/usage?creatorId=${creatorId}`)
+      .then(r => r.json())
+      .then(d => { if (d.usedIds) setUsedSongIds(new Set(d.usedIds)) })
+      .catch(() => {})
+  }, [creatorId])
+
+  const filterUsed = (tracks) => tracks?.filter(t => !t.spotifyId || !usedSongIds.has(t.spotifyId)) || []
 
   const fetchTop50 = async () => {
     if (top50) return
@@ -892,6 +904,16 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
           window.open(data.links?.spotdown || 'https://spotdown.org', '_blank')
         }
       }
+      // Log song as used for this creator (14-day cooldown)
+      if (track.spotifyId && creatorId) {
+        fetch('/api/admin/music/usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creatorId, spotifyId: track.spotifyId, songTitle: track.track, artist: track.artist }),
+        }).then(() => {
+          setUsedSongIds(prev => new Set([...prev, track.spotifyId]))
+        }).catch(() => {})
+      }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -975,7 +997,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
           ) : suggestions.length === 0 ? (
             <div style={{ fontSize: '11px', color: '#999' }}>No suggestions found.</div>
           ) : (
-            <TrackList tracks={suggestions} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
+            <TrackList tracks={filterUsed(suggestions)} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
           )}
         </>
       )}
@@ -985,7 +1007,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
         loadingTop50 ? (
           <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
         ) : top50 && top50.length > 0 ? (
-          <TrackList tracks={top50} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
+          <TrackList tracks={filterUsed(top50)} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
         ) : top50 && top50.length === 0 ? (
           <div style={{ fontSize: '11px', color: '#999' }}>No chart data available.</div>
         ) : null
@@ -996,7 +1018,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
         loadingBillboard ? (
           <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
         ) : billboard && billboard.length > 0 ? (
-          <TrackList tracks={billboard} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
+          <TrackList tracks={filterUsed(billboard)} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
         ) : billboard && billboard.length === 0 ? (
           <div style={{ fontSize: '11px', color: '#999' }}>No chart data available.</div>
         ) : null
