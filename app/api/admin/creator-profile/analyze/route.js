@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, airtableHeaders, OPS_BASE } from '@/lib/adminAuth'
+import { embedText, cosineSimilarity, buildCreatorEmbeddingText } from '@/lib/embeddings'
+import { patchAirtableRecord, batchUpdateRecords } from '@/lib/adminAuth'
 import OpenAI from 'openai'
 
 export const maxDuration = 60
@@ -474,6 +476,14 @@ export async function POST(request) {
       .slice(0, 5)
       .map(([tag, weight]) => ({ tag, weight }))
 
+    // Fire-and-forget: compute creator embedding + re-score all reels
+    computeCreatorEmbedding(creatorId, {
+      profileSummary: profile.profile_summary || '',
+      brandVoiceNotes: profile.brand_voice_notes || '',
+      contentDirectionNotes: profile.content_direction_notes || '',
+      dosAndDonts: dosDonts,
+    }).catch(err => console.error('Creator embedding error (non-blocking):', err))
+
     return NextResponse.json({
       success: true,
       documentsAnalyzed: documents.length,
@@ -499,4 +509,44 @@ export async function POST(request) {
     } catch {}
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
+}
+
+/**
+ * Embed creator profile text and re-score all reels with embeddings.
+ * Called fire-and-forget after profile analysis completes.
+ */
+async function computeCreatorEmbedding(creatorId, profileFields) {
+  const creatorText = buildCreatorEmbeddingText(profileFields)
+  if (!creatorText) return
+
+  const creatorEmbedding = await embedText(creatorText)
+  if (!creatorEmbedding) return
+
+  // Store creator embedding
+  await patchAirtableRecord('Palm Creators', creatorId, {
+    'Creator Embedding': JSON.stringify(creatorEmbedding),
+  })
+
+  // Fetch all reels with embeddings and re-score
+  const reels = await fetchAirtableRecords('Inspiration', {
+    filterByFormula: "AND({Status} = 'Complete', NOT({Reel Embedding} = ''))",
+    fields: ['Reel Embedding', 'Semantic Scores'],
+  })
+
+  const updates = []
+  for (const reel of reels) {
+    try {
+      const reelEmbedding = JSON.parse(reel.fields['Reel Embedding'])
+      const score = Math.round(cosineSimilarity(creatorEmbedding, reelEmbedding) * 1000) / 1000
+      let existingScores = {}
+      try { existingScores = JSON.parse(reel.fields['Semantic Scores'] || '{}') } catch {}
+      existingScores[creatorId] = score
+      updates.push({ id: reel.id, fields: { 'Semantic Scores': JSON.stringify(existingScores) } })
+    } catch {}
+  }
+
+  if (updates.length > 0) {
+    await batchUpdateRecords('Inspiration', updates)
+  }
+  console.log(`[Embeddings] Creator ${creatorId}: embedded profile, scored ${updates.length} reels`)
 }
