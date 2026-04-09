@@ -105,13 +105,13 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
         <div>
           <label style={labelStyle}>Stage Name / AKA</label>
           <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', lineHeight: '1.4' }}>
-            This is the name we&apos;ll use across all your accounts — social media bios, your OF page, and how fans will address you. Pick carefully, it&apos;s hard to change later.
+            The name we&apos;ll use on your social accounts, OF page, and bios. Can be your real name or a stage name — whatever your fans know you by.
           </div>
           <input
             type="text"
             value={form.stageName}
             onChange={e => update('stageName', e.target.value)}
-            placeholder='e.g. "Ocean," "Lux," "Mia Rose"'
+            placeholder='e.g. "Bella," "Mia Rose," or your first name'
             style={inputStyle}
           />
         </div>
