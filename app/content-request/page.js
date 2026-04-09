@@ -2,20 +2,36 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import ContentRequestSectionCard from '@/components/content-request/ContentRequestSectionCard'
 
 export default function ContentRequestPage() {
   const { user, isLoaded } = useUser()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [creators, setCreators] = useState([])
+  const [loadingCreators, setLoadingCreators] = useState(false)
 
+  const role = user?.publicMetadata?.role
+  const isAdmin = role === 'admin' || role === 'super_admin'
   const creatorIdFromPath = pathname?.startsWith('/creator/') ? pathname.split('/')[2] : null
   const opsId = creatorIdFromPath || user?.publicMetadata?.airtableOpsId
   const hqId = searchParams?.get('hqId') || user?.publicMetadata?.airtableHqId
+
+  // Fetch creator list for admin picker
+  useEffect(() => {
+    if (!isLoaded || !isAdmin || opsId) return
+    setLoadingCreators(true)
+    fetch('/api/admin/palm-creators')
+      .then(r => r.json())
+      .then(d => setCreators(d.creators || []))
+      .catch(() => {})
+      .finally(() => setLoadingCreators(false))
+  }, [isLoaded, isAdmin, opsId])
 
   const fetchData = useCallback(async () => {
     if (!isLoaded) return
@@ -47,7 +63,6 @@ export default function ContentRequestPage() {
     })
   }
 
-  // Overall progress
   const totalMin = data?.sections?.reduce((sum, s) => sum + s.minCount, 0) || 0
   const totalUploaded = data?.sections?.reduce((sum, s) => sum + s.uploadedCount, 0) || 0
   const progressPercent = totalMin > 0 ? Math.min(100, Math.round((totalUploaded / totalMin) * 100)) : 0
@@ -66,6 +81,60 @@ export default function ContentRequestPage() {
 
   if (error) {
     return <div style={{ padding: 40, textAlign: 'center', color: '#ef4444' }}>Error: {error}</div>
+  }
+
+  // Admin with no creator selected — show picker
+  if (!opsId && isAdmin) {
+    return (
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: '60px 20px' }}>
+        <div style={{
+          background: '#ffffff',
+          borderRadius: 18,
+          padding: '32px',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          textAlign: 'center',
+        }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: '0 0 8px 0' }}>
+            Content Requests
+          </h2>
+          <p style={{ color: '#888', fontSize: 14, margin: '0 0 24px 0' }}>
+            Select a creator to view their content request
+          </p>
+          {loadingCreators ? (
+            <div style={{ color: '#999', fontSize: 13 }}>Loading creators...</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {creators.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => router.push(`/creator/${c.id}/content-request?hqId=${c.hqId || ''}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 20px',
+                    background: '#FFF5F7',
+                    border: '1px solid #F0D0D8',
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#1a1a1a',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#E88FAC'; e.currentTarget.style.background = '#FFF0F3' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#F0D0D8'; e.currentTarget.style.background = '#FFF5F7' }}
+                >
+                  <span>{c.aka || c.name}</span>
+                  <span style={{ color: '#E88FAC', fontSize: 13 }}>View &rarr;</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
   }
 
   if (!data?.sections?.length) {
