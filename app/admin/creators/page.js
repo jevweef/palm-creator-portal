@@ -154,9 +154,22 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Processed DNA
             </div>
-            <span style={{ fontSize: '11px', color: '#999' }}>
-              {dna.trackCount} tracks · {dna.processedAt ? new Date(dna.processedAt).toLocaleDateString() : ''}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '11px', color: '#999' }}>
+                {dna.trackCount} tracks · {dna.processedAt ? new Date(dna.processedAt).toLocaleDateString() : ''}
+              </span>
+              {rawInput.trim() && (
+                <button onClick={handleProcess} disabled={processing}
+                  style={{
+                    padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                    background: processing ? '#f5f5f5' : '#fafafa', color: processing ? '#bbb' : '#666',
+                    border: '1px solid rgba(0,0,0,0.08)', borderRadius: '4px',
+                    cursor: processing ? 'default' : 'pointer',
+                  }}>
+                  {processing ? 'Refreshing...' : 'Refresh'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Top genres */}
