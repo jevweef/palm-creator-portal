@@ -51,9 +51,14 @@ export default function ContentRequestPage() {
       if (!prev) return prev
       const newSections = prev.sections.map(section => ({
         ...section,
-        items: section.items.map(item =>
-          item.id === itemId ? { ...item, ...updates } : item
-        ),
+        items: section.items.map(item => {
+          // Match by ID, or by section|order key for virtual items
+          const virtualKey = `${item._section}|${item.itemOrder}`
+          if (item.id === itemId || virtualKey === itemId) {
+            return { ...item, ...updates }
+          }
+          return item
+        }),
       }))
       return { ...prev, sections: newSections }
     })

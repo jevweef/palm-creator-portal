@@ -116,23 +116,41 @@ export default function ContentRequestItem({ item, hqId, onUpdate }) {
 
       setUploadProgress('Saving to database...')
 
-      // Update Airtable via our API
+      // Build the save payload — if item has no Airtable ID yet, include creation info
+      const savePayload = {
+        itemId: item.id,
+        dropboxPath: actualPath,
+        dropboxLink,
+        fileName: file.name,
+        fileSize: file.size,
+      }
+
+      if (!item.id && item._requestId) {
+        savePayload.createNew = {
+          label: item.label,
+          section: item._section,
+          sectionOrder: item.sectionOrder,
+          itemOrder: item.itemOrder,
+          requestId: item._requestId,
+          creatorOpsId: item._creatorOpsId,
+          scriptText: item.scriptText,
+          acceptedFileTypes: item.acceptedFileTypes,
+        }
+      }
+
       const saveRes = await fetch('/api/content-request/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          itemId: item.id,
-          dropboxPath: actualPath,
-          dropboxLink,
-          fileName: file.name,
-          fileSize: file.size,
-        }),
+        body: JSON.stringify(savePayload),
       })
 
       if (!saveRes.ok) throw new Error('Failed to save upload record')
+      const saveData = await saveRes.json()
 
-      // Update local state
-      onUpdate(item.id, {
+      // Update local state with new record ID if created
+      const newId = saveData.recordId || item.id
+      onUpdate(item.id || `${item._section}|${item.itemOrder}`, {
+        id: newId,
         status: 'Draft',
         dropboxPath: actualPath,
         dropboxLink,
@@ -151,6 +169,7 @@ export default function ContentRequestItem({ item, hqId, onUpdate }) {
   }
 
   const handleSubmit = async (action) => {
+    if (!item.id) return // Can't submit a virtual item without uploading first
     setSubmitting(true)
     try {
       const res = await fetch('/api/content-request/submit', {

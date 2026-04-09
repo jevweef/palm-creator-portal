@@ -6,8 +6,9 @@ const OPS_BASE = 'applLIT2t83plMqNx'
 const CONTENT_REQUESTS = 'tblr1QLpcyD7p5HRb'
 const CONTENT_REQUEST_ITEMS = 'tblXsW7GsyZrplVkq'
 const CONTENT_REQUEST_TEMPLATES = 'tblpvD4cbs8KlbexQ'
+const CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 
-const headers = {
+const airtableHeaders = {
   Authorization: `Bearer ${AIRTABLE_PAT}`,
   'Content-Type': 'application/json',
 }
@@ -25,73 +26,18 @@ async function fetchAllRecords(table, params = {}) {
         if (s.direction) query.set(`sort[${i}][direction]`, s.direction)
       })
     }
+    if (params.fields) {
+      params.fields.forEach(f => query.append('fields[]', f))
+    }
+    if (params.maxRecords) query.set('maxRecords', String(params.maxRecords))
     const url = `https://api.airtable.com/v0/${OPS_BASE}/${table}?${query}`
-    const res = await fetch(url, { headers, cache: 'no-store' })
+    const res = await fetch(url, { headers: airtableHeaders, cache: 'no-store' })
     if (!res.ok) throw new Error(`Airtable ${res.status}: ${await res.text()}`)
     const data = await res.json()
     records.push(...(data.records || []))
     offset = data.offset || null
   } while (offset)
   return records
-}
-
-async function createItemsFromTemplates(requestId, creatorOpsId) {
-  // Fetch all templates sorted by order
-  const templates = await fetchAllRecords(CONTENT_REQUEST_TEMPLATES, {
-    sort: [{ field: 'Sort Order', direction: 'asc' }],
-  })
-
-  const itemsToCreate = []
-
-  for (const tpl of templates) {
-    const f = tpl.fields
-    if (f['Item Type'] === 'info_only') continue // Skip info-only sections (Instructions)
-
-    const itemCount = f['Item Count'] || 0
-    const labelPattern = f['Item Label Pattern'] || f['Name']
-    const scripts = f['Script Template'] ? JSON.parse(f['Script Template']) : []
-    const sectionOrder = f['Sort Order'] || 0
-
-    for (let i = 1; i <= itemCount; i++) {
-      const label = labelPattern.replace('{n}', String(i)).replace('#{n}', `#${i}`)
-      itemsToCreate.push({
-        fields: {
-          Label: label,
-          Section: f['Name'],
-          'Section Order': sectionOrder,
-          'Item Order': i,
-          'Content Request': [requestId],
-          Creator: [creatorOpsId],
-          Status: 'Not Started',
-          'Script Text': scripts[i - 1] || '',
-          'Accepted File Types': f['Accepted File Types'] || '',
-        },
-      })
-    }
-  }
-
-  // Create in batches of 10
-  for (let i = 0; i < itemsToCreate.length; i += 10) {
-    const batch = itemsToCreate.slice(i, i + 10)
-    const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${CONTENT_REQUEST_ITEMS}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ records: batch }),
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      console.error(`[content-request] Failed to create items batch ${i}:`, err)
-    }
-  }
-
-  // Re-fetch items to return them
-  return fetchAllRecords(CONTENT_REQUEST_ITEMS, {
-    filterByFormula: `{Content Request}="${requestId}"`,
-    sort: [
-      { field: 'Section Order', direction: 'asc' },
-      { field: 'Item Order', direction: 'asc' },
-    ],
-  })
 }
 
 export async function GET(request) {
@@ -106,7 +52,6 @@ export async function GET(request) {
     const role = user?.publicMetadata?.role
     const isAdmin = role === 'admin' || role === 'super_admin'
 
-    // Allow admin to pass creatorOpsId as query param
     const { searchParams } = new URL(request.url)
     const creatorOpsId = isAdmin ? (searchParams.get('creatorOpsId') || opsId) : opsId
 
@@ -114,72 +59,129 @@ export async function GET(request) {
       return NextResponse.json({ error: 'No creator profile linked' }, { status: 400 })
     }
 
-    // Find active content request for this creator
-    const filter = `AND({Status}="Active", FIND("${creatorOpsId}", ARRAYJOIN({Creator})))`
+    // Fetch creator name for filtering (linked record fields show names in formulas)
+    const creatorRes = await fetch(
+      `https://api.airtable.com/v0/${OPS_BASE}/${CREATORS_TABLE}/${creatorOpsId}?fields%5B%5D=Creator`,
+      { headers: airtableHeaders, cache: 'no-store' }
+    )
+    if (!creatorRes.ok) {
+      return NextResponse.json({ request: null, sections: [], templates: [] })
+    }
+    const creator = await creatorRes.json()
+    const creatorName = creator.fields?.['Creator'] || ''
+
+    if (!creatorName) {
+      return NextResponse.json({ request: null, sections: [], templates: [] })
+    }
+
+    // Find active content request for this creator using creator name
     const requests = await fetchAllRecords(CONTENT_REQUESTS, {
-      filterByFormula: filter,
+      filterByFormula: `AND({Status}="Active", FIND("${creatorName}", ARRAYJOIN({Creator})))`,
+      maxRecords: 1,
     })
 
     if (!requests.length) {
-      return NextResponse.json({ request: null, items: [], sections: [], templates: [] })
+      return NextResponse.json({ request: null, sections: [], templates: [] })
     }
 
     const contentRequest = requests[0]
 
-    // Fetch items for this request
-    let items = await fetchAllRecords(CONTENT_REQUEST_ITEMS, {
-      filterByFormula: `FIND("${contentRequest.id}", ARRAYJOIN({Content Request}))`,
-      sort: [
-        { field: 'Section Order', direction: 'asc' },
-        { field: 'Item Order', direction: 'asc' },
-      ],
-    })
+    // Fetch templates and existing items in parallel
+    const [templates, existingItems] = await Promise.all([
+      fetchAllRecords(CONTENT_REQUEST_TEMPLATES, {
+        sort: [{ field: 'Sort Order', direction: 'asc' }],
+      }),
+      fetchAllRecords(CONTENT_REQUEST_ITEMS, {
+        filterByFormula: `AND(FIND("${contentRequest.fields['Title']}", ARRAYJOIN({Content Request})), FIND("${creatorName}", ARRAYJOIN({Creator})))`,
+        sort: [
+          { field: 'Section Order', direction: 'asc' },
+          { field: 'Item Order', direction: 'asc' },
+        ],
+      }),
+    ])
 
-    // If no items exist yet, generate them from templates
-    if (items.length === 0) {
-      items = await createItemsFromTemplates(contentRequest.id, creatorOpsId)
+    // Build a lookup of existing items by section+order
+    const existingByKey = {}
+    for (const item of existingItems) {
+      const key = `${item.fields['Section']}|${item.fields['Item Order']}`
+      existingByKey[key] = item
     }
 
-    // Fetch templates for section descriptions
-    const templates = await fetchAllRecords(CONTENT_REQUEST_TEMPLATES, {
-      sort: [{ field: 'Sort Order', direction: 'asc' }],
-    })
+    // Build sections from templates, merging in any existing uploaded items
+    const sections = []
+    const templateInfo = []
 
-    // Group items by section
-    const sectionMap = {}
-    for (const item of items) {
-      const section = item.fields['Section'] || 'Other'
-      if (!sectionMap[section]) {
-        sectionMap[section] = { name: section, items: [], order: item.fields['Section Order'] || 99 }
+    for (const tpl of templates) {
+      const f = tpl.fields
+      templateInfo.push({
+        name: f['Name'],
+        description: f['Description'] || '',
+        sortOrder: f['Sort Order'] || 0,
+        itemType: f['Item Type'] || 'file_upload',
+        itemCount: f['Item Count'] || 0,
+      })
+
+      if (f['Item Type'] === 'info_only') continue
+
+      const itemCount = f['Item Count'] || 0
+      const labelPattern = f['Item Label Pattern'] || f['Name']
+      const scripts = f['Script Template'] ? JSON.parse(f['Script Template']) : []
+      const sectionItems = []
+
+      for (let i = 1; i <= itemCount; i++) {
+        const label = labelPattern.replace('{n}', String(i)).replace('#{n}', `#${i}`)
+        const key = `${f['Name']}|${i}`
+        const existing = existingByKey[key]
+
+        if (existing) {
+          // Use the real Airtable record
+          sectionItems.push({
+            id: existing.id,
+            label: existing.fields['Label'] || label,
+            status: existing.fields['Status'] || 'Not Started',
+            scriptText: existing.fields['Script Text'] || scripts[i - 1] || '',
+            dropboxPath: existing.fields['Dropbox Path'] || '',
+            dropboxLink: existing.fields['Dropbox Link'] || '',
+            fileName: existing.fields['File Name'] || '',
+            fileSize: existing.fields['File Size'] || 0,
+            uploadedAt: existing.fields['Uploaded At'] || '',
+            creatorNotes: existing.fields['Creator Notes'] || '',
+            adminNotes: existing.fields['Admin Notes'] || '',
+            acceptedFileTypes: existing.fields['Accepted File Types'] || f['Accepted File Types'] || '',
+            sectionOrder: f['Sort Order'] || 0,
+            itemOrder: i,
+          })
+        } else {
+          // Virtual item — no Airtable record yet (created on first upload)
+          sectionItems.push({
+            id: null, // No record yet
+            label,
+            status: 'Not Started',
+            scriptText: scripts[i - 1] || '',
+            dropboxPath: '',
+            dropboxLink: '',
+            fileName: '',
+            fileSize: 0,
+            uploadedAt: '',
+            creatorNotes: '',
+            adminNotes: '',
+            acceptedFileTypes: f['Accepted File Types'] || '',
+            sectionOrder: f['Sort Order'] || 0,
+            itemOrder: i,
+            // Info needed to create the record on first upload
+            _section: f['Name'],
+            _requestId: contentRequest.id,
+            _creatorOpsId: creatorOpsId,
+          })
+        }
       }
-      sectionMap[section].items.push({
-        id: item.id,
-        label: item.fields['Label'] || '',
-        status: item.fields['Status'] || 'Not Started',
-        scriptText: item.fields['Script Text'] || '',
-        dropboxPath: item.fields['Dropbox Path'] || '',
-        dropboxLink: item.fields['Dropbox Link'] || '',
-        fileName: item.fields['File Name'] || '',
-        fileSize: item.fields['File Size'] || 0,
-        uploadedAt: item.fields['Uploaded At'] || '',
-        creatorNotes: item.fields['Creator Notes'] || '',
-        adminNotes: item.fields['Admin Notes'] || '',
-        acceptedFileTypes: item.fields['Accepted File Types'] || '',
-        sectionOrder: item.fields['Section Order'] || 0,
-        itemOrder: item.fields['Item Order'] || 0,
+
+      sections.push({
+        name: f['Name'],
+        items: sectionItems,
+        order: f['Sort Order'] || 0,
       })
     }
-
-    const sections = Object.values(sectionMap).sort((a, b) => a.order - b.order)
-
-    // Build template info for section descriptions
-    const templateInfo = templates.map(t => ({
-      name: t.fields['Name'],
-      description: t.fields['Description'] || '',
-      sortOrder: t.fields['Sort Order'] || 0,
-      itemType: t.fields['Item Type'] || 'file_upload',
-      itemCount: t.fields['Item Count'] || 0,
-    }))
 
     return NextResponse.json({
       request: {
