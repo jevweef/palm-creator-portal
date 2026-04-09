@@ -741,6 +741,8 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
   const [musicTab, setMusicTab] = useState('creator')
   const [top50, setTop50] = useState(null)
   const [loadingTop50, setLoadingTop50] = useState(false)
+  const [billboard, setBillboard] = useState(null)
+  const [loadingBillboard, setLoadingBillboard] = useState(false)
 
   async function handleGetSuggestions() {
     if (suggestions) return
@@ -772,6 +774,18 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
       else setError(data.error || 'Failed')
     } catch (e) { setError(e.message) }
     finally { setLoadingTop50(false) }
+  }
+
+  async function fetchBillboard() {
+    if (billboard) return
+    setLoadingBillboard(true)
+    try {
+      const res = await fetch('/api/admin/music/billboard')
+      const data = await res.json()
+      if (res.ok) setBillboard(data.tracks || [])
+      else setError(data.error || 'Failed')
+    } catch (e) { setError(e.message) }
+    finally { setLoadingBillboard(false) }
   }
 
   async function handleDownload(track) {
@@ -876,14 +890,16 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
     <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '8px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
         <div style={{ display: 'flex', gap: '0', flex: 1 }}>
-          <button onClick={() => { setMusicTab('creator'); if (!suggestions && hasPlaylist) handleGetSuggestions() }}
-            style={{ padding: '4px 8px', fontSize: '9px', fontWeight: musicTab === 'creator' ? 700 : 400, color: musicTab === 'creator' ? '#6B7FE3' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'creator' ? '2px solid #6B7FE3' : '2px solid transparent', cursor: 'pointer' }}>
-            For {creatorName?.split(' ')[0] || 'Creator'}
-          </button>
-          <button onClick={() => { setMusicTab('top50'); fetchTop50() }}
-            style={{ padding: '4px 8px', fontSize: '9px', fontWeight: musicTab === 'top50' ? 700 : 400, color: musicTab === 'top50' ? '#6B7FE3' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'top50' ? '2px solid #6B7FE3' : '2px solid transparent', cursor: 'pointer' }}>
-            TikTok Trending
-          </button>
+          {[
+            { key: 'creator', label: `For ${creatorName?.split(' ')[0] || 'Creator'}`, onClick: () => { if (!suggestions && hasPlaylist) handleGetSuggestions() } },
+            { key: 'top50', label: 'TikTok', onClick: fetchTop50 },
+            { key: 'billboard', label: 'Billboard', onClick: fetchBillboard },
+          ].map(tab => (
+            <button key={tab.key} onClick={() => { setMusicTab(tab.key); tab.onClick() }}
+              style={{ padding: '4px 6px', fontSize: '9px', fontWeight: musicTab === tab.key ? 700 : 400, color: musicTab === tab.key ? '#6B7FE3' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === tab.key ? '2px solid #6B7FE3' : '2px solid transparent', cursor: 'pointer' }}>
+              {tab.label}
+            </button>
+          ))}
         </div>
         <button onClick={() => { setExpanded(false); if (audioRef.current) audioRef.current.pause(); setPlayingPreview(null) }}
           style={{ fontSize: '10px', color: '#999', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -910,6 +926,14 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
           <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>Loading chart...</div>
         ) : top50 && top50.length > 0 ? (
           renderTrackList(top50)
+        ) : null
+      )}
+
+      {musicTab === 'billboard' && (
+        loadingBillboard ? (
+          <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>Loading chart...</div>
+        ) : billboard && billboard.length > 0 ? (
+          renderTrackList(billboard)
         ) : null
       )}
 

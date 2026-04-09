@@ -789,12 +789,14 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
   const [playingPreview, setPlayingPreview] = useState(null)
   const [error, setError] = useState('')
   const audioRef = useRef(null)
-  const [musicTab, setMusicTab] = useState('creator') // 'creator' | 'top50'
+  const [musicTab, setMusicTab] = useState('creator') // 'creator' | 'top50' | 'billboard'
   const [top50, setTop50] = useState(null)
   const [loadingTop50, setLoadingTop50] = useState(false)
+  const [billboard, setBillboard] = useState(null)
+  const [loadingBillboard, setLoadingBillboard] = useState(false)
 
   const fetchTop50 = async () => {
-    if (top50) return // already loaded
+    if (top50) return
     setLoadingTop50(true)
     try {
       const res = await fetch('/api/admin/music/charts')
@@ -803,6 +805,18 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
       else setError(data.error || 'Failed to load charts')
     } catch (e) { setError(e.message) }
     finally { setLoadingTop50(false) }
+  }
+
+  const fetchBillboard = async () => {
+    if (billboard) return
+    setLoadingBillboard(true)
+    try {
+      const res = await fetch('/api/admin/music/billboard')
+      const data = await res.json()
+      if (res.ok) setBillboard(data.tracks || [])
+      else setError(data.error || 'Failed to load Billboard')
+    } catch (e) { setError(e.message) }
+    finally { setLoadingBillboard(false) }
   }
 
   async function handleIdentify() {
@@ -931,16 +945,18 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
         </div>
       )}
 
-      {/* Music tabs: For Creator | TikTok Trending */}
+      {/* Music tabs */}
       <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid #E0D4F0', marginBottom: '8px' }}>
-        <button onClick={() => { setMusicTab('creator'); if (!suggestions && hasPlaylist) handleGetSuggestions() }}
-          style={{ flex: 1, padding: '5px 8px', fontSize: '10px', fontWeight: musicTab === 'creator' ? 700 : 400, color: musicTab === 'creator' ? '#7C3AED' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'creator' ? '2px solid #7C3AED' : '2px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
-          For {creatorName?.split(' ')[0] || 'Creator'}
-        </button>
-        <button onClick={() => { setMusicTab('top50'); fetchTop50() }}
-          style={{ flex: 1, padding: '5px 8px', fontSize: '10px', fontWeight: musicTab === 'top50' ? 700 : 400, color: musicTab === 'top50' ? '#7C3AED' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'top50' ? '2px solid #7C3AED' : '2px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
-          TikTok Trending
-        </button>
+        {[
+          { key: 'creator', label: `For ${creatorName?.split(' ')[0] || 'Creator'}`, onClick: () => { if (!suggestions && hasPlaylist) handleGetSuggestions() } },
+          { key: 'top50', label: 'TikTok', onClick: fetchTop50 },
+          { key: 'billboard', label: 'Billboard', onClick: fetchBillboard },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => { setMusicTab(tab.key); tab.onClick() }}
+            style={{ flex: 1, padding: '5px 6px', fontSize: '9px', fontWeight: musicTab === tab.key ? 700 : 400, color: musicTab === tab.key ? '#7C3AED' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === tab.key ? '2px solid #7C3AED' : '2px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Creator suggestions tab */}
@@ -964,13 +980,24 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
         </>
       )}
 
-      {/* TikTok Trending tab */}
+      {/* TikTok tab */}
       {musicTab === 'top50' && (
         loadingTop50 ? (
           <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
         ) : top50 && top50.length > 0 ? (
           <TrackList tracks={top50} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
         ) : top50 && top50.length === 0 ? (
+          <div style={{ fontSize: '11px', color: '#999' }}>No chart data available.</div>
+        ) : null
+      )}
+
+      {/* Billboard tab */}
+      {musicTab === 'billboard' && (
+        loadingBillboard ? (
+          <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
+        ) : billboard && billboard.length > 0 ? (
+          <TrackList tracks={billboard} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
+        ) : billboard && billboard.length === 0 ? (
           <div style={{ fontSize: '11px', color: '#999' }}>No chart data available.</div>
         ) : null
       )}
