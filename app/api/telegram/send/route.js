@@ -200,104 +200,57 @@ export async function POST(request) {
 
     const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
     const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
-    // MP4: always use URL method (fastest, no download needed). MOV: download + remux up to 50MB.
-    const URL_THRESHOLD = needsRemux ? MAX_UPLOAD_BYTES : 0
-
-    // Check file size with HEAD request first (avoids downloading huge files just to check)
-    let fileSize = 0
-    try {
-      const headRes = await fetch(rawUrl, { method: 'HEAD' })
-      fileSize = parseInt(headRes.headers.get('content-length') || '0')
-      console.log(`[Telegram Send] File size (HEAD): ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
-    } catch {
-      console.log('[Telegram Send] HEAD request failed, will download to check size')
-    }
 
     let result
 
-    if (!needsRemux || fileSize > URL_THRESHOLD) {
-      // URL method — video stays on Dropbox, only download/resize the thumbnail
-      console.log(`[Telegram Send] Using URL method (${needsRemux ? 'too large' : 'MP4, no remux needed'})`)
+    // Strategy: try URL method first (fast, ~2s) with a 10s timeout.
+    // If it fails, download from Dropbox and upload directly to Telegram.
+    if (isVideo(editedFileLink) && !needsRemux) {
+      try {
+        console.log('[Telegram Send] Trying URL method (10s timeout)...')
+        const urlPromise = thumbnailUrl
+          ? (async () => {
+              // Download + resize thumbnail, send media group with video URL
+              const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
+              if (!thumbRes.ok) throw new Error('Thumb download failed')
+              const rawThumb = await thumbRes.arrayBuffer()
+              const thumbBuffer = await resizeImage(rawThumb, getFilename(thumbnailUrl))
+              const form = new FormData()
+              form.append('chat_id', String(chatId))
+              form.append('message_thread_id', String(threadId))
+              form.append('media', JSON.stringify([
+                { type: 'video', media: rawUrl, thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
+                { type: 'photo', media: 'attach://photo_file' },
+              ]))
+              form.append('thumb_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
+              form.append('photo_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
+              return telegramUpload('sendMediaGroup', form)
+            })()
+          : telegramJson('sendVideo', { chat_id: chatId, message_thread_id: threadId, video: rawUrl, supports_streaming: true, ...(caption ? { caption } : {}) })
 
-      if (isVideo(editedFileLink) && thumbnailUrl) {
-        // Download + resize thumbnail, then send as media group with video URL
-        try {
-          console.log('[Telegram Send] Downloading thumbnail for media group...')
-          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
-          if (!thumbRes.ok) throw new Error('Thumbnail download failed')
-          const rawThumbBuffer = await thumbRes.arrayBuffer()
-          console.log(`[Telegram Send] Resizing thumbnail (${(rawThumbBuffer.byteLength / 1024 / 1024).toFixed(1)}MB)...`)
-          const thumbBuffer = await resizeImage(rawThumbBuffer, getFilename(thumbnailUrl))
-          console.log(`[Telegram Send] Thumbnail resized to ${(thumbBuffer.length / 1024).toFixed(0)}KB`)
-
-          const form = new FormData()
-          form.append('chat_id', String(chatId))
-          form.append('message_thread_id', String(threadId))
-          const mediaGroup = [
-            { type: 'video', media: rawUrl, thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
-            { type: 'photo', media: 'attach://photo_file' },
-          ]
-          form.append('media', JSON.stringify(mediaGroup))
-          form.append('thumb_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
-          form.append('photo_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
-          result = await telegramUpload('sendMediaGroup', form)
-        } catch (err) {
-          console.warn('[Telegram Send] Media group with URL failed, trying sendVideo URL:', err.message)
-          try {
-            result = await telegramJson('sendVideo', { chat_id: chatId, message_thread_id: threadId, video: rawUrl, supports_streaming: true, ...(caption ? { caption } : {}) })
-          } catch (urlErr) {
-            // URL method fully failed — download + upload as last resort
-            console.warn('[Telegram Send] URL method failed, downloading file for upload:', urlErr.message)
-            const dlRes = await fetch(rawUrl)
-            if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
-            const dlBuffer = await dlRes.arrayBuffer()
-            const fallbackForm = new FormData()
-            fallbackForm.append('chat_id', String(chatId))
-            fallbackForm.append('message_thread_id', String(threadId))
-            if (caption) fallbackForm.append('caption', caption)
-            fallbackForm.append('video', new Blob([dlBuffer], { type: 'video/mp4' }), getFilename(editedFileLink).replace(/\.[^.]+$/, '.mp4'))
-            fallbackForm.append('supports_streaming', 'true')
-            result = await telegramUpload('sendVideo', fallbackForm)
-          }
-        }
-      } else {
-        const baseParams = { chat_id: chatId, message_thread_id: threadId, ...(caption ? { caption } : {}) }
-        try {
-          if (isVideo(editedFileLink)) {
-            result = await telegramJson('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
-          } else if (isPhoto(editedFileLink)) {
-            result = await telegramJson('sendPhoto', { ...baseParams, photo: rawUrl })
-          } else {
-            result = await telegramJson('sendDocument', { ...baseParams, document: rawUrl })
-          }
-        } catch (urlErr) {
-          // URL rejected — download + upload as fallback
-          console.warn('[Telegram Send] URL method failed, downloading for upload:', urlErr.message)
-          const dlRes = await fetch(rawUrl)
-          if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
-          const dlBuffer = await dlRes.arrayBuffer()
-          const fallbackForm = new FormData()
-          fallbackForm.append('chat_id', String(chatId))
-          fallbackForm.append('message_thread_id', String(threadId))
-          if (caption) fallbackForm.append('caption', caption)
-          if (isVideo(editedFileLink)) {
-            fallbackForm.append('video', new Blob([dlBuffer], { type: 'video/mp4' }), getFilename(editedFileLink).replace(/\.[^.]+$/, '.mp4'))
-            fallbackForm.append('supports_streaming', 'true')
-            result = await telegramUpload('sendVideo', fallbackForm)
-          } else {
-            fallbackForm.append('document', new Blob([dlBuffer], { type: 'application/octet-stream' }), getFilename(editedFileLink))
-            result = await telegramUpload('sendDocument', fallbackForm)
-          }
-        }
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('URL method timeout')), 10000))
+        result = await Promise.race([urlPromise, timeout])
+        console.log('[Telegram Send] URL method succeeded')
+      } catch (urlErr) {
+        console.warn('[Telegram Send] URL method failed:', urlErr.message, '— falling back to upload')
+        result = null // fall through to download+upload
       }
-    } else {
-      // MOV under 50MB — download, remux, upload as multipart
-      console.log('[Telegram Send] Downloading file from Dropbox for remux...')
+    }
+
+    if (!result) {
+      // Download from Dropbox and upload directly to Telegram
+      console.log('[Telegram Send] Downloading file from Dropbox...')
       const fileRes = await fetch(rawUrl)
       if (!fileRes.ok) throw new Error(`Failed to download file from Dropbox: ${fileRes.status}`)
       const fileBuffer = await fileRes.arrayBuffer()
-      console.log(`[Telegram Send] Downloaded: ${(fileBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`)
+      const fileSize = fileBuffer.byteLength
+      console.log(`[Telegram Send] Downloaded: ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
 
+      if (fileSize > MAX_UPLOAD_BYTES) {
+        return NextResponse.json({ error: `File too large (${(fileSize / 1024 / 1024).toFixed(0)}MB). Telegram limit is 50MB.` }, { status: 400 })
+      }
+
+      // Upload directly to Telegram as multipart
       const form = new FormData()
       form.append('chat_id', String(chatId))
       form.append('message_thread_id', String(threadId))
@@ -307,12 +260,11 @@ export async function POST(request) {
       const mimeType = getMimeType(editedFileLink)
 
       // Remux non-MP4 videos to MP4 with faststart for Telegram inline preview.
-      // Skip remux for .mp4 files to avoid timeout on large files.
       let uploadBuffer = fileBuffer
       let uploadFilename = filename
       let uploadMime = mimeType
-      const ext = (filename.split('.').pop() || '').toLowerCase()
-      if (isVideo(editedFileLink) && ext !== 'mp4') {
+      const fileExt = (filename.split('.').pop() || '').toLowerCase()
+      if (isVideo(editedFileLink) && fileExt !== 'mp4') {
         console.log(`[Telegram Send] Remuxing ${ext} to MP4 with faststart...`)
         uploadBuffer = await remuxToMp4(fileBuffer, filename)
         uploadFilename = filename.replace(/\.[^.]+$/, '.mp4')
