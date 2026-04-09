@@ -743,6 +743,17 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
   const [loadingTop50, setLoadingTop50] = useState(false)
   const [billboard, setBillboard] = useState(null)
   const [loadingBillboard, setLoadingBillboard] = useState(false)
+  const [usedSongIds, setUsedSongIds] = useState(new Set())
+
+  useEffect(() => {
+    if (!creatorId) return
+    fetch(`/api/admin/music/usage?creatorId=${creatorId}`)
+      .then(r => r.json())
+      .then(d => { if (d.usedIds) setUsedSongIds(new Set(d.usedIds)) })
+      .catch(() => {})
+  }, [creatorId])
+
+  const filterUsed = (tracks) => tracks?.filter(t => !t.spotifyId || !usedSongIds.has(t.spotifyId)) || []
 
   async function handleGetSuggestions() {
     if (suggestions) return
@@ -814,6 +825,16 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
           }
           window.open(data.links?.spotdown || 'https://spotdown.org', '_blank')
         }
+      }
+      // Log song as used for this creator
+      if (track.spotifyId && creatorId) {
+        fetch('/api/admin/music/usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creatorId, spotifyId: track.spotifyId, songTitle: track.track, artist: track.artist }),
+        }).then(() => {
+          setUsedSongIds(prev => new Set([...prev, track.spotifyId]))
+        }).catch(() => {})
       }
     } catch (e) {
       setError(e.message)
@@ -915,7 +936,7 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
         ) : loading ? (
           <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>Loading suggestions...</div>
         ) : suggestions && suggestions.length > 0 ? (
-          renderTrackList(suggestions)
+          renderTrackList(filterUsed(suggestions))
         ) : suggestions && suggestions.length === 0 ? (
           <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>No suggestions found.</div>
         ) : null
@@ -925,7 +946,7 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
         loadingTop50 ? (
           <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>Loading chart...</div>
         ) : top50 && top50.length > 0 ? (
-          renderTrackList(top50)
+          renderTrackList(filterUsed(top50))
         ) : null
       )}
 
@@ -933,7 +954,7 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
         loadingBillboard ? (
           <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>Loading chart...</div>
         ) : billboard && billboard.length > 0 ? (
-          renderTrackList(billboard)
+          renderTrackList(filterUsed(billboard))
         ) : null
       )}
 
