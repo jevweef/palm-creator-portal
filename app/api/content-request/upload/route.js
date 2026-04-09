@@ -17,79 +17,41 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { itemId, dropboxPath, dropboxLink, fileName, fileSize, createNew } = body
+    const { requestId, creatorOpsId, section, dropboxPath, dropboxLink, fileName, fileSize } = await request.json()
 
-    if (!dropboxPath || !dropboxLink) {
+    if (!dropboxPath || !dropboxLink || !section) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    let recordId = itemId
-
-    // If no itemId, create a new record (virtual item getting its first upload)
-    if (!recordId && createNew) {
-      const { label, section, sectionOrder, itemOrder, requestId, creatorOpsId, scriptText, acceptedFileTypes } = createNew
-
-      const createRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${CONTENT_REQUEST_ITEMS}`, {
-        method: 'POST',
-        headers: airtableHeaders,
-        body: JSON.stringify({
-          records: [{
-            fields: {
-              Label: label,
-              Section: section,
-              'Section Order': sectionOrder,
-              'Item Order': itemOrder,
-              'Content Request': [requestId],
-              Creator: [creatorOpsId],
-              Status: 'Draft',
-              'Script Text': scriptText || '',
-              'Accepted File Types': acceptedFileTypes || '',
-              'Dropbox Path': dropboxPath,
-              'Dropbox Link': dropboxLink,
-              'File Name': fileName || '',
-              'File Size': fileSize || 0,
-              'Uploaded At': new Date().toISOString(),
-            },
-          }],
-        }),
-      })
-
-      if (!createRes.ok) {
-        const err = await createRes.text()
-        throw new Error(`Airtable create failed: ${createRes.status} ${err}`)
-      }
-
-      const createData = await createRes.json()
-      recordId = createData.records[0].id
-
-      return NextResponse.json({ success: true, recordId })
+    // Create a new item record for this uploaded file
+    const fields = {
+      Label: fileName || 'Upload',
+      Section: section,
+      Status: 'Draft',
+      'Dropbox Path': dropboxPath,
+      'Dropbox Link': dropboxLink,
+      'File Name': fileName || '',
+      'File Size': fileSize || 0,
+      'Uploaded At': new Date().toISOString(),
     }
 
-    // Update existing record
-    if (!recordId) {
-      return NextResponse.json({ error: 'Missing itemId' }, { status: 400 })
-    }
+    // Link to content request and creator if provided
+    if (requestId) fields['Content Request'] = [requestId]
+    if (creatorOpsId) fields['Creator'] = [creatorOpsId]
 
-    const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${CONTENT_REQUEST_ITEMS}/${recordId}`, {
-      method: 'PATCH',
+    const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${CONTENT_REQUEST_ITEMS}`, {
+      method: 'POST',
       headers: airtableHeaders,
-      body: JSON.stringify({
-        fields: {
-          'Dropbox Path': dropboxPath,
-          'Dropbox Link': dropboxLink,
-          'File Name': fileName || '',
-          'File Size': fileSize || 0,
-          'Uploaded At': new Date().toISOString(),
-          Status: 'Draft',
-        },
-      }),
+      body: JSON.stringify({ records: [{ fields }] }),
     })
 
     if (!res.ok) {
       const err = await res.text()
-      throw new Error(`Airtable update failed: ${res.status} ${err}`)
+      throw new Error(`Airtable create failed: ${res.status} ${err}`)
     }
+
+    const data = await res.json()
+    const recordId = data.records[0].id
 
     return NextResponse.json({ success: true, recordId })
   } catch (err) {

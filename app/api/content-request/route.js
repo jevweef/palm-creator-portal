@@ -13,19 +13,26 @@ const airtableHeaders = {
 }
 
 async function fetchRecords(table, params = {}) {
-  const query = new URLSearchParams()
-  if (params.filterByFormula) query.set('filterByFormula', params.filterByFormula)
-  if (params.sort) {
-    params.sort.forEach((s, i) => {
-      query.set(`sort[${i}][field]`, s.field)
-      if (s.direction) query.set(`sort[${i}][direction]`, s.direction)
-    })
-  }
-  const url = `https://api.airtable.com/v0/${OPS_BASE}/${table}?${query}`
-  const res = await fetch(url, { headers: airtableHeaders, cache: 'no-store' })
-  if (!res.ok) throw new Error(`Airtable ${res.status}: ${await res.text()}`)
-  const data = await res.json()
-  return data.records || []
+  const records = []
+  let offset = null
+  do {
+    const query = new URLSearchParams()
+    if (offset) query.set('offset', offset)
+    if (params.filterByFormula) query.set('filterByFormula', params.filterByFormula)
+    if (params.sort) {
+      params.sort.forEach((s, i) => {
+        query.set(`sort[${i}][field]`, s.field)
+        if (s.direction) query.set(`sort[${i}][direction]`, s.direction)
+      })
+    }
+    const url = `https://api.airtable.com/v0/${OPS_BASE}/${table}?${query}`
+    const res = await fetch(url, { headers: airtableHeaders, cache: 'no-store' })
+    if (!res.ok) throw new Error(`Airtable ${res.status}: ${await res.text()}`)
+    const data = await res.json()
+    records.push(...(data.records || []))
+    offset = data.offset || null
+  } while (offset)
+  return records
 }
 
 export async function GET(request) {
@@ -47,120 +54,73 @@ export async function GET(request) {
       return NextResponse.json({ error: 'No creator profile linked' }, { status: 400 })
     }
 
-    // Step 1: Fetch templates (fast, always works — this is the structure)
+    // Fetch templates (fast — defines the page structure)
     const templates = await fetchRecords(CONTENT_REQUEST_TEMPLATES, {
       sort: [{ field: 'Sort Order', direction: 'asc' }],
     })
 
-    // Step 2: Try to find an active content request for this creator
+    // Try to find active content request for this creator
     let contentRequest = null
-    let existingItems = []
+    let uploadedFiles = []
     try {
       const allActive = await fetchRecords(CONTENT_REQUESTS, {
         filterByFormula: `{Status}="Active"`,
       })
-      // REST API linked records are plain arrays of record IDs
       contentRequest = allActive.find(r => {
         const links = r.fields['Creator'] || []
         return links.includes(creatorOpsId)
       })
 
-      // Step 3: If we have a request, fetch any existing uploaded items
+      // Fetch uploaded files for this request
       if (contentRequest) {
         const allItems = await fetchRecords(CONTENT_REQUEST_ITEMS, {})
-        existingItems = allItems.filter(item => {
-          const reqLinks = item.fields['Content Request'] || []
-          return reqLinks.includes(contentRequest.id)
-        })
+        uploadedFiles = allItems
+          .filter(item => {
+            const reqLinks = item.fields['Content Request'] || []
+            return reqLinks.includes(contentRequest.id)
+          })
+          .map(item => ({
+            id: item.id,
+            section: item.fields['Section'] || '',
+            fileName: item.fields['File Name'] || '',
+            fileSize: item.fields['File Size'] || 0,
+            dropboxLink: item.fields['Dropbox Link'] || '',
+            dropboxPath: item.fields['Dropbox Path'] || '',
+            uploadedAt: item.fields['Uploaded At'] || '',
+            status: item.fields['Status'] || 'Draft',
+          }))
       }
     } catch (err) {
-      // If content request / items fetch fails, still show structure from templates
       console.warn('[content-request] Could not fetch request/items:', err.message)
     }
 
-    // Build lookup of existing items
-    const existingByKey = {}
-    for (const item of existingItems) {
-      const key = `${item.fields['Section']}|${item.fields['Item Order']}`
-      existingByKey[key] = item
-    }
-
     // Build sections from templates
-    const sections = []
-    const templateInfo = []
+    const sections = templates
+      .filter(t => t.fields['Item Type'] !== 'info_only')
+      .map(t => {
+        const f = t.fields
+        const sectionName = f['Name']
+        const sectionFiles = uploadedFiles.filter(file => file.section === sectionName)
+        let scripts = []
+        try {
+          scripts = f['Script Template'] ? JSON.parse(f['Script Template']) : []
+        } catch (e) { /* ignore */ }
 
-    for (const tpl of templates) {
-      const f = tpl.fields
-      templateInfo.push({
-        name: f['Name'],
-        description: f['Description'] || '',
-        sortOrder: f['Sort Order'] || 0,
-        itemType: f['Item Type'] || 'file_upload',
-        itemCount: f['Item Count'] || 0,
-      })
-
-      if (f['Item Type'] === 'info_only') continue
-
-      const itemCount = f['Item Count'] || 0
-      const labelPattern = f['Item Label Pattern'] || f['Name']
-      let scripts = []
-      try {
-        scripts = f['Script Template'] ? JSON.parse(f['Script Template']) : []
-      } catch (e) { /* ignore parse errors */ }
-
-      const sectionItems = []
-
-      for (let i = 1; i <= itemCount; i++) {
-        const label = labelPattern.replace('{n}', String(i)).replace('#{n}', `#${i}`)
-        const key = `${f['Name']}|${i}`
-        const existing = existingByKey[key]
-
-        if (existing) {
-          sectionItems.push({
-            id: existing.id,
-            label: existing.fields['Label'] || label,
-            status: existing.fields['Status'] || 'Not Started',
-            scriptText: existing.fields['Script Text'] || scripts[i - 1] || '',
-            dropboxPath: existing.fields['Dropbox Path'] || '',
-            dropboxLink: existing.fields['Dropbox Link'] || '',
-            fileName: existing.fields['File Name'] || '',
-            fileSize: existing.fields['File Size'] || 0,
-            uploadedAt: existing.fields['Uploaded At'] || '',
-            creatorNotes: existing.fields['Creator Notes'] || '',
-            adminNotes: existing.fields['Admin Notes'] || '',
-            acceptedFileTypes: existing.fields['Accepted File Types'] || f['Accepted File Types'] || '',
-            sectionOrder: f['Sort Order'] || 0,
-            itemOrder: i,
-          })
-        } else {
-          sectionItems.push({
-            id: null,
-            label,
-            status: 'Not Started',
-            scriptText: scripts[i - 1] || '',
-            dropboxPath: '',
-            dropboxLink: '',
-            fileName: '',
-            fileSize: 0,
-            uploadedAt: '',
-            creatorNotes: '',
-            adminNotes: '',
-            acceptedFileTypes: f['Accepted File Types'] || '',
-            sectionOrder: f['Sort Order'] || 0,
-            itemOrder: i,
-            _section: f['Name'],
-            _requestId: contentRequest?.id || '',
-            _creatorOpsId: creatorOpsId,
-          })
+        return {
+          name: sectionName,
+          description: f['Description'] || '',
+          sortOrder: f['Sort Order'] || 0,
+          minCount: f['Item Count'] || 0,
+          acceptedFileTypes: f['Accepted File Types'] || '',
+          itemType: f['Item Type'] || 'file_upload',
+          scripts,
+          files: sectionFiles,
+          uploadedCount: sectionFiles.length,
         }
-      }
-
-      sections.push({
-        name: f['Name'],
-        items: sectionItems,
-        order: f['Sort Order'] || 0,
       })
-    }
+
+    // Instructions section (info_only)
+    const instructions = templates.find(t => t.fields['Item Type'] === 'info_only')
 
     return NextResponse.json({
       request: contentRequest ? {
@@ -170,15 +130,14 @@ export async function GET(request) {
         status: contentRequest.fields['Status'] || 'Active',
         month: contentRequest.fields['Month'] || '',
       } : {
-        // Fallback so the UI still renders the structure
         id: null,
         title: 'Content Request Preview',
         dueDate: '',
         status: 'Active',
-        month: '',
+        month: new Date().toISOString().slice(0, 7),
       },
       sections,
-      templates: templateInfo,
+      instructions: instructions ? instructions.fields['Description'] || '' : '',
     })
   } catch (err) {
     console.error('[content-request] Error:', err.message)
