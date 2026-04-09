@@ -29,6 +29,7 @@ const ADMIN_NAV = [
     { key: 'upload', label: 'Raw Data Upload' },
   ]},
   { href: '/admin/help', label: 'Help', icon: '❓' },
+  { href: '/admin/test', label: 'Test', icon: '🧪' },
 ]
 
 const EDITOR_NAV = [

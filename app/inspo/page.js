@@ -171,7 +171,30 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [allFormats, setAllFormats] = useState([])
   const [savedIds, setSavedIds] = useState(new Set())
 
-  const creatorOpsId = opsIdOverride || user?.publicMetadata?.airtableOpsId || null
+  // Admin: "View as Creator" for testing For You
+  const role = user?.publicMetadata?.role
+  const isAdmin = role === 'admin' || role === 'super_admin'
+  const [adminCreators, setAdminCreators] = useState([]) // [{ id, name }]
+  const [adminSelectedCreator, setAdminSelectedCreator] = useState('')
+  const [showScores, setShowScores] = useState(false)
+  const [debugScores, setDebugScores] = useState({}) // { reelId: { semantic, tag, virality, hybrid } }
+
+  const creatorOpsId = adminSelectedCreator || opsIdOverride || user?.publicMetadata?.airtableOpsId || null
+
+  // Fetch creator list for admin picker
+  useEffect(() => {
+    if (!isAdmin) return
+    fetch('/api/admin/palm-creators')
+      .then(r => r.json())
+      .then(data => {
+        const creators = (data.creators || [])
+          .filter(c => c.status === 'Active')
+          .map(c => ({ id: c.opsId || c.id, name: c.name || c.aka || 'Unknown' }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+        setAdminCreators(creators)
+      })
+      .catch(() => {})
+  }, [isAdmin])
 
   useEffect(() => {
     async function load() {
@@ -337,10 +360,27 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         const hybridB = 0.5 * semanticB + 0.35 * tagB + 0.15 * viralB
         return hybridB - hybridA
       })
+
+      // Store debug scores for admin overlay
+      if (isAdmin) {
+        const scores = {}
+        result.forEach((r, i) => {
+          const semantic = (r.semanticScores && r.semanticScores[creatorOpsId]) || 0
+          const tag = tagScores[result.indexOf(r)] / maxTag
+          const viral = (zScores[result.indexOf(r)] + maxZ) / (2 * maxZ)
+          scores[r.id] = {
+            semantic: Math.round(semantic * 100),
+            tag: Math.round(tag * 100),
+            virality: Math.round(viral * 100),
+            hybrid: Math.round((0.5 * semantic + 0.35 * tag + 0.15 * viral) * 100),
+          }
+        })
+        setDebugScores(scores)
+      }
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, creatorTagWeights, creatorFormatWeights])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, creatorTagWeights, creatorFormatWeights, creatorOpsId, isAdmin])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -590,6 +630,53 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         </div>
       </div>
 
+      {/* Admin: View as Creator bar */}
+      {isAdmin && adminCreators.length > 0 && (
+        <div className="px-4 md:px-8" style={{ maxWidth: '1400px', margin: '0 auto', paddingTop: '12px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            background: '#FFF8E1', border: '1px solid #FFE082', borderRadius: '10px',
+            padding: '10px 16px', fontSize: '13px',
+          }}>
+            <span style={{ fontWeight: 600, color: '#F57F17', flexShrink: 0 }}>Admin Preview</span>
+            <select
+              value={adminSelectedCreator}
+              onChange={e => {
+                setAdminSelectedCreator(e.target.value)
+                if (e.target.value) setSort('foryou')
+              }}
+              style={{
+                padding: '5px 10px', borderRadius: '6px', border: '1px solid #ddd',
+                fontSize: '13px', background: '#fff', cursor: 'pointer',
+              }}
+            >
+              <option value="">— Select Creator —</option>
+              {adminCreators.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {adminSelectedCreator && sort === 'foryou' && (
+              <>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: '#666' }}>
+                  <input
+                    type="checkbox"
+                    checked={showScores}
+                    onChange={e => setShowScores(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Show Scores
+                </label>
+                {showScores && (
+                  <span style={{ fontSize: '11px', color: '#999' }}>
+                    S = Semantic (50%) &middot; T = Tags (35%) &middot; V = Virality (15%)
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Grid */}
       <div className="px-4 md:px-8 py-4 md:py-6" style={{maxWidth:'1400px', margin:'0 auto'}}>
         {loading ? (
@@ -619,14 +706,28 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
           <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
             {filtered.slice(0, visibleCount).map((record, idx) => (
-              <InspoCard
-                key={record.id}
-                record={record}
-                grade={getGrade(record.engagementScore)}
-                onClick={() => openModal(idx)}
-                isSaved={savedIds.has(record.id)}
-                onSave={handleSave}
-              />
+              <div key={record.id} style={{ position: 'relative' }}>
+                <InspoCard
+                  record={record}
+                  grade={getGrade(record.engagementScore)}
+                  onClick={() => openModal(idx)}
+                  isSaved={savedIds.has(record.id)}
+                  onSave={handleSave}
+                />
+                {showScores && sort === 'foryou' && debugScores[record.id] && (
+                  <div style={{
+                    position: 'absolute', top: '4px', left: '4px', right: '4px',
+                    background: 'rgba(0,0,0,0.75)', borderRadius: '6px',
+                    padding: '5px 7px', fontSize: '10px', color: '#fff',
+                    lineHeight: '1.5', pointerEvents: 'none', zIndex: 5,
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
+                      {debugScores[record.id].hybrid}
+                    </div>
+                    <div>S: {debugScores[record.id].semantic} &middot; T: {debugScores[record.id].tag} &middot; V: {debugScores[record.id].virality}</div>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
           {visibleCount < filtered.length && (

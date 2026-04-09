@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 
 const TAG_CATEGORIES = [
   'Setting / Location',
@@ -154,9 +154,22 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Processed DNA
             </div>
-            <span style={{ fontSize: '11px', color: '#999' }}>
-              {dna.trackCount} tracks · {dna.processedAt ? new Date(dna.processedAt).toLocaleDateString() : ''}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '11px', color: '#999' }}>
+                {dna.trackCount} tracks · {dna.processedAt ? new Date(dna.processedAt).toLocaleDateString() : ''}
+              </span>
+              {rawInput.trim() && (
+                <button onClick={handleProcess} disabled={processing}
+                  style={{
+                    padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                    background: processing ? '#f5f5f5' : '#fafafa', color: processing ? '#bbb' : '#666',
+                    border: '1px solid rgba(0,0,0,0.08)', borderRadius: '4px',
+                    cursor: processing ? 'default' : 'pointer',
+                  }}>
+                  {processing ? 'Refreshing...' : 'Refresh'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Top genres */}
@@ -2020,38 +2033,59 @@ function ProfileSection({ label, text, mono }) {
 
 export default function CreatorsPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
   const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'earnings')
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveSection(t) }, [searchParams])
 
+  // Helper to update URL params without scroll
+  const updateUrl = useCallback((creatorId, tab) => {
+    const params = new URLSearchParams()
+    if (creatorId) params.set('creator', creatorId)
+    if (tab) params.set('tab', tab)
+    const qs = params.toString()
+    router.replace(`${pathname}${qs ? '?' + qs : ''}`, { scroll: false })
+  }, [router, pathname])
+
   useEffect(() => {
+    const urlCreatorId = searchParams.get('creator')
     // Load creators first (fast), show page immediately, then load invoicing in background
     fetch('/api/admin/palm-creators').then(r => r.json()).then(creatorsData => {
       const list = creatorsData.creators || []
       setCreators(list)
+
+      // If URL has ?creator=, select that one
+      if (urlCreatorId) {
+        const match = list.find(c => c.id === urlCreatorId)
+        if (match) { setSelected(match); setLoading(false); return }
+      }
+
       if (list.length > 0 && !selected) setSelected(list[0])
       setLoading(false)
 
-      // Background: load invoicing to re-sort by top earner
-      fetch('/api/admin/invoicing').then(r => r.json()).then(invoicingData => {
-        const records = invoicingData.records || []
-        const periods = invoicingData.periods || []
-        if (list.length > 0 && periods.length > 0) {
-          const latestKey = periods[0].key
-          const periodRecords = records.filter(r => `${r.periodStart}|${r.periodEnd}` === latestKey)
-          const byAka = {}
-          for (const r of periodRecords) {
-            byAka[r.aka] = (byAka[r.aka] || 0) + (r.earnings || 0)
+      // Background: load invoicing to re-sort by top earner (only if no URL creator)
+      if (!urlCreatorId) {
+        fetch('/api/admin/invoicing').then(r => r.json()).then(invoicingData => {
+          const records = invoicingData.records || []
+          const periods = invoicingData.periods || []
+          if (list.length > 0 && periods.length > 0) {
+            const latestKey = periods[0].key
+            const periodRecords = records.filter(r => `${r.periodStart}|${r.periodEnd}` === latestKey)
+            const byAka = {}
+            for (const r of periodRecords) {
+              byAka[r.aka] = (byAka[r.aka] || 0) + (r.earnings || 0)
+            }
+            const topAka = Object.entries(byAka).sort((a, b) => b[1] - a[1])[0]
+            if (topAka) {
+              const match = list.find(c => c.aka === topAka[0])
+              if (match) setSelected(match)
+            }
           }
-          const topAka = Object.entries(byAka).sort((a, b) => b[1] - a[1])[0]
-          if (topAka) {
-            const match = list.find(c => c.aka === topAka[0])
-            if (match) setSelected(match)
-          }
-        }
-      }).catch(() => {})
+        }).catch(() => {})
+      }
     }).catch(() => setLoading(false))
   }, [])
 
@@ -2068,6 +2102,7 @@ export default function CreatorsPage() {
           onChange={e => {
             const c = creators.find(c => c.id === e.target.value)
             setSelected(c || null)
+            updateUrl(e.target.value, activeSection)
           }}
           style={{
             background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
@@ -2084,7 +2119,7 @@ export default function CreatorsPage() {
         {selected && (
           <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
             {[['earnings', 'Earnings'], ['dna', 'DNA Profile']].map(([key, label]) => (
-              <button key={key} onClick={() => setActiveSection(key)}
+              <button key={key} onClick={() => { setActiveSection(key); updateUrl(selected?.id, key) }}
                 style={{
                   padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,
                   color: activeSection === key ? '#1a1a1a' : '#bbb', background: 'none', border: 'none',
