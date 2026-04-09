@@ -882,7 +882,7 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
           </button>
           <button onClick={() => { setMusicTab('top50'); fetchTop50() }}
             style={{ padding: '4px 8px', fontSize: '9px', fontWeight: musicTab === 'top50' ? 700 : 400, color: musicTab === 'top50' ? '#6B7FE3' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'top50' ? '2px solid #6B7FE3' : '2px solid transparent', cursor: 'pointer' }}>
-            Top 50 USA
+            Billboard Hot 100
           </button>
         </div>
         <button onClick={() => { setExpanded(false); if (audioRef.current) audioRef.current.pause(); setPlayingPreview(null) }}
