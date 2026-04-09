@@ -49,20 +49,10 @@ export default function QuestionField({ question, value, onChange, saving }) {
 
   return (
     <div style={{ marginBottom: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-        <label style={{ fontSize: '13px', fontWeight: 500, color: '#333', flex: 1 }}>
+      <div style={{ marginBottom: '5px' }}>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: '#333' }}>
           {question.text}
         </label>
-        <span style={{
-          fontSize: '9px',
-          fontWeight: 600,
-          padding: '2px 6px',
-          borderRadius: '4px',
-          flexShrink: 0,
-          ...(TEAM_COLORS[tag] || TEAM_COLORS['Both']),
-        }}>
-          {tag}
-        </span>
       </div>
       {question.inputType === 'textarea' ? (
         <textarea
