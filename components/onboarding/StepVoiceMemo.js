@@ -140,32 +140,59 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
         Just ramble for like 10–15 minutes. Don&apos;t overthink it at all.
       </p>
 
-      <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: 500 }}>
-        A few things that would be helpful to touch on:
+      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+        Your Day-to-Day
       </div>
-      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '20px', paddingLeft: '18px' }}>
+      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
         <li>What your normal week looks like (what you actually do day-to-day)</li>
+        <li>What places you regularly go to (gym, coffee shops, nightlife, work, etc.)</li>
+        <li>How often you go out, travel, or do anything social</li>
+        <li>What you feel like you already have easy access to that could be used for content (locations, routines, hobbies, etc.)</li>
+      </ul>
+
+      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+        Your Filming Setup
+      </div>
+      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
         <li>How you currently film content (random clips throughout the day vs batching vs full shoot days)</li>
         <li>How much time you realistically have each week to film</li>
         <li>What your living setup is like (apartment/house, lighting, space, etc.)</li>
-        <li>What places you regularly go to (gym, coffee shops, nightlife, work, etc.)</li>
-        <li>How often you go out, travel, or do anything social</li>
-        <li>Whether you have anyone who could film for you (friends, especially someone comfortable behind the camera)</li>
+        <li>Whether you have anyone who could film for you (friends, someone comfortable behind the camera)</li>
         <li>Whether you prefer filming alone or with someone else</li>
+      </ul>
+
+      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+        Your Persona & Vibe
+      </div>
+      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
+        <li>If you had to describe yourself as a &quot;type&quot; &mdash; girl next door, intimidating hot girl, cute and approachable, mysterious, chaotic, chill tomboy &mdash; what fits you?</li>
+        <li>What do you want someone scrolling past your video to feel? (curiosity, attraction, jealousy, &quot;I need to follow her,&quot; intimidated, etc.)</li>
+        <li>Do you lean more playful/teasing or more serious/seductive when you&apos;re on camera?</li>
+        <li>What parts of your body or look do you feel most confident about?</li>
+        <li>What kind of overall vibe you want your content to have (chill, outgoing, flirty, lifestyle, etc.)</li>
+      </ul>
+
+      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+        Content You Like
+      </div>
+      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
+        <li>What creators you like watching and what stands out about them</li>
+        <li>When you see a reel and think &quot;that&apos;s so me&quot; &mdash; what is it about it? Can you describe a few you&apos;ve seen recently?</li>
         <li>What types of clips you&apos;ve already filmed before (even if they&apos;re random)</li>
         <li>What types of videos you&apos;d realistically be down to repeat every week (talking videos, GRWM, day in the life, going out, gym, etc.)</li>
-        <li>What types of videos you would NOT want to do consistently</li>
-        <li>What creators you like watching and what stands out about them</li>
-        <li>What kind of overall vibe you want your content to have (chill, outgoing, flirty, lifestyle, etc.)</li>
-        <li>What you feel like you already have easy access to that could be used for content (locations, routines, hobbies, etc.)</li>
         <li>Anything you think could turn into a repeatable series</li>
       </ul>
 
-      <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: 500 }}>
-        Also one important thing:
+      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+        Comfort & Boundaries
       </div>
       <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '20px', paddingLeft: '18px' }}>
-        <li>We often add text/captions over videos that are flirty, suggestive, and sometimes a bit edgy to drive engagement. Are you comfortable with that overall direction?</li>
+        <li>What scenarios would you be comfortable acting out? (e.g. &quot;POV: your neighbor comes over,&quot; roommate situations, gym crush, etc.)</li>
+        <li>What would you absolutely NOT portray?</li>
+        <li>Are you comfortable with opinion-bait captions that might get hate comments? (e.g. &quot;anything more than a handful is a waste&quot;)</li>
+        <li>How do you feel about trending audio / lip sync content vs. original audio or no audio?</li>
+        <li>What types of videos you would NOT want to do consistently</li>
+        <li>We often add text/captions that are flirty, suggestive, and sometimes edgy to drive engagement &mdash; are you comfortable with that overall direction?</li>
         <li>Are there any hard boundaries we should not cross with captions or tone?</li>
         <li>Are you okay with us handling captions/creative without needing to approve each one, as long as we stay within your boundaries?</li>
       </ul>

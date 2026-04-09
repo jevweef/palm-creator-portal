@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { fetchHqRecords } from '@/lib/hqAirtable'
 
+export const dynamic = 'force-dynamic'
+
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 
 export async function GET() {

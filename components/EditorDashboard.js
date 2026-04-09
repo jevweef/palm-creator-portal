@@ -727,9 +727,60 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
   )
 }
 
+// ─── Shared track list for music sections ─────────────────────────────────────
+
+function TrackList({ tracks, playingPreview, setPlayingPreview, downloading, handleDownload }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '300px', overflowY: 'auto' }}>
+      {tracks.map((track, i) => (
+        <div key={track.spotifyId || i}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 6px',
+            borderRadius: '4px', background: i % 2 === 0 ? '#fff' : 'transparent', fontSize: '11px',
+          }}>
+            {track.albumArt && (
+              <img src={track.albumArt} alt="" style={{ width: '28px', height: '28px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.track}</div>
+              <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px' }}>{track.artist}</div>
+            </div>
+            {track.spotifyId && (
+              <button onClick={() => setPlayingPreview(playingPreview === track.spotifyId ? null : track.spotifyId)}
+                style={{ padding: '2px 6px', fontSize: '10px', background: playingPreview === track.spotifyId ? '#8B5CF6' : '#f0f0f0', color: playingPreview === track.spotifyId ? '#fff' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
+                {playingPreview === track.spotifyId ? '■' : '▶'}
+              </button>
+            )}
+            <button onClick={() => handleDownload(track)} disabled={downloading === track.spotifyId}
+              style={{
+                padding: '2px 6px', fontSize: '10px', fontWeight: 500, flexShrink: 0,
+                background: downloading === track.spotifyId ? '#f0f0f0' : '#dcfce7',
+                color: downloading === track.spotifyId ? '#999' : '#22c55e',
+                border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
+              }}>
+              {downloading === track.spotifyId ? '...' : '↓'}
+            </button>
+          </div>
+          {playingPreview === track.spotifyId && track.spotifyId && (
+            <div style={{ padding: '4px 6px' }}>
+              <iframe
+                src={`https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator&theme=0`}
+                width="100%" height="80" frameBorder="0"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+                style={{ borderRadius: '8px' }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Music Section (identify + radio, used inside task detail modal) ─────────
 
-function MusicSection({ creatorId, creatorName, videoUrl, inspoId }) {
+function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }) {
   const [identifying, setIdentifying] = useState(false)
   const [identifiedSong, setIdentifiedSong] = useState(null)
   const [suggestions, setSuggestions] = useState(null)
@@ -738,6 +789,21 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId }) {
   const [playingPreview, setPlayingPreview] = useState(null)
   const [error, setError] = useState('')
   const audioRef = useRef(null)
+  const [musicTab, setMusicTab] = useState('creator') // 'creator' | 'top50'
+  const [top50, setTop50] = useState(null)
+  const [loadingTop50, setLoadingTop50] = useState(false)
+
+  const fetchTop50 = async () => {
+    if (top50) return // already loaded
+    setLoadingTop50(true)
+    try {
+      const res = await fetch('/api/admin/music/charts')
+      const data = await res.json()
+      if (res.ok) setTop50(data.tracks || [])
+      else setError(data.error || 'Failed to load charts')
+    } catch (e) { setError(e.message) }
+    finally { setLoadingTop50(false) }
+  }
 
   async function handleIdentify() {
     if (!videoUrl) { setError('No video URL available'); return }
@@ -839,21 +905,15 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId }) {
         Music
       </div>
 
-      {/* Identify + Radio buttons */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-        {videoUrl && !identifiedSong && (
+      {/* Identify button */}
+      {videoUrl && !identifiedSong && (
+        <div style={{ marginBottom: '8px' }}>
           <button onClick={handleIdentify} disabled={identifying}
-            style={{ flex: 1, padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: identifying ? '#f0f0f0' : '#EDE9FE', color: identifying ? '#999' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: identifying ? 'default' : 'pointer' }}>
+            style={{ width: '100%', padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: identifying ? '#f0f0f0' : '#EDE9FE', color: identifying ? '#999' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: identifying ? 'default' : 'pointer' }}>
             {identifying ? 'Identifying...' : 'Identify Song'}
           </button>
-        )}
-        {!suggestions && (
-          <button onClick={handleGetSuggestions} disabled={loadingSuggestions}
-            style={{ flex: 1, padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: loadingSuggestions ? '#f0f0f0' : '#EDE9FE', color: loadingSuggestions ? '#999' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: loadingSuggestions ? 'default' : 'pointer' }}>
-            {loadingSuggestions ? 'Loading...' : 'Music Radio'}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Identified song */}
       {identifiedSong && (
@@ -871,57 +931,48 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId }) {
         </div>
       )}
 
-      {/* Suggestions */}
-      {suggestions && suggestions.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '300px', overflowY: 'auto' }}>
-          {suggestions.map((track, i) => (
-            <div key={track.spotifyId || i}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 6px',
-                borderRadius: '4px', background: i % 2 === 0 ? '#fff' : 'transparent', fontSize: '11px',
-              }}>
-                {track.albumArt && (
-                  <img src={track.albumArt} alt="" style={{ width: '28px', height: '28px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.track}</div>
-                  <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px' }}>{track.artist}</div>
-                </div>
-                {track.spotifyId && (
-                  <button onClick={() => setPlayingPreview(playingPreview === track.spotifyId ? null : track.spotifyId)}
-                    style={{ padding: '2px 6px', fontSize: '10px', background: playingPreview === track.spotifyId ? '#8B5CF6' : '#f0f0f0', color: playingPreview === track.spotifyId ? '#fff' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
-                    {playingPreview === track.spotifyId ? '■' : '▶'}
-                  </button>
-                )}
-                <button onClick={() => handleDownload(track)} disabled={downloading === track.spotifyId}
-                  style={{
-                    padding: '2px 6px', fontSize: '10px', fontWeight: 500, flexShrink: 0,
-                    background: downloading === track.spotifyId ? '#f0f0f0' : '#dcfce7',
-                    color: downloading === track.spotifyId ? '#999' : '#22c55e',
-                    border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
-                  }}>
-                  {downloading === track.spotifyId ? '...' : '↓'}
-                </button>
-              </div>
-              {/* Spotify embed player — shows when ▶ is clicked */}
-              {playingPreview === track.spotifyId && track.spotifyId && (
-                <div style={{ padding: '4px 6px' }}>
-                  <iframe
-                    src={`https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator&theme=0`}
-                    width="100%" height="80" frameBorder="0"
-                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                    loading="lazy"
-                    style={{ borderRadius: '8px' }}
-                  />
-                </div>
-              )}
+      {/* Music tabs: For Creator | Top 50 USA */}
+      <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid #E0D4F0', marginBottom: '8px' }}>
+        <button onClick={() => { setMusicTab('creator'); if (!suggestions && hasPlaylist) handleGetSuggestions() }}
+          style={{ flex: 1, padding: '5px 8px', fontSize: '10px', fontWeight: musicTab === 'creator' ? 700 : 400, color: musicTab === 'creator' ? '#7C3AED' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'creator' ? '2px solid #7C3AED' : '2px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
+          For {creatorName?.split(' ')[0] || 'Creator'}
+        </button>
+        <button onClick={() => { setMusicTab('top50'); fetchTop50() }}
+          style={{ flex: 1, padding: '5px 8px', fontSize: '10px', fontWeight: musicTab === 'top50' ? 700 : 400, color: musicTab === 'top50' ? '#7C3AED' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'top50' ? '2px solid #7C3AED' : '2px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
+          Top 50 USA
+        </button>
+      </div>
+
+      {/* Creator suggestions tab */}
+      {musicTab === 'creator' && (
+        <>
+          {!hasPlaylist ? (
+            <div style={{ textAlign: 'center', padding: '12px 8px' }}>
+              <div style={{ fontSize: '11px', color: '#999', marginBottom: '6px' }}>No Music DNA playlist uploaded for this creator</div>
+              <span style={{ fontSize: '10px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '4px 10px', borderRadius: '4px' }}>Need Playlist</span>
             </div>
-          ))}
-        </div>
+          ) : !suggestions ? (
+            <button onClick={handleGetSuggestions} disabled={loadingSuggestions}
+              style={{ width: '100%', padding: '8px 10px', fontSize: '11px', fontWeight: 600, background: loadingSuggestions ? '#f0f0f0' : '#EDE9FE', color: loadingSuggestions ? '#999' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: loadingSuggestions ? 'default' : 'pointer' }}>
+              {loadingSuggestions ? 'Loading...' : 'Load Music Radio'}
+            </button>
+          ) : suggestions.length === 0 ? (
+            <div style={{ fontSize: '11px', color: '#999' }}>No suggestions found.</div>
+          ) : (
+            <TrackList tracks={suggestions} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
+          )}
+        </>
       )}
 
-      {suggestions && suggestions.length === 0 && (
-        <div style={{ fontSize: '11px', color: '#999' }}>No suggestions. Add Music DNA to this creator's profile first.</div>
+      {/* Top 50 USA tab */}
+      {musicTab === 'top50' && (
+        loadingTop50 ? (
+          <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
+        ) : top50 && top50.length > 0 ? (
+          <TrackList tracks={top50} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
+        ) : top50 && top50.length === 0 ? (
+          <div style={{ fontSize: '11px', color: '#999' }}>No chart data available.</div>
+        ) : null
       )}
 
       {error && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{error}</div>}
@@ -1272,6 +1323,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 creatorName={creator.name}
                 videoUrl={task?.asset?.dropboxLink || clip?.dropboxLink || ''}
                 inspoId={task?.inspo?.id || null}
+                hasPlaylist={creator.hasPlaylist}
               />
             )}
 

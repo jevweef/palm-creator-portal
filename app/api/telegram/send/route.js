@@ -242,17 +242,52 @@ export async function POST(request) {
           form.append('photo_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
           result = await telegramUpload('sendMediaGroup', form)
         } catch (err) {
-          console.warn('[Telegram Send] Media group with URL failed, falling back to sendVideo:', err.message)
-          result = await telegramJson('sendVideo', { chat_id: chatId, message_thread_id: threadId, video: rawUrl, supports_streaming: true, ...(caption ? { caption } : {}) })
+          console.warn('[Telegram Send] Media group with URL failed, trying sendVideo URL:', err.message)
+          try {
+            result = await telegramJson('sendVideo', { chat_id: chatId, message_thread_id: threadId, video: rawUrl, supports_streaming: true, ...(caption ? { caption } : {}) })
+          } catch (urlErr) {
+            // URL method fully failed — download + upload as last resort
+            console.warn('[Telegram Send] URL method failed, downloading file for upload:', urlErr.message)
+            const dlRes = await fetch(rawUrl)
+            if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
+            const dlBuffer = await dlRes.arrayBuffer()
+            const fallbackForm = new FormData()
+            fallbackForm.append('chat_id', String(chatId))
+            fallbackForm.append('message_thread_id', String(threadId))
+            if (caption) fallbackForm.append('caption', caption)
+            fallbackForm.append('video', new Blob([dlBuffer], { type: 'video/mp4' }), getFilename(editedFileLink).replace(/\.[^.]+$/, '.mp4'))
+            fallbackForm.append('supports_streaming', 'true')
+            result = await telegramUpload('sendVideo', fallbackForm)
+          }
         }
       } else {
         const baseParams = { chat_id: chatId, message_thread_id: threadId, ...(caption ? { caption } : {}) }
-        if (isVideo(editedFileLink)) {
-          result = await telegramJson('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
-        } else if (isPhoto(editedFileLink)) {
-          result = await telegramJson('sendPhoto', { ...baseParams, photo: rawUrl })
-        } else {
-          result = await telegramJson('sendDocument', { ...baseParams, document: rawUrl })
+        try {
+          if (isVideo(editedFileLink)) {
+            result = await telegramJson('sendVideo', { ...baseParams, video: rawUrl, supports_streaming: true })
+          } else if (isPhoto(editedFileLink)) {
+            result = await telegramJson('sendPhoto', { ...baseParams, photo: rawUrl })
+          } else {
+            result = await telegramJson('sendDocument', { ...baseParams, document: rawUrl })
+          }
+        } catch (urlErr) {
+          // URL rejected — download + upload as fallback
+          console.warn('[Telegram Send] URL method failed, downloading for upload:', urlErr.message)
+          const dlRes = await fetch(rawUrl)
+          if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
+          const dlBuffer = await dlRes.arrayBuffer()
+          const fallbackForm = new FormData()
+          fallbackForm.append('chat_id', String(chatId))
+          fallbackForm.append('message_thread_id', String(threadId))
+          if (caption) fallbackForm.append('caption', caption)
+          if (isVideo(editedFileLink)) {
+            fallbackForm.append('video', new Blob([dlBuffer], { type: 'video/mp4' }), getFilename(editedFileLink).replace(/\.[^.]+$/, '.mp4'))
+            fallbackForm.append('supports_streaming', 'true')
+            result = await telegramUpload('sendVideo', fallbackForm)
+          } else {
+            fallbackForm.append('document', new Blob([dlBuffer], { type: 'application/octet-stream' }), getFilename(editedFileLink))
+            result = await telegramUpload('sendDocument', fallbackForm)
+          }
         }
       }
     } else {

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 
+export const dynamic = 'force-dynamic'
+
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const BASE_ID = 'applLIT2t83plMqNx'
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'

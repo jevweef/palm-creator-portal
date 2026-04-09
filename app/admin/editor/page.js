@@ -730,7 +730,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
 
 // ─── Creator Music Radio (DNA-only, no inspo reel needed) ────────────────────
 
-function CreatorMusicRadio({ creatorId, creatorName }) {
+function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
   const [suggestions, setSuggestions] = useState(null)
   const [loading, setLoading] = useState(false)
   const [downloading, setDownloading] = useState(null)
@@ -738,11 +738,14 @@ function CreatorMusicRadio({ creatorId, creatorName }) {
   const [playingPreview, setPlayingPreview] = useState(null)
   const [error, setError] = useState('')
   const audioRef = useRef(null)
+  const [musicTab, setMusicTab] = useState('creator')
+  const [top50, setTop50] = useState(null)
+  const [loadingTop50, setLoadingTop50] = useState(false)
 
   async function handleGetSuggestions() {
+    if (suggestions) return
     setLoading(true)
     setError('')
-    setExpanded(true)
     try {
       const res = await fetch('/api/admin/music/suggest', {
         method: 'POST',
@@ -757,6 +760,18 @@ function CreatorMusicRadio({ creatorId, creatorName }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function fetchTop50() {
+    if (top50) return
+    setLoadingTop50(true)
+    try {
+      const res = await fetch('/api/admin/music/charts')
+      const data = await res.json()
+      if (res.ok) setTop50(data.tracks || [])
+      else setError(data.error || 'Failed')
+    } catch (e) { setError(e.message) }
+    finally { setLoadingTop50(false) }
   }
 
   async function handleDownload(track) {
@@ -793,30 +808,66 @@ function CreatorMusicRadio({ creatorId, creatorName }) {
     }
   }
 
-  function togglePreview(track) {
-    if (playingPreview === track.spotifyId) {
-      audioRef.current?.pause()
-      setPlayingPreview(null)
-    } else if (track.previewUrl) {
-      if (audioRef.current) audioRef.current.pause()
-      const audio = new Audio(track.previewUrl)
-      audio.play()
-      audio.onended = () => setPlayingPreview(null)
-      audioRef.current = audio
-      setPlayingPreview(track.spotifyId)
-    }
+  function renderTrackList(tracks) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '280px', overflowY: 'auto' }}>
+        {tracks.map((track, i) => (
+          <div key={track.spotifyId || i}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 6px',
+              borderRadius: '4px', background: i % 2 === 0 ? '#fafafa' : 'transparent', fontSize: '11px',
+            }}>
+              {track.albumArt && (
+                <img src={track.albumArt} alt="" style={{ width: '24px', height: '24px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '11px' }}>{track.track}</div>
+                <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '9px' }}>{track.artist}</div>
+              </div>
+              {track.spotifyId && (
+                <button onClick={() => setPlayingPreview(playingPreview === track.spotifyId ? null : track.spotifyId)}
+                  style={{ padding: '2px 5px', fontSize: '9px', background: playingPreview === track.spotifyId ? '#E88FAC' : '#f0f0f0', color: playingPreview === track.spotifyId ? '#fff' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
+                  {playingPreview === track.spotifyId ? '■' : '▶'}
+                </button>
+              )}
+              <button onClick={() => handleDownload(track)} disabled={downloading === track.spotifyId}
+                style={{
+                  padding: '2px 5px', fontSize: '9px', fontWeight: 500, flexShrink: 0,
+                  background: downloading === track.spotifyId ? '#f0f0f0' : '#dcfce7',
+                  color: downloading === track.spotifyId ? '#999' : '#22c55e',
+                  border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
+                }}>
+                {downloading === track.spotifyId ? '...' : '↓'}
+              </button>
+            </div>
+            {playingPreview === track.spotifyId && track.spotifyId && (
+              <div style={{ padding: '4px 6px' }}>
+                <iframe
+                  src={`https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator&theme=0`}
+                  width="100%" height="80" frameBorder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  style={{ borderRadius: '8px' }}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )
   }
 
   if (!expanded) {
     return (
-      <button onClick={handleGetSuggestions} disabled={loading}
+      <button onClick={() => { setExpanded(true); if (hasPlaylist) handleGetSuggestions(); else { setMusicTab('top50'); fetchTop50() } }}
+        disabled={loading}
         style={{
           width: '100%', padding: '7px', fontSize: '11px', fontWeight: 600,
           background: loading ? '#f0f0f0' : '#F0F4FF', color: loading ? '#999' : '#6B7FE3',
           border: '1px solid rgba(107,127,227,0.2)', borderRadius: '6px',
           cursor: loading ? 'default' : 'pointer',
         }}>
-        {loading ? 'Loading...' : '♫ Music Radio'}
+        {hasPlaylist ? '♫ Music Radio' : '♫ Music (Need Playlist)'}
       </button>
     )
   }
@@ -824,8 +875,15 @@ function CreatorMusicRadio({ creatorId, creatorName }) {
   return (
     <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '8px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Music Radio
+        <div style={{ display: 'flex', gap: '0', flex: 1 }}>
+          <button onClick={() => { setMusicTab('creator'); if (!suggestions && hasPlaylist) handleGetSuggestions() }}
+            style={{ padding: '4px 8px', fontSize: '9px', fontWeight: musicTab === 'creator' ? 700 : 400, color: musicTab === 'creator' ? '#6B7FE3' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'creator' ? '2px solid #6B7FE3' : '2px solid transparent', cursor: 'pointer' }}>
+            For {creatorName?.split(' ')[0] || 'Creator'}
+          </button>
+          <button onClick={() => { setMusicTab('top50'); fetchTop50() }}
+            style={{ padding: '4px 8px', fontSize: '9px', fontWeight: musicTab === 'top50' ? 700 : 400, color: musicTab === 'top50' ? '#6B7FE3' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === 'top50' ? '2px solid #6B7FE3' : '2px solid transparent', cursor: 'pointer' }}>
+            Top 50 USA
+          </button>
         </div>
         <button onClick={() => { setExpanded(false); if (audioRef.current) audioRef.current.pause(); setPlayingPreview(null) }}
           style={{ fontSize: '10px', color: '#999', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -833,57 +891,26 @@ function CreatorMusicRadio({ creatorId, creatorName }) {
         </button>
       </div>
 
-      {loading && <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>Loading suggestions...</div>}
-
-      {suggestions && suggestions.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '280px', overflowY: 'auto' }}>
-          {suggestions.map((track, i) => (
-            <div key={track.spotifyId || i}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 6px',
-                borderRadius: '4px', background: i % 2 === 0 ? '#fafafa' : 'transparent', fontSize: '11px',
-              }}>
-                {track.albumArt && (
-                  <img src={track.albumArt} alt="" style={{ width: '24px', height: '24px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '11px' }}>{track.track}</div>
-                  <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '9px' }}>{track.artist}</div>
-                </div>
-                {track.spotifyId && (
-                  <button onClick={() => setPlayingPreview(playingPreview === track.spotifyId ? null : track.spotifyId)}
-                    style={{ padding: '2px 5px', fontSize: '9px', background: playingPreview === track.spotifyId ? '#E88FAC' : '#f0f0f0', color: playingPreview === track.spotifyId ? '#fff' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
-                    {playingPreview === track.spotifyId ? '■' : '▶'}
-                  </button>
-                )}
-                <button onClick={() => handleDownload(track)} disabled={downloading === track.spotifyId}
-                  style={{
-                    padding: '2px 5px', fontSize: '9px', fontWeight: 500, flexShrink: 0,
-                    background: downloading === track.spotifyId ? '#f0f0f0' : '#dcfce7',
-                    color: downloading === track.spotifyId ? '#999' : '#22c55e',
-                    border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
-                  }}>
-                {downloading === track.spotifyId ? '...' : '↓'}
-              </button>
-              </div>
-              {playingPreview === track.spotifyId && track.spotifyId && (
-                <div style={{ padding: '4px 6px' }}>
-                  <iframe
-                    src={`https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator&theme=0`}
-                    width="100%" height="80" frameBorder="0"
-                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                    loading="lazy"
-                    style={{ borderRadius: '8px' }}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      {musicTab === 'creator' && (
+        !hasPlaylist ? (
+          <div style={{ fontSize: '11px', color: '#999', padding: '8px 0', textAlign: 'center' }}>
+            No Music DNA playlist uploaded. <span style={{ color: '#6B7FE3', fontWeight: 600 }}>Need Playlist</span>
+          </div>
+        ) : loading ? (
+          <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>Loading suggestions...</div>
+        ) : suggestions && suggestions.length > 0 ? (
+          renderTrackList(suggestions)
+        ) : suggestions && suggestions.length === 0 ? (
+          <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>No suggestions found.</div>
+        ) : null
       )}
 
-      {suggestions && suggestions.length === 0 && (
-        <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>No suggestions. Add Music DNA to this creator's profile first.</div>
+      {musicTab === 'top50' && (
+        loadingTop50 ? (
+          <div style={{ fontSize: '11px', color: '#999', padding: '4px 0' }}>Loading chart...</div>
+        ) : top50 && top50.length > 0 ? (
+          renderTrackList(top50)
+        ) : null
       )}
 
       {error && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{error}</div>}
@@ -1046,7 +1073,7 @@ function UnreviewedCard({ asset }) {
 
         {/* Music Radio — DNA-based suggestions */}
         {asset.creator?.id && (
-          <CreatorMusicRadio creatorId={asset.creator.id} creatorName={asset.creator.name} />
+          <CreatorMusicRadio creatorId={asset.creator.id} creatorName={asset.creator.name} hasPlaylist={true} />
         )}
 
         {/* Download links */}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, airtableHeaders, OPS_BASE } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchUpdateRecords, airtableHeaders, OPS_BASE } from '@/lib/adminAuth'
+import { embedText, cosineSimilarity, buildCreatorEmbeddingText } from '@/lib/embeddings'
 import OpenAI from 'openai'
 
 export const maxDuration = 60
@@ -157,6 +158,14 @@ export async function POST(request) {
       if (proposal.tag_weights) await upsertTagWeights(creatorId, proposal.tag_weights)
       if (proposal.film_format_weights) await upsertTagWeights(creatorId, proposal.film_format_weights)
 
+      // Fire-and-forget: re-compute creator embedding after refinement
+      computeCreatorEmbedding(creatorId, {
+        profileSummary: proposal.profile_summary || '',
+        brandVoiceNotes: proposal.brand_voice_notes || '',
+        contentDirectionNotes: proposal.content_direction_notes || '',
+        dosAndDonts: dosDonts,
+      }).catch(err => console.error('Creator embedding error (non-blocking):', err))
+
       return NextResponse.json({ success: true, committed: true })
     }
 
@@ -280,4 +289,36 @@ ${feedback}`
     console.error('Creator profile refine error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
+}
+
+async function computeCreatorEmbedding(creatorId, profileFields) {
+  const creatorText = buildCreatorEmbeddingText(profileFields)
+  if (!creatorText) return
+
+  const creatorEmbedding = await embedText(creatorText)
+  if (!creatorEmbedding) return
+
+  await patchAirtableRecord('Palm Creators', creatorId, {
+    'Creator Embedding': JSON.stringify(creatorEmbedding),
+  })
+
+  const reels = await fetchAirtableRecords('Inspiration', {
+    filterByFormula: "AND({Status} = 'Complete', NOT({Reel Embedding} = ''))",
+    fields: ['Reel Embedding', 'Semantic Scores'],
+  })
+
+  const updates = []
+  for (const reel of reels) {
+    try {
+      const reelEmbedding = JSON.parse(reel.fields['Reel Embedding'])
+      const score = Math.round(cosineSimilarity(creatorEmbedding, reelEmbedding) * 1000) / 1000
+      let existingScores = {}
+      try { existingScores = JSON.parse(reel.fields['Semantic Scores'] || '{}') } catch {}
+      existingScores[creatorId] = score
+      updates.push({ id: reel.id, fields: { 'Semantic Scores': JSON.stringify(existingScores) } })
+    } catch {}
+  }
+
+  if (updates.length > 0) await batchUpdateRecords('Inspiration', updates)
+  console.log(`[Embeddings] Creator ${creatorId}: re-embedded after refinement, scored ${updates.length} reels`)
 }
