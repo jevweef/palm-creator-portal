@@ -2,32 +2,39 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
+import { usePathname, useSearchParams } from 'next/navigation'
 import ContentRequestSidebar from '@/components/content-request/ContentRequestSidebar'
 import ContentRequestSection from '@/components/content-request/ContentRequestSection'
 import ContentRequestItem from '@/components/content-request/ContentRequestItem'
 
 export default function ContentRequestPage() {
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeSection, setActiveSection] = useState(null)
   const [expandedSections, setExpandedSections] = useState({})
 
-  const opsId = user?.publicMetadata?.airtableOpsId
-  const hqId = user?.publicMetadata?.airtableHqId
+  // If viewing as creator (/creator/[id]/content-request), use that ID
+  const creatorIdFromPath = pathname?.startsWith('/creator/') ? pathname.split('/')[2] : null
+  const opsId = creatorIdFromPath || user?.publicMetadata?.airtableOpsId
+  const hqId = searchParams?.get('hqId') || user?.publicMetadata?.airtableHqId
 
   const fetchData = useCallback(async () => {
-    if (!opsId) return
+    if (!isLoaded) return // Wait for Clerk to load
+    if (!opsId) {
+      setLoading(false)
+      return
+    }
     try {
       const res = await fetch(`/api/content-request?creatorOpsId=${opsId}`)
       if (!res.ok) throw new Error('Failed to fetch content request')
       const json = await res.json()
       setData(json)
-      // Set first section with items as active
       if (json.sections?.length && !activeSection) {
         setActiveSection(json.sections[0].name)
-        // Auto-expand active section
         setExpandedSections(prev => ({ ...prev, [json.sections[0].name]: true }))
       }
     } catch (err) {
@@ -35,7 +42,7 @@ export default function ContentRequestPage() {
     } finally {
       setLoading(false)
     }
-  }, [opsId, activeSection])
+  }, [opsId, isLoaded, activeSection])
 
   useEffect(() => {
     fetchData()
@@ -52,7 +59,6 @@ export default function ContentRequestPage() {
       const newSections = prev.sections.map(section => ({
         ...section,
         items: section.items.map(item => {
-          // Match by ID, or by section|order key for virtual items
           const virtualKey = `${item._section}|${item.itemOrder}`
           if (item.id === itemId || virtualKey === itemId) {
             return { ...item, ...updates }
@@ -170,9 +176,9 @@ export default function ContentRequestPage() {
             )}
 
             {/* Individual upload items */}
-            {activeSectionData?.items.map(item => (
+            {activeSectionData?.items.map((item, idx) => (
               <ContentRequestItem
-                key={item.id}
+                key={item.id || `${item._section}-${item.itemOrder}`}
                 item={item}
                 hqId={hqId}
                 onUpdate={handleItemUpdate}
