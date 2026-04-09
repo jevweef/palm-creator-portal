@@ -31,7 +31,7 @@ const TIMEZONES = [
   { value: 'Other', label: 'Other' },
 ]
 
-const COMM_OPTIONS = ['iMessage', 'WhatsApp', 'Telegram', 'Email', 'Instagram DM']
+const COMM_OPTIONS = ['iMessage', 'WhatsApp', 'Telegram']
 
 export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
   const [form, setForm] = useState({
