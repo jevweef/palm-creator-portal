@@ -997,7 +997,15 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
           ) : suggestions.length === 0 ? (
             <div style={{ fontSize: '11px', color: '#999' }}>No suggestions found.</div>
           ) : (
-            <TrackList tracks={filterUsed(suggestions)} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                <button onClick={() => { setSuggestions(null); handleGetSuggestions() }} disabled={loadingSuggestions}
+                  style={{ fontSize: '9px', color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', opacity: loadingSuggestions ? 0.5 : 1 }}>
+                  {loadingSuggestions ? 'Loading...' : '↻ Refresh'}
+                </button>
+              </div>
+              <TrackList tracks={filterUsed(suggestions)} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
+            </>
           )}
         </>
       )}
