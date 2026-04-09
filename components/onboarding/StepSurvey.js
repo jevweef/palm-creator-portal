@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import SurveySection from './SurveySection'
 import { SURVEY_QUESTIONS, SECTION_ORDER, getQuestionsBySection } from '@/lib/onboarding/surveyQuestions'
 
@@ -10,17 +10,38 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null) // 'saved' | 'saving' | 'error'
 
-  // Load existing answers
+  // Load existing answers + pre-fill from profile data
+  const prefillSaved = useRef(false)
   useEffect(() => {
     if (!hqId) return
-    fetch(`/api/onboarding/survey?hqId=${hqId}`)
-      .then(r => r.json())
-      .then(data => {
-        setAnswers(data.answers || {})
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    Promise.all([
+      fetch(`/api/onboarding/survey?hqId=${hqId}`).then(r => r.json()),
+      fetch(`/api/creator-profile?hqId=${hqId}`).then(r => r.json()),
+    ]).then(([surveyData, profileData]) => {
+      const loaded = surveyData.answers || {}
+      const profile = profileData.profile || {}
+
+      // Pre-fill OF username from accounts step if not already answered
+      if (!loaded.of_username?.answer && profile.onlyfansUrl) {
+        const usernames = [profile.onlyfansUrl, profile.secondOfUrl].filter(Boolean).join(', ')
+        if (usernames) {
+          loaded.of_username = { answer: usernames }
+          prefillSaved.current = true
+        }
+      }
+
+      setAnswers(loaded)
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }, [hqId])
+
+  // Save pre-filled answers after state is set
+  useEffect(() => {
+    if (prefillSaved.current && answers.of_username?.answer && !answers.of_username?.recordId) {
+      prefillSaved.current = false
+      handleAnswerChange('of_username', answers.of_username.answer)
+    }
+  }, [answers])
 
   // Save a single answer
   const handleAnswerChange = useCallback(async (key, value) => {
