@@ -89,7 +89,12 @@ export async function POST(request) {
 
     console.log(`[Music Suggest] Finding similar music with ${seedTracks.length} seed(s)...`)
 
-    const suggestions = await findSimilarMusic(seedTracks, { limit: 20 })
+    const suggestions = await findSimilarMusic(seedTracks, { limit: 40 })
+    // Shuffle so each session gets a different order
+    for (let i = suggestions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [suggestions[i], suggestions[j]] = [suggestions[j], suggestions[i]]
+    }
 
     return NextResponse.json({
       ok: true,
