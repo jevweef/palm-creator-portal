@@ -33,7 +33,7 @@ export async function GET() {
   try {
     const creators = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: '{Social Media Editing}=1',
-      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Profile Summary'],
+      fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Profile Summary', 'Music DNA Processed'],
     })
     if (!creators.length) return NextResponse.json({ creators: [] })
 
@@ -275,6 +275,7 @@ export async function GET() {
         id: c.id,
         name: f.AKA || f.Creator || '',
         hasProfile: !!(f['Profile Summary']),
+        hasPlaylist: !!(f['Music DNA Processed']),
         quota: weeklyQuota,
         dailyQuota,
         doneToday: doneThisWeek,
