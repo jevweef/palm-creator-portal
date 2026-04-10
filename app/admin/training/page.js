@@ -208,13 +208,15 @@ export default function TextTrainingPage() {
             {videoUrl ? (
               <video
                 key={record.id}
-                src={videoUrl}
                 controls
                 autoPlay
                 muted
                 loop
+                playsInline
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+              >
+                <source src={videoUrl} type="video/mp4" />
+              </video>
             ) : record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
