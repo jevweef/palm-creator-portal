@@ -11,6 +11,85 @@ import StepContract from '@/components/onboarding/StepContract'
 import StepVoiceMemo from '@/components/onboarding/StepVoiceMemo'
 import StepReview from '@/components/onboarding/StepReview'
 
+function AccountLinkingScreen() {
+  const [countdown, setCountdown] = useState(10)
+  const [hasAutoRefreshed, setHasAutoRefreshed] = useState(false)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          if (!hasAutoRefreshed) {
+            setHasAutoRefreshed(true)
+            window.location.reload()
+          }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [hasAutoRefreshed])
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{
+        background: '#fff',
+        borderRadius: '20px',
+        padding: '40px',
+        maxWidth: '440px',
+        textAlign: 'center',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+      }}>
+        {/* Spinner */}
+        <div style={{
+          width: '48px',
+          height: '48px',
+          border: '3px solid #f0f0f0',
+          borderTop: '3px solid #E88FAC',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+          margin: '0 auto 20px',
+        }} />
+        <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
+          Setting Up Your Account
+        </h1>
+        <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5', marginBottom: '16px' }}>
+          We&apos;re linking your account to our system. This usually takes a few seconds.
+        </p>
+        <div style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
+          {countdown > 0 ? (
+            <>Auto-refreshing in <span style={{ fontWeight: 600, color: '#E88FAC' }}>{countdown}s</span></>
+          ) : (
+            'Refreshing...'
+          )}
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            padding: '10px 24px',
+            background: '#E88FAC',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 500,
+            cursor: 'pointer',
+          }}
+        >
+          Refresh Now
+        </button>
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    </div>
+  )
+}
+
 export default function OnboardingForm() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
@@ -168,43 +247,7 @@ export default function OnboardingForm() {
   }
 
   if (!hqId) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{
-          background: '#fff',
-          borderRadius: '20px',
-          padding: '40px',
-          maxWidth: '440px',
-          textAlign: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-        }}>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: '#E88FAC', marginBottom: '16px' }}>...</div>
-          <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
-            Setting Up Your Account
-          </h1>
-          <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5' }}>
-            We&apos;re linking your account to our system. This usually takes a few seconds.
-            Try refreshing the page in a moment.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              marginTop: '20px',
-              padding: '10px 24px',
-              background: '#E88FAC',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-    )
+    return <AccountLinkingScreen />
   }
 
   const basicInfoInitial = profileData ? {

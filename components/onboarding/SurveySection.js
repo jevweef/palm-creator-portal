@@ -73,6 +73,24 @@ export default function SurveySection({ title, questions, answers, onAnswerChang
 
       {!collapsed && !locked && (
         <div style={{ padding: '0 16px 16px' }}>
+          {/* Show unanswered count when section is partially complete */}
+          {answeredCount > 0 && !allAnswered && (
+            <div style={{
+              background: '#FFF8E1',
+              border: '1px solid #FFE082',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              marginBottom: '12px',
+              fontSize: '12px',
+              color: '#F57F17',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#F57F17"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+              {totalCount - answeredCount} question{totalCount - answeredCount !== 1 ? 's' : ''} remaining to unlock the next section
+            </div>
+          )}
           {questions.map(q => (
             <QuestionField
               key={q.key}

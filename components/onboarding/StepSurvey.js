@@ -22,11 +22,30 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
       const profile = profileData.profile || {}
 
       // Pre-fill OF username from accounts step if not already answered
+      // Make sure we use the actual username, not the email
       if (!loaded.of_username?.answer && profile.onlyfansUrl) {
-        const usernames = [profile.onlyfansUrl, profile.secondOfUrl].filter(Boolean).join(', ')
-        if (usernames) {
-          loaded.of_username = { answer: usernames }
-          prefillSaved.current = true
+        const ofUrl = profile.onlyfansUrl
+        // Skip if it looks like an email address
+        const isEmail = ofUrl.includes('@')
+        if (!isEmail) {
+          const usernames = [ofUrl, profile.secondOfUrl].filter(Boolean).filter(u => !u.includes('@')).join(', ')
+          if (usernames) {
+            loaded.of_username = { answer: usernames }
+            prefillSaved.current = true
+          }
+        }
+      }
+
+      // Pre-fill social media usernames from accounts step
+      if (!loaded.social_media_usernames?.answer) {
+        const socials = []
+        if (profile.tiktok) socials.push(`TikTok: @${profile.tiktok.replace(/^@/, '')}`)
+        if (profile.twitter) socials.push(`Twitter: @${profile.twitter.replace(/^@/, '')}`)
+        if (profile.reddit) socials.push(`Reddit: u/${profile.reddit.replace(/^u\//, '')}`)
+        if (profile.youtube) socials.push(`YouTube: ${profile.youtube}`)
+        if (profile.oftv) socials.push(`OFTV: ${profile.oftv}`)
+        if (socials.length > 0) {
+          loaded.social_media_usernames = { answer: socials.join('\n') }
         }
       }
 
@@ -118,16 +137,36 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
             {answeredQuestions}/{totalQuestions}
           </div>
           <div style={{ fontSize: '11px', color: '#999' }}>answered</div>
-          {saveStatus && (
-            <div style={{
-              fontSize: '11px',
-              marginTop: '4px',
-              color: saveStatus === 'saving' ? '#F9A825' : saveStatus === 'saved' ? '#43A047' : '#E53935',
-              fontWeight: 500,
-            }}>
-              {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Error saving'}
-            </div>
-          )}
+          <div style={{
+            fontSize: '11px',
+            marginTop: '4px',
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: '4px',
+            minHeight: '16px',
+            color: saveStatus === 'saving' ? '#F9A825' : saveStatus === 'saved' ? '#43A047' : saveStatus === 'error' ? '#E53935' : '#999',
+          }}>
+            {saveStatus === 'saving' && (
+              <>
+                <span style={{
+                  width: '8px', height: '8px', borderRadius: '50%',
+                  background: '#F9A825', display: 'inline-block',
+                  animation: 'pulse 1s infinite',
+                }} />
+                Saving...
+              </>
+            )}
+            {saveStatus === 'saved' && (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#43A047"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                All changes saved
+              </>
+            )}
+            {saveStatus === 'error' && 'Error saving — try again'}
+            {!saveStatus && 'Auto-saves as you type'}
+          </div>
         </div>
       </div>
 
@@ -153,22 +192,56 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
         )
       })}
 
-      <button
-        onClick={onComplete}
-        style={{
-          marginTop: '12px',
-          padding: '10px 32px',
-          background: '#E88FAC',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '8px',
-          fontSize: '14px',
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
-      >
-        Continue to Next Step
-      </button>
+      {/* Save Progress indicator */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        marginTop: '12px',
+      }}>
+        <button
+          onClick={() => {
+            // Blur any active input to trigger pending saves
+            if (document.activeElement) document.activeElement.blur()
+            // Small delay to let final save fire
+            setTimeout(() => {
+              setSaveStatus('saved')
+              setTimeout(() => setSaveStatus(null), 2000)
+            }, 300)
+          }}
+          style={{
+            padding: '10px 24px',
+            background: '#fff',
+            color: '#E88FAC',
+            border: '2px solid #E88FAC',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Save Progress
+        </button>
+        <button
+          onClick={() => {
+            // Blur any active input to trigger pending saves
+            if (document.activeElement) document.activeElement.blur()
+            setTimeout(() => onComplete(), 300)
+          }}
+          style={{
+            padding: '10px 32px',
+            background: '#E88FAC',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Continue to Next Step
+        </button>
+      </div>
     </div>
   )
 }

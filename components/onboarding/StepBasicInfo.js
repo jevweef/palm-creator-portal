@@ -123,7 +123,8 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
             type="date"
             value={form.birthday}
             onChange={e => update('birthday', e.target.value)}
-            style={inputStyle}
+            max={new Date().toISOString().split('T')[0]}
+            style={{ ...inputStyle, color: form.birthday ? '#1a1a1a' : '#999' }}
             required
           />
         </div>
@@ -134,7 +135,7 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
             type="text"
             value={form.location}
             onChange={e => update('location', e.target.value)}
-            placeholder="City, State / Country"
+            placeholder="City, State"
             style={inputStyle}
           />
         </div>
