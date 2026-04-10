@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchHqRecord, patchHqRecord } from '@/lib/hqAirtable'
@@ -67,7 +69,7 @@ export async function POST(request) {
     // If they just confirmed they already sent it, mark it in Airtable
     if (confirmed === 'true') {
       await patchHqRecord(HQ_CREATORS, hqId, {
-        'Voice Memo Status': { name: 'Confirmed Sent' },
+        'Voice Memo Status': 'Confirmed Sent',
       })
       return NextResponse.json({ success: true, confirmed: true })
     }
@@ -75,7 +77,7 @@ export async function POST(request) {
     // If they chose to skip, mark it so admin knows
     if (skipped === 'true') {
       await patchHqRecord(HQ_CREATORS, hqId, {
-        'Voice Memo Status': { name: 'Skipped' },
+        'Voice Memo Status': 'Skipped',
       })
       return NextResponse.json({ success: true, skipped: true })
     }
@@ -119,7 +121,7 @@ export async function POST(request) {
     // Save to HQ Airtable
     await patchHqRecord(HQ_CREATORS, hqId, {
       'Voice Memo': [{ url: directUrl, filename }],
-      'Voice Memo Status': { name: 'Uploaded' },
+      'Voice Memo Status': 'Uploaded',
     })
 
     // Register as a Creator Profile Document for DNA analysis
