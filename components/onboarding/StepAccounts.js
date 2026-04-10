@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const inputStyle = {
   width: '100%',
@@ -42,6 +42,7 @@ const PLATFORMS = [
 
 function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
   const sendDirect = data.sendDirect || false
+  const [showPassword, setShowPassword] = useState(false)
 
   return (
     <div style={{
@@ -70,87 +71,119 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
         </button>
       </div>
 
-      {/* Send directly option */}
-      <label style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        marginBottom: '14px',
-        cursor: 'pointer',
-        fontSize: '12px',
-        color: '#666',
-      }}>
-        <input
-          type="checkbox"
-          checked={sendDirect}
-          onChange={e => onSendDirect(e.target.checked)}
-          style={{ accentColor: '#E88FAC' }}
-        />
-        I&apos;ll send these credentials directly to my manager
-      </label>
-
-      {!sendDirect && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <label style={labelStyle}>Username</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
-              <span style={{
-                padding: '10px 12px',
-                fontSize: '14px',
-                background: '#f5f5f5',
-                border: '1px solid #e0e0e0',
-                borderRight: 'none',
-                borderRadius: '8px 0 0 8px',
-                color: '#999',
-                whiteSpace: 'nowrap',
-              }}>
-                {platform.prefix}
-              </span>
-              <input
-                type="text"
-                value={data.username || ''}
-                onChange={e => onUpdate('username', e.target.value)}
-                placeholder="yourusername"
-                style={{ ...inputStyle, borderRadius: '0 8px 8px 0' }}
-              />
-            </div>
-          </div>
-          <div>
-            <label style={labelStyle}>Email</label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div>
+          <label style={labelStyle}>Username</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            <span style={{
+              padding: '10px 12px',
+              fontSize: '14px',
+              background: '#f5f5f5',
+              border: '1px solid #e0e0e0',
+              borderRight: 'none',
+              borderRadius: '8px 0 0 8px',
+              color: '#999',
+              whiteSpace: 'nowrap',
+            }}>
+              {platform.prefix}
+            </span>
             <input
-              type="email"
-              value={data.email || ''}
-              onChange={e => onUpdate('email', e.target.value)}
-              placeholder="Account email"
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Password</label>
-            <input
-              type="password"
-              value={data.password || ''}
-              onChange={e => onUpdate('password', e.target.value)}
-              placeholder="Account password"
-              style={inputStyle}
-              autoComplete="off"
+              type="text"
+              value={data.username || ''}
+              onChange={e => onUpdate('username', e.target.value)}
+              placeholder="yourusername"
+              style={{ ...inputStyle, borderRadius: '0 8px 8px 0' }}
             />
           </div>
         </div>
-      )}
+        <div>
+          <label style={labelStyle}>Email</label>
+          <input
+            type="email"
+            value={data.email || ''}
+            onChange={e => onUpdate('email', e.target.value)}
+            placeholder="Account email"
+            style={inputStyle}
+          />
+        </div>
 
-      {sendDirect && (
-        <div style={{
-          background: '#FFF8E1',
-          border: '1px solid #FFE082',
-          borderRadius: '8px',
-          padding: '10px 14px',
+        {/* Send password directly option */}
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          cursor: 'pointer',
           fontSize: '12px',
           color: '#666',
         }}>
-          Please send your {platform.label} credentials to your manager via text or secure message before continuing.
-        </div>
-      )}
+          <input
+            type="checkbox"
+            checked={sendDirect}
+            onChange={e => onSendDirect(e.target.checked)}
+            style={{ accentColor: '#E88FAC' }}
+          />
+          I&apos;ll send my password directly to my manager
+        </label>
+
+        {!sendDirect ? (
+          <div>
+            <label style={labelStyle}>Password</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={data.password || ''}
+                onChange={e => onUpdate('password', e.target.value)}
+                placeholder="Account password"
+                style={{ ...inputStyle, paddingRight: '40px' }}
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '6px' }}>
+              Only your account manager has access to your password. It&apos;s stored securely and encrypted.
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            background: '#FFF8E1',
+            border: '1px solid #FFE082',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '12px',
+            color: '#666',
+          }}>
+            Please send your {platform.label} password to your manager via text or secure message before continuing.
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -338,33 +371,69 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '500px' }}>
         <div>
           <label style={labelStyle}>TikTok</label>
-          <input
-            type="text"
-            value={socials.tiktok}
-            onChange={e => setSocials(prev => ({ ...prev, tiktok: e.target.value }))}
-            placeholder="@handle or URL"
-            style={inputStyle}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            <span style={{
+              padding: '10px 12px',
+              fontSize: '14px',
+              background: '#f5f5f5',
+              border: '1px solid #e0e0e0',
+              borderRight: 'none',
+              borderRadius: '8px 0 0 8px',
+              color: '#999',
+              whiteSpace: 'nowrap',
+            }}>@</span>
+            <input
+              type="text"
+              value={socials.tiktok}
+              onChange={e => setSocials(prev => ({ ...prev, tiktok: e.target.value }))}
+              placeholder="yourhandle"
+              style={{ ...inputStyle, borderRadius: '0 8px 8px 0' }}
+            />
+          </div>
         </div>
         <div>
           <label style={labelStyle}>Twitter / X</label>
-          <input
-            type="text"
-            value={socials.twitter}
-            onChange={e => setSocials(prev => ({ ...prev, twitter: e.target.value }))}
-            placeholder="@handle or URL"
-            style={inputStyle}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            <span style={{
+              padding: '10px 12px',
+              fontSize: '14px',
+              background: '#f5f5f5',
+              border: '1px solid #e0e0e0',
+              borderRight: 'none',
+              borderRadius: '8px 0 0 8px',
+              color: '#999',
+              whiteSpace: 'nowrap',
+            }}>@</span>
+            <input
+              type="text"
+              value={socials.twitter}
+              onChange={e => setSocials(prev => ({ ...prev, twitter: e.target.value }))}
+              placeholder="yourhandle"
+              style={{ ...inputStyle, borderRadius: '0 8px 8px 0' }}
+            />
+          </div>
         </div>
         <div>
           <label style={labelStyle}>Reddit</label>
-          <input
-            type="text"
-            value={socials.reddit}
-            onChange={e => setSocials(prev => ({ ...prev, reddit: e.target.value }))}
-            placeholder="u/username or URL"
-            style={inputStyle}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            <span style={{
+              padding: '10px 12px',
+              fontSize: '14px',
+              background: '#f5f5f5',
+              border: '1px solid #e0e0e0',
+              borderRight: 'none',
+              borderRadius: '8px 0 0 8px',
+              color: '#999',
+              whiteSpace: 'nowrap',
+            }}>u/</span>
+            <input
+              type="text"
+              value={socials.reddit}
+              onChange={e => setSocials(prev => ({ ...prev, reddit: e.target.value }))}
+              placeholder="yourname"
+              style={{ ...inputStyle, borderRadius: '0 8px 8px 0' }}
+            />
+          </div>
         </div>
         <div>
           <label style={labelStyle}>YouTube</label>
