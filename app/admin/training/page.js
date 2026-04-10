@@ -205,9 +205,7 @@ export default function TextTrainingPage() {
         {/* Left: Video */}
         <div style={{ background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: '100%', aspectRatio: '9/16' }}>
-            {embedHtml ? (
-              <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: embedHtml }} />
-            ) : videoUrl ? (
+            {videoUrl ? (
               <video
                 key={record.id}
                 src={videoUrl}
