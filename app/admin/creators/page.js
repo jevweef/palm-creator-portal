@@ -2536,8 +2536,11 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
       if (fanMap.has(key)) {
         const f = fanMap.get(key)
         // CRM status takes priority over "Fan" but not over "Going Cold"
-        if (c.status && f.status !== 'Going Cold') f.status = c.status
-        if (c.alertCount > 0) { f.alertCount = c.alertCount; f.status = f.status === 'Going Cold' ? 'Going Cold' : c.status }
+        // Don't let CRM status set "Going Cold" — only the live goingColdAlerts detection should do that
+        if (c.status && f.status !== 'Going Cold') {
+          f.status = c.status === 'Going Cold' ? f.status : c.status
+        }
+        if (c.alertCount > 0) { f.alertCount = c.alertCount }
         if (c.alertHistory) f.alertHistory = c.alertHistory
         if (c.analysisRecords && c.analysisRecords.length > 0) {
           f.analysisRecords = c.analysisRecords
