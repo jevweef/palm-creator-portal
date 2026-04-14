@@ -1857,7 +1857,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       <div
         onClick={onToggle}
         style={{
-          display: 'grid', gridTemplateColumns: '24px 1fr 100px 90px 90px 100px 90px 90px',
+          display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 80px 80px 90px',
           padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
           background: isExpanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
         }}
@@ -1866,18 +1866,57 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
         <div>
           <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{f.fanName}</span>
           {f.ofUsername && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>}
+          {f.alertCount > 0 && <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
         <span><span style={{ background: sc.bg, color: sc.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.status}</span></span>
-        <span style={{ textAlign: 'right', color: '#666' }}>{f.alertCount || 0}</span>
-        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(f.lifetimeSpend)}</span>
-        <span style={{ textAlign: 'right', color: '#666', fontSize: '11px' }}>{fmtDate(f.lastAlertSent)}</span>
-        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(f.preAlertSpend30d)}</span>
-        <span><span style={{ background: ec.bg, color: ec.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.effectiveness || 'Pending'}</span></span>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(f.lifetimeSpend)}</span>
+        <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#DC2626' : '#666', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
+        <span style={{ textAlign: 'right', color: '#666' }}>{f.txnCount || 0}</span>
+        <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{f.lastDate || '—'}</span>
       </div>
 
       {isExpanded && (
         <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
+          {/* Going cold details */}
+          {f.goingCold && (
+            <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA' }}>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#DC2626', fontWeight: 600, marginBottom: '2px' }}>Trigger</div>
+                  <div style={{ color: '#1a1a1a' }}>
+                    {f.goingCold.triggerReason === 'gap' && `Purchase gap ${f.goingCold.currentGap}d exceeds ${f.goingCold.medianGap * 2}d threshold (2x median)`}
+                    {f.goingCold.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+                    {f.goingCold.triggerReason === 'both' && `Gap ${f.goingCold.gapRatio}x overdue + spending at ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Gap</div>
+                  <div style={{ fontWeight: 600, color: '#DC2626' }}>{f.goingCold.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.goingCold.gapRatio}x median {f.goingCold.medianGap}d)</span></div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last 30d</div>
+                  <div>{fmtMoney(f.goingCold.rolling30)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>90d Avg/mo</div>
+                  <div>{fmtMoney(f.goingCold.monthlyAvg90)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Purchase</div>
+                  <div>{f.goingCold.lastPurchaseDate}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stats row */}
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            {f.firstDate && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Purchase</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.firstDate}</div>
+              </div>
+            )}
             {f.firstFlagged && (
               <div>
                 <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Flagged</div>
@@ -1895,11 +1934,6 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                 <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Post-Alert Spend (30d)</div>
                 <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>
                   {fmtMoney(f.postAlertSpend30d)}
-                  {f.preAlertSpend30d > 0 && f.postAlertSpend30d > 0 && (
-                    <span style={{ fontSize: '10px', color: '#999', fontWeight: 400, marginLeft: '4px' }}>
-                      ({f.postAlertSpend30d > f.preAlertSpend30d ? '+' : ''}{Math.round(((f.postAlertSpend30d - f.preAlertSpend30d) / f.preAlertSpend30d) * 100)}%)
-                    </span>
-                  )}
                 </div>
               </div>
             )}
@@ -2116,20 +2150,127 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   )
 }
 
-function FansPanel({ creator, allTxns }) {
-  const [fans, setFans] = useState([])
+function FansPanel({ creator, allTxns, goingColdAlerts }) {
+  const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all') // all, active, resolved
+  const [filter, setFilter] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
+  const [showAllFans, setShowAllFans] = useState(false)
 
+  const creatorName = creator?.name || creator?.aka || ''
+  const creatorRecordId = creator?.id || ''
+
+  // Fetch CRM data (analyses + tracker records)
   useEffect(() => {
     setLoading(true)
     const name = creator?.aka || creator?.name || ''
     fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(name)}`)
       .then(r => r.json())
-      .then(data => { setFans(data.fans || []); setLoading(false) })
+      .then(data => { setCrmData(data.fans || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [creator?.id])
+
+  // Build comprehensive fan list from allTxns + CRM data + going cold alerts
+  const allFans = useMemo(() => {
+    const fanMap = new Map() // keyed by ofUsername or displayName
+
+    // 1. Build from transaction data — every fan who's spent money
+    if (allTxns && Array.isArray(allTxns)) {
+      for (const t of allTxns) {
+        if (t.type === 'Chargeback') continue
+        const key = (t.ofUsername || t.displayName || 'Unknown').toLowerCase()
+        if (key === 'unknown') continue
+        if (!fanMap.has(key)) {
+          fanMap.set(key, {
+            id: `txn-${key}`,
+            fanName: t.displayName || key,
+            ofUsername: t.ofUsername || '',
+            lifetimeSpend: 0,
+            last30: 0,
+            txnCount: 0,
+            lastDate: '',
+            firstDate: '',
+            status: 'Fan',
+            alertCount: 0,
+            alertHistory: [],
+            analysisRecords: [],
+            effectiveness: '',
+            preAlertSpend30d: 0,
+            postAlertSpend30d: 0,
+            firstFlagged: null,
+            lastAlertSent: null,
+            timesGoneCold: 0,
+            lastChatUpload: null,
+            notes: '',
+            source: 'transactions',
+          })
+        }
+        const f = fanMap.get(key)
+        f.lifetimeSpend += t.net || 0
+        f.txnCount += 1
+        if (t.displayName) f.fanName = t.displayName // keep latest display name
+        if (!f.ofUsername && t.ofUsername) f.ofUsername = t.ofUsername
+        if (!f.lastDate || t.date > f.lastDate) f.lastDate = t.date
+        if (!f.firstDate || t.date < f.firstDate) f.firstDate = t.date
+        // Last 30d spend
+        const thirtyAgo = new Date()
+        thirtyAgo.setDate(thirtyAgo.getDate() - 30)
+        if (t.dt && t.dt >= thirtyAgo) f.last30 += t.net || 0
+      }
+    }
+
+    // 2. Overlay going cold alerts
+    if (goingColdAlerts) {
+      for (const a of goingColdAlerts) {
+        const key = (a.username || a.fan || '').toLowerCase()
+        if (!key) continue
+        if (fanMap.has(key)) {
+          const f = fanMap.get(key)
+          f.status = 'Going Cold'
+          f.goingCold = a // attach full alert data
+        }
+      }
+    }
+
+    // 3. Overlay CRM data (analyses, alerts, tracker status)
+    for (const c of crmData) {
+      const key = (c.ofUsername || c.fanName || '').toLowerCase()
+      if (!key) continue
+      if (fanMap.has(key)) {
+        const f = fanMap.get(key)
+        // CRM status takes priority over "Fan" but not over "Going Cold"
+        if (c.status && f.status !== 'Going Cold') f.status = c.status
+        if (c.alertCount > 0) { f.alertCount = c.alertCount; f.status = f.status === 'Going Cold' ? 'Going Cold' : c.status }
+        if (c.alertHistory) f.alertHistory = c.alertHistory
+        if (c.analysisRecords && c.analysisRecords.length > 0) {
+          f.analysisRecords = c.analysisRecords
+          if (f.status === 'Fan') f.status = 'Analyzed'
+        }
+        f.effectiveness = c.effectiveness || f.effectiveness
+        f.preAlertSpend30d = c.preAlertSpend30d || f.preAlertSpend30d
+        f.postAlertSpend30d = c.postAlertSpend30d || f.postAlertSpend30d
+        f.firstFlagged = c.firstFlagged || f.firstFlagged
+        f.lastAlertSent = c.lastAlertSent || f.lastAlertSent
+        f.timesGoneCold = c.timesGoneCold || f.timesGoneCold
+        f.lastChatUpload = c.lastChatUpload || f.lastChatUpload
+        f.notes = c.notes || f.notes
+        f.crmId = c.id
+      } else {
+        // CRM-only record (no transactions)
+        fanMap.set(key, { ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '', source: 'crm' })
+      }
+    }
+
+    // Sort: Going Cold first, then Alert Sent, Analyzed, then by lifetime spend
+    const statusOrder = { 'Going Cold': 0, 'Alert Sent': 1, 'Analyzed': 2, 'Recovering': 3, 'Monitoring': 4, 'Reactivated': 5, 'Lost': 6, 'Fan': 7 }
+    return Array.from(fanMap.values())
+      .filter(f => f.lifetimeSpend > 0 || f.analysisRecords?.length > 0 || f.alertCount > 0)
+      .sort((a, b) => {
+        const so = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+        if (so !== 0) return so
+        return (b.lifetimeSpend || 0) - (a.lifetimeSpend || 0)
+      })
+  }, [allTxns, crmData, goingColdAlerts])
 
   const statusColors = {
     'Going Cold': { bg: '#FEE2E2', text: '#DC2626' },
@@ -2139,6 +2280,7 @@ function FansPanel({ creator, allTxns }) {
     'Reactivated': { bg: '#DCFCE7', text: '#166534' },
     'Lost': { bg: '#F3F4F6', text: '#6B7280' },
     'Monitoring': { bg: '#DBEAFE', text: '#1D4ED8' },
+    'Fan': { bg: '#F3F4F6', text: '#666' },
   }
 
   const effectColors = {
@@ -2148,27 +2290,31 @@ function FansPanel({ creator, allTxns }) {
     'Pending': { bg: '#F3F4F6', text: '#6B7280' },
   }
 
-  const filtered = fans.filter(f => {
-    if (filter === 'active') return ['Going Cold', 'Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)
+  const filtered = allFans.filter(f => {
+    if (filter === 'going_cold') return f.status === 'Going Cold'
+    if (filter === 'tracked') return ['Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)
     if (filter === 'resolved') return ['Reactivated', 'Lost'].includes(f.status)
     return true
   })
+
+  const goingColdCount = allFans.filter(f => f.status === 'Going Cold').length
+  const trackedCount = allFans.filter(f => ['Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)).length
+  const displayFans = showAllFans ? filtered : filtered.slice(0, 25)
 
   function fmtDate(iso) {
     if (!iso) return '—'
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
-
   function fmtMoney(n) {
     if (!n && n !== 0) return '—'
     return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
   }
 
-  if (loading) {
+  if (loading && (!allTxns || allTxns.length === 0)) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
         <div style={{ width: '24px', height: '24px', border: '2px solid #E88FAC', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto 12px' }} />
-        <div style={{ fontSize: '13px', color: '#999' }}>Loading fan history...</div>
+        <div style={{ fontSize: '13px', color: '#999' }}>Loading fans...</div>
       </div>
     )
   }
@@ -2178,15 +2324,20 @@ function FansPanel({ creator, allTxns }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <div>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>
-            Fan Tracker
-          </h3>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Fan CRM</h3>
           <p style={{ fontSize: '12px', color: '#999', margin: '2px 0 0' }}>
-            {fans.length} fan{fans.length !== 1 ? 's' : ''} &middot; {fans.filter(f => ['Alert Sent', 'Going Cold', 'Analyzed'].includes(f.status)).length} active
+            {allFans.length} fan{allFans.length !== 1 ? 's' : ''}
+            {goingColdCount > 0 && <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {goingColdCount} going cold</span>}
+            {trackedCount > 0 && <span> &middot; {trackedCount} tracked</span>}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
-          {[['all', 'All'], ['active', 'Active'], ['resolved', 'Resolved']].map(([key, label]) => (
+          {[
+            ['all', `All (${allFans.length})`],
+            ['going_cold', `Going Cold (${goingColdCount})`],
+            ['tracked', `Tracked (${trackedCount})`],
+            ['resolved', 'Resolved'],
+          ].map(([key, label]) => (
             <button key={key} onClick={() => setFilter(key)}
               style={{
                 padding: '4px 10px', fontSize: '11px', fontWeight: filter === key ? 600 : 400,
@@ -2201,24 +2352,28 @@ function FansPanel({ creator, allTxns }) {
 
       {filtered.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#999', fontSize: '13px', background: '#FAFAFA', borderRadius: '10px' }}>
-          {fans.length === 0
-            ? 'No fans tracked yet. Fans appear here when you run a chat analysis or send a going-cold alert.'
-            : `No ${filter} fans found.`}
+          No fans match this filter.
         </div>
       ) : (
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 100px 90px 90px 100px 90px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span></span><span>Fan</span><span>Status</span><span style={{ textAlign: 'right' }}>Alerts</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last Alert</span><span style={{ textAlign: 'right' }}>Pre-Alert</span><span>Effectiveness</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span></span><span>Fan</span><span>Status</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
           </div>
-          {filtered.map((f, i) => (
+          {displayFans.map((f, i) => (
             <FanRow key={f.id} f={f} i={i} isExpanded={expandedId === f.id}
               onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
               statusColors={statusColors} effectColors={effectColors}
-              fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setFans}
-              creatorName={creator?.name || creator?.aka || ''} creatorRecordId={creator?.id}
+              fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
+              creatorName={creatorName} creatorRecordId={creatorRecordId}
               allTxns={allTxns} />
           ))}
+          {filtered.length > 25 && !showAllFans && (
+            <button onClick={() => setShowAllFans(true)}
+              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
+              Show all {filtered.length} fans
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -2420,7 +2575,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
       {/* ── Fans CRM section ────────────────────────────────────────────── */}
       {activeSection === 'fans' && (
-        <FansPanel creator={creator} allTxns={allTxns} />
+        <FansPanel creator={creator} allTxns={allTxns} goingColdAlerts={goingColdAlerts || []} />
       )}
 
       {/* ── DNA section ──────────────────────────────────────────────────── */}
