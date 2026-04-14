@@ -1771,6 +1771,240 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
 
+function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId }) {
+  const [chatFile, setChatFile] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState(null)
+  const [analysisError, setAnalysisError] = useState(null)
+  const [showBrief, setShowBrief] = useState(false)
+  const chatFileRef = useRef(null)
+
+  const sc = statusColors[f.status] || statusColors['Monitoring']
+  const ec = effectColors[f.effectiveness] || effectColors['Pending']
+
+  async function handleAnalyze() {
+    if (!chatFile) return
+    setAnalyzing(true)
+    setAnalysisError(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', chatFile)
+      formData.append('fanName', f.fanName)
+      formData.append('fanUsername', f.ofUsername || '')
+      formData.append('lifetime', f.lifetimeSpend || 0)
+      formData.append('creatorName', creatorName || '')
+      formData.append('creatorRecordId', creatorRecordId || '')
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Analysis failed')
+      setAnalysis(data)
+      // Refresh fans list to show new analysis
+      const refreshRes = await fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(creatorName)}`)
+      const refreshData = await refreshRes.json()
+      if (refreshData.fans) setFans(refreshData.fans)
+    } catch (e) {
+      setAnalysisError(e.message)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  return (
+    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+      <div
+        onClick={onToggle}
+        style={{
+          display: 'grid', gridTemplateColumns: '24px 1fr 100px 90px 90px 100px 90px 90px',
+          padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
+          background: isExpanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
+        }}
+      >
+        <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
+        <div>
+          <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{f.fanName}</span>
+          {f.ofUsername && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>}
+        </div>
+        <span><span style={{ background: sc.bg, color: sc.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.status}</span></span>
+        <span style={{ textAlign: 'right', color: '#666' }}>{f.alertCount || 0}</span>
+        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(f.lifetimeSpend)}</span>
+        <span style={{ textAlign: 'right', color: '#666', fontSize: '11px' }}>{fmtDate(f.lastAlertSent)}</span>
+        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(f.preAlertSpend30d)}</span>
+        <span><span style={{ background: ec.bg, color: ec.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.effectiveness || 'Pending'}</span></span>
+      </div>
+
+      {isExpanded && (
+        <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            {f.firstFlagged && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Flagged</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.firstFlagged)}</div>
+              </div>
+            )}
+            {f.timesGoneCold > 0 && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Times Gone Cold</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.timesGoneCold}</div>
+              </div>
+            )}
+            {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Post-Alert Spend (30d)</div>
+                <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>
+                  {fmtMoney(f.postAlertSpend30d)}
+                  {f.preAlertSpend30d > 0 && f.postAlertSpend30d > 0 && (
+                    <span style={{ fontSize: '10px', color: '#999', fontWeight: 400, marginLeft: '4px' }}>
+                      ({f.postAlertSpend30d > f.preAlertSpend30d ? '+' : ''}{Math.round(((f.postAlertSpend30d - f.preAlertSpend30d) / f.preAlertSpend30d) * 100)}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {f.lastChatUpload && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Chat Upload</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.lastChatUpload)}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Alert history timeline */}
+          {f.alertHistory && f.alertHistory.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Alert History</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {f.alertHistory.slice().reverse().map((h, idx) => {
+                  const urgEmoji = { critical: '\uD83D\uDEA8', high: '\u26A0\uFE0F', warning: '\uD83D\uDFE1' }
+                  return (
+                    <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px', color: '#666' }}>
+                      <span>{urgEmoji[h.urgency] || '\uD83D\uDFE1'}</span>
+                      <span style={{ color: '#999', minWidth: '90px' }}>{fmtDate(h.date)}</span>
+                      <span>{h.currentGap}d gap ({h.medianGap}d normal)</span>
+                      <span style={{ color: '#999' }}>&middot;</span>
+                      <span>30d: {fmtMoney(h.rolling30)}</span>
+                      <span style={{ color: '#999' }}>&middot;</span>
+                      <span>Lifetime: {fmtMoney(h.lifetime)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Analysis records */}
+          {f.analysisRecords && f.analysisRecords.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>
+                Analyses ({f.analysisRecords.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {f.analysisRecords.map((a, idx) => (
+                  <div key={idx} style={{ background: '#fff', borderRadius: '6px', padding: '8px 12px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: a.brief ? '4px' : 0 }}>
+                      <span style={{ fontSize: '10px', color: '#999' }}>{fmtDate(a.date)}</span>
+                      {a.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: '3px' }}>{a.type}</span>}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          if (!confirm('Delete this analysis?')) return
+                          const res = await fetch(`/api/admin/fan-tracker?recordId=${a.id}&table=analysis`, { method: 'DELETE' })
+                          if (res.ok) {
+                            setFans(prev => prev.map(fan => {
+                              if (fan.id !== f.id) return fan
+                              const updated = { ...fan, analysisRecords: fan.analysisRecords.filter(ar => ar.id !== a.id) }
+                              if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
+                              return updated
+                            }).filter(Boolean))
+                          }
+                        }}
+                        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '11px', padding: '0 2px' }}
+                        onMouseEnter={e => e.target.style.color = '#DC2626'}
+                        onMouseLeave={e => e.target.style.color = '#ccc'}
+                        title="Delete this analysis"
+                      >&times;</button>
+                    </div>
+                    {a.brief && <div style={{ fontSize: '11px', color: '#444', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>{a.brief}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Inline chat analysis */}
+          <div style={{ marginBottom: '12px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
+            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+              Analyze Chat
+            </div>
+            {!analysis && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input ref={chatFileRef} type="file" accept=".html,.htm"
+                  onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
+                  style={{ display: 'none' }} />
+                <button onClick={() => chatFileRef.current?.click()}
+                  style={{
+                    background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                    color: chatFile ? '#166534' : '#64748B',
+                  }}>
+                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+                </button>
+                {chatFile && (
+                  <button onClick={handleAnalyze} disabled={analyzing}
+                    style={{
+                      background: '#7C3AED', border: 'none', borderRadius: '6px',
+                      padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                      cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                    }}>
+                    {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                  </button>
+                )}
+                <span style={{ fontSize: '11px', color: '#bbb' }}>Save chat page as HTML &rarr; upload here</span>
+              </div>
+            )}
+            {analysisError && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+                {analysisError}
+              </div>
+            )}
+            {analysis && (
+              <div style={{ marginTop: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
+                    <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
+                    {analysis.managerBrief && (
+                      <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#7C3AED' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#7C3AED' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                      </div>
+                    )}
+                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>\u2713 Saved</span>}
+                  </div>
+                  <button
+                    onClick={() => { setAnalysis(null); setShowBrief(false) }}
+                    style={{ fontSize: '11px', color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                    {chatFile ? 'Re-analyze' : 'Upload new chat'}
+                  </button>
+                </div>
+                <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '8px', padding: '12px 16px', fontSize: '12px', color: '#333', whiteSpace: 'pre-wrap', lineHeight: '1.5', maxHeight: '400px', overflow: 'auto' }}>
+                  {showBrief ? analysis.managerBrief : analysis.analysis}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          {f.notes && (
+            <div>
+              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
+              <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function FansPanel({ creator }) {
   const [fans, setFans] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1866,150 +2100,13 @@ function FansPanel({ creator }) {
           <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 100px 90px 90px 100px 90px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <span></span><span>Fan</span><span>Status</span><span style={{ textAlign: 'right' }}>Alerts</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last Alert</span><span style={{ textAlign: 'right' }}>Pre-Alert</span><span>Effectiveness</span>
           </div>
-          {filtered.map((f, i) => {
-            const sc = statusColors[f.status] || statusColors['Monitoring']
-            const ec = effectColors[f.effectiveness] || effectColors['Pending']
-            const isExpanded = expandedId === f.id
-            return (
-              <div key={f.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-                <div
-                  onClick={() => setExpandedId(isExpanded ? null : f.id)}
-                  style={{
-                    display: 'grid', gridTemplateColumns: '24px 1fr 100px 90px 90px 100px 90px 90px',
-                    padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
-                    background: isExpanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
-                  }}
-                >
-                  <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
-                  <div>
-                    <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{f.fanName}</span>
-                    {f.ofUsername && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>}
-                  </div>
-                  <span><span style={{ background: sc.bg, color: sc.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.status}</span></span>
-                  <span style={{ textAlign: 'right', color: '#666' }}>{f.alertCount || 0}</span>
-                  <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(f.lifetimeSpend)}</span>
-                  <span style={{ textAlign: 'right', color: '#666', fontSize: '11px' }}>{fmtDate(f.lastAlertSent)}</span>
-                  <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(f.preAlertSpend30d)}</span>
-                  <span><span style={{ background: ec.bg, color: ec.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.effectiveness || 'Pending'}</span></span>
-                </div>
-
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
-                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                      <div>
-                        <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Flagged</div>
-                        <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.firstFlagged)}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Times Gone Cold</div>
-                        <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.timesGoneCold || 1}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Post-Alert Spend (30d)</div>
-                        <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>
-                          {fmtMoney(f.postAlertSpend30d)}
-                          {f.preAlertSpend30d > 0 && f.postAlertSpend30d > 0 && (
-                            <span style={{ fontSize: '10px', color: '#999', fontWeight: 400, marginLeft: '4px' }}>
-                              ({f.postAlertSpend30d > f.preAlertSpend30d ? '+' : ''}{Math.round(((f.postAlertSpend30d - f.preAlertSpend30d) / f.preAlertSpend30d) * 100)}%)
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {f.lastChatUpload && (
-                        <div>
-                          <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Chat Upload</div>
-                          <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.lastChatUpload)}</div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Alert history timeline */}
-                    {f.alertHistory && f.alertHistory.length > 0 && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Alert History</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {f.alertHistory.slice().reverse().map((h, idx) => {
-                            const urgEmoji = { critical: '\uD83D\uDEA8', high: '\u26A0\uFE0F', warning: '\uD83D\uDFE1' }
-                            return (
-                              <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px', color: '#666' }}>
-                                <span>{urgEmoji[h.urgency] || '\uD83D\uDFE1'}</span>
-                                <span style={{ color: '#999', minWidth: '90px' }}>{fmtDate(h.date)}</span>
-                                <span>{h.currentGap}d gap ({h.medianGap}d normal)</span>
-                                <span style={{ color: '#999' }}>&middot;</span>
-                                <span>30d: {fmtMoney(h.rolling30)}</span>
-                                <span style={{ color: '#999' }}>&middot;</span>
-                                <span>Lifetime: {fmtMoney(h.lifetime)}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Analysis records */}
-                    {f.analysisRecords && f.analysisRecords.length > 0 && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>
-                          Analyses ({f.analysisRecords.length})
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {f.analysisRecords.map((a, idx) => (
-                            <div key={idx} style={{ background: '#fff', borderRadius: '6px', padding: '8px 12px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: a.brief ? '4px' : 0 }}>
-                                <span style={{ fontSize: '10px', color: '#999' }}>{fmtDate(a.date)}</span>
-                                {a.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: '3px' }}>{a.type}</span>}
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation()
-                                    if (!confirm('Delete this analysis?')) return
-                                    const res = await fetch(`/api/admin/fan-tracker?recordId=${a.id}&table=analysis`, { method: 'DELETE' })
-                                    if (res.ok) {
-                                      setFans(prev => prev.map(fan => {
-                                        if (fan.id !== f.id) return fan
-                                        const updated = { ...fan, analysisRecords: fan.analysisRecords.filter(ar => ar.id !== a.id) }
-                                        // If no more analyses and no tracker source, remove the fan entirely
-                                        if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
-                                        return updated
-                                      }).filter(Boolean))
-                                    }
-                                  }}
-                                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '11px', padding: '0 2px' }}
-                                  onMouseEnter={e => e.target.style.color = '#DC2626'}
-                                  onMouseLeave={e => e.target.style.color = '#ccc'}
-                                  title="Delete this analysis"
-                                >&times;</button>
-                              </div>
-                              {a.brief && <div style={{ fontSize: '11px', color: '#444', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>{a.brief}</div>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {/* Linked analyses (from Airtable relation) */}
-                    {f.analyses && f.analyses.length > 0 && (!f.analysisRecords || f.analysisRecords.length === 0) && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
-                          Analyses ({f.analyses.length})
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#666' }}>
-                          {f.analyses.length} chat analysis record{f.analyses.length !== 1 ? 's' : ''} linked
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Notes */}
-                    {f.notes && (
-                      <div>
-                        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
-                        <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {filtered.map((f, i) => (
+            <FanRow key={f.id} f={f} i={i} isExpanded={expandedId === f.id}
+              onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
+              statusColors={statusColors} effectColors={effectColors}
+              fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setFans}
+              creatorName={creator?.name || creator?.aka || ''} creatorRecordId={creator?.id} />
+          ))}
         </div>
       )}
     </div>
