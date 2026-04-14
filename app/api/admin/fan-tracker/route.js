@@ -28,8 +28,9 @@ export async function GET(request) {
       : trackerFilters[0] || ''
 
     // Fetch Fan Analysis records for this creator
+    // Creator field stores full name (e.g. "Laurel Driskill") but we filter by AKA (e.g. "Laurel")
     const analysisFormula = creator
-      ? `{Creator} = "${creator.replace(/"/g, '\\"')}"`
+      ? `FIND("${creator.replace(/"/g, '\\"')}", {Creator})`
       : ''
 
     const [trackerRecords, analysisRecords] = await Promise.all([
