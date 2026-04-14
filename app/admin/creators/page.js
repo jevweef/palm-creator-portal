@@ -621,6 +621,8 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
 
         {/* Horizontal grid lines */}
         {eSteps.map(v => <line key={v} x1={pad.l} x2={pad.l + cw} y1={pyE(v)} y2={pyE(v)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />)}
+        {/* Baseline at zero */}
+        <line x1={pad.l} x2={pad.l + cw} y1={pyE(0)} y2={pyE(0)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />
 
         {/* Earnings area fill */}
         <path d={earningsArea} fill="url(#earningsGrad)" />
