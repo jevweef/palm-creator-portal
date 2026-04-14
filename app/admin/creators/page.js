@@ -2161,8 +2161,16 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                   xLabels.push({ i, label: fmtDateLabel(d.date) })
                 }
               })
-              // Always include last date
-              if (xLabels[xLabels.length - 1]?.i !== data.length - 1) xLabels.push({ i: data.length - 1, label: fmtDateLabel(data[data.length - 1].date) })
+              // Include last date only if far enough from the previous label
+              const lastIdx = data.length - 1
+              const lastLabelIdx = xLabels[xLabels.length - 1]?.i ?? -Infinity
+              if (lastIdx !== lastLabelIdx) {
+                const lastX = xScale(lastIdx)
+                const prevX = xScale(lastLabelIdx)
+                if (lastX - prevX > 40) {
+                  xLabels.push({ i: lastIdx, label: fmtDateLabel(data[lastIdx].date) })
+                }
+              }
               const dateToIndex = {}
               data.forEach((d, i) => { dateToIndex[d.date] = i })
 
