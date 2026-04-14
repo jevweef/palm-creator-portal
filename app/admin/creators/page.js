@@ -1345,6 +1345,12 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [showAllFans, setShowAllFans] = useState(false)
   const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
   const [slideKey, setSlideKey] = useState(0)
+  const [showUploadPanel, setShowUploadPanel] = useState(false)
+  const [uploadFile, setUploadFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState(null)
+  const [uploadError, setUploadError] = useState(null)
+  const uploadFileRef = useRef(null)
 
   // Extract data safely — all hooks must run before any early returns
   const { summary, byType, topFans: allTimeTopFans, transactions: allTxns, dailyData: rawDailyData, goingColdAlerts, goingColdCount, cachedAt } = data || {}
@@ -1546,8 +1552,114 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             </span>
           ))}
           <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ccc', marginLeft: '4px' }}>↺</button>
+          <button
+            onClick={() => { setShowUploadPanel(!showUploadPanel); setUploadResult(null); setUploadError(null) }}
+            style={{
+              background: showUploadPanel ? '#1a1a1a' : 'none',
+              color: showUploadPanel ? '#fff' : '#999',
+              border: showUploadPanel ? 'none' : '1px solid #e5e7eb',
+              borderRadius: '5px', padding: '3px 10px', cursor: 'pointer',
+              fontSize: '11px', fontWeight: 600, marginLeft: '4px',
+              transition: 'all 0.15s',
+            }}
+          >
+            Update Earnings Data
+          </button>
         </div>
       </div>
+
+      {/* Inline upload panel */}
+      {showUploadPanel && (
+        <div style={{
+          background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          padding: '16px', marginBottom: '12px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>
+              Upload OF Statements for {creator?.name || 'this creator'}
+            </div>
+            <button onClick={() => setShowUploadPanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#999' }}>×</button>
+          </div>
+          <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', lineHeight: '1.6' }}>
+            Save the OF Statements → Earnings page as HTML. Scroll past existing data — duplicates are automatically skipped.
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              ref={uploadFileRef}
+              type="file"
+              accept=".html,.htm"
+              onChange={e => { if (e.target.files[0]) { setUploadFile(e.target.files[0]); setUploadError(null); setUploadResult(null) }}}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={() => uploadFileRef.current?.click()}
+              style={{
+                background: uploadFile ? '#F0FDF4' : '#F8FAFC',
+                border: `1px solid ${uploadFile ? '#BBF7D0' : '#E2E8F0'}`,
+                borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer',
+                color: uploadFile ? '#166534' : '#64748B',
+              }}
+            >
+              {uploadFile ? `✓ ${uploadFile.name}` : 'Choose HTML file'}
+            </button>
+            {uploadFile && (
+              <button
+                disabled={uploading}
+                onClick={async () => {
+                  setUploading(true)
+                  setUploadError(null)
+                  setUploadResult(null)
+                  try {
+                    const formData = new FormData()
+                    formData.append('file', uploadFile)
+                    formData.append('creator', creator?.aka || creator?.name || '')
+                    const res = await fetch('/api/admin/invoicing/upload-transactions', { method: 'POST', body: formData })
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error || 'Upload failed')
+                    setUploadResult(data)
+                    setUploadFile(null)
+                    if (uploadFileRef.current) uploadFileRef.current.value = ''
+                    // Auto-refresh earnings after successful upload
+                    if (data.uploaded > 0) setTimeout(() => onRefresh(), 500)
+                  } catch (e) {
+                    setUploadError(e.message)
+                  } finally {
+                    setUploading(false)
+                  }
+                }}
+                style={{
+                  background: uploading ? '#E5E7EB' : '#1a1a1a', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: uploading ? '#999' : '#fff', fontWeight: 600,
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {uploading ? 'Uploading...' : 'Upload'}
+              </button>
+            )}
+          </div>
+          {uploadError && (
+            <div style={{ marginTop: '10px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+              {uploadError}
+            </div>
+          )}
+          {uploadResult && (
+            <div style={{ marginTop: '10px', padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '4px' }}>
+                {uploadResult.uploaded > 0 ? `Added ${uploadResult.uploaded} new transactions` : 'No new transactions to add'}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#15803D' }}>
+                <span>Parsed: {uploadResult.parsed}</span>
+                <span>Skipped: {uploadResult.skipped}</span>
+                {uploadResult.overlapMethod && (
+                  <span style={{ color: '#999' }}>
+                    ({uploadResult.overlapMethod === 'fingerprint' ? 'matched overlap' : uploadResult.overlapMethod === 'cutoff_fallback' ? 'timestamp cutoff' : 'first upload'})
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Revenue chart — immediately visible */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
