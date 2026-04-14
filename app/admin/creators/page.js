@@ -2101,12 +2101,12 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       const yr = d.month.slice(2, 4)
                       const hasMilestone = milestoneMonths.includes(d.month)
                       const spendLabelY = padT + chartH - barH - 3
-                      const dotY = padT - 6
-                      const labelY = hasMilestone && d.spend > 0 && spendLabelY - dotY < 14 ? spendLabelY - 10 : spendLabelY
+                      const defaultDotY = padT - 6
+                      const dotY = hasMilestone && d.spend > 0 && spendLabelY < defaultDotY + 12 ? spendLabelY - 10 : defaultDotY
                       return (
                         <g key={d.month}>
                           <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
-                          {d.spend > 0 && <text x={cx} y={labelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
+                          {d.spend > 0 && <text x={cx} y={spendLabelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
                           <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#7C3AED' : '#999'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
                           {hasMilestone && <circle cx={cx} cy={dotY} r="3.5" fill="#7C3AED" />}
                         </g>
