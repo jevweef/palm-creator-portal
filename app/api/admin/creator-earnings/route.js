@@ -357,15 +357,31 @@ export async function GET(request) {
     const salesTxns = transactions.filter(t => t.type !== 'Chargeback')
     const chargebackTxns = transactions.filter(t => t.type === 'Chargeback')
 
-    // ── Daily aggregation for chart (UTC dates to match OF daily rollover at 8 PM ET) ──
+    // ── Daily aggregation for chart (shift ET→UTC to match OF daily rollover at 8 PM ET) ──
+    // Sheet stores ET local times but Vercel runs UTC, so parsed Dates are "ET pretending to be UTC".
+    // Add the ET→UTC offset so 8 PM ET → midnight UTC → next day, matching OF's daily boundaries.
+    function etToUtcDate(dt) {
+      // Determine if this date falls in EDT (Mar second Sun – Nov first Sun) or EST
+      const year = dt.getUTCFullYear(), month = dt.getUTCMonth(), day = dt.getUTCDate()
+      // EDT: second Sunday in March through first Sunday in November
+      const marStart = new Date(Date.UTC(year, 2, 8)) // Mar 8 at earliest
+      marStart.setUTCDate(8 + (7 - marStart.getUTCDay()) % 7) // second Sunday
+      const novEnd = new Date(Date.UTC(year, 10, 1)) // Nov 1 at earliest
+      novEnd.setUTCDate(1 + (7 - novEnd.getUTCDay()) % 7) // first Sunday
+      const isEDT = dt >= marStart && dt < novEnd
+      const offsetHours = isEDT ? 4 : 5
+      const shifted = new Date(dt.getTime() + offsetHours * 3600000)
+      return shifted.toISOString().split('T')[0]
+    }
+
     const dailyMap = {}
     const dailyByType = {}
     const dailyGross = {}
     const dailyCount = {}
     for (const t of transactions) {
       if (!t.date) continue
-      // Use UTC date for chart grouping — OF rolls over at 8 PM ET = midnight UTC
-      const utcDate = t.dt ? t.dt.toISOString().split('T')[0] : t.date
+      // Shift ET times to real UTC so daily totals match OF (rolls at 8 PM ET = midnight UTC)
+      const utcDate = t.dt ? etToUtcDate(t.dt) : t.date
       if (!dailyMap[utcDate]) dailyMap[utcDate] = 0
       if (!dailyGross[utcDate]) dailyGross[utcDate] = 0
       if (!dailyCount[utcDate]) dailyCount[utcDate] = 0
