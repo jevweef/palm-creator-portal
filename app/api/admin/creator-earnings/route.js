@@ -312,7 +312,7 @@ export async function GET(request) {
     try {
       const res = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `'${tabName}'!A4:J`,
+        range: `'${tabName}'!A4:I`,
       })
       rows = res.data.values || []
     } catch (err) {
@@ -326,14 +326,23 @@ export async function GET(request) {
       return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
     }
 
-    // Parse rows
+    // Parse rows — combined DateTime column (9 columns: DateTime, Gross, OF Fee, Net, Type, Display Name, OF Username, Original Date, Description)
     const transactions = []
     for (const row of rows) {
-      const [date, time, gross, ofFee, net, type, displayName, ofUsername, originalDate, description] = row
-      if (!date) continue
-      const dt = parseSheetDate(date)
+      const [dateTime, gross, ofFee, net, type, displayName, ofUsername, originalDate, description] = row
+      if (!dateTime) continue
+      // Extract date portion for compatibility (YYYY-MM-DD)
+      const datePart = dateTime.split(' ')[0] || ''
+      // Parse full datetime: "2026-04-07 15:47" → Date
+      let dt = null
+      if (dateTime.includes(' ')) {
+        dt = new Date(dateTime.replace(' ', 'T') + ':00')
+      } else {
+        dt = parseSheetDate(dateTime)
+      }
+      if (dt && isNaN(dt.getTime())) dt = parseSheetDate(datePart)
       transactions.push({
-        date: date || '', time: time || '',
+        date: datePart, time: dateTime.split(' ').slice(1).join(' ') || '',
         gross: parseMoney(gross), ofFee: parseMoney(ofFee), net: parseMoney(net),
         type: type || '', displayName: displayName || '', ofUsername: ofUsername || '',
         originalDate: originalDate || '', description: description || '', dt,

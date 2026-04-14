@@ -147,6 +147,13 @@ function parseDate(dateStr, timeStr) {
 
 function fmtDate(d) { return d.toISOString().split('T')[0] }
 function fmtTime(d) { return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) }
+// Combined 24h datetime for sorted column: "2026-04-07 15:47"
+function fmtDateTime(d) {
+  const date = d.toISOString().split('T')[0]
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${date} ${hh}:${mm}`
+}
 
 function parseDesc(desc) {
   const m = desc.match(DESC_RE)
@@ -165,7 +172,7 @@ function getAuth() {
   return oauth2
 }
 
-const HEADER_ROW = ['Date', 'Time', 'Gross', 'OF Fee', 'Net', 'Type',
+const HEADER_ROW = ['DateTime', 'Gross', 'OF Fee', 'Net', 'Type',
                     'Display Name', 'OF Username', 'Original Date', 'Description']
 const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 
@@ -197,25 +204,26 @@ async function getCutoff(sheets, tabName) {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${tabName}'!A4:B10000`,
+      range: `'${tabName}'!A4:A10000`,
     })
     const rows = res.data.values || []
     if (rows.length === 0) return null
     let latest = null
-    for (const [dateStr, timeStr] of rows) {
-      if (!dateStr) continue
+    for (const [dateTimeStr] of rows) {
+      if (!dateTimeStr) continue
       try {
-        const dt = new Date(`${dateStr} ${timeStr || '12:00 AM'}`)
-        if (!latest || dt > latest) latest = dt
+        // Handle both new format "2026-04-07 15:47" and legacy "2026-04-07"
+        const dt = new Date(dateTimeStr.includes(' ') ? dateTimeStr.replace(' ', 'T') + ':00' : dateTimeStr)
+        if (!isNaN(dt) && (!latest || dt > latest)) latest = dt
       } catch {}
     }
     return latest
   } catch { return null }
 }
 
-// Build a fingerprint for a transaction row: date|time|net|fan
-function txnFingerprint(date, time, net, fan) {
-  return `${(date || '').trim()}|${(time || '').trim()}|${String(net).trim()}|${(fan || '').trim()}`
+// Build a fingerprint for a transaction row: datetime|net|fan
+function txnFingerprint(dateTime, _unused, net, fan) {
+  return `${(dateTime || '').trim()}|${String(net).trim()}|${(fan || '').trim()}`
 }
 
 // Get the last N rows from the sheet for overlap matching
@@ -229,13 +237,13 @@ async function getLastRows(sheets, tabName, count = 50) {
     const startRow = Math.max(4, totalRows - count + 1)
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${tabName}'!A${startRow}:J${totalRows}`,
+      range: `'${tabName}'!A${startRow}:I${totalRows}`,
     })
     return (res.data.values || []).map(row => ({
-      date: row[0] || '', time: row[1] || '', gross: row[2] || '',
-      ofFee: row[3] || '', net: row[4] || '', type: row[5] || '',
-      displayName: row[6] || '', username: row[7] || '',
-      fingerprint: txnFingerprint(row[0], row[1], row[4], row[6]),
+      dateTime: row[0] || '', gross: row[1] || '',
+      ofFee: row[2] || '', net: row[3] || '', type: row[4] || '',
+      displayName: row[5] || '', username: row[6] || '',
+      fingerprint: txnFingerprint(row[0], '', row[3], row[5]),
     }))
   } catch { return [] }
 }
@@ -313,8 +321,8 @@ export async function POST(request) {
       const newWithFp = txns.map(t => ({
         ...t,
         fingerprint: txnFingerprint(
-          t.dt ? fmtDate(t.dt) : '',
-          t.dt ? fmtTime(t.dt) : '',
+          t.dt ? fmtDateTime(t.dt) : '',
+          '',
           t.net,
           t.displayName || t.fan
         ),
@@ -355,10 +363,9 @@ export async function POST(request) {
       })
     }
 
-    // Convert to rows — now includes username column
+    // Convert to rows — combined datetime, 9 columns
     const rows = filtered.map(t => [
-      t.dt ? fmtDate(t.dt) : '',
-      t.dt ? fmtTime(t.dt) : '',
+      t.dt ? fmtDateTime(t.dt) : '',
       t.gross,
       t.of_fee,
       t.net,
@@ -412,8 +419,9 @@ export async function POST(request) {
     // Check existing rows for latest date
     for (const r of existingRows) {
       try {
-        const dt = new Date(`${r.date} ${r.time}`)
-        if (!newCutoff || dt > newCutoff) newCutoff = dt
+        if (!r.dateTime) continue
+        const dt = new Date(r.dateTime.replace(' ', 'T') + ':00')
+        if (!isNaN(dt) && (!newCutoff || dt > newCutoff)) newCutoff = dt
       } catch {}
     }
     // Check new rows
