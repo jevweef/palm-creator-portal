@@ -1777,10 +1777,25 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
   const [showBrief, setShowBrief] = useState(false)
+  const [loadedFromAirtable, setLoadedFromAirtable] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState(null)
+  const [chartMode, setChartMode] = useState('monthly') // 'daily' | 'monthly'
   const chatFileRef = useRef(null)
 
   const sc = statusColors[f.status] || statusColors['Monitoring']
   const ec = effectColors[f.effectiveness] || effectColors['Pending']
+
+  // Load existing analysis from Airtable when expanded
+  useEffect(() => {
+    if (!isExpanded || analysis || loadedFromAirtable) return
+    setLoadedFromAirtable(true)
+    fetch(`/api/admin/creator-earnings/analyze-chat?fan=${encodeURIComponent(f.fanName)}&creator=${encodeURIComponent(creatorName || '')}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.analysis) setAnalysis(data) })
+      .catch(() => {})
+  }, [isExpanded])
 
   // Build daily spend data for this fan from allTxns
   const fanSpendData = useMemo(() => {
@@ -1809,6 +1824,17 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     return filled
   }, [allTxns, f.ofUsername, f.fanName])
 
+  // Build monthly spend data from daily data
+  const monthlySpendData = useMemo(() => {
+    if (!fanSpendData) return null
+    const months = {}
+    for (const d of fanSpendData) {
+      const mo = d.date.slice(0, 7)
+      months[mo] = (months[mo] || 0) + d.spend
+    }
+    return Object.entries(months).sort(([a], [b]) => a.localeCompare(b)).map(([month, spend]) => ({ month, spend }))
+  }, [fanSpendData])
+
   // Milestone dates from alert history and analyses
   const milestones = useMemo(() => {
     const m = []
@@ -1825,19 +1851,44 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     return m
   }, [f.alertHistory, f.analysisRecords])
 
+  function buildFormData() {
+    const formData = new FormData()
+    formData.append('file', chatFile)
+    formData.append('fanName', f.fanName)
+    formData.append('fanUsername', f.ofUsername || '')
+    formData.append('lifetime', f.lifetimeSpend || 0)
+    if (f.goingCold) {
+      formData.append('medianGap', f.goingCold.medianGap || 0)
+      formData.append('currentGap', f.goingCold.currentGap || 0)
+      formData.append('rolling30', f.goingCold.rolling30 || 0)
+      formData.append('monthlyAvg90', f.goingCold.monthlyAvg90 || 0)
+      formData.append('lastPurchaseDate', f.goingCold.lastPurchaseDate || '')
+    }
+    formData.append('creatorName', creatorName || '')
+    formData.append('creatorRecordId', creatorRecordId || '')
+    // Compute daily spend timeline for analysis context
+    if (allTxns) {
+      const dailySpend = {}
+      for (const t of allTxns) {
+        if ((t.displayName || '') === f.fanName || (t.ofUsername || '') === f.ofUsername) {
+          dailySpend[t.date] = (dailySpend[t.date] || 0) + (t.net || 0)
+        }
+      }
+      const timeline = Object.entries(dailySpend)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, spend]) => `${date}: $${spend.toFixed(2)}`)
+        .join('\n')
+      if (timeline) formData.append('spendingTimeline', timeline)
+    }
+    return formData
+  }
+
   async function handleAnalyze() {
     if (!chatFile) return
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-      const formData = new FormData()
-      formData.append('file', chatFile)
-      formData.append('fanName', f.fanName)
-      formData.append('fanUsername', f.ofUsername || '')
-      formData.append('lifetime', f.lifetimeSpend || 0)
-      formData.append('creatorName', creatorName || '')
-      formData.append('creatorRecordId', creatorRecordId || '')
-      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: formData })
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: buildFormData() })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       setAnalysis(data)
@@ -1849,6 +1900,40 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       setAnalysisError(e.message)
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  async function handleSendToTelegram() {
+    setSending(true)
+    setSendResult(null)
+    try {
+      const alertData = f.goingCold || {
+        fan: f.fanName,
+        username: f.ofUsername,
+        lifetime: f.lifetimeSpend,
+        rolling30: f.last30,
+        urgency: 'warning',
+        medianGap: 0,
+        currentGap: 0,
+        gapRatio: 0,
+      }
+      const res = await fetch('/api/admin/whale-alert/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorName,
+          creatorRecordId,
+          alert: { ...alertData, fan: f.fanName, username: f.ofUsername },
+          analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Send failed')
+      setSendResult({ success: true })
+    } catch (e) {
+      setSendResult({ error: e.message })
+    } finally {
+      setSending(false)
     }
   }
 
@@ -1880,14 +1965,18 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
           {/* Going cold details */}
           {f.goingCold && (
             <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA' }}>
-              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12px' }}>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '12px' }}>
                 <div>
                   <div style={{ fontSize: '10px', color: '#DC2626', fontWeight: 600, marginBottom: '2px' }}>Trigger</div>
                   <div style={{ color: '#1a1a1a' }}>
-                    {f.goingCold.triggerReason === 'gap' && `Purchase gap ${f.goingCold.currentGap}d exceeds ${f.goingCold.medianGap * 2}d threshold (2x median)`}
+                    {f.goingCold.triggerReason === 'gap' && `Purchase gap ${f.goingCold.currentGap}d exceeds ${f.goingCold.medianGap * 2}d threshold (2\u00d7 median)`}
                     {f.goingCold.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
-                    {f.goingCold.triggerReason === 'both' && `Gap ${f.goingCold.gapRatio}x overdue + spending at ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+                    {f.goingCold.triggerReason === 'both' && `Gap ${f.goingCold.gapRatio}\u00d7 overdue + spending at ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
                   </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Purchase</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.lastPurchaseDate}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Gap</div>
@@ -1902,8 +1991,8 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                   <div>{fmtMoney(f.goingCold.monthlyAvg90)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Purchase</div>
-                  <div>{f.goingCold.lastPurchaseDate}</div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Total Purchases</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.totalPurchases || f.txnCount || 0} sessions</div>
                 </div>
               </div>
             </div>
@@ -1945,54 +2034,119 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             )}
           </div>
 
-          {/* Daily spend chart */}
-          {fanSpendData && (() => {
-            const W = 560, H = 120, padL = 50, padR = 16, padT = 12, padB = 24
+          {/* Monthly spend mini bars (like GoingColdRow) */}
+          {f.goingCold?.monthlyHistory && f.goingCold.monthlyHistory.length > 0 && (() => {
+            const maxMo = Math.max(...f.goingCold.monthlyHistory.map(m => m.spend), 1)
+            const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            return (
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '16px' }}>Monthly Spending (last 6 months)</div>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', height: '60px' }}>
+                  {f.goingCold.monthlyHistory.map(m => {
+                    const h = Math.max((m.spend / maxMo) * 50, m.spend > 0 ? 3 : 0)
+                    const moNum = parseInt(m.month.slice(5))
+                    return (
+                      <div key={m.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                        <div style={{ fontSize: '9px', color: '#666', marginBottom: '2px' }}>{m.spend > 0 ? fmtMoney(m.spend) : ''}</div>
+                        <div style={{ width: '100%', maxWidth: '40px', height: h + 'px', background: m.spend === 0 ? '#F3F4F6' : m.spend < (f.goingCold.monthlyAvg90 || 0) * 0.25 ? '#FECACA' : '#E88FAC', borderRadius: '3px 3px 0 0', minHeight: '2px' }} />
+                        <div style={{ fontSize: '9px', color: '#999', marginTop: '3px' }}>{moNames[moNum]}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Spending chart with daily/monthly toggle */}
+          {(fanSpendData || monthlySpendData) && (() => {
+            const data = chartMode === 'daily' ? fanSpendData : monthlySpendData
+            if (!data || data.length < 2) return null
+            const W = 560, H = 140, padL = 50, padR = 16, padT = 12, padB = 24
             const chartW = W - padL - padR, chartH = H - padT - padB
-            const maxSpend = Math.max(...fanSpendData.map(d => d.spend), 1)
-            const xScale = (i) => padL + (i / (fanSpendData.length - 1)) * chartW
+            const values = data.map(d => d.spend || d.spend === 0 ? d.spend : 0)
+            const maxSpend = Math.max(...values, 1)
+            const xScale = (i) => padL + (i / (data.length - 1)) * chartW
             const yScale = (v) => padT + chartH - (v / maxSpend) * chartH
 
-            // Build line path
-            const points = fanSpendData.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
+            if (chartMode === 'monthly') {
+              // Bar chart for monthly
+              const barW = Math.min(chartW / data.length * 0.7, 40)
+              const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              // Milestone months for vertical lines
+              const milestoneMonths = milestones.map(m => m.date.slice(0, 7))
+
+              return (
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
+                    <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                      <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
+                      <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
+                    </div>
+                  </div>
+                  <svg width={W} height={H} style={{ display: 'block' }}>
+                    {/* Grid lines */}
+                    {[0, Math.round(maxSpend / 2), Math.round(maxSpend)].map(v => (
+                      <g key={v}>
+                        <line x1={padL} x2={W - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
+                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v) : '0'}</text>
+                      </g>
+                    ))}
+                    {/* Bars */}
+                    {data.map((d, i) => {
+                      const cx = padL + ((i + 0.5) / data.length) * chartW
+                      const barH = Math.max((d.spend / maxSpend) * chartH, d.spend > 0 ? 2 : 0)
+                      const moNum = parseInt(d.month.slice(5))
+                      const isMilestone = milestoneMonths.includes(d.month)
+                      return (
+                        <g key={d.month}>
+                          <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
+                          {d.spend > 0 && <text x={cx} y={padT + chartH - barH - 3} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
+                          <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={isMilestone ? '#7C3AED' : '#999'} fontWeight={isMilestone ? '700' : '400'}>{moNames[moNum]}</text>
+                          {isMilestone && <line x1={cx} x2={cx} y1={padT} y2={H - padB} stroke="#7C3AED" strokeWidth="1.5" strokeDasharray="4,3" />}
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </div>
+              )
+            }
+
+            // Daily line chart
+            const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
             const linePath = 'M' + points.join(' L')
-            // Area fill
-            const areaPath = linePath + ` L${xScale(fanSpendData.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
-
-            // Y-axis labels
+            const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
             const yTicks = [0, Math.round(maxSpend / 2), Math.round(maxSpend)]
-
-            // X-axis labels (first, mid, last)
             const xLabels = [
-              { i: 0, label: fanSpendData[0].date.slice(5) },
-              { i: Math.floor(fanSpendData.length / 2), label: fanSpendData[Math.floor(fanSpendData.length / 2)].date.slice(5) },
-              { i: fanSpendData.length - 1, label: fanSpendData[fanSpendData.length - 1].date.slice(5) },
+              { i: 0, label: data[0].date.slice(5) },
+              { i: Math.floor(data.length / 2), label: data[Math.floor(data.length / 2)].date.slice(5) },
+              { i: data.length - 1, label: data[data.length - 1].date.slice(5) },
             ]
-
-            // Milestone vertical lines
             const dateToIndex = {}
-            fanSpendData.forEach((d, i) => { dateToIndex[d.date] = i })
+            data.forEach((d, i) => { dateToIndex[d.date] = i })
 
             return (
               <div style={{ marginBottom: '12px' }}>
-                <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Spending History</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
+                  <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                    <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
+                    <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
+                  </div>
+                </div>
                 <svg width={W} height={H} style={{ display: 'block' }}>
-                  {/* Grid lines */}
                   {yTicks.map(v => (
                     <g key={v}>
                       <line x1={padL} x2={W - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
                       <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v) : '0'}</text>
                     </g>
                   ))}
-                  {/* Area fill */}
                   <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
-                  {/* Line */}
                   <path d={linePath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />
-                  {/* Spend dots on non-zero days */}
-                  {fanSpendData.map((d, i) => d.spend > 0 ? (
+                  {data.map((d, i) => d.spend > 0 ? (
                     <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r="2" fill="#7C3AED" />
                   ) : null)}
-                  {/* Milestone vertical lines */}
                   {milestones.map((m, idx) => {
                     const mi = dateToIndex[m.date]
                     if (mi === undefined) return null
@@ -2004,7 +2158,6 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       </g>
                     )
                   })}
-                  {/* X-axis labels */}
                   {xLabels.map(({ i: xi, label }) => (
                     <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="9" fill="#999">{label}</text>
                   ))}
@@ -2012,6 +2165,41 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
               </div>
             )
           })()}
+
+          {/* Send to Chat Manager button */}
+          <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => { setSendResult(null); setShowSendModal(true) }}
+              style={{
+                background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                padding: '7px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+            >
+              <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
+            </button>
+            {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
+            {sendResult?.error && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
+          </div>
+
+          {/* Send confirmation modal */}
+          {showSendModal && (
+            <div style={{ marginBottom: '12px', padding: '12px 16px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '12px', color: '#1a1a1a', marginBottom: '8px' }}>
+                Send alert for <strong>{f.fanName}</strong> to {creatorName}&apos;s chat manager via Telegram?
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={handleSendToTelegram} disabled={sending}
+                  style={{ background: '#1a1a1a', border: 'none', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600, cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.6 : 1 }}>
+                  {sending ? 'Sending...' : 'Confirm Send'}
+                </button>
+                <button onClick={() => setShowSendModal(false)}
+                  style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', color: '#666', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Alert history timeline */}
           {f.alertHistory && f.alertHistory.length > 0 && (
@@ -2075,11 +2263,12 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             </div>
           )}
 
-          {/* Inline chat analysis */}
-          <div style={{ marginBottom: '12px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
+          {/* Chat analysis section */}
+          <div style={{ marginTop: '12px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
             <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
-              Analyze Chat
+              Chat Analysis {f.lifetimeSpend >= 1000 ? '(Deep Dive)' : '(Quick Snapshot)'}
             </div>
+
             {!analysis && (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input ref={chatFileRef} type="file" accept=".html,.htm"
@@ -2096,7 +2285,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                 {chatFile && (
                   <button onClick={handleAnalyze} disabled={analyzing}
                     style={{
-                      background: '#7C3AED', border: 'none', borderRadius: '6px',
+                      background: '#EA580C', border: 'none', borderRadius: '6px',
                       padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
                       cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                     }}>
@@ -2106,11 +2295,13 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                 <span style={{ fontSize: '11px', color: '#bbb' }}>Save chat page as HTML &rarr; upload here</span>
               </div>
             )}
+
             {analysisError && (
               <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
                 {analysisError}
               </div>
             )}
+
             {analysis && (
               <div style={{ marginTop: '4px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -2118,20 +2309,73 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                     <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
                     {analysis.managerBrief && (
                       <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#7C3AED' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
-                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#7C3AED' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
                       </div>
                     )}
                     {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>\u2713 Saved</span>}
                   </div>
-                  <button
-                    onClick={() => { setAnalysis(null); setShowBrief(false) }}
-                    style={{ fontSize: '11px', color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-                    {chatFile ? 'Re-analyze' : 'Upload new chat'}
-                  </button>
+                  {chatFile ? (
+                    <button
+                      onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }}
+                      disabled={analyzing}
+                      style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                      {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setAnalysis(null); setShowBrief(false) }}
+                      style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Upload new chat
+                    </button>
+                  )}
                 </div>
-                <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '8px', padding: '12px 16px', fontSize: '12px', color: '#333', whiteSpace: 'pre-wrap', lineHeight: '1.5', maxHeight: '400px', overflow: 'auto' }}>
-                  {showBrief ? analysis.managerBrief : analysis.analysis}
+                <div style={{
+                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
+                  border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
+                  borderRadius: '8px',
+                  padding: '16px 20px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
+                }}>
+                  {(() => {
+                    const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
+                    const accentColor = showBrief ? '#334155' : '#EA580C'
+                    return text.split('\n').map((line, idx) => {
+                      const trimmed = line.trim()
+                      if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
+                      if (/^\*\*[^*]+\*\*/.test(trimmed)) {
+                        const headerMatch = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                        if (headerMatch) {
+                          const rest = headerMatch[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
+                          return (
+                            <div key={idx} style={{ marginTop: idx > 0 ? '14px' : 0, marginBottom: '4px' }}>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{headerMatch[1]}</div>
+                              {rest && <div style={{ marginTop: '2px' }}>{rest}</div>}
+                            </div>
+                          )
+                        }
+                      }
+                      if (/^\d+\.\s/.test(trimmed)) {
+                        const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                        const numMatch = trimmed.match(/^(\d+)\./)
+                        return (
+                          <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}>
+                            <span style={{ color: accentColor, fontWeight: 700, fontSize: '12px', minWidth: '16px' }}>{numMatch[1]}.</span>
+                            <span>{content}</span>
+                          </div>
+                        )
+                      }
+                      if (/^[-\u2022]\s/.test(trimmed)) {
+                        const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                        return (
+                          <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}>
+                            <span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>\u25CF</span>
+                            <span>{content}</span>
+                          </div>
+                        )
+                      }
+                      return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
+                    })
+                  })()}
                 </div>
               </div>
             )}
@@ -2139,7 +2383,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
           {/* Notes */}
           {f.notes && (
-            <div>
+            <div style={{ marginTop: '12px' }}>
               <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
               <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
             </div>
