@@ -973,6 +973,8 @@ function LongFormUpload({ showToast }) {
   const [progress, setProgress] = useState('')
   const [uploads, setUploads] = useState([]) // completed uploads for this session
   const fileRef = useRef(null)
+  const [urlInput, setUrlInput] = useState('')
+  const [uploadMode, setUploadMode] = useState('file') // 'file' | 'url'
 
   useEffect(() => {
     fetch('/api/admin/palm-creators')
@@ -1035,6 +1037,33 @@ function LongFormUpload({ showToast }) {
     }
   }
 
+  const handleUrlUpload = async () => {
+    if (!selectedCreator || !urlInput.trim()) return
+    setUploading(true)
+    setProgress('Downloading from URL...')
+    try {
+      const creator = creators.find(c => c.id === selectedCreator)
+      const creatorName = creator?.aka || creator?.name || 'Creator'
+
+      const res = await fetch('/api/admin/longform-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput.trim(), creatorName }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+
+      setUploads(prev => [{ name: data.name, path: data.path, size: data.size }, ...prev])
+      setUrlInput('')
+      showToast(`Uploaded ${data.name} for ${creatorName}`)
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setUploading(false)
+      setProgress('')
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -1050,32 +1079,65 @@ function LongFormUpload({ showToast }) {
           </select>
         </div>
 
-        {/* File picker */}
+        {/* Mode toggle */}
         <div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Files</div>
-          <button onClick={() => fileRef.current?.click()}
-            style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
-            {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Choose files'}
-          </button>
-          <input ref={fileRef} type="file" multiple accept="video/*" style={{ display: 'none' }}
-            onChange={e => setFiles(Array.from(e.target.files || []))} />
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Source</div>
+          <div style={{ display: 'flex', gap: '0', border: '1px solid #E8C4CC', borderRadius: '8px', overflow: 'hidden' }}>
+            {[{ key: 'file', label: 'File' }, { key: 'url', label: 'URL' }].map(m => (
+              <button key={m.key} onClick={() => setUploadMode(m.key)}
+                style={{ padding: '7px 14px', fontSize: '11px', fontWeight: 600, background: uploadMode === m.key ? '#FFF0F3' : '#fff', color: uploadMode === m.key ? '#E88FAC' : '#999', border: 'none', cursor: 'pointer' }}>
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Upload button */}
-        <button onClick={handleUpload} disabled={!selectedCreator || files.length === 0 || uploading}
-          style={{
-            padding: '8px 20px', fontSize: '13px', fontWeight: 700,
-            background: uploading || !selectedCreator || files.length === 0 ? '#f0f0f0' : '#dcfce7',
-            color: uploading || !selectedCreator || files.length === 0 ? '#999' : '#22c55e',
-            border: `1px solid ${uploading ? '#e0e0e0' : '#bbf7d0'}`,
-            borderRadius: '8px', cursor: uploading ? 'default' : 'pointer',
-          }}>
-          {uploading ? progress || 'Uploading...' : 'Upload to Finals'}
-        </button>
+        {/* File picker (file mode) */}
+        {uploadMode === 'file' && (
+          <>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Files</div>
+              <button onClick={() => fileRef.current?.click()}
+                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
+                {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Choose files'}
+              </button>
+              <input ref={fileRef} type="file" multiple accept="video/*" style={{ display: 'none' }}
+                onChange={e => setFiles(Array.from(e.target.files || []))} />
+            </div>
+            <button onClick={handleUpload} disabled={!selectedCreator || files.length === 0 || uploading}
+              style={{
+                padding: '8px 20px', fontSize: '13px', fontWeight: 700,
+                background: uploading || !selectedCreator || files.length === 0 ? '#f0f0f0' : '#dcfce7',
+                color: uploading || !selectedCreator || files.length === 0 ? '#999' : '#22c55e',
+                border: `1px solid ${uploading ? '#e0e0e0' : '#bbf7d0'}`,
+                borderRadius: '8px', cursor: uploading ? 'default' : 'pointer',
+              }}>
+              {uploading ? progress || 'Uploading...' : 'Upload'}
+            </button>
+          </>
+        )}
       </div>
 
-      {/* File list preview */}
-      {files.length > 0 && (
+      {/* URL input (url mode) */}
+      {uploadMode === 'url' && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <input value={urlInput} onChange={e => setUrlInput(e.target.value)} placeholder="Paste Google Drive link..."
+            style={{ flex: 1, padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', outline: 'none' }} />
+          <button onClick={handleUrlUpload} disabled={!selectedCreator || !urlInput.trim() || uploading}
+            style={{
+              padding: '8px 20px', fontSize: '13px', fontWeight: 700, flexShrink: 0,
+              background: uploading || !selectedCreator || !urlInput.trim() ? '#f0f0f0' : '#dcfce7',
+              color: uploading || !selectedCreator || !urlInput.trim() ? '#999' : '#22c55e',
+              border: `1px solid ${uploading ? '#e0e0e0' : '#bbf7d0'}`,
+              borderRadius: '8px', cursor: uploading ? 'default' : 'pointer',
+            }}>
+            {uploading ? progress || 'Downloading...' : 'Upload from URL'}
+          </button>
+        </div>
+      )}
+
+      {/* File list preview (file mode) */}
+      {uploadMode === 'file' && files.length > 0 && (
         <div style={{ marginBottom: '16px', padding: '12px', background: '#fff', borderRadius: '10px', border: '1px solid #E8C4CC' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Ready to upload</div>
           {files.map((f, i) => (
