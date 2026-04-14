@@ -2061,7 +2061,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             const visibleDaily = startMonth ? allDaily.filter(d => d.date >= startMonth) : allDaily
 
             const headerRow = (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
                   {canExpandMonthly && (
