@@ -2060,6 +2060,16 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             const allDaily = fanSpendData || []
             const visibleDaily = startMonth ? allDaily.filter(d => d.date >= startMonth) : allDaily
 
+            // Shared y-axis scale across both charts with round tick numbers
+            const monthlyMax = visibleMonthly.length > 0 ? Math.max(...visibleMonthly.map(d => d.spend)) : 0
+            const dailyMax = visibleDaily.length > 0 ? Math.max(...visibleDaily.map(d => d.spend)) : 0
+            const rawMax = Math.max(monthlyMax, dailyMax, 1)
+            // Round up to a nice number
+            const magnitude = Math.pow(10, Math.floor(Math.log10(rawMax)))
+            const niceSteps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
+            const sharedMax = niceSteps.map(s => s * magnitude).find(s => s >= rawMax) || rawMax
+            const sharedTicks = [0, Math.round(sharedMax / 2), Math.round(sharedMax)]
+
             const headerRow = (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2080,15 +2090,14 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
             if (chartMode === 'monthly' && visibleMonthly.length >= 1) {
               const data = visibleMonthly
-              const maxSpend = Math.max(...data.map(d => d.spend), 1)
               const barW = Math.min(chartW / data.length * 0.7, 40)
-              const yScale = (v) => padT + chartH - (v / maxSpend) * chartH
+              const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
 
               return (
                 <div style={{ marginBottom: '12px' }}>
                   {headerRow}
                   <svg viewBox={`0 0 ${VW} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
-                    {[0, Math.round(maxSpend / 2), Math.round(maxSpend)].map(v => (
+                    {sharedTicks.map(v => (
                       <g key={v}>
                         <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
                         <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
@@ -2096,7 +2105,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                     ))}
                     {data.map((d, i) => {
                       const cx = padL + ((i + 0.5) / data.length) * chartW
-                      const barH = Math.max((d.spend / maxSpend) * chartH, d.spend > 0 ? 2 : 0)
+                      const barH = Math.max((d.spend / sharedMax) * chartH, d.spend > 0 ? 2 : 0)
                       const moNum = parseInt(d.month.slice(5))
                       const yr = d.month.slice(2, 4)
                       const hasMilestone = milestoneMonths.includes(d.month)
@@ -2124,13 +2133,11 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
             if (chartMode === 'daily' && visibleDaily.length >= 2) {
               const data = visibleDaily
-              const maxSpend = Math.max(...data.map(d => d.spend), 1)
               const xScale = (i) => padL + (i / (data.length - 1)) * chartW
-              const yScale = (v) => padT + chartH - (v / maxSpend) * chartH
+              const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
               const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
               const linePath = 'M' + points.join(' L')
               const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
-              const yTicks = [0, Math.round(maxSpend / 2), Math.round(maxSpend)]
               const step = Math.max(Math.floor(data.length / 6), 1)
               const moAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
               const fmtDateLabel = (dateStr) => {
@@ -2160,7 +2167,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                     }}
                     onMouseLeave={() => setHoverIdx(null)}
                   >
-                    {yTicks.map(v => (
+                    {sharedTicks.map(v => (
                       <g key={v}>
                         <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
                         <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
