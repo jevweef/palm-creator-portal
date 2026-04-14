@@ -209,11 +209,17 @@ function parseChatHtml(html) {
     lines.push(msg.line)
   }
 
+  // Extract first and last message dates
+  const firstDate = messages.length > 0 ? messages[0].date : ''
+  const lastDate = messages.length > 0 ? messages[messages.length - 1].date : ''
+
   return {
     conversation: lines.join('\n'),
     messageCount: messages.length,
     fanMessages: messages.filter(m => m.sender === 'FAN').length,
     creatorMessages: messages.filter(m => m.sender === 'CREATOR').length,
+    firstMessageDate: firstDate,
+    lastMessageDate: lastDate,
   }
 }
 
@@ -571,6 +577,8 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       messageCount: parsed.messageCount,
       fanMessages: parsed.fanMessages,
       creatorMessages: parsed.creatorMessages,
+      firstMessageDate: parsed.firstMessageDate || '',
+      lastMessageDate: parsed.lastMessageDate || '',
       saved: true,
     })
   } catch (err) {
