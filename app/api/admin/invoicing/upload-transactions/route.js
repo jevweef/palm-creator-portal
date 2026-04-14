@@ -407,8 +407,16 @@ export async function POST(request) {
       resource: { values: rows },
     })
 
-    // Update cutoff
-    let newCutoff = cutoff
+    // Update cutoff — find the latest timestamp across all sheet data + new rows
+    let newCutoff = null
+    // Check existing rows for latest date
+    for (const r of existingRows) {
+      try {
+        const dt = new Date(`${r.date} ${r.time}`)
+        if (!newCutoff || dt > newCutoff) newCutoff = dt
+      } catch {}
+    }
+    // Check new rows
     for (const t of filtered) {
       if (t.dt && (!newCutoff || t.dt > newCutoff)) newCutoff = t.dt
     }
