@@ -319,6 +319,39 @@ async function upsertFan({ fanName, ofUsername, creatorRecordId, fields: extraFi
   }
 }
 
+// DELETE — delete a fan analysis record
+export async function DELETE(request) {
+  try { await requireAdmin() } catch (e) { return e }
+
+  const { searchParams } = new URL(request.url)
+  const recordId = searchParams.get('recordId')
+  const table = searchParams.get('table') || 'analysis' // 'analysis' or 'tracker'
+
+  if (!recordId) {
+    return NextResponse.json({ error: 'Missing recordId' }, { status: 400 })
+  }
+
+  try {
+    const targetTable = table === 'tracker' ? TABLE : FAN_ANALYSIS_TABLE
+    const targetBase = OPS_BASE
+
+    const res = await fetch(`https://api.airtable.com/v0/${targetBase}/${encodeURIComponent(targetTable)}/${recordId}`, {
+      method: 'DELETE',
+      headers: AIRTABLE_HEADERS,
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      return NextResponse.json({ error: `Delete failed: ${err}` }, { status: res.status })
+    }
+
+    return NextResponse.json({ success: true, deleted: recordId })
+  } catch (err) {
+    console.error('[Fan Tracker] DELETE error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 async function findFanRecord(fanName, ofUsername, creatorRecordId) {

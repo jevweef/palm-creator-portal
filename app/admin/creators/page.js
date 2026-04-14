@@ -1959,6 +1959,26 @@ function FansPanel({ creator }) {
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: a.brief ? '4px' : 0 }}>
                                 <span style={{ fontSize: '10px', color: '#999' }}>{fmtDate(a.date)}</span>
                                 {a.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: '3px' }}>{a.type}</span>}
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (!confirm('Delete this analysis?')) return
+                                    const res = await fetch(`/api/admin/fan-tracker?recordId=${a.id}&table=analysis`, { method: 'DELETE' })
+                                    if (res.ok) {
+                                      setFans(prev => prev.map(fan => {
+                                        if (fan.id !== f.id) return fan
+                                        const updated = { ...fan, analysisRecords: fan.analysisRecords.filter(ar => ar.id !== a.id) }
+                                        // If no more analyses and no tracker source, remove the fan entirely
+                                        if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
+                                        return updated
+                                      }).filter(Boolean))
+                                    }
+                                  }}
+                                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '11px', padding: '0 2px' }}
+                                  onMouseEnter={e => e.target.style.color = '#DC2626'}
+                                  onMouseLeave={e => e.target.style.color = '#ccc'}
+                                  title="Delete this analysis"
+                                >&times;</button>
                               </div>
                               {a.brief && <div style={{ fontSize: '11px', color: '#444', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>{a.brief}</div>}
                             </div>
