@@ -1782,6 +1782,8 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState(null)
   const [chartMode, setChartMode] = useState('monthly') // 'daily' | 'monthly'
+  const [showAllHistory, setShowAllHistory] = useState(false)
+  const [hoverIdx, setHoverIdx] = useState(null)
   const chatFileRef = useRef(null)
 
   const sc = statusColors[f.status] || statusColors['Monitoring']
@@ -1797,9 +1799,9 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       .catch(() => {})
   }, [isExpanded])
 
-  // Build daily spend data for this fan from allTxns
-  const fanSpendData = useMemo(() => {
-    if (!allTxns || !Array.isArray(allTxns)) return null
+  // Build daily + monthly spend data for this fan from allTxns
+  const { fanSpendData, monthlySpendData } = useMemo(() => {
+    if (!allTxns || !Array.isArray(allTxns)) return { fanSpendData: null, monthlySpendData: null }
     const dailySpend = {}
     for (const t of allTxns) {
       const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
@@ -1810,7 +1812,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       dailySpend[d] = (dailySpend[d] || 0) + (t.net || 0)
     }
     const entries = Object.entries(dailySpend).sort(([a], [b]) => a.localeCompare(b))
-    if (entries.length < 2) return null
+    if (entries.length < 1) return { fanSpendData: null, monthlySpendData: null }
 
     // Fill gaps with zero-spend days
     const filled = []
@@ -1821,19 +1823,28 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       const key = d.toISOString().split('T')[0]
       filled.push({ date: key, spend: spendMap[key] || 0 })
     }
-    return filled
-  }, [allTxns, f.ofUsername, f.fanName])
 
-  // Build monthly spend data from daily data
-  const monthlySpendData = useMemo(() => {
-    if (!fanSpendData) return null
+    // Build monthly totals — include all months from first to current
     const months = {}
-    for (const d of fanSpendData) {
+    for (const d of filled) {
       const mo = d.date.slice(0, 7)
       months[mo] = (months[mo] || 0) + d.spend
     }
-    return Object.entries(months).sort(([a], [b]) => a.localeCompare(b)).map(([month, spend]) => ({ month, spend }))
-  }, [fanSpendData])
+    // Fill in missing months between first and now
+    const firstMo = filled[0].date.slice(0, 7)
+    const now = new Date()
+    const lastMo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const allMonths = []
+    let cur = firstMo
+    while (cur <= lastMo) {
+      allMonths.push({ month: cur, spend: months[cur] || 0 })
+      const [y, m] = cur.split('-').map(Number)
+      const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+      cur = next
+    }
+
+    return { fanSpendData: filled, monthlySpendData: allMonths }
+  }, [allTxns, f.ofUsername, f.fanName])
 
   // Milestone dates from alert history and analyses
   const milestones = useMemo(() => {
@@ -2034,76 +2045,65 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             )}
           </div>
 
-          {/* Monthly spend mini bars (like GoingColdRow) */}
-          {f.goingCold?.monthlyHistory && f.goingCold.monthlyHistory.length > 0 && (() => {
-            const maxMo = Math.max(...f.goingCold.monthlyHistory.map(m => m.spend), 1)
-            const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-            return (
-              <div style={{ marginBottom: '12px' }}>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '16px' }}>Monthly Spending (last 6 months)</div>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', height: '60px' }}>
-                  {f.goingCold.monthlyHistory.map(m => {
-                    const h = Math.max((m.spend / maxMo) * 50, m.spend > 0 ? 3 : 0)
-                    const moNum = parseInt(m.month.slice(5))
-                    return (
-                      <div key={m.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                        <div style={{ fontSize: '9px', color: '#666', marginBottom: '2px' }}>{m.spend > 0 ? fmtMoney(m.spend) : ''}</div>
-                        <div style={{ width: '100%', maxWidth: '40px', height: h + 'px', background: m.spend === 0 ? '#F3F4F6' : m.spend < (f.goingCold.monthlyAvg90 || 0) * 0.25 ? '#FECACA' : '#E88FAC', borderRadius: '3px 3px 0 0', minHeight: '2px' }} />
-                        <div style={{ fontSize: '9px', color: '#999', marginTop: '3px' }}>{moNames[moNum]}</div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* Spending chart with daily/monthly toggle */}
+          {/* Spending chart — monthly bars (default) / daily line toggle */}
           {(fanSpendData || monthlySpendData) && (() => {
-            const data = chartMode === 'daily' ? fanSpendData : monthlySpendData
-            if (!data || data.length < 2) return null
-            const W = 560, H = 140, padL = 50, padR = 16, padT = 12, padB = 24
+            const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            const W = 560, H = 150, padL = 50, padR = 16, padT = 16, padB = 24
             const chartW = W - padL - padR, chartH = H - padT - padB
-            const values = data.map(d => d.spend || d.spend === 0 ? d.spend : 0)
-            const maxSpend = Math.max(...values, 1)
-            const xScale = (i) => padL + (i / (data.length - 1)) * chartW
-            const yScale = (v) => padT + chartH - (v / maxSpend) * chartH
+            const milestoneMonths = milestones.map(m => m.date.slice(0, 7))
 
-            if (chartMode === 'monthly') {
-              // Bar chart for monthly
+            // Determine time window — default last 7 months, "Show All" for full history
+            const allMonthly = monthlySpendData || []
+            const defaultMonthly = allMonthly.length > 7 ? allMonthly.slice(-7) : allMonthly
+            const visibleMonthly = showAllHistory ? allMonthly : defaultMonthly
+            const canExpandMonthly = allMonthly.length > 7
+
+            // For daily: filter to same month range as visible monthly
+            const startMonth = visibleMonthly.length > 0 ? visibleMonthly[0].month : null
+            const allDaily = fanSpendData || []
+            const visibleDaily = startMonth ? allDaily.filter(d => d.date >= startMonth) : allDaily
+
+            if (chartMode === 'monthly' && visibleMonthly.length >= 1) {
+              const data = visibleMonthly
+              const maxSpend = Math.max(...data.map(d => d.spend), 1)
               const barW = Math.min(chartW / data.length * 0.7, 40)
-              const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-              // Milestone months for vertical lines
-              const milestoneMonths = milestones.map(m => m.date.slice(0, 7))
+              const yScale = (v) => padT + chartH - (v / maxSpend) * chartH
 
               return (
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
+                      {canExpandMonthly && (
+                        <button onClick={() => setShowAllHistory(!showAllHistory)}
+                          style={{ fontSize: '10px', color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 500 }}>
+                          {showAllHistory ? `Last 7 months` : `Show all (${allMonthly.length} months)`}
+                        </button>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
                       <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
                       <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
                     </div>
                   </div>
                   <svg width={W} height={H} style={{ display: 'block' }}>
-                    {/* Grid lines */}
                     {[0, Math.round(maxSpend / 2), Math.round(maxSpend)].map(v => (
                       <g key={v}>
                         <line x1={padL} x2={W - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
                         <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v) : '0'}</text>
                       </g>
                     ))}
-                    {/* Bars */}
                     {data.map((d, i) => {
                       const cx = padL + ((i + 0.5) / data.length) * chartW
                       const barH = Math.max((d.spend / maxSpend) * chartH, d.spend > 0 ? 2 : 0)
                       const moNum = parseInt(d.month.slice(5))
+                      const yr = d.month.slice(2, 4)
                       const isMilestone = milestoneMonths.includes(d.month)
                       return (
                         <g key={d.month}>
                           <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
                           {d.spend > 0 && <text x={cx} y={padT + chartH - barH - 3} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
-                          <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={isMilestone ? '#7C3AED' : '#999'} fontWeight={isMilestone ? '700' : '400'}>{moNames[moNum]}</text>
+                          <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={isMilestone ? '#7C3AED' : '#999'} fontWeight={isMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
                           {isMilestone && <line x1={cx} x2={cx} y1={padT} y2={H - padB} stroke="#7C3AED" strokeWidth="1.5" strokeDasharray="4,3" />}
                         </g>
                       )
@@ -2113,57 +2113,102 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
               )
             }
 
-            // Daily line chart
-            const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
-            const linePath = 'M' + points.join(' L')
-            const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
-            const yTicks = [0, Math.round(maxSpend / 2), Math.round(maxSpend)]
-            const xLabels = [
-              { i: 0, label: data[0].date.slice(5) },
-              { i: Math.floor(data.length / 2), label: data[Math.floor(data.length / 2)].date.slice(5) },
-              { i: data.length - 1, label: data[data.length - 1].date.slice(5) },
-            ]
-            const dateToIndex = {}
-            data.forEach((d, i) => { dateToIndex[d.date] = i })
+            if (chartMode === 'daily' && visibleDaily.length >= 2) {
+              const data = visibleDaily
+              const maxSpend = Math.max(...data.map(d => d.spend), 1)
+              const xScale = (i) => padL + (i / (data.length - 1)) * chartW
+              const yScale = (v) => padT + chartH - (v / maxSpend) * chartH
+              const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
+              const linePath = 'M' + points.join(' L')
+              const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
+              const yTicks = [0, Math.round(maxSpend / 2), Math.round(maxSpend)]
+              // X labels: every ~2 months
+              const step = Math.max(Math.floor(data.length / 5), 1)
+              const xLabels = []
+              for (let xi = 0; xi < data.length; xi += step) xLabels.push({ i: xi, label: data[xi].date.slice(5) })
+              if (xLabels[xLabels.length - 1]?.i !== data.length - 1) xLabels.push({ i: data.length - 1, label: data[data.length - 1].date.slice(5) })
+              const dateToIndex = {}
+              data.forEach((d, i) => { dateToIndex[d.date] = i })
 
-            return (
-              <div style={{ marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
-                  <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
-                    <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
-                    <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
+              return (
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
+                      {canExpandMonthly && (
+                        <button onClick={() => setShowAllHistory(!showAllHistory)}
+                          style={{ fontSize: '10px', color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 500 }}>
+                          {showAllHistory ? `Last 7 months` : `Show all`}
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                      <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
+                      <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
+                    </div>
                   </div>
-                </div>
-                <svg width={W} height={H} style={{ display: 'block' }}>
-                  {yTicks.map(v => (
-                    <g key={v}>
-                      <line x1={padL} x2={W - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
-                      <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v) : '0'}</text>
-                    </g>
-                  ))}
-                  <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
-                  <path d={linePath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />
-                  {data.map((d, i) => d.spend > 0 ? (
-                    <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r="2" fill="#7C3AED" />
-                  ) : null)}
-                  {milestones.map((m, idx) => {
-                    const mi = dateToIndex[m.date]
-                    if (mi === undefined) return null
-                    const x = xScale(mi)
-                    return (
-                      <g key={idx}>
-                        <line x1={x} x2={x} y1={padT} y2={H - padB} stroke={m.color} strokeWidth="1.5" strokeDasharray="4,3" />
-                        <text x={x} y={padT - 2} textAnchor="middle" fontSize="8" fill={m.color} fontWeight="600">{m.label}</text>
+                  <svg width={W} height={H} style={{ display: 'block', cursor: 'crosshair' }}
+                    onMouseMove={e => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const mx = e.clientX - rect.left
+                      // Find closest data point
+                      let closest = 0, closestDist = Infinity
+                      for (let i = 0; i < data.length; i++) {
+                        const dist = Math.abs(xScale(i) - mx)
+                        if (dist < closestDist) { closestDist = dist; closest = i }
+                      }
+                      setHoverIdx(closest)
+                    }}
+                    onMouseLeave={() => setHoverIdx(null)}
+                  >
+                    {yTicks.map(v => (
+                      <g key={v}>
+                        <line x1={padL} x2={W - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
+                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v) : '0'}</text>
                       </g>
-                    )
-                  })}
-                  {xLabels.map(({ i: xi, label }) => (
-                    <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="9" fill="#999">{label}</text>
-                  ))}
-                </svg>
-              </div>
-            )
+                    ))}
+                    <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
+                    <path d={linePath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />
+                    {data.map((d, i) => d.spend > 0 ? (
+                      <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
+                    ) : null)}
+                    {/* Hover tooltip */}
+                    {hoverIdx !== null && data[hoverIdx] && (() => {
+                      const d = data[hoverIdx]
+                      const hx = xScale(hoverIdx)
+                      const hy = yScale(d.spend)
+                      const moNames2 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                      const dt = new Date(d.date + 'T12:00:00')
+                      const label = `${moNames2[dt.getMonth()]} ${dt.getDate()}`
+                      return (
+                        <g>
+                          <line x1={hx} x2={hx} y1={padT} y2={padT + chartH} stroke="#7C3AED" strokeWidth="0.5" strokeDasharray="2,2" opacity="0.5" />
+                          <rect x={hx - 40} y={hy - 28} width="80" height="22" rx="4" fill="#1a1a1a" />
+                          <text x={hx} y={hy - 14} textAnchor="middle" fontSize="10" fill="#fff" fontWeight="600">{label}: {fmtMoney(d.spend)}</text>
+                        </g>
+                      )
+                    })()}
+                    {/* Milestone lines */}
+                    {milestones.map((m, idx) => {
+                      const mi = dateToIndex[m.date]
+                      if (mi === undefined) return null
+                      const x = xScale(mi)
+                      return (
+                        <g key={idx}>
+                          <line x1={x} x2={x} y1={padT} y2={H - padB} stroke={m.color} strokeWidth="1.5" strokeDasharray="4,3" />
+                          <text x={x} y={padT - 2} textAnchor="middle" fontSize="8" fill={m.color} fontWeight="600">{m.label}</text>
+                        </g>
+                      )
+                    })}
+                    {xLabels.map(({ i: xi, label }) => (
+                      <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="9" fill="#999">{label}</text>
+                    ))}
+                  </svg>
+                </div>
+              )
+            }
+
+            return null
           })()}
 
           {/* Send to Chat Manager button */}
