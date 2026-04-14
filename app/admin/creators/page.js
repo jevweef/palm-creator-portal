@@ -2176,6 +2176,10 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
 
     // 1. Build from transaction data — every fan who's spent money
     if (allTxns && Array.isArray(allTxns)) {
+      const thirtyAgo = new Date()
+      thirtyAgo.setDate(thirtyAgo.getDate() - 30)
+      const thirtyAgoStr = thirtyAgo.toISOString().split('T')[0]
+
       for (const t of allTxns) {
         if (t.type === 'Chargeback') continue
         const key = (t.ofUsername || t.displayName || 'Unknown').toLowerCase()
@@ -2205,17 +2209,14 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
             source: 'transactions',
           })
         }
-        const f = fanMap.get(key)
-        f.lifetimeSpend += t.net || 0
-        f.txnCount += 1
-        if (t.displayName) f.fanName = t.displayName // keep latest display name
-        if (!f.ofUsername && t.ofUsername) f.ofUsername = t.ofUsername
-        if (!f.lastDate || t.date > f.lastDate) f.lastDate = t.date
-        if (!f.firstDate || t.date < f.firstDate) f.firstDate = t.date
-        // Last 30d spend
-        const thirtyAgo = new Date()
-        thirtyAgo.setDate(thirtyAgo.getDate() - 30)
-        if (t.dt && t.dt >= thirtyAgo) f.last30 += t.net || 0
+        const fan = fanMap.get(key)
+        fan.lifetimeSpend += t.net || 0
+        fan.txnCount += 1
+        if (t.displayName) fan.fanName = t.displayName
+        if (!fan.ofUsername && t.ofUsername) fan.ofUsername = t.ofUsername
+        if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
+        if (!fan.firstDate || t.date < fan.firstDate) fan.firstDate = t.date
+        if (t.date >= thirtyAgoStr) fan.last30 += t.net || 0
       }
     }
 
@@ -2575,7 +2576,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
       {/* ── Fans CRM section ────────────────────────────────────────────── */}
       {activeSection === 'fans' && (
-        <FansPanel creator={creator} allTxns={allTxns} goingColdAlerts={goingColdAlerts || []} />
+        <FansPanel creator={creator} allTxns={earningsData?.transactions} goingColdAlerts={earningsData?.goingColdAlerts || []} />
       )}
 
       {/* ── DNA section ──────────────────────────────────────────────────── */}
