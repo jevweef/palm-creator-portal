@@ -378,6 +378,27 @@ export async function POST(request) {
       nextRow = Math.max(4, (existing.data.values?.length || 3) + 1)
     } catch {}
 
+    // Auto-expand sheet if needed (grid limit)
+    const requiredRows = nextRow + rows.length
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+    const sheetMeta = spreadsheet.data.sheets.find(s => s.properties.title === tabName)
+    const currentMaxRows = sheetMeta?.properties?.gridProperties?.rowCount || 1000
+    if (requiredRows > currentMaxRows) {
+      const addRows = requiredRows - currentMaxRows + 500 // add extra buffer
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: {
+          requests: [{
+            appendDimension: {
+              sheetId: sheetMeta.properties.sheetId,
+              dimension: 'ROWS',
+              length: addRows,
+            }
+          }]
+        }
+      })
+    }
+
     // Append rows
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
