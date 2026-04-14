@@ -62,10 +62,10 @@ function detectWhales(transactions, now) {
   const sixMonthsAgo = new Date(now)
   sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180)
 
-  // Group by fan
+  // Group by fan (prefer ofUsername — display names change)
   const fanTxns = {}
   for (const t of transactions) {
-    const key = t.displayName || 'Unknown'
+    const key = t.ofUsername || t.displayName || 'Unknown'
     if (!fanTxns[key]) fanTxns[key] = []
     fanTxns[key].push(t)
   }
@@ -164,11 +164,11 @@ function detectGoingCold(transactions, now) {
   const thirtyDaysAgo = new Date(now)
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-  // Group by fan
+  // Group by fan (prefer ofUsername for stability — display names change)
   const fanTxns = {}
   for (const t of transactions) {
     if (t.type === 'Chargeback') continue
-    const key = t.displayName || 'Unknown'
+    const key = t.ofUsername || t.displayName || 'Unknown'
     if (!fanTxns[key]) fanTxns[key] = []
     fanTxns[key].push(t)
   }
@@ -259,9 +259,12 @@ function detectGoingCold(transactions, now) {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, spend]) => ({ month, spend }))
 
+    // Use most recent display name for the label (display names change, username is the key)
+    const latestDisplayName = sorted[sorted.length - 1]?.displayName || fan
+
     alerts.push({
-      fan,
-      username: txns[0]?.ofUsername || '',
+      fan: latestDisplayName,
+      username: fan,
       medianGap,
       p90Gap,
       currentGap,
@@ -427,10 +430,12 @@ export async function GET(request) {
     // ── Top fans (all time) ───────────────────────────────────────────────
     const fanMap = {}
     for (const t of transactions) {
-      const key = t.displayName || 'Unknown'
-      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      const key = t.ofUsername || t.displayName || 'Unknown'
+      if (!fanMap[key]) fanMap[key] = { displayName: t.displayName || key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
       fanMap[key].totalNet += t.net
       fanMap[key].transactionCount += 1
+      // Keep most recent display name (fans change display names)
+      if (t.displayName) fanMap[key].displayName = t.displayName
       if (!fanMap[key].lastDate) fanMap[key].lastDate = t.date
     }
     const topFans = Object.values(fanMap)
