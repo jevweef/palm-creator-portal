@@ -4,8 +4,12 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
 
 const TABLE = 'Fan Tracker'
+const FAN_ANALYSIS_TABLE = 'tblNMtOEg2AIzvLDK'
+const OPS_BASE = 'applLIT2t83plMqNx'
+const AIRTABLE_HEADERS = { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' }
 
 // GET — list tracked fans for a creator (or all)
+// Merges Fan Tracker records + Fan Analysis records so analyzed fans always show up
 export async function GET(request) {
   try { await requireAdmin() } catch (e) { return e }
 
@@ -14,44 +18,137 @@ export async function GET(request) {
   const status = searchParams.get('status') // optional status filter
 
   try {
-    const filters = []
-    if (creator) filters.push(`FIND("${creator}", ARRAYJOIN({Creator}))`)
-    if (status) filters.push(`{Status} = "${status}"`)
+    // Fetch Fan Tracker records
+    const trackerFilters = []
+    if (creator) trackerFilters.push(`FIND("${creator}", ARRAYJOIN({Creator}))`)
+    if (status && status !== 'all') trackerFilters.push(`{Status} = "${status}"`)
 
-    const formula = filters.length > 1
-      ? `AND(${filters.join(', ')})`
-      : filters[0] || ''
+    const trackerFormula = trackerFilters.length > 1
+      ? `AND(${trackerFilters.join(', ')})`
+      : trackerFilters[0] || ''
 
-    const records = await fetchAirtableRecords(TABLE, {
-      filterByFormula: formula,
-      sort: [{ field: 'Last Alert Sent', direction: 'desc' }],
-    })
+    // Fetch Fan Analysis records for this creator
+    const analysisFormula = creator
+      ? `{Creator} = "${creator.replace(/"/g, '\\"')}"`
+      : ''
 
-    const fans = records.map(r => ({
-      id: r.id,
-      fanName: r.fields['Fan Name'] || '',
-      ofUsername: r.fields['OF Username'] || '',
-      creator: r.fields['Creator'] || [],
-      status: r.fields['Status'] || '',
-      firstFlagged: r.fields['First Flagged'] || null,
-      lastAlertSent: r.fields['Last Alert Sent'] || null,
-      alertCount: r.fields['Alert Count'] || 0,
-      alertHistory: parseJSON(r.fields['Alert History']),
-      lifetimeSpend: r.fields['Lifetime Spend'] || 0,
-      preAlertSpend30d: r.fields['Pre-Alert Spend 30d'] || 0,
-      postAlertSpend30d: r.fields['Post-Alert Spend 30d'] || 0,
-      effectiveness: r.fields['Effectiveness'] || '',
-      timesGoneCold: r.fields['Times Gone Cold'] || 0,
-      dropboxChatPath: r.fields['Dropbox Chat Path'] || '',
-      lastChatUpload: r.fields['Last Chat Upload'] || null,
-      notes: r.fields['Notes'] || '',
-      analyses: r.fields['Analyses'] || [],
+    const [trackerRecords, analysisRecords] = await Promise.all([
+      fetchAirtableRecords(TABLE, {
+        filterByFormula: trackerFormula,
+        sort: [{ field: 'Last Alert Sent', direction: 'desc' }],
+      }),
+      fetchAnalysisRecords(analysisFormula),
+    ])
+
+    // Build map from tracker records (keyed by OF Username or Fan Name)
+    const fanMap = new Map()
+    for (const r of trackerRecords) {
+      const key = (r.fields['OF Username'] || r.fields['Fan Name'] || '').toLowerCase()
+      fanMap.set(key, {
+        id: r.id,
+        source: 'tracker',
+        fanName: r.fields['Fan Name'] || '',
+        ofUsername: r.fields['OF Username'] || '',
+        creator: r.fields['Creator'] || [],
+        status: r.fields['Status'] || '',
+        firstFlagged: r.fields['First Flagged'] || null,
+        lastAlertSent: r.fields['Last Alert Sent'] || null,
+        alertCount: r.fields['Alert Count'] || 0,
+        alertHistory: parseJSON(r.fields['Alert History']),
+        lifetimeSpend: r.fields['Lifetime Spend'] || 0,
+        preAlertSpend30d: r.fields['Pre-Alert Spend 30d'] || 0,
+        postAlertSpend30d: r.fields['Post-Alert Spend 30d'] || 0,
+        effectiveness: r.fields['Effectiveness'] || '',
+        timesGoneCold: r.fields['Times Gone Cold'] || 0,
+        dropboxChatPath: r.fields['Dropbox Chat Path'] || '',
+        lastChatUpload: r.fields['Last Chat Upload'] || null,
+        notes: r.fields['Notes'] || '',
+        analyses: r.fields['Analyses'] || [],
+        analysisRecords: [],
+      })
+    }
+
+    // Merge analysis records — add to existing tracker entries or create new "Analyzed" entries
+    for (const a of analysisRecords) {
+      const key = (a.ofUsername || a.fanName || '').toLowerCase()
+      if (fanMap.has(key)) {
+        fanMap.get(key).analysisRecords.push(a)
+      } else {
+        // Fan has analysis but no tracker record — show as "Analyzed"
+        if (status && status !== 'all' && status !== 'analyzed') continue
+        fanMap.set(key, {
+          id: `analysis-${a.id}`,
+          source: 'analysis',
+          fanName: a.fanName,
+          ofUsername: a.ofUsername,
+          creator: [],
+          status: 'Analyzed',
+          firstFlagged: a.analyzedDate,
+          lastAlertSent: null,
+          alertCount: 0,
+          alertHistory: [],
+          lifetimeSpend: a.lifetimeSpend || 0,
+          preAlertSpend30d: 0,
+          postAlertSpend30d: 0,
+          effectiveness: '',
+          timesGoneCold: 0,
+          dropboxChatPath: '',
+          lastChatUpload: null,
+          notes: '',
+          analyses: [],
+          analysisRecords: [a],
+        })
+      }
+    }
+
+    // Attach analysis summaries to each fan
+    const fans = Array.from(fanMap.values()).map(f => ({
+      ...f,
+      analysisRecords: f.analysisRecords.map(a => ({
+        id: a.id,
+        date: a.analyzedDate,
+        type: a.analysisType,
+        brief: a.managerBrief,
+      })),
     }))
+
+    // Sort: active statuses first, then by most recent activity
+    fans.sort((a, b) => {
+      const order = { 'Going Cold': 0, 'Alert Sent': 1, 'Analyzed': 2, 'Recovering': 3, 'Monitoring': 4, 'Reactivated': 5, 'Lost': 6 }
+      const diff = (order[a.status] ?? 99) - (order[b.status] ?? 99)
+      if (diff !== 0) return diff
+      return (b.lastAlertSent || b.firstFlagged || '') > (a.lastAlertSent || a.firstFlagged || '') ? 1 : -1
+    })
 
     return NextResponse.json({ fans })
   } catch (err) {
     console.error('[Fan Tracker] GET error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+async function fetchAnalysisRecords(formula) {
+  try {
+    const params = new URLSearchParams()
+    if (formula) params.set('filterByFormula', formula)
+    params.set('sort[0][field]', 'Analyzed Date')
+    params.set('sort[0][direction]', 'desc')
+    const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}?${params}`, {
+      headers: AIRTABLE_HEADERS, cache: 'no-store',
+    })
+    const data = await res.json()
+    return (data.records || []).map(r => ({
+      id: r.id,
+      fanName: r.fields['Fan Name'] || '',
+      ofUsername: r.fields['OF Username'] || '',
+      lifetimeSpend: r.fields['Lifetime Spend'] || 0,
+      analysisType: r.fields['Analysis Type'] || '',
+      managerBrief: r.fields['Manager Brief'] || '',
+      analyzedDate: r.fields['Analyzed Date'] || '',
+    }))
+  } catch (err) {
+    console.error('[Fan Tracker] Failed to fetch analyses:', err)
+    return []
   }
 }
 

@@ -1789,6 +1789,7 @@ function FansPanel({ creator }) {
   const statusColors = {
     'Going Cold': { bg: '#FEE2E2', text: '#DC2626' },
     'Alert Sent': { bg: '#FFF3CD', text: '#D97706' },
+    'Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
     'Recovering': { bg: '#FEF9C3', text: '#A16207' },
     'Reactivated': { bg: '#DCFCE7', text: '#166534' },
     'Lost': { bg: '#F3F4F6', text: '#6B7280' },
@@ -1803,7 +1804,7 @@ function FansPanel({ creator }) {
   }
 
   const filtered = fans.filter(f => {
-    if (filter === 'active') return ['Going Cold', 'Alert Sent', 'Recovering', 'Monitoring'].includes(f.status)
+    if (filter === 'active') return ['Going Cold', 'Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)
     if (filter === 'resolved') return ['Reactivated', 'Lost'].includes(f.status)
     return true
   })
@@ -1836,7 +1837,7 @@ function FansPanel({ creator }) {
             Fan Tracker
           </h3>
           <p style={{ fontSize: '12px', color: '#999', margin: '2px 0 0' }}>
-            {fans.length} tracked fan{fans.length !== 1 ? 's' : ''} &middot; {fans.filter(f => f.status === 'Alert Sent' || f.status === 'Going Cold').length} active alerts
+            {fans.length} fan{fans.length !== 1 ? 's' : ''} &middot; {fans.filter(f => ['Alert Sent', 'Going Cold', 'Analyzed'].includes(f.status)).length} active
           </p>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
@@ -1856,7 +1857,7 @@ function FansPanel({ creator }) {
       {filtered.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#999', fontSize: '13px', background: '#FAFAFA', borderRadius: '10px' }}>
           {fans.length === 0
-            ? 'No fans tracked yet. Fans are added automatically when you send a going-cold alert to a chat manager.'
+            ? 'No fans tracked yet. Fans appear here when you run a chat analysis or send a going-cold alert.'
             : `No ${filter} fans found.`}
         </div>
       ) : (
@@ -1946,8 +1947,27 @@ function FansPanel({ creator }) {
                       </div>
                     )}
 
-                    {/* Linked analyses */}
-                    {f.analyses && f.analyses.length > 0 && (
+                    {/* Analysis records */}
+                    {f.analysisRecords && f.analysisRecords.length > 0 && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>
+                          Analyses ({f.analysisRecords.length})
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {f.analysisRecords.map((a, idx) => (
+                            <div key={idx} style={{ background: '#fff', borderRadius: '6px', padding: '8px 12px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: a.brief ? '4px' : 0 }}>
+                                <span style={{ fontSize: '10px', color: '#999' }}>{fmtDate(a.date)}</span>
+                                {a.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: '3px' }}>{a.type}</span>}
+                              </div>
+                              {a.brief && <div style={{ fontSize: '11px', color: '#444', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>{a.brief}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Linked analyses (from Airtable relation) */}
+                    {f.analyses && f.analyses.length > 0 && (!f.analysisRecords || f.analysisRecords.length === 0) && (
                       <div style={{ marginBottom: '12px' }}>
                         <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
                           Analyses ({f.analyses.length})
