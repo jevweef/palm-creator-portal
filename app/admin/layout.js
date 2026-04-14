@@ -19,6 +19,7 @@ const ADMIN_NAV = [
     { key: 'review', label: 'For Review' },
     { key: 'postprep', label: 'Post Prep' },
     { key: 'library', label: 'Creator Library' },
+    { key: 'longform', label: 'Long Form' },
   ]},
   { href: '/admin/creators', label: 'Creators', icon: '🎭', children: [
     { key: 'earnings', label: 'Earnings' },
