@@ -2256,7 +2256,17 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                         title="Delete this analysis"
                       >&times;</button>
                     </div>
-                    {a.brief && <div style={{ fontSize: '11px', color: '#444', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>{a.brief}</div>}
+                    {a.brief && <div style={{ fontSize: '11px', color: '#444', lineHeight: '1.5' }}>
+                      {a.brief.split('\n').map((line, li) => {
+                        const t = line.trim()
+                        if (!t) return <div key={li} style={{ height: '4px' }} />
+                        if (/^\*\*[^*]+\*\*/.test(t)) {
+                          const m = t.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                          if (m) return <div key={li} style={{ marginTop: li > 0 ? '6px' : 0 }}><span style={{ fontWeight: 700, color: '#7C3AED' }}>{m[1]}:</span> {m[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</div>
+                        }
+                        return <div key={li}>{t.replace(/\*\*([^*]+)\*\*/g, '$1')}</div>
+                      })}
+                    </div>}
                   </div>
                 ))}
               </div>
