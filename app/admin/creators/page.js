@@ -1374,7 +1374,31 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   }, [allTxns, period, customStart, customEnd])
 
   // Early returns AFTER all hooks
-  if (loading) return <div style={{ color: '#999', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>Loading earnings data...</div>
+  if (loading) return (
+    <div style={{ padding: '20px 0' }}>
+      {/* Skeleton: period selector */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+        {[80, 60, 50, 40, 60, 50].map((w, i) => (
+          <div key={i} style={{ width: w, height: 28, background: '#F3F4F6', borderRadius: '6px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        ))}
+      </div>
+      {/* Skeleton: chart area */}
+      <div style={{ height: 200, background: '#F9FAFB', borderRadius: '12px', marginBottom: '20px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      {/* Skeleton: going cold rows */}
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ width: 120, height: 14, background: '#F3F4F6', borderRadius: '4px', marginBottom: '10px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        {[1, 2, 3].map(i => (
+          <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
+            <div style={{ width: 120, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 60, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 50, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 70, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          </div>
+        ))}
+      </div>
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+    </div>
+  )
   if (error) return (
     <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#DC2626' }}>
       {error}
@@ -1662,23 +1686,22 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
   useEffect(() => { load(); setEarningsData(null); setEarningsError(null) }, [creator.id])
 
-  // Lazy-load earnings when section is opened
+  // Prefetch earnings immediately on creator change (don't wait for tab click)
   useEffect(() => {
-    if (activeSection === 'earnings' && !earningsData && !earningsLoading) {
-      setEarningsLoading(true)
-      setEarningsError(null)
-      const name = creator.aka || creator.name
-      fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.error === 'no_sheet') setEarningsData({ empty: true })
-          else if (data.error) setEarningsError(data.error)
-          else setEarningsData(data)
-        })
-        .catch(e => setEarningsError(e.message))
-        .finally(() => setEarningsLoading(false))
-    }
-  }, [activeSection, earningsData, earningsLoading, creator.id])
+    setEarningsData(null)
+    setEarningsLoading(true)
+    setEarningsError(null)
+    const name = creator.aka || creator.name
+    fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error === 'no_sheet') setEarningsData({ empty: true })
+        else if (data.error) setEarningsError(data.error)
+        else setEarningsData(data)
+      })
+      .catch(e => setEarningsError(e.message))
+      .finally(() => setEarningsLoading(false))
+  }, [creator.id])
 
   const refreshEarnings = useCallback(() => {
     setEarningsData(null)
