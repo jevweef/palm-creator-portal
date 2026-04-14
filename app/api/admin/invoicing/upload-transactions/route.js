@@ -213,6 +213,33 @@ async function getCutoff(sheets, tabName) {
   } catch { return null }
 }
 
+// Build a fingerprint for a transaction row: date|time|net|fan
+function txnFingerprint(date, time, net, fan) {
+  return `${(date || '').trim()}|${(time || '').trim()}|${String(net).trim()}|${(fan || '').trim()}`
+}
+
+// Get the last N rows from the sheet for overlap matching
+async function getLastRows(sheets, tabName, count = 50) {
+  try {
+    const colRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID, range: `'${tabName}'!A:A`,
+    })
+    const totalRows = colRes.data.values?.length || 3
+    if (totalRows <= 3) return [] // only header rows
+    const startRow = Math.max(4, totalRows - count + 1)
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!A${startRow}:J${totalRows}`,
+    })
+    return (res.data.values || []).map(row => ({
+      date: row[0] || '', time: row[1] || '', gross: row[2] || '',
+      ofFee: row[3] || '', net: row[4] || '', type: row[5] || '',
+      displayName: row[6] || '', username: row[7] || '',
+      fingerprint: txnFingerprint(row[0], row[1], row[4], row[6]),
+    }))
+  } catch { return [] }
+}
+
 async function updateCutoff(sheets, tabName, cutoffDt) {
   const notice = cutoffDt
     ? `⚠️  ONLY UPLOAD SALES AFTER: ${cutoffDt.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}`
@@ -271,21 +298,60 @@ export async function POST(request) {
     const sheets = google.sheets({ version: 'v4', auth: authClient })
     const tabName = await getOrCreateTab(sheets, creator, sheetType)
 
-    // Check cutoff and filter duplicates
-    const cutoff = await getCutoff(sheets, tabName)
+    // Overlap-based dedup: fetch last rows from sheet, find the match point
+    // in the new data, only append everything after it
+    const existingRows = await getLastRows(sheets, tabName, 50)
     let filtered = txns
     let skipped = 0
-    if (cutoff) {
-      filtered = txns.filter(t => {
-        if (t.dt && t.dt <= cutoff) { skipped++; return false }
-        return true
-      })
+    let overlapMethod = 'none'
+
+    if (existingRows.length > 0) {
+      // Build fingerprint set from existing sheet rows
+      const existingFingerprints = new Set(existingRows.map(r => r.fingerprint))
+
+      // Build fingerprints for new transactions
+      const newWithFp = txns.map(t => ({
+        ...t,
+        fingerprint: txnFingerprint(
+          t.dt ? fmtDate(t.dt) : '',
+          t.dt ? fmtTime(t.dt) : '',
+          t.net,
+          t.displayName || t.fan
+        ),
+      }))
+
+      // Strategy: find the LAST matching transaction in the new data
+      // (the overlap point), then take everything after it
+      let lastMatchIdx = -1
+      for (let i = 0; i < newWithFp.length; i++) {
+        if (existingFingerprints.has(newWithFp[i].fingerprint)) {
+          lastMatchIdx = i
+        }
+      }
+
+      if (lastMatchIdx >= 0) {
+        // Found overlap — take everything after the last match
+        overlapMethod = 'fingerprint'
+        skipped = lastMatchIdx + 1
+        filtered = txns.slice(lastMatchIdx + 1)
+      } else {
+        // No overlap found — fall back to timestamp cutoff to avoid dupes
+        const cutoff = await getCutoff(sheets, tabName)
+        if (cutoff) {
+          overlapMethod = 'cutoff_fallback'
+          filtered = txns.filter(t => {
+            if (t.dt && t.dt <= cutoff) { skipped++; return false }
+            return true
+          })
+        }
+        // If no cutoff either, append everything (first upload or gap fill)
+      }
     }
 
     if (filtered.length === 0) {
       return Response.json({
-        message: `All ${txns.length} transactions are before the cutoff — nothing new to upload.`,
-        cutoff: cutoff?.toISOString(), parsed: txns.length, skipped: txns.length, uploaded: 0,
+        message: `All ${txns.length} transactions already exist in the sheet — nothing new to upload.`,
+        parsed: txns.length, skipped: txns.length, uploaded: 0, overlapMethod,
       })
     }
 
@@ -348,7 +414,7 @@ export async function POST(request) {
     return Response.json({
       message: `Uploaded ${filtered.length} transactions to "${tabName}"`,
       parsed: txns.length, skipped, uploaded: filtered.length,
-      withUsernames,
+      withUsernames, overlapMethod,
       totalGross, totalNet, typeBreakdown, topFans,
       cutoff: newCutoff?.toISOString(),
       spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}`,
