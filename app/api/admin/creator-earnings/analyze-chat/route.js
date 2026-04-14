@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import OpenAI from 'openai'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxFolder } from '@/lib/dropbox'
 
 export const maxDuration = 60
 
@@ -9,6 +10,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const OPS_BASE = 'applLIT2t83plMqNx'
 const FAN_ANALYSIS_TABLE = 'tblNMtOEg2AIzvLDK'
+const FAN_TRACKER_TABLE = 'Fan Tracker'
 const AIRTABLE_HEADERS = { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' }
 
 // Field IDs
@@ -28,6 +30,92 @@ const F = {
   creatorMessages: 'fldO1fc8EqZvWegkf',
   status: 'fldaG3E41OfKKtK2g',
   analyzedDate: 'fldamFzJZ9VPLNIOm',
+}
+
+async function fetchPriorContext(fanName, creatorName) {
+  try {
+    // Get most recent previous analysis
+    const analysisParams = new URLSearchParams()
+    analysisParams.set('maxRecords', '1')
+    analysisParams.set('sort[0][field]', 'Analyzed Date')
+    analysisParams.set('sort[0][direction]', 'desc')
+    analysisParams.set('filterByFormula', `AND({Fan Name} = "${fanName.replace(/"/g, '\\"')}"${creatorName ? `, {Creator} = "${creatorName.replace(/"/g, '\\"')}"` : ''})`)
+    const analysisRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}?${analysisParams}`, {
+      headers: AIRTABLE_HEADERS, cache: 'no-store',
+    })
+    const analysisData = await analysisRes.json()
+    const prevAnalysis = analysisData.records?.[0]?.fields || null
+
+    // Get fan tracker record for alert history
+    const trackerParams = new URLSearchParams()
+    trackerParams.set('maxRecords', '1')
+    trackerParams.set('filterByFormula', `{Fan Name} = "${fanName.replace(/"/g, '\\"')}"`)
+    const trackerRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}?${trackerParams}`, {
+      headers: AIRTABLE_HEADERS, cache: 'no-store',
+    })
+    const trackerData = await trackerRes.json()
+    const tracker = trackerData.records?.[0]?.fields || null
+
+    if (!prevAnalysis && !tracker) return null
+
+    let context = '\n\nPRIOR CONTEXT FOR THIS FAN (this is NOT the first time we are analyzing them):\n'
+
+    if (prevAnalysis) {
+      const prevDate = prevAnalysis['Analyzed Date']
+        ? new Date(prevAnalysis['Analyzed Date']).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'unknown date'
+      context += `\nPrevious analysis was run on ${prevDate}.`
+      if (prevAnalysis['Manager Brief']) {
+        context += `\nPrevious manager brief:\n${prevAnalysis['Manager Brief']}\n`
+      }
+      if (prevAnalysis['Full Analysis']) {
+        // Include a truncated version of the previous full analysis
+        const prev = prevAnalysis['Full Analysis']
+        context += `\nPrevious full analysis (summary):\n${prev.length > 2000 ? prev.slice(0, 2000) + '...' : prev}\n`
+      }
+    }
+
+    if (tracker) {
+      const alertCount = tracker['Alert Count'] || 0
+      const timesGoneCold = tracker['Times Gone Cold'] || 0
+      const lastAlertDate = tracker['Last Alert Sent']
+        ? new Date(tracker['Last Alert Sent']).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : null
+      const effectiveness = tracker['Effectiveness'] || ''
+      const preAlert = tracker['Pre-Alert Spend 30d'] || 0
+      const postAlert = tracker['Post-Alert Spend 30d'] || 0
+
+      context += `\nFan Tracker data:`
+      context += `\n- Times gone cold: ${timesGoneCold}`
+      context += `\n- Total alerts sent to chat manager: ${alertCount}`
+      if (lastAlertDate) context += `\n- Last alert sent: ${lastAlertDate}`
+      if (effectiveness) context += `\n- Effectiveness of last intervention: ${effectiveness}`
+      if (preAlert > 0) context += `\n- Spending before last alert (30d): $${preAlert.toLocaleString()}`
+      if (postAlert > 0) context += `\n- Spending after last alert (30d): $${postAlert.toLocaleString()}`
+
+      // Parse alert history for timeline
+      let alertHistory = []
+      try { alertHistory = JSON.parse(tracker['Alert History'] || '[]') } catch {}
+      if (alertHistory.length > 0) {
+        context += `\n\nAlert history timeline:`
+        for (const h of alertHistory) {
+          const date = new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          context += `\n  - ${date}: ${h.urgency} alert (${h.currentGap}d gap, $${Math.round(h.rolling30)} last 30d, $${Math.round(h.lifetime)} lifetime)`
+        }
+      }
+
+      context += `\n\nIMPORTANT: This fan has been flagged ${timesGoneCold} time(s) before. Your analysis should:`
+      context += `\n- Reference what was tried previously and whether it worked`
+      context += `\n- Identify if this is a PATTERN (recurring going-cold cycle) vs a one-time issue`
+      context += `\n- If previous action items didn't work, suggest a DIFFERENT approach`
+      context += `\n- Be honest about recovery odds given the history`
+    }
+
+    return context
+  } catch (err) {
+    console.error('Failed to fetch prior context:', err)
+    return null
+  }
 }
 
 async function saveToAirtable(record) {
@@ -402,10 +490,16 @@ Quote the fan's actual words as evidence. Don't be generic.`
       conversation = beginning + '\n\n[... earlier messages omitted ...]\n\n' + end
     }
 
+    // Fetch prior analysis context (if fan has been analyzed before)
+    const priorContext = await fetchPriorContext(fanName, creatorName)
+    const systemWithContext = priorContext
+      ? systemPrompt + priorContext
+      : systemPrompt
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: systemWithContext },
         { role: 'user', content: `Analyze this conversation between ${creatorName} (CREATOR) and ${fanName} (FAN):\n\n${conversation}` },
       ],
       temperature: 0.5,
@@ -438,9 +532,10 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
 
     // Save to Airtable (async, don't block response)
     const lastPurchaseDate = formData.get('lastPurchaseDate') || ''
+    const fanUsername = formData.get('fanUsername') || ''
     saveToAirtable({
       [F.fanName]: fanName,
-      [F.ofUsername]: formData.get('fanUsername') || '',
+      [F.ofUsername]: fanUsername,
       [F.creator]: creatorName,
       [F.lifetimeSpend]: lifetime,
       [F.currentGap]: currentGap,
@@ -456,6 +551,11 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       [F.analyzedDate]: new Date().toISOString(),
     })
 
+    // Save chat HTML + analysis to Dropbox (fire-and-forget)
+    saveChatToDropbox({
+      html, fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
+    }).catch(err => console.error('[Chat Analysis] Dropbox save failed:', err))
+
     return Response.json({
       analysis: fullAnalysis,
       managerBrief,
@@ -468,5 +568,64 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
   } catch (err) {
     console.error('Chat analysis error:', err)
     return Response.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// ── Dropbox chat log storage ──────────────────────────────────────────────
+
+async function saveChatToDropbox({ html, fullAnalysis, managerBrief, creatorName, fanName, fanUsername }) {
+  const token = await getDropboxAccessToken()
+  const rootNs = await getDropboxRootNamespaceId(token)
+
+  const safeFan = (fanUsername || fanName).replace(/[^a-zA-Z0-9_-]/g, '_')
+  const safeCreator = creatorName.replace(/[^a-zA-Z0-9_-]/g, '_')
+  const basePath = `/Palm/Chat Logs/${safeCreator}/${safeFan}`
+  const dateStr = new Date().toISOString().split('T')[0]
+
+  // Create folder structure (auto-skips if exists)
+  await createDropboxFolder(token, rootNs, `/Palm/Chat Logs`)
+  await createDropboxFolder(token, rootNs, `/Palm/Chat Logs/${safeCreator}`)
+  await createDropboxFolder(token, rootNs, basePath)
+
+  // Upload chat HTML
+  const htmlBuffer = Buffer.from(html, 'utf8')
+  await uploadToDropbox(token, rootNs, `${basePath}/chat-${dateStr}.html`, htmlBuffer)
+
+  // Upload analysis JSON
+  const analysisJson = JSON.stringify({
+    date: new Date().toISOString(),
+    fanName,
+    fanUsername,
+    creator: creatorName,
+    fullAnalysis,
+    managerBrief,
+  }, null, 2)
+  const analysisBuffer = Buffer.from(analysisJson, 'utf8')
+  await uploadToDropbox(token, rootNs, `${basePath}/analysis-${dateStr}.json`, analysisBuffer)
+
+  // Update Fan Tracker with Dropbox path and chat upload date
+  try {
+    const trackerParams = new URLSearchParams()
+    trackerParams.set('maxRecords', '1')
+    trackerParams.set('filterByFormula', `{Fan Name} = "${fanName.replace(/"/g, '\\"')}"`)
+    const trackerRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}?${trackerParams}`, {
+      headers: AIRTABLE_HEADERS, cache: 'no-store',
+    })
+    const trackerData = await trackerRes.json()
+    const tracker = trackerData.records?.[0]
+    if (tracker) {
+      await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}/${tracker.id}`, {
+        method: 'PATCH',
+        headers: AIRTABLE_HEADERS,
+        body: JSON.stringify({
+          fields: {
+            'Dropbox Chat Path': basePath,
+            'Last Chat Upload': new Date().toISOString(),
+          },
+        }),
+      })
+    }
+  } catch (err) {
+    console.error('[Chat Analysis] Fan tracker update failed:', err)
   }
 }
