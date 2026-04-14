@@ -587,9 +587,9 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
   // Find existing record
   let formula
   if (fanUsername) {
-    formula = `AND({OF Username} = "${fanUsername}", FIND("${creatorRecordId}", ARRAYJOIN(RECORD_ID({Creator}))))`
+    formula = `AND({OF Username} = "${fanUsername}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
   } else {
-    formula = `AND({Fan Name} = "${fanName.replace(/"/g, '\\"')}", FIND("${creatorRecordId}", ARRAYJOIN(RECORD_ID({Creator}))))`
+    formula = `AND({Fan Name} = "${fanName.replace(/"/g, '\\"')}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
   }
 
   const params = new URLSearchParams()
@@ -599,6 +599,9 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
     headers: AIRTABLE_HEADERS, cache: 'no-store',
   })
   const data = await res.json()
+  if (data.error) {
+    console.error('[Fan Tracker] Airtable lookup error:', data.error)
+  }
   const existing = data.records?.[0]
 
   if (existing) {
@@ -616,7 +619,7 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
     }
   } else {
     // Create new tracker record
-    await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}`, {
+    const createRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}`, {
       method: 'POST',
       headers: AIRTABLE_HEADERS,
       body: JSON.stringify({
@@ -631,6 +634,10 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
         },
       }),
     })
+    const createData = await createRes.json()
+    if (createData.error) {
+      console.error('[Fan Tracker] Airtable create error:', createData.error)
+    }
   }
 }
 

@@ -227,9 +227,9 @@ async function findFanRecord(fanName, ofUsername, creatorRecordId) {
   // Try username match first (more reliable), then fall back to name
   let formula
   if (ofUsername) {
-    formula = `AND({OF Username} = "${ofUsername}", FIND("${creatorRecordId}", ARRAYJOIN(RECORD_ID({Creator}))))`
+    formula = `AND({OF Username} = "${ofUsername}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
   } else {
-    formula = `AND({Fan Name} = "${fanName}", FIND("${creatorRecordId}", ARRAYJOIN(RECORD_ID({Creator}))))`
+    formula = `AND({Fan Name} = "${fanName}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
   }
 
   const records = await fetchAirtableRecords(TABLE, {
