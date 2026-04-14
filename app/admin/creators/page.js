@@ -893,6 +893,9 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
   const [analysisError, setAnalysisError] = useState(null)
   const [showBrief, setShowBrief] = useState(false)
   const [loadedFromAirtable, setLoadedFromAirtable] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState(null) // { success: true } or { error: '...' }
   const chatFileRef = useRef(null)
   const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
 
@@ -951,6 +954,29 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
       setAnalyzing(false)
     }
   }
+  async function handleSendToTelegram() {
+    setSending(true)
+    setSendResult(null)
+    try {
+      const res = await fetch('/api/admin/whale-alert/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorName,
+          alert: a,
+          analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Send failed')
+      setSendResult({ success: true })
+    } catch (e) {
+      setSendResult({ error: e.message })
+    } finally {
+      setSending(false)
+    }
+  }
+
   const uc = urgColors[a.urgency] || urgColors.warning
 
   return (
@@ -1022,6 +1048,22 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
               </div>
             )
           })()}
+
+          {/* Send to Chat Manager button */}
+          <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => { setSendResult(null); setShowSendModal(true) }}
+              style={{
+                background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                padding: '7px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+            >
+              <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
+            </button>
+            {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent to Telegram</span>}
+            {sendResult?.error && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
+          </div>
 
           {/* Chat analysis section */}
           <div style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
@@ -1171,6 +1213,116 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
                     })
                   })()}
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Send to Chat Manager modal */}
+      {showSendModal && (
+        <div
+          onClick={() => !sending && setShowSendModal(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: '12px', padding: '24px', width: '480px',
+              maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>Send Whale Alert</div>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>
+              This will generate a PDF and send it to the <strong>{creatorName}</strong> topic in Telegram.
+            </div>
+
+            {/* Preview card */}
+            <div style={{ background: '#FAFAFA', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '14px' }}>{a.fan}</span>
+                  {a.username && <span style={{ color: '#E88FAC', fontSize: '12px', marginLeft: '6px' }}>@{a.username}</span>}
+                </div>
+                <span style={{ background: uc.bg, color: uc.text, padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{a.urgency}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+                <div><span style={{ color: '#999' }}>Gap:</span> <strong style={{ color: a.currentGap > a.medianGap * 3 ? '#DC2626' : '#EA580C' }}>{a.currentGap}d</strong> <span style={{ color: '#999' }}>({a.gapRatio}x)</span></div>
+                <div><span style={{ color: '#999' }}>Last 30d:</span> <strong>{fmtMoney(a.rolling30)}</strong></div>
+                <div><span style={{ color: '#999' }}>Lifetime:</span> <strong>{fmtMoney(a.lifetime)}</strong></div>
+              </div>
+              {analysis?.managerBrief && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #E5E7EB', fontSize: '12px', color: '#333', lineHeight: '1.5' }}>
+                  <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Manager Brief</div>
+                  {analysis.managerBrief.split('\n').filter(l => l.trim()).slice(0, 4).map((line, i) => (
+                    <div key={i} style={{ marginBottom: '2px' }}>{line.replace(/\*\*([^*]+)\*\*/g, '$1')}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px' }}>
+              PDF will include: stats, 6-month spend chart{analysis ? ', manager brief, and full analysis' : ''}. {!analysis && <span style={{ color: '#D97706' }}>No chat analysis available — PDF will only contain spending data.</span>}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowSendModal(false)}
+                disabled={sending}
+                style={{
+                  background: '#F3F4F6', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', cursor: 'pointer', color: '#666',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setSending(true)
+                  setSendResult(null)
+                  try {
+                    const res = await fetch('/api/admin/whale-alert/send', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        creatorName,
+                        alert: a,
+                        analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+                      }),
+                    })
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error || 'Send failed')
+                    setSendResult({ success: true })
+                    setTimeout(() => setShowSendModal(false), 1500)
+                  } catch (e) {
+                    setSendResult({ error: e.message })
+                  } finally {
+                    setSending(false)
+                  }
+                }}
+                disabled={sending}
+                style={{
+                  background: sending ? '#999' : '#1a1a1a', border: 'none', borderRadius: '6px',
+                  padding: '8px 20px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                  cursor: sending ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {sending ? 'Generating & Sending...' : 'Send PDF to Telegram'}
+              </button>
+            </div>
+
+            {sendResult?.success && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
+                &#10003; Sent successfully to {creatorName} topic
+              </div>
+            )}
+            {sendResult?.error && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+                {sendResult.error}
               </div>
             )}
           </div>

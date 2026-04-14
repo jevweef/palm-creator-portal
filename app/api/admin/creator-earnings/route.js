@@ -293,6 +293,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const creator = searchParams.get('creator')
   const refresh = searchParams.get('refresh') === 'true'
+  const goingColdOnly = searchParams.get('goingColdOnly') === 'true'
 
   if (!creator) return Response.json({ error: 'Missing creator param' }, { status: 400 })
 
@@ -412,6 +413,15 @@ export async function GET(request) {
 
     // ── Going cold alerts ────────────────────────────────────────────────
     const goingColdAlerts = detectGoingCold(transactions, now)
+
+    // Lightweight mode: skip chart/topFans computation, just return alerts
+    if (goingColdOnly) {
+      return Response.json({
+        creator,
+        goingColdAlerts: goingColdAlerts.slice(0, 30),
+        goingColdCount: goingColdAlerts.length,
+      })
+    }
 
     // ── Period summaries ──────────────────────────────────────────────────
     const periods = {}
