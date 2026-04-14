@@ -357,25 +357,27 @@ export async function GET(request) {
     const salesTxns = transactions.filter(t => t.type !== 'Chargeback')
     const chargebackTxns = transactions.filter(t => t.type === 'Chargeback')
 
-    // ── Daily aggregation for chart ───────────────────────────────────────
+    // ── Daily aggregation for chart (UTC dates to match OF daily rollover at 8 PM ET) ──
     const dailyMap = {}
     const dailyByType = {}
     const dailyGross = {}
     const dailyCount = {}
     for (const t of transactions) {
       if (!t.date) continue
-      if (!dailyMap[t.date]) dailyMap[t.date] = 0
-      if (!dailyGross[t.date]) dailyGross[t.date] = 0
-      if (!dailyCount[t.date]) dailyCount[t.date] = 0
+      // Use UTC date for chart grouping — OF rolls over at 8 PM ET = midnight UTC
+      const utcDate = t.dt ? t.dt.toISOString().split('T')[0] : t.date
+      if (!dailyMap[utcDate]) dailyMap[utcDate] = 0
+      if (!dailyGross[utcDate]) dailyGross[utcDate] = 0
+      if (!dailyCount[utcDate]) dailyCount[utcDate] = 0
       const netVal = t.type === 'Chargeback' ? -t.net : t.net
-      dailyMap[t.date] += netVal
-      dailyGross[t.date] += t.type === 'Chargeback' ? -t.gross : t.gross
-      dailyCount[t.date] += 1
+      dailyMap[utcDate] += netVal
+      dailyGross[utcDate] += t.type === 'Chargeback' ? -t.gross : t.gross
+      dailyCount[utcDate] += 1
 
       const tp = t.type || 'Unknown'
-      if (!dailyByType[t.date]) dailyByType[t.date] = {}
-      if (!dailyByType[t.date][tp]) dailyByType[t.date][tp] = 0
-      dailyByType[t.date][tp] += t.net
+      if (!dailyByType[utcDate]) dailyByType[utcDate] = {}
+      if (!dailyByType[utcDate][tp]) dailyByType[utcDate][tp] = 0
+      dailyByType[utcDate][tp] += t.net
     }
 
     // Build daily array sorted chronologically
