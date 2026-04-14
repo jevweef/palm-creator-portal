@@ -145,14 +145,21 @@ function parseDate(dateStr, timeStr) {
   return new Date(parseInt(dm[3]), months[dm[1]], parseInt(dm[2]), hour, min)
 }
 
-function fmtDate(d) { return d.toISOString().split('T')[0] }
+function fmtDate(d) {
+  const yyyy = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mo}-${dd}`
+}
 function fmtTime(d) { return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) }
 // Combined 24h datetime for sorted column: "2026-04-07 15:47"
 function fmtDateTime(d) {
-  const date = d.toISOString().split('T')[0]
+  const yyyy = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
-  return `${date} ${hh}:${mm}`
+  return `${yyyy}-${mo}-${dd} ${hh}:${mm}`
 }
 
 function parseDesc(desc) {
