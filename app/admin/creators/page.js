@@ -1771,7 +1771,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
 
-function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId }) {
+function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId, allTxns }) {
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
@@ -1781,6 +1781,49 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
   const sc = statusColors[f.status] || statusColors['Monitoring']
   const ec = effectColors[f.effectiveness] || effectColors['Pending']
+
+  // Build daily spend data for this fan from allTxns
+  const fanSpendData = useMemo(() => {
+    if (!allTxns || !Array.isArray(allTxns)) return null
+    const dailySpend = {}
+    for (const t of allTxns) {
+      const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
+        (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
+      if (!match || t.type === 'Chargeback') continue
+      const d = t.date
+      if (!d) continue
+      dailySpend[d] = (dailySpend[d] || 0) + (t.net || 0)
+    }
+    const entries = Object.entries(dailySpend).sort(([a], [b]) => a.localeCompare(b))
+    if (entries.length < 2) return null
+
+    // Fill gaps with zero-spend days
+    const filled = []
+    const startDate = new Date(entries[0][0] + 'T00:00:00')
+    const endDate = new Date(entries[entries.length - 1][0] + 'T00:00:00')
+    const spendMap = Object.fromEntries(entries)
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const key = d.toISOString().split('T')[0]
+      filled.push({ date: key, spend: spendMap[key] || 0 })
+    }
+    return filled
+  }, [allTxns, f.ofUsername, f.fanName])
+
+  // Milestone dates from alert history and analyses
+  const milestones = useMemo(() => {
+    const m = []
+    if (f.alertHistory) {
+      for (const h of f.alertHistory) {
+        if (h.date) m.push({ date: h.date.split('T')[0], label: 'Sent to Manager', color: '#DC2626' })
+      }
+    }
+    if (f.analysisRecords) {
+      for (const a of f.analysisRecords) {
+        if (a.date) m.push({ date: a.date.split('T')[0], label: 'Analyzed', color: '#7C3AED' })
+      }
+    }
+    return m
+  }, [f.alertHistory, f.analysisRecords])
 
   async function handleAnalyze() {
     if (!chatFile) return
@@ -1867,6 +1910,74 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
               </div>
             )}
           </div>
+
+          {/* Daily spend chart */}
+          {fanSpendData && (() => {
+            const W = 560, H = 120, padL = 50, padR = 16, padT = 12, padB = 24
+            const chartW = W - padL - padR, chartH = H - padT - padB
+            const maxSpend = Math.max(...fanSpendData.map(d => d.spend), 1)
+            const xScale = (i) => padL + (i / (fanSpendData.length - 1)) * chartW
+            const yScale = (v) => padT + chartH - (v / maxSpend) * chartH
+
+            // Build line path
+            const points = fanSpendData.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
+            const linePath = 'M' + points.join(' L')
+            // Area fill
+            const areaPath = linePath + ` L${xScale(fanSpendData.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
+
+            // Y-axis labels
+            const yTicks = [0, Math.round(maxSpend / 2), Math.round(maxSpend)]
+
+            // X-axis labels (first, mid, last)
+            const xLabels = [
+              { i: 0, label: fanSpendData[0].date.slice(5) },
+              { i: Math.floor(fanSpendData.length / 2), label: fanSpendData[Math.floor(fanSpendData.length / 2)].date.slice(5) },
+              { i: fanSpendData.length - 1, label: fanSpendData[fanSpendData.length - 1].date.slice(5) },
+            ]
+
+            // Milestone vertical lines
+            const dateToIndex = {}
+            fanSpendData.forEach((d, i) => { dateToIndex[d.date] = i })
+
+            return (
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Spending History</div>
+                <svg width={W} height={H} style={{ display: 'block' }}>
+                  {/* Grid lines */}
+                  {yTicks.map(v => (
+                    <g key={v}>
+                      <line x1={padL} x2={W - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
+                      <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v) : '0'}</text>
+                    </g>
+                  ))}
+                  {/* Area fill */}
+                  <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
+                  {/* Line */}
+                  <path d={linePath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />
+                  {/* Spend dots on non-zero days */}
+                  {fanSpendData.map((d, i) => d.spend > 0 ? (
+                    <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r="2" fill="#7C3AED" />
+                  ) : null)}
+                  {/* Milestone vertical lines */}
+                  {milestones.map((m, idx) => {
+                    const mi = dateToIndex[m.date]
+                    if (mi === undefined) return null
+                    const x = xScale(mi)
+                    return (
+                      <g key={idx}>
+                        <line x1={x} x2={x} y1={padT} y2={H - padB} stroke={m.color} strokeWidth="1.5" strokeDasharray="4,3" />
+                        <text x={x} y={padT - 2} textAnchor="middle" fontSize="8" fill={m.color} fontWeight="600">{m.label}</text>
+                      </g>
+                    )
+                  })}
+                  {/* X-axis labels */}
+                  {xLabels.map(({ i: xi, label }) => (
+                    <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="9" fill="#999">{label}</text>
+                  ))}
+                </svg>
+              </div>
+            )
+          })()}
 
           {/* Alert history timeline */}
           {f.alertHistory && f.alertHistory.length > 0 && (
@@ -2005,7 +2116,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   )
 }
 
-function FansPanel({ creator }) {
+function FansPanel({ creator, allTxns }) {
   const [fans, setFans] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all') // all, active, resolved
@@ -2105,7 +2216,8 @@ function FansPanel({ creator }) {
               onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
               statusColors={statusColors} effectColors={effectColors}
               fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setFans}
-              creatorName={creator?.name || creator?.aka || ''} creatorRecordId={creator?.id} />
+              creatorName={creator?.name || creator?.aka || ''} creatorRecordId={creator?.id}
+              allTxns={allTxns} />
           ))}
         </div>
       )}
@@ -2308,7 +2420,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
       {/* ── Fans CRM section ────────────────────────────────────────────── */}
       {activeSection === 'fans' && (
-        <FansPanel creator={creator} />
+        <FansPanel creator={creator} allTxns={allTxns} />
       )}
 
       {/* ── DNA section ──────────────────────────────────────────────────── */}
