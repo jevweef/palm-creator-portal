@@ -2122,11 +2122,9 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       )
                     })}
                   </svg>
-                  {milestones.length > 0 && (
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: '#999' }}>
-                      <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#7C3AED', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: '#999', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
+                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#7C3AED', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
+                  </div>
                 </div>
               )
             }
@@ -2234,6 +2232,9 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="7.5" fill="#999">{label}</text>
                     ))}
                   </svg>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: '#999', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
+                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#7C3AED', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
+                  </div>
                 </div>
               )
             }
