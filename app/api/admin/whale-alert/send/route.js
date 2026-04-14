@@ -2,9 +2,11 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
 import { generateWhaleAlertPdf } from '@/lib/generateWhaleAlertPdf'
 import { getWhaleTopicForCreator } from '@/lib/whaleAlertConfig'
+
+const FAN_TRACKER_TABLE = 'Fan Tracker'
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 
@@ -12,7 +14,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorName, alert, analysis } = await request.json()
+    const { creatorName, creatorRecordId, alert, analysis } = await request.json()
 
     if (!creatorName) return NextResponse.json({ error: 'Missing creatorName' }, { status: 400 })
     if (!alert) return NextResponse.json({ error: 'Missing alert data' }, { status: 400 })
@@ -49,6 +51,17 @@ export async function POST(request) {
       return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
     }
 
+    // Log to Fan Tracker (fire-and-forget, don't block response)
+    if (creatorRecordId) {
+      logAlertToFanTracker({
+        fanName: alert.fan,
+        ofUsername: alert.username,
+        creatorRecordId,
+        creatorName,
+        alertData: alert,
+      }).catch(err => console.error('[Whale Alert] Fan tracker log failed:', err))
+    }
+
     return NextResponse.json({
       success: true,
       messageId: data.result?.message_id,
@@ -57,5 +70,65 @@ export async function POST(request) {
   } catch (err) {
     console.error('[Whale Alert] Send error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// ── Fan Tracker logging ────────────────────────────────────────────────────
+
+async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, creatorName, alertData }) {
+  const now = new Date().toISOString()
+  const alertEntry = {
+    date: now,
+    urgency: alertData?.urgency || 'warning',
+    medianGap: alertData?.medianGap || 0,
+    currentGap: alertData?.currentGap || 0,
+    rolling30: alertData?.rolling30 || 0,
+    lifetime: alertData?.lifetime || 0,
+    sentTo: creatorName || '',
+  }
+
+  // Find existing fan record
+  let formula
+  if (ofUsername) {
+    formula = `AND({OF Username} = "${ofUsername}", FIND("${creatorRecordId}", ARRAYJOIN(RECORD_ID({Creator}))))`
+  } else {
+    formula = `AND({Fan Name} = "${fanName}", FIND("${creatorRecordId}", ARRAYJOIN(RECORD_ID({Creator}))))`
+  }
+
+  const existing = await fetchAirtableRecords(FAN_TRACKER_TABLE, {
+    filterByFormula: formula,
+    maxRecords: 1,
+  })
+
+  if (existing[0]) {
+    const record = existing[0]
+    let history = []
+    try { history = JSON.parse(record.fields['Alert History'] || '[]') } catch {}
+    history.push(alertEntry)
+
+    await patchAirtableRecord(FAN_TRACKER_TABLE, record.id, {
+      'Status': 'Alert Sent',
+      'Last Alert Sent': now,
+      'Alert Count': (record.fields['Alert Count'] || 0) + 1,
+      'Alert History': JSON.stringify(history),
+      'Lifetime Spend': alertData?.lifetime || record.fields['Lifetime Spend'] || 0,
+      'Pre-Alert Spend 30d': alertData?.rolling30 || 0,
+      'Effectiveness': 'Pending',
+    })
+  } else {
+    await createAirtableRecord(FAN_TRACKER_TABLE, {
+      'Fan Name': fanName,
+      'OF Username': ofUsername || '',
+      'Creator': [creatorRecordId],
+      'Status': 'Alert Sent',
+      'First Flagged': now,
+      'Last Alert Sent': now,
+      'Alert Count': 1,
+      'Alert History': JSON.stringify([alertEntry]),
+      'Lifetime Spend': alertData?.lifetime || 0,
+      'Pre-Alert Spend 30d': alertData?.rolling30 || 0,
+      'Effectiveness': 'Pending',
+      'Times Gone Cold': 1,
+    })
   }
 }
