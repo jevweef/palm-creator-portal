@@ -2133,19 +2133,35 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
             if (chartMode === 'daily' && visibleDaily.length >= 2) {
               const data = visibleDaily
-              const xScale = (i) => padL + (i / (data.length - 1)) * chartW
+              // Time-based x positioning so daily dates align with monthly bars
+              const timestamps = data.map(d => new Date(d.date + 'T12:00:00').getTime())
+              const tStart = timestamps[0]
+              // Extend to end of the last month so partial months match the monthly bar width
+              const lastDate = new Date(data[data.length - 1].date + 'T12:00:00')
+              const monthEnd = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 0, 12, 0, 0)
+              const tEnd = monthEnd.getTime()
+              const tRange = tEnd - tStart || 1
+              const xScale = (i) => padL + ((timestamps[i] - tStart) / tRange) * chartW
               const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
               const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
               const linePath = 'M' + points.join(' L')
               const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
-              const step = Math.max(Math.floor(data.length / 6), 1)
               const moAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
               const fmtDateLabel = (dateStr) => {
                 const dt = new Date(dateStr + 'T12:00:00')
                 return `${moAbbr[dt.getMonth()]} ${dt.getDate()}`
               }
+              // Generate labels at month boundaries for better alignment with monthly chart
               const xLabels = []
-              for (let xi = 0; xi < data.length; xi += step) xLabels.push({ i: xi, label: fmtDateLabel(data[xi].date) })
+              const seenMonths = new Set()
+              data.forEach((d, i) => {
+                const mo = d.date.slice(0, 7)
+                if (!seenMonths.has(mo)) {
+                  seenMonths.add(mo)
+                  xLabels.push({ i, label: fmtDateLabel(d.date) })
+                }
+              })
+              // Always include last date
               if (xLabels[xLabels.length - 1]?.i !== data.length - 1) xLabels.push({ i: data.length - 1, label: fmtDateLabel(data[data.length - 1].date) })
               const dateToIndex = {}
               data.forEach((d, i) => { dateToIndex[d.date] = i })
