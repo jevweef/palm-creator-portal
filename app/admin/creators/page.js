@@ -1780,6 +1780,9 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const [loadedFromAirtable, setLoadedFromAirtable] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState(null)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [previewImage, setPreviewImage] = useState(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const [selectedAnalysisIdx, setSelectedAnalysisIdx] = useState(0)
   const [chartMode, setChartMode] = useState('monthly') // 'daily' | 'monthly'
   const [showAllHistory, setShowAllHistory] = useState(false)
@@ -1914,29 +1917,72 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     }
   }
 
+  function buildAlertPayload() {
+    const alertData = f.goingCold || {
+      fan: f.fanName,
+      username: f.ofUsername,
+      lifetime: f.lifetimeSpend,
+      rolling30: f.last30,
+      urgency: 'warning',
+      medianGap: 0,
+      currentGap: 0,
+      gapRatio: 0,
+    }
+    // Compute monthly spending history from transaction data for the PDF chart
+    const monthlyMap = {}
+    if (allTxns) {
+      const fanKey = (f.ofUsername || f.fanName || '').toLowerCase()
+      for (const t of allTxns) {
+        const tKey = (t.username || t.fan || '').toLowerCase()
+        if (tKey === fanKey && t.net > 0) {
+          const mo = (t.date || '').slice(0, 7)
+          if (mo) monthlyMap[mo] = (monthlyMap[mo] || 0) + t.net
+        }
+      }
+    }
+    const monthlyHistory = Object.entries(monthlyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, spend]) => ({ month, spend: Math.round(spend) }))
+
+    return {
+      creatorName,
+      creatorRecordId,
+      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory },
+      analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+    }
+  }
+
+  async function handlePreviewPdf() {
+    setPreviewLoading(true)
+    setPreviewImage(null)
+    setSendResult(null)
+    setShowSendModal(true)
+    try {
+      const payload = buildAlertPayload()
+      const res = await fetch('/api/admin/whale-alert/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Preview failed')
+      setPreviewImage(data.image)
+    } catch (e) {
+      setSendResult({ error: 'Preview failed: ' + e.message })
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
   async function handleSendToTelegram() {
     setSending(true)
     setSendResult(null)
     try {
-      const alertData = f.goingCold || {
-        fan: f.fanName,
-        username: f.ofUsername,
-        lifetime: f.lifetimeSpend,
-        rolling30: f.last30,
-        urgency: 'warning',
-        medianGap: 0,
-        currentGap: 0,
-        gapRatio: 0,
-      }
+      const payload = buildAlertPayload()
       const res = await fetch('/api/admin/whale-alert/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          creatorName,
-          creatorRecordId,
-          alert: { ...alertData, fan: f.fanName, username: f.ofUsername },
-          analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Send failed')
@@ -2333,17 +2379,17 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                   {/* Send to Manager button — only if not already sent */}
                   {!analysisSent && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <button onClick={handleSendToTelegram} disabled={sending}
+                      <button onClick={handlePreviewPdf} disabled={previewLoading}
                         style={{
                           background: '#1a1a1a', border: 'none', borderRadius: '6px',
                           padding: '6px 12px', fontSize: '11px', color: '#fff', fontWeight: 600,
-                          cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.6 : 1,
+                          cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
                           display: 'flex', alignItems: 'center', gap: '5px',
                         }}>
-                        <span style={{ fontSize: '13px' }}>&#9993;</span> {sending ? 'Sending...' : 'Send to Chat Manager'}
+                        <span style={{ fontSize: '13px' }}>&#9993;</span> {previewLoading ? 'Generating preview...' : 'Send to Chat Manager'}
                       </button>
                       {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
-                      {sendResult?.error && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
+                      {sendResult?.error && !showSendModal && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
                     </div>
                   )}
                 </div>
@@ -2465,6 +2511,87 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
               <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Send to Chat Manager preview modal */}
+      {showSendModal && (
+        <div
+          onClick={() => !sending && setShowSendModal(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: '12px', padding: '24px',
+              maxWidth: '520px', width: '90vw', maxHeight: '85vh', overflowY: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 700 }}>Send Whale Alert</div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                  PDF will be sent to the <strong>{creatorName}</strong> topic in Telegram
+                </div>
+              </div>
+              <button onClick={() => setShowSendModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', color: '#999', cursor: 'pointer', padding: '4px' }}>&times;</button>
+            </div>
+
+            {/* PDF Preview */}
+            <div style={{ background: '#F9FAFB', borderRadius: '8px', padding: '12px', marginBottom: '16px', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {previewLoading && (
+                <div style={{ fontSize: '13px', color: '#999' }}>Generating PDF preview...</div>
+              )}
+              {previewImage && (
+                <img src={previewImage} alt="Whale Alert PDF Preview" style={{ width: '100%', borderRadius: '6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+              )}
+              {!previewLoading && !previewImage && sendResult?.error && (
+                <div style={{ fontSize: '12px', color: '#DC2626' }}>{sendResult.error}</div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowSendModal(false)}
+                disabled={sending}
+                style={{
+                  background: '#F3F4F6', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: '#666', fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >Cancel</button>
+              <button
+                onClick={handleSendToTelegram}
+                disabled={sending || previewLoading || !previewImage}
+                style={{
+                  background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                  cursor: (sending || previewLoading || !previewImage) ? 'not-allowed' : 'pointer',
+                  opacity: (sending || previewLoading || !previewImage) ? 0.5 : 1,
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                <span style={{ fontSize: '14px' }}>&#9993;</span> {sending ? 'Sending...' : 'Confirm & Send'}
+              </button>
+            </div>
+
+            {sendResult?.success && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
+                &#10003; Sent &amp; logged in Fan Tracker
+              </div>
+            )}
+            {sendResult?.error && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+                {sendResult.error}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
