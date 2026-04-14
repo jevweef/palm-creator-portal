@@ -551,6 +551,14 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       [F.analyzedDate]: new Date().toISOString(),
     })
 
+    // Upsert Fan Tracker record (fire-and-forget)
+    const creatorRecordId = formData.get('creatorRecordId') || ''
+    if (creatorRecordId) {
+      upsertFanTracker({
+        fanName, fanUsername, creatorRecordId, lifetime,
+      }).catch(err => console.error('[Chat Analysis] Fan tracker upsert failed:', err))
+    }
+
     // Save chat HTML + analysis to Dropbox (fire-and-forget)
     saveChatToDropbox({
       html, fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
@@ -568,6 +576,61 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
   } catch (err) {
     console.error('Chat analysis error:', err)
     return Response.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// ── Fan Tracker upsert ────────────────────────────────────────────────────
+
+async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetime }) {
+  const now = new Date().toISOString()
+
+  // Find existing record
+  let formula
+  if (fanUsername) {
+    formula = `AND({OF Username} = "${fanUsername}", FIND("${creatorRecordId}", ARRAYJOIN(RECORD_ID({Creator}))))`
+  } else {
+    formula = `AND({Fan Name} = "${fanName.replace(/"/g, '\\"')}", FIND("${creatorRecordId}", ARRAYJOIN(RECORD_ID({Creator}))))`
+  }
+
+  const params = new URLSearchParams()
+  params.set('maxRecords', '1')
+  params.set('filterByFormula', formula)
+  const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}?${params}`, {
+    headers: AIRTABLE_HEADERS, cache: 'no-store',
+  })
+  const data = await res.json()
+  const existing = data.records?.[0]
+
+  if (existing) {
+    // Update lifetime spend if higher
+    const updates = {}
+    if (lifetime > (existing.fields['Lifetime Spend'] || 0)) {
+      updates['Lifetime Spend'] = lifetime
+    }
+    if (Object.keys(updates).length > 0) {
+      await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}/${existing.id}`, {
+        method: 'PATCH',
+        headers: AIRTABLE_HEADERS,
+        body: JSON.stringify({ fields: updates }),
+      })
+    }
+  } else {
+    // Create new tracker record
+    await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}`, {
+      method: 'POST',
+      headers: AIRTABLE_HEADERS,
+      body: JSON.stringify({
+        fields: {
+          'Fan Name': fanName,
+          'OF Username': fanUsername || '',
+          'Creator': [creatorRecordId],
+          'Status': 'Going Cold',
+          'First Flagged': now,
+          'Lifetime Spend': lifetime || 0,
+          'Times Gone Cold': 1,
+        },
+      }),
+    })
   }
 }
 

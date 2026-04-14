@@ -923,6 +923,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
     formData.append('monthlyAvg90', a.monthlyAvg90)
     formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
     formData.append('creatorName', creatorName || '')
+    formData.append('creatorRecordId', creatorRecordId || '')
     // Compute daily spend for this fan from transaction data
     if (allTxns) {
       const dailySpend = {}
