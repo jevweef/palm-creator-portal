@@ -2048,7 +2048,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
           {/* Spending chart — full width, monthly bars (default) / daily line toggle */}
           {(fanSpendData || monthlySpendData) && (() => {
             const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-            const VW = 900, H = 150, padL = 50, padR = 16, padT = 16, padB = 24
+            const VW = 900, H = 150, padL = 50, padR = 30, padT = 16, padB = 24
             const chartW = VW - padL - padR, chartH = H - padT - padB
             const milestoneMonths = milestones.map(m => m.date.slice(0, 7))
 
@@ -2091,7 +2091,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                     {[0, Math.round(maxSpend / 2), Math.round(maxSpend)].map(v => (
                       <g key={v}>
                         <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
-                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v) : '0'}</text>
+                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
                       </g>
                     ))}
                     {data.map((d, i) => {
@@ -2100,12 +2100,15 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       const moNum = parseInt(d.month.slice(5))
                       const yr = d.month.slice(2, 4)
                       const hasMilestone = milestoneMonths.includes(d.month)
+                      const spendLabelY = padT + chartH - barH - 3
+                      const dotY = padT - 6
+                      const labelY = hasMilestone && d.spend > 0 && spendLabelY - dotY < 14 ? spendLabelY - 10 : spendLabelY
                       return (
                         <g key={d.month}>
                           <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
-                          {d.spend > 0 && <text x={cx} y={padT + chartH - barH - 3} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
+                          {d.spend > 0 && <text x={cx} y={labelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
                           <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#7C3AED' : '#999'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
-                          {hasMilestone && <circle cx={cx} cy={padT - 6} r="3.5" fill="#7C3AED" />}
+                          {hasMilestone && <circle cx={cx} cy={dotY} r="3.5" fill="#7C3AED" />}
                         </g>
                       )
                     })}
@@ -2129,9 +2132,14 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
               const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
               const yTicks = [0, Math.round(maxSpend / 2), Math.round(maxSpend)]
               const step = Math.max(Math.floor(data.length / 6), 1)
+              const moAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              const fmtDateLabel = (dateStr) => {
+                const dt = new Date(dateStr + 'T12:00:00')
+                return `${moAbbr[dt.getMonth()]} ${dt.getDate()}`
+              }
               const xLabels = []
-              for (let xi = 0; xi < data.length; xi += step) xLabels.push({ i: xi, label: data[xi].date.slice(5) })
-              if (xLabels[xLabels.length - 1]?.i !== data.length - 1) xLabels.push({ i: data.length - 1, label: data[data.length - 1].date.slice(5) })
+              for (let xi = 0; xi < data.length; xi += step) xLabels.push({ i: xi, label: fmtDateLabel(data[xi].date) })
+              if (xLabels[xLabels.length - 1]?.i !== data.length - 1) xLabels.push({ i: data.length - 1, label: fmtDateLabel(data[data.length - 1].date) })
               const dateToIndex = {}
               data.forEach((d, i) => { dateToIndex[d.date] = i })
 
@@ -2155,7 +2163,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                     {yTicks.map(v => (
                       <g key={v}>
                         <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
-                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v) : '0'}</text>
+                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
                       </g>
                     ))}
                     <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
@@ -2192,7 +2200,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       )
                     })}
                     {xLabels.map(({ i: xi, label }) => (
-                      <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="9" fill="#999">{label}</text>
+                      <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="7.5" fill="#999">{label}</text>
                     ))}
                   </svg>
                 </div>
