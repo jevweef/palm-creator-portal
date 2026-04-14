@@ -205,16 +205,20 @@ export default function TextTrainingPage() {
         {/* Left: Video */}
         <div style={{ background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: '100%', aspectRatio: '9/16' }}>
-            {videoUrl ? (
+            {embedHtml ? (
+              <div key={record.id} style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            ) : videoUrl ? (
               <video
                 key={record.id}
-                src={videoUrl}
                 controls
                 autoPlay
                 muted
                 loop
+                playsInline
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+              >
+                <source src={videoUrl} type="video/mp4" />
+              </video>
             ) : record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (

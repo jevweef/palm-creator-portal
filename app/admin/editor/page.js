@@ -963,6 +963,159 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
   )
 }
 
+// ─── Long Form Upload ─────────────────────────────────────────────────────────
+
+function LongFormUpload({ showToast }) {
+  const [creators, setCreators] = useState([])
+  const [selectedCreator, setSelectedCreator] = useState('')
+  const [files, setFiles] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [uploads, setUploads] = useState([]) // completed uploads for this session
+  const fileRef = useRef(null)
+
+  useEffect(() => {
+    fetch('/api/admin/palm-creators')
+      .then(r => r.json())
+      .then(d => setCreators((d.creators || []).sort((a, b) => (a.aka || a.name || '').localeCompare(b.aka || b.name || ''))))
+      .catch(() => {})
+  }, [])
+
+  const handleUpload = async () => {
+    if (!selectedCreator || files.length === 0) return
+    setUploading(true)
+    setProgress('Getting upload credentials...')
+    try {
+      const creator = creators.find(c => c.id === selectedCreator)
+      const creatorName = creator?.aka || creator?.name || 'Creator'
+
+      // Get Dropbox token
+      const tokenRes = await fetch('/api/upload-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorHqId: creator?.hqId || '' }),
+      })
+      if (!tokenRes.ok) throw new Error('Failed to get upload credentials')
+      const { accessToken, rootNamespaceId } = await tokenRes.json()
+      const pathRoot = JSON.stringify({ '.tag': 'root', root: rootNamespaceId })
+
+      const uploadFolder = `/Palm Ops/Creators/${creatorName}/Long Form/35_FINALS_FOR_REVIEW`
+
+      const completed = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setProgress(`Uploading ${i + 1}/${files.length}: ${file.name}...`)
+
+        const buffer = await file.arrayBuffer()
+        const filePath = `${uploadFolder}/${file.name}`
+
+        const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Dropbox-API-Arg': JSON.stringify({ path: filePath, mode: 'add', autorename: true, mute: true }),
+            'Dropbox-API-Path-Root': pathRoot,
+            'Content-Type': 'application/octet-stream',
+          },
+          body: buffer,
+        })
+        if (!dbxRes.ok) throw new Error(`Upload failed for ${file.name}: ${await dbxRes.text()}`)
+        const result = await dbxRes.json()
+        completed.push({ name: file.name, path: result.path_display, size: file.size })
+      }
+
+      setUploads(prev => [...completed, ...prev])
+      setFiles([])
+      showToast(`${completed.length} file${completed.length > 1 ? 's' : ''} uploaded for ${creatorName}`)
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setUploading(false)
+      setProgress('')
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {/* Creator picker */}
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Creator</div>
+          <select value={selectedCreator} onChange={e => setSelectedCreator(e.target.value)}
+            style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', background: '#fff', minWidth: '180px' }}>
+            <option value="">Select creator...</option>
+            {creators.map(c => (
+              <option key={c.id} value={c.id}>{c.aka || c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* File picker */}
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Files</div>
+          <button onClick={() => fileRef.current?.click()}
+            style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
+            {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Choose files'}
+          </button>
+          <input ref={fileRef} type="file" multiple accept="video/*" style={{ display: 'none' }}
+            onChange={e => setFiles(Array.from(e.target.files || []))} />
+        </div>
+
+        {/* Upload button */}
+        <button onClick={handleUpload} disabled={!selectedCreator || files.length === 0 || uploading}
+          style={{
+            padding: '8px 20px', fontSize: '13px', fontWeight: 700,
+            background: uploading || !selectedCreator || files.length === 0 ? '#f0f0f0' : '#dcfce7',
+            color: uploading || !selectedCreator || files.length === 0 ? '#999' : '#22c55e',
+            border: `1px solid ${uploading ? '#e0e0e0' : '#bbf7d0'}`,
+            borderRadius: '8px', cursor: uploading ? 'default' : 'pointer',
+          }}>
+          {uploading ? progress || 'Uploading...' : 'Upload to Finals'}
+        </button>
+      </div>
+
+      {/* File list preview */}
+      {files.length > 0 && (
+        <div style={{ marginBottom: '16px', padding: '12px', background: '#fff', borderRadius: '10px', border: '1px solid #E8C4CC' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Ready to upload</div>
+          {files.map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px' }}>
+              <span style={{ color: '#333' }}>{f.name}</span>
+              <span style={{ color: '#999', fontSize: '11px' }}>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Upload destination info */}
+      {selectedCreator && (
+        <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px' }}>
+          Uploads go to: <span style={{ color: '#666', fontFamily: 'monospace' }}>
+            /Creators/{creators.find(c => c.id === selectedCreator)?.aka || '...'}/Long Form/35_FINALS_FOR_REVIEW/
+          </span>
+        </div>
+      )}
+
+      {/* Recent uploads this session */}
+      {uploads.length > 0 && (
+        <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+            Uploaded this session ({uploads.length})
+          </div>
+          {uploads.map((u, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0', fontSize: '11px' }}>
+              <span style={{ color: '#333' }}>{u.name}</span>
+              <span style={{ color: '#999' }}>{(u.size / 1024 / 1024).toFixed(1)} MB</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Unreviewed Library ───────────────────────────────────────────────────────
+
 function UnreviewedLibrary({ showToast }) {
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -2090,6 +2243,7 @@ export default function EditorQueue() {
     { key: 'review', label: '👁 For Review' },
     { key: 'postprep', label: '✈️ Post Prep' },
     { key: 'library', label: '📁 Creator Library' },
+    { key: 'longform', label: '🎬 Long Form' },
   ]
 
   return (
@@ -2136,6 +2290,7 @@ export default function EditorQueue() {
       {activeSection === 'review' && <ForReview showToast={showToast} />}
       {activeSection === 'postprep' && <PostsPage />}
       {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
+      {activeSection === 'longform' && <LongFormUpload showToast={showToast} />}
 
       {/* Toast */}
       {toast && (
