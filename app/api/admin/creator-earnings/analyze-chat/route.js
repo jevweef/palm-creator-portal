@@ -34,7 +34,7 @@ const F = {
   lastMessageDate: 'fldzAk7mEsPzZzDf0',
 }
 
-async function fetchPriorContext(fanName, creatorName) {
+async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyAvg90 = 0, currentGap = 0, medianGap = 0 } = {}) {
   try {
     // Get most recent previous analysis
     const analysisParams = new URLSearchParams()
@@ -106,15 +106,32 @@ async function fetchPriorContext(fanName, creatorName) {
         }
       }
 
-      context += `\n\nIMPORTANT: This fan has been flagged ${timesGoneCold} time(s) before. This is a FOLLOW-UP analysis. Your analysis MUST:`
-      context += `\n- Start by acknowledging this is a re-analysis, not a first look`
-      context += `\n- Evaluate whether the previous action items were followed in the NEW chat messages`
-      context += `\n- Compare spending BEFORE vs AFTER the alert was sent to the chat manager`
-      context += `\n- If the fan re-engaged after the intervention, identify what worked and why`
-      context += `\n- If the fan did NOT re-engage, assess whether the action items were even attempted`
-      context += `\n- Identify if this is a PATTERN (recurring going-cold cycle) vs a one-time issue`
-      context += `\n- If previous action items didn't work or weren't tried, suggest a DIFFERENT approach`
-      context += `\n- Be honest about recovery odds given the history`
+      // Determine if the fan is currently active/hot or still cold
+      const isCurrentlyHot = rolling30 > 0 && (monthlyAvg90 <= 0 || rolling30 >= monthlyAvg90 * 0.5) && currentGap < (medianGap > 0 ? medianGap * 2 : 30)
+      const isReengaged = rolling30 > 0 && preAlert === 0
+
+      context += `\n\nIMPORTANT: This fan has been flagged ${timesGoneCold} time(s) before. This is a FOLLOW-UP analysis.`
+
+      if (isCurrentlyHot || isReengaged) {
+        context += ` The fan appears to have RE-ENGAGED — they are currently spending ($${Math.round(rolling30).toLocaleString()} in the last 30 days). Your analysis MUST:`
+        context += `\n- Recognize this is a SUCCESS — the fan came back. Do NOT frame this as "going cold" or needing recovery`
+        context += `\n- Identify what WORKED to bring them back — compare the new chat messages to the previous approach`
+        context += `\n- Evaluate whether the previous action items were followed and which ones drove the re-engagement`
+        context += `\n- Highlight what's keeping them engaged NOW so the team can maintain it`
+        context += `\n- Warn about specific risks that could cause them to go cold AGAIN (based on their history)`
+        context += `\n- Action items should focus on MAINTAINING momentum, not recovery`
+        context += `\n- Recovery Odds should be replaced with RETENTION outlook (High/Medium/Low chance they stay engaged)`
+      } else {
+        context += ` Your analysis MUST:`
+        context += `\n- Start by acknowledging this is a re-analysis, not a first look`
+        context += `\n- Evaluate whether the previous action items were followed in the NEW chat messages`
+        context += `\n- Compare spending BEFORE vs AFTER the alert was sent to the chat manager`
+        context += `\n- If the fan re-engaged after the intervention, identify what worked and why`
+        context += `\n- If the fan did NOT re-engage, assess whether the action items were even attempted`
+        context += `\n- Identify if this is a PATTERN (recurring going-cold cycle) vs a one-time issue`
+        context += `\n- If previous action items didn't work or weren't tried, suggest a DIFFERENT approach`
+        context += `\n- Be honest about recovery odds given the history`
+      }
       context += `\n- The conversation now includes BOTH old messages (from prior analysis) and NEW messages. Look for changes in tone, engagement, or spending patterns after the alert date.`
     }
 
@@ -507,7 +524,7 @@ Quote the fan's actual words as evidence. Don't be generic.`
     const maxChars = isHighValue ? 80000 : 20000
 
     // Fetch prior analysis context (if fan has been analyzed before)
-    const priorContext = await fetchPriorContext(fanName, creatorName)
+    const priorContext = await fetchPriorContext(fanName, creatorName, { rolling30, monthlyAvg90, currentGap, medianGap })
     const systemWithContext = priorContext
       ? systemPrompt + priorContext
       : systemPrompt
