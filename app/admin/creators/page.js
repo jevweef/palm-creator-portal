@@ -3001,6 +3001,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
   const [showAllFans, setShowAllFans] = useState(false)
   const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
   const [sortDir, setSortDir] = useState('desc')
+  const [showDeleted, setShowDeleted] = useState(false)
 
   const creatorName = creator?.name || creator?.aka || ''
   const creatorRecordId = creator?.id || ''
@@ -3163,8 +3164,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
     'Pending': { bg: '#F3F4F6', text: '#6B7280' },
   }
 
+  const deletedCount = useMemo(() => allFans.filter(f => !f.ofUsername).length, [allFans])
+
   const filtered = useMemo(() => {
     let list = allFans.filter(f => {
+      // Hide deleted accounts by default
+      if (!showDeleted && !f.ofUsername) return false
       if (filter === 'active_alerts') return f.alertStatus !== 'None'
       if (filter === 'dead') return f.heatStatus === 'Dead'
       if (filter === 'going_cold') return f.heatStatus === 'Going Cold'
@@ -3187,7 +3192,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
       })
     }
     return list
-  }, [allFans, filter, sortField, sortDir])
+  }, [allFans, filter, sortField, sortDir, showDeleted])
 
   // Compute counts per heat status
   const heatCounts = {}
@@ -3259,6 +3264,16 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
               {label}{count != null ? ` (${count})` : ''}
             </button>
           ))}
+          {deletedCount > 0 && (
+            <button onClick={() => setShowDeleted(!showDeleted)}
+              style={{
+                padding: '3px 8px', fontSize: '10px', fontWeight: showDeleted ? 600 : 400,
+                background: showDeleted ? '#6B7280' : 'transparent', color: showDeleted ? '#fff' : '#999',
+                border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
+              }}>
+              {showDeleted ? `Hide deleted (${deletedCount})` : `Show deleted (${deletedCount})`}
+            </button>
+          )}
         </div>
       </div>
 
