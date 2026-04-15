@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
 import { generateWhaleAlertPdf } from '@/lib/generateWhaleAlertPdf'
 import { getWhaleTopicForCreator } from '@/lib/whaleAlertConfig'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink, createDropboxFolder } from '@/lib/dropbox'
 
 const FAN_TRACKER_TABLE = 'Fan Tracker'
 
@@ -41,6 +41,9 @@ export async function POST(request) {
     const dateStr = new Date().toISOString().slice(0, 10)
     const dropboxPath = `/Palm/Whale Alerts/${creatorName}/${fanSlug}-${dateStr}.pdf`
 
+    // Ensure folder exists before uploading
+    const folderPath = `/Palm/Whale Alerts/${creatorName}`
+    await createDropboxFolder(accessToken, rootNamespaceId, folderPath)
     await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, pdfBuffer, { overwrite: true })
     const shareLink = await createDropboxSharedLink(accessToken, rootNamespaceId, dropboxPath)
 

@@ -2557,7 +2557,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             onClick={e => e.stopPropagation()}
             style={{
               background: '#fff', borderRadius: '12px', padding: '24px',
-              maxWidth: '520px', width: '90vw', maxHeight: '85vh', overflowY: 'auto',
+              maxWidth: '700px', width: '90vw', maxHeight: '85vh', overflowY: 'auto',
               boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
             }}
           >
