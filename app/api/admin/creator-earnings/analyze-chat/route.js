@@ -309,6 +309,7 @@ export async function POST(request) {
   try {
     const formData = await request.formData()
     const file = formData.get('file')
+    const saveOnly = formData.get('saveTranscriptOnly') === 'true'
     const useTranscript = formData.get('useTranscript') === 'true'
     const fanName = formData.get('fanName') || 'Unknown'
     const lifetime = parseFloat(formData.get('lifetime')) || 0
@@ -353,6 +354,33 @@ export async function POST(request) {
 
     if (parsed.messageCount === 0) {
       return Response.json({ error: 'No messages found' }, { status: 400 })
+    }
+
+    // Save transcript to Dropbox only (no AI analysis)
+    if (saveOnly) {
+      const fanUsername = formData.get('fanUsername') || ''
+      const creatorRecordId = formData.get('creatorRecordId') || ''
+      try {
+        await saveChatToDropbox({
+          parsedConversation: parsed.conversation,
+          parsedMessages: parsed.messages,
+          fullAnalysis: null,
+          managerBrief: null,
+          creatorName,
+          fanName,
+          fanUsername,
+        })
+      } catch (err) {
+        console.error('[Chat Analysis] Dropbox save failed:', err)
+        return Response.json({ error: 'Failed to save to Dropbox: ' + err.message }, { status: 500 })
+      }
+      return Response.json({
+        success: true,
+        saved: true,
+        messageCount: parsed.messageCount,
+        firstMessageDate: parsed.firstMessageDate || '',
+        lastMessageDate: parsed.lastMessageDate || '',
+      })
     }
 
     // Scale analysis depth based on lifetime spend
@@ -849,16 +877,18 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
   // Upload master transcript (overwrite)
   await uploadToDropbox(token, rootNs, `${basePath}/transcript.txt`, Buffer.from(newTranscript, 'utf8'), { overwrite: true })
 
-  // Upload analysis snapshot (separate file per analysis)
-  const analysisJson = JSON.stringify({
-    date: new Date().toISOString(),
-    fanName,
-    fanUsername,
-    creator: creatorName,
-    fullAnalysis,
-    managerBrief,
-  }, null, 2)
-  await uploadToDropbox(token, rootNs, `${basePath}/analysis-${dateStr}.json`, Buffer.from(analysisJson, 'utf8'))
+  // Upload analysis snapshot (separate file per analysis) — skip if no analysis (transcript-only save)
+  if (fullAnalysis) {
+    const analysisJson = JSON.stringify({
+      date: new Date().toISOString(),
+      fanName,
+      fanUsername,
+      creator: creatorName,
+      fullAnalysis,
+      managerBrief,
+    }, null, 2)
+    await uploadToDropbox(token, rootNs, `${basePath}/analysis-${dateStr}.json`, Buffer.from(analysisJson, 'utf8'))
+  }
 
   // Update Fan Tracker with Dropbox path and chat upload date
   try {

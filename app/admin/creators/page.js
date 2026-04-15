@@ -1787,7 +1787,10 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const [chartMode, setChartMode] = useState('monthly') // 'daily' | 'monthly'
   const [showAllHistory, setShowAllHistory] = useState(false)
   const [hoverIdx, setHoverIdx] = useState(null)
+  const [savingTranscript, setSavingTranscript] = useState(false)
+  const [transcriptSaved, setTranscriptSaved] = useState(false)
   const chatFileRef = useRef(null)
+  const saveFileRef = useRef(null)
 
   const sc = statusColors[f.status] || statusColors['Monitoring']
   const ec = effectColors[f.effectiveness] || effectColors['Pending']
@@ -1949,6 +1952,29 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       setAnalysisError(e.message)
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  async function handleSaveTranscript(file) {
+    setSavingTranscript(true)
+    setAnalysisError(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('saveTranscriptOnly', 'true')
+      fd.append('fanName', f.fanName)
+      fd.append('fanUsername', f.ofUsername || '')
+      fd.append('creatorName', creatorName || '')
+      fd.append('creatorRecordId', creatorRecordId || '')
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      setTranscriptSaved(true)
+      setTimeout(() => setTranscriptSaved(false), 3000)
+    } catch (e) {
+      setAnalysisError(e.message)
+    } finally {
+      setSavingTranscript(false)
     }
   }
 
@@ -2506,14 +2532,23 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
                     </button>
                   ) : (
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze(true) }} disabled={analyzing}
                         style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
                         {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
                       </button>
+                      <span style={{ color: '#ddd' }}>|</span>
                       <button onClick={() => { setAnalysis(null); setShowBrief(false) }}
                         style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                         Upload new chat
+                      </button>
+                      <span style={{ color: '#ddd' }}>|</span>
+                      <input ref={saveFileRef} type="file" accept=".html,.htm"
+                        onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
+                        style={{ display: 'none' }} />
+                      <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
+                        style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                        {savingTranscript ? 'Saving...' : transcriptSaved ? '✓ Saved' : 'Save transcript to Dropbox'}
                       </button>
                     </div>
                   )}
