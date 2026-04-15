@@ -27,12 +27,21 @@ export async function POST(request) {
 
     const rawUrl = rawDropboxUrl(videoUrl)
     const id = Date.now()
+    const inputPath = join(tmpdir(), `video_${id}.mp4`)
     const outputPath = join(tmpdir(), `frame_${id}.jpg`)
 
-    console.log(`[Frame Extract] Extracting frame at ${timestamp}s...`)
+    console.log(`[Frame Extract] Downloading video for frame extraction...`)
+
+    // Download video first — ffmpeg can't follow Dropbox redirects reliably
+    const { writeFile } = await import('fs/promises')
+    const dlRes = await fetch(rawUrl)
+    if (!dlRes.ok) throw new Error(`Video download failed: ${dlRes.status}`)
+    const videoBuffer = Buffer.from(await dlRes.arrayBuffer())
+    await writeFile(inputPath, videoBuffer)
+    console.log(`[Frame Extract] Downloaded ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB, extracting frame at ${timestamp}s...`)
 
     await new Promise((resolve, reject) => {
-      ffmpeg(rawUrl)
+      ffmpeg(inputPath)
         .inputOptions([`-ss ${timestamp}`])
         .outputOptions(['-frames:v 1', '-f image2', '-q:v 2'])
         .output(outputPath)
@@ -40,6 +49,7 @@ export async function POST(request) {
         .on('error', reject)
         .run()
     })
+    await unlink(inputPath).catch(() => {})
 
     const frameBuffer = await readFile(outputPath)
     await unlink(outputPath).catch(() => {})
