@@ -48,7 +48,10 @@ export async function POST(request) {
     // Run ffmpeg
     log(`Extracting frame at ${timestamp}s...`)
     const ffmpegResult = await new Promise((resolve) => {
-      const args = ['-y', '-ss', String(timestamp), '-i', inputPath, '-frames:v', '1', '-update', '1', '-q:v', '2', outputPath]
+      // -ss AFTER -i = input seeking (slower but accurate, won't overshoot short videos)
+      // Clamp to 0 minimum
+      const safeTs = Math.max(0, Math.min(timestamp, 999))
+      const args = ['-y', '-i', inputPath, '-ss', String(safeTs), '-frames:v', '1', '-update', '1', '-q:v', '2', outputPath]
       log(`cmd: ffmpeg ${args.join(' ')}`)
       execFile(ffmpegStatic, args, { timeout: 30000 }, (err, stdout, stderr) => {
         resolve({ err, stdout, stderr })
