@@ -371,7 +371,9 @@ export async function POST(request) {
     }
 
     // Convert to rows — combined datetime, 9 columns
-    const rows = filtered.map(t => [
+    // Sort newest first so inserted rows maintain descending order
+    const sortedFiltered = [...filtered].sort((a, b) => (b.dt || 0) - (a.dt || 0))
+    const rows = sortedFiltered.map(t => [
       t.dt ? fmtDateTime(t.dt) : '',
       t.gross,
       t.of_fee,
@@ -383,40 +385,30 @@ export async function POST(request) {
       t.desc,
     ])
 
-    // Find next empty row
-    let nextRow = 4
-    try {
-      const existing = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID, range: `'${tabName}'!A:A`,
-      })
-      nextRow = Math.max(4, (existing.data.values?.length || 3) + 1)
-    } catch {}
-
-    // Auto-expand sheet if needed (grid limit)
-    const requiredRows = nextRow + rows.length
+    // Insert new rows at top (row 4, right after headers) so newest data is always first
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
     const sheetMeta = spreadsheet.data.sheets.find(s => s.properties.title === tabName)
-    const currentMaxRows = sheetMeta?.properties?.gridProperties?.rowCount || 1000
-    if (requiredRows > currentMaxRows) {
-      const addRows = requiredRows - currentMaxRows + 500 // add extra buffer
+    const sheetId = sheetMeta?.properties?.sheetId
+
+    // First, insert blank rows at position 4 to make room
+    if (sheetId !== undefined) {
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
         resource: {
           requests: [{
-            appendDimension: {
-              sheetId: sheetMeta.properties.sheetId,
-              dimension: 'ROWS',
-              length: addRows,
+            insertDimension: {
+              range: { sheetId, dimension: 'ROWS', startIndex: 3, endIndex: 3 + rows.length },
+              inheritFromBefore: false,
             }
           }]
         }
       })
     }
 
-    // Append rows
+    // Write the new rows starting at row 4
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${tabName}'!A${nextRow}`,
+      range: `'${tabName}'!A4`,
       valueInputOption: 'RAW',
       resource: { values: rows },
     })
