@@ -1777,7 +1777,6 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
   const [showBrief, setShowBrief] = useState(false)
-  const [loadedFromAirtable, setLoadedFromAirtable] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState(null)
   const [showSendModal, setShowSendModal] = useState(false)
@@ -1796,15 +1795,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const sc = statusColors[f.status] || statusColors['Monitoring']
   const ec = effectColors[f.effectiveness] || effectColors['Pending']
 
-  // Load existing analysis from Airtable when expanded
-  useEffect(() => {
-    if (!isExpanded || analysis || loadedFromAirtable) return
-    setLoadedFromAirtable(true)
-    fetch(`/api/admin/creator-earnings/analyze-chat?fan=${encodeURIComponent(f.fanName)}&creator=${encodeURIComponent(creatorName || '')}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.analysis) setAnalysis(data) })
-      .catch(() => {})
-  }, [isExpanded])
+  // Analysis is now shown via cards (analysisRecords) — full text loads on demand via "View Full" modal or new analysis run
 
   // Build daily + monthly spend data for this fan from allTxns
   const { fanSpendData, monthlySpendData } = useMemo(() => {
