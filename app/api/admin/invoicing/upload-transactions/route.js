@@ -145,8 +145,22 @@ function parseDate(dateStr, timeStr) {
   return new Date(parseInt(dm[3]), months[dm[1]], parseInt(dm[2]), hour, min)
 }
 
-function fmtDate(d) { return d.toISOString().split('T')[0] }
+function fmtDate(d) {
+  const yyyy = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mo}-${dd}`
+}
 function fmtTime(d) { return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) }
+// Combined 24h datetime for sorted column: "2026-04-07 15:47"
+function fmtDateTime(d) {
+  const yyyy = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mo}-${dd} ${hh}:${mm}`
+}
 
 function parseDesc(desc) {
   const m = desc.match(DESC_RE)
@@ -165,7 +179,7 @@ function getAuth() {
   return oauth2
 }
 
-const HEADER_ROW = ['Date', 'Time', 'Gross', 'OF Fee', 'Net', 'Type',
+const HEADER_ROW = ['DateTime', 'Gross', 'OF Fee', 'Net', 'Type',
                     'Display Name', 'OF Username', 'Original Date', 'Description']
 const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 
@@ -197,20 +211,48 @@ async function getCutoff(sheets, tabName) {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${tabName}'!A4:B10000`,
+      range: `'${tabName}'!A4:A10000`,
     })
     const rows = res.data.values || []
     if (rows.length === 0) return null
     let latest = null
-    for (const [dateStr, timeStr] of rows) {
-      if (!dateStr) continue
+    for (const [dateTimeStr] of rows) {
+      if (!dateTimeStr) continue
       try {
-        const dt = new Date(`${dateStr} ${timeStr || '12:00 AM'}`)
-        if (!latest || dt > latest) latest = dt
+        // Handle both new format "2026-04-07 15:47" and legacy "2026-04-07"
+        const dt = new Date(dateTimeStr.includes(' ') ? dateTimeStr.replace(' ', 'T') + ':00' : dateTimeStr)
+        if (!isNaN(dt) && (!latest || dt > latest)) latest = dt
       } catch {}
     }
     return latest
   } catch { return null }
+}
+
+// Build a fingerprint for a transaction row: datetime|net|fan
+function txnFingerprint(dateTime, _unused, net, fan) {
+  return `${(dateTime || '').trim()}|${String(net).trim()}|${(fan || '').trim()}`
+}
+
+// Get the last N rows from the sheet for overlap matching
+async function getLastRows(sheets, tabName, count = 50) {
+  try {
+    const colRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID, range: `'${tabName}'!A:A`,
+    })
+    const totalRows = colRes.data.values?.length || 3
+    if (totalRows <= 3) return [] // only header rows
+    const startRow = Math.max(4, totalRows - count + 1)
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!A${startRow}:I${totalRows}`,
+    })
+    return (res.data.values || []).map(row => ({
+      dateTime: row[0] || '', gross: row[1] || '',
+      ofFee: row[2] || '', net: row[3] || '', type: row[4] || '',
+      displayName: row[5] || '', username: row[6] || '',
+      fingerprint: txnFingerprint(row[0], '', row[3], row[5]),
+    }))
+  } catch { return [] }
 }
 
 async function updateCutoff(sheets, tabName, cutoffDt) {
@@ -271,28 +313,66 @@ export async function POST(request) {
     const sheets = google.sheets({ version: 'v4', auth: authClient })
     const tabName = await getOrCreateTab(sheets, creator, sheetType)
 
-    // Check cutoff and filter duplicates
-    const cutoff = await getCutoff(sheets, tabName)
+    // Overlap-based dedup: fetch last rows from sheet, find the match point
+    // in the new data, only append everything after it
+    const existingRows = await getLastRows(sheets, tabName, 50)
     let filtered = txns
     let skipped = 0
-    if (cutoff) {
-      filtered = txns.filter(t => {
-        if (t.dt && t.dt <= cutoff) { skipped++; return false }
-        return true
-      })
+    let overlapMethod = 'none'
+
+    if (existingRows.length > 0) {
+      // Build fingerprint set from existing sheet rows
+      const existingFingerprints = new Set(existingRows.map(r => r.fingerprint))
+
+      // Build fingerprints for new transactions
+      const newWithFp = txns.map(t => ({
+        ...t,
+        fingerprint: txnFingerprint(
+          t.dt ? fmtDateTime(t.dt) : '',
+          '',
+          t.net,
+          t.displayName || t.fan
+        ),
+      }))
+
+      // Strategy: find the LAST matching transaction in the new data
+      // (the overlap point), then take everything after it
+      let lastMatchIdx = -1
+      for (let i = 0; i < newWithFp.length; i++) {
+        if (existingFingerprints.has(newWithFp[i].fingerprint)) {
+          lastMatchIdx = i
+        }
+      }
+
+      if (lastMatchIdx >= 0) {
+        // Found overlap — take everything after the last match
+        overlapMethod = 'fingerprint'
+        skipped = lastMatchIdx + 1
+        filtered = txns.slice(lastMatchIdx + 1)
+      } else {
+        // No overlap found — fall back to timestamp cutoff to avoid dupes
+        const cutoff = await getCutoff(sheets, tabName)
+        if (cutoff) {
+          overlapMethod = 'cutoff_fallback'
+          filtered = txns.filter(t => {
+            if (t.dt && t.dt <= cutoff) { skipped++; return false }
+            return true
+          })
+        }
+        // If no cutoff either, append everything (first upload or gap fill)
+      }
     }
 
     if (filtered.length === 0) {
       return Response.json({
-        message: `All ${txns.length} transactions are before the cutoff — nothing new to upload.`,
-        cutoff: cutoff?.toISOString(), parsed: txns.length, skipped: txns.length, uploaded: 0,
+        message: `All ${txns.length} transactions already exist in the sheet — nothing new to upload.`,
+        parsed: txns.length, skipped: txns.length, uploaded: 0, overlapMethod,
       })
     }
 
-    // Convert to rows — now includes username column
+    // Convert to rows — combined datetime, 9 columns
     const rows = filtered.map(t => [
-      t.dt ? fmtDate(t.dt) : '',
-      t.dt ? fmtTime(t.dt) : '',
+      t.dt ? fmtDateTime(t.dt) : '',
       t.gross,
       t.of_fee,
       t.net,
@@ -312,6 +392,27 @@ export async function POST(request) {
       nextRow = Math.max(4, (existing.data.values?.length || 3) + 1)
     } catch {}
 
+    // Auto-expand sheet if needed (grid limit)
+    const requiredRows = nextRow + rows.length
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+    const sheetMeta = spreadsheet.data.sheets.find(s => s.properties.title === tabName)
+    const currentMaxRows = sheetMeta?.properties?.gridProperties?.rowCount || 1000
+    if (requiredRows > currentMaxRows) {
+      const addRows = requiredRows - currentMaxRows + 500 // add extra buffer
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: {
+          requests: [{
+            appendDimension: {
+              sheetId: sheetMeta.properties.sheetId,
+              dimension: 'ROWS',
+              length: addRows,
+            }
+          }]
+        }
+      })
+    }
+
     // Append rows
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
@@ -320,8 +421,17 @@ export async function POST(request) {
       resource: { values: rows },
     })
 
-    // Update cutoff
-    let newCutoff = cutoff
+    // Update cutoff — find the latest timestamp across all sheet data + new rows
+    let newCutoff = null
+    // Check existing rows for latest date
+    for (const r of existingRows) {
+      try {
+        if (!r.dateTime) continue
+        const dt = new Date(r.dateTime.replace(' ', 'T') + ':00')
+        if (!isNaN(dt) && (!newCutoff || dt > newCutoff)) newCutoff = dt
+      } catch {}
+    }
+    // Check new rows
     for (const t of filtered) {
       if (t.dt && (!newCutoff || t.dt > newCutoff)) newCutoff = t.dt
     }
@@ -348,7 +458,7 @@ export async function POST(request) {
     return Response.json({
       message: `Uploaded ${filtered.length} transactions to "${tabName}"`,
       parsed: txns.length, skipped, uploaded: filtered.length,
-      withUsernames,
+      withUsernames, overlapMethod,
       totalGross, totalNet, typeBreakdown, topFans,
       cutoff: newCutoff?.toISOString(),
       spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}`,

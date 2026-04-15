@@ -62,10 +62,10 @@ function detectWhales(transactions, now) {
   const sixMonthsAgo = new Date(now)
   sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180)
 
-  // Group by fan
+  // Group by fan (prefer ofUsername — display names change)
   const fanTxns = {}
   for (const t of transactions) {
-    const key = t.displayName || 'Unknown'
+    const key = t.ofUsername || t.displayName || 'Unknown'
     if (!fanTxns[key]) fanTxns[key] = []
     fanTxns[key].push(t)
   }
@@ -164,11 +164,11 @@ function detectGoingCold(transactions, now) {
   const thirtyDaysAgo = new Date(now)
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-  // Group by fan
+  // Group by fan (prefer ofUsername for stability — display names change)
   const fanTxns = {}
   for (const t of transactions) {
     if (t.type === 'Chargeback') continue
-    const key = t.displayName || 'Unknown'
+    const key = t.ofUsername || t.displayName || 'Unknown'
     if (!fanTxns[key]) fanTxns[key] = []
     fanTxns[key].push(t)
   }
@@ -259,9 +259,12 @@ function detectGoingCold(transactions, now) {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, spend]) => ({ month, spend }))
 
+    // Use most recent display name for the label (display names change, username is the key)
+    const latestDisplayName = sorted[sorted.length - 1]?.displayName || fan
+
     alerts.push({
-      fan,
-      username: txns[0]?.ofUsername || '',
+      fan: latestDisplayName,
+      username: fan,
       medianGap,
       p90Gap,
       currentGap,
@@ -293,6 +296,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const creator = searchParams.get('creator')
   const refresh = searchParams.get('refresh') === 'true'
+  const goingColdOnly = searchParams.get('goingColdOnly') === 'true'
 
   if (!creator) return Response.json({ error: 'Missing creator param' }, { status: 400 })
 
@@ -311,7 +315,7 @@ export async function GET(request) {
     try {
       const res = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `'${tabName}'!A4:J`,
+        range: `'${tabName}'!A4:I`,
       })
       rows = res.data.values || []
     } catch (err) {
@@ -325,14 +329,23 @@ export async function GET(request) {
       return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
     }
 
-    // Parse rows
+    // Parse rows — combined DateTime column (9 columns: DateTime, Gross, OF Fee, Net, Type, Display Name, OF Username, Original Date, Description)
     const transactions = []
     for (const row of rows) {
-      const [date, time, gross, ofFee, net, type, displayName, ofUsername, originalDate, description] = row
-      if (!date) continue
-      const dt = parseSheetDate(date)
+      const [dateTime, gross, ofFee, net, type, displayName, ofUsername, originalDate, description] = row
+      if (!dateTime) continue
+      // Extract date portion for compatibility (YYYY-MM-DD)
+      const datePart = dateTime.split(' ')[0] || ''
+      // Parse full datetime: "2026-04-07 15:47" → Date
+      let dt = null
+      if (dateTime.includes(' ')) {
+        dt = new Date(dateTime.replace(' ', 'T') + ':00')
+      } else {
+        dt = parseSheetDate(dateTime)
+      }
+      if (dt && isNaN(dt.getTime())) dt = parseSheetDate(datePart)
       transactions.push({
-        date: date || '', time: time || '',
+        date: datePart, time: dateTime.split(' ').slice(1).join(' ') || '',
         gross: parseMoney(gross), ofFee: parseMoney(ofFee), net: parseMoney(net),
         type: type || '', displayName: displayName || '', ofUsername: ofUsername || '',
         originalDate: originalDate || '', description: description || '', dt,
@@ -347,25 +360,43 @@ export async function GET(request) {
     const salesTxns = transactions.filter(t => t.type !== 'Chargeback')
     const chargebackTxns = transactions.filter(t => t.type === 'Chargeback')
 
-    // ── Daily aggregation for chart ───────────────────────────────────────
+    // ── Daily aggregation for chart (shift ET→UTC to match OF daily rollover at 8 PM ET) ──
+    // Sheet stores ET local times but Vercel runs UTC, so parsed Dates are "ET pretending to be UTC".
+    // Add the ET→UTC offset so 8 PM ET → midnight UTC → next day, matching OF's daily boundaries.
+    function etToUtcDate(dt) {
+      // Determine if this date falls in EDT (Mar second Sun – Nov first Sun) or EST
+      const year = dt.getUTCFullYear(), month = dt.getUTCMonth(), day = dt.getUTCDate()
+      // EDT: second Sunday in March through first Sunday in November
+      const marStart = new Date(Date.UTC(year, 2, 8)) // Mar 8 at earliest
+      marStart.setUTCDate(8 + (7 - marStart.getUTCDay()) % 7) // second Sunday
+      const novEnd = new Date(Date.UTC(year, 10, 1)) // Nov 1 at earliest
+      novEnd.setUTCDate(1 + (7 - novEnd.getUTCDay()) % 7) // first Sunday
+      const isEDT = dt >= marStart && dt < novEnd
+      const offsetHours = isEDT ? 4 : 5
+      const shifted = new Date(dt.getTime() + offsetHours * 3600000)
+      return shifted.toISOString().split('T')[0]
+    }
+
     const dailyMap = {}
     const dailyByType = {}
     const dailyGross = {}
     const dailyCount = {}
     for (const t of transactions) {
       if (!t.date) continue
-      if (!dailyMap[t.date]) dailyMap[t.date] = 0
-      if (!dailyGross[t.date]) dailyGross[t.date] = 0
-      if (!dailyCount[t.date]) dailyCount[t.date] = 0
+      // Shift ET times to real UTC so daily totals match OF (rolls at 8 PM ET = midnight UTC)
+      const utcDate = t.dt ? etToUtcDate(t.dt) : t.date
+      if (!dailyMap[utcDate]) dailyMap[utcDate] = 0
+      if (!dailyGross[utcDate]) dailyGross[utcDate] = 0
+      if (!dailyCount[utcDate]) dailyCount[utcDate] = 0
       const netVal = t.type === 'Chargeback' ? -t.net : t.net
-      dailyMap[t.date] += netVal
-      dailyGross[t.date] += t.type === 'Chargeback' ? -t.gross : t.gross
-      dailyCount[t.date] += 1
+      dailyMap[utcDate] += netVal
+      dailyGross[utcDate] += t.type === 'Chargeback' ? -t.gross : t.gross
+      dailyCount[utcDate] += 1
 
       const tp = t.type || 'Unknown'
-      if (!dailyByType[t.date]) dailyByType[t.date] = {}
-      if (!dailyByType[t.date][tp]) dailyByType[t.date][tp] = 0
-      dailyByType[t.date][tp] += t.net
+      if (!dailyByType[utcDate]) dailyByType[utcDate] = {}
+      if (!dailyByType[utcDate][tp]) dailyByType[utcDate][tp] = 0
+      dailyByType[utcDate][tp] += t.net
     }
 
     // Build daily array sorted chronologically
@@ -399,10 +430,12 @@ export async function GET(request) {
     // ── Top fans (all time) ───────────────────────────────────────────────
     const fanMap = {}
     for (const t of transactions) {
-      const key = t.displayName || 'Unknown'
-      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      const key = t.ofUsername || t.displayName || 'Unknown'
+      if (!fanMap[key]) fanMap[key] = { displayName: t.displayName || key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
       fanMap[key].totalNet += t.net
       fanMap[key].transactionCount += 1
+      // Keep most recent display name (fans change display names)
+      if (t.displayName) fanMap[key].displayName = t.displayName
       if (!fanMap[key].lastDate) fanMap[key].lastDate = t.date
     }
     const topFans = Object.values(fanMap)
@@ -412,6 +445,15 @@ export async function GET(request) {
 
     // ── Going cold alerts ────────────────────────────────────────────────
     const goingColdAlerts = detectGoingCold(transactions, now)
+
+    // Lightweight mode: skip chart/topFans computation, just return alerts
+    if (goingColdOnly) {
+      return Response.json({
+        creator,
+        goingColdAlerts: goingColdAlerts.slice(0, 30),
+        goingColdCount: goingColdAlerts.length,
+      })
+    }
 
     // ── Period summaries ──────────────────────────────────────────────────
     const periods = {}

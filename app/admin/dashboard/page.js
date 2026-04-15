@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const fmt = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtK = n => {
@@ -185,6 +185,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [alertsExpanded, setAlertsExpanded] = useState(false)
+  const [whaleAlerts, setWhaleAlerts] = useState(null) // { creatorName: { alerts, count } }
+  const [whaleLoading, setWhaleLoading] = useState(false)
+  const [whaleSending, setWhaleSending] = useState({}) // { 'creator-fan': true }
+  const [whaleSent, setWhaleSent] = useState({}) // { 'creator-fan': { success: true } | { error: '...' } }
+  const [whaleExpandedCreator, setWhaleExpandedCreator] = useState(null)
+  const whaleAlertsFetched = useRef(false)
 
   const fetchData = useCallback(async () => {
     try {
@@ -201,6 +207,30 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Fetch whale alerts for all creators (lazy, after main dashboard loads)
+  const WHALE_CREATORS = ['Laurel', 'Taby', 'MG', 'Sunny']
+  useEffect(() => {
+    if (!data || whaleAlertsFetched.current) return
+    whaleAlertsFetched.current = true
+    setWhaleLoading(true)
+    Promise.all(
+      WHALE_CREATORS.map(name =>
+        fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}&goingColdOnly=true`)
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null)
+      )
+    ).then(results => {
+      const alertMap = {}
+      results.forEach((r, i) => {
+        if (r && r.goingColdAlerts?.length > 0) {
+          alertMap[WHALE_CREATORS[i]] = { alerts: r.goingColdAlerts, count: r.goingColdCount }
+        }
+      })
+      setWhaleAlerts(alertMap)
+      setWhaleLoading(false)
+    })
+  }, [data])
 
   if (loading) {
     return (
@@ -414,6 +444,130 @@ export default function AdminDashboard() {
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
               </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ─── WHALE ALERTS ─── */}
+      <div style={{ ...CARD, marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px' }}>&#x1F433;</span>
+            <span style={SECTION_TITLE}>Whale Alerts</span>
+          </div>
+          {whaleLoading && <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>}
+        </div>
+
+        {whaleAlerts && Object.keys(whaleAlerts).length === 0 && !whaleLoading && (
+          <div style={{ fontSize: '13px', color: '#999', padding: '8px 0' }}>No whale alerts right now.</div>
+        )}
+
+        {whaleAlerts && Object.entries(whaleAlerts).map(([creator, { alerts: cAlerts, count }]) => {
+          const isExpanded = whaleExpandedCreator === creator
+          const urgCount = { critical: 0, high: 0, warning: 0 }
+          cAlerts.forEach(a => { urgCount[a.urgency] = (urgCount[a.urgency] || 0) + 1 })
+          return (
+            <div key={creator} style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <div
+                onClick={() => setWhaleExpandedCreator(isExpanded ? null : creator)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 0', cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ color: '#ccc', fontSize: '10px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
+                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>{creator}</span>
+                  <span style={{ fontSize: '12px', color: '#EA580C', fontWeight: 600 }}>{count} fan{count !== 1 ? 's' : ''}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {urgCount.critical > 0 && <span style={{ background: '#FEE2E2', color: '#DC2626', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.critical} CRITICAL</span>}
+                  {urgCount.high > 0 && <span style={{ background: '#FFF3CD', color: '#D97706', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.high} HIGH</span>}
+                  {urgCount.warning > 0 && <span style={{ background: '#FEF9C3', color: '#A16207', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.warning} WARNING</span>}
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div style={{ paddingBottom: '12px' }}>
+                  {/* Header */}
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: '1fr 60px 70px 70px 70px 70px 70px',
+                    padding: '4px 8px', fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase',
+                    borderBottom: '1px solid #f0f0f0',
+                  }}>
+                    <span>Fan</span>
+                    <span style={{ textAlign: 'right' }}>Median</span>
+                    <span style={{ textAlign: 'right' }}>Gap</span>
+                    <span style={{ textAlign: 'right' }}>Last 30d</span>
+                    <span style={{ textAlign: 'right' }}>90d Avg</span>
+                    <span style={{ textAlign: 'right' }}>Lifetime</span>
+                    <span style={{ textAlign: 'center' }}>Action</span>
+                  </div>
+
+                  {cAlerts.map((a, i) => {
+                    const sendKey = `${creator}-${a.fan}`
+                    const isSending = whaleSending[sendKey]
+                    const result = whaleSent[sendKey]
+                    const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
+                    const uc = urgColors[a.urgency] || urgColors.warning
+                    return (
+                      <div key={a.fan} style={{
+                        display: 'grid', gridTemplateColumns: '1fr 60px 70px 70px 70px 70px 70px',
+                        padding: '8px 8px', fontSize: '12px', alignItems: 'center',
+                        background: i % 2 === 0 ? '#fff' : '#FAFAFA',
+                      }}>
+                        <div>
+                          <span style={{ fontWeight: 500 }}>{a.fan}</span>
+                          {a.username && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '4px' }}>@{a.username}</span>}
+                          <span style={{ background: uc.bg, color: uc.text, padding: '1px 5px', borderRadius: '3px', fontSize: '9px', fontWeight: 700, marginLeft: '6px', textTransform: 'uppercase' }}>{a.urgency}</span>
+                        </div>
+                        <span style={{ textAlign: 'right', color: '#666' }}>{a.medianGap}d</span>
+                        <span style={{ textAlign: 'right', fontWeight: 600, color: a.currentGap > a.medianGap * 3 ? '#DC2626' : '#EA580C' }}>
+                          {a.currentGap}d <span style={{ fontSize: '10px', color: '#999', fontWeight: 400 }}>({a.gapRatio}x)</span>
+                        </span>
+                        <span style={{ textAlign: 'right', color: a.rolling30 === 0 ? '#DC2626' : '#666', fontWeight: a.rolling30 === 0 ? 600 : 400 }}>{fmtK(a.rolling30)}</span>
+                        <span style={{ textAlign: 'right', color: '#666' }}>{fmtK(a.monthlyAvg90)}</span>
+                        <span style={{ textAlign: 'right', color: '#666' }}>{fmtK(a.lifetime)}</span>
+                        <div style={{ textAlign: 'center' }}>
+                          {result?.success ? (
+                            <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent</span>
+                          ) : (
+                            <button
+                              disabled={isSending}
+                              onClick={async () => {
+                                setWhaleSending(prev => ({ ...prev, [sendKey]: true }))
+                                try {
+                                  const res = await fetch('/api/admin/whale-alert/send', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ creatorName: creator, alert: a, analysis: null }),
+                                  })
+                                  const data = await res.json()
+                                  if (!res.ok) throw new Error(data.error || 'Send failed')
+                                  setWhaleSent(prev => ({ ...prev, [sendKey]: { success: true } }))
+                                } catch (e) {
+                                  setWhaleSent(prev => ({ ...prev, [sendKey]: { error: e.message } }))
+                                } finally {
+                                  setWhaleSending(prev => ({ ...prev, [sendKey]: false }))
+                                }
+                              }}
+                              style={{
+                                background: isSending ? '#E5E7EB' : '#1a1a1a', border: 'none', borderRadius: '4px',
+                                padding: '4px 8px', fontSize: '10px', color: isSending ? '#999' : '#fff', fontWeight: 600,
+                                cursor: isSending ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {isSending ? '...' : 'Send'}
+                            </button>
+                          )}
+                          {result?.error && <div style={{ fontSize: '9px', color: '#DC2626', marginTop: '2px' }}>{result.error}</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })}

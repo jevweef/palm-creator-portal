@@ -621,6 +621,8 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
 
         {/* Horizontal grid lines */}
         {eSteps.map(v => <line key={v} x1={pad.l} x2={pad.l + cw} y1={pyE(v)} y2={pyE(v)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />)}
+        {/* Baseline at zero */}
+        <line x1={pad.l} x2={pad.l + cw} y1={pyE(0)} y2={pyE(0)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />
 
         {/* Earnings area fill */}
         <path d={earningsArea} fill="url(#earningsGrad)" />
@@ -885,7 +887,7 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
 
 // ── Going Cold Row ─────────────────────────────────────────────────────────
 
-function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
+function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecordId, allTxns }) {
   const [expanded, setExpanded] = useState(false)
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
@@ -893,6 +895,9 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
   const [analysisError, setAnalysisError] = useState(null)
   const [showBrief, setShowBrief] = useState(false)
   const [loadedFromAirtable, setLoadedFromAirtable] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState(null) // { success: true } or { error: '...' }
   const chatFileRef = useRef(null)
   const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
 
@@ -918,6 +923,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
     formData.append('monthlyAvg90', a.monthlyAvg90)
     formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
     formData.append('creatorName', creatorName || '')
+    formData.append('creatorRecordId', creatorRecordId || '')
     // Compute daily spend for this fan from transaction data
     if (allTxns) {
       const dailySpend = {}
@@ -951,6 +957,30 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
       setAnalyzing(false)
     }
   }
+  async function handleSendToTelegram() {
+    setSending(true)
+    setSendResult(null)
+    try {
+      const res = await fetch('/api/admin/whale-alert/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorName,
+          creatorRecordId,
+          alert: a,
+          analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Send failed')
+      setSendResult({ success: true, tracked: true })
+    } catch (e) {
+      setSendResult({ error: e.message })
+    } finally {
+      setSending(false)
+    }
+  }
+
   const uc = urgColors[a.urgency] || urgColors.warning
 
   return (
@@ -1022,6 +1052,22 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
               </div>
             )
           })()}
+
+          {/* Send to Chat Manager button */}
+          <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => { setSendResult(null); setShowSendModal(true) }}
+              style={{
+                background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                padding: '7px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+            >
+              <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
+            </button>
+            {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
+            {sendResult?.error && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
+          </div>
 
           {/* Chat analysis section */}
           <div style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
@@ -1176,6 +1222,117 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, allTxns }) {
           </div>
         </div>
       )}
+
+      {/* Send to Chat Manager modal */}
+      {showSendModal && (
+        <div
+          onClick={() => !sending && setShowSendModal(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: '12px', padding: '24px', width: '480px',
+              maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>Send Whale Alert</div>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>
+              This will generate a PDF and send it to the <strong>{creatorName}</strong> topic in Telegram.
+            </div>
+
+            {/* Preview card */}
+            <div style={{ background: '#FAFAFA', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '14px' }}>{a.fan}</span>
+                  {a.username && <span style={{ color: '#E88FAC', fontSize: '12px', marginLeft: '6px' }}>@{a.username}</span>}
+                </div>
+                <span style={{ background: uc.bg, color: uc.text, padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{a.urgency}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+                <div><span style={{ color: '#999' }}>Gap:</span> <strong style={{ color: a.currentGap > a.medianGap * 3 ? '#DC2626' : '#EA580C' }}>{a.currentGap}d</strong> <span style={{ color: '#999' }}>({a.gapRatio}x)</span></div>
+                <div><span style={{ color: '#999' }}>Last 30d:</span> <strong>{fmtMoney(a.rolling30)}</strong></div>
+                <div><span style={{ color: '#999' }}>Lifetime:</span> <strong>{fmtMoney(a.lifetime)}</strong></div>
+              </div>
+              {analysis?.managerBrief && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #E5E7EB', fontSize: '12px', color: '#333', lineHeight: '1.5' }}>
+                  <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Manager Brief</div>
+                  {analysis.managerBrief.split('\n').filter(l => l.trim()).slice(0, 4).map((line, i) => (
+                    <div key={i} style={{ marginBottom: '2px' }}>{line.replace(/\*\*([^*]+)\*\*/g, '$1')}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px' }}>
+              PDF will include: stats, 6-month spend chart{analysis ? ', manager brief, and full analysis' : ''}. {!analysis && <span style={{ color: '#D97706' }}>No chat analysis available — PDF will only contain spending data.</span>}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowSendModal(false)}
+                disabled={sending}
+                style={{
+                  background: '#F3F4F6', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', cursor: 'pointer', color: '#666',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setSending(true)
+                  setSendResult(null)
+                  try {
+                    const res = await fetch('/api/admin/whale-alert/send', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        creatorName,
+                        creatorRecordId,
+                        alert: a,
+                        analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+                      }),
+                    })
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error || 'Send failed')
+                    setSendResult({ success: true, tracked: true })
+                    setTimeout(() => setShowSendModal(false), 1500)
+                  } catch (e) {
+                    setSendResult({ error: e.message })
+                  } finally {
+                    setSending(false)
+                  }
+                }}
+                disabled={sending}
+                style={{
+                  background: sending ? '#999' : '#1a1a1a', border: 'none', borderRadius: '6px',
+                  padding: '8px 20px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                  cursor: sending ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {sending ? 'Generating & Sending...' : 'Send PDF to Telegram'}
+              </button>
+            </div>
+
+            {sendResult?.success && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
+                &#10003; Sent to {creatorName} topic &amp; logged in Fan Tracker
+              </div>
+            )}
+            {sendResult?.error && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+                {sendResult.error}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1191,6 +1348,12 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [showAllFans, setShowAllFans] = useState(false)
   const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
   const [slideKey, setSlideKey] = useState(0)
+  const [showUploadPanel, setShowUploadPanel] = useState(false)
+  const [uploadFile, setUploadFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState(null)
+  const [uploadError, setUploadError] = useState(null)
+  const uploadFileRef = useRef(null)
 
   // Extract data safely — all hooks must run before any early returns
   const { summary, byType, topFans: allTimeTopFans, transactions: allTxns, dailyData: rawDailyData, goingColdAlerts, goingColdCount, cachedAt } = data || {}
@@ -1222,7 +1385,31 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   }, [allTxns, period, customStart, customEnd])
 
   // Early returns AFTER all hooks
-  if (loading) return <div style={{ color: '#999', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>Loading earnings data...</div>
+  if (loading) return (
+    <div style={{ padding: '20px 0' }}>
+      {/* Skeleton: period selector */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+        {[80, 60, 50, 40, 60, 50].map((w, i) => (
+          <div key={i} style={{ width: w, height: 28, background: '#F3F4F6', borderRadius: '6px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        ))}
+      </div>
+      {/* Skeleton: chart area */}
+      <div style={{ height: 200, background: '#F9FAFB', borderRadius: '12px', marginBottom: '20px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      {/* Skeleton: going cold rows */}
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ width: 120, height: 14, background: '#F3F4F6', borderRadius: '4px', marginBottom: '10px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        {[1, 2, 3].map(i => (
+          <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
+            <div style={{ width: 120, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 60, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 50, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 70, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          </div>
+        ))}
+      </div>
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+    </div>
+  )
   if (error) return (
     <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#DC2626' }}>
       {error}
@@ -1368,8 +1555,114 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             </span>
           ))}
           <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ccc', marginLeft: '4px' }}>↺</button>
+          <button
+            onClick={() => { setShowUploadPanel(!showUploadPanel); setUploadResult(null); setUploadError(null) }}
+            style={{
+              background: showUploadPanel ? '#1a1a1a' : 'none',
+              color: showUploadPanel ? '#fff' : '#999',
+              border: showUploadPanel ? 'none' : '1px solid #e5e7eb',
+              borderRadius: '5px', padding: '3px 10px', cursor: 'pointer',
+              fontSize: '11px', fontWeight: 600, marginLeft: '4px',
+              transition: 'all 0.15s',
+            }}
+          >
+            Update Earnings Data
+          </button>
         </div>
       </div>
+
+      {/* Inline upload panel */}
+      {showUploadPanel && (
+        <div style={{
+          background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          padding: '16px', marginBottom: '12px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>
+              Upload OF Statements for {creator?.name || 'this creator'}
+            </div>
+            <button onClick={() => setShowUploadPanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#999' }}>×</button>
+          </div>
+          <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', lineHeight: '1.6' }}>
+            Save the OF Statements → Earnings page as HTML. Scroll past existing data — duplicates are automatically skipped.
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              ref={uploadFileRef}
+              type="file"
+              accept=".html,.htm"
+              onChange={e => { if (e.target.files[0]) { setUploadFile(e.target.files[0]); setUploadError(null); setUploadResult(null) }}}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={() => uploadFileRef.current?.click()}
+              style={{
+                background: uploadFile ? '#F0FDF4' : '#F8FAFC',
+                border: `1px solid ${uploadFile ? '#BBF7D0' : '#E2E8F0'}`,
+                borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer',
+                color: uploadFile ? '#166534' : '#64748B',
+              }}
+            >
+              {uploadFile ? `✓ ${uploadFile.name}` : 'Choose HTML file'}
+            </button>
+            {uploadFile && (
+              <button
+                disabled={uploading}
+                onClick={async () => {
+                  setUploading(true)
+                  setUploadError(null)
+                  setUploadResult(null)
+                  try {
+                    const formData = new FormData()
+                    formData.append('file', uploadFile)
+                    formData.append('creator', creator?.aka || creator?.name || '')
+                    const res = await fetch('/api/admin/invoicing/upload-transactions', { method: 'POST', body: formData })
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error || 'Upload failed')
+                    setUploadResult(data)
+                    setUploadFile(null)
+                    if (uploadFileRef.current) uploadFileRef.current.value = ''
+                    // Auto-refresh earnings after successful upload
+                    if (data.uploaded > 0) setTimeout(() => onRefresh(), 500)
+                  } catch (e) {
+                    setUploadError(e.message)
+                  } finally {
+                    setUploading(false)
+                  }
+                }}
+                style={{
+                  background: uploading ? '#E5E7EB' : '#1a1a1a', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: uploading ? '#999' : '#fff', fontWeight: 600,
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {uploading ? 'Uploading...' : 'Upload'}
+              </button>
+            )}
+          </div>
+          {uploadError && (
+            <div style={{ marginTop: '10px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+              {uploadError}
+            </div>
+          )}
+          {uploadResult && (
+            <div style={{ marginTop: '10px', padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '4px' }}>
+                {uploadResult.uploaded > 0 ? `Added ${uploadResult.uploaded} new transactions` : 'No new transactions to add'}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#15803D' }}>
+                <span>Parsed: {uploadResult.parsed}</span>
+                <span>Skipped: {uploadResult.skipped}</span>
+                {uploadResult.overlapMethod && (
+                  <span style={{ color: '#999' }}>
+                    ({uploadResult.overlapMethod === 'fingerprint' ? 'matched overlap' : uploadResult.overlapMethod === 'cutoff_fallback' ? 'timestamp cutoff' : 'first upload'})
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Revenue chart — immediately visible */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
@@ -1424,7 +1717,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
             </div>
             {(showAllCold ? goingColdAlerts : goingColdAlerts.slice(0, 10)).map((a, i) => (
-              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || ''} allTxns={allTxns} />
+              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || creator?.aka || ''} creatorRecordId={creator?.id} allTxns={allTxns} />
             ))}
             {goingColdAlerts.length > 10 && !showAllCold && (
               <button onClick={() => setShowAllCold(true)}
@@ -1476,6 +1769,1098 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   )
 }
 
+// ── Fans CRM Panel ──────────────────────────────────────────────────────────
+
+function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId, allTxns }) {
+  const [chatFile, setChatFile] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState(null)
+  const [analysisError, setAnalysisError] = useState(null)
+  const [showBrief, setShowBrief] = useState(false)
+  const [loadedFromAirtable, setLoadedFromAirtable] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState(null)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [previewImage, setPreviewImage] = useState(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [selectedAnalysisIdx, setSelectedAnalysisIdx] = useState(0)
+  const [chartMode, setChartMode] = useState('monthly') // 'daily' | 'monthly'
+  const [showAllHistory, setShowAllHistory] = useState(false)
+  const [hoverIdx, setHoverIdx] = useState(null)
+  const chatFileRef = useRef(null)
+
+  const sc = statusColors[f.status] || statusColors['Monitoring']
+  const ec = effectColors[f.effectiveness] || effectColors['Pending']
+
+  // Load existing analysis from Airtable when expanded
+  useEffect(() => {
+    if (!isExpanded || analysis || loadedFromAirtable) return
+    setLoadedFromAirtable(true)
+    fetch(`/api/admin/creator-earnings/analyze-chat?fan=${encodeURIComponent(f.fanName)}&creator=${encodeURIComponent(creatorName || '')}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.analysis) setAnalysis(data) })
+      .catch(() => {})
+  }, [isExpanded])
+
+  // Build daily + monthly spend data for this fan from allTxns
+  const { fanSpendData, monthlySpendData } = useMemo(() => {
+    if (!allTxns || !Array.isArray(allTxns)) return { fanSpendData: null, monthlySpendData: null }
+    const dailySpend = {}
+    for (const t of allTxns) {
+      const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
+        (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
+      if (!match || t.type === 'Chargeback') continue
+      const d = t.date
+      if (!d) continue
+      dailySpend[d] = (dailySpend[d] || 0) + (t.net || 0)
+    }
+    const entries = Object.entries(dailySpend).sort(([a], [b]) => a.localeCompare(b))
+    if (entries.length < 1) return { fanSpendData: null, monthlySpendData: null }
+
+    // Fill gaps with zero-spend days
+    const filled = []
+    const startDate = new Date(entries[0][0] + 'T00:00:00')
+    const endDate = new Date(entries[entries.length - 1][0] + 'T00:00:00')
+    const spendMap = Object.fromEntries(entries)
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const key = d.toISOString().split('T')[0]
+      filled.push({ date: key, spend: spendMap[key] || 0 })
+    }
+
+    // Build monthly totals — include all months from first to current
+    const months = {}
+    for (const d of filled) {
+      const mo = d.date.slice(0, 7)
+      months[mo] = (months[mo] || 0) + d.spend
+    }
+    // Fill in missing months between first and now
+    const firstMo = filled[0].date.slice(0, 7)
+    const now = new Date()
+    const lastMo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const allMonths = []
+    let cur = firstMo
+    while (cur <= lastMo) {
+      allMonths.push({ month: cur, spend: months[cur] || 0 })
+      const [y, m] = cur.split('-').map(Number)
+      const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+      cur = next
+    }
+
+    return { fanSpendData: filled, monthlySpendData: allMonths }
+  }, [allTxns, f.ofUsername, f.fanName])
+
+  // Milestone dates from alert history and analyses
+  const milestones = useMemo(() => {
+    const m = []
+    if (f.alertHistory) {
+      for (const h of f.alertHistory) {
+        if (h.date) m.push({ date: h.date.split('T')[0], label: 'Sent to Manager', color: '#DC2626' })
+      }
+    }
+    if (f.analysisRecords) {
+      for (const a of f.analysisRecords) {
+        if (a.date) m.push({ date: a.date.split('T')[0], label: 'Analyzed', color: '#7C3AED' })
+      }
+    }
+    return m
+  }, [f.alertHistory, f.analysisRecords])
+
+  function buildFormData() {
+    const formData = new FormData()
+    formData.append('file', chatFile)
+    formData.append('fanName', f.fanName)
+    formData.append('fanUsername', f.ofUsername || '')
+    formData.append('lifetime', f.lifetimeSpend || 0)
+    if (f.goingCold) {
+      formData.append('medianGap', f.goingCold.medianGap || 0)
+      formData.append('currentGap', f.goingCold.currentGap || 0)
+      formData.append('rolling30', f.goingCold.rolling30 || 0)
+      formData.append('monthlyAvg90', f.goingCold.monthlyAvg90 || 0)
+      formData.append('lastPurchaseDate', f.goingCold.lastPurchaseDate || '')
+    }
+    formData.append('creatorName', creatorName || '')
+    formData.append('creatorRecordId', creatorRecordId || '')
+    // Compute daily spend timeline for analysis context
+    if (allTxns) {
+      const dailySpend = {}
+      for (const t of allTxns) {
+        if ((t.displayName || '') === f.fanName || (t.ofUsername || '') === f.ofUsername) {
+          dailySpend[t.date] = (dailySpend[t.date] || 0) + (t.net || 0)
+        }
+      }
+      const timeline = Object.entries(dailySpend)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, spend]) => `${date}: $${spend.toFixed(2)}`)
+        .join('\n')
+      if (timeline) formData.append('spendingTimeline', timeline)
+    }
+    return formData
+  }
+
+  async function handleAnalyze() {
+    if (!chatFile) return
+    setAnalyzing(true)
+    setAnalysisError(null)
+    try {
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: buildFormData() })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Analysis failed')
+      setAnalysis(data)
+      // Refresh fans list to show new analysis
+      const refreshRes = await fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(creatorName)}`)
+      const refreshData = await refreshRes.json()
+      if (refreshData.fans) setFans(refreshData.fans)
+    } catch (e) {
+      setAnalysisError(e.message)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  function buildAlertPayload() {
+    const alertData = f.goingCold || {
+      fan: f.fanName,
+      username: f.ofUsername,
+      lifetime: f.lifetimeSpend,
+      rolling30: f.last30,
+      urgency: 'warning',
+      medianGap: 0,
+      currentGap: 0,
+      gapRatio: 0,
+    }
+    // Compute monthly spending history from transaction data for the PDF chart
+    // Use same matching logic as the fan spend chart (ofUsername or displayName)
+    const monthlyMap = {}
+    if (allTxns) {
+      for (const t of allTxns) {
+        const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
+          (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
+        if (!match || t.type === 'Chargeback') continue
+        if (t.net > 0) {
+          const mo = (t.date || '').slice(0, 7)
+          if (mo) monthlyMap[mo] = (monthlyMap[mo] || 0) + t.net
+        }
+      }
+    }
+    const monthlyHistory = Object.entries(monthlyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, spend]) => ({ month, spend: Math.round(spend) }))
+
+    // Compute peak 90-day monthly avg (best 3-month rolling window) with date range
+    let peakMonthlyAvg = 0
+    let peakStartMonth = null, peakEndMonth = null
+    if (monthlyHistory.length >= 3) {
+      for (let i = 0; i <= monthlyHistory.length - 3; i++) {
+        const windowAvg = (monthlyHistory[i].spend + monthlyHistory[i + 1].spend + monthlyHistory[i + 2].spend) / 3
+        if (windowAvg > peakMonthlyAvg) {
+          peakMonthlyAvg = windowAvg
+          peakStartMonth = monthlyHistory[i].month
+          peakEndMonth = monthlyHistory[i + 2].month
+        }
+      }
+    } else if (monthlyHistory.length > 0) {
+      peakMonthlyAvg = monthlyHistory.reduce((s, m) => s + m.spend, 0) / monthlyHistory.length
+      peakStartMonth = monthlyHistory[0].month
+      peakEndMonth = monthlyHistory[monthlyHistory.length - 1].month
+    }
+    peakMonthlyAvg = Math.round(peakMonthlyAvg)
+    // Format peak range: "Nov '25 – Jan '26"
+    const fmtPeakMonth = (mo) => {
+      if (!mo) return ''
+      const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      const [y, m] = mo.split('-')
+      return `${moNames[parseInt(m) - 1]} '${y.slice(2)}`
+    }
+    const peakRange = peakStartMonth ? `${fmtPeakMonth(peakStartMonth)} – ${fmtPeakMonth(peakEndMonth)}` : ''
+
+    return {
+      creatorName,
+      creatorRecordId,
+      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, peakMonthlyAvg, peakRange },
+      analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+    }
+  }
+
+  async function handlePreviewPdf() {
+    setPreviewLoading(true)
+    setPreviewImage(null)
+    setSendResult(null)
+    setShowSendModal(true)
+    try {
+      const payload = buildAlertPayload()
+      const res = await fetch('/api/admin/whale-alert/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Preview failed')
+      setPreviewImage(data.image)
+    } catch (e) {
+      setSendResult({ error: 'Preview failed: ' + e.message })
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  async function handleSendToTelegram() {
+    setSending(true)
+    setSendResult(null)
+    try {
+      const payload = buildAlertPayload()
+      const res = await fetch('/api/admin/whale-alert/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Send failed')
+      setSendResult({ success: true })
+    } catch (e) {
+      setSendResult({ error: e.message })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+      <div
+        onClick={onToggle}
+        style={{
+          display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 80px 80px 90px',
+          padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
+          background: isExpanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
+        }}
+      >
+        <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
+        <div>
+          <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{f.fanName}</span>
+          {f.ofUsername && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>}
+          {f.alertCount > 0 && <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
+        </div>
+        <span><span style={{ background: sc.bg, color: sc.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.status}</span></span>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(f.lifetimeSpend)}</span>
+        <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#DC2626' : '#666', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
+        <span style={{ textAlign: 'right', color: '#666' }}>{f.txnCount || 0}</span>
+        <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{f.lastDate || '—'}</span>
+      </div>
+
+      {isExpanded && (
+        <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
+          {/* Going cold details */}
+          {f.goingCold && (
+            <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA' }}>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#DC2626', fontWeight: 600, marginBottom: '2px' }}>Trigger</div>
+                  <div style={{ color: '#1a1a1a' }}>
+                    {f.goingCold.triggerReason === 'gap' && `Purchase gap ${f.goingCold.currentGap}d exceeds ${f.goingCold.medianGap * 2}d threshold (2\u00d7 median)`}
+                    {f.goingCold.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+                    {f.goingCold.triggerReason === 'both' && `Gap ${f.goingCold.gapRatio}\u00d7 overdue + spending at ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Purchase</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.lastPurchaseDate}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Gap</div>
+                  <div style={{ fontWeight: 600, color: '#DC2626' }}>{f.goingCold.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.goingCold.gapRatio}x median {f.goingCold.medianGap}d)</span></div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last 30d</div>
+                  <div>{fmtMoney(f.goingCold.rolling30)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>90d Avg/mo</div>
+                  <div>{fmtMoney(f.goingCold.monthlyAvg90)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Total Purchases</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.totalPurchases || f.txnCount || 0} sessions</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            {f.firstDate && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Purchase</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.firstDate}</div>
+              </div>
+            )}
+            {f.firstFlagged && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Flagged</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.firstFlagged)}</div>
+              </div>
+            )}
+            {f.timesGoneCold > 0 && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Times Gone Cold</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.timesGoneCold}</div>
+              </div>
+            )}
+            {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Post-Alert Spend (30d)</div>
+                <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>
+                  {fmtMoney(f.postAlertSpend30d)}
+                </div>
+              </div>
+            )}
+            {f.lastChatUpload && (
+              <div>
+                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Chat Upload</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.lastChatUpload)}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Spending chart — full width, monthly bars (default) / daily line toggle */}
+          {(fanSpendData || monthlySpendData) && (() => {
+            const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            const VW = 900, H = 150, padL = 50, padR = 30, padT = 16, padB = 24
+            const chartW = VW - padL - padR, chartH = H - padT - padB
+            const milestoneMonths = milestones.map(m => m.date.slice(0, 7))
+
+            const allMonthly = monthlySpendData || []
+            const defaultMonthly = allMonthly.length > 7 ? allMonthly.slice(-7) : allMonthly
+            const visibleMonthly = showAllHistory ? allMonthly : defaultMonthly
+            const canExpandMonthly = allMonthly.length > 7
+            const startMonth = visibleMonthly.length > 0 ? visibleMonthly[0].month : null
+            const allDaily = fanSpendData || []
+            const visibleDaily = startMonth ? allDaily.filter(d => d.date >= startMonth) : allDaily
+
+            // Shared y-axis scale across both charts with round tick numbers
+            const monthlyMax = visibleMonthly.length > 0 ? Math.max(...visibleMonthly.map(d => d.spend)) : 0
+            const dailyMax = visibleDaily.length > 0 ? Math.max(...visibleDaily.map(d => d.spend)) : 0
+            const rawMax = Math.max(monthlyMax, dailyMax, 1)
+            // Round up to a nice number
+            const magnitude = Math.pow(10, Math.floor(Math.log10(rawMax)))
+            const niceSteps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
+            const sharedMax = niceSteps.map(s => s * magnitude).find(s => s >= rawMax) || rawMax
+            const sharedTicks = [0, Math.round(sharedMax / 2), Math.round(sharedMax)]
+
+            const headerRow = (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
+                  {canExpandMonthly && (
+                    <button onClick={() => setShowAllHistory(!showAllHistory)}
+                      style={{ fontSize: '10px', color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 500 }}>
+                      {showAllHistory ? `Last 7 months` : `Show all (${allMonthly.length} months)`}
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
+                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
+                </div>
+              </div>
+            )
+
+            if (chartMode === 'monthly' && visibleMonthly.length >= 1) {
+              const data = visibleMonthly
+              const barW = Math.min(chartW / data.length * 0.7, 40)
+              const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
+
+              return (
+                <div style={{ marginBottom: '12px' }}>
+                  {headerRow}
+                  <svg viewBox={`0 0 ${VW} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
+                    {sharedTicks.map(v => (
+                      <g key={v}>
+                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
+                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
+                      </g>
+                    ))}
+                    {data.map((d, i) => {
+                      const cx = padL + ((i + 0.5) / data.length) * chartW
+                      const barH = Math.max((d.spend / sharedMax) * chartH, d.spend > 0 ? 2 : 0)
+                      const moNum = parseInt(d.month.slice(5))
+                      const yr = d.month.slice(2, 4)
+                      const hasMilestone = milestoneMonths.includes(d.month)
+                      const spendLabelY = padT + chartH - barH - 3
+                      const defaultDotY = padT - 6
+                      const dotY = hasMilestone && d.spend > 0 && spendLabelY < defaultDotY + 12 ? spendLabelY - 10 : defaultDotY
+                      return (
+                        <g key={d.month}>
+                          <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
+                          {d.spend > 0 && <text x={cx} y={spendLabelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
+                          <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#7C3AED' : '#999'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
+                          {hasMilestone && <circle cx={cx} cy={dotY} r="3.5" fill="#7C3AED" />}
+                        </g>
+                      )
+                    })}
+                  </svg>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: '#999', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
+                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#7C3AED', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
+                  </div>
+                </div>
+              )
+            }
+
+            if (chartMode === 'daily' && visibleDaily.length >= 2) {
+              const data = visibleDaily
+              // Time-based x positioning so daily dates align with monthly bars
+              const timestamps = data.map(d => new Date(d.date + 'T12:00:00').getTime())
+              const tStart = timestamps[0]
+              // Extend to end of the last month so partial months match the monthly bar width
+              const lastDate = new Date(data[data.length - 1].date + 'T12:00:00')
+              const monthEnd = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 0, 12, 0, 0)
+              const tEnd = monthEnd.getTime()
+              const tRange = tEnd - tStart || 1
+              const xScale = (i) => padL + ((timestamps[i] - tStart) / tRange) * chartW
+              const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
+              const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
+              const linePath = 'M' + points.join(' L')
+              const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
+              const moAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              const fmtDateLabel = (dateStr) => {
+                const dt = new Date(dateStr + 'T12:00:00')
+                return `${moAbbr[dt.getMonth()]} ${dt.getDate()}`
+              }
+              // Generate labels at month boundaries for better alignment with monthly chart
+              const xLabels = []
+              const seenMonths = new Set()
+              data.forEach((d, i) => {
+                const mo = d.date.slice(0, 7)
+                if (!seenMonths.has(mo)) {
+                  seenMonths.add(mo)
+                  xLabels.push({ i, label: fmtDateLabel(d.date) })
+                }
+              })
+              // Include last date only if far enough from the previous label
+              const lastIdx = data.length - 1
+              const lastLabelIdx = xLabels[xLabels.length - 1]?.i ?? -Infinity
+              if (lastIdx !== lastLabelIdx) {
+                const lastX = xScale(lastIdx)
+                const prevX = xScale(lastLabelIdx)
+                if (lastX - prevX > 40) {
+                  xLabels.push({ i: lastIdx, label: fmtDateLabel(data[lastIdx].date) })
+                }
+              }
+              const dateToIndex = {}
+              data.forEach((d, i) => { dateToIndex[d.date] = i })
+
+              return (
+                <div style={{ marginBottom: '12px' }}>
+                  {headerRow}
+                  <svg viewBox={`0 0 ${VW} ${H}`} style={{ display: 'block', width: '100%', height: 'auto', cursor: 'crosshair' }}
+                    onMouseMove={e => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const scale = VW / rect.width
+                      const mx = (e.clientX - rect.left) * scale
+                      let closest = 0, closestDist = Infinity
+                      for (let i = 0; i < data.length; i++) {
+                        const dist = Math.abs(xScale(i) - mx)
+                        if (dist < closestDist) { closestDist = dist; closest = i }
+                      }
+                      setHoverIdx(closest)
+                    }}
+                    onMouseLeave={() => setHoverIdx(null)}
+                  >
+                    {sharedTicks.map(v => (
+                      <g key={v}>
+                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
+                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
+                      </g>
+                    ))}
+                    <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
+                    <path d={linePath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />
+                    {data.map((d, i) => d.spend > 0 ? (
+                      <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
+                    ) : null)}
+                    {hoverIdx !== null && data[hoverIdx] && (() => {
+                      const d = data[hoverIdx]
+                      const hx = xScale(hoverIdx)
+                      const hy = yScale(d.spend)
+                      const moN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                      const dt = new Date(d.date + 'T12:00:00')
+                      const label = `${moN[dt.getMonth()]} ${dt.getDate()}`
+                      const tooltipW = 90
+                      const tx = Math.max(padL, Math.min(hx - tooltipW / 2, VW - padR - tooltipW))
+                      return (
+                        <g>
+                          <line x1={hx} x2={hx} y1={padT} y2={padT + chartH} stroke="#7C3AED" strokeWidth="0.5" strokeDasharray="2,2" opacity="0.5" />
+                          <rect x={tx} y={hy - 28} width={tooltipW} height="22" rx="4" fill="#1a1a1a" />
+                          <text x={tx + tooltipW / 2} y={hy - 14} textAnchor="middle" fontSize="10" fill="#fff" fontWeight="600">{label}: {fmtMoney(d.spend)}</text>
+                        </g>
+                      )
+                    })()}
+                    {milestones.map((m, idx) => {
+                      const mi = dateToIndex[m.date]
+                      if (mi === undefined) return null
+                      const x = xScale(mi)
+                      return (
+                        <g key={idx}>
+                          <line x1={x} x2={x} y1={padT} y2={H - padB} stroke={m.color} strokeWidth="1.5" strokeDasharray="4,3" />
+                          <text x={x} y={padT - 2} textAnchor="middle" fontSize="8" fill={m.color} fontWeight="600">{m.label}</text>
+                        </g>
+                      )
+                    })}
+                    {xLabels.map(({ i: xi, label }) => (
+                      <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="7.5" fill="#999">{label}</text>
+                    ))}
+                  </svg>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: '#999', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
+                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#7C3AED', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
+                  </div>
+                </div>
+              )
+            }
+            return null
+          })()}
+
+          {/* Alert history timeline */}
+          {f.alertHistory && f.alertHistory.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Alert History</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {f.alertHistory.slice().reverse().map((h, idx) => {
+                  const urgEmoji = { critical: '\uD83D\uDEA8', high: '\u26A0\uFE0F', warning: '\uD83D\uDFE1' }
+                  return (
+                    <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px', color: '#666' }}>
+                      <span>{urgEmoji[h.urgency] || '\uD83D\uDFE1'}</span>
+                      <span style={{ color: '#999', minWidth: '90px' }}>{fmtDate(h.date)}</span>
+                      <span>{h.currentGap}d gap ({h.medianGap}d normal)</span>
+                      <span style={{ color: '#999' }}>&middot;</span>
+                      <span>30d: {fmtMoney(h.rolling30)}</span>
+                      <span style={{ color: '#999' }}>&middot;</span>
+                      <span>Lifetime: {fmtMoney(h.lifetime)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Chat Analysis Section (unified: history + viewer + upload) ── */}
+          <div style={{ marginTop: '12px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>
+                Chat Analysis {f.lifetimeSpend >= 1000 ? '(Deep Dive)' : '(Quick Snapshot)'}
+              </div>
+              {/* Analysis selector dropdown when multiple exist */}
+              {f.analysisRecords && f.analysisRecords.length > 1 && (
+                <select value={selectedAnalysisIdx} onChange={e => { setSelectedAnalysisIdx(Number(e.target.value)); setAnalysis(null); setShowBrief(false) }}
+                  style={{ fontSize: '11px', padding: '3px 8px', border: '1px solid #E2E8F0', borderRadius: '4px', color: '#666', background: '#FAFAFA' }}>
+                  {f.analysisRecords.map((a, idx) => (
+                    <option key={idx} value={idx}>{fmtDate(a.date)} — {a.type || 'Analysis'}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Show selected analysis from history */}
+            {f.analysisRecords && f.analysisRecords.length > 0 && (() => {
+              const sel = f.analysisRecords[selectedAnalysisIdx] || f.analysisRecords[0]
+              // Check if this analysis has been sent (alert exists after analysis date)
+              const analysisSent = f.alertHistory?.some(h => {
+                if (!h.date || !sel.date) return false
+                return h.date >= sel.date
+              })
+              return (
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', color: '#999' }}>{fmtDate(sel.date)}</span>
+                    {sel.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: '3px' }}>{sel.type}</span>}
+                    {analysisSent
+                      ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 5px', borderRadius: '3px' }}>Sent to Manager</span>
+                      : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 5px', borderRadius: '3px' }}>Not Sent</span>
+                    }
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        if (!confirm('Delete this analysis?')) return
+                        const res = await fetch(`/api/admin/fan-tracker?recordId=${sel.id}&table=analysis`, { method: 'DELETE' })
+                        if (res.ok) {
+                          setFans(prev => prev.map(fan => {
+                            if (fan.id !== f.id) return fan
+                            const updated = { ...fan, analysisRecords: fan.analysisRecords.filter(ar => ar.id !== sel.id) }
+                            if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
+                            return updated
+                          }).filter(Boolean))
+                          setSelectedAnalysisIdx(0)
+                        }
+                      }}
+                      style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '14px', padding: '0 4px' }}
+                      onMouseEnter={e => e.target.style.color = '#DC2626'}
+                      onMouseLeave={e => e.target.style.color = '#ccc'}
+                      title="Delete this analysis"
+                    >&times;</button>
+                  </div>
+                  {sel.brief && <div style={{ fontSize: '11px', color: '#444', lineHeight: '1.5', marginBottom: '8px' }}>
+                    {sel.brief.split('\n').map((line, li) => {
+                      const t = line.trim()
+                      if (!t) return <div key={li} style={{ height: '4px' }} />
+                      if (/^\*\*[^*]+\*\*/.test(t)) {
+                        const m = t.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                        if (m) return <div key={li} style={{ marginTop: li > 0 ? '6px' : 0 }}><span style={{ fontWeight: 700, color: '#7C3AED' }}>{m[1]}:</span> {m[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</div>
+                      }
+                      return <div key={li}>{t.replace(/\*\*([^*]+)\*\*/g, '$1')}</div>
+                    })}
+                  </div>}
+                  {/* Send to Manager button — only if not already sent */}
+                  {!analysisSent && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <button onClick={handlePreviewPdf} disabled={previewLoading}
+                        style={{
+                          background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                          padding: '6px 12px', fontSize: '11px', color: '#fff', fontWeight: 600,
+                          cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
+                          display: 'flex', alignItems: 'center', gap: '5px',
+                        }}>
+                        <span style={{ fontSize: '13px' }}>&#9993;</span> {previewLoading ? 'Generating preview...' : 'Send to Chat Manager'}
+                      </button>
+                      {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
+                      {sendResult?.error && !showSendModal && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Full analysis viewer (loaded from Airtable or freshly analyzed) */}
+            {analysis && (
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
+                    <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
+                    {analysis.lastMessageDate && <span>through {analysis.lastMessageDate}</span>}
+                    {analysis.managerBrief && (
+                      <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                      </div>
+                    )}
+                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>\u2713 Saved</span>}
+                  </div>
+                  {chatFile ? (
+                    <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }} disabled={analyzing}
+                      style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                      {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
+                    </button>
+                  ) : (
+                    <button onClick={() => { setAnalysis(null); setShowBrief(false) }}
+                      style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Upload new chat
+                    </button>
+                  )}
+                </div>
+                <div style={{
+                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
+                  border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
+                  borderRadius: '8px', padding: '16px 20px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
+                }}>
+                  {(() => {
+                    const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
+                    const accentColor = showBrief ? '#334155' : '#EA580C'
+                    return text.split('\n').map((line, idx) => {
+                      const trimmed = line.trim()
+                      if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
+                      if (/^\*\*[^*]+\*\*/.test(trimmed)) {
+                        const hm = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                        if (hm) {
+                          const rest = hm[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
+                          return <div key={idx} style={{ marginTop: idx > 0 ? '14px' : 0, marginBottom: '4px' }}><div style={{ fontSize: '12px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
+                        }
+                      }
+                      if (/^\d+\.\s/.test(trimmed)) {
+                        const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                        const nm = trimmed.match(/^(\d+)\./)
+                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '12px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
+                      }
+                      if (/^[-\u2022]\s/.test(trimmed)) {
+                        const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>\u25CF</span><span>{content}</span></div>
+                      }
+                      return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
+                    })
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Upload new chat */}
+            {!analysis && (
+              <div>
+                {/* Show "scroll back to" hint if there's a previous analysis */}
+                {analysis?.lastMessageDate && (
+                  <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '6px', fontSize: '11px', color: '#92400E' }}>
+                    Previous analysis covered messages through <strong>{analysis.lastMessageDate}</strong>. Scroll back to at least this date before saving the HTML.
+                  </div>
+                )}
+                {f.analysisRecords?.length > 0 && !analysis?.lastMessageDate && (
+                  <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', color: '#0369A1' }}>
+                    Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input ref={chatFileRef} type="file" accept=".html,.htm"
+                    onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
+                    style={{ display: 'none' }} />
+                  <button onClick={() => chatFileRef.current?.click()}
+                    style={{
+                      background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                      borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                      color: chatFile ? '#166534' : '#64748B',
+                    }}>
+                    {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+                  </button>
+                  {chatFile && (
+                    <button onClick={handleAnalyze} disabled={analyzing}
+                      style={{
+                        background: '#EA580C', border: 'none', borderRadius: '6px',
+                        padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                        cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                      }}>
+                      {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {analysisError && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+                {analysisError}
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          {f.notes && (
+            <div style={{ marginTop: '12px' }}>
+              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
+              <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Send to Chat Manager preview modal */}
+      {showSendModal && (
+        <div
+          onClick={() => !sending && setShowSendModal(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: '12px', padding: '24px',
+              maxWidth: '700px', width: '90vw', maxHeight: '85vh', overflowY: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 700 }}>Send Whale Alert</div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                  PDF will be sent to the <strong>{creatorName}</strong> topic in Telegram
+                </div>
+              </div>
+              <button onClick={() => setShowSendModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', color: '#999', cursor: 'pointer', padding: '4px' }}>&times;</button>
+            </div>
+
+            {/* PDF Preview */}
+            <div style={{ background: '#F9FAFB', borderRadius: '8px', padding: '12px', marginBottom: '16px', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {previewLoading && (
+                <div style={{ fontSize: '13px', color: '#999' }}>Generating PDF preview...</div>
+              )}
+              {previewImage && (
+                <img src={previewImage} alt="Whale Alert PDF Preview" style={{ width: '100%', borderRadius: '6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+              )}
+              {!previewLoading && !previewImage && sendResult?.error && (
+                <div style={{ fontSize: '12px', color: '#DC2626' }}>{sendResult.error}</div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowSendModal(false)}
+                disabled={sending}
+                style={{
+                  background: '#F3F4F6', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: '#666', fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >Cancel</button>
+              <button
+                onClick={handleSendToTelegram}
+                disabled={sending || previewLoading || !previewImage}
+                style={{
+                  background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                  cursor: (sending || previewLoading || !previewImage) ? 'not-allowed' : 'pointer',
+                  opacity: (sending || previewLoading || !previewImage) ? 0.5 : 1,
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                <span style={{ fontSize: '14px' }}>&#9993;</span> {sending ? 'Sending...' : 'Confirm & Send'}
+              </button>
+            </div>
+
+            {sendResult?.success && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
+                &#10003; Sent &amp; logged in Fan Tracker
+              </div>
+            )}
+            {sendResult?.error && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+                {sendResult.error}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FansPanel({ creator, allTxns, goingColdAlerts }) {
+  const [crmData, setCrmData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [expandedId, setExpandedId] = useState(null)
+  const [showAllFans, setShowAllFans] = useState(false)
+
+  const creatorName = creator?.name || creator?.aka || ''
+  const creatorRecordId = creator?.id || ''
+
+  // Fetch CRM data (analyses + tracker records)
+  useEffect(() => {
+    setLoading(true)
+    const name = creator?.aka || creator?.name || ''
+    fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then(data => { setCrmData(data.fans || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [creator?.id])
+
+  // Build comprehensive fan list from allTxns + CRM data + going cold alerts
+  const allFans = useMemo(() => {
+    const fanMap = new Map() // keyed by ofUsername or displayName
+
+    // 1. Build from transaction data — every fan who's spent money
+    if (allTxns && Array.isArray(allTxns)) {
+      const thirtyAgo = new Date()
+      thirtyAgo.setDate(thirtyAgo.getDate() - 30)
+      const thirtyAgoStr = thirtyAgo.toISOString().split('T')[0]
+
+      for (const t of allTxns) {
+        if (t.type === 'Chargeback') continue
+        const key = (t.ofUsername || t.displayName || 'Unknown').toLowerCase()
+        if (key === 'unknown') continue
+        if (!fanMap.has(key)) {
+          fanMap.set(key, {
+            id: `txn-${key}`,
+            fanName: t.displayName || key,
+            ofUsername: t.ofUsername || '',
+            lifetimeSpend: 0,
+            last30: 0,
+            txnCount: 0,
+            lastDate: '',
+            firstDate: '',
+            status: 'Fan',
+            alertCount: 0,
+            alertHistory: [],
+            analysisRecords: [],
+            effectiveness: '',
+            preAlertSpend30d: 0,
+            postAlertSpend30d: 0,
+            firstFlagged: null,
+            lastAlertSent: null,
+            timesGoneCold: 0,
+            lastChatUpload: null,
+            notes: '',
+            source: 'transactions',
+          })
+        }
+        const fan = fanMap.get(key)
+        fan.lifetimeSpend += t.net || 0
+        fan.txnCount += 1
+        if (t.displayName) fan.fanName = t.displayName
+        if (!fan.ofUsername && t.ofUsername) fan.ofUsername = t.ofUsername
+        if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
+        if (!fan.firstDate || t.date < fan.firstDate) fan.firstDate = t.date
+        if (t.date >= thirtyAgoStr) fan.last30 += t.net || 0
+      }
+    }
+
+    // 2. Overlay going cold alerts
+    if (goingColdAlerts) {
+      for (const a of goingColdAlerts) {
+        const key = (a.username || a.fan || '').toLowerCase()
+        if (!key) continue
+        if (fanMap.has(key)) {
+          const f = fanMap.get(key)
+          f.status = 'Going Cold'
+          f.goingCold = a // attach full alert data
+        }
+      }
+    }
+
+    // 3. Overlay CRM data (analyses, alerts, tracker status)
+    for (const c of crmData) {
+      const key = (c.ofUsername || c.fanName || '').toLowerCase()
+      if (!key) continue
+      if (fanMap.has(key)) {
+        const f = fanMap.get(key)
+        // CRM status takes priority over "Fan" but not over "Going Cold"
+        // Don't let CRM status set "Going Cold" — only the live goingColdAlerts detection should do that
+        if (c.status && f.status !== 'Going Cold') {
+          f.status = c.status === 'Going Cold' ? f.status : c.status
+        }
+        if (c.alertCount > 0) { f.alertCount = c.alertCount }
+        if (c.alertHistory) f.alertHistory = c.alertHistory
+        if (c.analysisRecords && c.analysisRecords.length > 0) {
+          f.analysisRecords = c.analysisRecords
+          if (f.status === 'Fan') f.status = 'Analyzed'
+        }
+        f.effectiveness = c.effectiveness || f.effectiveness
+        f.preAlertSpend30d = c.preAlertSpend30d || f.preAlertSpend30d
+        f.postAlertSpend30d = c.postAlertSpend30d || f.postAlertSpend30d
+        f.firstFlagged = c.firstFlagged || f.firstFlagged
+        f.lastAlertSent = c.lastAlertSent || f.lastAlertSent
+        f.timesGoneCold = c.timesGoneCold || f.timesGoneCold
+        f.lastChatUpload = c.lastChatUpload || f.lastChatUpload
+        f.notes = c.notes || f.notes
+        f.crmId = c.id
+      } else {
+        // CRM-only record (no transactions)
+        fanMap.set(key, { ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '', source: 'crm' })
+      }
+    }
+
+    // Sort: Going Cold first, then Alert Sent, Analyzed, then by lifetime spend
+    const statusOrder = { 'Going Cold': 0, 'Alert Sent': 1, 'Analyzed': 2, 'Recovering': 3, 'Monitoring': 4, 'Reactivated': 5, 'Lost': 6, 'Fan': 7 }
+    return Array.from(fanMap.values())
+      .filter(f => f.lifetimeSpend > 0 || f.analysisRecords?.length > 0 || f.alertCount > 0)
+      .sort((a, b) => {
+        const so = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+        if (so !== 0) return so
+        return (b.lifetimeSpend || 0) - (a.lifetimeSpend || 0)
+      })
+  }, [allTxns, crmData, goingColdAlerts])
+
+  const statusColors = {
+    'Going Cold': { bg: '#FEE2E2', text: '#DC2626' },
+    'Alert Sent': { bg: '#FFF3CD', text: '#D97706' },
+    'Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
+    'Recovering': { bg: '#FEF9C3', text: '#A16207' },
+    'Reactivated': { bg: '#DCFCE7', text: '#166534' },
+    'Lost': { bg: '#F3F4F6', text: '#6B7280' },
+    'Monitoring': { bg: '#DBEAFE', text: '#1D4ED8' },
+    'Fan': { bg: '#F3F4F6', text: '#666' },
+  }
+
+  const effectColors = {
+    'Worked': { bg: '#DCFCE7', text: '#166534' },
+    'Didn\'t Work': { bg: '#FEE2E2', text: '#DC2626' },
+    'Too Early': { bg: '#FEF9C3', text: '#A16207' },
+    'Pending': { bg: '#F3F4F6', text: '#6B7280' },
+  }
+
+  const filtered = allFans.filter(f => {
+    if (filter === 'going_cold') return f.status === 'Going Cold'
+    if (filter === 'tracked') return ['Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)
+    if (filter === 'resolved') return ['Reactivated', 'Lost'].includes(f.status)
+    return true
+  })
+
+  const goingColdCount = allFans.filter(f => f.status === 'Going Cold').length
+  const trackedCount = allFans.filter(f => ['Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)).length
+  const displayFans = showAllFans ? filtered : filtered.slice(0, 25)
+
+  function fmtDate(iso) {
+    if (!iso) return '—'
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+  function fmtMoney(n) {
+    if (!n && n !== 0) return '—'
+    return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  }
+
+  if (loading && (!allTxns || allTxns.length === 0)) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <div style={{ width: '24px', height: '24px', border: '2px solid #E88FAC', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto 12px' }} />
+        <div style={{ fontSize: '13px', color: '#999' }}>Loading fans...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Fan CRM</h3>
+          <p style={{ fontSize: '12px', color: '#999', margin: '2px 0 0' }}>
+            {allFans.length} fan{allFans.length !== 1 ? 's' : ''}
+            {goingColdCount > 0 && <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {goingColdCount} going cold</span>}
+            {trackedCount > 0 && <span> &middot; {trackedCount} tracked</span>}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {[
+            ['all', `All (${allFans.length})`],
+            ['going_cold', `Going Cold (${goingColdCount})`],
+            ['tracked', `Tracked (${trackedCount})`],
+            ['resolved', 'Resolved'],
+          ].map(([key, label]) => (
+            <button key={key} onClick={() => setFilter(key)}
+              style={{
+                padding: '4px 10px', fontSize: '11px', fontWeight: filter === key ? 600 : 400,
+                background: filter === key ? '#1a1a1a' : '#F3F4F6', color: filter === key ? '#fff' : '#666',
+                border: 'none', borderRadius: '4px', cursor: 'pointer',
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: '#999', fontSize: '13px', background: '#FAFAFA', borderRadius: '10px' }}>
+          No fans match this filter.
+        </div>
+      ) : (
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+          {/* Table header */}
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span></span><span>Fan</span><span>Status</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
+          </div>
+          {displayFans.map((f, i) => (
+            <FanRow key={f.id} f={f} i={i} isExpanded={expandedId === f.id}
+              onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
+              statusColors={statusColors} effectColors={effectColors}
+              fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
+              creatorName={creatorName} creatorRecordId={creatorRecordId}
+              allTxns={allTxns} />
+          ))}
+          {filtered.length > 25 && !showAllFans && (
+            <button onClick={() => setShowAllFans(true)}
+              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
+              Show all {filtered.length} fans
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -1510,23 +2895,22 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
   useEffect(() => { load(); setEarningsData(null); setEarningsError(null) }, [creator.id])
 
-  // Lazy-load earnings when section is opened
+  // Prefetch earnings immediately on creator change (don't wait for tab click)
   useEffect(() => {
-    if (activeSection === 'earnings' && !earningsData && !earningsLoading) {
-      setEarningsLoading(true)
-      setEarningsError(null)
-      const name = creator.aka || creator.name
-      fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.error === 'no_sheet') setEarningsData({ empty: true })
-          else if (data.error) setEarningsError(data.error)
-          else setEarningsData(data)
-        })
-        .catch(e => setEarningsError(e.message))
-        .finally(() => setEarningsLoading(false))
-    }
-  }, [activeSection, earningsData, earningsLoading, creator.id])
+    setEarningsData(null)
+    setEarningsLoading(true)
+    setEarningsError(null)
+    const name = creator.aka || creator.name
+    fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error === 'no_sheet') setEarningsData({ empty: true })
+        else if (data.error) setEarningsError(data.error)
+        else setEarningsData(data)
+      })
+      .catch(e => setEarningsError(e.message))
+      .finally(() => setEarningsLoading(false))
+  }, [creator.id])
 
   const refreshEarnings = useCallback(() => {
     setEarningsData(null)
@@ -1668,6 +3052,11 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
           onRefresh={refreshEarnings}
           creator={creator}
         />
+      )}
+
+      {/* ── Fans CRM section ────────────────────────────────────────────── */}
+      {activeSection === 'fans' && (
+        <FansPanel creator={creator} allTxns={earningsData?.transactions} goingColdAlerts={earningsData?.goingColdAlerts || []} />
       )}
 
       {/* ── DNA section ──────────────────────────────────────────────────── */}
@@ -2118,7 +3507,7 @@ export default function CreatorsPage() {
         </select>
         {selected && (
           <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
-            {[['earnings', 'Earnings'], ['dna', 'DNA Profile']].map(([key, label]) => (
+            {[['earnings', 'Earnings'], ['fans', 'Fans'], ['dna', 'DNA Profile']].map(([key, label]) => (
               <button key={key} onClick={() => { setActiveSection(key); updateUrl(selected?.id, key) }}
                 style={{
                   padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,
@@ -2140,7 +3529,7 @@ export default function CreatorsPage() {
           Select a creator above to get started.
         </div>
       ) : (
-        <div style={{ background: activeSection === 'earnings' ? 'transparent' : '#ffffff', border: 'none', boxShadow: activeSection === 'earnings' ? 'none' : '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: activeSection === 'earnings' ? '0' : '24px' }}>
+        <div style={{ background: (activeSection === 'earnings' || activeSection === 'fans') ? 'transparent' : '#ffffff', border: 'none', boxShadow: (activeSection === 'earnings' || activeSection === 'fans') ? 'none' : '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: (activeSection === 'earnings' || activeSection === 'fans') ? '0' : '24px' }}>
           <CreatorDetail
             key={selected.id}
             creator={selected}

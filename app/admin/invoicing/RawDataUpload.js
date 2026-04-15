@@ -268,9 +268,14 @@ export default function RawDataUpload() {
             </div>
           )}
 
+          {result.overlapMethod && (
+            <div style={{ marginTop: '8px', fontSize: '11px', color: '#15803D', fontStyle: 'italic' }}>
+              Dedup: {result.overlapMethod === 'fingerprint' ? 'matched last transaction in sheet, appended new rows after overlap' : result.overlapMethod === 'cutoff_fallback' ? 'no exact match found, used timestamp cutoff' : 'first upload, no dedup needed'}
+            </div>
+          )}
           {result.cutoff && (
-            <div style={{ marginTop: '10px', fontSize: '12px', color: '#15803D', fontStyle: 'italic' }}>
-              Next upload: only include data after {fmtCutoff(result.cutoff)}
+            <div style={{ marginTop: '4px', fontSize: '12px', color: '#15803D', fontStyle: 'italic' }}>
+              Latest transaction: {fmtCutoff(result.cutoff)}
             </div>
           )}
         </div>
