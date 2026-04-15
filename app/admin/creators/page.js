@@ -1789,6 +1789,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const [hoverIdx, setHoverIdx] = useState(null)
   const [savingTranscript, setSavingTranscript] = useState(false)
   const [transcriptSaved, setTranscriptSaved] = useState(false)
+  const [viewingAnalysisIdx, setViewingAnalysisIdx] = useState(null) // index into analysisRecords for full modal
   const chatFileRef = useRef(null)
   const saveFileRef = useRef(null)
 
@@ -2116,76 +2117,72 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
       {isExpanded && (
         <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
-          {/* Going cold details */}
-          {f.goingCold && (
-            <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA' }}>
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '12px' }}>
+
+          {/* ═══ SECTION 1: Fan Info Header ═══ */}
+          <div style={{ marginBottom: '16px' }}>
+            {/* Going cold alert banner */}
+            {f.goingCold && (
+              <div style={{ marginBottom: '10px', padding: '8px 12px', background: '#FEF2F2', borderRadius: '6px', border: '1px solid #FECACA', fontSize: '11px', color: '#991B1B', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <span style={{ fontSize: '14px' }}>{f.goingCold.urgency === 'critical' ? '\uD83D\uDEA8' : f.goingCold.urgency === 'high' ? '\u26A0\uFE0F' : '\uD83D\uDFE1'}</span>
+                <span>
+                  {f.goingCold.triggerReason === 'gap' && `Purchase gap ${f.goingCold.currentGap}d exceeds ${f.goingCold.medianGap * 2}d threshold (2\u00d7 median)`}
+                  {f.goingCold.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+                  {f.goingCold.triggerReason === 'both' && `Gap ${f.goingCold.gapRatio}\u00d7 overdue + spending at ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+                </span>
+              </div>
+            )}
+
+            {/* Stats grid */}
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              {f.firstDate && (
                 <div>
-                  <div style={{ fontSize: '10px', color: '#DC2626', fontWeight: 600, marginBottom: '2px' }}>Trigger</div>
-                  <div style={{ color: '#1a1a1a' }}>
-                    {f.goingCold.triggerReason === 'gap' && `Purchase gap ${f.goingCold.currentGap}d exceeds ${f.goingCold.medianGap * 2}d threshold (2\u00d7 median)`}
-                    {f.goingCold.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
-                    {f.goingCold.triggerReason === 'both' && `Gap ${f.goingCold.gapRatio}\u00d7 overdue + spending at ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Purchase</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.firstDate}</div>
+                </div>
+              )}
+              {f.goingCold && (
+                <>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last Purchase</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.lastPurchaseDate}</div>
                   </div>
-                </div>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Gap</div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#DC2626' }}>{f.goingCold.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.goingCold.gapRatio}x median {f.goingCold.medianGap}d)</span></div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last 30d</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.goingCold.rolling30)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>90d Avg/mo</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.goingCold.monthlyAvg90)}</div>
+                  </div>
+                </>
+              )}
+              {f.firstFlagged && (
                 <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Purchase</div>
-                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.lastPurchaseDate}</div>
+                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Flagged</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.firstFlagged)}</div>
                 </div>
+              )}
+              {f.timesGoneCold > 0 && (
                 <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Gap</div>
-                  <div style={{ fontWeight: 600, color: '#DC2626' }}>{f.goingCold.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.goingCold.gapRatio}x median {f.goingCold.medianGap}d)</span></div>
+                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Times Gone Cold</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.timesGoneCold}</div>
                 </div>
+              )}
+              {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
                 <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last 30d</div>
-                  <div>{fmtMoney(f.goingCold.rolling30)}</div>
+                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Post-Alert 30d</div>
+                  <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>{fmtMoney(f.postAlertSpend30d)}</div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>90d Avg/mo</div>
-                  <div>{fmtMoney(f.goingCold.monthlyAvg90)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Total Purchases</div>
-                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.totalPurchases || f.txnCount || 0} sessions</div>
-                </div>
+              )}
+              <div>
+                <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Total Purchases</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold?.totalPurchases || f.txnCount || 0} sessions</div>
               </div>
             </div>
-          )}
-
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
-            {f.firstDate && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Purchase</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.firstDate}</div>
-              </div>
-            )}
-            {f.firstFlagged && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Flagged</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.firstFlagged)}</div>
-              </div>
-            )}
-            {f.timesGoneCold > 0 && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Times Gone Cold</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.timesGoneCold}</div>
-              </div>
-            )}
-            {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Post-Alert Spend (30d)</div>
-                <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>
-                  {fmtMoney(f.postAlertSpend30d)}
-                </div>
-              </div>
-            )}
-            {f.lastChatUpload && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Chat Upload</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.lastChatUpload)}</div>
-              </div>
-            )}
           </div>
 
           {/* Spending chart — full width, monthly bars (default) / daily line toggle */}
@@ -2396,168 +2393,140 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             return null
           })()}
 
-          {/* Alert history timeline */}
-          {f.alertHistory && f.alertHistory.length > 0 && (
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Alert History</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {f.alertHistory.slice().reverse().map((h, idx) => {
-                  const urgEmoji = { critical: '\uD83D\uDEA8', high: '\u26A0\uFE0F', warning: '\uD83D\uDFE1' }
+          {/* ═══ SECTION 2: Spending Chart (unchanged) ═══ */}
+          {/* (chart code above this block) */}
+
+          {/* ═══ SECTION 3: Analysis History ═══ */}
+          <div style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
+              Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
+            </div>
+
+            {/* Analysis cards */}
+            {f.analysisRecords && f.analysisRecords.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                {f.analysisRecords.map((rec, idx) => {
+                  // Check if this analysis was sent to manager (alert exists on or after analysis date)
+                  const sentAlert = f.alertHistory?.find(h => h.date && rec.date && h.date >= rec.date)
+                  const isSent = !!sentAlert
+
+                  // Truncate brief for card summary (first 2 meaningful lines)
+                  const briefSummary = (() => {
+                    if (!rec.brief) return null
+                    const lines = rec.brief.split('\n').map(l => l.trim()).filter(l => l && !/^\*\*[^*]+\*\*$/.test(l))
+                    const cleaned = lines.slice(0, 3).map(l => l.replace(/\*\*([^*]+)\*\*/g, '$1')).join(' ')
+                    return cleaned.length > 180 ? cleaned.slice(0, 180) + '...' : cleaned
+                  })()
+
                   return (
-                    <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px', color: '#666' }}>
-                      <span>{urgEmoji[h.urgency] || '\uD83D\uDFE1'}</span>
-                      <span style={{ color: '#999', minWidth: '90px' }}>{fmtDate(h.date)}</span>
-                      <span>{h.currentGap}d gap ({h.medianGap}d normal)</span>
-                      <span style={{ color: '#999' }}>&middot;</span>
-                      <span>30d: {fmtMoney(h.rolling30)}</span>
-                      <span style={{ color: '#999' }}>&middot;</span>
-                      <span>Lifetime: {fmtMoney(h.lifetime)}</span>
+                    <div key={rec.id || idx} style={{
+                      background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px',
+                      transition: 'box-shadow 0.15s', cursor: 'default',
+                    }}>
+                      {/* Card header row */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: briefSummary ? '8px' : 0, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{fmtDate(rec.date)}</span>
+                        {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
+
+                        {/* Send status */}
+                        {isSent
+                          ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 6px', borderRadius: '3px' }}>
+                              Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}
+                            </span>
+                          : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
+                        }
+
+                        {/* Chat window dates */}
+                        {(rec.firstMessageDate || rec.lastMessageDate) && (
+                          <span style={{ fontSize: '10px', color: '#999' }}>
+                            {rec.firstMessageDate || '?'} → {rec.lastMessageDate || '?'}
+                          </span>
+                        )}
+
+                        {/* Spacer + action buttons */}
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setViewingAnalysisIdx(idx); setSelectedAnalysisIdx(idx); setShowBrief(false) }}
+                            style={{ fontSize: '10px', color: '#7C3AED', background: '#EDE9FE', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontWeight: 600 }}>
+                            View Full
+                          </button>
+                          {!isSent && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedAnalysisIdx(idx); handlePreviewPdf() }}
+                              disabled={previewLoading}
+                              style={{ fontSize: '10px', color: '#fff', background: '#1a1a1a', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: previewLoading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: previewLoading ? 0.6 : 1 }}>
+                              {previewLoading && selectedAnalysisIdx === idx ? 'Generating...' : 'Send to Manager'}
+                            </button>
+                          )}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!confirm('Delete this analysis?')) return
+                              const res = await fetch(`/api/admin/fan-tracker?recordId=${rec.id}&table=analysis`, { method: 'DELETE' })
+                              if (res.ok) {
+                                setFans(prev => prev.map(fan => {
+                                  if (fan.id !== f.id) return fan
+                                  const updated = { ...fan, analysisRecords: fan.analysisRecords.filter(ar => ar.id !== rec.id) }
+                                  if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
+                                  return updated
+                                }).filter(Boolean))
+                                setSelectedAnalysisIdx(0)
+                                if (viewingAnalysisIdx === idx) setViewingAnalysisIdx(null)
+                              }
+                            }}
+                            style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '14px', padding: '0 2px', lineHeight: 1 }}
+                            onMouseEnter={e => e.target.style.color = '#DC2626'}
+                            onMouseLeave={e => e.target.style.color = '#ccc'}
+                            title="Delete this analysis"
+                          >&times;</button>
+                        </div>
+                      </div>
+
+                      {/* Brief summary preview */}
+                      {briefSummary && (
+                        <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.5' }}>
+                          {briefSummary}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
               </div>
-            </div>
-          )}
+            ) : (
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '16px', fontStyle: 'italic' }}>No analyses yet. Upload an OF chat to get started.</div>
+            )}
 
-          {/* ── Chat Analysis Section (unified: history + viewer + upload) ── */}
-          <div style={{ marginTop: '12px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>
-                Chat Analysis {f.lifetimeSpend >= 1000 ? '(Deep Dive)' : '(Quick Snapshot)'}
-              </div>
-              {/* Analysis selector dropdown when multiple exist */}
-              {f.analysisRecords && f.analysisRecords.length > 1 && (
-                <select value={selectedAnalysisIdx} onChange={e => { setSelectedAnalysisIdx(Number(e.target.value)); setAnalysis(null); setShowBrief(false) }}
-                  style={{ fontSize: '11px', padding: '3px 8px', border: '1px solid #E2E8F0', borderRadius: '4px', color: '#666', background: '#FAFAFA' }}>
-                  {f.analysisRecords.map((a, idx) => (
-                    <option key={idx} value={idx}>{fmtDate(a.date)} — {a.type || 'Analysis'}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* Show selected analysis from history */}
-            {f.analysisRecords && f.analysisRecords.length > 0 && (() => {
-              const sel = f.analysisRecords[selectedAnalysisIdx] || f.analysisRecords[0]
-              // Check if this analysis has been sent (alert exists after analysis date)
-              const analysisSent = f.alertHistory?.some(h => {
-                if (!h.date || !sel.date) return false
-                return h.date >= sel.date
-              })
-              return (
-                <div style={{ marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11px', color: '#999' }}>{fmtDate(sel.date)}</span>
-                    {sel.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: '3px' }}>{sel.type}</span>}
-                    {analysisSent
-                      ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 5px', borderRadius: '3px' }}>Sent to Manager</span>
-                      : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 5px', borderRadius: '3px' }}>Not Sent</span>
-                    }
-                    {(sel.firstMessageDate || sel.lastMessageDate) && (
-                      <span style={{ fontSize: '10px', color: '#666' }}>
-                        Chats: {sel.firstMessageDate || '?'} → {sel.lastMessageDate || '?'}
-                      </span>
-                    )}
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        if (!confirm('Delete this analysis?')) return
-                        const res = await fetch(`/api/admin/fan-tracker?recordId=${sel.id}&table=analysis`, { method: 'DELETE' })
-                        if (res.ok) {
-                          setFans(prev => prev.map(fan => {
-                            if (fan.id !== f.id) return fan
-                            const updated = { ...fan, analysisRecords: fan.analysisRecords.filter(ar => ar.id !== sel.id) }
-                            if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
-                            return updated
-                          }).filter(Boolean))
-                          setSelectedAnalysisIdx(0)
-                        }
-                      }}
-                      style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '14px', padding: '0 4px' }}
-                      onMouseEnter={e => e.target.style.color = '#DC2626'}
-                      onMouseLeave={e => e.target.style.color = '#ccc'}
-                      title="Delete this analysis"
-                    >&times;</button>
-                  </div>
-                  {sel.brief && <div style={{ fontSize: '11px', color: '#444', lineHeight: '1.5', marginBottom: '8px' }}>
-                    {sel.brief.split('\n').map((line, li) => {
-                      const t = line.trim()
-                      if (!t) return <div key={li} style={{ height: '4px' }} />
-                      if (/^\*\*[^*]+\*\*/.test(t)) {
-                        const m = t.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
-                        if (m) return <div key={li} style={{ marginTop: li > 0 ? '6px' : 0 }}><span style={{ fontWeight: 700, color: '#7C3AED' }}>{m[1]}:</span> {m[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</div>
-                      }
-                      return <div key={li}>{t.replace(/\*\*([^*]+)\*\*/g, '$1')}</div>
-                    })}
-                  </div>}
-                  {/* Send to Manager button — only if not already sent */}
-                  {!analysisSent && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <button onClick={handlePreviewPdf} disabled={previewLoading}
-                        style={{
-                          background: '#1a1a1a', border: 'none', borderRadius: '6px',
-                          padding: '6px 12px', fontSize: '11px', color: '#fff', fontWeight: 600,
-                          cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
-                          display: 'flex', alignItems: 'center', gap: '5px',
-                        }}>
-                        <span style={{ fontSize: '13px' }}>&#9993;</span> {previewLoading ? 'Generating preview...' : 'Send to Chat Manager'}
-                      </button>
-                      {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
-                      {sendResult?.error && !showSendModal && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* Full analysis viewer (loaded from Airtable or freshly analyzed) */}
+            {/* Freshly generated analysis (inline, before it gets saved to records) */}
             {analysis && (
-              <div style={{ marginBottom: '12px' }}>
+              <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#FFFBF5', border: '1px solid #FED7AA', borderRadius: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
+                    <span style={{ fontWeight: 600, color: '#EA580C' }}>New Analysis</span>
                     <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
                     {(analysis.firstMessageDate || analysis.lastMessageDate) && (
                       <span>Chats: {analysis.firstMessageDate || '?'} → {analysis.lastMessageDate || '?'}</span>
                     )}
+                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>\u2713 Saved</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     {analysis.managerBrief && (
                       <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
                         <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
                         <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
                       </div>
                     )}
-                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>\u2713 Saved</span>}
-                  </div>
-                  {chatFile ? (
-                    <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }} disabled={analyzing}
-                      style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-                      {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze(true) }} disabled={analyzing}
-                        style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                    {chatFile && (
+                      <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }} disabled={analyzing}
+                        style={{ fontSize: '10px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
                         {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
                       </button>
-                      <span style={{ color: '#ddd' }}>|</span>
-                      <button onClick={() => { setAnalysis(null); setShowBrief(false) }}
-                        style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                        Upload new chat
-                      </button>
-                      <span style={{ color: '#ddd' }}>|</span>
-                      <input ref={saveFileRef} type="file" accept=".html,.htm"
-                        onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
-                        style={{ display: 'none' }} />
-                      <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
-                        style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                        {savingTranscript ? 'Saving...' : transcriptSaved ? '✓ Saved' : 'Save transcript to Dropbox'}
-                      </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
                 <div style={{
-                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
+                  background: showBrief ? '#F8FAFC' : '#fff',
                   border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
-                  borderRadius: '8px', padding: '16px 20px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
+                  borderRadius: '6px', padding: '14px 16px', fontSize: '12px', color: '#1a1a1a', lineHeight: '1.7',
                 }}>
                   {(() => {
                     const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
@@ -2569,13 +2538,13 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                         const hm = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
                         if (hm) {
                           const rest = hm[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
-                          return <div key={idx} style={{ marginTop: idx > 0 ? '14px' : 0, marginBottom: '4px' }}><div style={{ fontSize: '12px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
+                          return <div key={idx} style={{ marginTop: idx > 0 ? '12px' : 0, marginBottom: '3px' }}><div style={{ fontSize: '11px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
                         }
                       }
                       if (/^\d+\.\s/.test(trimmed)) {
                         const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
                         const nm = trimmed.match(/^(\d+)\./)
-                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '12px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
+                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '11px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
                       }
                       if (/^[-\u2022]\s/.test(trimmed)) {
                         const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
@@ -2587,51 +2556,72 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Upload new chat */}
-            {!analysis && (
-              <div>
-                {/* Show "scroll back to" hint using most recent analysis record's last message date */}
-                {(() => {
-                  const mostRecent = f.analysisRecords?.[0]
-                  const lastDate = mostRecent?.lastMessageDate
-                  if (lastDate) return (
-                    <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '6px', fontSize: '11px', color: '#92400E' }}>
-                      Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
-                    </div>
-                  )
-                  return null
-                })()}
-                {f.analysisRecords?.length > 0 && !f.analysisRecords[0]?.lastMessageDate && (
-                  <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', color: '#0369A1' }}>
-                    Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input ref={chatFileRef} type="file" accept=".html,.htm"
-                    onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
-                    style={{ display: 'none' }} />
-                  <button onClick={() => chatFileRef.current?.click()}
-                    style={{
-                      background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
-                      borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                      color: chatFile ? '#166534' : '#64748B',
-                    }}>
-                    {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
-                  </button>
-                  {chatFile && (
-                    <button onClick={handleAnalyze} disabled={analyzing}
-                      style={{
-                        background: '#EA580C', border: 'none', borderRadius: '6px',
-                        padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
-                        cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                      }}>
-                      {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
-                    </button>
-                  )}
+          {/* ═══ SECTION 4: Upload New Chat ═══ */}
+          <div style={{ marginTop: '4px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+              Upload Chat for {f.fanName}
+            </div>
+
+            {/* Scroll-back hint */}
+            {(() => {
+              const mostRecent = f.analysisRecords?.[0]
+              const lastDate = mostRecent?.lastMessageDate
+              if (lastDate) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '6px', fontSize: '11px', color: '#92400E' }}>
+                  Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
                 </div>
-              </div>
-            )}
+              )
+              if (f.analysisRecords?.length > 0) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', color: '#0369A1' }}>
+                  Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
+                </div>
+              )
+              return null
+            })()}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input ref={chatFileRef} type="file" accept=".html,.htm"
+                onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
+                style={{ display: 'none' }} />
+              <button onClick={() => chatFileRef.current?.click()}
+                style={{
+                  background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                  borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                  color: chatFile ? '#166534' : '#64748B',
+                }}>
+                {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+              </button>
+              {chatFile && (
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  style={{
+                    background: '#EA580C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                </button>
+              )}
+
+              {/* Re-analyze from Dropbox transcript */}
+              {!chatFile && f.analysisRecords?.length > 0 && (
+                <>
+                  <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                    style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                    {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
+                  </button>
+                  <span style={{ color: '#ddd' }}>|</span>
+                  <input ref={saveFileRef} type="file" accept=".html,.htm"
+                    onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
+                    style={{ display: 'none' }} />
+                  <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
+                    style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {savingTranscript ? 'Saving...' : transcriptSaved ? '\u2713 Saved' : 'Save transcript to Dropbox'}
+                  </button>
+                </>
+              )}
+            </div>
 
             {analysisError && (
               <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
@@ -2642,13 +2632,128 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
           {/* Notes */}
           {f.notes && (
-            <div style={{ marginTop: '12px' }}>
+            <div style={{ marginTop: '14px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
               <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
               <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
             </div>
           )}
         </div>
       )}
+
+      {/* ═══ Full Analysis Modal ═══ */}
+      {viewingAnalysisIdx !== null && f.analysisRecords?.[viewingAnalysisIdx] && (() => {
+        const rec = f.analysisRecords[viewingAnalysisIdx]
+        // Try to use the loaded analysis if it matches, otherwise use the record's brief
+        const fullText = analysis?.analysis || rec.fullAnalysis || null
+        const briefText = analysis?.managerBrief || rec.brief || null
+        const displayText = showBrief ? (briefText || fullText || 'No analysis text available.') : (fullText || briefText || 'No analysis text available.')
+        const accentColor = showBrief ? '#334155' : '#EA580C'
+        const hasFullText = !!(fullText || briefText)
+        const sentAlert = f.alertHistory?.find(h => h.date && rec.date && h.date >= rec.date)
+
+        return (
+          <div
+            onClick={() => { setViewingAnalysisIdx(null); setShowBrief(false) }}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: '#fff', borderRadius: '12px', padding: '24px',
+                maxWidth: '750px', width: '90vw', maxHeight: '85vh', overflowY: 'auto',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              }}
+            >
+              {/* Modal header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
+                    {f.fanName} — Analysis {fmtDate(rec.date)}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', fontSize: '11px', color: '#999' }}>
+                    {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
+                    {sentAlert
+                      ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 6px', borderRadius: '3px' }}>Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}</span>
+                      : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
+                    }
+                    {(rec.firstMessageDate || rec.lastMessageDate) && (
+                      <span>Chat window: {rec.firstMessageDate || '?'} → {rec.lastMessageDate || '?'}</span>
+                    )}
+                    {analysis && <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {hasFullText && fullText && briefText && (
+                    <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                      <button onClick={() => setShowBrief(false)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full Analysis</button>
+                      <button onClick={() => setShowBrief(true)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                    </div>
+                  )}
+                  <button onClick={() => { setViewingAnalysisIdx(null); setShowBrief(false) }} style={{ background: 'none', border: 'none', fontSize: '22px', color: '#999', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>&times;</button>
+                </div>
+              </div>
+
+              {/* Analysis body */}
+              {hasFullText ? (
+                <div style={{
+                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
+                  border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
+                  borderRadius: '8px', padding: '18px 22px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
+                }}>
+                  {displayText.split('\n').map((line, idx) => {
+                    const trimmed = line.trim()
+                    if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
+                    if (/^\*\*[^*]+\*\*/.test(trimmed)) {
+                      const hm = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                      if (hm) {
+                        const rest = hm[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
+                        return <div key={idx} style={{ marginTop: idx > 0 ? '14px' : 0, marginBottom: '4px' }}><div style={{ fontSize: '12px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
+                      }
+                    }
+                    if (/^\d+\.\s/.test(trimmed)) {
+                      const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                      const nm = trimmed.match(/^(\d+)\./)
+                      return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '12px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
+                    }
+                    if (/^[-\u2022]\s/.test(trimmed)) {
+                      const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                      return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>\u25CF</span><span>{content}</span></div>
+                    }
+                    return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                  Full analysis text not available. <button onClick={() => { setViewingAnalysisIdx(null); handleAnalyze(true) }} disabled={analyzing} style={{ color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600, fontSize: '13px' }}>
+                    {analyzing ? 'Loading...' : 'Load from saved transcript'}
+                  </button>
+                </div>
+              )}
+
+              {/* Modal footer actions */}
+              {!sentAlert && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px', gap: '8px' }}>
+                  <button
+                    onClick={() => { setViewingAnalysisIdx(null); handlePreviewPdf() }}
+                    disabled={previewLoading}
+                    style={{
+                      background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                      padding: '8px 16px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                      cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                    }}>
+                    <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Send to Chat Manager preview modal */}
       {showSendModal && (
@@ -2719,7 +2824,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
             {sendResult?.success && (
               <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
-                &#10003; Sent &amp; logged in Fan Tracker
+                &#10003; Sent to manager &amp; logged
               </div>
             )}
             {sendResult?.error && (
