@@ -2,7 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import OpenAI from 'openai'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -689,11 +689,16 @@ Quote the fan's actual words as evidence. Don't be generic.`
 
     const fullAnalysis = completion.choices[0]?.message?.content || 'Analysis failed'
 
-    // Generate manager brief from the full analysis
-    const briefCompletion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: `You write concise chat manager briefs for an OnlyFans management agency. Take a full fan analysis and distill it into a brief that a chat manager can read in under a minute and act on immediately.
+    // Run manager brief, Dropbox save, and fan tracker upsert in parallel
+    const creatorRecordId = formData.get('creatorRecordId') || ''
+    const lastPurchaseDate = formData.get('lastPurchaseDate') || ''
+
+    const [briefResult] = await Promise.all([
+      // Manager brief
+      openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: `You write concise chat manager briefs for an OnlyFans management agency. Take a full fan analysis and distill it into a brief that a chat manager can read in under a minute and act on immediately.
 
 Format:
 **${fanName}** (@${formData.get('fanUsername') || '?'}) — $${lifetime.toLocaleString()} lifetime | ${currentGap}d since last purchase
@@ -703,16 +708,27 @@ Format:
 **Key Insight**: (1 sentence — the most important thing to know about this fan)
 
 Keep it tight. No filler. The chat manager has 50 of these to review.` },
-        { role: 'user', content: fullAnalysis },
-      ],
-      temperature: 0.5,
-      max_tokens: 300,
-    })
+          { role: 'user', content: fullAnalysis },
+        ],
+        temperature: 0.5,
+        max_tokens: 300,
+      }).catch(err => { console.error('[Chat Analysis] Brief generation failed:', err); return null }),
 
-    const managerBrief = briefCompletion.choices[0]?.message?.content || ''
+      // Dropbox save
+      saveChatToDropbox({
+        parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
+        fullAnalysis, managerBrief: '', creatorName, fanName, fanUsername,
+      }).catch(err => console.error('[Chat Analysis] Dropbox save failed:', err)),
 
-    // Save to Airtable (async, don't block response)
-    const lastPurchaseDate = formData.get('lastPurchaseDate') || ''
+      // Fan tracker upsert
+      creatorRecordId
+        ? upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetime }).catch(err => console.error('[Chat Analysis] Fan tracker upsert failed:', err))
+        : Promise.resolve(),
+    ])
+
+    const managerBrief = briefResult?.choices?.[0]?.message?.content || ''
+
+    // Save to Airtable (needs managerBrief so must be after brief completes)
     saveToAirtable({
       [F.fanName]: fanName,
       [F.ofUsername]: fanUsername,
@@ -732,26 +748,6 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       [F.firstMessageDate]: parsed.firstMessageDate || '',
       [F.lastMessageDate]: parsed.lastMessageDate || '',
     })
-
-    // Upsert Fan Tracker record (must await — Vercel kills the function after response)
-    const creatorRecordId = formData.get('creatorRecordId') || ''
-    if (creatorRecordId) {
-      try {
-        await upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetime })
-      } catch (err) {
-        console.error('[Chat Analysis] Fan tracker upsert failed:', err)
-      }
-    }
-
-    // Save parsed transcript + analysis to Dropbox (must await — Vercel kills the function after response)
-    try {
-      await saveChatToDropbox({
-        parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
-        fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
-      })
-    } catch (err) {
-      console.error('[Chat Analysis] Dropbox save failed:', err)
-    }
 
     return Response.json({
       analysis: fullAnalysis,
