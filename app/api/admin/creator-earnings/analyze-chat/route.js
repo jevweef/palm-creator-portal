@@ -733,19 +733,25 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       [F.lastMessageDate]: parsed.lastMessageDate || '',
     })
 
-    // Upsert Fan Tracker record (fire-and-forget)
+    // Upsert Fan Tracker record (must await — Vercel kills the function after response)
     const creatorRecordId = formData.get('creatorRecordId') || ''
     if (creatorRecordId) {
-      upsertFanTracker({
-        fanName, fanUsername, creatorRecordId, lifetime,
-      }).catch(err => console.error('[Chat Analysis] Fan tracker upsert failed:', err))
+      try {
+        await upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetime })
+      } catch (err) {
+        console.error('[Chat Analysis] Fan tracker upsert failed:', err)
+      }
     }
 
-    // Save parsed transcript + analysis to Dropbox (fire-and-forget, appends to master)
-    saveChatToDropbox({
-      parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
-      fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
-    }).catch(err => console.error('[Chat Analysis] Dropbox save failed:', err))
+    // Save parsed transcript + analysis to Dropbox (must await — Vercel kills the function after response)
+    try {
+      await saveChatToDropbox({
+        parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
+        fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
+      })
+    } catch (err) {
+      console.error('[Chat Analysis] Dropbox save failed:', err)
+    }
 
     return Response.json({
       analysis: fullAnalysis,
