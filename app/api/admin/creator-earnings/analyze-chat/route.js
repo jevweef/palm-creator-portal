@@ -372,6 +372,8 @@ export async function POST(request) {
           creatorName,
           fanName,
           fanUsername,
+          firstMessageDate: parsed.firstMessageDate,
+          lastMessageDate: parsed.lastMessageDate,
         })
       } catch (err) {
         console.error('[Chat Analysis] Dropbox save failed:', err)
@@ -761,6 +763,7 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       saveChatToDropbox({
         parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
         fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
+        firstMessageDate: parsed.firstMessageDate, lastMessageDate: parsed.lastMessageDate,
       }).catch(err => console.error('[Chat Analysis] Dropbox save failed:', err)),
 
       saveToAirtable({
@@ -888,11 +891,15 @@ async function loadChatHistory(creatorName, fanName, fanUsername) {
 }
 
 // Save parsed chat transcript to Dropbox, appending only new messages
-async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnalysis, managerBrief, creatorName, fanName, fanUsername }) {
+async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnalysis, managerBrief, creatorName, fanName, fanUsername, firstMessageDate, lastMessageDate }) {
   const token = await getDropboxAccessToken()
   const rootNs = await getDropboxRootNamespaceId(token)
   const basePath = getChatBasePath(creatorName, fanName, fanUsername)
-  const dateStr = new Date().toISOString().split('T')[0]
+  const runDate = new Date().toISOString().split('T')[0]
+
+  // Build a date-range string from the chat window for filenames
+  const chatStart = (firstMessageDate || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 20) || runDate
+  const chatEnd = (lastMessageDate || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 20) || runDate
 
   // Create folder structure: /Palm Ops/Chat Logs/{creator}/{fan}
   const safeCreator = basePath.split('/')[3] // e.g. "Laurel_Driskill"
@@ -961,20 +968,25 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
     newTranscript = parsedConversation
   }
 
-  // Upload master transcript (overwrite)
+  // Save a snapshot of THIS upload's raw transcript (never overwritten — preserves each upload)
+  const snapshotName = `transcript-${chatStart}_to_${chatEnd}.txt`
+  await uploadToDropbox(token, rootNs, `${basePath}/${snapshotName}`, Buffer.from(parsedConversation, 'utf8'))
+
+  // Upload master transcript (cumulative — appends new messages)
   await uploadToDropbox(token, rootNs, `${basePath}/transcript.txt`, Buffer.from(newTranscript, 'utf8'), { overwrite: true })
 
-  // Upload analysis snapshot (separate file per analysis) — skip if no analysis (transcript-only save)
+  // Upload analysis snapshot keyed by chat window dates — skip if no analysis (transcript-only save)
   if (fullAnalysis) {
     const analysisJson = JSON.stringify({
       date: new Date().toISOString(),
+      chatWindow: { firstMessageDate, lastMessageDate },
       fanName,
       fanUsername,
       creator: creatorName,
       fullAnalysis,
       managerBrief,
     }, null, 2)
-    await uploadToDropbox(token, rootNs, `${basePath}/analysis-${dateStr}.json`, Buffer.from(analysisJson, 'utf8'))
+    await uploadToDropbox(token, rootNs, `${basePath}/analysis-${chatStart}_to_${chatEnd}.json`, Buffer.from(analysisJson, 'utf8'))
   }
 
   // Update Fan Tracker with Dropbox path and chat upload date
