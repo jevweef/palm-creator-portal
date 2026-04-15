@@ -5,10 +5,16 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
 import { generateWhaleAlertPdf } from '@/lib/generateWhaleAlertPdf'
 import { getWhaleTopicForCreator } from '@/lib/whaleAlertConfig'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 const FAN_TRACKER_TABLE = 'Fan Tracker'
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+
+function fmtMoney(n) {
+  if (n == null) return '$0'
+  return '$' + Math.round(n).toLocaleString('en-US')
+}
 
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
@@ -25,29 +31,64 @@ export async function POST(request) {
       return NextResponse.json({ error: `No Telegram topic configured for "${creatorName}"` }, { status: 400 })
     }
 
-    // Generate PDF
+    // Generate PDF (full analysis only, no manager brief)
     const pdfBuffer = await generateWhaleAlertPdf({ creatorName, alert, analysis })
 
-    // Build caption
+    // Upload PDF to Dropbox
+    const accessToken = await getDropboxAccessToken()
+    const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
+    const fanSlug = (alert.fan || 'unknown').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-')
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const dropboxPath = `/Palm/Whale Alerts/${creatorName}/${fanSlug}-${dateStr}.pdf`
+
+    await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, pdfBuffer, { overwrite: true })
+    const shareLink = await createDropboxSharedLink(accessToken, rootNamespaceId, dropboxPath)
+
+    // Build Telegram text message
     const urgencyEmoji = { critical: '\u{1F6A8}', high: '\u26A0\uFE0F', warning: '\u{1F7E1}' }
     const emoji = urgencyEmoji[alert.urgency] || '\u{1F7E1}'
-    const caption = `${emoji} ${alert.fan}${alert.username ? ` (@${alert.username})` : ''} — ${alert.urgency.toUpperCase()}\n${alert.currentGap}d gap (${alert.gapRatio}x median) \u2022 $${Math.round(alert.lifetime).toLocaleString()} lifetime`
 
-    // Send PDF to Telegram via sendDocument (multipart form)
-    const form = new FormData()
-    form.append('chat_id', topic.chatId)
-    form.append('message_thread_id', String(topic.threadId))
-    form.append('caption', caption)
-    form.append('document', new Blob([pdfBuffer], { type: 'application/pdf' }), `whale-alert-${alert.fan.replace(/\s+/g, '-')}.pdf`)
+    let message = `${emoji} @${alert.username || alert.fan} — ${alert.fan}\n\n`
 
-    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument`, {
+    // Key spending stats in layman's terms
+    const peak = alert.peakMonthlyAvg ? fmtMoney(alert.peakMonthlyAvg) + '/mo' : null
+    const peakRange = alert.peakRange || ''
+    const last30 = fmtMoney(alert.rolling30)
+    const lifetime = fmtMoney(alert.lifetime)
+
+    if (peak) {
+      message += `Peak: ${peak}${peakRange ? ` (${peakRange})` : ''}\n`
+    }
+    message += `Last 30 days: ${last30}\n`
+    message += `Lifetime: ${lifetime}\n`
+
+    // Manager brief as the message body
+    if (analysis?.managerBrief) {
+      // Strip markdown bold markers for Telegram
+      const briefText = analysis.managerBrief
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .trim()
+      message += `\n${briefText}\n`
+    }
+
+    // Dropbox link to full analysis PDF
+    message += `\n\u{1F4CE} Full analysis: ${shareLink}`
+
+    // Send text message to Telegram
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
-      body: form,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: topic.chatId,
+        message_thread_id: topic.threadId,
+        text: message,
+        disable_web_page_preview: false,
+      }),
     })
     const data = await res.json()
 
     if (!data.ok) {
-      console.error('[Whale Alert] Telegram sendDocument failed:', data)
+      console.error('[Whale Alert] Telegram sendMessage failed:', data)
       return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
     }
 
@@ -66,6 +107,7 @@ export async function POST(request) {
       success: true,
       messageId: data.result?.message_id,
       sentTo: { creator: creatorName, chatId: topic.chatId, threadId: topic.threadId },
+      dropboxLink: shareLink,
     })
   } catch (err) {
     console.error('[Whale Alert] Send error:', err)

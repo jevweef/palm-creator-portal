@@ -1944,10 +1944,37 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, spend]) => ({ month, spend: Math.round(spend) }))
 
+    // Compute peak 90-day monthly avg (best 3-month rolling window) with date range
+    let peakMonthlyAvg = 0
+    let peakStartMonth = null, peakEndMonth = null
+    if (monthlyHistory.length >= 3) {
+      for (let i = 0; i <= monthlyHistory.length - 3; i++) {
+        const windowAvg = (monthlyHistory[i].spend + monthlyHistory[i + 1].spend + monthlyHistory[i + 2].spend) / 3
+        if (windowAvg > peakMonthlyAvg) {
+          peakMonthlyAvg = windowAvg
+          peakStartMonth = monthlyHistory[i].month
+          peakEndMonth = monthlyHistory[i + 2].month
+        }
+      }
+    } else if (monthlyHistory.length > 0) {
+      peakMonthlyAvg = monthlyHistory.reduce((s, m) => s + m.spend, 0) / monthlyHistory.length
+      peakStartMonth = monthlyHistory[0].month
+      peakEndMonth = monthlyHistory[monthlyHistory.length - 1].month
+    }
+    peakMonthlyAvg = Math.round(peakMonthlyAvg)
+    // Format peak range: "Nov '25 – Jan '26"
+    const fmtPeakMonth = (mo) => {
+      if (!mo) return ''
+      const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      const [y, m] = mo.split('-')
+      return `${moNames[parseInt(m) - 1]} '${y.slice(2)}`
+    }
+    const peakRange = peakStartMonth ? `${fmtPeakMonth(peakStartMonth)} – ${fmtPeakMonth(peakEndMonth)}` : ''
+
     return {
       creatorName,
       creatorRecordId,
-      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory },
+      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, peakMonthlyAvg, peakRange },
       analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
     }
   }
