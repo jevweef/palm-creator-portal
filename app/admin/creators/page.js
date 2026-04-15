@@ -2569,7 +2569,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       }
                       if (/^[-\u2022]\s/.test(trimmed)) {
                         const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
-                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>\u25CF</span><span>{content}</span></div>
+                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>●</span><span>{content}</span></div>
                       }
                       return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
                     })
@@ -2742,7 +2742,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                     }
                     if (/^[-\u2022]\s/.test(trimmed)) {
                       const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
-                      return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>\u25CF</span><span>{content}</span></div>
+                      return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>●</span><span>{content}</span></div>
                     }
                     return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
                   })}
