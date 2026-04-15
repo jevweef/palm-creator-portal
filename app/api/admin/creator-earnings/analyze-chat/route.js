@@ -693,8 +693,8 @@ Quote the fan's actual words as evidence. Don't be generic.`
     const creatorRecordId = formData.get('creatorRecordId') || ''
     const lastPurchaseDate = formData.get('lastPurchaseDate') || ''
 
+    // Run manager brief + fan tracker in parallel
     const [briefResult] = await Promise.all([
-      // Manager brief
       openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -714,13 +714,6 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
         max_tokens: 300,
       }).catch(err => { console.error('[Chat Analysis] Brief generation failed:', err); return null }),
 
-      // Dropbox save
-      saveChatToDropbox({
-        parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
-        fullAnalysis, managerBrief: '', creatorName, fanName, fanUsername,
-      }).catch(err => console.error('[Chat Analysis] Dropbox save failed:', err)),
-
-      // Fan tracker upsert
       creatorRecordId
         ? upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetime }).catch(err => console.error('[Chat Analysis] Fan tracker upsert failed:', err))
         : Promise.resolve(),
@@ -728,8 +721,14 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
 
     const managerBrief = briefResult?.choices?.[0]?.message?.content || ''
 
-    // Save to Airtable (needs managerBrief so must be after brief completes)
-    saveToAirtable({
+    // Dropbox save + Airtable save in parallel (both need managerBrief)
+    await Promise.all([
+      saveChatToDropbox({
+        parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
+        fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
+      }).catch(err => console.error('[Chat Analysis] Dropbox save failed:', err)),
+
+      saveToAirtable({
       [F.fanName]: fanName,
       [F.ofUsername]: fanUsername,
       [F.creator]: creatorName,
@@ -747,7 +746,8 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       [F.analyzedDate]: new Date().toISOString(),
       [F.firstMessageDate]: parsed.firstMessageDate || '',
       [F.lastMessageDate]: parsed.lastMessageDate || '',
-    })
+    }),
+    ])
 
     return Response.json({
       analysis: fullAnalysis,
