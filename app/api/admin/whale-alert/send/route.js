@@ -42,9 +42,13 @@ export async function POST(request) {
     const dropboxPath = `/Palm/Whale Alerts/${creatorName}/${fanSlug}-${dateStr}.pdf`
 
     // Ensure folder hierarchy exists before uploading
+    console.log('[Whale Alert] Creating folder /Palm/Whale Alerts')
     await createDropboxFolder(accessToken, rootNamespaceId, `/Palm/Whale Alerts`)
+    console.log('[Whale Alert] Creating folder /Palm/Whale Alerts/' + creatorName)
     await createDropboxFolder(accessToken, rootNamespaceId, `/Palm/Whale Alerts/${creatorName}`)
+    console.log('[Whale Alert] Uploading PDF to', dropboxPath)
     await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, pdfBuffer, { overwrite: true })
+    console.log('[Whale Alert] Upload complete')
     const shareLink = await createDropboxSharedLink(accessToken, rootNamespaceId, dropboxPath)
 
     // Build Telegram text message
