@@ -110,6 +110,8 @@ export async function GET(request) {
         date: a.analyzedDate,
         type: a.analysisType,
         brief: a.managerBrief,
+        firstMessageDate: a.firstMessageDate || '',
+        lastMessageDate: a.lastMessageDate || '',
       })),
     }))
 
@@ -146,6 +148,8 @@ async function fetchAnalysisRecords(formula) {
       analysisType: r.fields['Analysis Type'] || '',
       managerBrief: r.fields['Manager Brief'] || '',
       analyzedDate: r.fields['Analyzed Date'] || '',
+      firstMessageDate: r.fields['First Message Date'] || '',
+      lastMessageDate: r.fields['Last Message Date'] || '',
     }))
   } catch (err) {
     console.error('[Fan Tracker] Failed to fetch analyses:', err)

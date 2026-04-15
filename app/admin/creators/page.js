@@ -2016,6 +2016,12 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Send failed')
       setSendResult({ success: true })
+      // Refresh fan data so "Not Sent" badge updates to "Sent to Manager"
+      try {
+        const refreshRes = await fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(creatorName)}`)
+        const refreshData = await refreshRes.json()
+        if (refreshData.fans) setFans(refreshData.fans)
+      } catch {}
     } catch (e) {
       setSendResult({ error: e.message })
     } finally {
@@ -2366,13 +2372,18 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
               })
               return (
                 <div style={{ marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '11px', color: '#999' }}>{fmtDate(sel.date)}</span>
                     {sel.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: '3px' }}>{sel.type}</span>}
                     {analysisSent
                       ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 5px', borderRadius: '3px' }}>Sent to Manager</span>
                       : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 5px', borderRadius: '3px' }}>Not Sent</span>
                     }
+                    {(sel.firstMessageDate || sel.lastMessageDate) && (
+                      <span style={{ fontSize: '10px', color: '#666' }}>
+                        Chats: {sel.firstMessageDate || '?'} → {sel.lastMessageDate || '?'}
+                      </span>
+                    )}
                     <button
                       onClick={async (e) => {
                         e.stopPropagation()
@@ -2431,7 +2442,9 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
                     <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
-                    {analysis.lastMessageDate && <span>through {analysis.lastMessageDate}</span>}
+                    {(analysis.firstMessageDate || analysis.lastMessageDate) && (
+                      <span>Chats: {analysis.firstMessageDate || '?'} → {analysis.lastMessageDate || '?'}</span>
+                    )}
                     {analysis.managerBrief && (
                       <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
                         <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
@@ -2489,13 +2502,18 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             {/* Upload new chat */}
             {!analysis && (
               <div>
-                {/* Show "scroll back to" hint if there's a previous analysis */}
-                {analysis?.lastMessageDate && (
-                  <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '6px', fontSize: '11px', color: '#92400E' }}>
-                    Previous analysis covered messages through <strong>{analysis.lastMessageDate}</strong>. Scroll back to at least this date before saving the HTML.
-                  </div>
-                )}
-                {f.analysisRecords?.length > 0 && !analysis?.lastMessageDate && (
+                {/* Show "scroll back to" hint using most recent analysis record's last message date */}
+                {(() => {
+                  const mostRecent = f.analysisRecords?.[0]
+                  const lastDate = mostRecent?.lastMessageDate
+                  if (lastDate) return (
+                    <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '6px', fontSize: '11px', color: '#92400E' }}>
+                      Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
+                    </div>
+                  )
+                  return null
+                })()}
+                {f.analysisRecords?.length > 0 && !f.analysisRecords[0]?.lastMessageDate && (
                   <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', color: '#0369A1' }}>
                     Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
                   </div>

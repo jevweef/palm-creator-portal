@@ -30,6 +30,8 @@ const F = {
   creatorMessages: 'fldO1fc8EqZvWegkf',
   status: 'fldaG3E41OfKKtK2g',
   analyzedDate: 'fldamFzJZ9VPLNIOm',
+  firstMessageDate: 'fldaP9TQxW3fHNSqK',
+  lastMessageDate: 'fldzAk7mEsPzZzDf0',
 }
 
 async function fetchPriorContext(fanName, creatorName) {
@@ -556,6 +558,8 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       [F.creatorMessages]: parsed.creatorMessages,
       [F.status]: 'New',
       [F.analyzedDate]: new Date().toISOString(),
+      [F.firstMessageDate]: parsed.firstMessageDate || '',
+      [F.lastMessageDate]: parsed.lastMessageDate || '',
     })
 
     // Upsert Fan Tracker record (fire-and-forget)
