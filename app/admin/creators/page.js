@@ -2464,9 +2464,10 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                               if (!confirm('Delete this analysis?')) return
                               const res = await fetch(`/api/admin/fan-tracker?recordId=${rec.id}&table=analysis`, { method: 'DELETE' })
                               if (res.ok) {
-                                setFans(prev => prev.map(fan => {
-                                  if (fan.id !== f.id) return fan
-                                  const updated = { ...fan, analysisRecords: fan.analysisRecords.filter(ar => ar.id !== rec.id) }
+                                // Update CRM data — match by finding which CRM record contains this analysis
+                                setFans(prev => prev.map(crmFan => {
+                                  if (!crmFan.analysisRecords?.some(ar => ar.id === rec.id)) return crmFan
+                                  const updated = { ...crmFan, analysisRecords: crmFan.analysisRecords.filter(ar => ar.id !== rec.id) }
                                   if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
                                   return updated
                                 }).filter(Boolean))
