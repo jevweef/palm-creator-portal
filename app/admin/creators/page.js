@@ -1929,12 +1929,14 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       gapRatio: 0,
     }
     // Compute monthly spending history from transaction data for the PDF chart
+    // Use same matching logic as the fan spend chart (ofUsername or displayName)
     const monthlyMap = {}
     if (allTxns) {
-      const fanKey = (f.ofUsername || f.fanName || '').toLowerCase()
       for (const t of allTxns) {
-        const tKey = (t.username || t.fan || '').toLowerCase()
-        if (tKey === fanKey && t.net > 0) {
+        const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
+          (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
+        if (!match || t.type === 'Chargeback') continue
+        if (t.net > 0) {
           const mo = (t.date || '').slice(0, 7)
           if (mo) monthlyMap[mo] = (monthlyMap[mo] || 0) + t.net
         }
