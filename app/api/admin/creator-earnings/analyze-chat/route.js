@@ -863,9 +863,10 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
   const basePath = getChatBasePath(creatorName, fanName, fanUsername)
   const dateStr = new Date().toISOString().split('T')[0]
 
-  // Create folder structure
+  // Create folder structure: /Palm Ops/Chat Logs/{creator}/{fan}
+  const safeCreator = basePath.split('/')[3] // e.g. "Laurel_Driskill"
   await createDropboxFolder(token, rootNs, `/Palm Ops/Chat Logs`)
-  await createDropboxFolder(token, rootNs, `/Palm Ops/Chat Logs/${basePath.split('/')[4]}`)
+  await createDropboxFolder(token, rootNs, `/Palm Ops/Chat Logs/${safeCreator}`)
   await createDropboxFolder(token, rootNs, basePath)
 
   // Download existing master transcript
