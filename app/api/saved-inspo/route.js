@@ -69,7 +69,10 @@ export async function GET(request) {
     // Filter to records where Saved By includes this creator's ops ID
     const saved = allRecords.filter((r) => {
       const savedBy = r.fields['Saved By'] || []
-      return savedBy.includes(creatorOpsId)
+      return savedBy.some((entry) => {
+        const id = typeof entry === 'string' ? entry : entry?.id || entry
+        return id === creatorOpsId
+      })
     })
 
     const records = saved.map((r) => {

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { tagStyle } from '@/lib/tagStyle'
 
 function formatNum(n) {
@@ -19,6 +20,7 @@ function gradeColor(grade) {
 }
 
 export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
+  const [imgError, setImgError] = useState(false)
   const views = formatNum(record.views)
   const likes = formatNum(record.likes)
   const comments = formatNum(record.comments)
@@ -37,11 +39,12 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
     >
       {/* Thumbnail */}
       <div className="relative aspect-[9/16] bg-[#FFF0F3] overflow-hidden">
-        {record.thumbnail ? (
+        {record.thumbnail && !imgError ? (
           <img
             src={record.thumbnail}
             alt={record.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">

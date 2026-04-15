@@ -176,7 +176,11 @@ export async function POST(request) {
     // Verify secret
     const { searchParams } = new URL(request.url)
     const secret = searchParams.get('secret')
-    const expectedSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+    const expectedSecret = process.env.APIFY_CALLBACK_SECRET
+    if (!expectedSecret) {
+      console.error('[Apify Callback] APIFY_CALLBACK_SECRET env var is not set — rejecting request')
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+    }
 
     if (secret !== expectedSecret) {
       return NextResponse.json({ error: 'Invalid secret' }, { status: 403 })
