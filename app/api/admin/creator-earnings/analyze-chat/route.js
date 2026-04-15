@@ -897,9 +897,17 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
   const basePath = getChatBasePath(creatorName, fanName, fanUsername)
   const runDate = new Date().toISOString().split('T')[0]
 
-  // Build a date-range string from the chat window for filenames
-  const chatStart = (firstMessageDate || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 20) || runDate
-  const chatEnd = (lastMessageDate || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 20) || runDate
+  // Build clean date-range string from chat window for filenames
+  // Input formats: "Nov 15", "Apr 6, 11:33 pm", "January 15, 2026" etc.
+  const cleanDateForFilename = (dateStr) => {
+    if (!dateStr) return null
+    // Strip time portion (everything after the day number + optional year)
+    const dateOnly = dateStr.replace(/,?\s*\d{1,2}:\d{2}\s*(am|pm)?\s*$/i, '').trim()
+    // Replace spaces/commas with hyphens, remove other special chars
+    return dateOnly.replace(/[,]/g, '').replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '') || null
+  }
+  const chatStart = cleanDateForFilename(firstMessageDate) || runDate
+  const chatEnd = cleanDateForFilename(lastMessageDate) || runDate
 
   // Create folder structure: /Palm Ops/Chat Logs/{creator}/{fan}
   const safeCreator = basePath.split('/')[3] // e.g. "Laurel_Driskill"

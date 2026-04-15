@@ -2036,11 +2036,18 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     }
     const peakRange = peakStartMonth ? `${fmtPeakMonth(peakStartMonth)} – ${fmtPeakMonth(peakEndMonth)}` : ''
 
+    // Include chat window dates from the selected analysis record
+    const selRec = f.analysisRecords?.[selectedAnalysisIdx]
+
     return {
       creatorName,
       creatorRecordId,
       alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, peakMonthlyAvg, peakRange },
       analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+      chatWindow: {
+        firstMessageDate: analysis?.firstMessageDate || selRec?.firstMessageDate || null,
+        lastMessageDate: analysis?.lastMessageDate || selRec?.lastMessageDate || null,
+      },
     }
   }
 

@@ -20,7 +20,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorName, creatorRecordId, alert, analysis } = await request.json()
+    const { creatorName, creatorRecordId, alert, analysis, chatWindow } = await request.json()
 
     if (!creatorName) return NextResponse.json({ error: 'Missing creatorName' }, { status: 400 })
     if (!alert) return NextResponse.json({ error: 'Missing alert data' }, { status: 400 })
@@ -40,9 +40,18 @@ export async function POST(request) {
     // Match getChatBasePath() slug logic from analyze-chat route
     const fanSlug = (alert.username || alert.fan || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_')
     const creatorSlug = creatorName.replace(/[^a-zA-Z0-9_-]/g, '_')
-    const dateStr = new Date().toISOString().slice(0, 10)
     const fanFolder = `/Palm Ops/Chat Logs/${creatorSlug}/${fanSlug}`
-    const dropboxPath = `${fanFolder}/whale-alert-${dateStr}.pdf`
+
+    // Use chat window dates for PDF filename (matches transcript/analysis naming)
+    const cleanDate = (d) => {
+      if (!d) return null
+      const dateOnly = d.replace(/,?\s*\d{1,2}:\d{2}\s*(am|pm)?\s*$/i, '').trim()
+      return dateOnly.replace(/[,]/g, '').replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '') || null
+    }
+    const chatStart = cleanDate(chatWindow?.firstMessageDate)
+    const chatEnd = cleanDate(chatWindow?.lastMessageDate)
+    const dateSuffix = chatStart && chatEnd ? `${chatStart}_to_${chatEnd}` : new Date().toISOString().slice(0, 10)
+    const dropboxPath = `${fanFolder}/whale-alert-${dateSuffix}.pdf`
 
     // Ensure folder hierarchy exists before uploading
     await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Chat Logs`)
