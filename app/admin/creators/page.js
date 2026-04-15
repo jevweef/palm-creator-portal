@@ -2999,6 +2999,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
   const [filter, setFilter] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
   const [showAllFans, setShowAllFans] = useState(false)
+  const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
+  const [sortDir, setSortDir] = useState('desc')
 
   const creatorName = creator?.name || creator?.aka || ''
   const creatorRecordId = creator?.id || ''
@@ -3161,17 +3163,31 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
     'Pending': { bg: '#F3F4F6', text: '#6B7280' },
   }
 
-  const filtered = allFans.filter(f => {
-    if (filter === 'active_alerts') return f.alertStatus !== 'None'
-    // Heat status filters
-    if (filter === 'dead') return f.heatStatus === 'Dead'
-    if (filter === 'going_cold') return f.heatStatus === 'Going Cold'
-    if (filter === 'cooling') return f.heatStatus === 'Cooling'
-    if (filter === 'stable') return f.heatStatus === 'Stable'
-    if (filter === 'warming_up') return f.heatStatus === 'Warming Up'
-    if (filter === 'hot') return f.heatStatus === 'Hot'
-    return true
-  })
+  const filtered = useMemo(() => {
+    let list = allFans.filter(f => {
+      if (filter === 'active_alerts') return f.alertStatus !== 'None'
+      if (filter === 'dead') return f.heatStatus === 'Dead'
+      if (filter === 'going_cold') return f.heatStatus === 'Going Cold'
+      if (filter === 'cooling') return f.heatStatus === 'Cooling'
+      if (filter === 'stable') return f.heatStatus === 'Stable'
+      if (filter === 'warming_up') return f.heatStatus === 'Warming Up'
+      if (filter === 'hot') return f.heatStatus === 'Hot'
+      return true
+    })
+    if (sortField) {
+      list = [...list].sort((a, b) => {
+        let av, bv
+        if (sortField === 'lifetime') { av = a.lifetimeSpend || 0; bv = b.lifetimeSpend || 0 }
+        else if (sortField === 'last30') { av = a.last30 || 0; bv = b.last30 || 0 }
+        else if (sortField === 'txns') { av = a.txnCount || 0; bv = b.txnCount || 0 }
+        else if (sortField === 'lastDate') { av = a.lastDate || ''; bv = b.lastDate || '' }
+        else return 0
+        if (sortField === 'lastDate') return sortDir === 'desc' ? bv.localeCompare(av) : av.localeCompare(bv)
+        return sortDir === 'desc' ? bv - av : av - bv
+      })
+    }
+    return list
+  }, [allFans, filter, sortField, sortDir])
 
   // Compute counts per heat status
   const heatCounts = {}
@@ -3180,6 +3196,16 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
   }
   const activeAlertCount = allFans.filter(f => f.alertStatus !== 'None').length
   const displayFans = showAllFans ? filtered : filtered.slice(0, 25)
+
+  function toggleSort(field) {
+    if (sortField === field) {
+      if (sortDir === 'desc') setSortDir('asc')
+      else { setSortField(null); setSortDir('desc') } // third click resets
+    } else {
+      setSortField(field)
+      setSortDir('desc')
+    }
+  }
 
   function fmtDate(iso) {
     if (!iso) return '—'
@@ -3244,7 +3270,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           {/* Table header */}
           <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span></span><span>Fan</span><span title="Heat Status">🌡️</span><span>Alert</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
+            <span></span><span>Fan</span><span title="Heat Status">🌡️</span><span>Alert</span>
+            {[['lifetime', 'Lifetime'], ['last30', 'Last 30d'], ['txns', 'Txns'], ['lastDate', 'Last Active']].map(([key, label]) => (
+              <span key={key} onClick={() => toggleSort(key)} style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                {label}{sortField === key ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+              </span>
+            ))}
           </div>
           {displayFans.map((f, i) => (
             <FanRow key={f.id} f={f} i={i} isExpanded={expandedId === f.id}
