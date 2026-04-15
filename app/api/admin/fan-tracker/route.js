@@ -45,6 +45,12 @@ export async function GET(request) {
     const fanMap = new Map()
     for (const r of trackerRecords) {
       const key = (r.fields['OF Username'] || r.fields['Fan Name'] || '').toLowerCase()
+      // If duplicate key exists, merge: keep the one with more alert data
+      if (fanMap.has(key)) {
+        const existing = fanMap.get(key)
+        const newAlertCount = r.fields['Alert Count'] || 0
+        if (newAlertCount <= (existing.alertCount || 0)) continue // keep existing, skip this one
+      }
       fanMap.set(key, {
         id: r.id,
         source: 'tracker',

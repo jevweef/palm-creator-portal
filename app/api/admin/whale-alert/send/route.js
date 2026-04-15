@@ -136,12 +136,12 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
     sentTo: creatorName || '',
   }
 
-  // Find existing fan record
+  // Find existing fan record — match by OF Username or Fan Name (simpler than ARRAYJOIN on linked records)
   let formula
   if (ofUsername) {
-    formula = `AND({OF Username} = "${ofUsername}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
+    formula = `{OF Username} = "${ofUsername}"`
   } else {
-    formula = `AND({Fan Name} = "${fanName}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
+    formula = `{Fan Name} = "${fanName}"`
   }
 
   const existing = await fetchAirtableRecords(FAN_TRACKER_TABLE, {
