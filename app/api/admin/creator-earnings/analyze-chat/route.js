@@ -891,12 +891,18 @@ async function loadChatHistory(creatorName, fanName, fanUsername) {
     const token = await getDropboxAccessToken()
     const rootNs = await getDropboxRootNamespaceId(token)
     const basePath = getChatBasePath(creatorName, fanName, fanUsername)
+    const fullPath = `${basePath}/transcript.txt`
+    console.log('[Chat History] Attempting download from:', fullPath)
 
-    const buf = await downloadFromDropbox(token, rootNs, `${basePath}/transcript.txt`)
-    if (!buf) return ''
+    const buf = await downloadFromDropbox(token, rootNs, fullPath)
+    if (!buf) {
+      console.log('[Chat History] downloadFromDropbox returned null/empty for:', fullPath)
+      return ''
+    }
+    console.log('[Chat History] Success, got', buf.length, 'bytes')
     return buf.toString('utf8')
   } catch (err) {
-    console.error('[Chat History] Load failed:', err)
+    console.error('[Chat History] Load failed:', err.message || err)
     return ''
   }
 }
