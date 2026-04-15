@@ -360,6 +360,44 @@ export async function GET(request) {
     const salesTxns = transactions.filter(t => t.type !== 'Chargeback')
     const chargebackTxns = transactions.filter(t => t.type === 'Chargeback')
 
+    // ── Zero out original purchases for chargebacks ──────────────────────
+    // Instead of subtracting chargebacks on the chargeback date, find the original
+    // purchase and zero it out. This gives accurate per-period revenue.
+    const zeroedSaleIndices = new Set()
+    for (const cb of chargebackTxns) {
+      if (!cb.originalDate && !cb.ofUsername) continue
+      // Find matching original sale: same fan + original date + similar amount
+      const cbOrigDate = cb.originalDate?.split(' ')[0] || ''
+      let bestMatch = -1
+      let bestScore = 0
+      for (let i = 0; i < salesTxns.length; i++) {
+        if (zeroedSaleIndices.has(i)) continue
+        const sale = salesTxns[i]
+        let score = 0
+        // Match by fan username
+        if (cb.ofUsername && sale.ofUsername && cb.ofUsername === sale.ofUsername) score += 2
+        // Match by original date
+        if (cbOrigDate && sale.date === cbOrigDate) score += 3
+        // Match by amount (within $0.01)
+        if (Math.abs(sale.net - cb.net) < 0.02) score += 2
+        if (score > bestScore && score >= 3) { // need at least date OR fan+amount match
+          bestScore = score
+          bestMatch = i
+        }
+      }
+      if (bestMatch >= 0) {
+        // Zero out the original sale
+        salesTxns[bestMatch]._zeroedByChargeback = true
+        salesTxns[bestMatch]._originalNet = salesTxns[bestMatch].net
+        salesTxns[bestMatch]._originalGross = salesTxns[bestMatch].gross
+        salesTxns[bestMatch].net = 0
+        salesTxns[bestMatch].gross = 0
+        zeroedSaleIndices.add(bestMatch)
+        cb._matched = true
+      }
+    }
+    // Any unmatched chargebacks will still be subtracted the old way (on chargeback date)
+
     // ── Daily aggregation for chart (shift ET→UTC to match OF daily rollover at 8 PM ET) ──
     // Sheet stores ET local times but Vercel runs UTC, so parsed Dates are "ET pretending to be UTC".
     // Add the ET→UTC offset so 8 PM ET → midnight UTC → next day, matching OF's daily boundaries.
@@ -381,22 +419,37 @@ export async function GET(request) {
     const dailyByType = {}
     const dailyGross = {}
     const dailyCount = {}
-    for (const t of transactions) {
+    // Aggregate sales (some may be zeroed out by chargeback matching)
+    for (const t of salesTxns) {
       if (!t.date) continue
-      // Shift ET times to real UTC so daily totals match OF (rolls at 8 PM ET = midnight UTC)
       const utcDate = t.dt ? etToUtcDate(t.dt) : t.date
       if (!dailyMap[utcDate]) dailyMap[utcDate] = 0
       if (!dailyGross[utcDate]) dailyGross[utcDate] = 0
       if (!dailyCount[utcDate]) dailyCount[utcDate] = 0
-      const netVal = t.type === 'Chargeback' ? -t.net : t.net
-      dailyMap[utcDate] += netVal
-      dailyGross[utcDate] += t.type === 'Chargeback' ? -t.gross : t.gross
+      dailyMap[utcDate] += t.net
+      dailyGross[utcDate] += t.gross
       dailyCount[utcDate] += 1
 
       const tp = t.type || 'Unknown'
       if (!dailyByType[utcDate]) dailyByType[utcDate] = {}
       if (!dailyByType[utcDate][tp]) dailyByType[utcDate][tp] = 0
       dailyByType[utcDate][tp] += t.net
+    }
+    // Only subtract unmatched chargebacks (matched ones already zeroed the original sale)
+    for (const t of chargebackTxns) {
+      if (t._matched) continue // already handled by zeroing original sale
+      if (!t.date) continue
+      const utcDate = t.dt ? etToUtcDate(t.dt) : t.date
+      if (!dailyMap[utcDate]) dailyMap[utcDate] = 0
+      if (!dailyGross[utcDate]) dailyGross[utcDate] = 0
+      if (!dailyCount[utcDate]) dailyCount[utcDate] = 0
+      dailyMap[utcDate] -= t.net
+      dailyGross[utcDate] -= t.gross
+      dailyCount[utcDate] += 1
+
+      if (!dailyByType[utcDate]) dailyByType[utcDate] = {}
+      if (!dailyByType[utcDate]['Chargeback']) dailyByType[utcDate]['Chargeback'] = 0
+      dailyByType[utcDate]['Chargeback'] -= t.net
     }
 
     // Build daily array sorted chronologically
@@ -413,30 +466,43 @@ export async function GET(request) {
       .map(({ dt, ...rest }) => rest)
 
     // ── Summary (all time) ────────────────────────────────────────────────
-    let totalGross = 0, totalNet = 0, chargebackTotal = 0
+    let totalGross = 0, totalNet = 0, chargebackTotal = 0, matchedChargebacks = 0, unmatchedChargebacks = 0
     const byType = {}
     for (const t of salesTxns) {
       totalGross += t.gross
-      totalNet += t.net
+      totalNet += t.net // zeroed sales already have net = 0
       const tp = t.type || 'Unknown'
       byType[tp] = (byType[tp] || 0) + t.net
     }
     for (const t of chargebackTxns) {
       chargebackTotal += t.net
+      if (t._matched) {
+        matchedChargebacks += t.net
+      } else {
+        unmatchedChargebacks += t.net
+      }
     }
-    // Net after chargebacks
-    totalNet -= chargebackTotal
+    // Only subtract unmatched chargebacks (matched ones already zeroed the original sale)
+    totalNet -= unmatchedChargebacks
 
     // ── Top fans (all time) ───────────────────────────────────────────────
     const fanMap = {}
-    for (const t of transactions) {
+    // Use sales (with zeroed chargebacks) for fan totals
+    for (const t of salesTxns) {
       const key = t.ofUsername || t.displayName || 'Unknown'
       if (!fanMap[key]) fanMap[key] = { displayName: t.displayName || key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
       fanMap[key].totalNet += t.net
       fanMap[key].transactionCount += 1
-      // Keep most recent display name (fans change display names)
       if (t.displayName) fanMap[key].displayName = t.displayName
       if (!fanMap[key].lastDate) fanMap[key].lastDate = t.date
+    }
+    // Subtract unmatched chargebacks from fan totals
+    for (const t of chargebackTxns) {
+      if (t._matched) continue
+      const key = t.ofUsername || t.displayName || 'Unknown'
+      if (!fanMap[key]) fanMap[key] = { displayName: t.displayName || key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      fanMap[key].totalNet -= t.net
+      fanMap[key].transactionCount += 1
     }
     const topFans = Object.values(fanMap)
       .sort((a, b) => b.totalNet - a.totalNet)
