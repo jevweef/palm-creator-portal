@@ -101,15 +101,19 @@ export async function POST(request) {
       return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
     }
 
-    // Log to Fan Tracker (fire-and-forget, don't block response)
+    // Log to Fan Tracker — await so the client refresh picks up the new alert history
     if (creatorRecordId) {
-      logAlertToFanTracker({
-        fanName: alert.fan,
-        ofUsername: alert.username,
-        creatorRecordId,
-        creatorName,
-        alertData: alert,
-      }).catch(err => console.error('[Whale Alert] Fan tracker log failed:', err))
+      try {
+        await logAlertToFanTracker({
+          fanName: alert.fan,
+          ofUsername: alert.username,
+          creatorRecordId,
+          creatorName,
+          alertData: alert,
+        })
+      } catch (err) {
+        console.error('[Whale Alert] Fan tracker log failed:', err)
+      }
     }
 
     return NextResponse.json({
