@@ -535,7 +535,7 @@ SPECIFIC PATTERNS TO DETECT (check for ALL of these):
 - **Tone shifts**: Fan goes from multi-sentence engaged responses to one-word answers ("Sure", "Ok", "Thanks"). This is the moment immersion broke.
 - **PPV timing**: Sales asks during or immediately after intimate/roleplay moments.
 - **Mass messages**: Generic messages clearly sent to all fans ("CONGRATS!!! I chose you...", "$5 bundle because...", "75% off my NEWEST...").
-- **Unanswered streak**: Count consecutive creator messages with no fan response. This is CRITICAL — count the TOTAL number of creator messages sent after the fan's last response. If there are 10+ unanswered messages, state the exact count prominently (e.g. "The creator sent 150+ messages with zero replies over 2 months"). This number alone tells you how badly the re-engagement was handled.
+- **Unanswered streak**: Count consecutive creator messages with no fan response. IMPORTANT NUANCE: Distinguish between MASS messages (generic blasts sent to all fans — "CONGRATS!!! I chose you...", PPV drops, sale announcements) and PERSONAL messages (1:1 conversation attempts referencing the fan by name or continuing a prior thread). On OnlyFans, it is NORMAL for fans to not log in for weeks or even months — they have lives outside the platform. 50+ unanswered mass messages is common and expected, NOT a sign of failed re-engagement. What matters is: (1) how many PERSONAL messages went unanswered — these indicate the fan saw them and chose not to reply, or genuinely hasn't logged in, (2) whether the fan stopped responding mid-conversation vs simply didn't return after a natural break, (3) whether re-engagement attempts were personal or just more mass blasts. State the total count but contextualize it: "The creator sent 47 mass messages and 3 personal check-ins with no reply over 2 months — the mass messages are normal platform behavior, but the personal attempts suggest [X]."
 - **Stated preferences ignored**: Fan explicitly says "I like X" and X is never referenced again. Track what they said and whether it was acted on.
 - **Budget signals**: Fan explicitly mentioning money, negotiating prices, saying they can't afford something, bank issues, waiting for payday.
 
@@ -553,32 +553,37 @@ STRUCTURE YOUR ANALYSIS EXACTLY LIKE THE EXAMPLE ABOVE:
 
 **What Went Wrong (if anything)**: Numbered list, each point backed by evidence from the conversation. If nothing went wrong — if the fan is actively engaged, chatting, and spending — say so honestly. Do NOT manufacture problems or force a negative framing. Explain the real situation with evidence. Only flag genuine issues (repeated scripts, wrong names, ignored preferences, mass messages, etc.) when they actually exist in the conversation.
 
-**Personal Details to Leverage**: THIS SECTION IS CRITICAL. Scan the entire conversation and extract two categories of details:
+**Personal Details to Leverage**: THIS SECTION IS CRITICAL. Do NOT just list facts like a CRM profile. For each detail, reference the SPECIFIC CONVERSATION MOMENT where it came up — the date, what was being discussed, the exact vibe of that exchange. The chatter reading this should feel like they're picking up a conversation that was paused, not reading a dossier.
 
 LIFE DETAILS (these prove "I actually know you as a person"):
 - Real name (vs username), age, location, timezone, job/work schedule
 - Pets, hobbies, interests, music taste, sports, foods mentioned
 - Relationship status, living situation, daily routines they described
 - Specific situations they mentioned (couldn't sleep, going to a concert, election day, hungover, at a friend's house)
-- Questions THEY asked that reveal what they care about (asked about her art school, asked if she's single, asked about her favorite painting style)
+- Questions THEY asked that reveal what they care about
+- Shared moments — inside jokes, funny exchanges, times they opened up about something personal
 
 INTIMATE DETAILS (these prove "I remember what turns you on"):
 - Specific fantasies or scenarios THEY initiated (not ones the creator pitched)
 - Kinks or dynamics they expressed (domme/sub, roleplay themes, body preferences)
 - Things they said they like during sessions (audio/moaning, specific acts, pace preferences)
 - Pet names they used or responded to
-- How they like to end sessions (aftercare, shower, casual conversation)
+- Moments where they were most engaged — what was happening in the conversation right before their biggest tips or longest sessions?
 
-For EACH detail, write a specific example message showing how to bring it up naturally:
-- "He said he couldn't sleep (Jan 14)" → "Hey... can't sleep again? Last time that happened things got pretty interesting between us 😏"
-- "He lives in Copenhagen and has a cat" → "How's Copenhagen? Hope your cat isn't judging you for being on here 😘"
-- "He initiated the step-brother fantasy" → "I keep thinking about that scenario you came up with... I have a different ending in mind this time 😈"
-- "He said 'Yes goddess tell me what to do'" → "I've been thinking about taking control again... are you ready to listen? 😈"
-- "He told her he loves hearing her moan" → "I recorded something with just my voice for you... no screen, just sound 🎧"
+For EACH detail, anchor it to a SPECIFIC MOMENT in the conversation and write the re-engagement message as if you're continuing that exact exchange. The chatter should sound like they genuinely remember a shared experience, not like they're reading off a list of facts:
 
-Provide at least 5 details (mix of life + intimate). The chatting team should be able to pick any of these and use them as openers. They should feel natural, not like a script.
+BAD (generic CRM fact): "He has a cat" → "How's your cat doing? 🐱"
+GOOD (shared moment): "On Jan 14 he couldn't sleep and you two stayed up talking until 3am about his cat knocking things off shelves" → "Hey you... remember when you couldn't sleep and we were up until 3am? Your cat still knocking everything off the counter? 😂 I think about that night sometimes"
 
-**Action Item**: Specific re-engagement approach. Write 2-3 example messages the chatting team could send (not just one). Each should reference a different personal detail from the section above. Rank them by which one is most likely to get a response from this fan type. Include DO NOT instructions.
+BAD (fact dump): "He's from Copenhagen and likes tennis" → "How's Copenhagen? Been playing tennis?"
+GOOD (continuing a conversation): "On Feb 2 he was excited about a tennis match and sent you a selfie from the court, and you joked about his outfit" → "Okay wait — did you ever win that match you were telling me about? I still think about that outfit 😂 you looked so serious"
+
+BAD (generic intimate): "He likes dominant scenarios" → "I've been thinking about taking control again 😈"
+GOOD (specific shared moment): "On Dec 28 he initiated a scenario where she was his boss giving him a 'performance review' and he tipped $85 during it" → "I had a dream about that performance review we did... I think you're due for another one. Your numbers have been... disappointing 😈"
+
+Provide at least 5 details (mix of life + intimate). Each one should reference a specific date and conversation moment. The chatting team should be able to pick any of these and send them almost word-for-word — they should sound like someone who genuinely remembers a shared history, not a chatter reading a briefing doc.
+
+**Action Item**: Specific re-engagement approach. Write 2-3 example messages the chatting team could send. Each message MUST reference a specific shared moment from the conversation — a date, a joke, a scenario, something that happened between them. Do NOT write generic messages like "Hey, I've been thinking about you" or "I miss our chats." Write messages that could ONLY be sent to THIS fan because they reference things only he and the creator shared. Rank them by which one is most likely to get a response from this fan type. Include DO NOT instructions (e.g. "DO NOT send a mass PPV as the first re-engagement — he'll see it as spam").
 
 **Recovery Odds**: High / Medium / Low with honest reasoning.
 
