@@ -869,9 +869,14 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
   await createDropboxFolder(token, rootNs, `/Palm Ops/Chat Logs/${safeCreator}`)
   await createDropboxFolder(token, rootNs, basePath)
 
-  // Download existing master transcript
-  const existingBuf = await downloadFromDropbox(token, rootNs, `${basePath}/transcript.txt`)
-  const existingTranscript = existingBuf ? existingBuf.toString('utf8') : ''
+  // Download existing master transcript (if it fails, treat as first upload)
+  let existingTranscript = ''
+  try {
+    const existingBuf = await downloadFromDropbox(token, rootNs, `${basePath}/transcript.txt`)
+    existingTranscript = existingBuf ? existingBuf.toString('utf8') : ''
+  } catch (err) {
+    console.log('[Chat Save] No existing transcript (first upload or download failed):', err.message)
+  }
 
   // Find the last date in the existing transcript to know where to start appending
   let newTranscript
