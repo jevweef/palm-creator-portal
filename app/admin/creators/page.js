@@ -2104,7 +2104,10 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
         <div>
           <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{f.fanName}</span>
-          {f.ofUsername && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>}
+          {f.ofUsername
+            ? <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>
+            : <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px', background: '#F3F4F6', padding: '1px 4px', borderRadius: '3px' }} title="No username — account likely deleted/deactivated">deleted?</span>
+          }
           {f.alertCount > 0 && <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
         <span title={heat.label} style={{ fontSize: '14px', lineHeight: '20px', textAlign: 'center' }}>{heat.emoji}</span>
@@ -2120,15 +2123,32 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
           {/* ═══ SECTION 1: Fan Info Header ═══ */}
           <div style={{ marginBottom: '16px' }}>
-            {/* Going cold alert banner */}
-            {f.goingCold && (
-              <div style={{ marginBottom: '10px', padding: '8px 12px', background: '#FEF2F2', borderRadius: '6px', border: '1px solid #FECACA', fontSize: '11px', color: '#991B1B', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <span style={{ fontSize: '14px' }}>{f.goingCold.urgency === 'critical' ? '\uD83D\uDEA8' : f.goingCold.urgency === 'high' ? '\u26A0\uFE0F' : '\uD83D\uDFE1'}</span>
-                <span>
-                  {f.goingCold.triggerReason === 'gap' && `Purchase gap ${f.goingCold.currentGap}d exceeds ${f.goingCold.medianGap * 2}d threshold (2\u00d7 median)`}
-                  {f.goingCold.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
-                  {f.goingCold.triggerReason === 'both' && `Gap ${f.goingCold.gapRatio}\u00d7 overdue + spending at ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
-                </span>
+            {/* Heat status banner — for cooling/cold/dead fans */}
+            {f.heatDetail && (
+              <div style={{
+                marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '11px',
+                display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column',
+                background: f.heatStatus === 'Dead' ? '#F3F4F6' : f.heatStatus === 'Going Cold' ? '#FEF2F2' : '#FFF7ED',
+                border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? '#FECACA' : '#FED7AA'}`,
+                color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#991B1B' : '#92400E',
+              }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '14px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
+                  <strong>{f.heatStatus}</strong>
+                  <span>{f.heatDetail.reason}</span>
+                </div>
+                {f.heatDetail.peakMonth && (
+                  <div style={{ fontSize: '10px', opacity: 0.85 }}>
+                    Peak: ${f.heatDetail.peakSpend?.toLocaleString()}/mo in {f.heatDetail.peakMonth}
+                    {f.heatDetail.dropMonth && <span> · Dropped around {f.heatDetail.dropMonth}</span>}
+                    {!f.ofUsername && <span> · <strong>No username — account may be deleted</strong></span>}
+                  </div>
+                )}
+                {f.heatDetail.dropMonth && f.ofUsername && !(f.analysisRecords?.length > 0) && (
+                  <div style={{ fontSize: '10px', marginTop: '2px', fontStyle: 'italic' }}>
+                    Analyze chats starting from {f.heatDetail.dropMonth} to see what changed.
+                  </div>
+                )}
               </div>
             )}
 
@@ -2140,23 +2160,23 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.firstDate}</div>
                 </div>
               )}
-              {f.goingCold && (
+              {f.heatDetail && (
                 <>
                   <div>
                     <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last Purchase</div>
-                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.lastPurchaseDate}</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.heatDetail.lastPurchase}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Gap</div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#DC2626' }}>{f.goingCold.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.goingCold.gapRatio}x median {f.goingCold.medianGap}d)</span></div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#DC2626' }}>{f.heatDetail.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.heatDetail.medianGap}d median)</span></div>
                   </div>
                   <div>
                     <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last 30d</div>
-                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.goingCold.rolling30)}</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.heatDetail.rolling30)}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>90d Avg/mo</div>
-                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.goingCold.monthlyAvg90)}</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.heatDetail.monthlyAvg90)}</div>
                   </div>
                 </>
               )}
@@ -2180,7 +2200,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               )}
               <div>
                 <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Total Purchases</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold?.totalPurchases || f.txnCount || 0} sessions</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.txnCount || 0} sessions</div>
               </div>
             </div>
           </div>
@@ -2841,18 +2861,17 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 }
 
 // ── Compute fan heat status from transaction data ──────────────────────────
+// Returns { status, detail } where detail has context for cold/cooling fans
 function computeHeatStatus(fanTxns) {
-  if (!fanTxns || fanTxns.length < 3) return 'Stable'
+  const stable = { status: 'Stable', detail: null }
+  if (!fanTxns || fanTxns.length < 3) return stable
 
   const now = new Date()
   const sorted = fanTxns.filter(t => t.date).sort((a, b) => a.date.localeCompare(b.date))
-  if (sorted.length === 0) return 'Stable'
+  if (sorted.length === 0) return stable
 
   const lastTxnDate = new Date(sorted[sorted.length - 1].date + 'T12:00:00')
   const currentGap = Math.floor((now - lastTxnDate) / 86400000)
-
-  // Dead: no activity in 90+ days
-  if (currentGap > 90) return 'Dead'
 
   // Compute median purchase gap
   const gaps = []
@@ -2873,40 +2892,85 @@ function computeHeatStatus(fanTxns) {
   const monthlyAvg90 = rolling90 / 3
   const lifetime = sorted.reduce((s, t) => s + (t.net || 0), 0)
 
-  // Need minimum spend to classify as anything other than Stable
-  if (lifetime < 50) return 'Stable'
+  // Find peak spending month and when drop started (for cold/cooling context)
+  const moSpend = {}
+  for (const t of sorted) {
+    const mo = t.date.slice(0, 7)
+    moSpend[mo] = (moSpend[mo] || 0) + (t.net || 0)
+  }
+  const months = Object.entries(moSpend).sort(([a], [b]) => a.localeCompare(b))
+  let peakMonth = null, peakSpend = 0
+  for (const [mo, spend] of months) {
+    if (spend > peakSpend) { peakSpend = spend; peakMonth = mo }
+  }
+  // Find where spending started dropping (first month after peak that's < 50% of peak)
+  let dropMonth = null
+  if (peakMonth) {
+    let pastPeak = false
+    for (const [mo, spend] of months) {
+      if (mo === peakMonth) { pastPeak = true; continue }
+      if (pastPeak && spend < peakSpend * 0.5) { dropMonth = mo; break }
+    }
+  }
+  const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const fmtMo = (mo) => { if (!mo) return ''; const [y, m] = mo.split('-'); return `${moNames[parseInt(m) - 1]} ${y}` }
+  const lastPurchase = sorted[sorted.length - 1].date
+
+  const buildDetail = (reason) => ({
+    currentGap,
+    medianGap,
+    rolling30: Math.round(rolling30),
+    monthlyAvg90: Math.round(monthlyAvg90),
+    lastPurchase,
+    peakMonth: fmtMo(peakMonth),
+    peakSpend: Math.round(peakSpend),
+    dropMonth: fmtMo(dropMonth),
+    reason,
+    // Suggest chat window to analyze: from 2 weeks before drop (or peak) to last purchase
+    analyzeFrom: dropMonth ? dropMonth + '-01' : (peakMonth ? peakMonth + '-01' : null),
+  })
+
+  // Need minimum spend to classify
+  if (lifetime < 50) return stable
+
+  // Dead: no activity in 90+ days
+  if (currentGap > 90) return { status: 'Dead', detail: buildDetail(`No purchases in ${currentGap} days`) }
 
   // Going Cold: gap > 2x median (min 14d) OR 30d spend < 25% of 90d avg
   if ((currentGap > medianGap * 2 && currentGap >= 14) ||
       (monthlyAvg90 > 0 && rolling30 < monthlyAvg90 * 0.25 && currentGap >= 14)) {
-    return 'Going Cold'
+    const reason = currentGap > medianGap * 2
+      ? `${currentGap}d gap (${medianGap}d median)`
+      : `30d spend $${Math.round(rolling30)} vs $${Math.round(monthlyAvg90)}/mo avg`
+    return { status: 'Going Cold', detail: buildDetail(reason) }
   }
 
   // Cooling: gap > 1.5x median (min 10d) OR 30d spend < 50% of avg
   if ((currentGap > medianGap * 1.5 && currentGap >= 10) ||
       (monthlyAvg90 > 0 && rolling30 < monthlyAvg90 * 0.5 && rolling30 < rolling30Prev * 0.7)) {
-    return 'Cooling'
+    const reason = currentGap > medianGap * 1.5
+      ? `${currentGap}d gap (${medianGap}d median)`
+      : `Spending trending down — $${Math.round(rolling30)} last 30d vs $${Math.round(monthlyAvg90)}/mo avg`
+    return { status: 'Cooling', detail: buildDetail(reason) }
   }
 
   // Warming Up: spend increasing after a depressed period
   if (rolling30Prev > 0 && rolling30 > rolling30Prev * 1.5 && rolling30Prev < monthlyAvg90 * 0.5) {
-    return 'Warming Up'
+    return { status: 'Warming Up', detail: null }
   }
-  // Also warming up if they were cold (big gap) but just recently purchased
   if (currentGap < 7 && gaps.length > 3) {
     const recentGaps = gaps.slice(-3)
     const avgRecentGap = recentGaps.reduce((a, b) => a + b, 0) / recentGaps.length
-    if (avgRecentGap > medianGap * 1.5 && currentGap < medianGap) return 'Warming Up'
+    if (avgRecentGap > medianGap * 1.5 && currentGap < medianGap) return { status: 'Warming Up', detail: null }
   }
 
   // Hot: spending above average with tight gaps
   if (monthlyAvg90 > 0 && rolling30 > monthlyAvg90 * 1.25 && currentGap < medianGap * 1.2) {
-    return 'Hot'
+    return { status: 'Hot', detail: null }
   }
-  // Also hot if very recent high spend even without long history
-  if (rolling30 > 500 && currentGap < 7) return 'Hot'
+  if (rolling30 > 500 && currentGap < 7) return { status: 'Hot', detail: null }
 
-  return 'Stable'
+  return stable
 }
 
 const HEAT_CONFIG = {
@@ -3010,7 +3074,9 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
 
     // 1b. Compute heat status for each fan from their transactions
     for (const [key, fan] of fanMap) {
-      fan.heatStatus = computeHeatStatus(fanTxnMap.get(key) || [])
+      const heat = computeHeatStatus(fanTxnMap.get(key) || [])
+      fan.heatStatus = heat.status
+      fan.heatDetail = heat.detail
     }
 
     // 2. Overlay going cold alerts — force heat status for server-detected cold fans
