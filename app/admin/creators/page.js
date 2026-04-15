@@ -3087,15 +3087,23 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
   }
 
   const filtered = allFans.filter(f => {
-    if (filter === 'needs_attention') return ['Dead', 'Going Cold', 'Cooling'].includes(f.heatStatus)
     if (filter === 'active_alerts') return f.alertStatus !== 'None'
-    if (filter === 'hot') return ['Hot', 'Warming Up'].includes(f.heatStatus)
+    // Heat status filters
+    if (filter === 'dead') return f.heatStatus === 'Dead'
+    if (filter === 'going_cold') return f.heatStatus === 'Going Cold'
+    if (filter === 'cooling') return f.heatStatus === 'Cooling'
+    if (filter === 'stable') return f.heatStatus === 'Stable'
+    if (filter === 'warming_up') return f.heatStatus === 'Warming Up'
+    if (filter === 'hot') return f.heatStatus === 'Hot'
     return true
   })
 
-  const needsAttentionCount = allFans.filter(f => ['Dead', 'Going Cold', 'Cooling'].includes(f.heatStatus)).length
+  // Compute counts per heat status
+  const heatCounts = {}
+  for (const f of allFans) {
+    heatCounts[f.heatStatus] = (heatCounts[f.heatStatus] || 0) + 1
+  }
   const activeAlertCount = allFans.filter(f => f.alertStatus !== 'None').length
-  const hotCount = allFans.filter(f => ['Hot', 'Warming Up'].includes(f.heatStatus)).length
   const displayFans = showAllFans ? filtered : filtered.slice(0, 25)
 
   function fmtDate(iso) {
@@ -3124,24 +3132,30 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
           <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Fan CRM</h3>
           <p style={{ fontSize: '12px', color: '#999', margin: '2px 0 0' }}>
             {allFans.length} fan{allFans.length !== 1 ? 's' : ''}
-            {needsAttentionCount > 0 && <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {needsAttentionCount} need{needsAttentionCount !== 1 ? '' : 's'} attention</span>}
-            {hotCount > 0 && <span style={{ color: '#EF4444', fontWeight: 600 }}> &middot; {hotCount} hot</span>}
+            {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0) > 0 && (
+              <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0)} need attention</span>
+            )}
+            {(heatCounts['Hot'] || 0) > 0 && <span style={{ color: '#EF4444', fontWeight: 600 }}> &middot; {heatCounts['Hot']} hot</span>}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
           {[
-            ['all', `All (${allFans.length})`],
-            ['needs_attention', `Needs Attention (${needsAttentionCount})`],
-            ['active_alerts', `Active Alerts (${activeAlertCount})`],
-            ['hot', `Hot (${hotCount})`],
-          ].map(([key, label]) => (
-            <button key={key} onClick={() => setFilter(key)}
+            ['all', `All`, null],
+            ['hot', `🔥 Hot`, heatCounts['Hot']],
+            ['warming_up', `🔥 Warming`, heatCounts['Warming Up']],
+            ['stable', `😐 Stable`, heatCounts['Stable']],
+            ['cooling', `❄️ Cooling`, heatCounts['Cooling']],
+            ['going_cold', `🥶 Cold`, heatCounts['Going Cold']],
+            ['dead', `💀 Dead`, heatCounts['Dead']],
+            ['active_alerts', `⚡ Alerts`, activeAlertCount],
+          ].filter(([, , count]) => count === null || count > 0).map(([key, label, count]) => (
+            <button key={key} onClick={() => setFilter(filter === key ? 'all' : key)}
               style={{
-                padding: '4px 10px', fontSize: '11px', fontWeight: filter === key ? 600 : 400,
+                padding: '3px 8px', fontSize: '10px', fontWeight: filter === key ? 600 : 400,
                 background: filter === key ? '#1a1a1a' : '#F3F4F6', color: filter === key ? '#fff' : '#666',
                 border: 'none', borderRadius: '4px', cursor: 'pointer',
               }}>
-              {label}
+              {label}{count != null ? ` (${count})` : ''}
             </button>
           ))}
         </div>
