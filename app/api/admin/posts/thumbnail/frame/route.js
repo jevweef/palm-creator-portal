@@ -54,7 +54,7 @@ export async function POST(request) {
     await new Promise((resolve, reject) => {
       ffmpeg(inputPath)
         .inputOptions([`-ss ${timestamp}`])
-        .outputOptions(['-frames:v 1', '-f image2', '-q:v 2'])
+        .outputOptions(['-frames:v 1', '-update', '1', '-q:v 2'])
         .output(outputPath)
         .on('start', cmd => console.log(`[Frame Extract] ffmpeg command: ${cmd}`))
         .on('stderr', line => console.log(`[Frame Extract] ffmpeg: ${line}`))
