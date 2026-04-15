@@ -51,16 +51,21 @@ export async function POST(request) {
     console.log(`[Frame Extract] ffmpeg path: ${ffmpegPath}, exists: ${existsSync(ffmpegPath)}`)
 
     console.log(`[Frame Extract] Extracting frame at ${timestamp}s...`)
+
+    // Use child_process.execFile directly for more control
+    const { execFile } = require('child_process')
     await new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
-        .inputOptions([`-ss ${timestamp}`])
-        .outputOptions(['-frames:v 1', '-update', '1', '-q:v 2'])
-        .output(outputPath)
-        .on('start', cmd => console.log(`[Frame Extract] ffmpeg command: ${cmd}`))
-        .on('stderr', line => console.log(`[Frame Extract] ffmpeg: ${line}`))
-        .on('end', () => { console.log('[Frame Extract] ffmpeg finished'); resolve() })
-        .on('error', (err) => { console.error(`[Frame Extract] ffmpeg error: ${err.message}`); reject(err) })
-        .run()
+      const args = ['-y', '-ss', String(timestamp), '-i', inputPath, '-frames:v', '1', '-update', '1', '-q:v', '2', outputPath]
+      console.log(`[Frame Extract] Running: ${ffmpegStatic} ${args.join(' ')}`)
+      execFile(ffmpegStatic, args, { timeout: 30000 }, (err, stdout, stderr) => {
+        console.log(`[Frame Extract] ffmpeg stderr: ${(stderr || '').substring(0, 500)}`)
+        if (err) {
+          console.error(`[Frame Extract] ffmpeg exit error: ${err.message}`)
+          reject(err)
+        } else {
+          resolve()
+        }
+      })
     })
     await unlink(inputPath).catch(() => {})
 
