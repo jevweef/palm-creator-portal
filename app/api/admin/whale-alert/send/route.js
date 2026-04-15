@@ -34,18 +34,20 @@ export async function POST(request) {
     // Generate PDF (full analysis only, no manager brief)
     const pdfBuffer = await generateWhaleAlertPdf({ creatorName, alert, analysis })
 
-    // Upload PDF to Dropbox
+    // Upload PDF to Dropbox — same folder as chat transcripts and analysis JSONs
     const accessToken = await getDropboxAccessToken()
     const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
-    const fanSlug = (alert.fan || 'unknown').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-')
+    // Match getChatBasePath() slug logic from analyze-chat route
+    const fanSlug = (alert.username || alert.fan || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_')
+    const creatorSlug = creatorName.replace(/[^a-zA-Z0-9_-]/g, '_')
     const dateStr = new Date().toISOString().slice(0, 10)
-    const dropboxPath = `/Palm Ops/Whale Alerts/${creatorName}/${fanSlug}-${dateStr}.pdf`
+    const fanFolder = `/Palm Ops/Chat Logs/${creatorSlug}/${fanSlug}`
+    const dropboxPath = `${fanFolder}/whale-alert-${dateStr}.pdf`
 
     // Ensure folder hierarchy exists before uploading
-    console.log('[Whale Alert] Creating folder /Palm Ops/Whale Alerts')
-    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Whale Alerts`)
-    console.log('[Whale Alert] Creating folder /Palm Ops/Whale Alerts/' + creatorName)
-    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Whale Alerts/${creatorName}`)
+    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Chat Logs`)
+    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Chat Logs/${creatorSlug}`)
+    await createDropboxFolder(accessToken, rootNamespaceId, fanFolder)
     console.log('[Whale Alert] Uploading PDF to', dropboxPath)
     await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, pdfBuffer, { overwrite: true })
     console.log('[Whale Alert] Upload complete')
