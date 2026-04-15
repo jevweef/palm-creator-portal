@@ -39,13 +39,13 @@ export async function POST(request) {
     const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
     const fanSlug = (alert.fan || 'unknown').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-')
     const dateStr = new Date().toISOString().slice(0, 10)
-    const dropboxPath = `/Palm/Whale Alerts/${creatorName}/${fanSlug}-${dateStr}.pdf`
+    const dropboxPath = `/Palm Ops/Whale Alerts/${creatorName}/${fanSlug}-${dateStr}.pdf`
 
     // Ensure folder hierarchy exists before uploading
-    console.log('[Whale Alert] Creating folder /Palm/Whale Alerts')
-    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm/Whale Alerts`)
-    console.log('[Whale Alert] Creating folder /Palm/Whale Alerts/' + creatorName)
-    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm/Whale Alerts/${creatorName}`)
+    console.log('[Whale Alert] Creating folder /Palm Ops/Whale Alerts')
+    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Whale Alerts`)
+    console.log('[Whale Alert] Creating folder /Palm Ops/Whale Alerts/' + creatorName)
+    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Whale Alerts/${creatorName}`)
     console.log('[Whale Alert] Uploading PDF to', dropboxPath)
     await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, pdfBuffer, { overwrite: true })
     console.log('[Whale Alert] Upload complete')
