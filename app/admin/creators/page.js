@@ -1880,6 +1880,33 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       formData.append('rolling30', f.goingCold.rolling30 || 0)
       formData.append('monthlyAvg90', f.goingCold.monthlyAvg90 || 0)
       formData.append('lastPurchaseDate', f.goingCold.lastPurchaseDate || '')
+    } else if (allTxns) {
+      // Compute spending metrics from transaction data when no going-cold alert exists
+      const fanTxns = allTxns.filter(t => (t.ofUsername || '') === f.ofUsername || (t.displayName || '') === f.fanName)
+        .filter(t => t.date)
+        .sort((a, b) => a.date.localeCompare(b.date))
+      if (fanTxns.length > 0) {
+        const now = new Date()
+        const thirtyAgo = new Date(now - 30 * 86400000)
+        const ninetyAgo = new Date(now - 90 * 86400000)
+        const r30 = fanTxns.filter(t => new Date(t.date) >= thirtyAgo).reduce((s, t) => s + (t.net || 0), 0)
+        const r90 = fanTxns.filter(t => new Date(t.date) >= ninetyAgo).reduce((s, t) => s + (t.net || 0), 0)
+        const lastTxn = fanTxns[fanTxns.length - 1]
+        const gap = Math.floor((now - new Date(lastTxn.date)) / 86400000)
+        // Compute median purchase gap
+        const gaps = []
+        for (let i = 1; i < fanTxns.length; i++) {
+          const d = Math.floor((new Date(fanTxns[i].date) - new Date(fanTxns[i-1].date)) / 86400000)
+          if (d > 0) gaps.push(d)
+        }
+        gaps.sort((a, b) => a - b)
+        const median = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 0
+        formData.append('medianGap', median)
+        formData.append('currentGap', gap)
+        formData.append('rolling30', r30)
+        formData.append('monthlyAvg90', Math.round(r90 / 3))
+        formData.append('lastPurchaseDate', lastTxn.date)
+      }
     }
     formData.append('creatorName', creatorName || '')
     formData.append('creatorRecordId', creatorRecordId || '')
