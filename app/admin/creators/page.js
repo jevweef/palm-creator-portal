@@ -2055,8 +2055,13 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
+      if (!res.ok) {
+        const text = await res.text()
+        let msg = 'Preview failed'
+        try { msg = JSON.parse(text).error || msg } catch { msg = res.status === 504 ? 'PDF generation timed out — try again (cold start)' : msg }
+        throw new Error(msg)
+      }
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Preview failed')
       setPreviewImage(data.image)
     } catch (e) {
       setSendResult({ error: 'Preview failed: ' + e.message })
