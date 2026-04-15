@@ -1817,14 +1817,17 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     const entries = Object.entries(dailySpend).sort(([a], [b]) => a.localeCompare(b))
     if (entries.length < 1) return { fanSpendData: null, monthlySpendData: null }
 
-    // Fill gaps with zero-spend days
+    // Fill gaps with zero-spend days — extend to today so the gap is visible
     const filled = []
     const startDate = new Date(entries[0][0] + 'T00:00:00')
-    const endDate = new Date(entries[entries.length - 1][0] + 'T00:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const endDate = today > new Date(entries[entries.length - 1][0] + 'T00:00:00') ? today : new Date(entries[entries.length - 1][0] + 'T00:00:00')
     const spendMap = Object.fromEntries(entries)
+    const lastSpendDate = entries[entries.length - 1][0]
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const key = d.toISOString().split('T')[0]
-      filled.push({ date: key, spend: spendMap[key] || 0 })
+      filled.push({ date: key, spend: spendMap[key] || 0, afterLastSpend: key > lastSpendDate })
     }
 
     // Build monthly totals — include all months from first to current
@@ -2223,8 +2226,19 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
               const xScale = (i) => padL + ((timestamps[i] - tStart) / tRange) * chartW
               const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
               const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
+              // Split into solid (active) and dashed (gap after last spend) segments
+              const lastSpendIdx = (() => {
+                for (let i = data.length - 1; i >= 0; i--) {
+                  if (!data[i].afterLastSpend) return i
+                }
+                return data.length - 1
+              })()
+              const solidPoints = points.slice(0, lastSpendIdx + 1)
+              const dashedPoints = lastSpendIdx < data.length - 1 ? points.slice(lastSpendIdx) : []
+              const solidPath = solidPoints.length > 0 ? 'M' + solidPoints.join(' L') : ''
+              const dashedPath = dashedPoints.length > 1 ? 'M' + dashedPoints.join(' L') : ''
               const linePath = 'M' + points.join(' L')
-              const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
+              const areaPath = solidPath + ` L${xScale(lastSpendIdx)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
               const moAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
               const fmtDateLabel = (dateStr) => {
                 const dt = new Date(dateStr + 'T12:00:00')
@@ -2277,7 +2291,8 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       </g>
                     ))}
                     <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
-                    <path d={linePath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />
+                    {solidPath && <path d={solidPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />}
+                    {dashedPath && <path d={dashedPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />}
                     {data.map((d, i) => d.spend > 0 ? (
                       <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
                     ) : null)}
