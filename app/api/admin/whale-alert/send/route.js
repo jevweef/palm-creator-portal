@@ -41,9 +41,9 @@ export async function POST(request) {
     const dateStr = new Date().toISOString().slice(0, 10)
     const dropboxPath = `/Palm/Whale Alerts/${creatorName}/${fanSlug}-${dateStr}.pdf`
 
-    // Ensure folder exists before uploading
-    const folderPath = `/Palm/Whale Alerts/${creatorName}`
-    await createDropboxFolder(accessToken, rootNamespaceId, folderPath)
+    // Ensure folder hierarchy exists before uploading
+    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm/Whale Alerts`)
+    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm/Whale Alerts/${creatorName}`)
     await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, pdfBuffer, { overwrite: true })
     const shareLink = await createDropboxSharedLink(accessToken, rootNamespaceId, dropboxPath)
 
