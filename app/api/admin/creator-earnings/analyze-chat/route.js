@@ -387,15 +387,59 @@ export async function POST(request) {
     const isHighValue = lifetime >= 1000
     const analysisType = isHighValue ? 'deep' : 'quick'
 
-    // Spending timeline (passed from frontend)
-    const spendingTimeline = formData.get('spendingTimeline') || ''
+    // Spending timeline (passed from frontend) — filter to chat date range
+    const rawSpendingTimeline = formData.get('spendingTimeline') || ''
+    const chatLastDate = parsed.lastMessageDate ? parsed.lastMessageDate.replace(/,?\s*\d{1,2}:\d{2}\s*[ap]m$/i, '').trim() : ''
+
+    // Parse the last message date for comparison (e.g. "Apr 6" or "Apr 6, 2025")
+    let chatEndDate = null
+    if (chatLastDate) {
+      const d = new Date(chatLastDate + (chatLastDate.match(/\d{4}/) ? '' : `, ${new Date().getFullYear()}`))
+      if (!isNaN(d)) chatEndDate = d
+    }
+
+    // Filter spending timeline to only include dates within the chat window
+    let spendingTimeline = rawSpendingTimeline
+    let cappedRolling30 = rolling30
+    let cappedCurrentGap = currentGap
+    let cappedLifetime = lifetime
+    if (chatEndDate && rawSpendingTimeline) {
+      const lines = rawSpendingTimeline.split('\n')
+      const filtered = []
+      let totalInWindow = 0
+      let lastSpendDate = null
+      const thirtyBefore = new Date(chatEndDate - 30 * 86400000)
+      let rolling30InWindow = 0
+      for (const line of lines) {
+        const match = line.match(/([\d-]+):\s*\$([\d,.]+)/)
+        if (!match) continue
+        const lineDate = new Date(match[1] + 'T00:00:00')
+        if (lineDate <= chatEndDate) {
+          filtered.push(line)
+          const amount = parseFloat(match[2].replace(',', ''))
+          totalInWindow += amount
+          lastSpendDate = lineDate
+          if (lineDate >= thirtyBefore) rolling30InWindow += amount
+        }
+      }
+      spendingTimeline = filtered.join('\n')
+      cappedLifetime = totalInWindow || lifetime
+      cappedRolling30 = rolling30InWindow
+      if (lastSpendDate) {
+        cappedCurrentGap = Math.floor((chatEndDate - lastSpendDate) / 86400000)
+      }
+    }
+
+    const chatWindowNote = chatEndDate
+      ? `\n- IMPORTANT: This spending data is scoped to the chat window ending ${chatLastDate}. Do NOT reference spending or activity after this date.`
+      : ''
 
     const spendingContext = `SPENDING DATA FOR THIS FAN:
-- Lifetime spend: $${lifetime.toLocaleString()}
+- Lifetime spend (through chat window): $${cappedLifetime.toLocaleString()}
 - Normal purchase cadence: every ${medianGap} days
-- Current gap: ${currentGap} days since last purchase
-- Last 30 days: $${rolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
-- Creator name: ${creatorName}
+- Gap since last purchase (at end of chat): ${cappedCurrentGap} days
+- Last 30 days of chat window: $${cappedRolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
+- Creator name: ${creatorName}${chatWindowNote}
 ${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}`
 
     // ── Example of a great analysis (few-shot calibration) ─────────────
