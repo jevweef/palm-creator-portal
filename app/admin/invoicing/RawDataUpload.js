@@ -15,45 +15,63 @@ function fmtCutoff(iso) {
 
 const CREATORS = ['Amelia', 'Laurel', 'Taby', 'Gracie', 'MG']
 
-function DataCoverageChart({ cutoffs, ranges }) {
-  if (!ranges || Object.keys(ranges).length === 0) return null
+function DataCoverageChart({ creators: coverageCreators, loading: coverageLoading }) {
+  const scrollRef = useRef(null)
 
-  // Group by creator
-  const creators = {}
-  for (const [tabName, range] of Object.entries(ranges)) {
-    const [creatorName, type] = tabName.split(' - ')
-    if (!creatorName || !type) continue
-    if (!creators[creatorName]) creators[creatorName] = {}
-    creators[creatorName][type] = range
+  if (coverageLoading) {
+    return (
+      <div style={{
+        background: '#fff', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.06)',
+        padding: '20px 24px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+      }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
+          Data Coverage
+        </div>
+        <div style={{ fontSize: '13px', color: '#ccc', padding: '20px 0', textAlign: 'center' }}>Loading coverage data...</div>
+      </div>
+    )
   }
 
-  if (Object.keys(creators).length === 0) return null
+  if (!coverageCreators || coverageCreators.length === 0) return null
 
-  // Find global date range for the x-axis
-  const allDates = Object.values(ranges).flatMap(r => [r.earliest, r.latest]).filter(Boolean)
-  if (allDates.length === 0) return null
+  // Determine x-axis range: default to last 2 months, expand if data exists earlier
+  const today = new Date()
+  const twoMonthsAgo = new Date(today)
+  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+  twoMonthsAgo.setDate(1)
+
+  // Collect all dates from creators
+  const allDates = coverageCreators.flatMap(c =>
+    [c.earningsStart, c.earningsEnd, c.chargebackStart, c.chargebackEnd].filter(Boolean)
+  )
   const sortedDates = [...allDates].sort()
-  const globalStart = new Date(sortedDates[0] + 'T00:00:00')
-  const globalEnd = new Date(sortedDates[sortedDates.length - 1] + 'T00:00:00')
+  const dataStart = sortedDates.length > 0 ? new Date(sortedDates[0] + 'T00:00:00') : twoMonthsAgo
+  const dataEnd = sortedDates.length > 0 ? new Date(sortedDates[sortedDates.length - 1] + 'T00:00:00') : today
+
+  const globalStart = new Date(Math.min(dataStart, twoMonthsAgo))
+  const globalEnd = new Date(Math.max(dataEnd, today))
   const totalDays = Math.max(1, (globalEnd - globalStart) / 86400000)
 
-  // Generate invoice period lines (1st and 15th of each month)
+  // Chart width: 8px per day, minimum 600px
+  const chartWidth = Math.max(600, totalDays * 8)
+
+  // Generate period lines (1st and 15th of each month)
   const periodLines = []
   const cursor = new Date(globalStart)
   cursor.setDate(1)
   while (cursor <= globalEnd) {
     const d1 = new Date(cursor)
     d1.setDate(1)
-    if (d1 >= globalStart && d1 <= globalEnd) periodLines.push(new Date(d1))
+    if (d1 >= globalStart && d1 <= globalEnd) periodLines.push({ date: new Date(d1), isFirst: true })
     const d15 = new Date(cursor)
     d15.setDate(15)
-    if (d15 >= globalStart && d15 <= globalEnd) periodLines.push(new Date(d15))
+    if (d15 >= globalStart && d15 <= globalEnd) periodLines.push({ date: new Date(d15), isFirst: false })
     cursor.setMonth(cursor.getMonth() + 1)
   }
 
-  function dateToPct(dateStr) {
+  function dateToPx(dateStr) {
     const d = new Date(dateStr + 'T00:00:00')
-    return Math.max(0, Math.min(100, ((d - globalStart) / 86400000 / totalDays) * 100))
+    return Math.max(0, Math.min(chartWidth, ((d - globalStart) / 86400000 / totalDays) * chartWidth))
   }
 
   function fmtShort(dateStr) {
@@ -62,7 +80,7 @@ function DataCoverageChart({ cutoffs, ranges }) {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  const sortedCreators = Object.keys(creators).sort()
+  const sortedCreators = [...coverageCreators].sort((a, b) => a.aka.localeCompare(b.aka))
 
   return (
     <div style={{
@@ -73,85 +91,89 @@ function DataCoverageChart({ cutoffs, ranges }) {
         Data Coverage
       </div>
 
-      {/* X-axis date labels */}
-      <div style={{ position: 'relative', height: '16px', marginLeft: '100px', marginBottom: '4px' }}>
-        {periodLines.map((d, i) => {
-          const pct = ((d - globalStart) / 86400000 / totalDays) * 100
-          return (
-            <span key={i} style={{
-              position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)',
-              fontSize: '9px', color: '#ccc', whiteSpace: 'nowrap',
-            }}>
-              {d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </span>
-          )
-        })}
-      </div>
-
-      {/* Creator rows */}
-      {sortedCreators.map(name => {
-        const sales = creators[name]?.Sales
-        const cbs = creators[name]?.Chargebacks
-        return (
-          <div key={name} style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
-              <div style={{ width: '100px', flexShrink: 0, fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>
-                {name}
-              </div>
-              <div style={{ flex: 1, position: 'relative' }}>
-                {/* Period lines */}
-                {periodLines.map((d, i) => {
-                  const pct = ((d - globalStart) / 86400000 / totalDays) * 100
-                  return (
-                    <div key={i} style={{
-                      position: 'absolute', left: `${pct}%`, top: 0, bottom: 0, width: '1px',
-                      background: 'rgba(0,0,0,0.06)', zIndex: 0,
-                    }} />
-                  )
-                })}
-
-                {/* Sales bar */}
-                <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
-                  {sales ? (
-                    <div title={`Sales: ${fmtShort(sales.earliest)} → ${fmtShort(sales.latest)} (${sales.rowCount} txns)`} style={{
-                      position: 'absolute',
-                      left: `${dateToPct(sales.earliest)}%`,
-                      width: `${Math.max(1, dateToPct(sales.latest) - dateToPct(sales.earliest))}%`,
-                      height: '100%', borderRadius: '3px',
-                      background: 'linear-gradient(90deg, #86efac, #22c55e)',
-                      opacity: 0.85,
-                    }} />
-                  ) : (
-                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
-                  )}
-                  <span style={{ position: 'absolute', right: '-54px', top: '1px', fontSize: '9px', color: '#aaa', width: '50px' }}>
-                    {sales ? fmtShort(sales.latest) : '—'}
-                  </span>
-                </div>
-
-                {/* Chargebacks bar */}
-                <div style={{ position: 'relative', height: '14px' }}>
-                  {cbs ? (
-                    <div title={`Chargebacks: ${fmtShort(cbs.earliest)} → ${fmtShort(cbs.latest)} (${cbs.rowCount} txns)`} style={{
-                      position: 'absolute',
-                      left: `${dateToPct(cbs.earliest)}%`,
-                      width: `${Math.max(1, dateToPct(cbs.latest) - dateToPct(cbs.earliest))}%`,
-                      height: '100%', borderRadius: '3px',
-                      background: 'linear-gradient(90deg, #fca5a5, #ef4444)',
-                      opacity: 0.85,
-                    }} />
-                  ) : (
-                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
-                  )}
-                  <span style={{ position: 'absolute', right: '-54px', top: '1px', fontSize: '9px', color: '#aaa', width: '50px' }}>
-                    {cbs ? fmtShort(cbs.latest) : '—'}
-                  </span>
-                </div>
-              </div>
+      <div style={{ display: 'flex' }}>
+        {/* Creator names column (fixed) */}
+        <div style={{ width: '100px', flexShrink: 0 }}>
+          <div style={{ height: '20px', marginBottom: '4px' }} /> {/* spacer for date labels */}
+          {sortedCreators.map(c => (
+            <div key={c.id} style={{ height: '35px', display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.aka || '—'}</span>
             </div>
+          ))}
+        </div>
+
+        {/* Scrollable chart area */}
+        <div ref={scrollRef} style={{ flex: 1, overflowX: 'auto', position: 'relative' }}>
+          <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
+            {/* X-axis date labels — only 1st of each month */}
+            <div style={{ position: 'relative', height: '20px', marginBottom: '4px' }}>
+              {periodLines.filter(p => p.isFirst).map((p, i) => {
+                const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+                return (
+                  <span key={i} style={{
+                    position: 'absolute', left: `${px}px`, transform: 'translateX(-50%)',
+                    fontSize: '10px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
+                  }}>
+                    {p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                )
+              })}
+            </div>
+
+            {/* Creator rows */}
+            {sortedCreators.map(c => {
+              const hasEarnings = c.earningsStart && c.earningsEnd
+              const hasChargebacks = c.chargebackStart && c.chargebackEnd
+              return (
+                <div key={c.id} style={{ height: '35px', position: 'relative' }}>
+                  {/* Period lines */}
+                  {periodLines.map((p, i) => {
+                    const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+                    return (
+                      <div key={i} style={{
+                        position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px',
+                        background: p.isFirst ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)', zIndex: 0,
+                      }} />
+                    )
+                  })}
+
+                  {/* Sales bar */}
+                  <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
+                    {hasEarnings ? (
+                      <div title={`Earnings: ${fmtShort(c.earningsStart)} - ${fmtShort(c.earningsEnd)}`} style={{
+                        position: 'absolute',
+                        left: `${dateToPx(c.earningsStart)}px`,
+                        width: `${Math.max(4, dateToPx(c.earningsEnd) - dateToPx(c.earningsStart))}px`,
+                        height: '100%', borderRadius: '3px',
+                        background: 'linear-gradient(90deg, #86efac, #22c55e)',
+                        opacity: 0.85,
+                      }} />
+                    ) : (
+                      <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                    )}
+                  </div>
+
+                  {/* Chargebacks bar */}
+                  <div style={{ position: 'relative', height: '14px' }}>
+                    {hasChargebacks ? (
+                      <div title={`Chargebacks: ${fmtShort(c.chargebackStart)} - ${fmtShort(c.chargebackEnd)}`} style={{
+                        position: 'absolute',
+                        left: `${dateToPx(c.chargebackStart)}px`,
+                        width: `${Math.max(4, dateToPx(c.chargebackEnd) - dateToPx(c.chargebackStart))}px`,
+                        height: '100%', borderRadius: '3px',
+                        background: 'linear-gradient(90deg, #fca5a5, #ef4444)',
+                        opacity: 0.85,
+                      }} />
+                    ) : (
+                      <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        )
-      })}
+        </div>
+      </div>
 
       {/* Legend */}
       <div style={{ display: 'flex', gap: '16px', marginTop: '12px', marginLeft: '100px' }}>
@@ -179,8 +201,9 @@ export default function RawDataUpload() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [cutoffs, setCutoffs] = useState({})
-  const [ranges, setRanges] = useState({})
   const [spreadsheetUrl, setSpreadsheetUrl] = useState(null)
+  const [coverageCreators, setCoverageCreators] = useState([])
+  const [coverageLoading, setCoverageLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef(null)
 
@@ -190,13 +213,25 @@ export default function RawDataUpload() {
       if (res.ok) {
         const data = await res.json()
         setCutoffs(data.tabs || {})
-        setRanges(data.ranges || {})
         setSpreadsheetUrl(data.spreadsheetUrl)
       }
     } catch {}
   }, [])
 
-  useEffect(() => { loadCutoffs() }, [loadCutoffs])
+  const loadCoverage = useCallback(async () => {
+    try {
+      setCoverageLoading(true)
+      const res = await fetch('/api/admin/earnings-coverage')
+      if (res.ok) {
+        const data = await res.json()
+        setCoverageCreators(data.creators || [])
+      }
+    } catch {} finally {
+      setCoverageLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadCutoffs(); loadCoverage() }, [loadCutoffs, loadCoverage])
 
   async function handleUpload() {
     if (!file) return
@@ -219,6 +254,7 @@ export default function RawDataUpload() {
       setFile(null)
       if (fileRef.current) fileRef.current.value = ''
       loadCutoffs()
+      loadCoverage()
     } catch (e) {
       setError(e.message)
     } finally {
@@ -265,7 +301,7 @@ export default function RawDataUpload() {
       </div>
 
       {/* Data coverage timeline */}
-      <DataCoverageChart cutoffs={cutoffs} ranges={ranges} />
+      <DataCoverageChart creators={coverageCreators} loading={coverageLoading} />
 
       {/* Creator selector */}
       <div style={{ marginBottom: '16px' }}>

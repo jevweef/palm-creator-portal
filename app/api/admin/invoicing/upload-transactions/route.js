@@ -267,6 +267,88 @@ async function updateCutoff(sheets, tabName, cutoffDt) {
   })
 }
 
+// ── Airtable coverage update ───────────────────────────────────────────────
+
+const AIRTABLE_PAT = process.env.AIRTABLE_PAT
+const HQ_BASE = 'appL7c4Wtotpz07KS'
+const HQ_CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
+const AT_FIELDS = {
+  aka: 'fldi2BNvf928yVuZx',
+  earningsStart: 'fldiMIvM5hf2MNzck',
+  earningsEnd: 'fld6n02I6LXpaAQMC',
+  chargebackStart: 'fldnl6I0NQm3LohCJ',
+  chargebackEnd: 'fldw4KB1rCJULWje1',
+}
+
+async function updateAirtableCoverage(creatorName, sheetType, txns) {
+  if (!AIRTABLE_PAT || !txns || txns.length === 0) return
+
+  try {
+    // Find dates from transactions
+    const dates = txns.filter(t => t.dt).map(t => t.dt).sort((a, b) => a - b)
+    if (dates.length === 0) return
+    const earliest = dates[0]
+    const latest = dates[dates.length - 1]
+    const earliestStr = fmtDate(earliest)
+    const latestStr = fmtDate(latest)
+
+    // Look up creator by AKA
+    const params = new URLSearchParams()
+    params.append('filterByFormula', `{AKA}="${creatorName}"`)
+    params.append('fields[]', AT_FIELDS.aka)
+    params.append('fields[]', AT_FIELDS.earningsStart)
+    params.append('fields[]', AT_FIELDS.earningsEnd)
+    params.append('fields[]', AT_FIELDS.chargebackStart)
+    params.append('fields[]', AT_FIELDS.chargebackEnd)
+    params.append('pageSize', '1')
+
+    const searchRes = await fetch(
+      `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}?${params}`,
+      { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` } }
+    )
+    if (!searchRes.ok) return
+    const searchData = await searchRes.json()
+    const record = searchData.records?.[0]
+    if (!record) return
+
+    const fields = {}
+    const isSales = sheetType === 'Sales'
+
+    if (isSales) {
+      // Update Earnings Data End with the latest date
+      fields[AT_FIELDS.earningsEnd] = latestStr
+      // Update Earnings Data Start only if null or new start is earlier
+      const currentStart = record.fields[AT_FIELDS.earningsStart]
+      if (!currentStart || earliestStr < currentStart) {
+        fields[AT_FIELDS.earningsStart] = earliestStr
+      }
+    } else {
+      // Update Chargeback Data End with the latest date
+      fields[AT_FIELDS.chargebackEnd] = latestStr
+      // Update Chargeback Data Start only if null or new start is earlier
+      const currentStart = record.fields[AT_FIELDS.chargebackStart]
+      if (!currentStart || earliestStr < currentStart) {
+        fields[AT_FIELDS.chargebackStart] = earliestStr
+      }
+    }
+
+    await fetch(
+      `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}/${record.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_PAT}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fields }),
+      }
+    )
+  } catch (err) {
+    // Non-blocking — log but don't fail the upload
+    console.error('Airtable coverage update error:', err)
+  }
+}
+
 // ── POST: upload transactions ───────────────────────────────────────────────
 
 export async function POST(request) {
@@ -428,6 +510,9 @@ export async function POST(request) {
       if (t.dt && (!newCutoff || t.dt > newCutoff)) newCutoff = t.dt
     }
     await updateCutoff(sheets, tabName, newCutoff)
+
+    // Update Airtable coverage dates (non-blocking)
+    await updateAirtableCoverage(creator, sheetType, txns)
 
     // Build summary
     const typeBreakdown = {}
