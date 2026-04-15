@@ -2035,7 +2035,11 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       creatorName,
       creatorRecordId,
       alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, peakMonthlyAvg, peakRange },
-      analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+      analysis: analysis
+        ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief }
+        : selRec
+          ? { analysis: selRec.brief || '', managerBrief: selRec.brief || '' }
+          : null,
       chatWindow: {
         firstMessageDate: analysis?.firstMessageDate || selRec?.firstMessageDate || null,
         lastMessageDate: analysis?.lastMessageDate || selRec?.lastMessageDate || null,
