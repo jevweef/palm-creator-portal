@@ -771,12 +771,12 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
 async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetime }) {
   const now = new Date().toISOString()
 
-  // Find existing record
+  // Find existing record — match by username first, fall back to fan name
   let formula
   if (fanUsername) {
-    formula = `AND({OF Username} = "${fanUsername}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
+    formula = `{OF Username} = "${fanUsername}"`
   } else {
-    formula = `AND({Fan Name} = "${fanName.replace(/"/g, '\\"')}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
+    formula = `{Fan Name} = "${fanName.replace(/"/g, '\\"')}"`
   }
 
   const params = new URLSearchParams()
