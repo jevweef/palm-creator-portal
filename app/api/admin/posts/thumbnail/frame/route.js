@@ -31,25 +31,43 @@ export async function POST(request) {
     const outputPath = join(tmpdir(), `frame_${id}.jpg`)
 
     console.log(`[Frame Extract] Downloading video for frame extraction...`)
+    console.log(`[Frame Extract] URL: ${rawUrl.substring(0, 80)}...`)
+    console.log(`[Frame Extract] tmpdir: ${tmpdir()}`)
 
     // Download video first — ffmpeg can't follow Dropbox redirects reliably
-    const { writeFile } = await import('fs/promises')
+    const { writeFile, stat } = await import('fs/promises')
     const dlRes = await fetch(rawUrl)
     if (!dlRes.ok) throw new Error(`Video download failed: ${dlRes.status}`)
     const videoBuffer = Buffer.from(await dlRes.arrayBuffer())
     await writeFile(inputPath, videoBuffer)
-    console.log(`[Frame Extract] Downloaded ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB, extracting frame at ${timestamp}s...`)
 
+    // Verify file was written
+    const inputStat = await stat(inputPath).catch(() => null)
+    console.log(`[Frame Extract] Downloaded ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB to ${inputPath}, exists: ${!!inputStat}, size on disk: ${inputStat?.size || 0}`)
+
+    // Check ffmpeg binary
+    const ffmpegPath = ffmpegStatic
+    const { existsSync } = require('fs')
+    console.log(`[Frame Extract] ffmpeg path: ${ffmpegPath}, exists: ${existsSync(ffmpegPath)}`)
+
+    console.log(`[Frame Extract] Extracting frame at ${timestamp}s...`)
     await new Promise((resolve, reject) => {
       ffmpeg(inputPath)
         .inputOptions([`-ss ${timestamp}`])
         .outputOptions(['-frames:v 1', '-f image2', '-q:v 2'])
         .output(outputPath)
-        .on('end', resolve)
-        .on('error', reject)
+        .on('start', cmd => console.log(`[Frame Extract] ffmpeg command: ${cmd}`))
+        .on('stderr', line => console.log(`[Frame Extract] ffmpeg: ${line}`))
+        .on('end', () => { console.log('[Frame Extract] ffmpeg finished'); resolve() })
+        .on('error', (err) => { console.error(`[Frame Extract] ffmpeg error: ${err.message}`); reject(err) })
         .run()
     })
     await unlink(inputPath).catch(() => {})
+
+    // Verify output exists
+    const outputStat = await stat(outputPath).catch(() => null)
+    console.log(`[Frame Extract] Output exists: ${!!outputStat}, size: ${outputStat?.size || 0}`)
+    if (!outputStat) throw new Error('ffmpeg produced no output file')
 
     const frameBuffer = await readFile(outputPath)
     await unlink(outputPath).catch(() => {})
