@@ -551,7 +551,7 @@ STRUCTURE YOUR ANALYSIS EXACTLY LIKE THE EXAMPLE ABOVE:
 
 **What Drove Their Spending**: 2-3 bullet points with specific quotes and dates. What type of interaction made them spend? This is what the chatting team needs to recreate.
 
-**What Went Wrong**: Numbered list, each point backed by evidence from the conversation. If nothing went wrong, explain the real reason (budget, natural cooling, etc.) with evidence.
+**What Went Wrong (if anything)**: Numbered list, each point backed by evidence from the conversation. If nothing went wrong — if the fan is actively engaged, chatting, and spending — say so honestly. Do NOT manufacture problems or force a negative framing. Explain the real situation with evidence. Only flag genuine issues (repeated scripts, wrong names, ignored preferences, mass messages, etc.) when they actually exist in the conversation.
 
 **Personal Details to Leverage**: THIS SECTION IS CRITICAL. Scan the entire conversation and extract two categories of details:
 
@@ -632,7 +632,13 @@ Quote the fan's actual words as evidence. Don't be generic.`
     // Fetch prior analysis context (if fan has been analyzed before)
     const priorResult = await fetchPriorContext(fanName, creatorName, { rolling30, monthlyAvg90, currentGap, medianGap })
     const priorContext = priorResult?.text || null
-    const fanIsHot = priorResult?.isHot || false
+
+    // Determine if fan is currently active — check spending data directly, don't require tracker record
+    const fanIsHot = (priorResult?.isHot) || (
+      rolling30 > 0 &&
+      (monthlyAvg90 <= 0 || rolling30 >= monthlyAvg90 * 0.5) &&
+      currentGap < (medianGap > 0 ? medianGap * 2 : 30)
+    )
 
     // If fan is currently hot/re-engaged, swap Recovery Odds → Retention Outlook in the template
     let finalPrompt = systemPrompt
@@ -646,8 +652,8 @@ Quote the fan's actual words as evidence. Don't be generic.`
         'Specific approach to MAINTAIN this fan\'s engagement and maximize spending. Write 2-3 example messages'
       )
       finalPrompt = finalPrompt.replace(
-        '**What Went Wrong**: Numbered list, each point backed by evidence from the conversation. If nothing went wrong, explain the real reason (budget, natural cooling, etc.) with evidence.',
-        '**What Went Wrong (Previously)**: If there was a prior cold spell, briefly note what caused it. Then focus on what CHANGED — what\'s different now that brought them back. If the chatting team fixed the issue, credit them specifically.'
+        /\*\*What Went Wrong \(if anything\)\*\*:.*?Only flag genuine issues.*?in the conversation\./s,
+        '**What Went Wrong (Previously)**: If there was a prior cold spell, briefly note what caused it. Then focus on what CHANGED — what\'s different now that brought them back. If the chatting team fixed the issue, credit them specifically. If nothing went wrong, say so.'
       )
       finalPrompt = finalPrompt.replace(
         '**The Turning Point**: The most critical section. Pinpoint exactly when and why things shifted. Quote specific messages. If you can identify a copy-pasted script or a moment where the fan\'s tone changed, call it out explicitly. Cross-reference with spending dates.',
