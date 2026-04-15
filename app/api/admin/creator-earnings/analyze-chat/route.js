@@ -135,7 +135,10 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
       context += `\n- The conversation now includes BOTH old messages (from prior analysis) and NEW messages. Look for changes in tone, engagement, or spending patterns after the alert date.`
     }
 
-    return context
+    // Return both the context string and whether fan is currently hot
+    const isCurrentlyHot_val = typeof isCurrentlyHot !== 'undefined' ? isCurrentlyHot : false
+    const isReengaged_val = typeof isReengaged !== 'undefined' ? isReengaged : false
+    return { text: context, isHot: isCurrentlyHot_val || isReengaged_val }
   } catch (err) {
     console.error('Failed to fetch prior context:', err)
     return null
@@ -625,10 +628,42 @@ Quote the fan's actual words as evidence. Don't be generic.`
     const maxChars = isHighValue ? 80000 : 20000
 
     // Fetch prior analysis context (if fan has been analyzed before)
-    const priorContext = await fetchPriorContext(fanName, creatorName, { rolling30, monthlyAvg90, currentGap, medianGap })
+    const priorResult = await fetchPriorContext(fanName, creatorName, { rolling30, monthlyAvg90, currentGap, medianGap })
+    const priorContext = priorResult?.text || null
+    const fanIsHot = priorResult?.isHot || false
+
+    // If fan is currently hot/re-engaged, swap Recovery Odds → Retention Outlook in the template
+    let finalPrompt = systemPrompt
+    if (fanIsHot && isHighValue) {
+      finalPrompt = finalPrompt.replace(
+        '**Recovery Odds**: High / Medium / Low with honest reasoning.',
+        `**Retention Outlook**: High / Medium / Low — this fan is CURRENTLY ACTIVE and spending. Do NOT frame this as recovery. Assess the likelihood they STAY engaged based on conversation quality, spending momentum, and whether the patterns that caused previous cold spells have been addressed. If they're hot, say so plainly.`
+      )
+      finalPrompt = finalPrompt.replace(
+        'Specific re-engagement approach. Write 2-3 example messages',
+        'Specific approach to MAINTAIN this fan\'s engagement and maximize spending. Write 2-3 example messages'
+      )
+      finalPrompt = finalPrompt.replace(
+        '**What Went Wrong**: Numbered list, each point backed by evidence from the conversation. If nothing went wrong, explain the real reason (budget, natural cooling, etc.) with evidence.',
+        '**What Went Wrong (Previously)**: If there was a prior cold spell, briefly note what caused it. Then focus on what CHANGED — what\'s different now that brought them back. If the chatting team fixed the issue, credit them specifically.'
+      )
+      finalPrompt = finalPrompt.replace(
+        '**The Turning Point**: The most critical section. Pinpoint exactly when and why things shifted. Quote specific messages. If you can identify a copy-pasted script or a moment where the fan\'s tone changed, call it out explicitly. Cross-reference with spending dates.',
+        '**The Turning Point**: Pinpoint when things shifted POSITIVELY. What brought this fan back? Quote specific messages that show re-engagement. Cross-reference with spending dates. If there was a prior cold spell, briefly note when it ended and what triggered the return.'
+      )
+    } else if (fanIsHot && !isHighValue) {
+      finalPrompt = finalPrompt.replace(
+        '**Recovery Odds**: (High / Medium / Low — 1 sentence why)',
+        '**Retention Outlook**: (High / Medium / Low — this fan is active. Assess likelihood they stay engaged, not recovery odds.)'
+      )
+      finalPrompt = finalPrompt.replace(
+        'Most likely reason spending dropped',
+        'Current engagement status and any risks'
+      )
+    }
     const systemWithContext = priorContext
-      ? systemPrompt + priorContext
-      : systemPrompt
+      ? finalPrompt + priorContext
+      : finalPrompt
 
     // Load accumulated chat history from Dropbox and merge with new upload
     const fanUsername = formData.get('fanUsername') || ''
