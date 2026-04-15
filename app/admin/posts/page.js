@@ -330,17 +330,18 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
     setCapturing(true)
     setError('')
     try {
-      // Step 1: extract the frame from the video server-side
-      const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl, timestamp: currentTime }),
-      })
-      const frameData = await frameRes.json()
-      if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
+      // Extract frame client-side using canvas (no server call needed)
+      const video = videoRef.current
+      if (!video) throw new Error('Video not loaded')
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth || 1080
+      canvas.height = video.videoHeight || 1920
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92))
+      if (!blob) throw new Error('Failed to capture frame')
 
-      // Step 2: upload the JPEG to Dropbox via the existing thumbnail endpoint
-      const blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+      // Upload the JPEG to Dropbox via the existing thumbnail endpoint
       const form = new FormData()
       form.append('file', blob, `frame_${Date.now()}.jpg`)
       form.append('postId', postId)
