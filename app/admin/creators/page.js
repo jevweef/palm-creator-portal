@@ -1771,7 +1771,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
 
-function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId, allTxns }) {
+function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId, allTxns }) {
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
@@ -1792,7 +1792,8 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const chatFileRef = useRef(null)
   const saveFileRef = useRef(null)
 
-  const sc = statusColors[f.status] || statusColors['Monitoring']
+  const heat = HEAT_CONFIG[f.heatStatus] || HEAT_CONFIG['Stable']
+  const ac = alertStatusColors[f.alertStatus] || alertStatusColors['None']
   const ec = effectColors[f.effectiveness] || effectColors['Pending']
 
   // Analysis is now shown via cards (analysisRecords) — full text loads on demand via "View Full" modal or new analysis run
@@ -2095,7 +2096,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       <div
         onClick={onToggle}
         style={{
-          display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 80px 80px 90px',
+          display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px',
           padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
           background: isExpanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
         }}
@@ -2106,7 +2107,8 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
           {f.ofUsername && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>}
           {f.alertCount > 0 && <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
-        <span><span style={{ background: sc.bg, color: sc.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.status}</span></span>
+        <span title={heat.label} style={{ fontSize: '14px', lineHeight: '20px', textAlign: 'center' }}>{heat.emoji}</span>
+        <span>{f.alertStatus !== 'None' && <span style={{ background: ac.bg, color: ac.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.alertStatus}</span>}</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(f.lifetimeSpend)}</span>
         <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#DC2626' : '#666', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
         <span style={{ textAlign: 'right', color: '#666' }}>{f.txnCount || 0}</span>
@@ -2838,6 +2840,86 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   )
 }
 
+// ── Compute fan heat status from transaction data ──────────────────────────
+function computeHeatStatus(fanTxns) {
+  if (!fanTxns || fanTxns.length < 3) return 'Stable'
+
+  const now = new Date()
+  const sorted = fanTxns.filter(t => t.date).sort((a, b) => a.date.localeCompare(b.date))
+  if (sorted.length === 0) return 'Stable'
+
+  const lastTxnDate = new Date(sorted[sorted.length - 1].date + 'T12:00:00')
+  const currentGap = Math.floor((now - lastTxnDate) / 86400000)
+
+  // Dead: no activity in 90+ days
+  if (currentGap > 90) return 'Dead'
+
+  // Compute median purchase gap
+  const gaps = []
+  for (let i = 1; i < sorted.length; i++) {
+    const g = Math.floor((new Date(sorted[i].date + 'T12:00:00') - new Date(sorted[i - 1].date + 'T12:00:00')) / 86400000)
+    if (g > 0) gaps.push(g)
+  }
+  gaps.sort((a, b) => a - b)
+  const medianGap = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 14
+
+  // Compute rolling spend windows
+  const d30 = new Date(now - 30 * 86400000)
+  const d60 = new Date(now - 60 * 86400000)
+  const d90 = new Date(now - 90 * 86400000)
+  const rolling30 = sorted.filter(t => new Date(t.date) >= d30).reduce((s, t) => s + (t.net || 0), 0)
+  const rolling30Prev = sorted.filter(t => { const d = new Date(t.date); return d >= d60 && d < d30 }).reduce((s, t) => s + (t.net || 0), 0)
+  const rolling90 = sorted.filter(t => new Date(t.date) >= d90).reduce((s, t) => s + (t.net || 0), 0)
+  const monthlyAvg90 = rolling90 / 3
+  const lifetime = sorted.reduce((s, t) => s + (t.net || 0), 0)
+
+  // Need minimum spend to classify as anything other than Stable
+  if (lifetime < 50) return 'Stable'
+
+  // Going Cold: gap > 2x median (min 14d) OR 30d spend < 25% of 90d avg
+  if ((currentGap > medianGap * 2 && currentGap >= 14) ||
+      (monthlyAvg90 > 0 && rolling30 < monthlyAvg90 * 0.25 && currentGap >= 14)) {
+    return 'Going Cold'
+  }
+
+  // Cooling: gap > 1.5x median (min 10d) OR 30d spend < 50% of avg
+  if ((currentGap > medianGap * 1.5 && currentGap >= 10) ||
+      (monthlyAvg90 > 0 && rolling30 < monthlyAvg90 * 0.5 && rolling30 < rolling30Prev * 0.7)) {
+    return 'Cooling'
+  }
+
+  // Warming Up: spend increasing after a depressed period
+  if (rolling30Prev > 0 && rolling30 > rolling30Prev * 1.5 && rolling30Prev < monthlyAvg90 * 0.5) {
+    return 'Warming Up'
+  }
+  // Also warming up if they were cold (big gap) but just recently purchased
+  if (currentGap < 7 && gaps.length > 3) {
+    const recentGaps = gaps.slice(-3)
+    const avgRecentGap = recentGaps.reduce((a, b) => a + b, 0) / recentGaps.length
+    if (avgRecentGap > medianGap * 1.5 && currentGap < medianGap) return 'Warming Up'
+  }
+
+  // Hot: spending above average with tight gaps
+  if (monthlyAvg90 > 0 && rolling30 > monthlyAvg90 * 1.25 && currentGap < medianGap * 1.2) {
+    return 'Hot'
+  }
+  // Also hot if very recent high spend even without long history
+  if (rolling30 > 500 && currentGap < 7) return 'Hot'
+
+  return 'Stable'
+}
+
+const HEAT_CONFIG = {
+  'Dead':       { emoji: '💀', color: '#6B7280', label: 'Dead — no activity 90+ days' },
+  'Going Cold': { emoji: '🥶', color: '#3B82F6', label: 'Going Cold — purchase gap or spend drop' },
+  'Cooling':    { emoji: '❄️', color: '#93C5FD', label: 'Cooling — spending trending down' },
+  'Stable':     { emoji: '😐', color: '#84CC16', label: 'Stable — normal spending pattern' },
+  'Warming Up': { emoji: '🔥', color: '#F59E0B', label: 'Warming Up — spending increasing' },
+  'Hot':        { emoji: '🔥', color: '#EF4444', label: 'Hot — above average spending' },
+}
+
+const HEAT_SORT_ORDER = { 'Dead': 0, 'Going Cold': 1, 'Cooling': 2, 'Warming Up': 3, 'Stable': 4, 'Hot': 5 }
+
 function FansPanel({ creator, allTxns, goingColdAlerts }) {
   const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -2858,9 +2940,24 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
       .catch(() => setLoading(false))
   }, [creator?.id])
 
+  // Map CRM status → alert status display
+  const crmToAlertStatus = (crmStatus) => {
+    const map = {
+      'Going Cold': 'Alert Triggered',
+      'Analyzed': 'Analysis Complete',
+      'Alert Sent': 'Sent to Manager',
+      'Recovering': 'Sent to Manager',
+      'Monitoring': 'Sent to Manager',
+      'Reactivated': 'Action Taken',
+      'Lost': 'Action Taken',
+    }
+    return map[crmStatus] || 'None'
+  }
+
   // Build comprehensive fan list from allTxns + CRM data + going cold alerts
   const allFans = useMemo(() => {
     const fanMap = new Map() // keyed by ofUsername or displayName
+    const fanTxnMap = new Map() // accumulate per-fan transactions for heat computation
 
     // 1. Build from transaction data — every fan who's spent money
     if (allTxns && Array.isArray(allTxns)) {
@@ -2882,7 +2979,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
             txnCount: 0,
             lastDate: '',
             firstDate: '',
-            status: 'Fan',
+            heatStatus: 'Stable',
+            alertStatus: 'None',
             alertCount: 0,
             alertHistory: [],
             analysisRecords: [],
@@ -2896,6 +2994,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
             notes: '',
             source: 'transactions',
           })
+          fanTxnMap.set(key, [])
         }
         const fan = fanMap.get(key)
         fan.lifetimeSpend += t.net || 0
@@ -2905,17 +3004,23 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
         if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
         if (!fan.firstDate || t.date < fan.firstDate) fan.firstDate = t.date
         if (t.date >= thirtyAgoStr) fan.last30 += t.net || 0
+        fanTxnMap.get(key).push(t)
       }
     }
 
-    // 2. Overlay going cold alerts
+    // 1b. Compute heat status for each fan from their transactions
+    for (const [key, fan] of fanMap) {
+      fan.heatStatus = computeHeatStatus(fanTxnMap.get(key) || [])
+    }
+
+    // 2. Overlay going cold alerts — force heat status for server-detected cold fans
     if (goingColdAlerts) {
       for (const a of goingColdAlerts) {
         const key = (a.username || a.fan || '').toLowerCase()
         if (!key) continue
         if (fanMap.has(key)) {
           const f = fanMap.get(key)
-          f.status = 'Going Cold'
+          f.heatStatus = 'Going Cold'
           f.goingCold = a // attach full alert data
         }
       }
@@ -2927,16 +3032,14 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
       if (!key) continue
       if (fanMap.has(key)) {
         const f = fanMap.get(key)
-        // CRM status takes priority over "Fan" but not over "Going Cold"
-        // Don't let CRM status set "Going Cold" — only the live goingColdAlerts detection should do that
-        if (c.status && f.status !== 'Going Cold') {
-          f.status = c.status === 'Going Cold' ? f.status : c.status
-        }
+        // Map CRM status to alert status
+        const mapped = crmToAlertStatus(c.status)
+        if (mapped !== 'None') f.alertStatus = mapped
         if (c.alertCount > 0) { f.alertCount = c.alertCount }
         if (c.alertHistory) f.alertHistory = c.alertHistory
         if (c.analysisRecords && c.analysisRecords.length > 0) {
           f.analysisRecords = c.analysisRecords
-          if (f.status === 'Fan') f.status = 'Analyzed'
+          if (f.alertStatus === 'None') f.alertStatus = 'Analysis Complete'
         }
         f.effectiveness = c.effectiveness || f.effectiveness
         f.preAlertSpend30d = c.preAlertSpend30d || f.preAlertSpend30d
@@ -2949,30 +3052,31 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
         f.crmId = c.id
       } else {
         // CRM-only record (no transactions)
-        fanMap.set(key, { ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '', source: 'crm' })
+        const mapped = crmToAlertStatus(c.status)
+        fanMap.set(key, { ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '', source: 'crm', heatStatus: 'Stable', alertStatus: mapped !== 'None' ? mapped : 'Analysis Complete' })
       }
     }
 
-    // Sort: Going Cold first, then Alert Sent, Analyzed, then by lifetime spend
-    const statusOrder = { 'Going Cold': 0, 'Alert Sent': 1, 'Analyzed': 2, 'Recovering': 3, 'Monitoring': 4, 'Reactivated': 5, 'Lost': 6, 'Fan': 7 }
+    // Sort: heat severity first (cold/dead on top), then alert status, then lifetime spend
+    const alertOrder = { 'Alert Triggered': 0, 'Sent to Manager': 1, 'Analysis Complete': 2, 'Action Taken': 3, 'None': 4 }
     return Array.from(fanMap.values())
       .filter(f => f.lifetimeSpend > 0 || f.analysisRecords?.length > 0 || f.alertCount > 0)
       .sort((a, b) => {
-        const so = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
-        if (so !== 0) return so
+        const ho = (HEAT_SORT_ORDER[a.heatStatus] ?? 4) - (HEAT_SORT_ORDER[b.heatStatus] ?? 4)
+        if (ho !== 0) return ho
+        const ao = (alertOrder[a.alertStatus] ?? 99) - (alertOrder[b.alertStatus] ?? 99)
+        if (ao !== 0) return ao
         return (b.lifetimeSpend || 0) - (a.lifetimeSpend || 0)
       })
   }, [allTxns, crmData, goingColdAlerts])
 
-  const statusColors = {
-    'Going Cold': { bg: '#FEE2E2', text: '#DC2626' },
-    'Alert Sent': { bg: '#FFF3CD', text: '#D97706' },
-    'Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
-    'Recovering': { bg: '#FEF9C3', text: '#A16207' },
-    'Reactivated': { bg: '#DCFCE7', text: '#166534' },
-    'Lost': { bg: '#F3F4F6', text: '#6B7280' },
-    'Monitoring': { bg: '#DBEAFE', text: '#1D4ED8' },
-    'Fan': { bg: '#F3F4F6', text: '#666' },
+  const alertStatusColors = {
+    'None': { bg: '#F3F4F6', text: '#9CA3AF' },
+    'Alert Triggered': { bg: '#FEE2E2', text: '#DC2626' },
+    'Analysis Complete': { bg: '#EDE9FE', text: '#7C3AED' },
+    'Sent to Manager': { bg: '#FFF3CD', text: '#D97706' },
+    'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
+    'Action Taken': { bg: '#DCFCE7', text: '#166534' },
   }
 
   const effectColors = {
@@ -2983,14 +3087,15 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
   }
 
   const filtered = allFans.filter(f => {
-    if (filter === 'going_cold') return f.status === 'Going Cold'
-    if (filter === 'tracked') return ['Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)
-    if (filter === 'resolved') return ['Reactivated', 'Lost'].includes(f.status)
+    if (filter === 'needs_attention') return ['Dead', 'Going Cold', 'Cooling'].includes(f.heatStatus)
+    if (filter === 'active_alerts') return f.alertStatus !== 'None'
+    if (filter === 'hot') return ['Hot', 'Warming Up'].includes(f.heatStatus)
     return true
   })
 
-  const goingColdCount = allFans.filter(f => f.status === 'Going Cold').length
-  const trackedCount = allFans.filter(f => ['Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)).length
+  const needsAttentionCount = allFans.filter(f => ['Dead', 'Going Cold', 'Cooling'].includes(f.heatStatus)).length
+  const activeAlertCount = allFans.filter(f => f.alertStatus !== 'None').length
+  const hotCount = allFans.filter(f => ['Hot', 'Warming Up'].includes(f.heatStatus)).length
   const displayFans = showAllFans ? filtered : filtered.slice(0, 25)
 
   function fmtDate(iso) {
@@ -3019,16 +3124,16 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
           <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Fan CRM</h3>
           <p style={{ fontSize: '12px', color: '#999', margin: '2px 0 0' }}>
             {allFans.length} fan{allFans.length !== 1 ? 's' : ''}
-            {goingColdCount > 0 && <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {goingColdCount} going cold</span>}
-            {trackedCount > 0 && <span> &middot; {trackedCount} tracked</span>}
+            {needsAttentionCount > 0 && <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {needsAttentionCount} need{needsAttentionCount !== 1 ? '' : 's'} attention</span>}
+            {hotCount > 0 && <span style={{ color: '#EF4444', fontWeight: 600 }}> &middot; {hotCount} hot</span>}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           {[
             ['all', `All (${allFans.length})`],
-            ['going_cold', `Going Cold (${goingColdCount})`],
-            ['tracked', `Tracked (${trackedCount})`],
-            ['resolved', 'Resolved'],
+            ['needs_attention', `Needs Attention (${needsAttentionCount})`],
+            ['active_alerts', `Active Alerts (${activeAlertCount})`],
+            ['hot', `Hot (${hotCount})`],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setFilter(key)}
               style={{
@@ -3049,13 +3154,13 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
       ) : (
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span></span><span>Fan</span><span>Status</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span></span><span>Fan</span><span title="Heat Status">🌡️</span><span>Alert</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
           </div>
           {displayFans.map((f, i) => (
             <FanRow key={f.id} f={f} i={i} isExpanded={expandedId === f.id}
               onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
-              statusColors={statusColors} effectColors={effectColors}
+              alertStatusColors={alertStatusColors} effectColors={effectColors}
               fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
               creatorName={creatorName} creatorRecordId={creatorRecordId}
               allTxns={allTxns} />
