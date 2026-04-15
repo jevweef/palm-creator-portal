@@ -4,12 +4,11 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import ffmpegStatic from 'ffmpeg-static'
-import ffmpeg from 'fluent-ffmpeg'
-import { readFile, unlink } from 'fs/promises'
+import { readFile, writeFile, unlink, stat } from 'fs/promises'
+import { existsSync } from 'fs'
+import { execFile } from 'child_process'
 import { tmpdir } from 'os'
 import { join } from 'path'
-
-ffmpeg.setFfmpegPath(ffmpegStatic)
 
 function rawDropboxUrl(url) {
   if (!url) return ''
@@ -18,6 +17,9 @@ function rawDropboxUrl(url) {
 
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
+
+  const debug = []
+  const log = (msg) => { debug.push(msg); console.log(`[Frame Extract] ${msg}`) }
 
   try {
     const { videoUrl, timestamp } = await request.json()
@@ -30,58 +32,54 @@ export async function POST(request) {
     const inputPath = join(tmpdir(), `video_${id}.mp4`)
     const outputPath = join(tmpdir(), `frame_${id}.jpg`)
 
-    console.log(`[Frame Extract] Downloading video for frame extraction...`)
-    console.log(`[Frame Extract] URL: ${rawUrl.substring(0, 80)}...`)
-    console.log(`[Frame Extract] tmpdir: ${tmpdir()}`)
+    log(`tmpdir: ${tmpdir()}`)
+    log(`ffmpeg path: ${ffmpegStatic}`)
+    log(`ffmpeg exists: ${existsSync(ffmpegStatic)}`)
 
-    // Download video first — ffmpeg can't follow Dropbox redirects reliably
-    const { writeFile, stat } = await import('fs/promises')
+    // Download video
+    log('Downloading video...')
     const dlRes = await fetch(rawUrl)
     if (!dlRes.ok) throw new Error(`Video download failed: ${dlRes.status}`)
     const videoBuffer = Buffer.from(await dlRes.arrayBuffer())
     await writeFile(inputPath, videoBuffer)
+    const inputCheck = await stat(inputPath).catch(() => null)
+    log(`Downloaded ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB, on disk: ${inputCheck?.size || 'MISSING'}`)
 
-    // Verify file was written
-    const inputStat = await stat(inputPath).catch(() => null)
-    console.log(`[Frame Extract] Downloaded ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB to ${inputPath}, exists: ${!!inputStat}, size on disk: ${inputStat?.size || 0}`)
-
-    // Check ffmpeg binary
-    const ffmpegPath = ffmpegStatic
-    const { existsSync } = require('fs')
-    console.log(`[Frame Extract] ffmpeg path: ${ffmpegPath}, exists: ${existsSync(ffmpegPath)}`)
-
-    console.log(`[Frame Extract] Extracting frame at ${timestamp}s...`)
-
-    // Use child_process.execFile directly for more control
-    const { execFile } = require('child_process')
-    await new Promise((resolve, reject) => {
+    // Run ffmpeg
+    log(`Extracting frame at ${timestamp}s...`)
+    const ffmpegResult = await new Promise((resolve) => {
       const args = ['-y', '-ss', String(timestamp), '-i', inputPath, '-frames:v', '1', '-update', '1', '-q:v', '2', outputPath]
-      console.log(`[Frame Extract] Running: ${ffmpegStatic} ${args.join(' ')}`)
+      log(`cmd: ffmpeg ${args.join(' ')}`)
       execFile(ffmpegStatic, args, { timeout: 30000 }, (err, stdout, stderr) => {
-        console.log(`[Frame Extract] ffmpeg stderr: ${(stderr || '').substring(0, 500)}`)
-        if (err) {
-          console.error(`[Frame Extract] ffmpeg exit error: ${err.message}`)
-          reject(err)
-        } else {
-          resolve()
-        }
+        resolve({ err, stdout, stderr })
       })
     })
+
+    log(`ffmpeg exit: ${ffmpegResult.err ? ffmpegResult.err.message : 'OK'}`)
+    log(`ffmpeg stderr (last 300): ${(ffmpegResult.stderr || '').slice(-300)}`)
+
     await unlink(inputPath).catch(() => {})
 
-    // Verify output exists
-    const outputStat = await stat(outputPath).catch(() => null)
-    console.log(`[Frame Extract] Output exists: ${!!outputStat}, size: ${outputStat?.size || 0}`)
-    if (!outputStat) throw new Error('ffmpeg produced no output file')
+    // Check output
+    const outputCheck = await stat(outputPath).catch(() => null)
+    log(`output exists: ${!!outputCheck}, size: ${outputCheck?.size || 0}`)
+
+    if (!outputCheck || outputCheck.size === 0) {
+      // Return debug info so we can see what happened
+      return NextResponse.json({
+        error: 'ffmpeg produced no output file',
+        debug,
+        ffmpegErr: ffmpegResult.err?.message || null,
+        ffmpegStderr: ffmpegResult.stderr?.slice(-500) || null,
+      }, { status: 500 })
+    }
 
     const frameBuffer = await readFile(outputPath)
     await unlink(outputPath).catch(() => {})
-    console.log(`[Frame Extract] Done, size: ${(frameBuffer.length / 1024).toFixed(0)}KB`)
+    log(`Done, frame size: ${(frameBuffer.length / 1024).toFixed(0)}KB`)
 
-    // Return as base64 — client will upload via /api/admin/posts/thumbnail
     return NextResponse.json({ ok: true, jpeg: frameBuffer.toString('base64') })
   } catch (err) {
-    console.error('[Frame Extract] error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message, debug }, { status: 500 })
   }
 }
