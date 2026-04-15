@@ -142,12 +142,13 @@ async function saveToAirtable(record) {
 function parseChatHtml(html) {
   const messages = []
 
-  // Extract date dividers
+  // Extract date dividers (strip dummy "12:00 am" that OF adds to all date headers)
   const datePositions = []
   const dateRe = /b-chat__messages__time.*?title="([^"]+)"/g
   let dm
   while ((dm = dateRe.exec(html))) {
-    datePositions.push({ pos: dm.index, date: dm[1] })
+    const rawDate = dm[1].replace(/,?\s*12:00\s*am$/i, '').trim()
+    datePositions.push({ pos: dm.index, date: rawDate })
   }
 
   // Extract each message block
@@ -184,7 +185,7 @@ function parseChatHtml(html) {
       if (priceMatch) price = priceMatch[1]
     }
 
-    // Find date
+    // Find date from nearest preceding date divider
     let msgDate = ''
     for (let i = datePositions.length - 1; i >= 0; i--) {
       if (datePositions[i].pos < pos) {
@@ -192,6 +193,11 @@ function parseChatHtml(html) {
         break
       }
     }
+
+    // Extract actual message time (e.g. "9:21 pm") from b-chat__message__time span
+    let msgTime = ''
+    const timeMatch = block.match(/b-chat__message__time[^>]*>[\s\S]*?<span[^>]*>\s*([\d]{1,2}:[\d]{2}\s*[ap]m)\s*<\/span/i)
+    if (timeMatch) msgTime = timeMatch[1].trim()
 
     const sender = isFromMe ? 'CREATOR' : 'FAN'
     let line = `[${sender}]`
@@ -201,7 +207,7 @@ function parseChatHtml(html) {
     if (isTip) line += ' [TIP]'
 
     if (text || hasMedia || isTip) {
-      messages.push({ date: msgDate, sender, line })
+      messages.push({ date: msgDate, time: msgTime, sender, line })
     }
   }
 
@@ -216,9 +222,11 @@ function parseChatHtml(html) {
     lines.push(msg.line)
   }
 
-  // Extract first and last message dates
-  const firstDate = messages.length > 0 ? messages[0].date : ''
-  const lastDate = messages.length > 0 ? messages[messages.length - 1].date : ''
+  // Extract first and last message dates with actual times
+  const firstMsg = messages.length > 0 ? messages[0] : null
+  const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null
+  const firstDate = firstMsg ? (firstMsg.time ? `${firstMsg.date}, ${firstMsg.time}` : firstMsg.date) : ''
+  const lastDate = lastMsg ? (lastMsg.time ? `${lastMsg.date}, ${lastMsg.time}` : lastMsg.date) : ''
 
   return {
     conversation: lines.join('\n'),
@@ -705,7 +713,7 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
 function getChatBasePath(creatorName, fanName, fanUsername) {
   const safeFan = (fanUsername || fanName).replace(/[^a-zA-Z0-9_-]/g, '_')
   const safeCreator = creatorName.replace(/[^a-zA-Z0-9_-]/g, '_')
-  return `/Palm/Chat Logs/${safeCreator}/${safeFan}`
+  return `/Palm Ops/Chat Logs/${safeCreator}/${safeFan}`
 }
 
 // Load the master transcript from Dropbox (returns empty string if none exists)
@@ -732,8 +740,8 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
   const dateStr = new Date().toISOString().split('T')[0]
 
   // Create folder structure
-  await createDropboxFolder(token, rootNs, `/Palm/Chat Logs`)
-  await createDropboxFolder(token, rootNs, `/Palm/Chat Logs/${basePath.split('/')[3]}`)
+  await createDropboxFolder(token, rootNs, `/Palm Ops/Chat Logs`)
+  await createDropboxFolder(token, rootNs, `/Palm Ops/Chat Logs/${basePath.split('/')[4]}`)
   await createDropboxFolder(token, rootNs, basePath)
 
   // Download existing master transcript
