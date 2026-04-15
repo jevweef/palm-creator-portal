@@ -106,11 +106,16 @@ async function fetchPriorContext(fanName, creatorName) {
         }
       }
 
-      context += `\n\nIMPORTANT: This fan has been flagged ${timesGoneCold} time(s) before. Your analysis should:`
-      context += `\n- Reference what was tried previously and whether it worked`
+      context += `\n\nIMPORTANT: This fan has been flagged ${timesGoneCold} time(s) before. This is a FOLLOW-UP analysis. Your analysis MUST:`
+      context += `\n- Start by acknowledging this is a re-analysis, not a first look`
+      context += `\n- Evaluate whether the previous action items were followed in the NEW chat messages`
+      context += `\n- Compare spending BEFORE vs AFTER the alert was sent to the chat manager`
+      context += `\n- If the fan re-engaged after the intervention, identify what worked and why`
+      context += `\n- If the fan did NOT re-engage, assess whether the action items were even attempted`
       context += `\n- Identify if this is a PATTERN (recurring going-cold cycle) vs a one-time issue`
-      context += `\n- If previous action items didn't work, suggest a DIFFERENT approach`
+      context += `\n- If previous action items didn't work or weren't tried, suggest a DIFFERENT approach`
       context += `\n- Be honest about recovery odds given the history`
+      context += `\n- The conversation now includes BOTH old messages (from prior analysis) and NEW messages. Look for changes in tone, engagement, or spending patterns after the alert date.`
     }
 
     return context
@@ -491,13 +496,7 @@ Quote the fan's actual words as evidence. Don't be generic.`
       })
     }
 
-    // Don't truncate aggressively — gpt-4o has 128k context
     const maxChars = isHighValue ? 80000 : 20000
-    if (conversation.length > maxChars) {
-      const beginning = conversation.slice(0, Math.floor(maxChars * 0.25))
-      const end = conversation.slice(-Math.floor(maxChars * 0.75))
-      conversation = beginning + '\n\n[... earlier messages omitted ...]\n\n' + end
-    }
 
     // Fetch prior analysis context (if fan has been analyzed before)
     const priorContext = await fetchPriorContext(fanName, creatorName)
@@ -505,11 +504,58 @@ Quote the fan's actual words as evidence. Don't be generic.`
       ? systemPrompt + priorContext
       : systemPrompt
 
+    // Load accumulated chat history from Dropbox and merge with new upload
+    const fanUsername = formData.get('fanUsername') || ''
+    let fullConversation = conversation
+    if (priorContext) {
+      try {
+        const existingTranscript = await loadChatHistory(creatorName, fanName, fanUsername)
+        if (existingTranscript) {
+          // Dedup: find last date in existing transcript, only include new messages after that
+          const dateHeaders = [...existingTranscript.matchAll(/--- (.+?) ---/g)]
+          const lastExistingDate = dateHeaders.length > 0 ? dateHeaders[dateHeaders.length - 1][1] : ''
+
+          if (lastExistingDate) {
+            // Find where new messages start in the uploaded conversation
+            const newDateHeaders = [...conversation.matchAll(/--- (.+?) ---/g)]
+            let newStartIdx = -1
+            for (const m of newDateHeaders) {
+              // Find first date in new upload that's AFTER the last existing date
+              if (m[1] > lastExistingDate) {
+                newStartIdx = m.index
+                break
+              }
+            }
+
+            if (newStartIdx > 0) {
+              const newMessages = conversation.slice(newStartIdx)
+              fullConversation = existingTranscript + '\n\n--- NEW MESSAGES SINCE LAST ANALYSIS ---\n' + newMessages
+            } else {
+              // All messages in the new upload overlap with existing — use the new upload as-is
+              // (may include more recent context even for overlapping dates)
+              fullConversation = existingTranscript + '\n\n--- UPDATED UPLOAD (may include overlapping dates) ---\n' + conversation
+            }
+          } else {
+            fullConversation = existingTranscript + '\n\n' + conversation
+          }
+        }
+      } catch (err) {
+        console.error('[Chat Analysis] Failed to load chat history, using uploaded HTML only:', err)
+      }
+    }
+
+    // Re-apply truncation to the merged conversation
+    if (fullConversation.length > maxChars) {
+      const beginning = fullConversation.slice(0, Math.floor(maxChars * 0.25))
+      const end = fullConversation.slice(-Math.floor(maxChars * 0.75))
+      fullConversation = beginning + '\n\n[... earlier messages omitted ...]\n\n' + end
+    }
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemWithContext },
-        { role: 'user', content: `Analyze this conversation between ${creatorName} (CREATOR) and ${fanName} (FAN):\n\n${conversation}` },
+        { role: 'user', content: `Analyze this conversation between ${creatorName} (CREATOR) and ${fanName} (FAN):\n\n${fullConversation}` },
       ],
       temperature: 0.5,
       max_tokens: isHighValue ? 3000 : 1000,
@@ -541,7 +587,6 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
 
     // Save to Airtable (async, don't block response)
     const lastPurchaseDate = formData.get('lastPurchaseDate') || ''
-    const fanUsername = formData.get('fanUsername') || ''
     saveToAirtable({
       [F.fanName]: fanName,
       [F.ofUsername]: fanUsername,
