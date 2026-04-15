@@ -13,7 +13,164 @@ function fmtCutoff(iso) {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
-const CREATORS = ['Amelia', 'Laurel', 'Taby']
+const CREATORS = ['Amelia', 'Laurel', 'Taby', 'Gracie', 'MG']
+
+function DataCoverageChart({ cutoffs, ranges }) {
+  if (!ranges || Object.keys(ranges).length === 0) return null
+
+  // Group by creator
+  const creators = {}
+  for (const [tabName, range] of Object.entries(ranges)) {
+    const [creatorName, type] = tabName.split(' - ')
+    if (!creatorName || !type) continue
+    if (!creators[creatorName]) creators[creatorName] = {}
+    creators[creatorName][type] = range
+  }
+
+  if (Object.keys(creators).length === 0) return null
+
+  // Find global date range for the x-axis
+  const allDates = Object.values(ranges).flatMap(r => [r.earliest, r.latest]).filter(Boolean)
+  if (allDates.length === 0) return null
+  const sortedDates = [...allDates].sort()
+  const globalStart = new Date(sortedDates[0] + 'T00:00:00')
+  const globalEnd = new Date(sortedDates[sortedDates.length - 1] + 'T00:00:00')
+  const totalDays = Math.max(1, (globalEnd - globalStart) / 86400000)
+
+  // Generate invoice period lines (1st and 15th of each month)
+  const periodLines = []
+  const cursor = new Date(globalStart)
+  cursor.setDate(1)
+  while (cursor <= globalEnd) {
+    const d1 = new Date(cursor)
+    d1.setDate(1)
+    if (d1 >= globalStart && d1 <= globalEnd) periodLines.push(new Date(d1))
+    const d15 = new Date(cursor)
+    d15.setDate(15)
+    if (d15 >= globalStart && d15 <= globalEnd) periodLines.push(new Date(d15))
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+
+  function dateToPct(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00')
+    return Math.max(0, Math.min(100, ((d - globalStart) / 86400000 / totalDays) * 100))
+  }
+
+  function fmtShort(dateStr) {
+    if (!dateStr) return ''
+    const d = new Date(dateStr + 'T00:00:00')
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  const sortedCreators = Object.keys(creators).sort()
+
+  return (
+    <div style={{
+      background: '#fff', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.06)',
+      padding: '20px 24px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
+        Data Coverage
+      </div>
+
+      {/* X-axis date labels */}
+      <div style={{ position: 'relative', height: '16px', marginLeft: '100px', marginBottom: '4px' }}>
+        {periodLines.map((d, i) => {
+          const pct = ((d - globalStart) / 86400000 / totalDays) * 100
+          return (
+            <span key={i} style={{
+              position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)',
+              fontSize: '9px', color: '#ccc', whiteSpace: 'nowrap',
+            }}>
+              {d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          )
+        })}
+      </div>
+
+      {/* Creator rows */}
+      {sortedCreators.map(name => {
+        const sales = creators[name]?.Sales
+        const cbs = creators[name]?.Chargebacks
+        return (
+          <div key={name} style={{ marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+              <div style={{ width: '100px', flexShrink: 0, fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>
+                {name}
+              </div>
+              <div style={{ flex: 1, position: 'relative' }}>
+                {/* Period lines */}
+                {periodLines.map((d, i) => {
+                  const pct = ((d - globalStart) / 86400000 / totalDays) * 100
+                  return (
+                    <div key={i} style={{
+                      position: 'absolute', left: `${pct}%`, top: 0, bottom: 0, width: '1px',
+                      background: 'rgba(0,0,0,0.06)', zIndex: 0,
+                    }} />
+                  )
+                })}
+
+                {/* Sales bar */}
+                <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
+                  {sales ? (
+                    <div title={`Sales: ${fmtShort(sales.earliest)} → ${fmtShort(sales.latest)} (${sales.rowCount} txns)`} style={{
+                      position: 'absolute',
+                      left: `${dateToPct(sales.earliest)}%`,
+                      width: `${Math.max(1, dateToPct(sales.latest) - dateToPct(sales.earliest))}%`,
+                      height: '100%', borderRadius: '3px',
+                      background: 'linear-gradient(90deg, #86efac, #22c55e)',
+                      opacity: 0.85,
+                    }} />
+                  ) : (
+                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                  )}
+                  <span style={{ position: 'absolute', right: '-54px', top: '1px', fontSize: '9px', color: '#aaa', width: '50px' }}>
+                    {sales ? fmtShort(sales.latest) : '—'}
+                  </span>
+                </div>
+
+                {/* Chargebacks bar */}
+                <div style={{ position: 'relative', height: '14px' }}>
+                  {cbs ? (
+                    <div title={`Chargebacks: ${fmtShort(cbs.earliest)} → ${fmtShort(cbs.latest)} (${cbs.rowCount} txns)`} style={{
+                      position: 'absolute',
+                      left: `${dateToPct(cbs.earliest)}%`,
+                      width: `${Math.max(1, dateToPct(cbs.latest) - dateToPct(cbs.earliest))}%`,
+                      height: '100%', borderRadius: '3px',
+                      background: 'linear-gradient(90deg, #fca5a5, #ef4444)',
+                      opacity: 0.85,
+                    }} />
+                  ) : (
+                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                  )}
+                  <span style={{ position: 'absolute', right: '-54px', top: '1px', fontSize: '9px', color: '#aaa', width: '50px' }}>
+                    {cbs ? fmtShort(cbs.latest) : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: '16px', marginTop: '12px', marginLeft: '100px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ width: '12px', height: '8px', borderRadius: '2px', background: 'linear-gradient(90deg, #86efac, #22c55e)' }} />
+          <span style={{ fontSize: '10px', color: '#999' }}>Earnings</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ width: '12px', height: '8px', borderRadius: '2px', background: 'linear-gradient(90deg, #fca5a5, #ef4444)' }} />
+          <span style={{ fontSize: '10px', color: '#999' }}>Chargebacks</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ width: '1px', height: '10px', background: 'rgba(0,0,0,0.15)' }} />
+          <span style={{ fontSize: '10px', color: '#999' }}>Invoice periods (1st &amp; 15th)</span>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function RawDataUpload() {
   const [creator, setCreator] = useState(CREATORS[0])
@@ -22,6 +179,7 @@ export default function RawDataUpload() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [cutoffs, setCutoffs] = useState({})
+  const [ranges, setRanges] = useState({})
   const [spreadsheetUrl, setSpreadsheetUrl] = useState(null)
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef(null)
@@ -32,6 +190,7 @@ export default function RawDataUpload() {
       if (res.ok) {
         const data = await res.json()
         setCutoffs(data.tabs || {})
+        setRanges(data.ranges || {})
         setSpreadsheetUrl(data.spreadsheetUrl)
       }
     } catch {}
@@ -104,6 +263,9 @@ export default function RawDataUpload() {
           </a>
         )}
       </div>
+
+      {/* Data coverage timeline */}
+      <DataCoverageChart cutoffs={cutoffs} ranges={ranges} />
 
       {/* Creator selector */}
       <div style={{ marginBottom: '16px' }}>

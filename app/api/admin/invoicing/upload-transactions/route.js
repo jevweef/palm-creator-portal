@@ -481,14 +481,28 @@ export async function GET(request) {
     const tabs = spreadsheet.data.sheets.map(s => s.properties.title).filter(t => t.includes(' - '))
 
     const cutoffs = {}
+    const ranges = {}
     for (const tabName of tabs) {
       const cutoff = await getCutoff(sheets, tabName)
       cutoffs[tabName] = cutoff?.toISOString() || null
+      // Get all dates from column A to find the full range
+      try {
+        const allDates = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${tabName}'!A4:A`,
+        })
+        const dateVals = (allDates.data.values || []).map(r => r[0]?.split(' ')[0]).filter(Boolean)
+        if (dateVals.length > 0) {
+          const sorted = [...dateVals].sort()
+          ranges[tabName] = { earliest: sorted[0], latest: sorted[sorted.length - 1], rowCount: dateVals.length }
+        }
+      } catch (_) {}
     }
 
     return Response.json({
       spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}`,
       tabs: cutoffs,
+      ranges,
     })
   } catch (err) {
     console.error('Google Sheets error:', err)
