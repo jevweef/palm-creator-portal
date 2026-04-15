@@ -1934,7 +1934,8 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     return formData
   }
 
-  async function handleAnalyze(fromTranscript = false) {
+  async function handleAnalyze(fromTranscript) {
+    fromTranscript = fromTranscript === true // guard against React event objects
     if (!fromTranscript && !chatFile) return
     setAnalyzing(true)
     setAnalysisError(null)
