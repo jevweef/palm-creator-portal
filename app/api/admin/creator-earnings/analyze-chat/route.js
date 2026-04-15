@@ -309,6 +309,7 @@ export async function POST(request) {
   try {
     const formData = await request.formData()
     const file = formData.get('file')
+    const useTranscript = formData.get('useTranscript') === 'true'
     const fanName = formData.get('fanName') || 'Unknown'
     const lifetime = parseFloat(formData.get('lifetime')) || 0
     const medianGap = parseInt(formData.get('medianGap')) || 0
@@ -317,13 +318,41 @@ export async function POST(request) {
     const monthlyAvg90 = parseFloat(formData.get('monthlyAvg90')) || 0
     const creatorName = formData.get('creatorName') || 'the creator'
 
-    if (!file) return Response.json({ error: 'No file uploaded' }, { status: 400 })
-
-    const html = await file.text()
-    const parsed = parseChatHtml(html)
+    let parsed
+    if (useTranscript) {
+      // Re-analyze from saved Dropbox transcript (no HTML upload needed)
+      const fanUsername = formData.get('fanUsername') || ''
+      const transcript = await loadChatHistory(creatorName, fanName, fanUsername)
+      if (!transcript) return Response.json({ error: 'No saved transcript found in Dropbox. Upload a chat HTML first.' }, { status: 400 })
+      // Build a minimal parsed object from the transcript text
+      const lines = transcript.split('\n')
+      const messages = []
+      let currentDate = ''
+      for (const line of lines) {
+        const dateMatch = line.match(/^--- (.+?) ---$/)
+        if (dateMatch) { currentDate = dateMatch[1]; continue }
+        const senderMatch = line.match(/^\[(CREATOR|FAN)\]/)
+        if (senderMatch) {
+          messages.push({ date: currentDate, time: '', sender: senderMatch[1], line })
+        }
+      }
+      parsed = {
+        conversation: transcript,
+        messages,
+        messageCount: messages.length,
+        fanMessages: messages.filter(m => m.sender === 'FAN').length,
+        creatorMessages: messages.filter(m => m.sender === 'CREATOR').length,
+        firstMessageDate: messages[0]?.date || '',
+        lastMessageDate: messages[messages.length - 1]?.date || '',
+      }
+    } else {
+      if (!file) return Response.json({ error: 'No file uploaded' }, { status: 400 })
+      const html = await file.text()
+      parsed = parseChatHtml(html)
+    }
 
     if (parsed.messageCount === 0) {
-      return Response.json({ error: 'No messages found in the HTML file' }, { status: 400 })
+      return Response.json({ error: 'No messages found' }, { status: 400 })
     }
 
     // Scale analysis depth based on lifetime spend

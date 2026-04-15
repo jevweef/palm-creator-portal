@@ -1868,9 +1868,13 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     return m
   }, [f.alertHistory, f.analysisRecords])
 
-  function buildFormData() {
+  function buildFormData(fromTranscript = false) {
     const formData = new FormData()
-    formData.append('file', chatFile)
+    if (fromTranscript) {
+      formData.append('useTranscript', 'true')
+    } else {
+      formData.append('file', chatFile)
+    }
     formData.append('fanName', f.fanName)
     formData.append('fanUsername', f.ofUsername || '')
     formData.append('lifetime', f.lifetimeSpend || 0)
@@ -1927,12 +1931,13 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     return formData
   }
 
-  async function handleAnalyze() {
-    if (!chatFile) return
+  async function handleAnalyze(fromTranscript = false) {
+    if (!fromTranscript && !chatFile) return
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: buildFormData() })
+      const fd = fromTranscript ? buildFormData(true) : buildFormData()
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       setAnalysis(data)
@@ -2501,10 +2506,16 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
                     </button>
                   ) : (
-                    <button onClick={() => { setAnalysis(null); setShowBrief(false) }}
-                      style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                      Upload new chat
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze(true) }} disabled={analyzing}
+                        style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                        {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
+                      </button>
+                      <button onClick={() => { setAnalysis(null); setShowBrief(false) }}
+                        style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                        Upload new chat
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div style={{
