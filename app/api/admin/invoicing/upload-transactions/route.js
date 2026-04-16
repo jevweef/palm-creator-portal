@@ -299,6 +299,7 @@ async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestam
     params.append('fields[]', AT_FIELDS.earningsEnd)
     params.append('fields[]', AT_FIELDS.chargebackStart)
     params.append('fields[]', AT_FIELDS.chargebackEnd)
+    params.append('returnFieldsByFieldId', 'true')
     params.append('pageSize', '1')
 
     const searchRes = await fetch(
