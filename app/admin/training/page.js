@@ -21,11 +21,61 @@ function parseNotes(notes) {
 }
 
 const MODES = [
-  { value: 'Scenario / Fantasy', label: 'Scenario / Fantasy', color: '#a78bfa', desc: 'POV captions, viewer-perspective narrative' },
-  { value: 'Controversy / Opinion', label: 'Controversy / Opinion', color: '#f87171', desc: 'Provocative claims that spark debate' },
-  { value: 'Relationship / Conversation', label: 'Relationship / Conversation', color: '#f472b6', desc: 'iMessage texts, DM screenshots, dialogue' },
-  { value: 'Visual Callout', label: 'Visual Callout', color: '#60a5fa', desc: 'Text directly references what\'s on screen' },
-  { value: 'Relatable / Lifestyle', label: 'Relatable / Lifestyle', color: '#4ade80', desc: 'Routine captions, relatable moments' },
+  {
+    value: 'Scenario / Fantasy',
+    label: 'Scenario / Fantasy',
+    color: '#a78bfa',
+    desc: 'Text places the viewer into a specific situation or fantasy. The visual alone is generic — the text creates the whole concept.',
+    examples: [
+      '"POV: your wife canceled dinner so you call the girl next door"',
+      '"When you want to be restrained and edged till you cry but you gotta act cool"',
+      '"POV: your gym crush finally talks to you"',
+    ],
+  },
+  {
+    value: 'Controversy / Opinion',
+    label: 'Controversy / Opinion',
+    color: '#f87171',
+    desc: 'Text makes a bold claim or hot take that people argue about in the comments. The video is just a pretty girl — the text is the engagement driver.',
+    examples: [
+      '"she is 10/10, but..."',
+      '"Anything more than a handful is a waste"',
+      '"Girls who lift > girls who don\'t"',
+    ],
+  },
+  {
+    value: 'Relationship / Conversation',
+    label: 'Relationship / Conversation',
+    color: '#f472b6',
+    desc: 'Text is styled as a conversation — iMessage bubbles, DM screenshots, texts from "him," or back-and-forth dialogue. The format itself is part of the concept.',
+    examples: [
+      '"Him: You\'ve been running through my mind all day / Me: I\'m getting bored of that"',
+      '"Texts you\'ll never receive" + screenshot',
+      '"His last text vs what I sent back"',
+    ],
+  },
+  {
+    value: 'Visual Callout',
+    label: 'Visual Callout',
+    color: '#60a5fa',
+    desc: 'Text directly references or amplifies what\'s happening on screen. The visual works alone, but the text adds a flirty or provocative spin to it.',
+    examples: [
+      '"I need a big boy" (girl on leg press)',
+      '"Do I look like I eat salad?" (girl eating pizza)',
+      '"This is what __ looks like at 5am"',
+    ],
+  },
+  {
+    value: 'Relatable / Lifestyle',
+    label: 'Relatable / Lifestyle',
+    color: '#4ade80',
+    desc: 'Text is a relatable moment, routine caption, or lifestyle statement. Not provocative or scenario-driven — just a caption that makes viewers nod or tag a friend.',
+    examples: [
+      '"Things I do when I\'m home alone"',
+      '"No one: / Me at 2am:"',
+      '"Tell me you\'re a gym girl without telling me"',
+    ],
+  },
 ]
 
 export default function TextTrainingPage() {
@@ -340,6 +390,32 @@ export default function TextTrainingPage() {
                   )
                 })}
               </div>
+
+              {/* Selected mode detail */}
+              {selectedMode && (() => {
+                const mode = MODES.find(m => m.value === selectedMode)
+                if (!mode) return null
+                return (
+                  <div style={{
+                    marginTop: '10px',
+                    background: `${mode.color}08`,
+                    border: `1px solid ${mode.color}30`,
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                  }}>
+                    <p style={{ fontSize: '12px', color: '#444', lineHeight: 1.5, margin: '0 0 8px' }}>
+                      {mode.desc}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {mode.examples.map((ex, j) => (
+                        <p key={j} style={{ fontSize: '11px', color: '#888', margin: 0, fontStyle: 'italic' }}>
+                          {ex}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Action buttons */}
