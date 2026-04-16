@@ -2029,7 +2029,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
 
-function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId, allTxns }) {
+function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId, allTxns, availableAccounts }) {
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
@@ -2375,6 +2375,17 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             ? <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>
             : <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px', background: '#F3F4F6', padding: '1px 4px', borderRadius: '3px' }} title="No username — account likely deleted/deactivated">deleted?</span>
           }
+          {availableAccounts && availableAccounts.length > 1 && f.accounts && f.accounts.length > 0 && (
+            f.accounts.map(acct => {
+              const isFree = /free/i.test(acct)
+              return (
+                <span key={acct} style={{
+                  fontSize: '8px', fontWeight: 600, marginLeft: '4px', padding: '1px 5px', borderRadius: '3px',
+                  background: isFree ? '#DBEAFE' : '#EDE9FE', color: isFree ? '#1D4ED8' : '#7C3AED',
+                }}>{acct}</span>
+              )
+            })
+          )}
           {f.alertCount > 0 && <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
         <span title={heat.label} style={{ fontSize: '14px', lineHeight: '20px', textAlign: 'center' }}>{heat.emoji}</span>
@@ -3251,7 +3262,7 @@ const HEAT_CONFIG = {
 
 const HEAT_SORT_ORDER = { 'Dead': 0, 'Going Cold': 1, 'Cooling': 2, 'Warming Up': 3, 'Stable': 4, 'Hot': 5 }
 
-function FansPanel({ creator, allTxns, goingColdAlerts }) {
+function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -3260,6 +3271,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
   const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
   const [sortDir, setSortDir] = useState('desc')
   const [showDeleted, setShowDeleted] = useState(false)
+  const [accountFilter, setAccountFilter] = useState('all')
 
   const creatorName = creator?.name || creator?.aka || ''
   const creatorRecordId = creator?.id || ''
@@ -3327,6 +3339,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
             lastChatUpload: null,
             notes: '',
             source: 'transactions',
+            accounts: new Set(),
           })
           fanTxnMap.set(key, [])
         }
@@ -3338,6 +3351,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
         if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
         if (!fan.firstDate || t.date < fan.firstDate) fan.firstDate = t.date
         if (t.date >= thirtyAgoStr) fan.last30 += t.net || 0
+        if (t.account) fan.accounts.add(t.account)
         fanTxnMap.get(key).push(t)
       }
     }
@@ -3396,6 +3410,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
     // Sort: heat severity first (cold/dead on top), then alert status, then lifetime spend
     const alertOrder = { 'Alert Triggered': 0, 'Sent to Manager': 1, 'Analysis Complete': 2, 'Action Taken': 3, 'None': 4 }
     return Array.from(fanMap.values())
+      .map(f => ({ ...f, accounts: f.accounts instanceof Set ? Array.from(f.accounts) : (f.accounts || []) }))
       .filter(f => f.lifetimeSpend > 0 || f.analysisRecords?.length > 0 || f.alertCount > 0)
       .sort((a, b) => {
         const ho = (HEAT_SORT_ORDER[a.heatStatus] ?? 4) - (HEAT_SORT_ORDER[b.heatStatus] ?? 4)
@@ -3428,6 +3443,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
     let list = allFans.filter(f => {
       // Hide deleted accounts by default
       if (!showDeleted && !f.ofUsername) return false
+      // Account filter
+      if (accountFilter !== 'all' && f.accounts && !f.accounts.includes(accountFilter)) return false
       if (filter === 'active_alerts') return f.alertStatus !== 'None'
       if (filter === 'dead') return f.heatStatus === 'Dead'
       if (filter === 'going_cold') return f.heatStatus === 'Going Cold'
@@ -3450,7 +3467,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
       })
     }
     return list
-  }, [allFans, filter, sortField, sortDir, showDeleted])
+  }, [allFans, filter, sortField, sortDir, showDeleted, accountFilter])
 
   // Compute counts per heat status
   const heatCounts = {}
@@ -3532,6 +3549,21 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
               {showDeleted ? `Hide deleted (${deletedCount})` : `Show deleted (${deletedCount})`}
             </button>
           )}
+          {availableAccounts && availableAccounts.length > 1 && (
+            <>
+              <span style={{ width: '1px', height: '16px', background: '#E5E7EB', margin: '0 4px', alignSelf: 'center' }} />
+              {['all', ...availableAccounts].map(a => (
+                <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
+                  style={{
+                    padding: '3px 8px', fontSize: '10px', fontWeight: accountFilter === a ? 600 : 400,
+                    background: accountFilter === a ? '#7C3AED' : '#F3F4F6', color: accountFilter === a ? '#fff' : '#666',
+                    border: 'none', borderRadius: '4px', cursor: 'pointer',
+                  }}>
+                  {a === 'all' ? 'All Accts' : a}
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </div>
 
@@ -3556,7 +3588,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
               alertStatusColors={alertStatusColors} effectColors={effectColors}
               fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
               creatorName={creatorName} creatorRecordId={creatorRecordId}
-              allTxns={allTxns} />
+              allTxns={allTxns} availableAccounts={availableAccounts} />
           ))}
           {filtered.length > 25 && !showAllFans && (
             <button onClick={() => setShowAllFans(true)}
@@ -3765,7 +3797,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
       {/* ── Fans CRM section ────────────────────────────────────────────── */}
       {activeSection === 'fans' && (
-        <FansPanel creator={creator} allTxns={earningsData?.transactions} goingColdAlerts={earningsData?.goingColdAlerts || []} />
+        <FansPanel creator={creator} allTxns={earningsData?.transactions} goingColdAlerts={earningsData?.goingColdAlerts || []} availableAccounts={earningsData?.accounts || []} />
       )}
 
       {/* ── DNA section ──────────────────────────────────────────────────── */}
