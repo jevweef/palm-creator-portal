@@ -18,13 +18,17 @@ const CREATORS = ['Amelia', 'Laurel', 'Taby', 'Gracie', 'MG']
 
 function DataCoverageChart({ creators: coverageCreators, loading: coverageLoading, onBarClick }) {
   const scrollRef = useRef(null)
+  const [zoomed, setZoomed] = useState(true) // true = zoomed in (3 pay periods), false = full range
 
-  // Auto-scroll to the right (newest dates) on mount
+  // Auto-scroll to the right (newest dates) on mount and zoom change
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
+      // Small delay so the DOM updates with new width first
+      requestAnimationFrame(() => {
+        if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
+      })
     }
-  }, [coverageCreators])
+  }, [coverageCreators, zoomed])
 
   if (coverageLoading) {
     return (
@@ -60,8 +64,9 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
   const globalEnd = new Date(Math.max(dataEnd, today))
   const totalDays = Math.max(1, (globalEnd - globalStart) / 86400000)
 
-  // Chart width: 8px per day, minimum 600px
-  const chartWidth = Math.max(600, totalDays * 8)
+  // Zoom: zoomed in = ~20px/day (3 pay periods visible), zoomed out = fit all data
+  const pxPerDay = zoomed ? 20 : Math.max(8, 600 / totalDays)
+  const chartWidth = Math.max(600, totalDays * pxPerDay)
   const todayStr = today.toISOString().split('T')[0]
 
   // Generate period lines (1st and 15th of each month) and period labels
@@ -131,8 +136,20 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
         .coverage-scroll-main::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
         .coverage-bar:hover { opacity: 0.8; filter: brightness(1.05); }
       `}</style>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
-        Data Coverage
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Data Coverage
+        </div>
+        <button
+          onClick={() => setZoomed(z => !z)}
+          style={{
+            background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px',
+            padding: '3px 10px', fontSize: '11px', color: '#999', cursor: 'pointer',
+            fontWeight: 500, transition: 'all 0.15s',
+          }}
+        >
+          {zoomed ? 'Show All' : 'Zoom In'}
+        </button>
       </div>
 
       <div style={{ display: 'flex' }}>
@@ -148,7 +165,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
         {/* Scrollable chart area */}
         <div ref={scrollRef} className="coverage-scroll-main" style={{ flex: 1, overflowX: 'auto', position: 'relative' }}>
-          <div style={{ width: `${chartWidth}px`, minWidth: '100%', paddingRight: '24px' }}>
+          <div style={{ width: `${chartWidth}px`, minWidth: '100%', paddingRight: '24px', transition: 'width 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)' }}>
             {/* X-axis — period range labels centered in each pay period */}
             <div style={{ position: 'relative', height: '20px', marginBottom: '4px' }}>
               {periodLabels.map((p, i) => {
