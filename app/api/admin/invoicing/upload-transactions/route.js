@@ -373,7 +373,8 @@ export async function POST(request) {
 
     const html = await file.text()
     txns = parseHtml(html)
-    sheetType = 'Sales' // HTML is always the earnings/statements page
+    const formDataType = formData.get('dataType')
+    sheetType = formDataType === 'chargebacks' ? 'Chargebacks' : 'Sales'
   } else {
     // JSON body — raw text paste (legacy fallback)
     const { rawData, creator: c, dataType } = await request.json()

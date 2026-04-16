@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import UploadModal from './UploadModal'
 
 function fmt(n) {
   if (!n && n !== 0) return '—'
@@ -15,7 +16,7 @@ function fmtCutoff(iso) {
 
 const CREATORS = ['Amelia', 'Laurel', 'Taby', 'Gracie', 'MG']
 
-function DataCoverageChart({ creators: coverageCreators, loading: coverageLoading }) {
+function DataCoverageChart({ creators: coverageCreators, loading: coverageLoading, onBarClick }) {
   const scrollRef = useRef(null)
 
   // Auto-scroll to the right (newest dates) on mount
@@ -126,6 +127,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
         .coverage-scroll-main::-webkit-scrollbar-track { background: transparent; }
         .coverage-scroll-main::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
         .coverage-scroll-main::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+        .coverage-bar:hover { opacity: 0.8; filter: brightness(1.05); }
       `}</style>
       <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
         Data Coverage
@@ -179,8 +181,13 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                     )
                   })}
 
-                  {/* Sales bar */}
-                  <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
+                  {/* Sales bar — clickable */}
+                  <div
+                    onClick={() => onBarClick?.(c.aka, 'sales')}
+                    title={c.earningsLastUpload ? `Last upload: ${fmtUpload(c.earningsLastUpload)}` : hasEarnings ? `Data through ${fmtShort(c.earningsEnd)}, ${new Date(c.earningsEnd + 'T00:00:00').getFullYear()}` : `Click to upload earnings for ${c.aka}`}
+                    className="coverage-bar"
+                    style={{ position: 'relative', height: '14px', marginBottom: '3px', cursor: 'pointer' }}
+                  >
                     {/* Gray background bar spanning full timeline to today */}
                     <div style={{
                       position: 'absolute', left: 0,
@@ -189,19 +196,24 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                       background: '#f3f4f6', opacity: 0.5,
                     }} />
                     {hasEarnings && (
-                      <div title={c.earningsLastUpload ? `Last upload: ${fmtUpload(c.earningsLastUpload)}` : `Data through ${fmtShort(c.earningsEnd)}, ${new Date(c.earningsEnd + 'T00:00:00').getFullYear()}`} style={{
+                      <div style={{
                         position: 'absolute',
                         left: `${dateToPx(c.earningsStart)}px`,
                         width: `${Math.max(4, dateToPx(c.earningsEnd) - dateToPx(c.earningsStart))}px`,
-                        height: '100%', borderRadius: '3px', cursor: 'default',
+                        height: '100%', borderRadius: '3px', pointerEvents: 'none',
                         background: 'linear-gradient(90deg, #86efac, #22c55e)',
                         opacity: 0.85, zIndex: 1,
                       }} />
                     )}
                   </div>
 
-                  {/* Chargebacks bar */}
-                  <div style={{ position: 'relative', height: '14px' }}>
+                  {/* Chargebacks bar — clickable */}
+                  <div
+                    onClick={() => onBarClick?.(c.aka, 'chargebacks')}
+                    title={c.chargebacksLastUpload ? `Last upload: ${fmtUpload(c.chargebacksLastUpload)}` : hasChargebacks ? `Data through ${fmtShort(c.chargebackEnd)}, ${new Date(c.chargebackEnd + 'T00:00:00').getFullYear()}` : `Click to upload chargebacks for ${c.aka}`}
+                    className="coverage-bar"
+                    style={{ position: 'relative', height: '14px', cursor: 'pointer' }}
+                  >
                     {/* Gray background bar spanning full timeline to today */}
                     <div style={{
                       position: 'absolute', left: 0,
@@ -210,11 +222,11 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                       background: '#f3f4f6', opacity: 0.5,
                     }} />
                     {hasChargebacks && (
-                      <div title={c.chargebacksLastUpload ? `Last upload: ${fmtUpload(c.chargebacksLastUpload)}` : `Data through ${fmtShort(c.chargebackEnd)}, ${new Date(c.chargebackEnd + 'T00:00:00').getFullYear()}`} style={{
+                      <div style={{
                         position: 'absolute',
                         left: `${dateToPx(c.chargebackStart)}px`,
                         width: `${Math.max(4, dateToPx(c.chargebackEnd) - dateToPx(c.chargebackStart))}px`,
-                        height: '100%', borderRadius: '3px', cursor: 'default',
+                        height: '100%', borderRadius: '3px', pointerEvents: 'none',
                         background: 'linear-gradient(90deg, #fca5a5, #ef4444)',
                         opacity: 0.85, zIndex: 1,
                       }} />
@@ -257,6 +269,7 @@ export default function RawDataUpload() {
   const [coverageCreators, setCoverageCreators] = useState([])
   const [coverageLoading, setCoverageLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
+  const [uploadModal, setUploadModal] = useState(null) // { creator, dataType }
   const fileRef = useRef(null)
 
   const loadCutoffs = useCallback(async () => {
@@ -332,7 +345,7 @@ export default function RawDataUpload() {
   return (
     <div>
       {/* Data coverage timeline — full width */}
-      <DataCoverageChart creators={coverageCreators} loading={coverageLoading} />
+      <DataCoverageChart creators={coverageCreators} loading={coverageLoading} onBarClick={(aka, type) => setUploadModal({ creator: aka, dataType: type })} />
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -529,6 +542,17 @@ export default function RawDataUpload() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Upload modal — triggered by clicking bars in the Gantt chart */}
+      {uploadModal && (
+        <UploadModal
+          creator={uploadModal.creator}
+          dataType={uploadModal.dataType}
+          allCreators={coverageCreators}
+          onClose={() => setUploadModal(null)}
+          onUploadComplete={() => { loadCoverage(); setUploadModal(null) }}
+        />
       )}
     </div>
   )
