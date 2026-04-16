@@ -18,6 +18,13 @@ const CREATORS = ['Amelia', 'Laurel', 'Taby', 'Gracie', 'MG']
 function DataCoverageChart({ creators: coverageCreators, loading: coverageLoading }) {
   const scrollRef = useRef(null)
 
+  // Auto-scroll to the right (newest dates) on mount
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
+    }
+  }, [coverageCreators])
+
   if (coverageLoading) {
     return (
       <div style={{
