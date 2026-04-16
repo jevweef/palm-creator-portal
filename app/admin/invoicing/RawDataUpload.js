@@ -116,7 +116,8 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
     return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
   }
 
-  const sortedCreators = [...coverageCreators].sort((a, b) => a.aka.localeCompare(b.aka))
+  // Accounts are already sorted by creator AKA + type from the API
+  const sortedCreators = coverageCreators
 
   return (
     <div style={{
@@ -136,11 +137,11 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
       <div style={{ display: 'flex' }}>
         {/* Creator names column (fixed) */}
-        <div style={{ width: '130px', flexShrink: 0 }}>
+        <div style={{ width: '170px', flexShrink: 0 }}>
           <div style={{ height: '20px', marginBottom: '4px' }} /> {/* spacer for date labels */}
           {sortedCreators.map(c => (
             <div key={c.id} style={{ height: '35px', display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.aka || '—'}</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', lineHeight: '1.2' }}>{c.accountName || c.aka || '—'}</span>
             </div>
           ))}
         </div>
@@ -207,8 +208,8 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
                   {/* Sales bar — clickable */}
                   <div
-                    onClick={() => onBarClick?.(c.aka, 'sales')}
-                    title={c.earningsLastUpload ? `Last upload: ${fmtUpload(c.earningsLastUpload)}` : hasEarnings ? `Data through ${fmtShort(c.earningsEnd)}, ${new Date(c.earningsEnd + 'T00:00:00').getFullYear()}` : `Click to upload earnings for ${c.aka}`}
+                    onClick={() => onBarClick?.(c.accountName || c.aka, 'sales')}
+                    title={c.earningsLastUpload ? `Last upload: ${fmtUpload(c.earningsLastUpload)}` : hasEarnings ? `Data through ${fmtShort(c.earningsEnd)}, ${new Date(c.earningsEnd + 'T00:00:00').getFullYear()}` : `Click to upload earnings for ${c.accountName || c.aka}`}
                     className="coverage-bar"
                     style={{ position: 'relative', height: '14px', marginBottom: '3px', cursor: 'pointer' }}
                   >
@@ -233,8 +234,8 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
                   {/* Chargebacks bar — clickable */}
                   <div
-                    onClick={() => onBarClick?.(c.aka, 'chargebacks')}
-                    title={c.chargebacksLastUpload ? `Last upload: ${fmtUpload(c.chargebacksLastUpload)}` : hasChargebacks ? `Data through ${fmtShort(c.chargebackEnd)}, ${new Date(c.chargebackEnd + 'T00:00:00').getFullYear()}` : `Click to upload chargebacks for ${c.aka}`}
+                    onClick={() => onBarClick?.(c.accountName || c.aka, 'chargebacks')}
+                    title={c.chargebacksLastUpload ? `Last upload: ${fmtUpload(c.chargebacksLastUpload)}` : hasChargebacks ? `Data through ${fmtShort(c.chargebackEnd)}, ${new Date(c.chargebackEnd + 'T00:00:00').getFullYear()}` : `Click to upload chargebacks for ${c.accountName || c.aka}`}
                     className="coverage-bar"
                     style={{ position: 'relative', height: '14px', cursor: 'pointer' }}
                   >
@@ -264,7 +265,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: '16px', marginTop: '12px', marginLeft: '130px' }}>
+      <div style={{ display: 'flex', gap: '16px', marginTop: '12px', marginLeft: '170px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ width: '12px', height: '8px', borderRadius: '2px', background: 'linear-gradient(90deg, #86efac, #22c55e)' }} />
           <span style={{ fontSize: '10px', color: '#999' }}>Earnings</span>
@@ -294,10 +295,10 @@ export default function RawDataUpload() {
   const [error, setError] = useState(null)
   const [cutoffs, setCutoffs] = useState({})
   const [spreadsheetUrl, setSpreadsheetUrl] = useState(null)
-  const [coverageCreators, setCoverageCreators] = useState([])
+  const [coverageAccounts, setCoverageAccounts] = useState([])
   const [coverageLoading, setCoverageLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
-  const [uploadModal, setUploadModal] = useState(null) // { creator, dataType }
+  const [uploadModal, setUploadModal] = useState(null) // { accountName, dataType }
   const fileRef = useRef(null)
 
   const loadCutoffs = useCallback(async () => {
@@ -314,10 +315,10 @@ export default function RawDataUpload() {
   const loadCoverage = useCallback(async () => {
     try {
       setCoverageLoading(true)
-      const res = await fetch('/api/admin/earnings-coverage')
+      const res = await fetch('/api/admin/account-coverage')
       if (res.ok) {
         const data = await res.json()
-        setCoverageCreators(data.creators || [])
+        setCoverageAccounts(data.accounts || [])
       }
     } catch {} finally {
       setCoverageLoading(false)
@@ -374,7 +375,7 @@ export default function RawDataUpload() {
   return (
     <div>
       {/* Data coverage timeline — full width */}
-      <DataCoverageChart creators={coverageCreators} loading={coverageLoading} onBarClick={(aka, type) => setUploadModal({ creator: aka, dataType: type })} />
+      <DataCoverageChart creators={coverageAccounts} loading={coverageLoading} onBarClick={(accountName, type) => setUploadModal({ accountName, dataType: type })} />
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -576,9 +577,9 @@ export default function RawDataUpload() {
       {/* Upload modal — triggered by clicking bars in the Gantt chart */}
       {uploadModal && (
         <UploadModal
-          creator={uploadModal.creator}
+          accountName={uploadModal.accountName}
           dataType={uploadModal.dataType}
-          allCreators={coverageCreators}
+          allAccounts={coverageAccounts}
           onClose={() => setUploadModal(null)}
           onUploadComplete={() => { loadCoverage(); setUploadModal(null) }}
         />

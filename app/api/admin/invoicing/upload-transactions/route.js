@@ -328,20 +328,19 @@ async function updateCutoff(sheets, tabName, cutoffDt) {
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const HQ_BASE = 'appL7c4Wtotpz07KS'
-const HQ_CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
-const AT_FIELDS = {
-  aka: 'fldi2BNvf928yVuZx',
-  earningsStart: 'fldiMIvM5hf2MNzck',
-  earningsEnd: 'fld6n02I6LXpaAQMC',
-  chargebackStart: 'fldnl6I0NQm3LohCJ',
-  chargebackEnd: 'fldw4KB1rCJULWje1',
-  earningsLastUpload: 'fldbBT5iNJU8bEREk',
-  chargebacksLastUpload: 'fldbcQzv0Bhf3Ys8a',
-  managementStart: 'flddRQe5WGegIBomQ',
+const REVENUE_ACCOUNTS_TABLE = 'tblQqPWlsjiyJA0ba'
+const RA_FIELDS = {
+  accountName: 'fldkEi3jW9tUXSTc5',
+  earningsStart: 'fldIFvqIOE1mFCFbq',
+  earningsEnd: 'fldZtO52nDZXKY0R7',
+  earningsLastUpload: 'fldxD7iDFZHWttC9n',
+  chargebackStart: 'fldcWM6RkZUsNyUlp',
+  chargebackEnd: 'fldCbyspe7EiJo0iW',
+  chargebacksLastUpload: 'fldNCy327oIndVw2R',
 }
 
-async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestamp) {
-  if (!AIRTABLE_PAT) return
+async function updateAirtableCoverage(accountName, sheetType, txns, fileTimestamp) {
+  if (!AIRTABLE_PAT || !accountName) return
 
   try {
     // Find dates from transactions (may be empty if all skipped)
@@ -349,20 +348,19 @@ async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestam
     const earliest = dates.length > 0 ? dates[0] : null
     const earliestStr = earliest ? fmtDate(earliest) : null
 
-    // Look up creator by AKA
+    // Look up Revenue Account by Account Name
     const params = new URLSearchParams()
-    params.append('filterByFormula', `{AKA}="${creatorName}"`)
-    params.append('fields[]', AT_FIELDS.aka)
-    params.append('fields[]', AT_FIELDS.earningsStart)
-    params.append('fields[]', AT_FIELDS.earningsEnd)
-    params.append('fields[]', AT_FIELDS.chargebackStart)
-    params.append('fields[]', AT_FIELDS.chargebackEnd)
-    params.append('fields[]', AT_FIELDS.managementStart)
+    params.append('filterByFormula', `{Account Name}="${accountName}"`)
+    params.append('fields[]', RA_FIELDS.accountName)
+    params.append('fields[]', RA_FIELDS.earningsStart)
+    params.append('fields[]', RA_FIELDS.earningsEnd)
+    params.append('fields[]', RA_FIELDS.chargebackStart)
+    params.append('fields[]', RA_FIELDS.chargebackEnd)
     params.append('returnFieldsByFieldId', 'true')
     params.append('pageSize', '1')
 
     const searchRes = await fetch(
-      `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}?${params}`,
+      `https://api.airtable.com/v0/${HQ_BASE}/${REVENUE_ACCOUNTS_TABLE}?${params}`,
       { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` } }
     )
     if (!searchRes.ok) return
@@ -374,40 +372,38 @@ async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestam
     const isSales = sheetType === 'Sales'
 
     // Use the file's last modified timestamp as the coverage cutoff
-    // That's when the HTML was saved — the actual line in the sand
     const coverageDate = fileTimestamp ? new Date(fileTimestamp) : new Date()
     const coverageISO = coverageDate.toISOString()
     const coverageDateStr = coverageISO.split('T')[0]
 
     if (isSales) {
-      // Always update the end date and timestamp — even if no new transactions
-      fields[AT_FIELDS.earningsEnd] = coverageDateStr
-      fields[AT_FIELDS.earningsLastUpload] = coverageISO
+      fields[RA_FIELDS.earningsEnd] = coverageDateStr
+      fields[RA_FIELDS.earningsLastUpload] = coverageISO
       if (earliestStr) {
-        const currentStart = record.fields[AT_FIELDS.earningsStart]
+        const currentStart = record.fields[RA_FIELDS.earningsStart]
         if (!currentStart || earliestStr < currentStart) {
-          fields[AT_FIELDS.earningsStart] = earliestStr
+          fields[RA_FIELDS.earningsStart] = earliestStr
         }
       }
     } else {
-      fields[AT_FIELDS.chargebackEnd] = coverageDateStr
-      fields[AT_FIELDS.chargebacksLastUpload] = coverageISO
-      const currentStart = record.fields[AT_FIELDS.chargebackStart]
+      fields[RA_FIELDS.chargebackEnd] = coverageDateStr
+      fields[RA_FIELDS.chargebacksLastUpload] = coverageISO
+      const currentStart = record.fields[RA_FIELDS.chargebackStart]
       if (earliestStr) {
         if (!currentStart || earliestStr < currentStart) {
-          fields[AT_FIELDS.chargebackStart] = earliestStr
+          fields[RA_FIELDS.chargebackStart] = earliestStr
         }
       } else if (!currentStart) {
-        // No chargebacks found — start at the same time as earnings data
-        const earningsStart = record.fields[AT_FIELDS.earningsStart]
+        // No chargebacks — start at same time as earnings data
+        const earningsStart = record.fields[RA_FIELDS.earningsStart]
         if (earningsStart) {
-          fields[AT_FIELDS.chargebackStart] = earningsStart
+          fields[RA_FIELDS.chargebackStart] = earningsStart
         }
       }
     }
 
     await fetch(
-      `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}/${record.id}`,
+      `https://api.airtable.com/v0/${HQ_BASE}/${REVENUE_ACCOUNTS_TABLE}/${record.id}`,
       {
         method: 'PATCH',
         headers: {
@@ -430,13 +426,14 @@ export async function POST(request) {
   if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const contentType = request.headers.get('content-type') || ''
-  let txns, creator, sheetType, fileTimestamp
+  let txns, creator, sheetType, fileTimestamp, accountName
 
   if (contentType.includes('multipart/form-data')) {
     // HTML file upload
     const formData = await request.formData()
     const file = formData.get('file')
     creator = formData.get('creator')
+    accountName = formData.get('accountName') || creator // accountName like "Amelia - Free OF"
     if (!file || !creator) return Response.json({ error: 'Missing file or creator' }, { status: 400 })
 
     const html = await file.text()
@@ -473,7 +470,7 @@ export async function POST(request) {
   if (!txns || txns.length === 0) {
     // No transactions found — but still update coverage timestamp
     // (e.g. chargeback page with "No data during selected period" is still valid data)
-    await updateAirtableCoverage(creator, sheetType, [], fileTimestamp)
+    await updateAirtableCoverage(accountName, sheetType, [], fileTimestamp)
     return Response.json({
       message: `No ${sheetType === 'Chargebacks' ? 'chargebacks' : 'transactions'} found — coverage timestamp updated.`,
       parsed: 0, skipped: 0, uploaded: 0, overlapMethod: 'none',
@@ -484,7 +481,7 @@ export async function POST(request) {
   try {
     const authClient = getAuth()
     const sheets = google.sheets({ version: 'v4', auth: authClient })
-    const tabName = await getOrCreateTab(sheets, creator, sheetType)
+    const tabName = await getOrCreateTab(sheets, accountName, sheetType)
 
     // Overlap-based dedup: fetch last rows from sheet, find the match point
     // in the new data, only append everything after it
@@ -538,7 +535,7 @@ export async function POST(request) {
 
     if (filtered.length === 0) {
       // Still update the coverage timestamp even though no new rows
-      await updateAirtableCoverage(creator, sheetType, txns, fileTimestamp)
+      await updateAirtableCoverage(accountName, sheetType, txns, fileTimestamp)
       return Response.json({
         message: `All ${txns.length} transactions already exist in the sheet — nothing new to upload.`,
         parsed: txns.length, skipped: txns.length, uploaded: 0, overlapMethod,
@@ -605,7 +602,7 @@ export async function POST(request) {
     await updateCutoff(sheets, tabName, newCutoff)
 
     // Update Airtable coverage dates (non-blocking)
-    await updateAirtableCoverage(creator, sheetType, txns, fileTimestamp)
+    await updateAirtableCoverage(accountName, sheetType, txns, fileTimestamp)
 
     // Build summary
     const typeBreakdown = {}

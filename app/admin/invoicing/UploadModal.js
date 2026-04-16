@@ -19,8 +19,8 @@ function fmtMoney(n) {
   return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function UploadModal({ creator: initialCreator, dataType: initialDataType, allCreators, onClose, onUploadComplete }) {
-  const [creator, setCreator] = useState(initialCreator || '')
+export default function UploadModal({ accountName: initialAccount, dataType: initialDataType, allAccounts, onClose, onUploadComplete }) {
+  const [accountName, setAccountName] = useState(initialAccount || '')
   const [dataType, setDataType] = useState(initialDataType || 'sales')
   const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -29,21 +29,24 @@ export default function UploadModal({ creator: initialCreator, dataType: initial
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef(null)
 
-  // Find current creator's coverage data
-  const creatorData = allCreators?.find(c => c.aka === creator) || null
+  // Find current account's coverage data
+  const acctData = allAccounts?.find(a => a.accountName === accountName) || null
   const isSales = dataType === 'sales'
-  const lastDate = isSales ? creatorData?.earningsEnd : creatorData?.chargebackEnd
-  const lastUpload = isSales ? creatorData?.earningsLastUpload : creatorData?.chargebacksLastUpload
+  const lastDate = isSales ? acctData?.earningsEnd : acctData?.chargebackEnd
+  const lastUpload = isSales ? acctData?.earningsLastUpload : acctData?.chargebacksLastUpload
+  // Extract creator name from account name (e.g. "Taby - Free OF" → "Taby")
+  const creatorName = acctData?.creatorAka || accountName.split(' - ')[0] || ''
 
   async function handleUpload() {
-    if (!file || !creator) return
+    if (!file || !accountName) return
     setUploading(true)
     setError(null)
     setResult(null)
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('creator', creator)
+      formData.append('creator', creatorName)
+      formData.append('accountName', accountName)
       formData.append('dataType', dataType)
       if (file.lastModified) formData.append('fileLastModified', String(file.lastModified))
       const res = await fetch('/api/admin/invoicing/upload-transactions', { method: 'POST', body: formData })
@@ -52,13 +55,16 @@ export default function UploadModal({ creator: initialCreator, dataType: initial
       setResult(data)
       setFile(null)
       if (fileRef.current) fileRef.current.value = ''
-      if (data.uploaded > 0 && onUploadComplete) onUploadComplete()
+      if (onUploadComplete) onUploadComplete()
     } catch (e) {
       setError(e.message)
     } finally {
       setUploading(false)
     }
   }
+
+  // Display name: strip creator prefix for cleaner display
+  const shortName = accountName.includes(' - ') ? accountName.split(' - ').slice(1).join(' - ') : accountName
 
   return (
     <div
@@ -92,21 +98,21 @@ export default function UploadModal({ creator: initialCreator, dataType: initial
 
         {/* Body */}
         <div style={{ padding: '20px 24px' }}>
-          {/* Creator selector */}
+          {/* Account selector */}
           <div style={{ marginBottom: '16px' }}>
             <label style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
-              Creator
+              Account
             </label>
             <select
-              value={creator}
-              onChange={e => { setCreator(e.target.value); setResult(null); setError(null) }}
+              value={accountName}
+              onChange={e => { setAccountName(e.target.value); setResult(null); setError(null) }}
               style={{
                 width: '100%', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
                 color: '#1a1a1a', fontSize: '14px', padding: '10px 12px', outline: 'none',
               }}
             >
-              {(allCreators || []).map(c => (
-                <option key={c.id || c.aka} value={c.aka}>{c.aka}</option>
+              {(allAccounts || []).map(a => (
+                <option key={a.id} value={a.accountName}>{a.accountName}</option>
               ))}
             </select>
           </div>
@@ -145,7 +151,7 @@ export default function UploadModal({ creator: initialCreator, dataType: initial
           }}>
             {lastDate ? (
               <>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: lastDate ? '#92400E' : '#0369A1', marginBottom: '4px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>
                   Scroll back to {fmtDate(lastDate)}
                 </div>
                 <div style={{ fontSize: '12px', color: '#A16207' }}>
@@ -163,7 +169,7 @@ export default function UploadModal({ creator: initialCreator, dataType: initial
                   First upload
                 </div>
                 <div style={{ fontSize: '12px', color: '#0284C7' }}>
-                  No prior {isSales ? 'earnings' : 'chargeback'} data for {creator}. Include all available data from the OF Statements page.
+                  No prior {isSales ? 'earnings' : 'chargeback'} data for {accountName}. Include all available data from the OF Statements page.
                 </div>
               </>
             )}
@@ -226,7 +232,7 @@ export default function UploadModal({ creator: initialCreator, dataType: initial
               transition: 'all 0.15s',
             }}
           >
-            {uploading ? 'Uploading...' : `Upload ${isSales ? 'Earnings' : 'Chargebacks'} for ${creator}`}
+            {uploading ? 'Uploading...' : `Upload ${isSales ? 'Earnings' : 'Chargebacks'} for ${accountName}`}
           </button>
 
           {/* Error */}
@@ -246,7 +252,7 @@ export default function UploadModal({ creator: initialCreator, dataType: initial
               border: '1px solid #BBF7D0', borderRadius: '8px',
             }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '6px' }}>
-                {result.uploaded > 0 ? `Added ${result.uploaded} new transactions` : 'No new transactions to add'}
+                {result.uploaded > 0 ? `Added ${result.uploaded} new transactions` : (result.message || 'No new transactions to add')}
               </div>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px', color: '#15803D' }}>
                 <span>Parsed: {result.parsed}</span>
