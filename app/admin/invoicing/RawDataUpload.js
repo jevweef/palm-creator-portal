@@ -97,8 +97,9 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
   return (
     <div style={{
-      background: '#fff', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.06)',
-      padding: '20px 24px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+      background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.06)',
+      padding: '20px 32px', marginBottom: '20px',
+      marginLeft: '-32px', marginRight: '-32px', width: 'calc(100% + 64px)',
     }}>
       <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
         Data Coverage
@@ -153,7 +154,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                   {/* Sales bar */}
                   <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
                     {hasEarnings ? (
-                      <div title={`Earnings: ${fmtShort(c.earningsStart)} – ${fmtShort(c.earningsEnd)}${c.earningsLastUpload ? '\nLast uploaded: ' + fmtUpload(c.earningsLastUpload) : ''}`} style={{
+                      <div title={`Earnings data through ${fmtShort(c.earningsEnd)}${c.earningsLastUpload ? '\nUploaded: ' + fmtUpload(c.earningsLastUpload) : ''}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.earningsStart)}px`,
                         width: `${Math.max(4, dateToPx(c.earningsEnd) - dateToPx(c.earningsStart))}px`,
@@ -169,7 +170,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                   {/* Chargebacks bar */}
                   <div style={{ position: 'relative', height: '14px' }}>
                     {hasChargebacks ? (
-                      <div title={`Chargebacks: ${fmtShort(c.chargebackStart)} – ${fmtShort(c.chargebackEnd)}${c.chargebacksLastUpload ? '\nLast uploaded: ' + fmtUpload(c.chargebacksLastUpload) : ''}`} style={{
+                      <div title={`Chargebacks data through ${fmtShort(c.chargebackEnd)}${c.chargebacksLastUpload ? '\nUploaded: ' + fmtUpload(c.chargebacksLastUpload) : ''}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.chargebackStart)}px`,
                         width: `${Math.max(4, dateToPx(c.chargebackEnd) - dateToPx(c.chargebackStart))}px`,

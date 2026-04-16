@@ -1744,10 +1744,10 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         const hasCb = coverageData.chargebackStart && coverageData.chargebackEnd
 
         const earningsTitle = hasEarnings
-          ? `Earnings: ${fmtShort(coverageData.earningsStart)} – ${fmtShort(coverageData.earningsEnd)}${coverageData.earningsLastUpload ? '\nLast uploaded: ' + fmtUpload(coverageData.earningsLastUpload) : ''}`
+          ? `Earnings data through ${fmtShort(coverageData.earningsEnd)}${coverageData.earningsLastUpload ? '\nUploaded: ' + fmtUpload(coverageData.earningsLastUpload) : ''}`
           : null
         const cbTitle = hasCb
-          ? `Chargebacks: ${fmtShort(coverageData.chargebackStart)} – ${fmtShort(coverageData.chargebackEnd)}${coverageData.chargebacksLastUpload ? '\nLast uploaded: ' + fmtUpload(coverageData.chargebacksLastUpload) : ''}`
+          ? `Chargebacks data through ${fmtShort(coverageData.chargebackEnd)}${coverageData.chargebacksLastUpload ? '\nUploaded: ' + fmtUpload(coverageData.chargebacksLastUpload) : ''}`
           : null
 
         return (
