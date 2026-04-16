@@ -172,9 +172,380 @@ function MiniCalendar({ calendar }) {
 /* ─── Format period label to be human-readable ─── */
 function formatPeriodLabel(label) {
   if (!label) return ''
-  // "2026-03 Mar 29-14" → "Mar 29 – Apr 14" (approximate)
-  // Just clean up the raw label
   return label.replace(/^\d{4}-\d{2}\s*/, '')
+}
+
+/* ─── Monotone cubic spline SVG path ─── */
+function buildMonotonePath(pts) {
+  if (pts.length < 2) return ''
+  if (pts.length === 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`
+  const n = pts.length
+  const slopes = []
+  for (let i = 0; i < n; i++) {
+    if (i === 0) slopes.push((pts[1][1] - pts[0][1]) / (pts[1][0] - pts[0][0] || 1))
+    else if (i === n - 1) slopes.push((pts[n-1][1] - pts[n-2][1]) / (pts[n-1][0] - pts[n-2][0] || 1))
+    else {
+      const d0 = (pts[i][1] - pts[i-1][1]) / (pts[i][0] - pts[i-1][0] || 1)
+      const d1 = (pts[i+1][1] - pts[i][1]) / (pts[i+1][0] - pts[i][0] || 1)
+      slopes.push(d0 * d1 <= 0 ? 0 : (d0 + d1) / 2)
+    }
+  }
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 0; i < n - 1; i++) {
+    const dx = (pts[i+1][0] - pts[i][0]) / 5
+    d += `C${(pts[i][0]+dx).toFixed(1)},${(pts[i][1]+slopes[i]*dx).toFixed(1)},${(pts[i+1][0]-dx).toFixed(1)},${(pts[i+1][1]-slopes[i+1]*dx).toFixed(1)},${pts[i+1][0].toFixed(1)},${pts[i+1][1].toFixed(1)}`
+  }
+  return d
+}
+
+function fmtChartMoney(v) {
+  return '$' + Math.round(v).toLocaleString('en-US')
+}
+
+function fmtChartDate(dateStr) {
+  if (!dateStr) return ''
+  const [y, m, day] = dateStr.split('-')
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${months[parseInt(m)-1]} ${parseInt(day)}, ${y.slice(2)}`
+}
+
+const CREATOR_COLORS = {
+  Laurel: '#E88FAC',
+  Taby: '#60a5fa',
+  MG: '#fb923c',
+  Sunny: '#a78bfa',
+  Gracie: '#34d399',
+  Amelia: '#f472b6',
+  Raya: '#38bdf8',
+  'Ocean Ray': '#fbbf24',
+  Amara: '#818cf8',
+  'Meadow Marie': '#4ade80',
+}
+const EARNINGS_CREATORS = ['Laurel', 'Amelia', 'Taby', 'Gracie', 'MG', 'Sunny', 'Raya', 'Ocean Ray', 'Amara', 'Meadow Marie']
+const PERIODS = [
+  { key: 'last30', label: 'Last 30 Days' },
+  { key: 'last90', label: 'Last 90 Days' },
+  { key: 'mtd', label: 'Month to Date' },
+  { key: 'ytd', label: 'Year to Date' },
+  { key: 'all', label: 'All Time' },
+]
+
+/* ─── Agency Revenue Chart ─── */
+function AgencyRevenueChart({ earningsData, earningsLoading }) {
+  const [hover, setHover] = useState(null)
+  const [period, setPeriod] = useState('last30')
+  const [enabledCreators, setEnabledCreators] = useState(new Set(EARNINGS_CREATORS))
+  const [showDropdown, setShowDropdown] = useState(false)
+  const svgRef = useRef(null)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setShowDropdown(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Combine all creator daily data into unified timeline
+  const chartData = useMemo(() => {
+    if (!earningsData) return []
+    const dayMap = {} // date → { total, byCreator }
+
+    for (const [creator, data] of Object.entries(earningsData)) {
+      if (!enabledCreators.has(creator) || !data?.dailyData) continue
+      for (const d of data.dailyData) {
+        if (!dayMap[d.date]) dayMap[d.date] = { date: d.date, total: 0, byCreator: {} }
+        dayMap[d.date].total += d.net
+        dayMap[d.date].byCreator[creator] = (dayMap[d.date].byCreator[creator] || 0) + d.net
+      }
+    }
+
+    let days = Object.values(dayMap).sort((a, b) => a.date.localeCompare(b.date))
+
+    // Apply period filter
+    if (days.length > 0) {
+      const now = new Date()
+      const todayStr = now.toISOString().split('T')[0]
+      let cutoff = null
+      if (period === 'last30') {
+        const d = new Date(now); d.setDate(d.getDate() - 30); cutoff = d.toISOString().split('T')[0]
+      } else if (period === 'last90') {
+        const d = new Date(now); d.setDate(d.getDate() - 90); cutoff = d.toISOString().split('T')[0]
+      } else if (period === 'mtd') {
+        cutoff = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
+      } else if (period === 'ytd') {
+        cutoff = `${now.getFullYear()}-01-01`
+      }
+      if (cutoff) days = days.filter(d => d.date >= cutoff)
+    }
+
+    return days
+  }, [earningsData, enabledCreators, period])
+
+  const totalForPeriod = chartData.reduce((s, d) => s + d.total, 0)
+  const activeCount = [...enabledCreators].filter(c => earningsData?.[c]?.dailyData?.length > 0).length
+
+  if (earningsLoading) {
+    return (
+      <div style={{ ...CARD, marginBottom: '16px' }}>
+        <div style={SECTION_TITLE}>Agency Revenue</div>
+        <div style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: '13px', color: '#999' }}>Loading earnings data...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!earningsData || Object.keys(earningsData).length === 0) return null
+
+  // Chart dimensions (shorter than individual, full width)
+  const CW = 1100, CH = 200
+  const pad = { t: 10, r: 55, b: 25, l: 10 }
+  const cw = CW - pad.l - pad.r, ch = CH - pad.t - pad.b
+
+  // Y-axis
+  function niceMax(v) {
+    if (v <= 0) return 100
+    const mag = Math.pow(10, Math.floor(Math.log10(v)))
+    const norm = v / mag
+    if (norm <= 1.5) return 1.5 * mag
+    if (norm <= 2) return 2 * mag
+    if (norm <= 3) return 3 * mag
+    if (norm <= 5) return 5 * mag
+    if (norm <= 7.5) return 7.5 * mag
+    return 10 * mag
+  }
+  const rawMax = Math.max(...chartData.map(d => d.total), 1)
+  const maxVal = niceMax(rawMax * 1.05)
+
+  const GRID_COUNT = 3
+  const eSteps = []
+  for (let i = 1; i <= GRID_COUNT; i++) eSteps.push(Math.round(maxVal * (i / GRID_COUNT)))
+
+  const px = (i) => pad.l + (i / Math.max(chartData.length - 1, 1)) * cw
+  const py = (v) => pad.t + ch - (v / maxVal) * ch
+
+  // Build path
+  const points = chartData.map((d, i) => [px(i), py(d.total)])
+  const linePath = buildMonotonePath(points)
+  const areaPath = points.length > 1 ? linePath + `L${(pad.l + cw).toFixed(1)},${pad.t + ch}L${pad.l},${pad.t + ch}Z` : ''
+
+  // X-axis labels
+  const xCount = Math.min(6, chartData.length)
+  const xLabels = []
+  if (xCount >= 2) {
+    for (let j = 0; j < xCount; j++) {
+      const pos = j / (xCount - 1)
+      const idx = Math.round(pos * (chartData.length - 1))
+      xLabels.push({ pos, label: fmtChartDate(chartData[idx]?.date) })
+    }
+  }
+
+  const onMove = useCallback((e) => {
+    const svg = svgRef.current
+    if (!svg || chartData.length === 0) return
+    const rect = svg.getBoundingClientRect()
+    const mx = ((e.clientX - rect.left) / rect.width) * CW
+    const i = Math.round(((mx - pad.l) / cw) * (chartData.length - 1))
+    if (i < 0 || i >= chartData.length) { setHover(null); return }
+    const d = chartData[i]
+    setHover({ i, cx: px(i), cy: py(d.total), total: d.total, date: d.date, byCreator: d.byCreator })
+  }, [chartData, maxVal])
+
+  const toggleCreator = (name) => {
+    const next = new Set(enabledCreators)
+    if (next.has(name)) next.delete(name)
+    else next.add(name)
+    setEnabledCreators(next)
+  }
+
+  const toggleAll = () => {
+    if (enabledCreators.size === EARNINGS_CREATORS.length) setEnabledCreators(new Set())
+    else setEnabledCreators(new Set(EARNINGS_CREATORS))
+  }
+
+  return (
+    <div style={{ ...CARD, marginBottom: '16px' }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+          <span style={{ ...SECTION_TITLE, marginBottom: 0 }}>Agency Revenue</span>
+          <span style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>
+            {fmtK(totalForPeriod)}
+          </span>
+          <span style={{ fontSize: '11px', color: '#999' }}>
+            {activeCount} account{activeCount !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Period selector */}
+          <select
+            value={period}
+            onChange={e => setPeriod(e.target.value)}
+            style={{
+              padding: '4px 8px', borderRadius: '6px', border: '1px solid #e5e5e5',
+              fontSize: '11px', color: '#666', background: '#fff', cursor: 'pointer',
+            }}
+          >
+            {PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+
+          {/* Creator toggle dropdown */}
+          <div ref={dropdownRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowDropdown(!showDropdown)}
+              style={{
+                padding: '4px 10px', borderRadius: '6px', border: '1px solid #e5e5e5',
+                fontSize: '11px', color: '#666', background: '#fff', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '4px',
+              }}
+            >
+              Accounts
+              <span style={{ fontSize: '9px' }}>{showDropdown ? '▲' : '▼'}</span>
+            </button>
+            {showDropdown && (
+              <div style={{
+                position: 'absolute', right: 0, top: '100%', marginTop: '4px',
+                background: '#fff', borderRadius: '8px', border: '1px solid #e5e5e5',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.1)', padding: '8px 0', zIndex: 50,
+                minWidth: '160px',
+              }}>
+                <div
+                  onClick={toggleAll}
+                  style={{
+                    padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                    color: enabledCreators.size === EARNINGS_CREATORS.length ? '#E88FAC' : '#666',
+                    borderBottom: '1px solid #f0f0f0',
+                  }}
+                >
+                  {enabledCreators.size === EARNINGS_CREATORS.length ? 'Deselect All' : 'Select All'}
+                </div>
+                {EARNINGS_CREATORS.map(name => {
+                  const active = enabledCreators.has(name)
+                  const hasData = earningsData?.[name]?.dailyData?.length > 0
+                  if (!hasData) return null
+                  return (
+                    <div key={name}
+                      onClick={() => toggleCreator(name)}
+                      style={{
+                        padding: '5px 12px', fontSize: '12px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        color: active ? '#1a1a1a' : '#ccc',
+                      }}
+                    >
+                      <div style={{
+                        width: '10px', height: '10px', borderRadius: '2px',
+                        background: active ? (CREATOR_COLORS[name] || '#E88FAC') : '#e5e5e5',
+                      }} />
+                      {name}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Chart */}
+      {chartData.length > 1 ? (
+        <div style={{ position: 'relative' }}>
+          <svg ref={svgRef} viewBox={`0 0 ${CW} ${CH}`}
+            style={{ width: '100%', height: 'auto', overflow: 'visible', cursor: 'crosshair', display: 'block' }}
+            onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+            onTouchMove={e => { const t = e.touches[0]; if (t) onMove({ clientX: t.clientX }) }}
+            onTouchEnd={() => setHover(null)}>
+            <defs>
+              <linearGradient id="agencyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(232,143,172,0.18)" />
+                <stop offset="100%" stopColor="rgba(232,143,172,0.01)" />
+              </linearGradient>
+            </defs>
+
+            {/* Grid lines */}
+            {eSteps.map(v => <line key={v} x1={pad.l} x2={pad.l + cw} y1={py(v)} y2={py(v)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />)}
+            <line x1={pad.l} x2={pad.l + cw} y1={py(0)} y2={py(0)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />
+
+            {/* Area fill */}
+            {areaPath && <path d={areaPath} fill="url(#agencyGrad)" />}
+
+            {/* Line */}
+            {linePath && <path d={linePath} fill="none" stroke="#E88FAC" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />}
+
+            {/* Y labels (right) */}
+            {eSteps.map(v => <text key={`y${v}`} x={pad.l + cw + 6} y={py(v) + 4} fill="#999" fontSize={10} fontFamily="system-ui">{fmtChartMoney(v)}</text>)}
+
+            {/* X labels */}
+            {xLabels.map(({ pos, label }, i) => (
+              <text key={i} x={pad.l + pos * cw} y={CH - 6} textAnchor="middle" fill="#aaa" fontSize={8} fontFamily="system-ui">{label}</text>
+            ))}
+
+            {/* Hover guide */}
+            {hover && <line x1={hover.cx} x2={hover.cx} y1={pad.t} y2={pad.t + ch} stroke="rgba(0,0,0,0.08)" strokeWidth={1} />}
+          </svg>
+
+          {/* Hover tooltip (HTML overlay) */}
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            opacity: hover ? 1 : 0, transition: 'opacity 0.15s ease',
+          }}>
+            {hover && (() => {
+              const dotLeft = `${(hover.cx / CW) * 100}%`
+              const dotTop = `${(hover.cy / CH) * 100}%`
+              const ttAbove = hover.cy > CH * 0.35
+              const fmtDate = (d) => {
+                if (!d) return ''
+                const [y,m,day] = d.split('-')
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                return `${months[parseInt(m)-1]} ${parseInt(day)}, ${y}`
+              }
+              const breakdown = Object.entries(hover.byCreator || {})
+                .filter(([,v]) => v > 0)
+                .sort((a,b) => b[1] - a[1])
+              return (<>
+                <div style={{
+                  position: 'absolute', left: dotLeft, top: dotTop,
+                  width: '10px', height: '10px', marginLeft: '-5px', marginTop: '-5px',
+                  borderRadius: '50%', background: '#E88FAC', border: '2px solid #fff',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                  transition: 'left 0.08s ease, top 0.08s ease',
+                }} />
+                <div style={{
+                  position: 'absolute',
+                  left: `clamp(10px, calc(${dotLeft} - 85px), calc(100% - 190px))`,
+                  top: ttAbove ? `calc(${dotTop} - ${36 + breakdown.length * 20}px)` : `calc(${dotTop} + 16px)`,
+                  background: '#fff', borderRadius: '8px', padding: '8px 14px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)',
+                  transition: 'left 0.08s ease, top 0.08s ease',
+                  whiteSpace: 'nowrap', minWidth: '140px',
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>{fmtDate(hover.date)}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: breakdown.length > 0 ? '4px' : 0 }}>
+                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#E88FAC' }} />
+                    <span style={{ fontSize: '11px', color: '#999' }}>Total</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', marginLeft: 'auto' }}>{fmt(hover.total)}</span>
+                  </div>
+                  {breakdown.slice(0, 5).map(([name, val]) => (
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: CREATOR_COLORS[name] || '#ccc' }} />
+                      <span style={{ fontSize: '10px', color: '#999' }}>{name}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 500, color: '#666', marginLeft: 'auto' }}>{fmt(val)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>)
+            })()}
+          </div>
+        </div>
+      ) : (
+        <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: '13px', color: '#999' }}>No daily data for this period</span>
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* ─────────────────────────────────────────────── */
@@ -185,6 +556,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [alertsExpanded, setAlertsExpanded] = useState(false)
+  const [earningsData, setEarningsData] = useState(null) // { creatorName: { dailyData, summary } }
+  const [earningsLoading, setEarningsLoading] = useState(false)
+  const earningsFetched = useRef(false)
   const [whaleAlerts, setWhaleAlerts] = useState(null) // { creatorName: { alerts, count } }
   const [whaleLoading, setWhaleLoading] = useState(false)
   const [whaleSending, setWhaleSending] = useState({}) // { 'creator-fan': true }
@@ -207,6 +581,29 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Fetch all creator earnings for agency chart (lazy, after main dashboard loads)
+  useEffect(() => {
+    if (!data || earningsFetched.current) return
+    earningsFetched.current = true
+    setEarningsLoading(true)
+    Promise.all(
+      EARNINGS_CREATORS.map(name =>
+        fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null)
+      )
+    ).then(results => {
+      const dataMap = {}
+      results.forEach((r, i) => {
+        if (r && r.dailyData?.length > 0) {
+          dataMap[EARNINGS_CREATORS[i]] = r
+        }
+      })
+      setEarningsData(dataMap)
+      setEarningsLoading(false)
+    })
+  }, [data])
 
   // Fetch whale alerts for all creators (lazy, after main dashboard loads)
   const WHALE_CREATORS = ['Laurel', 'Taby', 'MG', 'Sunny']
@@ -349,6 +746,9 @@ export default function AdminDashboard() {
           color={revenue.outstandingInvoices.count > 0 ? '#f59e0b' : '#22c55e'}
         />
       </div>
+
+      {/* ─── AGENCY REVENUE CHART ─── */}
+      <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} />
 
       {/* ─── ROW 2: Unified Creator Table ─── */}
       <div style={{ ...CARD, marginBottom: '16px' }}>
