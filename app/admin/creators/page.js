@@ -1367,17 +1367,21 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         if (!res.ok) throw new Error('Failed to fetch coverage')
         const { creators } = await res.json()
         if (!cancelled) {
-          // Find matching creator by aka
-          const match = creators.find(c =>
-            c.aka && creator?.aka && c.aka.toLowerCase() === creator.aka.toLowerCase()
-          )
+          // Find matching creator by aka or name
+          const cAka = (creator?.aka || '').toLowerCase()
+          const cName = (creator?.name || '').toLowerCase()
+          const match = creators.find(c => {
+            const akaLower = (c.aka || '').toLowerCase()
+            return (cAka && akaLower === cAka) || (cName && akaLower === cName) ||
+              (cName && cName.includes(akaLower) && akaLower.length > 0)
+          })
           setCoverageData(match || null)
         }
       } catch { /* ignore */ }
       finally { if (!cancelled) setCoverageLoading(false) }
     })()
     return () => { cancelled = true }
-  }, [creator?.aka])
+  }, [creator?.aka, creator?.name])
 
   // Auto-scroll coverage chart to right
   useEffect(() => {
@@ -1696,7 +1700,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       )}
 
       {/* Data coverage chart — single creator */}
-      {coverageData && (coverageData.earningsStart || coverageData.chargebackStart) && (() => {
+      {!coverageLoading && coverageData && (coverageData.earningsStart || coverageData.chargebackStart) && (() => {
         const today = new Date()
         const twoMonthsAgo = new Date(today)
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
@@ -1710,7 +1714,6 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         const totalDays = Math.max(1, (globalEnd - globalStart) / 86400000)
         const chartWidth = Math.max(400, totalDays * 8)
 
-        // Period lines
         const periodLines = []
         const cursor = new Date(globalStart)
         cursor.setDate(1)
@@ -1731,9 +1734,21 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           const d = new Date(dateStr + 'T00:00:00')
           return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         }
+        const fmtUpload = (iso) => {
+          if (!iso) return null
+          const d = new Date(iso)
+          return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+        }
 
         const hasEarnings = coverageData.earningsStart && coverageData.earningsEnd
         const hasCb = coverageData.chargebackStart && coverageData.chargebackEnd
+
+        const earningsTitle = hasEarnings
+          ? `Earnings: ${fmtShort(coverageData.earningsStart)} – ${fmtShort(coverageData.earningsEnd)}${coverageData.earningsLastUpload ? '\nLast uploaded: ' + fmtUpload(coverageData.earningsLastUpload) : ''}`
+          : null
+        const cbTitle = hasCb
+          ? `Chargebacks: ${fmtShort(coverageData.chargebackStart)} – ${fmtShort(coverageData.chargebackEnd)}${coverageData.chargebacksLastUpload ? '\nLast uploaded: ' + fmtUpload(coverageData.chargebacksLastUpload) : ''}`
+          : null
 
         return (
           <div style={{
@@ -1764,13 +1779,13 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                 <div style={{ position: 'relative', height: '16px', marginBottom: '4px' }}>
                   {periodLines.map((p, i) => {
                     const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
-                    return <div key={i} style={{ position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px', background: p.isFirst ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                    return <div key={i} style={{ position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px', background: p.isFirst ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.10)' }} />
                   })}
                   {hasEarnings ? (
-                    <div title={`Earnings: ${fmtShort(coverageData.earningsStart)} - ${fmtShort(coverageData.earningsEnd)}`} style={{
+                    <div title={earningsTitle} style={{
                       position: 'absolute', left: `${dateToPx(coverageData.earningsStart)}px`,
                       width: `${Math.max(4, dateToPx(coverageData.earningsEnd) - dateToPx(coverageData.earningsStart))}px`,
-                      height: '100%', borderRadius: '3px',
+                      height: '100%', borderRadius: '3px', cursor: 'default',
                       background: 'linear-gradient(90deg, #86efac, #22c55e)', opacity: 0.85,
                     }} />
                   ) : (
@@ -1782,13 +1797,13 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                 <div style={{ position: 'relative', height: '16px' }}>
                   {periodLines.map((p, i) => {
                     const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
-                    return <div key={i} style={{ position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px', background: p.isFirst ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                    return <div key={i} style={{ position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px', background: p.isFirst ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.10)' }} />
                   })}
                   {hasCb ? (
-                    <div title={`Chargebacks: ${fmtShort(coverageData.chargebackStart)} - ${fmtShort(coverageData.chargebackEnd)}`} style={{
+                    <div title={cbTitle} style={{
                       position: 'absolute', left: `${dateToPx(coverageData.chargebackStart)}px`,
                       width: `${Math.max(4, dateToPx(coverageData.chargebackEnd) - dateToPx(coverageData.chargebackStart))}px`,
-                      height: '100%', borderRadius: '3px',
+                      height: '100%', borderRadius: '3px', cursor: 'default',
                       background: 'linear-gradient(90deg, #fca5a5, #ef4444)', opacity: 0.85,
                     }} />
                   ) : (

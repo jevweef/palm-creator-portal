@@ -87,6 +87,12 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
+  function fmtUpload(iso) {
+    if (!iso) return null
+    const d = new Date(iso)
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+  }
+
   const sortedCreators = [...coverageCreators].sort((a, b) => a.aka.localeCompare(b.aka))
 
   return (
@@ -139,7 +145,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                     return (
                       <div key={i} style={{
                         position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px',
-                        background: p.isFirst ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)', zIndex: 0,
+                        background: p.isFirst ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.10)', zIndex: 0,
                       }} />
                     )
                   })}
@@ -147,11 +153,11 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                   {/* Sales bar */}
                   <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
                     {hasEarnings ? (
-                      <div title={`Earnings: ${fmtShort(c.earningsStart)} - ${fmtShort(c.earningsEnd)}`} style={{
+                      <div title={`Earnings: ${fmtShort(c.earningsStart)} – ${fmtShort(c.earningsEnd)}${c.earningsLastUpload ? '\nLast uploaded: ' + fmtUpload(c.earningsLastUpload) : ''}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.earningsStart)}px`,
                         width: `${Math.max(4, dateToPx(c.earningsEnd) - dateToPx(c.earningsStart))}px`,
-                        height: '100%', borderRadius: '3px',
+                        height: '100%', borderRadius: '3px', cursor: 'default',
                         background: 'linear-gradient(90deg, #86efac, #22c55e)',
                         opacity: 0.85,
                       }} />
@@ -163,11 +169,11 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                   {/* Chargebacks bar */}
                   <div style={{ position: 'relative', height: '14px' }}>
                     {hasChargebacks ? (
-                      <div title={`Chargebacks: ${fmtShort(c.chargebackStart)} - ${fmtShort(c.chargebackEnd)}`} style={{
+                      <div title={`Chargebacks: ${fmtShort(c.chargebackStart)} – ${fmtShort(c.chargebackEnd)}${c.chargebacksLastUpload ? '\nLast uploaded: ' + fmtUpload(c.chargebacksLastUpload) : ''}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.chargebackStart)}px`,
                         width: `${Math.max(4, dateToPx(c.chargebackEnd) - dateToPx(c.chargebackStart))}px`,
-                        height: '100%', borderRadius: '3px',
+                        height: '100%', borderRadius: '3px', cursor: 'default',
                         background: 'linear-gradient(90deg, #fca5a5, #ef4444)',
                         opacity: 0.85,
                       }} />

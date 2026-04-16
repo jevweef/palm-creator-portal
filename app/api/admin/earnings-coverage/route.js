@@ -12,6 +12,8 @@ const FIELDS = {
   earningsEnd: 'fld6n02I6LXpaAQMC',
   chargebackStart: 'fldnl6I0NQm3LohCJ',
   chargebackEnd: 'fldw4KB1rCJULWje1',
+  earningsLastUpload: 'fldbBT5iNJU8bEREk',
+  chargebacksLastUpload: 'fldbcQzv0Bhf3Ys8a',
 }
 
 async function airtableFetch(url, options = {}) {
@@ -43,6 +45,8 @@ export async function GET() {
       FIELDS.earningsEnd,
       FIELDS.chargebackStart,
       FIELDS.chargebackEnd,
+      FIELDS.earningsLastUpload,
+      FIELDS.chargebacksLastUpload,
     ]
     const params = new URLSearchParams()
     fieldIds.forEach(id => params.append('fields[]', id))
@@ -61,6 +65,8 @@ export async function GET() {
       earningsEnd: rec.fields[FIELDS.earningsEnd] || null,
       chargebackStart: rec.fields[FIELDS.chargebackStart] || null,
       chargebackEnd: rec.fields[FIELDS.chargebackEnd] || null,
+      earningsLastUpload: rec.fields[FIELDS.earningsLastUpload] || null,
+      chargebacksLastUpload: rec.fields[FIELDS.chargebacksLastUpload] || null,
     }))
 
     return Response.json({ creators })

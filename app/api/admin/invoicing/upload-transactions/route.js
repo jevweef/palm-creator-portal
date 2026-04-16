@@ -278,6 +278,8 @@ const AT_FIELDS = {
   earningsEnd: 'fld6n02I6LXpaAQMC',
   chargebackStart: 'fldnl6I0NQm3LohCJ',
   chargebackEnd: 'fldw4KB1rCJULWje1',
+  earningsLastUpload: 'fldbBT5iNJU8bEREk',
+  chargebacksLastUpload: 'fldbcQzv0Bhf3Ys8a',
 }
 
 async function updateAirtableCoverage(creatorName, sheetType, txns) {
@@ -314,9 +316,12 @@ async function updateAirtableCoverage(creatorName, sheetType, txns) {
     const fields = {}
     const isSales = sheetType === 'Sales'
 
+    const nowISO = new Date().toISOString()
+
     if (isSales) {
       // Update Earnings Data End with the latest date
       fields[AT_FIELDS.earningsEnd] = latestStr
+      fields[AT_FIELDS.earningsLastUpload] = nowISO
       // Update Earnings Data Start only if null or new start is earlier
       const currentStart = record.fields[AT_FIELDS.earningsStart]
       if (!currentStart || earliestStr < currentStart) {
@@ -325,6 +330,7 @@ async function updateAirtableCoverage(creatorName, sheetType, txns) {
     } else {
       // Update Chargeback Data End with the latest date
       fields[AT_FIELDS.chargebackEnd] = latestStr
+      fields[AT_FIELDS.chargebacksLastUpload] = nowISO
       // Update Chargeback Data Start only if null or new start is earlier
       const currentStart = record.fields[AT_FIELDS.chargebackStart]
       if (!currentStart || earliestStr < currentStart) {
