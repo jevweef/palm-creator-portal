@@ -1715,13 +1715,25 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         const chartWidth = Math.max(400, totalDays * 8)
 
         const periodLines = []
+        const periodLabels = []
         const cursor = new Date(globalStart)
         cursor.setDate(1)
         while (cursor <= globalEnd) {
-          const d1 = new Date(cursor); d1.setDate(1)
+          const yr = cursor.getFullYear()
+          const mo = cursor.getMonth()
+          const d1 = new Date(yr, mo, 1)
+          const d15 = new Date(yr, mo, 15)
+          const lastDay = new Date(yr, mo + 1, 0).getDate()
+
           if (d1 >= globalStart && d1 <= globalEnd) periodLines.push({ date: new Date(d1), isFirst: true })
-          const d15 = new Date(cursor); d15.setDate(15)
           if (d15 >= globalStart && d15 <= globalEnd) periodLines.push({ date: new Date(d15), isFirst: false })
+
+          const moAbbr = d1.toLocaleDateString('en-US', { month: 'short' })
+          const p1S = new Date(yr, mo, 1), p1E = new Date(yr, mo, 14)
+          if (p1E >= globalStart && p1S <= globalEnd) periodLabels.push({ start: p1S, end: p1E, label: `${moAbbr} 1 – ${moAbbr} 14` })
+          const p2S = new Date(yr, mo, 15), p2E = new Date(yr, mo, lastDay)
+          if (p2E >= globalStart && p2S <= globalEnd) periodLabels.push({ start: p2S, end: p2E, label: `${moAbbr} 15 – ${moAbbr} ${lastDay}` })
+
           cursor.setMonth(cursor.getMonth() + 1)
         }
 
@@ -1766,16 +1778,18 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             </div>
             <div ref={coverageScrollRef} className="coverage-scroll" style={{ overflowX: 'auto' }}>
               <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
-                {/* Date labels — with year */}
+                {/* Period range labels centered in each pay period */}
                 <div style={{ position: 'relative', height: '18px', marginBottom: '4px' }}>
-                  {periodLines.filter(p => p.isFirst).map((p, i) => {
-                    const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+                  {periodLabels.map((p, i) => {
+                    const startPx = ((p.start - globalStart) / 86400000 / totalDays) * chartWidth
+                    const endPx = ((p.end - globalStart) / 86400000 / totalDays) * chartWidth
+                    const centerPx = (startPx + endPx) / 2
                     return (
                       <span key={i} style={{
-                        position: 'absolute', left: `${px}px`, transform: 'translateX(-50%)',
-                        fontSize: '10px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
+                        position: 'absolute', left: `${centerPx}px`, transform: 'translateX(-50%)',
+                        fontSize: '9px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
                       }}>
-                        {p.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                        {p.label}
                       </span>
                     )
                   })}

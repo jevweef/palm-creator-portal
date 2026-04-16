@@ -62,17 +62,37 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
   // Chart width: 8px per day, minimum 600px
   const chartWidth = Math.max(600, totalDays * 8)
 
-  // Generate period lines (1st and 15th of each month)
+  // Generate period lines (1st and 15th of each month) and period labels
   const periodLines = []
+  const periodLabels = []
   const cursor = new Date(globalStart)
   cursor.setDate(1)
   while (cursor <= globalEnd) {
-    const d1 = new Date(cursor)
-    d1.setDate(1)
+    const yr = cursor.getFullYear()
+    const mo = cursor.getMonth()
+    const d1 = new Date(yr, mo, 1)
+    const d15 = new Date(yr, mo, 15)
+    const lastDay = new Date(yr, mo + 1, 0).getDate() // last day of month
+
     if (d1 >= globalStart && d1 <= globalEnd) periodLines.push({ date: new Date(d1), isFirst: true })
-    const d15 = new Date(cursor)
-    d15.setDate(15)
     if (d15 >= globalStart && d15 <= globalEnd) periodLines.push({ date: new Date(d15), isFirst: false })
+
+    // Period 1: 1st – 14th
+    const p1Start = new Date(yr, mo, 1)
+    const p1End = new Date(yr, mo, 14)
+    if (p1End >= globalStart && p1Start <= globalEnd) {
+      const moAbbr = p1Start.toLocaleDateString('en-US', { month: 'short' })
+      periodLabels.push({ start: p1Start, end: p1End, label: `${moAbbr} 1 – ${moAbbr} 14` })
+    }
+
+    // Period 2: 15th – end of month
+    const p2Start = new Date(yr, mo, 15)
+    const p2End = new Date(yr, mo, lastDay)
+    if (p2End >= globalStart && p2Start <= globalEnd) {
+      const moAbbr = p2Start.toLocaleDateString('en-US', { month: 'short' })
+      periodLabels.push({ start: p2Start, end: p2End, label: `${moAbbr} 15 – ${moAbbr} ${lastDay}` })
+    }
+
     cursor.setMonth(cursor.getMonth() + 1)
   }
 
@@ -124,16 +144,18 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
         {/* Scrollable chart area */}
         <div ref={scrollRef} className="coverage-scroll-main" style={{ flex: 1, overflowX: 'auto', position: 'relative' }}>
           <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
-            {/* X-axis date labels — only 1st of each month */}
+            {/* X-axis — period range labels centered in each pay period */}
             <div style={{ position: 'relative', height: '20px', marginBottom: '4px' }}>
-              {periodLines.filter(p => p.isFirst).map((p, i) => {
-                const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+              {periodLabels.map((p, i) => {
+                const startPx = ((p.start - globalStart) / 86400000 / totalDays) * chartWidth
+                const endPx = ((p.end - globalStart) / 86400000 / totalDays) * chartWidth
+                const centerPx = (startPx + endPx) / 2
                 return (
                   <span key={i} style={{
-                    position: 'absolute', left: `${px}px`, transform: 'translateX(-50%)',
-                    fontSize: '10px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
+                    position: 'absolute', left: `${centerPx}px`, transform: 'translateX(-50%)',
+                    fontSize: '9px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
                   }}>
-                    {p.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                    {p.label}
                   </span>
                 )
               })}
