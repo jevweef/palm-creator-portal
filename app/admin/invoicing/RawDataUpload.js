@@ -50,7 +50,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
   // Collect all dates from creators
   const allDates = coverageCreators.flatMap(c =>
-    [c.earningsStart, c.earningsEnd, c.chargebackStart, c.chargebackEnd].filter(Boolean)
+    [c.earningsStart, c.earningsEnd, c.chargebackStart, c.chargebackEnd, c.managementStart].filter(Boolean)
   )
   const sortedDates = [...allDates].sort()
   const dataStart = sortedDates.length > 0 ? new Date(sortedDates[0] + 'T00:00:00') : twoMonthsAgo
@@ -181,6 +181,26 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                     )
                   })}
 
+                  {/* Management start marker */}
+                  {c.managementStart && (() => {
+                    const msPx = dateToPx(c.managementStart)
+                    return msPx > 0 ? (
+                      <div title={`Joined Palm: ${fmtShort(c.managementStart)}, ${new Date(c.managementStart + 'T00:00:00').getFullYear()}`} style={{
+                        position: 'absolute', left: `${msPx}px`, top: '0', bottom: '0',
+                        zIndex: 3, pointerEvents: 'none', display: 'flex', alignItems: 'center',
+                      }}>
+                        <div style={{
+                          width: '1.5px', height: '100%', background: '#E88FAC',
+                        }} />
+                        <div style={{
+                          position: 'absolute', top: '50%', left: '-3px', transform: 'translateY(-50%)',
+                          width: '7px', height: '7px', borderRadius: '50%',
+                          background: '#E88FAC', border: '1.5px solid #fff',
+                        }} />
+                      </div>
+                    ) : null
+                  })()}
+
                   {/* Sales bar — clickable */}
                   <div
                     onClick={() => onBarClick?.(c.aka, 'sales')}
@@ -252,6 +272,10 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ width: '1px', height: '10px', background: 'rgba(0,0,0,0.15)' }} />
           <span style={{ fontSize: '10px', color: '#999' }}>Invoice periods (1st &amp; 15th)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#E88FAC', border: '1px solid #fff' }} />
+          <span style={{ fontSize: '10px', color: '#999' }}>Management start</span>
         </div>
       </div>
     </div>
