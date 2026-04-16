@@ -53,6 +53,63 @@ function parseHtml(html) {
   return txns
 }
 
+function parseChargebackHtml(html) {
+  const txns = []
+  // Chargeback rows from the disputes page — different structure than earnings
+  const rows = html.match(/<tr class="m-responsive__reset-pb">(.*?)<\/tr>/gs) || []
+
+  for (const row of rows) {
+    // Dispute date & time (first <strong> block)
+    const disputeM = row.match(/<td[^>]*><strong>\s*([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})\s*<br>\s*(\d{1,2}:\d{2}\s*[ap]m)\s*<\/strong>/)
+    if (!disputeM) continue
+
+    // Payment date (second <td>)
+    const payDateM = row.match(/<\/td>\s*<td[^>]*>\s*([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})\s*<br>\s*(\d{1,2}:\d{2}\s*[ap]m)/)
+
+    // Amounts — three dollar amounts: gross, fee, net
+    const amountMatches = [...row.matchAll(/\$\s*([\d,]+\.\d{2})/g)]
+    if (amountMatches.length < 3) continue
+
+    const gross = parseMoney(amountMatches[0][1])
+    const fee = parseMoney(amountMatches[1][1])
+    const net = parseMoney(amountMatches[2][1])
+
+    // Description — type + username
+    let type = '', username = '', displayName = ''
+    const linkM = row.match(/(Subscription|Payment for message|Tip|Recurring subscription|Stream)\s+from\s+<a[^>]*>([^<]+)<\/a>/)
+    const spanM = row.match(/(Subscription|Payment for message|Tip|Recurring subscription|Stream)\s+from\s+<span>([^<]+)<\/span>/)
+
+    if (linkM) {
+      type = linkM[1]
+      displayName = linkM[2].trim()
+      const urlM = row.match(/href="https:\/\/onlyfans\.com\/([^"]+)"/)
+      username = urlM ? urlM[1] : ''
+    } else if (spanM) {
+      type = spanM[1]
+      displayName = spanM[2].trim()
+    }
+
+    // Use payment date as the original transaction date (for chargeback matching)
+    const origDate = payDateM ? parseDate(payDateM[1].trim(), payDateM[2].trim()) : null
+    const dt = parseDate(disputeM[1].trim(), disputeM[2].trim())
+
+    txns.push({
+      dt,
+      gross: -gross,  // Chargebacks are negative
+      of_fee: -fee,
+      net: -net,
+      type: 'Chargeback',
+      username,
+      displayName,
+      fan: displayName,
+      desc: `Chargeback: ${type} from ${displayName}`,
+      origDate,
+    })
+  }
+
+  return txns
+}
+
 // ── Text parsers (for raw paste fallback) ───────────────────────────────────
 
 const SALES_RE = /^(\w{3}\s+\d{1,2},\s+\d{4})(\d{1,2}:\d{2}\s*[ap]m)\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})/
@@ -375,9 +432,16 @@ export async function POST(request) {
     if (!file || !creator) return Response.json({ error: 'Missing file or creator' }, { status: 400 })
 
     const html = await file.text()
-    txns = parseHtml(html)
     const formDataType = formData.get('dataType')
-    sheetType = formDataType === 'chargebacks' ? 'Chargebacks' : 'Sales'
+    // Auto-detect page type from HTML, or use the explicit dataType from the modal
+    const isDisputesPage = html.includes('statements/disputes') || html.includes('Dispute date')
+    if (isDisputesPage || formDataType === 'chargebacks') {
+      txns = parseChargebackHtml(html)
+      sheetType = 'Chargebacks'
+    } else {
+      txns = parseHtml(html)
+      sheetType = 'Sales'
+    }
     // File's last modified timestamp — when the HTML was saved on disk
     const fileLastModified = formData.get('fileLastModified')
     fileTimestamp = fileLastModified ? Number(fileLastModified) : (file.lastModified || null)
