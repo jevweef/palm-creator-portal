@@ -726,30 +726,27 @@ export default function AdminDashboard() {
       {/* ─── AGENCY REVENUE CHART — full width hero ─── */}
       <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} />
 
-      {/* ─── TWO COLUMN: KPIs + Creator Table ─── */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+      {/* ─── KPI STRIP ─── */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+        <StatCard label="Creators" value={revenue.activeCreators} />
+        <StatCard label="Period Revenue" value={fmtK(revenue.currentPeriodTR)} delta={revenue.trDelta} />
+        <StatCard label="Palm's Cut" value={fmtK(revenue.netProfit)} color="#22c55e" delta={revenue.profitDelta} />
+        <StatCard
+          label="Projected Monthly"
+          value={fmtK(revenue.projectedMonthlyRevenue)}
+          sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net`}
+          color="#E88FAC"
+        />
+        <StatCard
+          label="Outstanding"
+          value={revenue.outstandingInvoices.count}
+          sub={revenue.outstandingInvoices.count > 0 ? fmtK(revenue.outstandingInvoices.total) : 'all clear'}
+          color={revenue.outstandingInvoices.count > 0 ? '#f59e0b' : '#22c55e'}
+        />
+      </div>
 
-        {/* Left: KPI cards in a tight grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '320px', flexShrink: 0 }}>
-          <StatCard label="Period Revenue" value={fmtK(revenue.currentPeriodTR)} delta={revenue.trDelta} />
-          <StatCard label="Palm's Cut" value={fmtK(revenue.netProfit)} color="#22c55e" delta={revenue.profitDelta} />
-          <StatCard
-            label="Projected Monthly"
-            value={fmtK(revenue.projectedMonthlyRevenue)}
-            sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net`}
-            color="#E88FAC"
-          />
-          <StatCard
-            label="Outstanding"
-            value={revenue.outstandingInvoices.count}
-            sub={revenue.outstandingInvoices.count > 0 ? fmtK(revenue.outstandingInvoices.total) : 'all clear'}
-            color={revenue.outstandingInvoices.count > 0 ? '#f59e0b' : '#22c55e'}
-          />
-          <StatCard label="Creators" value={revenue.activeCreators} />
-        </div>
-
-        {/* Right: Creator table (compact) */}
-        <div style={{ ...CARD, flex: 1, minWidth: 0, padding: '14px 16px' }}>
+      {/* ─── CREATORS TABLE — full width ─── */}
+      <div style={{ ...CARD, marginBottom: '12px', padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Creators</div>
           <div style={{
             display: 'grid',
@@ -822,11 +819,13 @@ export default function AdminDashboard() {
               </div>
             )
           })}
-        </div>
       </div>
 
+      {/* ─── TWO COLUMN: Whale Alerts + Pipeline/Posting ─── */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+
       {/* ─── WHALE ALERTS ─── */}
-      <div style={{ ...CARD, marginBottom: '16px' }}>
+      <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px' }}>&#x1F433;</span>
@@ -949,11 +948,11 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      {/* ─── TWO COLUMN: Pipeline + Posting ─── */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+        {/* Right column: Pipeline + Posting stacked */}
+        <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
         {/* Pipeline Health */}
-        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
+        <div style={{ ...CARD, flex: '0 0 auto', padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Pipeline</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
@@ -1018,9 +1017,10 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-      </div>
+        </div>{/* close right column */}
+      </div>{/* close two-column wrapper */}
 
-      {/* ─── TWO COLUMN: Period History + (space for future) ─── */}
+      {/* ─── Period History ─── */}
       {revenue.periods.length > 1 && (
         <div style={{ ...CARD, marginBottom: '12px', padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Period History</div>
