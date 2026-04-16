@@ -101,6 +101,12 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
       padding: '20px 32px', marginBottom: '20px',
       marginLeft: '-32px', marginRight: '-32px', width: 'calc(100% + 64px)',
     }}>
+      <style>{`
+        .coverage-scroll-main::-webkit-scrollbar { height: 4px; }
+        .coverage-scroll-main::-webkit-scrollbar-track { background: transparent; }
+        .coverage-scroll-main::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+        .coverage-scroll-main::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+      `}</style>
       <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
         Data Coverage
       </div>
@@ -117,7 +123,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
         </div>
 
         {/* Scrollable chart area */}
-        <div ref={scrollRef} style={{ flex: 1, overflowX: 'auto', position: 'relative' }}>
+        <div ref={scrollRef} className="coverage-scroll-main" style={{ flex: 1, overflowX: 'auto', position: 'relative' }}>
           <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
             {/* X-axis date labels — only 1st of each month */}
             <div style={{ position: 'relative', height: '20px', marginBottom: '4px' }}>
@@ -128,7 +134,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                     position: 'absolute', left: `${px}px`, transform: 'translateX(-50%)',
                     fontSize: '10px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
                   }}>
-                    {p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {p.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
                   </span>
                 )
               })}
@@ -154,7 +160,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                   {/* Sales bar */}
                   <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
                     {hasEarnings ? (
-                      <div title={`Earnings data through ${fmtShort(c.earningsEnd)}${c.earningsLastUpload ? '\nUploaded: ' + fmtUpload(c.earningsLastUpload) : ''}`} style={{
+                      <div title={`Earnings current through ${fmtShort(c.earningsEnd)}, ${new Date(c.earningsEnd + 'T00:00:00').getFullYear()}${c.earningsLastUpload ? '\nLast upload: ' + fmtUpload(c.earningsLastUpload) : ''}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.earningsStart)}px`,
                         width: `${Math.max(4, dateToPx(c.earningsEnd) - dateToPx(c.earningsStart))}px`,
@@ -170,7 +176,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                   {/* Chargebacks bar */}
                   <div style={{ position: 'relative', height: '14px' }}>
                     {hasChargebacks ? (
-                      <div title={`Chargebacks data through ${fmtShort(c.chargebackEnd)}${c.chargebacksLastUpload ? '\nUploaded: ' + fmtUpload(c.chargebacksLastUpload) : ''}`} style={{
+                      <div title={`Chargebacks current through ${fmtShort(c.chargebackEnd)}, ${new Date(c.chargebackEnd + 'T00:00:00').getFullYear()}${c.chargebacksLastUpload ? '\nLast upload: ' + fmtUpload(c.chargebacksLastUpload) : ''}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.chargebackStart)}px`,
                         width: `${Math.max(4, dateToPx(c.chargebackEnd) - dateToPx(c.chargebackStart))}px`,

@@ -1699,8 +1699,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         </div>
       )}
 
-      {/* Data coverage chart — single creator */}
-      {!coverageLoading && coverageData && (coverageData.earningsStart || coverageData.chargebackStart) && (() => {
+      {/* Data coverage chart — single creator, only when upload panel is open */}
+      {showUploadPanel && !coverageLoading && coverageData && (coverageData.earningsStart || coverageData.chargebackStart) && (() => {
         const today = new Date()
         const twoMonthsAgo = new Date(today)
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
@@ -1729,10 +1729,10 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           const d = new Date(dateStr + 'T00:00:00')
           return Math.max(0, Math.min(chartWidth, ((d - globalStart) / 86400000 / totalDays) * chartWidth))
         }
-        const fmtShort = (dateStr) => {
+        const fmtDateYear = (dateStr) => {
           if (!dateStr) return ''
           const d = new Date(dateStr + 'T00:00:00')
-          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         }
         const fmtUpload = (iso) => {
           if (!iso) return null
@@ -1744,10 +1744,10 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         const hasCb = coverageData.chargebackStart && coverageData.chargebackEnd
 
         const earningsTitle = hasEarnings
-          ? `Earnings data through ${fmtShort(coverageData.earningsEnd)}${coverageData.earningsLastUpload ? '\nUploaded: ' + fmtUpload(coverageData.earningsLastUpload) : ''}`
+          ? `Earnings current through ${fmtDateYear(coverageData.earningsEnd)}${coverageData.earningsLastUpload ? '\nLast upload: ' + fmtUpload(coverageData.earningsLastUpload) : ''}`
           : null
         const cbTitle = hasCb
-          ? `Chargebacks data through ${fmtShort(coverageData.chargebackEnd)}${coverageData.chargebacksLastUpload ? '\nUploaded: ' + fmtUpload(coverageData.chargebacksLastUpload) : ''}`
+          ? `Chargebacks current through ${fmtDateYear(coverageData.chargebackEnd)}${coverageData.chargebacksLastUpload ? '\nLast upload: ' + fmtUpload(coverageData.chargebacksLastUpload) : ''}`
           : null
 
         return (
@@ -1755,12 +1755,18 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
             padding: '12px 16px', marginBottom: '12px',
           }}>
+            <style>{`
+              .coverage-scroll::-webkit-scrollbar { height: 4px; }
+              .coverage-scroll::-webkit-scrollbar-track { background: transparent; }
+              .coverage-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+              .coverage-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+            `}</style>
             <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
               Data Coverage
             </div>
-            <div ref={coverageScrollRef} style={{ overflowX: 'auto' }}>
+            <div ref={coverageScrollRef} className="coverage-scroll" style={{ overflowX: 'auto' }}>
               <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
-                {/* Date labels */}
+                {/* Date labels — with year */}
                 <div style={{ position: 'relative', height: '18px', marginBottom: '4px' }}>
                   {periodLines.filter(p => p.isFirst).map((p, i) => {
                     const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
@@ -1769,7 +1775,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                         position: 'absolute', left: `${px}px`, transform: 'translateX(-50%)',
                         fontSize: '10px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
                       }}>
-                        {p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {p.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
                       </span>
                     )
                   })}
