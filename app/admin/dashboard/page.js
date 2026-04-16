@@ -287,6 +287,41 @@ function AgencyRevenueChart({ earningsData, earningsLoading }) {
   const totalForPeriod = chartData.reduce((s, d) => s + d.total, 0)
   const activeCount = [...enabledCreators].filter(c => earningsData?.[c]?.dailyData?.length > 0).length
 
+  // Chart dimensions (shorter than individual, full width)
+  const CW = 1100, CH = 200
+  const pad = { t: 10, r: 55, b: 25, l: 10 }
+  const cw = CW - pad.l - pad.r, ch = CH - pad.t - pad.b
+
+  // Y-axis
+  const rawMax = chartData.length > 0 ? Math.max(...chartData.map(d => d.total), 1) : 100
+  const maxVal = useMemo(() => {
+    const v = rawMax * 1.05
+    if (v <= 0) return 100
+    const mag = Math.pow(10, Math.floor(Math.log10(v)))
+    const norm = v / mag
+    if (norm <= 1.5) return 1.5 * mag
+    if (norm <= 2) return 2 * mag
+    if (norm <= 3) return 3 * mag
+    if (norm <= 5) return 5 * mag
+    if (norm <= 7.5) return 7.5 * mag
+    return 10 * mag
+  }, [rawMax])
+
+  const px = (i) => pad.l + (i / Math.max(chartData.length - 1, 1)) * cw
+  const py = (v) => pad.t + ch - (v / maxVal) * ch
+
+  const onMove = useCallback((e) => {
+    const svg = svgRef.current
+    if (!svg || chartData.length === 0) return
+    const rect = svg.getBoundingClientRect()
+    const mx = ((e.clientX - rect.left) / rect.width) * CW
+    const i = Math.round(((mx - pad.l) / cw) * (chartData.length - 1))
+    if (i < 0 || i >= chartData.length) { setHover(null); return }
+    const d = chartData[i]
+    setHover({ i, cx: px(i), cy: py(d.total), total: d.total, date: d.date, byCreator: d.byCreator })
+  }, [chartData, maxVal])
+
+  // Early returns AFTER all hooks
   if (earningsLoading) {
     return (
       <div style={{ ...CARD, marginBottom: '16px' }}>
@@ -300,32 +335,9 @@ function AgencyRevenueChart({ earningsData, earningsLoading }) {
 
   if (!earningsData || Object.keys(earningsData).length === 0) return null
 
-  // Chart dimensions (shorter than individual, full width)
-  const CW = 1100, CH = 200
-  const pad = { t: 10, r: 55, b: 25, l: 10 }
-  const cw = CW - pad.l - pad.r, ch = CH - pad.t - pad.b
-
-  // Y-axis
-  function niceMax(v) {
-    if (v <= 0) return 100
-    const mag = Math.pow(10, Math.floor(Math.log10(v)))
-    const norm = v / mag
-    if (norm <= 1.5) return 1.5 * mag
-    if (norm <= 2) return 2 * mag
-    if (norm <= 3) return 3 * mag
-    if (norm <= 5) return 5 * mag
-    if (norm <= 7.5) return 7.5 * mag
-    return 10 * mag
-  }
-  const rawMax = Math.max(...chartData.map(d => d.total), 1)
-  const maxVal = niceMax(rawMax * 1.05)
-
   const GRID_COUNT = 3
   const eSteps = []
   for (let i = 1; i <= GRID_COUNT; i++) eSteps.push(Math.round(maxVal * (i / GRID_COUNT)))
-
-  const px = (i) => pad.l + (i / Math.max(chartData.length - 1, 1)) * cw
-  const py = (v) => pad.t + ch - (v / maxVal) * ch
 
   // Build path
   const points = chartData.map((d, i) => [px(i), py(d.total)])
@@ -342,17 +354,6 @@ function AgencyRevenueChart({ earningsData, earningsLoading }) {
       xLabels.push({ pos, label: fmtChartDate(chartData[idx]?.date) })
     }
   }
-
-  const onMove = useCallback((e) => {
-    const svg = svgRef.current
-    if (!svg || chartData.length === 0) return
-    const rect = svg.getBoundingClientRect()
-    const mx = ((e.clientX - rect.left) / rect.width) * CW
-    const i = Math.round(((mx - pad.l) / cw) * (chartData.length - 1))
-    if (i < 0 || i >= chartData.length) { setHover(null); return }
-    const d = chartData[i]
-    setHover({ i, cx: px(i), cy: py(d.total), total: d.total, date: d.date, byCreator: d.byCreator })
-  }, [chartData, maxVal])
 
   const toggleCreator = (name) => {
     const next = new Set(enabledCreators)
