@@ -49,6 +49,7 @@ export async function GET() {
     params.append('filterByFormula', `{Status}="Active"`)
     params.append('pageSize', '100')
 
+    params.append('returnFieldsByFieldId', 'true')
     const data = await airtableFetch(
       `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}?${params}`
     )
