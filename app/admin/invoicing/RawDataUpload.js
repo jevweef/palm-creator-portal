@@ -99,7 +99,8 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
   }
 
   function dateToPx(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00')
+    // Handle both date-only (YYYY-MM-DD) and full ISO timestamps
+    const d = dateStr && dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T00:00:00')
     return Math.max(0, Math.min(chartWidth, ((d - globalStart) / 86400000 / totalDays) * chartWidth))
   }
 
@@ -168,6 +169,9 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
             {sortedCreators.map(c => {
               const hasEarnings = c.earningsStart && c.earningsEnd
               const hasChargebacks = c.chargebackStart && c.chargebackEnd
+              // Use the upload timestamp for bar end position (has time precision)
+              const earningsEndPos = c.earningsLastUpload || c.earningsEnd
+              const chargebacksEndPos = c.chargebacksLastUpload || c.chargebackEnd
               return (
                 <div key={c.id} style={{ height: '35px', position: 'relative' }}>
                   {/* Period lines */}
@@ -219,7 +223,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                       <div style={{
                         position: 'absolute',
                         left: `${dateToPx(c.earningsStart)}px`,
-                        width: `${Math.max(4, dateToPx(c.earningsEnd) - dateToPx(c.earningsStart))}px`,
+                        width: `${Math.max(4, dateToPx(earningsEndPos) - dateToPx(c.earningsStart))}px`,
                         height: '100%', borderRadius: '3px', pointerEvents: 'none',
                         background: 'linear-gradient(90deg, #86efac, #22c55e)',
                         opacity: 0.85, zIndex: 1,
@@ -245,7 +249,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                       <div style={{
                         position: 'absolute',
                         left: `${dateToPx(c.chargebackStart)}px`,
-                        width: `${Math.max(4, dateToPx(c.chargebackEnd) - dateToPx(c.chargebackStart))}px`,
+                        width: `${Math.max(4, dateToPx(chargebacksEndPos) - dateToPx(c.chargebackStart))}px`,
                         height: '100%', borderRadius: '3px', pointerEvents: 'none',
                         background: 'linear-gradient(90deg, #fca5a5, #ef4444)',
                         opacity: 0.85, zIndex: 1,
