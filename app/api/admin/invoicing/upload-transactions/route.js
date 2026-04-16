@@ -316,22 +316,21 @@ async function updateAirtableCoverage(creatorName, sheetType, txns) {
     const fields = {}
     const isSales = sheetType === 'Sales'
 
-    const nowISO = new Date().toISOString()
+    const now = new Date()
+    const nowISO = now.toISOString()
+    // Coverage end = today (data is current through today, even if last sale was earlier)
+    const todayStr = now.toISOString().split('T')[0]
 
     if (isSales) {
-      // Update Earnings Data End with the latest date
-      fields[AT_FIELDS.earningsEnd] = latestStr
+      fields[AT_FIELDS.earningsEnd] = todayStr
       fields[AT_FIELDS.earningsLastUpload] = nowISO
-      // Update Earnings Data Start only if null or new start is earlier
       const currentStart = record.fields[AT_FIELDS.earningsStart]
       if (!currentStart || earliestStr < currentStart) {
         fields[AT_FIELDS.earningsStart] = earliestStr
       }
     } else {
-      // Update Chargeback Data End with the latest date
-      fields[AT_FIELDS.chargebackEnd] = latestStr
+      fields[AT_FIELDS.chargebackEnd] = todayStr
       fields[AT_FIELDS.chargebacksLastUpload] = nowISO
-      // Update Chargeback Data Start only if null or new start is earlier
       const currentStart = record.fields[AT_FIELDS.chargebackStart]
       if (!currentStart || earliestStr < currentStart) {
         fields[AT_FIELDS.chargebackStart] = earliestStr
