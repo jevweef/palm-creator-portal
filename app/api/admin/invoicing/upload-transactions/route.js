@@ -337,6 +337,7 @@ const AT_FIELDS = {
   chargebackEnd: 'fldw4KB1rCJULWje1',
   earningsLastUpload: 'fldbBT5iNJU8bEREk',
   chargebacksLastUpload: 'fldbcQzv0Bhf3Ys8a',
+  managementStart: 'flddRQe5WGegIBomQ',
 }
 
 async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestamp) {
@@ -356,6 +357,7 @@ async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestam
     params.append('fields[]', AT_FIELDS.earningsEnd)
     params.append('fields[]', AT_FIELDS.chargebackStart)
     params.append('fields[]', AT_FIELDS.chargebackEnd)
+    params.append('fields[]', AT_FIELDS.managementStart)
     params.append('returnFieldsByFieldId', 'true')
     params.append('pageSize', '1')
 
@@ -390,10 +392,16 @@ async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestam
     } else {
       fields[AT_FIELDS.chargebackEnd] = coverageDateStr
       fields[AT_FIELDS.chargebacksLastUpload] = coverageISO
+      const currentStart = record.fields[AT_FIELDS.chargebackStart]
       if (earliestStr) {
-        const currentStart = record.fields[AT_FIELDS.chargebackStart]
         if (!currentStart || earliestStr < currentStart) {
           fields[AT_FIELDS.chargebackStart] = earliestStr
+        }
+      } else if (!currentStart) {
+        // No chargebacks found — start at the same time as earnings data
+        const earningsStart = record.fields[AT_FIELDS.earningsStart]
+        if (earningsStart) {
+          fields[AT_FIELDS.chargebackStart] = earningsStart
         }
       }
     }
