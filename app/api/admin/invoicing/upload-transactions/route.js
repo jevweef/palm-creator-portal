@@ -283,16 +283,13 @@ const AT_FIELDS = {
 }
 
 async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestamp) {
-  if (!AIRTABLE_PAT || !txns || txns.length === 0) return
+  if (!AIRTABLE_PAT) return
 
   try {
-    // Find dates from transactions
-    const dates = txns.filter(t => t.dt).map(t => t.dt).sort((a, b) => a - b)
-    if (dates.length === 0) return
-    const earliest = dates[0]
-    const latest = dates[dates.length - 1]
-    const earliestStr = fmtDate(earliest)
-    const latestStr = fmtDate(latest)
+    // Find dates from transactions (may be empty if all skipped)
+    const dates = (txns || []).filter(t => t.dt).map(t => t.dt).sort((a, b) => a - b)
+    const earliest = dates.length > 0 ? dates[0] : null
+    const earliestStr = earliest ? fmtDate(earliest) : null
 
     // Look up creator by AKA
     const params = new URLSearchParams()
@@ -323,18 +320,23 @@ async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestam
     const coverageDateStr = coverageISO.split('T')[0]
 
     if (isSales) {
+      // Always update the end date and timestamp — even if no new transactions
       fields[AT_FIELDS.earningsEnd] = coverageDateStr
       fields[AT_FIELDS.earningsLastUpload] = coverageISO
-      const currentStart = record.fields[AT_FIELDS.earningsStart]
-      if (!currentStart || earliestStr < currentStart) {
-        fields[AT_FIELDS.earningsStart] = earliestStr
+      if (earliestStr) {
+        const currentStart = record.fields[AT_FIELDS.earningsStart]
+        if (!currentStart || earliestStr < currentStart) {
+          fields[AT_FIELDS.earningsStart] = earliestStr
+        }
       }
     } else {
       fields[AT_FIELDS.chargebackEnd] = coverageDateStr
       fields[AT_FIELDS.chargebacksLastUpload] = coverageISO
-      const currentStart = record.fields[AT_FIELDS.chargebackStart]
-      if (!currentStart || earliestStr < currentStart) {
-        fields[AT_FIELDS.chargebackStart] = earliestStr
+      if (earliestStr) {
+        const currentStart = record.fields[AT_FIELDS.chargebackStart]
+        if (!currentStart || earliestStr < currentStart) {
+          fields[AT_FIELDS.chargebackStart] = earliestStr
+        }
       }
     }
 
@@ -456,6 +458,8 @@ export async function POST(request) {
     }
 
     if (filtered.length === 0) {
+      // Still update the coverage timestamp even though no new rows
+      await updateAirtableCoverage(creator, sheetType, txns, fileTimestamp)
       return Response.json({
         message: `All ${txns.length} transactions already exist in the sheet — nothing new to upload.`,
         parsed: txns.length, skipped: txns.length, uploaded: 0, overlapMethod,
