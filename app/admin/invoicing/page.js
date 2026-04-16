@@ -491,7 +491,7 @@ export default function InvoicingPage() {
   const currentPeriod = periods.find(p => p.key === selectedPeriod)
 
   return (
-    <div style={{ maxWidth: '1060px' }}>
+    <div>
       {/* Workflow modal */}
       {workflowModal && (() => {
         const liveRows = periodRecords.filter(r => r.aka === workflowModal.aka)
@@ -531,7 +531,7 @@ export default function InvoicingPage() {
       {activeTab === 'upload' && <RawDataUpload />}
 
       {/* Invoices tab */}
-      {activeTab === 'invoices' && (<>
+      {activeTab === 'invoices' && (<div style={{ maxWidth: '1060px' }}>
       <div style={{ marginBottom: '20px' }}>
         {currentPeriod && (
           <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
@@ -607,7 +607,7 @@ export default function InvoicingPage() {
           No invoice records for this period.
         </div>
       )}
-      </>)}
+      </div>)}
     </div>
   )
 }

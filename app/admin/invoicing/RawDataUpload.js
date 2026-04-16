@@ -98,8 +98,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
   return (
     <div style={{
       background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.06)',
-      padding: '20px 32px', marginBottom: '20px',
-      marginLeft: '-32px', marginRight: '-32px', width: 'calc(100% + 64px)',
+      padding: '20px 0', marginBottom: '20px',
     }}>
       <style>{`
         .coverage-scroll-main::-webkit-scrollbar { height: 4px; }
@@ -160,7 +159,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                   {/* Sales bar */}
                   <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
                     {hasEarnings ? (
-                      <div title={`Earnings current through ${fmtShort(c.earningsEnd)}, ${new Date(c.earningsEnd + 'T00:00:00').getFullYear()}${c.earningsLastUpload ? '\nLast upload: ' + fmtUpload(c.earningsLastUpload) : ''}`} style={{
+                      <div title={c.earningsLastUpload ? `Last upload: ${fmtUpload(c.earningsLastUpload)}` : `Data through ${fmtShort(c.earningsEnd)}, ${new Date(c.earningsEnd + 'T00:00:00').getFullYear()}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.earningsStart)}px`,
                         width: `${Math.max(4, dateToPx(c.earningsEnd) - dateToPx(c.earningsStart))}px`,
@@ -176,7 +175,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                   {/* Chargebacks bar */}
                   <div style={{ position: 'relative', height: '14px' }}>
                     {hasChargebacks ? (
-                      <div title={`Chargebacks current through ${fmtShort(c.chargebackEnd)}, ${new Date(c.chargebackEnd + 'T00:00:00').getFullYear()}${c.chargebacksLastUpload ? '\nLast upload: ' + fmtUpload(c.chargebacksLastUpload) : ''}`} style={{
+                      <div title={c.chargebacksLastUpload ? `Last upload: ${fmtUpload(c.chargebacksLastUpload)}` : `Data through ${fmtShort(c.chargebackEnd)}, ${new Date(c.chargebackEnd + 'T00:00:00').getFullYear()}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.chargebackStart)}px`,
                         width: `${Math.max(4, dateToPx(c.chargebackEnd) - dateToPx(c.chargebackStart))}px`,
