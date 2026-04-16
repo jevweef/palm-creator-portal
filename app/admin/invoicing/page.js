@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import InvoiceWorkflowModal from './InvoiceWorkflowModal'
 import RawDataUpload from './RawDataUpload'
 
@@ -392,6 +392,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
 export default function InvoicingPage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
+  const pathname = usePathname()
 
   const [records, setRecords] = useState([])
   const [periods, setPeriods] = useState([])
@@ -513,7 +514,7 @@ export default function InvoicingPage() {
             { key: 'invoices', label: 'Invoices' },
             { key: 'upload', label: 'Raw Data Upload' },
           ].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} onClick={() => { setActiveTab(tab.key); router.replace(`${pathname}?tab=${tab.key}`, { scroll: false }) }}
               style={{
                 background: activeTab === tab.key ? '#FFF0F3' : 'transparent',
                 border: activeTab === tab.key ? '1px solid #E88FAC' : '1px solid transparent',
@@ -531,7 +532,7 @@ export default function InvoicingPage() {
       {activeTab === 'upload' && <RawDataUpload />}
 
       {/* Invoices tab */}
-      {activeTab === 'invoices' && (<div style={{ maxWidth: '1060px' }}>
+      {activeTab === 'invoices' && (<div>
       <div style={{ marginBottom: '20px' }}>
         {currentPeriod && (
           <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
