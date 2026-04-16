@@ -118,7 +118,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
   return (
     <div style={{
       background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.06)',
-      padding: '20px 0', marginBottom: '20px',
+      padding: '20px 24px', marginBottom: '20px',
     }}>
       <style>{`
         .coverage-scroll-main::-webkit-scrollbar { height: 4px; }
@@ -132,7 +132,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
       <div style={{ display: 'flex' }}>
         {/* Creator names column (fixed) */}
-        <div style={{ width: '100px', flexShrink: 0 }}>
+        <div style={{ width: '130px', flexShrink: 0 }}>
           <div style={{ height: '20px', marginBottom: '4px' }} /> {/* spacer for date labels */}
           {sortedCreators.map(c => (
             <div key={c.id} style={{ height: '35px', display: 'flex', alignItems: 'center' }}>
@@ -143,7 +143,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
         {/* Scrollable chart area */}
         <div ref={scrollRef} className="coverage-scroll-main" style={{ flex: 1, overflowX: 'auto', position: 'relative' }}>
-          <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
+          <div style={{ width: `${chartWidth}px`, minWidth: '100%', paddingRight: '24px' }}>
             {/* X-axis — period range labels centered in each pay period */}
             <div style={{ position: 'relative', height: '20px', marginBottom: '4px' }}>
               {periodLabels.map((p, i) => {
@@ -217,7 +217,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: '16px', marginTop: '12px', marginLeft: '100px' }}>
+      <div style={{ display: 'flex', gap: '16px', marginTop: '12px', marginLeft: '130px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ width: '12px', height: '8px', borderRadius: '2px', background: 'linear-gradient(90deg, #86efac, #22c55e)' }} />
           <span style={{ fontSize: '10px', color: '#999' }}>Earnings</span>
