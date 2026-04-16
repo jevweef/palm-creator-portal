@@ -295,7 +295,6 @@ export default function RawDataUpload() {
       {/* Data coverage timeline — full width */}
       <DataCoverageChart creators={coverageCreators} loading={coverageLoading} />
 
-      <div style={{ maxWidth: '720px' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
