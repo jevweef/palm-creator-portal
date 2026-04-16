@@ -1558,7 +1558,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   return (
     <div>
       {/* Controls bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '6px' }}>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           <button onClick={() => {
             const shift = -7
@@ -1603,7 +1603,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         </div>
         {/* Account pills (only for multi-account creators) */}
         {availableAccounts && availableAccounts.length > 1 && (
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             <button onClick={() => setAccountFilter('all')}
               style={{
                 background: accountFilter === 'all' ? '#1a1a1a' : 'transparent',
@@ -1619,13 +1619,14 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                   border: accountFilter === a ? '1px solid #E88FAC' : '1px solid transparent',
                   borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
                 }}>
-                {a}
+                {`${creator?.aka || ''} - ${a}`}
               </button>
             ))}
           </div>
         )}
-        {/* Type filters + breakdown */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+      </div>
+      {/* Type filters + breakdown */}
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
           <button onClick={() => setTypeFilter('all')}
             style={{
               background: typeFilter === 'all' ? '#1a1a1a' : 'transparent',
@@ -1666,7 +1667,6 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           >
             Update Earnings Data
           </button>
-        </div>
       </div>
 
       {/* Inline upload panel */}
