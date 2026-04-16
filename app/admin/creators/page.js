@@ -3272,6 +3272,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const [sortDir, setSortDir] = useState('desc')
   const [showDeleted, setShowDeleted] = useState(false)
   const [accountFilter, setAccountFilter] = useState('all')
+  const [showTop20, setShowTop20] = useState(false)
 
   const creatorName = creator?.name || creator?.aka || ''
   const creatorRecordId = creator?.id || ''
@@ -3439,12 +3440,22 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
 
   const deletedCount = useMemo(() => allFans.filter(f => !f.ofUsername).length, [allFans])
 
+  // Top 20% spend threshold
+  const top20Threshold = useMemo(() => {
+    const spends = allFans.filter(f => f.lifetimeSpend > 0).map(f => f.lifetimeSpend).sort((a, b) => b - a)
+    if (spends.length === 0) return 0
+    const idx = Math.max(0, Math.ceil(spends.length * 0.2) - 1)
+    return spends[idx] || 0
+  }, [allFans])
+
   const filtered = useMemo(() => {
     let list = allFans.filter(f => {
       // Hide deleted accounts by default
       if (!showDeleted && !f.ofUsername) return false
       // Account filter
-      if (accountFilter !== 'all' && f.accounts && !f.accounts.includes(accountFilter)) return false
+      if (accountFilter !== 'all' && (!f.accounts || !f.accounts.includes(accountFilter))) return false
+      // Top 20% overrides heat/alert filters
+      if (showTop20) return f.lifetimeSpend >= top20Threshold && top20Threshold > 0
       if (filter === 'active_alerts') return f.alertStatus !== 'None'
       if (filter === 'dead') return f.heatStatus === 'Dead'
       if (filter === 'going_cold') return f.heatStatus === 'Going Cold'
@@ -3467,7 +3478,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       })
     }
     return list
-  }, [allFans, filter, sortField, sortDir, showDeleted, accountFilter])
+  }, [allFans, filter, sortField, sortDir, showDeleted, accountFilter, showTop20, top20Threshold])
 
   // Compute counts per heat status
   const heatCounts = {}
@@ -3530,7 +3541,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
             ['dead', `💀 Dead`, heatCounts['Dead']],
             ['active_alerts', `⚡ Alerts`, activeAlertCount],
           ].filter(([, , count]) => count === null || count > 0).map(([key, label, count]) => (
-            <button key={key} onClick={() => setFilter(filter === key ? 'all' : key)}
+            <button key={key} onClick={() => { setFilter(filter === key ? 'all' : key); setShowTop20(false) }}
               style={{
                 padding: '3px 8px', fontSize: '10px', fontWeight: filter === key ? 600 : 400,
                 background: filter === key ? '#1a1a1a' : '#F3F4F6', color: filter === key ? '#fff' : '#666',
@@ -3539,6 +3550,14 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
               {label}{count != null ? ` (${count})` : ''}
             </button>
           ))}
+          <button onClick={() => { setShowTop20(!showTop20); if (!showTop20) setFilter('all') }}
+            style={{
+              padding: '3px 8px', fontSize: '10px', fontWeight: showTop20 ? 600 : 400,
+              background: showTop20 ? '#F59E0B' : '#F3F4F6', color: showTop20 ? '#fff' : '#666',
+              border: 'none', borderRadius: '4px', cursor: 'pointer',
+            }}>
+            💎 Top 20%
+          </button>
           {deletedCount > 0 && (
             <button onClick={() => setShowDeleted(!showDeleted)}
               style={{
