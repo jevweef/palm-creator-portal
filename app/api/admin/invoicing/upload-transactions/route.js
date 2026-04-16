@@ -463,7 +463,13 @@ export async function POST(request) {
   }
 
   if (!txns || txns.length === 0) {
-    return Response.json({ error: 'Could not parse any transactions from the uploaded data' }, { status: 400 })
+    // No transactions found — but still update coverage timestamp
+    // (e.g. chargeback page with "No data during selected period" is still valid data)
+    await updateAirtableCoverage(creator, sheetType, [], fileTimestamp)
+    return Response.json({
+      message: `No ${sheetType === 'Chargebacks' ? 'chargebacks' : 'transactions'} found — coverage timestamp updated.`,
+      parsed: 0, skipped: 0, uploaded: 0, overlapMethod: 'none',
+    })
   }
 
   // Push to Google Sheets
