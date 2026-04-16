@@ -690,9 +690,9 @@ export default function AdminDashboard() {
   )
 
   return (
-    <div style={{ maxWidth: '1200px' }}>
+    <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Dashboard</h1>
         <span style={{ fontSize: '12px', color: '#999' }}>{formatPeriodLabel(revenue.currentPeriodLabel)}</span>
       </div>
@@ -700,13 +700,11 @@ export default function AdminDashboard() {
       {/* ─── ALERTS ─── */}
       {sortedAlerts.length > 0 && (
         <div style={{
-          ...CARD, marginBottom: '16px', padding: '10px 16px',
+          ...CARD, marginBottom: '12px', padding: '8px 14px',
           display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center',
           border: '1px solid #fde8e8',
         }}>
-          <span style={{
-            fontSize: '11px', fontWeight: 600, color: '#ef4444', marginRight: '4px',
-          }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#ef4444', marginRight: '4px' }}>
             {sortedAlerts.length}
           </span>
           {visibleAlerts.map((a, i) => <AlertPill key={i} alert={a} />)}
@@ -714,140 +712,117 @@ export default function AdminDashboard() {
             <button onClick={() => setAlertsExpanded(true)} style={{
               padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
               color: '#999', background: '#f5f5f5', border: 'none', cursor: 'pointer',
-            }}>
-              +{hiddenCount} more
-            </button>
+            }}>+{hiddenCount} more</button>
           )}
           {alertsExpanded && sortedAlerts.length > MAX_COLLAPSED_ALERTS && (
             <button onClick={() => setAlertsExpanded(false)} style={{
               padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
               color: '#999', background: '#f5f5f5', border: 'none', cursor: 'pointer',
-            }}>
-              show less
-            </button>
+            }}>show less</button>
           )}
         </div>
       )}
 
-      {/* ─── ROW 1: Revenue KPIs ─── */}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
-        <StatCard label="Active Creators" value={revenue.activeCreators} />
-        <StatCard label="Period Revenue" value={fmtK(revenue.currentPeriodTR)} delta={revenue.trDelta} />
-        <StatCard label="Palm's Cut" value={fmtK(revenue.netProfit)} color="#22c55e" delta={revenue.profitDelta} />
-        <StatCard
-          label="Projected Monthly"
-          value={fmtK(revenue.projectedMonthlyRevenue)}
-          sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net`}
-          color="#E88FAC"
-        />
-        <StatCard
-          label="Outstanding"
-          value={revenue.outstandingInvoices.count}
-          sub={revenue.outstandingInvoices.count > 0 ? fmtK(revenue.outstandingInvoices.total) : 'all clear'}
-          color={revenue.outstandingInvoices.count > 0 ? '#f59e0b' : '#22c55e'}
-        />
-      </div>
-
-      {/* ─── AGENCY REVENUE CHART ─── */}
+      {/* ─── AGENCY REVENUE CHART — full width hero ─── */}
       <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} />
 
-      {/* ─── ROW 2: Unified Creator Table ─── */}
-      <div style={{ ...CARD, marginBottom: '16px' }}>
-        <div style={SECTION_TITLE}>Creators</div>
+      {/* ─── TWO COLUMN: KPIs + Creator Table ─── */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
 
-        {/* Header row */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '100px 90px 44px 80px 60px 120px 90px 60px 1fr',
-          gap: '8px', padding: '4px 0 8px', borderBottom: '1px solid #f0f0f0',
-          alignItems: 'center',
-        }}>
-          <span style={{ ...LABEL, fontSize: '10px' }}>Creator</span>
-          <span style={{ ...LABEL, fontSize: '10px' }}>Revenue</span>
-          <span style={{ ...LABEL, fontSize: '10px' }}>Rate</span>
-          <span style={{ ...LABEL, fontSize: '10px' }}>Palm's Cut</span>
-          <span style={{ ...LABEL, fontSize: '10px' }}>Runway</span>
-          <span style={{ ...LABEL, fontSize: '10px' }}>Editor Queue</span>
-          <span style={{ ...LABEL, fontSize: '10px' }}>Library</span>
-          <span style={{ ...LABEL, fontSize: '10px' }}>Status</span>
-          <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Trend</span>
+        {/* Left: KPI cards in a tight grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '320px', flexShrink: 0 }}>
+          <StatCard label="Period Revenue" value={fmtK(revenue.currentPeriodTR)} delta={revenue.trDelta} />
+          <StatCard label="Palm's Cut" value={fmtK(revenue.netProfit)} color="#22c55e" delta={revenue.profitDelta} />
+          <StatCard
+            label="Projected Monthly"
+            value={fmtK(revenue.projectedMonthlyRevenue)}
+            sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net`}
+            color="#E88FAC"
+          />
+          <StatCard
+            label="Outstanding"
+            value={revenue.outstandingInvoices.count}
+            sub={revenue.outstandingInvoices.count > 0 ? fmtK(revenue.outstandingInvoices.total) : 'all clear'}
+            color={revenue.outstandingInvoices.count > 0 ? '#f59e0b' : '#22c55e'}
+          />
+          <StatCard label="Creators" value={revenue.activeCreators} />
         </div>
 
-        {unifiedCreators.map(c => {
-          const rev = c.revenue
-          const rwy = c.runway
-          const lib = c.library
-          const bufferDays = rwy?.bufferDays ?? null
-          const runwayColor = bufferDays === null ? '#ddd' : bufferDays < 1 ? '#ef4444' : bufferDays < 2 ? '#f59e0b' : '#22c55e'
-          const runwayBg = bufferDays === null ? '#fafafa' : bufferDays < 1 ? '#fef2f2' : bufferDays < 2 ? '#fffbeb' : '#f0fdf4'
-          const editQueue = rwy ? (rwy.toEdit + rwy.inProgress + rwy.needsRevision + rwy.inReview) : null
+        {/* Right: Creator table (compact) */}
+        <div style={{ ...CARD, flex: 1, minWidth: 0, padding: '14px 16px' }}>
+          <div style={SECTION_TITLE}>Creators</div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '80px 72px 36px 68px 44px 90px 60px 1fr',
+            gap: '4px', padding: '2px 0 6px', borderBottom: '1px solid #f0f0f0',
+            alignItems: 'center',
+          }}>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Creator</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Revenue</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Rate</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Cut</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Rwy</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Queue</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Library</span>
+            <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Trend</span>
+          </div>
 
-          return (
-            <div key={c.name} style={{
-              display: 'grid',
-              gridTemplateColumns: '100px 90px 44px 80px 60px 120px 90px 60px 1fr',
-              gap: '8px', padding: '8px 0',
-              borderBottom: '1px solid #fafafa',
-              alignItems: 'center',
-            }}>
-              {/* Name */}
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</span>
+          {unifiedCreators.map(c => {
+            const rev = c.revenue
+            const rwy = c.runway
+            const lib = c.library
+            const bufferDays = rwy?.bufferDays ?? null
+            const runwayColor = bufferDays === null ? '#ddd' : bufferDays < 1 ? '#ef4444' : bufferDays < 2 ? '#f59e0b' : '#22c55e'
+            const runwayBg = bufferDays === null ? '#fafafa' : bufferDays < 1 ? '#fef2f2' : bufferDays < 2 ? '#fffbeb' : '#f0fdf4'
+            const editQueue = rwy ? (rwy.toEdit + rwy.inProgress + rwy.needsRevision + rwy.inReview) : null
 
-              {/* Revenue */}
-              <span style={{ fontSize: '13px', fontWeight: 700, color: rev ? '#1a1a1a' : '#ddd' }}>
-                {rev ? fmtK(rev.currentTR) : '—'}
-              </span>
-
-              {/* Commission rate */}
-              <span style={{ fontSize: '11px', color: '#999' }}>
-                {rev ? pct(rev.commissionPct) : ''}
-              </span>
-
-              {/* Palm's cut */}
-              <span style={{ fontSize: '13px', fontWeight: 600, color: rev ? '#22c55e' : '#ddd' }}>
-                {rev ? fmtK(rev.palmCut) : '—'}
-              </span>
-
-              {/* Runway */}
-              <span style={{
-                fontSize: '12px', fontWeight: 700, color: runwayColor, background: runwayBg,
-                padding: '2px 6px', borderRadius: '4px', textAlign: 'center', display: 'inline-block',
+            return (
+              <div key={c.name} style={{
+                display: 'grid',
+                gridTemplateColumns: '80px 72px 36px 68px 44px 90px 60px 1fr',
+                gap: '4px', padding: '5px 0',
+                borderBottom: '1px solid #fafafa',
+                alignItems: 'center',
               }}>
-                {bufferDays !== null ? `${bufferDays}d` : '—'}
-              </span>
-
-              {/* Editor queue breakdown */}
-              <div style={{ fontSize: '11px', color: '#666', display: 'flex', gap: '6px' }}>
-                {rwy ? (
-                  editQueue > 0 ? (
-                    <>
-                      {rwy.toEdit > 0 && <span>{rwy.toEdit} queue</span>}
-                      {rwy.inProgress > 0 && <span>{rwy.inProgress} active</span>}
-                      {rwy.needsRevision > 0 && <span style={{ color: '#ef4444' }}>{rwy.needsRevision} rev</span>}
-                      {rwy.inReview > 0 && <span style={{ color: '#3b82f6' }}>{rwy.inReview} review</span>}
-                    </>
-                  ) : <span style={{ color: '#ccc' }}>empty</span>
-                ) : <span style={{ color: '#ddd' }}>—</span>}
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: rev ? '#1a1a1a' : '#ddd' }}>
+                  {rev ? fmtK(rev.currentTR) : '—'}
+                </span>
+                <span style={{ fontSize: '10px', color: '#999' }}>{rev ? pct(rev.commissionPct) : ''}</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: rev ? '#22c55e' : '#ddd' }}>
+                  {rev ? fmtK(rev.palmCut) : '—'}
+                </span>
+                <span style={{
+                  fontSize: '10px', fontWeight: 700, color: runwayColor, background: runwayBg,
+                  padding: '1px 4px', borderRadius: '3px', textAlign: 'center',
+                }}>
+                  {bufferDays !== null ? `${bufferDays}d` : '—'}
+                </span>
+                <div style={{ fontSize: '10px', color: '#666', display: 'flex', gap: '4px' }}>
+                  {rwy ? (
+                    editQueue > 0 ? (
+                      <>
+                        {rwy.toEdit > 0 && <span>{rwy.toEdit}q</span>}
+                        {rwy.inProgress > 0 && <span>{rwy.inProgress}a</span>}
+                        {rwy.needsRevision > 0 && <span style={{ color: '#ef4444' }}>{rwy.needsRevision}r</span>}
+                        {rwy.inReview > 0 && <span style={{ color: '#3b82f6' }}>{rwy.inReview}rv</span>}
+                      </>
+                    ) : <span style={{ color: '#ccc' }}>—</span>
+                  ) : <span style={{ color: '#ddd' }}>—</span>}
+                </div>
+                <span style={{
+                  fontSize: '11px', fontWeight: 600,
+                  color: lib ? (lib.total === 0 ? '#ef4444' : '#666') : '#ddd',
+                }}>
+                  {lib ? lib.total : '—'}
+                </span>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
+                </div>
               </div>
-
-              {/* Library count */}
-              <span style={{
-                fontSize: '12px', fontWeight: 600,
-                color: lib ? (lib.total === 0 ? '#ef4444' : '#666') : '#ddd',
-              }}>
-                {lib ? `${lib.total} files` : '—'}
-              </span>
-
-              {/* Status badge (only non-Draft) */}
-              <StatusBadge status={rev?.status} />
-
-              {/* Trend */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {/* ─── WHALE ALERTS ─── */}
@@ -974,62 +949,62 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      {/* ─── ROW 3: Pipeline Health + Posting Activity side by side ─── */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+      {/* ─── TWO COLUMN: Pipeline + Posting ─── */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
 
         {/* Pipeline Health */}
-        <div style={{ ...CARD, flex: '1 1 280px', minWidth: '260px' }}>
+        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Pipeline</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
-              <div style={LABEL}>Scraped Today</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedToday}</div>
+              <div style={{ ...LABEL, fontSize: '9px' }}>Today</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedToday}</div>
             </div>
             <div>
-              <div style={LABEL}>This Week</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedThisWeek}</div>
+              <div style={{ ...LABEL, fontSize: '9px' }}>This Week</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedThisWeek}</div>
             </div>
             <div>
-              <div style={LABEL}>Review Queue</div>
+              <div style={{ ...LABEL, fontSize: '9px' }}>Promoted</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#E88FAC', marginTop: '2px' }}>{pipeline.promotedThisWeek}</div>
+            </div>
+            <div>
+              <div style={{ ...LABEL, fontSize: '9px' }}>Review</div>
               <div style={{
-                fontSize: '22px', fontWeight: 700, marginTop: '2px',
+                fontSize: '18px', fontWeight: 700, marginTop: '2px',
                 color: pipeline.reviewQueue > 20 ? '#f59e0b' : '#1a1a1a',
               }}>{pipeline.reviewQueue}</div>
             </div>
             <div>
-              <div style={LABEL}>Analysis Queue</div>
+              <div style={{ ...LABEL, fontSize: '9px' }}>Analysis</div>
               <div style={{
-                fontSize: '22px', fontWeight: 700, marginTop: '2px',
+                fontSize: '18px', fontWeight: 700, marginTop: '2px',
                 color: pipeline.analysisQueue > 0 ? '#3b82f6' : '#1a1a1a',
               }}>{pipeline.analysisQueue}</div>
             </div>
             <div>
-              <div style={LABEL}>Promoted</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: '#E88FAC', marginTop: '2px' }}>{pipeline.promotedThisWeek}</div>
-            </div>
-            <div>
-              <div style={LABEL}>Sources</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.sourcesEnabled}</div>
+              <div style={{ ...LABEL, fontSize: '9px' }}>Sources</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.sourcesEnabled}</div>
             </div>
           </div>
           {pipeline.lastScrape && (
-            <div style={{ fontSize: '11px', color: '#999', marginTop: '12px' }}>
+            <div style={{ fontSize: '10px', color: '#999', marginTop: '8px' }}>
               Last scrape: {new Date(pipeline.lastScrape).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
             </div>
           )}
         </div>
 
         {/* Posting Activity */}
-        <div style={{ ...CARD, flex: '1 1 340px', minWidth: '300px' }}>
-          <div style={SECTION_TITLE}>Posting (Last 7 Days)</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
+          <div style={SECTION_TITLE}>Posting (7 Days)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {posting.map(c => (
               <div key={c.name} style={{
-                display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0',
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0',
                 borderBottom: '1px solid #fafafa',
               }}>
-                <div style={{ width: '70px', fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</div>
-                <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: '#666', minWidth: '120px' }}>
+                <div style={{ width: '60px', fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</div>
+                <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: '#666' }}>
                   <span><strong style={{ color: '#1a1a1a' }}>{c.postedToday}</strong> today</span>
                   <span><strong style={{ color: '#1a1a1a' }}>{c.postedThisWeek}</strong>/wk</span>
                   {c.telegramPending > 0 && (
@@ -1041,26 +1016,23 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
-            {posting.length === 0 && (
-              <div style={{ fontSize: '13px', color: '#999' }}>No posting data</div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* ─── Period History ─── */}
+      {/* ─── TWO COLUMN: Period History + (space for future) ─── */}
       {revenue.periods.length > 1 && (
-        <div style={{ ...CARD }}>
+        <div style={{ ...CARD, marginBottom: '12px', padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Period History</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px',
-              gap: '8px', padding: '4px 0', borderBottom: '1px solid #f0f0f0',
+              display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
+              gap: '6px', padding: '2px 0', borderBottom: '1px solid #f0f0f0',
             }}>
-              <span style={{ ...LABEL, fontSize: '10px' }}>Period</span>
-              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Total TR</span>
-              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Palm's Cut</span>
-              <span style={{ ...LABEL, fontSize: '10px', textAlign: 'right' }}>Change</span>
+              <span style={{ ...LABEL, fontSize: '9px' }}>Period</span>
+              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>TR</span>
+              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Cut</span>
+              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Δ</span>
             </div>
             {revenue.periods.map((p, i) => {
               const prevPeriod = revenue.periods[i + 1]
@@ -1070,16 +1042,16 @@ export default function AdminDashboard() {
               const deltaColor = periodDelta > 0 ? '#22c55e' : periodDelta < 0 ? '#ef4444' : '#999'
               return (
                 <div key={i} style={{
-                  display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px',
-                  gap: '8px', padding: '6px 0', borderBottom: '1px solid #fafafa',
+                  display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
+                  gap: '6px', padding: '4px 0', borderBottom: '1px solid #fafafa',
                   opacity: i === 0 ? 1 : 0.7,
                 }}>
-                  <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: i === 0 ? 600 : 400 }}>
+                  <span style={{ fontSize: '12px', color: '#1a1a1a', fontWeight: i === 0 ? 600 : 400 }}>
                     {formatPeriodLabel(p.label) || `${p.start} – ${p.end}`}
                   </span>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#22c55e', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#22c55e', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
                     {deltaStr || '—'}
                   </span>
                 </div>
