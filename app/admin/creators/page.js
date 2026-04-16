@@ -1344,6 +1344,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [accountFilter, setAccountFilter] = useState('all') // 'all' | 'Free' | 'VIP' etc.
   const [showAllCold, setShowAllCold] = useState(false)
   const [showAllFans, setShowAllFans] = useState(false)
   const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
@@ -1391,8 +1392,46 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   }, [coverageData])
 
   // Extract data safely — all hooks must run before any early returns
-  const { summary, byType, topFans: allTimeTopFans, transactions: allTxns, dailyData: rawDailyData, goingColdAlerts, goingColdCount, cachedAt } = data || {}
-  const dailyData = rawDailyData || []
+  const { summary: rawSummary, byType: rawByType, topFans: allTimeTopFans, transactions: rawTxns, dailyData: rawDailyData, goingColdAlerts, goingColdCount, cachedAt, accounts: availableAccounts } = data || {}
+
+  // Account-filtered transactions and daily data
+  const acctFiltered = useMemo(() => {
+    const allTxns = rawTxns || []
+    const allDaily = rawDailyData || []
+    if (accountFilter === 'all' || !availableAccounts?.length) {
+      return { allTxns, dailyData: allDaily, summary: rawSummary, byType: rawByType }
+    }
+    // Filter transactions by account
+    const txns = allTxns.filter(t => t.account === accountFilter)
+    // Rebuild daily data from filtered transactions
+    const dailyMap = {}
+    for (const t of txns) {
+      if (!t.date) continue
+      if (!dailyMap[t.date]) dailyMap[t.date] = { date: t.date, net: 0, gross: 0, txnCount: 0, byType: {} }
+      const d = dailyMap[t.date]
+      d.net += t.net; d.gross += t.gross; d.txnCount += 1
+      const tp = t.type || 'Unknown'
+      d.byType[tp] = (d.byType[tp] || 0) + t.net
+    }
+    const dailyData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date))
+    // Rebuild summary
+    let totalNet = 0, totalGross = 0, chargebackTotal = 0
+    const byType = {}
+    for (const t of txns) {
+      if (t.type === 'Chargeback') { chargebackTotal += t.net; continue }
+      totalNet += t.net; totalGross += t.gross
+      const tp = t.type || 'Unknown'
+      byType[tp] = (byType[tp] || 0) + t.net
+    }
+    return {
+      allTxns: txns,
+      dailyData,
+      summary: { ...rawSummary, totalNet, totalGross, chargebackTotal, transactionCount: txns.length },
+      byType,
+    }
+  }, [rawTxns, rawDailyData, rawSummary, rawByType, accountFilter, availableAccounts])
+
+  const { allTxns, dailyData, summary, byType } = acctFiltered
 
   // Compute top fans for current period (hook must be before early returns)
   const topFans = useMemo(() => {
@@ -1407,16 +1446,17 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         if (dt < ps || dt > new Date(pe.getTime() + 86400000)) continue
       }
       const key = t.displayName || 'Unknown'
-      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '', accounts: new Set() }
       fanMap[key].totalNet += t.net
       fanMap[key].transactionCount += 1
       if (!fanMap[key].lastDate || t.date > fanMap[key].lastDate) fanMap[key].lastDate = t.date
+      if (t.account) fanMap[key].accounts.add(t.account)
     }
     return Object.values(fanMap)
       .filter(f => f.totalNet > 0)
       .sort((a, b) => b.totalNet - a.totalNet)
       .slice(0, 25)
-      .map((f, i) => ({ rank: i + 1, ...f }))
+      .map((f, i) => ({ rank: i + 1, ...f, accounts: [...f.accounts] }))
   }, [allTxns, period, customStart, customEnd])
 
   // Early returns AFTER all hooks
@@ -1561,6 +1601,29 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             </div>
           )}
         </div>
+        {/* Account pills (only for multi-account creators) */}
+        {availableAccounts && availableAccounts.length > 1 && (
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => setAccountFilter('all')}
+              style={{
+                background: accountFilter === 'all' ? '#1a1a1a' : 'transparent',
+                color: accountFilter === 'all' ? '#fff' : '#bbb',
+                border: accountFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
+                borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
+              }}>All Accounts</button>
+            {availableAccounts.map(a => (
+              <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
+                style={{
+                  background: accountFilter === a ? '#E88FAC18' : 'transparent',
+                  color: accountFilter === a ? '#E88FAC' : '#bbb',
+                  border: accountFilter === a ? '1px solid #E88FAC' : '1px solid transparent',
+                  borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
+                }}>
+                {a}
+              </button>
+            ))}
+          </div>
+        )}
         {/* Type filters + breakdown */}
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => setTypeFilter('all')}
@@ -1925,7 +1988,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           </div>
           {(showAllFans ? topFans : topFans.slice(0, 5)).map((fan, i) => (
             <div key={fan.displayName} style={{
-              display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '8px 16px',
+              display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '8px 16px',
               fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)',
               background: i % 2 === 0 ? '#fff' : '#FAFAFA',
             }}>
@@ -1937,6 +2000,16 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                   @{fan.ofUsername}
                 </a>
               ) : <span style={{ color: '#ccc' }}>—</span>}</span>
+              {availableAccounts?.length > 1 && (
+                <span style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                  {(fan.accounts || []).map(a => (
+                    <span key={a} style={{
+                      background: '#f3f4f6', borderRadius: '8px', padding: '1px 6px',
+                      fontSize: '9px', color: '#666', fontWeight: 500, whiteSpace: 'nowrap',
+                    }}>{a}</span>
+                  ))}
+                </span>
+              )}
               <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(fan.totalNet)}</span>
               <span style={{ textAlign: 'right', color: '#666' }}>{fan.transactionCount}</span>
               <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{fan.lastDate}</span>

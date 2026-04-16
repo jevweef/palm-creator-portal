@@ -16,6 +16,54 @@ function getAuth() {
 
 const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 
+// ── Airtable (Revenue Accounts) ────────────────────────────────────────────
+
+const HQ_BASE = 'appL7c4Wtotpz07KS'
+const REVENUE_ACCOUNTS_TABLE = 'tblQqPWlsjiyJA0ba'
+const HQ_CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
+const AIRTABLE_PAT = process.env.AIRTABLE_PAT
+const AIRTABLE_HEADERS = { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' }
+
+// Fetch Revenue Accounts for a creator (by AKA name)
+async function fetchCreatorAccounts(creatorAka) {
+  try {
+    // First find the creator record by AKA
+    const crParams = new URLSearchParams()
+    crParams.set('filterByFormula', `{AKA}="${creatorAka.replace(/"/g, '\\"')}"`)
+    crParams.set('fields[]', 'AKA')
+    crParams.set('pageSize', '1')
+
+    const crRes = await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}?${crParams}`, {
+      headers: AIRTABLE_HEADERS, cache: 'no-store',
+    })
+    const crData = await crRes.json()
+    const creatorId = crData.records?.[0]?.id
+    if (!creatorId) return []
+
+    // Fetch Revenue Accounts linked to this creator
+    const acctParams = new URLSearchParams()
+    acctParams.set('filterByFormula', `AND(FIND("${creatorId}", ARRAYJOIN({Creator})), {Platform}="OnlyFans", {Status}="Active")`)
+    acctParams.append('fields[]', 'fldkEi3jW9tUXSTc5') // Account Name
+    acctParams.append('fields[]', 'fldxQMmYU6Ep6AkKR') // Account Type
+    acctParams.set('returnFieldsByFieldId', 'true')
+    acctParams.set('pageSize', '20')
+
+    const acctRes = await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${REVENUE_ACCOUNTS_TABLE}?${acctParams}`, {
+      headers: AIRTABLE_HEADERS, cache: 'no-store',
+    })
+    const acctData = await acctRes.json()
+
+    return (acctData.records || []).map(r => ({
+      id: r.id,
+      accountName: r.fields['fldkEi3jW9tUXSTc5'] || '',
+      accountType: r.fields['fldxQMmYU6Ep6AkKR']?.name || '',
+    }))
+  } catch (err) {
+    console.error('Failed to fetch creator accounts:', err)
+    return []
+  }
+}
+
 // ── Cache ───────────────────────────────────────────────────────────────────
 
 const earningsCache = new Map()
@@ -287,6 +335,28 @@ function detectGoingCold(transactions, now) {
   return alerts
 }
 
+// ── Row parser ─────────────────────────────────────────────────────────────
+
+function parseSheetRow(row, account) {
+  const [dateTime, gross, ofFee, net, type, displayName, ofUsername, originalDate, description] = row
+  if (!dateTime) return null
+  const datePart = dateTime.split(' ')[0] || ''
+  let dt = null
+  if (dateTime.includes(' ')) {
+    dt = new Date(dateTime.replace(' ', 'T') + ':00')
+  } else {
+    dt = parseSheetDate(dateTime)
+  }
+  if (dt && isNaN(dt.getTime())) dt = parseSheetDate(datePart)
+  return {
+    date: datePart, time: dateTime.split(' ').slice(1).join(' ') || '',
+    gross: parseMoney(gross), ofFee: parseMoney(ofFee), net: parseMoney(net),
+    type: type || '', displayName: displayName || '', ofUsername: ofUsername || '',
+    originalDate: originalDate || '', description: description || '', dt,
+    account: account || '',
+  }
+}
+
 // ── GET ─────────────────────────────────────────────────────────────────────
 
 export async function GET(request) {
@@ -305,51 +375,94 @@ export async function GET(request) {
     if (cached) return Response.json(cached)
   }
 
-  const tabName = `${creator} - Sales`
-
   try {
     const authClient = getAuth()
     const sheets = google.sheets({ version: 'v4', auth: authClient })
 
-    let rows
-    try {
-      const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `'${tabName}'!A4:I`,
+    // ── Fetch Revenue Accounts from Airtable ─────────────────────────────
+    const accounts = await fetchCreatorAccounts(creator)
+    let tabsToFetch = []
+
+    if (accounts.length > 1) {
+      // Multi-account creator — fetch from each account's tab
+      tabsToFetch = accounts.map(a => ({
+        tabName: `${a.accountName} - Sales`,
+        account: a.accountType || a.accountName,
+        accountName: a.accountName,
+      }))
+    } else if (accounts.length === 1) {
+      // Single account with explicit Revenue Account
+      tabsToFetch = [{
+        tabName: `${accounts[0].accountName} - Sales`,
+        account: accounts[0].accountType || accounts[0].accountName,
+        accountName: accounts[0].accountName,
+      }]
+    }
+
+    // Always try the legacy tab as fallback
+    if (tabsToFetch.length === 0) {
+      tabsToFetch = [{ tabName: `${creator} - Sales`, account: '', accountName: '' }]
+    }
+
+    // Fetch from all tabs in parallel
+    const tabResults = await Promise.allSettled(
+      tabsToFetch.map(async ({ tabName, account, accountName }) => {
+        const res = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${tabName}'!A4:I`,
+        })
+        return { rows: res.data.values || [], account, accountName }
       })
-      rows = res.data.values || []
-    } catch (err) {
-      if (err.message?.includes('Unable to parse range') || err.code === 400) {
-        return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
-      }
-      throw err
-    }
+    )
 
-    if (rows.length === 0) {
-      return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
-    }
-
-    // Parse rows — combined DateTime column (9 columns: DateTime, Gross, OF Fee, Net, Type, Display Name, OF Username, Original Date, Description)
+    // Parse rows from all tabs
     const transactions = []
-    for (const row of rows) {
-      const [dateTime, gross, ofFee, net, type, displayName, ofUsername, originalDate, description] = row
-      if (!dateTime) continue
-      // Extract date portion for compatibility (YYYY-MM-DD)
-      const datePart = dateTime.split(' ')[0] || ''
-      // Parse full datetime: "2026-04-07 15:47" → Date
-      let dt = null
-      if (dateTime.includes(' ')) {
-        dt = new Date(dateTime.replace(' ', 'T') + ':00')
-      } else {
-        dt = parseSheetDate(dateTime)
+    const accountList = [] // accounts that actually had data
+
+    for (let i = 0; i < tabResults.length; i++) {
+      const result = tabResults[i]
+      if (result.status !== 'fulfilled') {
+        // Tab doesn't exist — skip silently for multi-account, error for single
+        if (tabsToFetch.length === 1) {
+          const err = result.reason
+          if (err?.message?.includes('Unable to parse range') || err?.code === 400) {
+            // If multi-account tabs failed, try legacy fallback
+            if (accounts.length > 0) {
+              try {
+                const fallbackRes = await sheets.spreadsheets.values.get({
+                  spreadsheetId: SPREADSHEET_ID,
+                  range: `'${creator} - Sales'!A4:I`,
+                })
+                const rows = fallbackRes.data.values || []
+                for (const row of rows) {
+                  const parsed = parseSheetRow(row, '')
+                  if (parsed) transactions.push(parsed)
+                }
+                if (rows.length > 0) accountList.push({ account: '', accountName: '' })
+              } catch {
+                return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
+              }
+              continue
+            }
+            return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
+          }
+          throw err
+        }
+        continue
       }
-      if (dt && isNaN(dt.getTime())) dt = parseSheetDate(datePart)
-      transactions.push({
-        date: datePart, time: dateTime.split(' ').slice(1).join(' ') || '',
-        gross: parseMoney(gross), ofFee: parseMoney(ofFee), net: parseMoney(net),
-        type: type || '', displayName: displayName || '', ofUsername: ofUsername || '',
-        originalDate: originalDate || '', description: description || '', dt,
-      })
+
+      const { rows, account, accountName } = result.value
+      if (rows.length > 0) {
+        accountList.push({ account, accountName })
+        for (const row of rows) {
+          const parsed = parseSheetRow(row, account)
+          if (parsed) transactions.push(parsed)
+        }
+      }
+    }
+
+    if (transactions.length === 0) {
+      return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
     }
 
     transactions.sort((a, b) => (b.dt || 0) - (a.dt || 0))
@@ -419,6 +532,7 @@ export async function GET(request) {
     const dailyByType = {}
     const dailyGross = {}
     const dailyCount = {}
+    const dailyByAccount = {} // { date: { account: net } }
     // Aggregate sales (some may be zeroed out by chargeback matching)
     for (const t of salesTxns) {
       if (!t.date) continue
@@ -434,6 +548,12 @@ export async function GET(request) {
       if (!dailyByType[utcDate]) dailyByType[utcDate] = {}
       if (!dailyByType[utcDate][tp]) dailyByType[utcDate][tp] = 0
       dailyByType[utcDate][tp] += t.net
+
+      if (t.account) {
+        if (!dailyByAccount[utcDate]) dailyByAccount[utcDate] = {}
+        if (!dailyByAccount[utcDate][t.account]) dailyByAccount[utcDate][t.account] = 0
+        dailyByAccount[utcDate][t.account] += t.net
+      }
     }
     // Only subtract unmatched chargebacks (matched ones already zeroed the original sale)
     for (const t of chargebackTxns) {
@@ -460,6 +580,7 @@ export async function GET(request) {
         gross: dailyGross[date] || 0,
         txnCount: dailyCount[date] || 0,
         byType: dailyByType[date] || {},
+        byAccount: dailyByAccount[date] || {},
         dt: parseSheetDate(date),
       }))
       .sort((a, b) => (a.dt || 0) - (b.dt || 0))
@@ -490,24 +611,25 @@ export async function GET(request) {
     // Use sales (with zeroed chargebacks) for fan totals
     for (const t of salesTxns) {
       const key = t.ofUsername || t.displayName || 'Unknown'
-      if (!fanMap[key]) fanMap[key] = { displayName: t.displayName || key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      if (!fanMap[key]) fanMap[key] = { displayName: t.displayName || key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '', accounts: new Set() }
       fanMap[key].totalNet += t.net
       fanMap[key].transactionCount += 1
       if (t.displayName) fanMap[key].displayName = t.displayName
       if (!fanMap[key].lastDate) fanMap[key].lastDate = t.date
+      if (t.account) fanMap[key].accounts.add(t.account)
     }
     // Subtract unmatched chargebacks from fan totals
     for (const t of chargebackTxns) {
       if (t._matched) continue
       const key = t.ofUsername || t.displayName || 'Unknown'
-      if (!fanMap[key]) fanMap[key] = { displayName: t.displayName || key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      if (!fanMap[key]) fanMap[key] = { displayName: t.displayName || key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '', accounts: new Set() }
       fanMap[key].totalNet -= t.net
       fanMap[key].transactionCount += 1
     }
     const topFans = Object.values(fanMap)
       .sort((a, b) => b.totalNet - a.totalNet)
       .slice(0, 25)
-      .map((f, i) => ({ rank: i + 1, ...f }))
+      .map((f, i) => ({ rank: i + 1, ...f, accounts: [...f.accounts] }))
 
     // ── Going cold alerts ────────────────────────────────────────────────
     const goingColdAlerts = detectGoingCold(transactions, now)
@@ -545,6 +667,11 @@ export async function GET(request) {
     // Strip dt from transactions for response
     const cleanTxns = transactions.map(({ dt, ...rest }) => rest)
 
+    // Build unique account types for UI pills (only when multi-account)
+    const uniqueAccounts = accountList.length > 1
+      ? accountList.map(a => a.account).filter(Boolean)
+      : []
+
     const result = {
       summary: {
         totalNet, totalGross, chargebackTotal,
@@ -559,6 +686,7 @@ export async function GET(request) {
       goingColdAlerts: goingColdAlerts.slice(0, 30),
       goingColdCount: goingColdAlerts.length,
       dailyData,
+      accounts: uniqueAccounts, // e.g. ['Free', 'VIP'] — empty for single-account creators
       cachedAt: new Date().toISOString(),
       totalRows: transactions.length,
     }
