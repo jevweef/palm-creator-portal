@@ -45,6 +45,7 @@ export default function UploadModal({ creator: initialCreator, dataType: initial
       formData.append('file', file)
       formData.append('creator', creator)
       formData.append('dataType', dataType)
+      if (file.lastModified) formData.append('fileLastModified', String(file.lastModified))
       const res = await fetch('/api/admin/invoicing/upload-transactions', { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Upload failed')

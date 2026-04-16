@@ -282,7 +282,7 @@ const AT_FIELDS = {
   chargebacksLastUpload: 'fldbcQzv0Bhf3Ys8a',
 }
 
-async function updateAirtableCoverage(creatorName, sheetType, txns) {
+async function updateAirtableCoverage(creatorName, sheetType, txns, fileTimestamp) {
   if (!AIRTABLE_PAT || !txns || txns.length === 0) return
 
   try {
@@ -316,21 +316,22 @@ async function updateAirtableCoverage(creatorName, sheetType, txns) {
     const fields = {}
     const isSales = sheetType === 'Sales'
 
-    const now = new Date()
-    const nowISO = now.toISOString()
-    // Coverage end = today (data is current through today, even if last sale was earlier)
-    const todayStr = now.toISOString().split('T')[0]
+    // Use the file's last modified timestamp as the coverage cutoff
+    // That's when the HTML was saved — the actual line in the sand
+    const coverageDate = fileTimestamp ? new Date(fileTimestamp) : new Date()
+    const coverageISO = coverageDate.toISOString()
+    const coverageDateStr = coverageISO.split('T')[0]
 
     if (isSales) {
-      fields[AT_FIELDS.earningsEnd] = todayStr
-      fields[AT_FIELDS.earningsLastUpload] = nowISO
+      fields[AT_FIELDS.earningsEnd] = coverageDateStr
+      fields[AT_FIELDS.earningsLastUpload] = coverageISO
       const currentStart = record.fields[AT_FIELDS.earningsStart]
       if (!currentStart || earliestStr < currentStart) {
         fields[AT_FIELDS.earningsStart] = earliestStr
       }
     } else {
-      fields[AT_FIELDS.chargebackEnd] = todayStr
-      fields[AT_FIELDS.chargebacksLastUpload] = nowISO
+      fields[AT_FIELDS.chargebackEnd] = coverageDateStr
+      fields[AT_FIELDS.chargebacksLastUpload] = coverageISO
       const currentStart = record.fields[AT_FIELDS.chargebackStart]
       if (!currentStart || earliestStr < currentStart) {
         fields[AT_FIELDS.chargebackStart] = earliestStr
@@ -361,7 +362,7 @@ export async function POST(request) {
   if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const contentType = request.headers.get('content-type') || ''
-  let txns, creator, sheetType
+  let txns, creator, sheetType, fileTimestamp
 
   if (contentType.includes('multipart/form-data')) {
     // HTML file upload
@@ -374,6 +375,9 @@ export async function POST(request) {
     txns = parseHtml(html)
     const formDataType = formData.get('dataType')
     sheetType = formDataType === 'chargebacks' ? 'Chargebacks' : 'Sales'
+    // File's last modified timestamp — when the HTML was saved on disk
+    const fileLastModified = formData.get('fileLastModified')
+    fileTimestamp = fileLastModified ? Number(fileLastModified) : (file.lastModified || null)
   } else {
     // JSON body — raw text paste (legacy fallback)
     const { rawData, creator: c, dataType } = await request.json()
@@ -518,7 +522,7 @@ export async function POST(request) {
     await updateCutoff(sheets, tabName, newCutoff)
 
     // Update Airtable coverage dates (non-blocking)
-    await updateAirtableCoverage(creator, sheetType, txns)
+    await updateAirtableCoverage(creator, sheetType, txns, fileTimestamp)
 
     // Build summary
     const typeBreakdown = {}

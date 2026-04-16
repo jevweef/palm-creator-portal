@@ -308,6 +308,7 @@ export default function RawDataUpload() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('creator', creator)
+      if (file.lastModified) formData.append('fileLastModified', String(file.lastModified))
 
       const res = await fetch('/api/admin/invoicing/upload-transactions', {
         method: 'POST',

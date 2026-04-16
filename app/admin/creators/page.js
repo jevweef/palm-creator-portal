@@ -1651,6 +1651,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                     const formData = new FormData()
                     formData.append('file', uploadFile)
                     formData.append('creator', creator?.aka || creator?.name || '')
+                    if (uploadFile.lastModified) formData.append('fileLastModified', String(uploadFile.lastModified))
                     const res = await fetch('/api/admin/invoicing/upload-transactions', { method: 'POST', body: formData })
                     const data = await res.json()
                     if (!res.ok) throw new Error(data.error || 'Upload failed')
