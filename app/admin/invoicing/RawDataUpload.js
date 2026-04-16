@@ -285,7 +285,11 @@ export default function RawDataUpload() {
   const cbCutoff = cutoffs[`${creator} - Chargebacks`]
 
   return (
-    <div style={{ maxWidth: '720px' }}>
+    <div>
+      {/* Data coverage timeline — full width */}
+      <DataCoverageChart creators={coverageCreators} loading={coverageLoading} />
+
+      <div style={{ maxWidth: '720px' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
@@ -306,9 +310,6 @@ export default function RawDataUpload() {
           </a>
         )}
       </div>
-
-      {/* Data coverage timeline */}
-      <DataCoverageChart creators={coverageCreators} loading={coverageLoading} />
 
       {/* Creator selector */}
       <div style={{ marginBottom: '16px' }}>

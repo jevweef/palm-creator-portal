@@ -1354,6 +1354,37 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [uploadResult, setUploadResult] = useState(null)
   const [uploadError, setUploadError] = useState(null)
   const uploadFileRef = useRef(null)
+  const [coverageData, setCoverageData] = useState(null)
+  const [coverageLoading, setCoverageLoading] = useState(true)
+  const coverageScrollRef = useRef(null)
+
+  // Fetch coverage data for this creator
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/admin/earnings-coverage')
+        if (!res.ok) throw new Error('Failed to fetch coverage')
+        const { creators } = await res.json()
+        if (!cancelled) {
+          // Find matching creator by aka
+          const match = creators.find(c =>
+            c.aka && creator?.aka && c.aka.toLowerCase() === creator.aka.toLowerCase()
+          )
+          setCoverageData(match || null)
+        }
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setCoverageLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [creator?.aka])
+
+  // Auto-scroll coverage chart to right
+  useEffect(() => {
+    if (coverageScrollRef.current) {
+      coverageScrollRef.current.scrollLeft = coverageScrollRef.current.scrollWidth
+    }
+  }, [coverageData])
 
   // Extract data safely — all hooks must run before any early returns
   const { summary, byType, topFans: allTimeTopFans, transactions: allTxns, dailyData: rawDailyData, goingColdAlerts, goingColdCount, cachedAt } = data || {}
@@ -1663,6 +1694,124 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           )}
         </div>
       )}
+
+      {/* Data coverage chart — single creator */}
+      {coverageData && (coverageData.earningsStart || coverageData.chargebackStart) && (() => {
+        const today = new Date()
+        const twoMonthsAgo = new Date(today)
+        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+        twoMonthsAgo.setDate(1)
+        const allDates = [coverageData.earningsStart, coverageData.earningsEnd, coverageData.chargebackStart, coverageData.chargebackEnd].filter(Boolean)
+        const sorted = [...allDates].sort()
+        const dataStart = sorted.length > 0 ? new Date(sorted[0] + 'T00:00:00') : twoMonthsAgo
+        const dataEnd = sorted.length > 0 ? new Date(sorted[sorted.length - 1] + 'T00:00:00') : today
+        const globalStart = new Date(Math.min(dataStart, twoMonthsAgo))
+        const globalEnd = new Date(Math.max(dataEnd, today))
+        const totalDays = Math.max(1, (globalEnd - globalStart) / 86400000)
+        const chartWidth = Math.max(400, totalDays * 8)
+
+        // Period lines
+        const periodLines = []
+        const cursor = new Date(globalStart)
+        cursor.setDate(1)
+        while (cursor <= globalEnd) {
+          const d1 = new Date(cursor); d1.setDate(1)
+          if (d1 >= globalStart && d1 <= globalEnd) periodLines.push({ date: new Date(d1), isFirst: true })
+          const d15 = new Date(cursor); d15.setDate(15)
+          if (d15 >= globalStart && d15 <= globalEnd) periodLines.push({ date: new Date(d15), isFirst: false })
+          cursor.setMonth(cursor.getMonth() + 1)
+        }
+
+        const dateToPx = (dateStr) => {
+          const d = new Date(dateStr + 'T00:00:00')
+          return Math.max(0, Math.min(chartWidth, ((d - globalStart) / 86400000 / totalDays) * chartWidth))
+        }
+        const fmtShort = (dateStr) => {
+          if (!dateStr) return ''
+          const d = new Date(dateStr + 'T00:00:00')
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        }
+
+        const hasEarnings = coverageData.earningsStart && coverageData.earningsEnd
+        const hasCb = coverageData.chargebackStart && coverageData.chargebackEnd
+
+        return (
+          <div style={{
+            background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+            padding: '12px 16px', marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+              Data Coverage
+            </div>
+            <div ref={coverageScrollRef} style={{ overflowX: 'auto' }}>
+              <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
+                {/* Date labels */}
+                <div style={{ position: 'relative', height: '18px', marginBottom: '4px' }}>
+                  {periodLines.filter(p => p.isFirst).map((p, i) => {
+                    const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+                    return (
+                      <span key={i} style={{
+                        position: 'absolute', left: `${px}px`, transform: 'translateX(-50%)',
+                        fontSize: '10px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
+                      }}>
+                        {p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )
+                  })}
+                </div>
+
+                {/* Earnings bar */}
+                <div style={{ position: 'relative', height: '16px', marginBottom: '4px' }}>
+                  {periodLines.map((p, i) => {
+                    const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+                    return <div key={i} style={{ position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px', background: p.isFirst ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                  })}
+                  {hasEarnings ? (
+                    <div title={`Earnings: ${fmtShort(coverageData.earningsStart)} - ${fmtShort(coverageData.earningsEnd)}`} style={{
+                      position: 'absolute', left: `${dateToPx(coverageData.earningsStart)}px`,
+                      width: `${Math.max(4, dateToPx(coverageData.earningsEnd) - dateToPx(coverageData.earningsStart))}px`,
+                      height: '100%', borderRadius: '3px',
+                      background: 'linear-gradient(90deg, #86efac, #22c55e)', opacity: 0.85,
+                    }} />
+                  ) : (
+                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                  )}
+                </div>
+
+                {/* Chargebacks bar */}
+                <div style={{ position: 'relative', height: '16px' }}>
+                  {periodLines.map((p, i) => {
+                    const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+                    return <div key={i} style={{ position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px', background: p.isFirst ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                  })}
+                  {hasCb ? (
+                    <div title={`Chargebacks: ${fmtShort(coverageData.chargebackStart)} - ${fmtShort(coverageData.chargebackEnd)}`} style={{
+                      position: 'absolute', left: `${dateToPx(coverageData.chargebackStart)}px`,
+                      width: `${Math.max(4, dateToPx(coverageData.chargebackEnd) - dateToPx(coverageData.chargebackStart))}px`,
+                      height: '100%', borderRadius: '3px',
+                      background: 'linear-gradient(90deg, #fca5a5, #ef4444)', opacity: 0.85,
+                    }} />
+                  ) : (
+                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '10px', height: '6px', borderRadius: '2px', background: 'linear-gradient(90deg, #86efac, #22c55e)' }} />
+                <span style={{ fontSize: '10px', color: '#999' }}>Earnings</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '10px', height: '6px', borderRadius: '2px', background: 'linear-gradient(90deg, #fca5a5, #ef4444)' }} />
+                <span style={{ fontSize: '10px', color: '#999' }}>Chargebacks</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Revenue chart — immediately visible */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
