@@ -24,25 +24,13 @@ const HQ_CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const AIRTABLE_HEADERS = { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' }
 
-// Fetch Revenue Accounts for a creator (by AKA name)
+// Fetch Revenue Accounts for a creator (by AKA name matching Account Name prefix)
 async function fetchCreatorAccounts(creatorAka) {
   try {
-    // First find the creator record by AKA
-    const crParams = new URLSearchParams()
-    crParams.set('filterByFormula', `{AKA}="${creatorAka.replace(/"/g, '\\"')}"`)
-    crParams.set('fields[]', 'AKA')
-    crParams.set('pageSize', '1')
-
-    const crRes = await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}?${crParams}`, {
-      headers: AIRTABLE_HEADERS, cache: 'no-store',
-    })
-    const crData = await crRes.json()
-    const creatorId = crData.records?.[0]?.id
-    if (!creatorId) return []
-
-    // Fetch Revenue Accounts linked to this creator
+    // Search Revenue Accounts where Account Name starts with the creator's AKA
+    // e.g. "Taby" matches "Taby - Free OF" and "Taby - VIP OF"
     const acctParams = new URLSearchParams()
-    acctParams.set('filterByFormula', `AND(FIND("${creatorId}", ARRAYJOIN({Creator})), {Platform}="OnlyFans", {Status}="Active")`)
+    acctParams.set('filterByFormula', `AND(FIND("${creatorAka.replace(/"/g, '\\"')} - ", {Account Name}) = 1, {Platform}="OnlyFans", {Status}="Active")`)
     acctParams.append('fields[]', 'fldkEi3jW9tUXSTc5') // Account Name
     acctParams.append('fields[]', 'fldxQMmYU6Ep6AkKR') // Account Type
     acctParams.set('returnFieldsByFieldId', 'true')
@@ -52,12 +40,19 @@ async function fetchCreatorAccounts(creatorAka) {
       headers: AIRTABLE_HEADERS, cache: 'no-store',
     })
     const acctData = await acctRes.json()
+    if (acctData.error) {
+      console.error('[Earnings] Revenue Accounts lookup error:', acctData.error)
+      return []
+    }
 
-    return (acctData.records || []).map(r => ({
+    const accounts = (acctData.records || []).map(r => ({
       id: r.id,
       accountName: r.fields['fldkEi3jW9tUXSTc5'] || '',
       accountType: r.fields['fldxQMmYU6Ep6AkKR']?.name || '',
     }))
+
+    console.log(`[Earnings] Found ${accounts.length} accounts for ${creatorAka}:`, accounts.map(a => a.accountName))
+    return accounts
   } catch (err) {
     console.error('Failed to fetch creator accounts:', err)
     return []
@@ -404,6 +399,8 @@ export async function GET(request) {
       tabsToFetch = [{ tabName: `${creator} - Sales`, account: '', accountName: '' }]
     }
 
+    console.log(`[Earnings] Fetching tabs for ${creator}:`, tabsToFetch.map(t => t.tabName))
+
     // Fetch from all tabs in parallel
     const tabResults = await Promise.allSettled(
       tabsToFetch.map(async ({ tabName, account, accountName }) => {
@@ -418,36 +415,13 @@ export async function GET(request) {
     // Parse rows from all tabs
     const transactions = []
     const accountList = [] // accounts that actually had data
+    let failedTabs = 0
 
     for (let i = 0; i < tabResults.length; i++) {
       const result = tabResults[i]
       if (result.status !== 'fulfilled') {
-        // Tab doesn't exist — skip silently for multi-account, error for single
-        if (tabsToFetch.length === 1) {
-          const err = result.reason
-          if (err?.message?.includes('Unable to parse range') || err?.code === 400) {
-            // If multi-account tabs failed, try legacy fallback
-            if (accounts.length > 0) {
-              try {
-                const fallbackRes = await sheets.spreadsheets.values.get({
-                  spreadsheetId: SPREADSHEET_ID,
-                  range: `'${creator} - Sales'!A4:I`,
-                })
-                const rows = fallbackRes.data.values || []
-                for (const row of rows) {
-                  const parsed = parseSheetRow(row, '')
-                  if (parsed) transactions.push(parsed)
-                }
-                if (rows.length > 0) accountList.push({ account: '', accountName: '' })
-              } catch {
-                return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
-              }
-              continue
-            }
-            return Response.json({ error: 'no_sheet', message: `No sales data found for ${creator}` })
-          }
-          throw err
-        }
+        failedTabs++
+        console.log(`[Earnings] Tab "${tabsToFetch[i].tabName}" failed:`, result.reason?.message || result.reason)
         continue
       }
 
@@ -458,6 +432,25 @@ export async function GET(request) {
           const parsed = parseSheetRow(row, account)
           if (parsed) transactions.push(parsed)
         }
+      }
+    }
+
+    // Fallback: if account-specific tabs failed/empty, try legacy "{creator} - Sales"
+    if (transactions.length === 0 && accounts.length > 0) {
+      console.log(`[Earnings] Account tabs yielded no data, trying legacy tab "${creator} - Sales"`)
+      try {
+        const fallbackRes = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${creator} - Sales'!A4:I`,
+        })
+        const rows = fallbackRes.data.values || []
+        for (const row of rows) {
+          const parsed = parseSheetRow(row, '')
+          if (parsed) transactions.push(parsed)
+        }
+        if (rows.length > 0) accountList.push({ account: '', accountName: '' })
+      } catch (err) {
+        console.log(`[Earnings] Legacy fallback also failed:`, err?.message || err)
       }
     }
 
