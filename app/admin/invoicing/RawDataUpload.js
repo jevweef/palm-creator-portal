@@ -61,6 +61,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
   // Chart width: 8px per day, minimum 600px
   const chartWidth = Math.max(600, totalDays * 8)
+  const todayStr = today.toISOString().split('T')[0]
 
   // Generate period lines (1st and 15th of each month) and period labels
   const periodLines = []
@@ -180,33 +181,43 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
                   {/* Sales bar */}
                   <div style={{ position: 'relative', height: '14px', marginBottom: '3px' }}>
-                    {hasEarnings ? (
+                    {/* Gray background bar spanning full timeline to today */}
+                    <div style={{
+                      position: 'absolute', left: 0,
+                      width: `${dateToPx(todayStr)}px`,
+                      height: '100%', borderRadius: '3px',
+                      background: '#f3f4f6', opacity: 0.5,
+                    }} />
+                    {hasEarnings && (
                       <div title={c.earningsLastUpload ? `Last upload: ${fmtUpload(c.earningsLastUpload)}` : `Data through ${fmtShort(c.earningsEnd)}, ${new Date(c.earningsEnd + 'T00:00:00').getFullYear()}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.earningsStart)}px`,
                         width: `${Math.max(4, dateToPx(c.earningsEnd) - dateToPx(c.earningsStart))}px`,
                         height: '100%', borderRadius: '3px', cursor: 'default',
                         background: 'linear-gradient(90deg, #86efac, #22c55e)',
-                        opacity: 0.85,
+                        opacity: 0.85, zIndex: 1,
                       }} />
-                    ) : (
-                      <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
                     )}
                   </div>
 
                   {/* Chargebacks bar */}
                   <div style={{ position: 'relative', height: '14px' }}>
-                    {hasChargebacks ? (
+                    {/* Gray background bar spanning full timeline to today */}
+                    <div style={{
+                      position: 'absolute', left: 0,
+                      width: `${dateToPx(todayStr)}px`,
+                      height: '100%', borderRadius: '3px',
+                      background: '#f3f4f6', opacity: 0.5,
+                    }} />
+                    {hasChargebacks && (
                       <div title={c.chargebacksLastUpload ? `Last upload: ${fmtUpload(c.chargebacksLastUpload)}` : `Data through ${fmtShort(c.chargebackEnd)}, ${new Date(c.chargebackEnd + 'T00:00:00').getFullYear()}`} style={{
                         position: 'absolute',
                         left: `${dateToPx(c.chargebackStart)}px`,
                         width: `${Math.max(4, dateToPx(c.chargebackEnd) - dateToPx(c.chargebackStart))}px`,
                         height: '100%', borderRadius: '3px', cursor: 'default',
                         background: 'linear-gradient(90deg, #fca5a5, #ef4444)',
-                        opacity: 0.85,
+                        opacity: 0.85, zIndex: 1,
                       }} />
-                    ) : (
-                      <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
                     )}
                   </div>
                 </div>
