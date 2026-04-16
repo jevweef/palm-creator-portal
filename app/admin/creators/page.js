@@ -1983,8 +1983,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           Top Fans — {PERIOD_PRESETS.find(p => p.key === period)?.label || (period === 'custom' ? 'Custom Range' : 'All Time')}
         </div>
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span>#</span><span>Name</span><span>Username</span><span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
+          <div style={{ display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span>#</span><span>Name</span><span>Username</span>{availableAccounts?.length > 1 && <span>Account</span>}<span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
           </div>
           {(showAllFans ? topFans : topFans.slice(0, 5)).map((fan, i) => (
             <div key={fan.displayName} style={{
