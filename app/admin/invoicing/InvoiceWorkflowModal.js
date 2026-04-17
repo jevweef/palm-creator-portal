@@ -284,7 +284,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                         background: '#fafafa',
                       }}>
                         <iframe
-                          src={embedUrl + '#view=FitH&toolbar=1&navpanes=0&pagemode=none'}
+                          src={embedUrl + '#view=FitH&toolbar=0&navpanes=0&scrollbar=0'}
                           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                           title="Invoice PDF"
                         />
