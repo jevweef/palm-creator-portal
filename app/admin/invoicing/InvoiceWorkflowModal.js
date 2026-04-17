@@ -331,26 +331,30 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', background: '#fafafa', borderRadius: '10px', flex: 1 }}>
                   {[
-                    { label: 'To', value: (emailPreview.to || []).join(', ') || '⚠ No creator email on file', warn: !(emailPreview.to || []).length },
-                    { label: 'Cc', value: (emailPreview.cc || []).join(', ') || '—' },
+                    { label: 'To', value: (emailPreview.to || []).join(', ') + (emailPreview.testMode ? '  (test mode)' : '') },
+                    ...((emailPreview.bcc || []).length ? [{ label: 'Bcc', value: emailPreview.bcc.join(', ') }] : []),
+                    ...((emailPreview.cc || []).length ? [{ label: 'Cc', value: emailPreview.cc.join(', ') }] : []),
                     { label: 'From', value: emailPreview.from || 'evan@palm-mgmt.com' },
                     { label: 'Subject', value: emailPreview.subject || `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
                   ].map(r => (
                     <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
                       <span style={{ color: '#999', width: '55px', flexShrink: 0 }}>{r.label}</span>
-                      <span style={{ color: r.warn ? '#dc2626' : '#4a4a4a', fontWeight: r.warn ? 600 : 400 }}>{r.value}</span>
+                      <span style={{ color: '#4a4a4a' }}>{r.value}</span>
                     </div>
                   ))}
+                  {emailPreview.testMode && (emailPreview.wouldSendTo || []).length > 0 && (
+                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed rgba(0,0,0,0.08)', fontSize: '11px', color: '#9ca3af' }}>
+                      <em>Production would send to <strong>{emailPreview.wouldSendTo.join(', ')}</strong>, cc <strong>{(emailPreview.wouldCc || []).join(', ')}</strong>.</em>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => { setEmailApproved(true); setActiveStep(3) }}
-                  disabled={!(emailPreview.to || []).length}
                   style={{
-                    background: (emailPreview.to || []).length ? '#22c55e' : '#e5e7eb',
-                    color: (emailPreview.to || []).length ? '#fff' : '#999',
+                    background: '#22c55e', color: '#fff',
                     border: 'none', borderRadius: '10px',
                     padding: '10px 22px', fontSize: '13px', fontWeight: 600,
-                    cursor: (emailPreview.to || []).length ? 'pointer' : 'not-allowed', flexShrink: 0,
+                    cursor: 'pointer', flexShrink: 0,
                   }}>
                   Looks Good → Send
                 </button>
