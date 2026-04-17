@@ -166,6 +166,7 @@ export async function GET(request) {
     return {
       id: data.id,
       invoice: f['Invoice'] || '',
+      invoiceNumber: f['Invoice Number'] || null,
       accountName: (f['Invoice'] || '').match(/- (.+?) \|/)?.[1] || '',
       earnings: f['Earnings (TR)'] || 0,
       totalCommission: f['Total Commission'] || 0,
@@ -225,7 +226,14 @@ export async function GET(request) {
     bcc = ['evan@palm-mgmt.com']
   }
   const from = 'evan@palm-mgmt.com'
-  const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
+  // Include invoice number in subject so each period gets its own Gmail thread (Gmail
+  // threads by subject + participants regardless of Message-ID). The GET preview shows
+  // a placeholder test suffix; the real POST appends a unique token per send.
+  const primaryInvoiceNumber = invoices.find(i => i.invoiceNumber)?.invoiceNumber || null
+  const subjectBase = primaryInvoiceNumber
+    ? `Palm Invoice #${primaryInvoiceNumber} — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
+    : `Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
+  const subject = mode === 'test' ? `${subjectBase} [test]` : subjectBase
 
   // Validation warnings — surfaced in the modal before sending
   const warnings = []
@@ -285,6 +293,7 @@ export async function POST(request) {
     const f = data.fields || {}
     return {
       id: data.id,
+      invoice: f['Invoice'] || '',
       accountName: (f['Invoice'] || '').match(/- (.+?) \|/)?.[1] || '',
       earnings: f['Earnings (TR)'] || 0,
       totalCommission: f['Total Commission'] || 0,
@@ -338,7 +347,18 @@ export async function POST(request) {
   }
   const from = 'Evan <evan@palm-mgmt.com>'
   const replyTo = 'josh@palm-mgmt.com' // Josh handles money questions
-  const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
+
+  // Gmail threads by subject + participants even with different Message-IDs. Make the
+  // subject unique per send so every email is its own thread:
+  //   production → includes invoice number (naturally unique per pay period)
+  //   test       → appends a unique token so repeat test sends never thread together
+  const primaryInvoiceNumber = invoices.find(i => i.invoiceNumber)?.invoiceNumber || null
+  const subjectBase = primaryInvoiceNumber
+    ? `Palm Invoice #${primaryInvoiceNumber} — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
+    : `Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
+  const subject = mode === 'test'
+    ? `${subjectBase} [test ${Date.now().toString(36)}]`
+    : subjectBase
 
   const totalEarnings = invoices.reduce((s, inv) => s + (inv.earnings || 0), 0)
   const previousTotal = await fetchPreviousPeriodTotal(aka, periodStart)
