@@ -148,6 +148,8 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url)
   const recordIds = searchParams.get('recordIds')?.split(',') || []
+  // `mode` param: 'test' (default — Evan + Josh) or 'production' (creator + cc Josh + bcc Evan)
+  const mode = searchParams.get('mode') === 'production' ? 'production' : 'test'
   if (!recordIds.length) return Response.json({ error: 'recordIds required' }, { status: 400 })
 
   // Fetch all invoice records
@@ -206,12 +208,19 @@ export async function GET(request) {
 
   const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices, earningsDelta })
 
-  // TEST MODE — send only to Evan + Josh while we verify PDFs render correctly.
-  // Creator's Communication Email is still returned below so the UI can show who it
-  // *would* go to in production.
-  const to = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
-  const cc = []
-  const bcc = ['evan@palm-mgmt.com']
+  // Recipients depend on mode:
+  //   test       → to: Evan + Josh, bcc Evan (so both appear in Evan's inbox as received)
+  //   production → to: creator's Communication Email, cc Josh, bcc Evan (shadow copy)
+  let to, cc, bcc
+  if (mode === 'production') {
+    to = email ? [email] : []
+    cc = ['josh@palm-mgmt.com']
+    bcc = ['evan@palm-mgmt.com']
+  } else {
+    to = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
+    cc = []
+    bcc = ['evan@palm-mgmt.com']
+  }
   const from = 'evan@palm-mgmt.com'
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
 
@@ -238,7 +247,8 @@ export async function GET(request) {
     bcc,
     from,
     subject,
-    testMode: true,
+    mode,
+    testMode: mode === 'test',
     wouldSendTo: email ? [email] : [], // what production would use
     wouldCc: ['josh@palm-mgmt.com'],
     warnings,
@@ -257,7 +267,9 @@ export async function GET(request) {
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
-  const { recordIds } = await request.json()
+  const body = await request.json()
+  const recordIds = body.recordIds
+  const mode = body.mode === 'production' ? 'production' : 'test'
   if (!recordIds?.length) return Response.json({ error: 'recordIds required' }, { status: 400 })
 
   // Fetch preflight data via internal logic (not self-call)
@@ -303,12 +315,24 @@ export async function POST(request) {
     email = cr.fields?.['Communication Email'] || null
   }
 
-  // TEST MODE — route all sends to Evan + Josh, BCC Evan for inbox copy.
-  // Creator Communication Email is still surfaced upstream so we know who it would hit
-  // in production, but not used as a recipient yet.
-  const to = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
-  const cc = []
-  const bcc = ['evan@palm-mgmt.com']
+  // Recipients depend on mode (sent from client via body.mode).
+  //   test       → to: Evan + Josh only
+  //   production → to: creator's Communication Email, cc Josh, bcc Evan
+  let to, cc, bcc
+  if (mode === 'production') {
+    if (!email) {
+      return Response.json({
+        error: `No Communication Email on file for ${creatorName || aka}. Add one before sending in production mode.`,
+      }, { status: 400 })
+    }
+    to = [email]
+    cc = ['josh@palm-mgmt.com']
+    bcc = ['evan@palm-mgmt.com']
+  } else {
+    to = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
+    cc = []
+    bcc = ['evan@palm-mgmt.com']
+  }
   const from = 'Evan <evan@palm-mgmt.com>'
   const replyTo = 'josh@palm-mgmt.com' // Josh handles money questions
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
@@ -403,5 +427,5 @@ export async function POST(request) {
     })
   ))
 
-  return Response.json({ ok: true, to, cc, bcc, from, recordIds, sentAt })
+  return Response.json({ ok: true, mode, to, cc, bcc, from, recordIds, sentAt })
 }

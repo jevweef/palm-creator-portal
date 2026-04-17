@@ -60,6 +60,9 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
+  // Test mode routes to Evan + Josh. Production mode routes to the creator's
+  // Communication Email, cc Josh, bcc Evan. Defaults to test for safety.
+  const [sendMode, setSendMode] = useState('test')
 
   const sorted = [...rows].sort((a, b) => accountRank(a.accountName) - accountRank(b.accountName))
   const allHavePdfs = sorted.every(r => r.hasPdf)
@@ -137,20 +140,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     setActiveStep(1)
   }, [sorted, onRecordsUpdate])
 
-  // Load email preview
-  const handleLoadPreview = useCallback(async () => {
+  // Load email preview (for the currently selected send mode)
+  const handleLoadPreview = useCallback(async (modeOverride) => {
     setLoadingPreview(true)
     setError(null)
     try {
       const ids = sorted.map(r => r.id).join(',')
-      const res = await fetch(`/api/admin/invoicing/send-combined?recordIds=${ids}`)
+      const mode = modeOverride || sendMode
+      const res = await fetch(`/api/admin/invoicing/send-combined?recordIds=${ids}&mode=${mode}`)
       const data = await res.json()
       setEmailPreview(data)
     } catch (e) {
       setError(e.message)
     }
     setLoadingPreview(false)
-  }, [sorted])
+  }, [sorted, sendMode])
 
   // Send email
   const handleSend = useCallback(async () => {
@@ -160,7 +164,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       const res = await fetch('/api/admin/invoicing/send-combined', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordIds: sorted.map(r => r.id) }),
+        body: JSON.stringify({ recordIds: sorted.map(r => r.id), mode: sendMode }),
       })
       const data = await res.json()
       if (data.ok) {
@@ -179,7 +183,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       setError(e.message)
     }
     setSending(false)
-  }, [sorted, onRecordsUpdate])
+  }, [sorted, sendMode, onRecordsUpdate])
 
   // Mark paid
   const handleMarkPaid = useCallback(async (recordId) => {
@@ -343,6 +347,52 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first.</div>
           ) : emailPreview ? (
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              {/* Test / Production mode toggle */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px', marginBottom: '12px', flexShrink: 0,
+                background: sendMode === 'production' ? '#FEF3C7' : '#F3F4F6',
+                border: `1px solid ${sendMode === 'production' ? '#FCD34D' : '#E5E7EB'}`,
+                borderRadius: '10px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{
+                    fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    color: sendMode === 'production' ? '#92400E' : '#6B7280',
+                  }}>
+                    {sendMode === 'production' ? '⚠ Production Mode' : '🧪 Test Mode'}
+                  </span>
+                  <span style={{ fontSize: '11px', color: sendMode === 'production' ? '#92400E' : '#9CA3AF' }}>
+                    {sendMode === 'production'
+                      ? 'Email will go to the creator (cc Josh, bcc Evan).'
+                      : 'Email will go to Evan + Josh only.'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '4px', background: '#fff', padding: '3px', borderRadius: '7px' }}>
+                  {[
+                    { key: 'test', label: 'Test' },
+                    { key: 'production', label: 'Production' },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => {
+                        if (sendMode === opt.key) return
+                        setSendMode(opt.key)
+                        handleLoadPreview(opt.key)
+                      }}
+                      style={{
+                        background: sendMode === opt.key ? '#1a1a1a' : 'transparent',
+                        color: sendMode === opt.key ? '#fff' : '#6B7280',
+                        border: 'none', borderRadius: '5px',
+                        padding: '4px 14px', fontSize: '11px', fontWeight: 600,
+                        cursor: 'pointer',
+                      }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {/* Validation warnings — always visible when present */}
               {(emailPreview.warnings || []).length > 0 && (
                 <div style={{ marginBottom: '12px', flexShrink: 0 }}>
@@ -405,16 +455,23 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => { setEmailApproved(true); setActiveStep(3) }}
-                  style={{
-                    background: '#22c55e', color: '#fff',
-                    border: 'none', borderRadius: '10px',
-                    padding: '10px 22px', fontSize: '13px', fontWeight: 600,
-                    cursor: 'pointer', flexShrink: 0,
-                  }}>
-                  Looks Good → Send
-                </button>
+                {(() => {
+                  const canSend = (emailPreview.to || []).length > 0
+                  return (
+                    <button
+                      onClick={() => { setEmailApproved(true); setActiveStep(3) }}
+                      disabled={!canSend}
+                      style={{
+                        background: canSend ? '#22c55e' : '#e5e7eb',
+                        color: canSend ? '#fff' : '#999',
+                        border: 'none', borderRadius: '10px',
+                        padding: '10px 22px', fontSize: '13px', fontWeight: 600,
+                        cursor: canSend ? 'pointer' : 'not-allowed', flexShrink: 0,
+                      }}>
+                      Looks Good → Send
+                    </button>
+                  )
+                })()}
               </div>
               {/* Email body preview — fills remaining space */}
               <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
