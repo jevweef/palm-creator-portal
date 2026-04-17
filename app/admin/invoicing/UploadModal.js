@@ -43,14 +43,19 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
     setError(null)
     setResult(null)
     try {
-      // Strip base64-encoded images from HTML to get under Vercel's 4.5MB body limit.
-      // OF statement HTML embeds avatars/thumbnails as data: URIs which bloat the file
-      // but aren't needed by the parser. Only applies to .html/.htm files.
+      // Strip non-data content from HTML to get under Vercel's 4.5MB body limit.
+      // OF statement HTML embeds inline SVG icons, scripts, styles, and sometimes
+      // base64 images. The parser only needs the transaction <table> data.
       let uploadFile = file
       const isHtml = /\.html?$/i.test(file.name) || file.type.includes('html')
       if (isHtml && file.size > 3_500_000) {
         const text = await file.text()
-        const stripped = text.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+        const stripped = text
+          .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<link\b[^>]*>/gi, '')
+          .replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
         const blob = new Blob([stripped], { type: file.type || 'text/html' })
         uploadFile = new File([blob], file.name, { type: blob.type, lastModified: file.lastModified })
       }
