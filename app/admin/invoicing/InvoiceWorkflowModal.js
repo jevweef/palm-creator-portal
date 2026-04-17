@@ -343,6 +343,44 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first.</div>
           ) : emailPreview ? (
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              {/* Validation warnings — always visible when present */}
+              {(emailPreview.warnings || []).length > 0 && (
+                <div style={{ marginBottom: '12px', flexShrink: 0 }}>
+                  {emailPreview.warnings.map((w, i) => (
+                    <div key={i} style={{
+                      padding: '10px 14px',
+                      background: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      borderRadius: '10px',
+                      fontSize: '12px',
+                      color: '#B91C1C',
+                      marginBottom: '6px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                    }}>
+                      <span style={{ fontSize: '14px', lineHeight: 1 }}>⚠</span>
+                      <span>{w.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Earnings delta indicator */}
+              {emailPreview.earningsDelta && (
+                <div style={{
+                  marginBottom: '12px', flexShrink: 0, padding: '8px 14px',
+                  background: emailPreview.earningsDelta === 'up' ? '#F0FDF4' : '#F9FAFB',
+                  border: `1px solid ${emailPreview.earningsDelta === 'up' ? '#BBF7D0' : '#E5E7EB'}`,
+                  borderRadius: '10px', fontSize: '12px',
+                  color: emailPreview.earningsDelta === 'up' ? '#15803D' : '#6B7280',
+                }}>
+                  {emailPreview.earningsDelta === 'up'
+                    ? `📈 Earnings up from last period — "great work" paragraph will be included.`
+                    : emailPreview.earningsDelta === 'down'
+                    ? `📉 Earnings down from last period — celebratory paragraph omitted, straight to invoice.`
+                    : `Earnings flat vs. last period — celebratory paragraph omitted.`}
+                </div>
+              )}
               {/* Top bar: email meta + send button */}
               <div style={{
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',

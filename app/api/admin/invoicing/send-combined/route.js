@@ -39,6 +39,32 @@ const atHeaders = () => ({
   'Content-Type': 'application/json',
 })
 
+// Find this creator's previous pay period total revenue so the email tone can adapt
+// (only show "great work" language when earnings went up).
+async function fetchPreviousPeriodTotal(aka, currentPeriodStart) {
+  if (!aka || !currentPeriodStart) return null
+  // Pull this creator's invoices ending strictly before the current period start,
+  // sorted descending by Period End. Sum the most recent period's rows.
+  const formula = `AND(FIND("${aka.replace(/"/g, '\\"')}", ARRAYJOIN({AKA (from Creator)})), IS_BEFORE({Period End}, "${currentPeriodStart}"))`
+  const params = new URLSearchParams()
+  params.set('filterByFormula', formula)
+  params.set('sort[0][field]', 'Period End')
+  params.set('sort[0][direction]', 'desc')
+  params.set('pageSize', '20')
+  const res = await fetch(
+    `https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}?${params}`,
+    { headers: atHeaders(), cache: 'no-store' }
+  )
+  if (!res.ok) return null
+  const data = await res.json()
+  if (!data.records?.length) return null
+  // All rows from the single most-recent prior period share the same Period End
+  const latestEnd = data.records[0].fields?.['Period End']
+  if (!latestEnd) return null
+  const prev = data.records.filter(r => r.fields?.['Period End'] === latestEnd)
+  return prev.reduce((s, r) => s + Number(r.fields?.['Earnings (TR)'] || 0), 0)
+}
+
 function fmtDate(iso) {
   if (!iso) return ''
   const d = iso.includes('T') ? new Date(iso) : new Date(iso + 'T12:00:00')
@@ -49,7 +75,7 @@ function fmtMoney(n) {
   return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices }) {
+function buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices, earningsDelta }) {
   const accountRows = invoices.map(inv =>
     `<tr>
       <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;">${inv.accountName}</td>
@@ -60,6 +86,18 @@ function buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission,
       </td>
     </tr>`
   ).join('')
+
+  // Only include the celebratory "great work" paragraph when earnings went up from the
+  // previous pay period. If earnings were flat or down, drop that paragraph entirely so
+  // the email reads as a straightforward invoice — no tone mismatch.
+  const celebratoryParagraph = earningsDelta === 'up'
+    ? `<p style="font-size:15px;color:#555;margin:0 0 28px;line-height:1.6;">
+        Great work this period! Your accounts continue to perform and we're excited about the momentum.
+        Here's your invoice breakdown for the latest pay period.
+      </p>`
+    : `<p style="font-size:15px;color:#555;margin:0 0 28px;line-height:1.6;">
+        Here's your invoice breakdown for the latest pay period.
+      </p>`
 
   return `<!DOCTYPE html>
 <html>
@@ -72,10 +110,7 @@ function buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission,
     </div>
     <div style="padding:36px 40px;">
       <p style="font-size:17px;color:#111;margin:0 0 8px;font-weight:600;">Hey ${aka},</p>
-      <p style="font-size:15px;color:#555;margin:0 0 28px;line-height:1.6;">
-        Great work this period! Your accounts continue to perform and we're excited about the momentum.
-        Here's your invoice breakdown for the latest pay period.
-      </p>
+      ${celebratoryParagraph}
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
         <thead>
           <tr style="background:#fafafa;">
@@ -162,7 +197,14 @@ export async function GET(request) {
     email = cr.fields?.['Communication Email'] || null
   }
 
-  const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
+  // Earnings delta: compare to the creator's previous pay period. If UP → include the
+  // "great work" paragraph; if flat or DOWN → omit it (don't sound tone-deaf).
+  const previousTotal = await fetchPreviousPeriodTotal(aka, periodStart)
+  const earningsDelta = previousTotal == null
+    ? null
+    : (totalEarnings > previousTotal ? 'up' : totalEarnings < previousTotal ? 'down' : 'flat')
+
+  const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices, earningsDelta })
 
   // TEST MODE — send only to Evan + Josh while we verify PDFs render correctly.
   // Creator's Communication Email is still returned below so the UI can show who it
@@ -173,6 +215,11 @@ export async function GET(request) {
   const from = 'evan@palm-mgmt.com'
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
 
+  // Validation warnings — surfaced in the modal before sending
+  const warnings = []
+  if (!email) warnings.push({ type: 'missingEmail', message: `No Communication Email on file for ${creatorName || aka || 'this creator'}. Add one to the HQ Creators record before sending to creators.` })
+  if (!aka) warnings.push({ type: 'missingAka', message: `Creator AKA field is blank — the email greeting will say "Hey ,". Set an AKA on the creator record.` })
+
   return Response.json({
     email,
     creatorName,
@@ -182,6 +229,8 @@ export async function GET(request) {
     dueDate,
     totalCommission,
     totalEarnings,
+    previousPeriodTotal: previousTotal,
+    earningsDelta,
     allHavePdfs,
     html,
     to,
@@ -192,6 +241,7 @@ export async function GET(request) {
     testMode: true,
     wouldSendTo: email ? [email] : [], // what production would use
     wouldCc: ['josh@palm-mgmt.com'],
+    warnings,
     invoices: invoices.map(inv => ({
       id: inv.id,
       accountName: inv.accountName,
@@ -260,8 +310,16 @@ export async function POST(request) {
   const cc = []
   const bcc = ['evan@palm-mgmt.com']
   const from = 'Evan <evan@palm-mgmt.com>'
+  const replyTo = 'josh@palm-mgmt.com' // Josh handles money questions
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
-  const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
+
+  const totalEarnings = invoices.reduce((s, inv) => s + (inv.earnings || 0), 0)
+  const previousTotal = await fetchPreviousPeriodTotal(aka, periodStart)
+  const earningsDelta = previousTotal == null
+    ? null
+    : (totalEarnings > previousTotal ? 'up' : totalEarnings < previousTotal ? 'down' : 'flat')
+
+  const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices, earningsDelta })
 
   // Send via Resend if configured, otherwise return for manual
   if (!process.env.RESEND_API_KEY) {
@@ -323,6 +381,7 @@ export async function POST(request) {
       to,
       ...(cc.length ? { cc } : {}),
       ...(bcc.length ? { bcc } : {}),
+      reply_to: replyTo,
       subject,
       html,
       attachments,
