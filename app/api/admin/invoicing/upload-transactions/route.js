@@ -227,6 +227,32 @@ function parseDesc(desc) {
 
 // ── Google Sheets helpers ───────────────────────────────────────────────────
 
+// Retry a Sheets API call on transient quota / rate-limit errors.
+// Google Sheets returns 429 with reason "RATE_LIMIT_EXCEEDED" or 503 when
+// the per-minute read quota is burned (e.g. when dashboard is polling at
+// the same time as an upload). Exponential backoff handles this gracefully.
+async function withRetry(fn, label = 'sheets call') {
+  const delays = [1500, 4000, 10000, 20000] // ms between attempts
+  let lastErr
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      return await fn()
+    } catch (e) {
+      lastErr = e
+      const code = e?.code || e?.response?.status
+      const reason = e?.errors?.[0]?.reason || e?.response?.data?.error?.status || ''
+      const retryable = code === 429 || code === 503
+        || /quota|rate.?limit|rateLimit|RESOURCE_EXHAUSTED/i.test(reason)
+        || /quota|rate.?limit/i.test(e?.message || '')
+      if (!retryable || attempt === delays.length) throw e
+      const wait = delays[attempt]
+      console.warn(`[${label}] quota hit, retrying in ${wait}ms (attempt ${attempt + 1}):`, e.message)
+      await new Promise(r => setTimeout(r, wait))
+    }
+  }
+  throw lastErr
+}
+
 function getAuth() {
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -242,15 +268,18 @@ const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 
 async function getOrCreateTab(sheets, creator, dataType) {
   const tabName = `${creator} - ${dataType}`
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+  const spreadsheet = await withRetry(
+    () => sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID }),
+    'getOrCreateTab.get'
+  )
   const existing = spreadsheet.data.sheets.find(s => s.properties.title === tabName)
 
   if (!existing) {
-    await sheets.spreadsheets.batchUpdate({
+    await withRetry(() => sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: { requests: [{ addSheet: { properties: { title: tabName } } }] }
-    })
-    await sheets.spreadsheets.values.batchUpdate({
+    }), 'getOrCreateTab.addSheet')
+    await withRetry(() => sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: {
         valueInputOption: 'RAW',
@@ -259,17 +288,17 @@ async function getOrCreateTab(sheets, creator, dataType) {
           { range: `'${tabName}'!A3`, values: [HEADER_ROW] },
         ]
       }
-    })
+    }), 'getOrCreateTab.headers')
   }
   return tabName
 }
 
 async function getCutoff(sheets, tabName) {
   try {
-    const res = await sheets.spreadsheets.values.get({
+    const res = await withRetry(() => sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A4:A10000`,
-    })
+    }), 'getCutoff')
     const rows = res.data.values || []
     if (rows.length === 0) return null
     let latest = null
@@ -293,16 +322,16 @@ function txnFingerprint(dateTime, _unused, net, fan) {
 // Get the last N rows from the sheet for overlap matching
 async function getLastRows(sheets, tabName, count = 50) {
   try {
-    const colRes = await sheets.spreadsheets.values.get({
+    const colRes = await withRetry(() => sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID, range: `'${tabName}'!A:A`,
-    })
+    }), 'getLastRows.col')
     const totalRows = colRes.data.values?.length || 3
     if (totalRows <= 3) return [] // only header rows
     const startRow = Math.max(4, totalRows - count + 1)
-    const res = await sheets.spreadsheets.values.get({
+    const res = await withRetry(() => sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A${startRow}:I${totalRows}`,
-    })
+    }), 'getLastRows.range')
     return (res.data.values || []).map(row => ({
       dateTime: row[0] || '', gross: row[1] || '',
       ofFee: row[2] || '', net: row[3] || '', type: row[4] || '',
@@ -316,12 +345,12 @@ async function updateCutoff(sheets, tabName, cutoffDt) {
   const notice = cutoffDt
     ? `⚠️  ONLY UPLOAD SALES AFTER: ${cutoffDt.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}`
     : '⏳ No data uploaded yet — upload your first file!'
-  await sheets.spreadsheets.values.update({
+  await withRetry(() => sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `'${tabName}'!A1`,
     valueInputOption: 'RAW',
     resource: { values: [[notice]] },
-  })
+  }), 'updateCutoff')
 }
 
 // ── Airtable coverage update ───────────────────────────────────────────────
@@ -558,13 +587,16 @@ export async function POST(request) {
     ])
 
     // Insert new rows at top (row 4, right after headers) so newest data is always first
-    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+    const spreadsheet = await withRetry(
+      () => sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID }),
+      'post.getSheet'
+    )
     const sheetMeta = spreadsheet.data.sheets.find(s => s.properties.title === tabName)
     const sheetId = sheetMeta?.properties?.sheetId
 
     // First, insert blank rows at position 4 to make room
     if (sheetId !== undefined) {
-      await sheets.spreadsheets.batchUpdate({
+      await withRetry(() => sheets.spreadsheets.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
         resource: {
           requests: [{
@@ -574,16 +606,16 @@ export async function POST(request) {
             }
           }]
         }
-      })
+      }), 'post.insertRows')
     }
 
     // Write the new rows starting at row 4
-    await sheets.spreadsheets.values.update({
+    await withRetry(() => sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A4`,
       valueInputOption: 'RAW',
       resource: { values: rows },
-    })
+    }), 'post.writeRows')
 
     // Update cutoff — find the latest timestamp across all sheet data + new rows
     let newCutoff = null
