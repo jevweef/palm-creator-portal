@@ -258,19 +258,22 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                // Dropbox with raw=1 forces inline PDF rendering (Airtable attachment URLs
-                // return Content-Disposition: attachment and render as blank iframes).
-                let embedUrl = null
+                // Build Dropbox raw URL (forces inline rendering instead of download)
+                let rawPdfUrl = null
                 if (rec?.dropboxLink) {
                   try {
                     const u = new URL(rec.dropboxLink)
                     u.searchParams.set('raw', '1')
                     u.searchParams.delete('dl')
-                    embedUrl = u.toString()
-                  } catch { embedUrl = rec.pdfUrl || null }
+                    rawPdfUrl = u.toString()
+                  } catch { rawPdfUrl = rec.pdfUrl || null }
                 } else {
-                  embedUrl = rec?.pdfUrl || null
+                  rawPdfUrl = rec?.pdfUrl || null
                 }
+                // Wrap in Google Docs Viewer to get a clean PDF render (no Chrome sidebar, no page picker)
+                const embedUrl = rawPdfUrl
+                  ? `https://docs.google.com/gview?url=${encodeURIComponent(rawPdfUrl)}&embedded=true`
+                  : null
                 const dropboxView = rec?.dropboxLink || null // Dropbox browsable link for "open in new tab"
                 return (embedUrl || dropboxView) ? (
                   <div>
@@ -280,7 +283,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                         borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
                       }}>
                         <iframe
-                          src={embedUrl + '#view=FitH&toolbar=1&pagemode=none&navpanes=0'}
+                          src={embedUrl}
                           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                           title="Invoice PDF"
                         />
