@@ -270,9 +270,10 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 } else {
                   rawPdfUrl = rec?.pdfUrl || null
                 }
-                // Wrap in Google Docs Viewer to get a clean PDF render (no Chrome sidebar, no page picker)
+                // Mozilla's PDF.js viewer gives us a clean full-width render with no
+                // Chrome-specific sidebar/page-picker. It supports open-in-browser PDFs via ?file=.
                 const embedUrl = rawPdfUrl
-                  ? `https://docs.google.com/gview?url=${encodeURIComponent(rawPdfUrl)}&embedded=true`
+                  ? `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(rawPdfUrl)}`
                   : null
                 const dropboxView = rec?.dropboxLink || null // Dropbox browsable link for "open in new tab"
                 return (embedUrl || dropboxView) ? (
