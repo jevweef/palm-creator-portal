@@ -276,10 +276,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   <div>
                     {embedUrl ? (
                       <div style={{
-                        height: 'calc(95vh - 280px)',
-                        aspectRatio: '8.5 / 11',
-                        margin: '0 auto',
-                        maxWidth: '100%',
+                        width: '100%',
+                        height: 'calc(95vh - 260px)',
                         borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
                         background: '#fafafa',
                       }}>
