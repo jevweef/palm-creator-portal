@@ -270,21 +270,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 } else {
                   rawPdfUrl = rec?.pdfUrl || null
                 }
-                // Mozilla's PDF.js viewer gives us a clean full-width render with no
-                // Chrome-specific sidebar/page-picker. It supports open-in-browser PDFs via ?file=.
                 const embedUrl = rawPdfUrl
-                  ? `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(rawPdfUrl)}`
-                  : null
                 const dropboxView = rec?.dropboxLink || null // Dropbox browsable link for "open in new tab"
                 return (embedUrl || dropboxView) ? (
                   <div>
                     {embedUrl ? (
                       <div style={{
-                        width: '100%', height: 'calc(90vh - 380px)',
+                        height: 'calc(95vh - 280px)',
+                        aspectRatio: '8.5 / 11',
+                        margin: '0 auto',
+                        maxWidth: '100%',
                         borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
+                        background: '#fafafa',
                       }}>
                         <iframe
-                          src={embedUrl}
+                          src={embedUrl + '#view=FitH&toolbar=1&navpanes=0&pagemode=none'}
                           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                           title="Invoice PDF"
                         />
