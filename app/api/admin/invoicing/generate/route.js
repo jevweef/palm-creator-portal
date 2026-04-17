@@ -4,7 +4,7 @@ import { generateInvoicePdf } from '@/lib/generateInvoicePdf'
 const HQ_BASE = 'appL7c4Wtotpz07KS'
 const INVOICES_TABLE = 'tblKbU8VkdlOHXoJj'
 const CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
-const DROPBOX_FOLDER = '/Palm Mgmt/Invoices'
+const DROPBOX_FOLDER = '/Palm Ops/Invoices'
 
 const atHeaders = () => ({
   Authorization: `Bearer ${process.env.AIRTABLE_PAT}`,
@@ -149,11 +149,12 @@ export async function POST(request) {
     // Generate PDF
     const pdfBuffer = await generateInvoicePdf(invoiceData)
 
-    // Upload to Dropbox
+    // Upload to Dropbox — organized by pay period: /Palm Ops/Invoices/{start} to {end}/invoice_N_slug.pdf
     const token = await getDropboxToken()
     const akaSlug = aka.toLowerCase().replace(/ /g, '_')
     const filename = `invoice_${invoiceNumber}_${akaSlug}.pdf`
-    const dropboxPath = `${DROPBOX_FOLDER}/${filename}`
+    const periodFolder = periodStart && periodEnd ? `${periodStart} to ${periodEnd}` : 'unassigned'
+    const dropboxPath = `${DROPBOX_FOLDER}/${periodFolder}/${filename}`
 
     await dropboxUpload(token, pdfBuffer, dropboxPath)
     const { browsable, direct } = await dropboxShareLink(token, dropboxPath)
