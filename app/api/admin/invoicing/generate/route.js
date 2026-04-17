@@ -94,88 +94,126 @@ export const maxDuration = 60 // needs Pro plan for >10s, but set high for safet
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
-  const { recordId } = await request.json()
-  if (!recordId) return Response.json({ error: 'recordId required' }, { status: 400 })
+  const body = await request.json()
+  // Accept either a single recordId OR an array of recordIds. When multiple are provided
+  // (same creator, same pay period), produce ONE PDF with all accounts as line items and
+  // attach the result to every record in the group.
+  const recordIds = Array.isArray(body.recordIds) && body.recordIds.length
+    ? body.recordIds
+    : (body.recordId ? [body.recordId] : [])
+  if (recordIds.length === 0) return Response.json({ error: 'recordId(s) required' }, { status: 400 })
 
   try {
-    // Fetch invoice record
-    const inv = await fetchRecord(INVOICES_TABLE, recordId)
-    const f = inv.fields
-
-    const creatorIds = f['fldGggvFzR0zzl9p4'] || []
-    const akaArr = f['fld37wwgvM0znxDPa'] || []
-    const earnings = Number(f['fldUBcYSMy74lt9Xf'] || 0)
-    const commissionPct = Number(f['fldeQoHxbYYWAnJYZ'] || 0)
-    const periodStart = f['fldeucG0jEvjem841'] || ''
-    const periodEnd = f['fldZhX5uMZjrAkAeP'] || ''
-    const invoiceFormula = f['fldCimhMbOOeOQrFJ'] || ''
-    const existingNum = f['fldl3FDN3H4pr2nIY']
-
-    const aka = akaArr[0] || ''
-    const accountPart = invoiceFormula.includes(' | ') ? invoiceFormula.split(' | ')[0].trim() : ''
-    const accountLabel = aka ? accountPart.replace(`${aka} - `, '').trim() : accountPart
-
-    // Fetch creator's legal name
-    let creatorName = aka
-    if (creatorIds.length) {
-      const cr = await fetchRecord(CREATORS_TABLE, creatorIds[0])
-      creatorName = cr.fields?.['fldMNaYOWpDxpvMxf'] || aka
+    // Fetch all records
+    const records = []
+    for (const id of recordIds) {
+      const rec = await fetchRecord(INVOICES_TABLE, id)
+      records.push(rec)
     }
 
-    // Assign invoice number
-    const invoiceNumber = existingNum ? Number(existingNum) : (await getMaxInvoiceNumber()) + 1
-    const commissionAmt = earnings * commissionPct
+    // Validate: all records must share creator (AKA) + period
+    const firstF = records[0].fields
+    const groupAka = (firstF['fld37wwgvM0znxDPa'] || [])[0] || ''
+    const groupStart = firstF['fldeucG0jEvjem841'] || ''
+    const groupEnd = firstF['fldZhX5uMZjrAkAeP'] || ''
+    for (const r of records) {
+      const f = r.fields
+      const aka = (f['fld37wwgvM0znxDPa'] || [])[0] || ''
+      const ps = f['fldeucG0jEvjem841'] || ''
+      const pe = f['fldZhX5uMZjrAkAeP'] || ''
+      if (aka !== groupAka || ps !== groupStart || pe !== groupEnd) {
+        return Response.json({ error: 'All records must share the same creator and pay period' }, { status: 400 })
+      }
+    }
 
-    // Build invoice data
-    const invoiceData = {
-      creator_name: creatorName,
-      aka,
-      invoice_number: invoiceNumber,
-      periods: [{
+    // Sort so Free OF line item comes before VIP OF for consistent display
+    records.sort((a, b) => {
+      const la = a.fields['fldCimhMbOOeOQrFJ'] || ''
+      const lb = b.fields['fldCimhMbOOeOQrFJ'] || ''
+      const rank = (s) => s.includes('Free OF') ? 1 : s.includes('VIP OF') ? 2 : s.includes('Fansly') ? 3 : 4
+      return rank(la) - rank(lb)
+    })
+
+    // Resolve creator legal name (from first record's linked creator)
+    let creatorName = groupAka
+    const creatorIds = firstF['fldGggvFzR0zzl9p4'] || []
+    if (creatorIds.length) {
+      const cr = await fetchRecord(CREATORS_TABLE, creatorIds[0])
+      creatorName = cr.fields?.['fldMNaYOWpDxpvMxf'] || groupAka
+    }
+
+    // Pick one invoice number for the combined invoice.
+    // Prefer the smallest existing one among the records; otherwise mint a new one.
+    const existingNums = records
+      .map(r => r.fields['fldl3FDN3H4pr2nIY'])
+      .filter(n => n != null)
+      .map(Number)
+      .sort((a, b) => a - b)
+    const invoiceNumber = existingNums.length ? existingNums[0] : (await getMaxInvoiceNumber()) + 1
+
+    // Build one period entry per record (each account = one line item block)
+    const periods = records.map(r => {
+      const f = r.fields
+      const earnings = Number(f['fldUBcYSMy74lt9Xf'] || 0)
+      const commissionPct = Number(f['fldeQoHxbYYWAnJYZ'] || 0)
+      const invoiceFormula = f['fldCimhMbOOeOQrFJ'] || ''
+      const accountPart = invoiceFormula.includes(' | ') ? invoiceFormula.split(' | ')[0].trim() : ''
+      const accountLabel = groupAka ? accountPart.replace(`${groupAka} - `, '').trim() : accountPart
+      return {
         label: accountLabel,
-        start: periodStart,
-        end: periodEnd,
+        start: groupStart,
+        end: groupEnd,
         earnings,
         commission_pct: commissionPct,
-        commission_amt: commissionAmt,
-      }],
+        commission_amt: earnings * commissionPct,
+      }
+    })
+
+    const invoiceData = {
+      creator_name: creatorName,
+      aka: groupAka,
+      invoice_number: invoiceNumber,
+      periods,
     }
 
     // Generate PDF
     const pdfBuffer = await generateInvoicePdf(invoiceData)
 
-    // Upload to team-space Palm Ops — folder by pay period, filename combines AKA + period + invoice #
-    // e.g. /Palm Ops/Invoices/2026-03-29 to 2026-04-14/Amelia - 2026-03-29 to 2026-04-14 - 1148.pdf
+    // Upload to team-space Palm Ops — one file for the whole group
     const token = await getDropboxAccessToken()
     const rootId = await getDropboxRootNamespaceId(token)
-    const akaPart = aka || 'Unassigned'
-    const periodPart = periodStart && periodEnd ? `${periodStart} to ${periodEnd}` : 'unassigned'
+    const akaPart = groupAka || 'Unassigned'
+    const periodPart = groupStart && groupEnd ? `${groupStart} to ${groupEnd}` : 'unassigned'
     const filename = `${akaPart} - ${periodPart} - ${invoiceNumber}.pdf`
     const dropboxPath = `${DROPBOX_FOLDER}/${periodPart}/${filename}`
 
     await dropboxUpload(token, rootId, pdfBuffer, dropboxPath)
     const { browsable, direct } = await dropboxShareLink(token, rootId, dropboxPath)
 
-    // Update Airtable: attachment, invoice number, dropbox link, generated timestamp
-    await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}/${recordId}`, {
-      method: 'PATCH',
-      headers: atHeaders(),
-      body: JSON.stringify({
-        fields: {
-          fldDrn5gbFp03ngNC: [{ url: direct, filename }],
-          fldl3FDN3H4pr2nIY: invoiceNumber,
-          fldhtbiwnxDm2KJpg: browsable,
-          fldtJxnQil7qFI3v1: new Date().toISOString(), // Generated At
-        },
-      }),
-    })
+    // Attach the same PDF + link + invoice# to every record in the group
+    const generatedAt = new Date().toISOString()
+    for (const r of records) {
+      await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}/${r.id}`, {
+        method: 'PATCH',
+        headers: atHeaders(),
+        body: JSON.stringify({
+          fields: {
+            fldDrn5gbFp03ngNC: [{ url: direct, filename }],
+            fldl3FDN3H4pr2nIY: invoiceNumber,
+            fldhtbiwnxDm2KJpg: browsable,
+            fldtJxnQil7qFI3v1: generatedAt,
+          },
+        }),
+      })
+    }
 
     return Response.json({
       ok: true,
       dropboxLink: browsable,
       invoiceNumber: String(invoiceNumber),
       filename,
-      generatedAt: new Date().toISOString(),
+      generatedAt,
+      recordIds: records.map(r => r.id),
     })
   } catch (err) {
     console.error('Generate invoice error:', err)

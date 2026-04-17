@@ -92,50 +92,49 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     }
   }
 
-  // Generate all PDFs
+  // Generate one combined PDF for all accounts in this creator+period group.
+  // The backend produces a single PDF with one line-item block per account and attaches
+  // the same file to every record in the group.
   const handleGenerateAll = useCallback(async () => {
     setGenerating(true)
     setError(null)
-    const toGenerate = sorted.filter(r => !r.hasPdf)
-    const total = toGenerate.length || sorted.length
-    setGenProgress({ done: 0, total })
+    setGenProgress({ done: 0, total: 1 })
 
-    const targets = toGenerate.length > 0 ? toGenerate : sorted // regenerate all if all exist
-    for (let i = 0; i < targets.length; i++) {
-      try {
-        const res = await fetch('/api/admin/invoicing/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordId: targets[i].id }),
-        })
-        if (!res.ok) {
-          const text = await res.text()
-          try { const err = JSON.parse(text); setError(`Failed: ${err.error}`) } catch (_) { setError(`Generation failed (${res.status}). May have timed out — try again.`) }
-          continue
-        }
+    try {
+      const res = await fetch('/api/admin/invoicing/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: sorted.map(r => r.id) }),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        try { const err = JSON.parse(text); setError(`Failed: ${err.error}`) } catch (_) { setError(`Generation failed (${res.status}). May have timed out — try again.`) }
+      } else {
         const data = await res.json()
         if (data.ok) {
-          onRecordsUpdate(prev => prev.map(r => r.id === targets[i].id ? {
+          const genAt = data.generatedAt || new Date().toISOString()
+          onRecordsUpdate(prev => prev.map(r => sorted.find(s => s.id === r.id) ? {
             ...r, hasPdf: true, dropboxLink: data.dropboxLink,
             invoiceNumber: data.invoiceNumber ? Number(data.invoiceNumber) : r.invoiceNumber,
-            generatedAt: data.generatedAt || new Date().toISOString(),
+            generatedAt: genAt,
           } : r))
         } else {
-          setError(`Failed to generate for ${targets[i].accountName}: ${data.error}`)
+          setError(`Failed to generate: ${data.error}`)
         }
-      } catch (e) {
-        setError(e.message)
       }
-      setGenProgress({ done: i + 1, total })
+      setGenProgress({ done: 1, total: 1 })
+    } catch (e) {
+      setError(e.message)
     }
-    // Reload all records to get fresh Airtable attachment URLs
+
+    // Reload to pick up fresh Airtable attachment URLs (needed for thumbnail preview)
     try {
       const refresh = await fetch('/api/admin/invoicing')
       const refreshData = await refresh.json()
       if (refreshData.records) onRecordsUpdate(() => refreshData.records)
     } catch (_) {}
     setGenerating(false)
-    setActiveStep(1) // auto-advance to Review PDFs
+    setActiveStep(1)
   }, [sorted, onRecordsUpdate])
 
   // Load email preview
