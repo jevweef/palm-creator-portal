@@ -236,23 +236,34 @@ export async function POST(request) {
     })
   }
 
-  // Download PDFs and attach to email
+  // Download PDFs and attach to email.
+  // Multi-account creators share ONE combined PDF across all their invoice records, so
+  // dedupe by Dropbox link to avoid attaching the same file multiple times.
   const attachments = []
+  const seenUrls = new Set()
   for (const inv of invoices) {
-    const pdfUrl = inv.dropboxLink ? inv.dropboxLink.replace('?dl=0', '?dl=1') : null
-    if (pdfUrl) {
-      try {
-        const pdfRes = await fetch(pdfUrl)
-        if (pdfRes.ok) {
-          const pdfBuffer = await pdfRes.arrayBuffer()
-          const akaSlug = aka.toLowerCase().replace(/ /g, '_')
-          attachments.push({
-            filename: `invoice_${akaSlug}_${inv.accountName.toLowerCase().replace(/ /g, '_')}.pdf`,
-            content: Buffer.from(pdfBuffer).toString('base64'),
-          })
-        }
-      } catch (_) {}
-    }
+    if (!inv.dropboxLink) continue
+    const pdfUrl = inv.dropboxLink.replace('?dl=0', '?dl=1')
+    if (seenUrls.has(pdfUrl)) continue
+    seenUrls.add(pdfUrl)
+    try {
+      const pdfRes = await fetch(pdfUrl)
+      if (pdfRes.ok) {
+        const pdfBuffer = await pdfRes.arrayBuffer()
+        // Pull filename from the Dropbox URL itself (already set to our canonical
+        // "AKA - period - invoice#.pdf" format at generation time).
+        let filename = `invoice_${aka.toLowerCase().replace(/ /g, '_')}.pdf`
+        try {
+          const u = new URL(pdfUrl)
+          const last = decodeURIComponent(u.pathname.split('/').pop() || '')
+          if (last.toLowerCase().endsWith('.pdf')) filename = last
+        } catch (_) {}
+        attachments.push({
+          filename,
+          content: Buffer.from(pdfBuffer).toString('base64'),
+        })
+      }
+    } catch (_) {}
   }
 
   const sendRes = await fetch('https://api.resend.com/emails', {
