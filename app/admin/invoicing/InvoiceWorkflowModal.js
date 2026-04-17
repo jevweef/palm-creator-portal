@@ -241,97 +241,81 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       )
 
       case 1: return (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {!allHavePdfs ? (
             <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first to review them.</div>
-          ) : (
-            <>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                {sorted.map((r, i) => (
-                  <button key={r.id} onClick={() => setPdfTab(i)} style={{
-                    background: pdfTab === i ? '#FFF0F3' : '#f5f5f5',
-                    border: pdfTab === i ? '1px solid #E88FAC' : '1px solid transparent',
-                    borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 500,
-                    color: pdfTab === i ? '#E88FAC' : '#888', cursor: 'pointer',
-                  }}>{r.accountName.replace(aka + ' - ', '')}</button>
-                ))}
-              </div>
-              {(() => {
-                const rec = sorted[pdfTab]
-                const thumbnailUrl = rec?.pdfThumbnail || null
-                const dropboxView = rec?.dropboxLink || null
-                return (thumbnailUrl || dropboxView) ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-                    {/* Thumbnail preview — centered, clean, no viewer chrome */}
-                    <div style={{
-                      flex: 1,
-                      minHeight: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: '#f5f5f7',
-                      borderRadius: '12px',
-                      padding: '20px',
-                      overflow: 'auto',
-                    }}>
-                      {thumbnailUrl ? (
-                        <img
-                          src={thumbnailUrl}
-                          alt="Invoice preview"
-                          style={{
-                            maxHeight: '100%',
-                            maxWidth: '100%',
-                            width: 'auto',
-                            height: 'auto',
-                            display: 'block',
-                            boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
-                            borderRadius: '4px',
-                          }}
-                        />
-                      ) : (
-                        <div style={{ color: '#999', fontSize: '13px', textAlign: 'center' }}>
-                          Preview still processing — open the PDF to view it.
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      marginTop: '14px', gap: '12px', flexShrink: 0,
-                    }}>
-                      {dropboxView ? (
-                        <a href={dropboxView} target="_blank" rel="noopener noreferrer" style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '6px',
-                          background: '#f5f5f7', color: '#1a1a1a', textDecoration: 'none',
-                          padding: '10px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
-                          border: '1px solid rgba(0,0,0,0.06)',
-                        }}>
-                          Open full PDF ↗
-                        </a>
-                      ) : <span />}
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
-                          background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '10px',
-                          padding: '10px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                        }}>
-                          Needs Fix → Re-generate
-                        </button>
-                        <button onClick={() => { setPdfApproved(true); setActiveStep(2); handleLoadPreview() }} style={{
-                          background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px',
-                          padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                        }}>
-                          Approve PDF →
-                        </button>
-                      </div>
-                    </div>
+          ) : (() => {
+            const rec = sorted[pdfTab]
+            const thumbnailUrl = rec?.pdfThumbnail || null
+            const dropboxView = rec?.dropboxLink || null
+            return (thumbnailUrl || dropboxView) ? (
+              <>
+                {/* Top bar: account tabs + actions — always visible */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: '12px', marginBottom: '14px', flexShrink: 0, flexWrap: 'wrap',
+                }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {sorted.map((r, i) => (
+                      <button key={r.id} onClick={() => setPdfTab(i)} style={{
+                        background: pdfTab === i ? '#FFF0F3' : '#f5f5f5',
+                        border: pdfTab === i ? '1px solid #E88FAC' : '1px solid transparent',
+                        borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 500,
+                        color: pdfTab === i ? '#E88FAC' : '#888', cursor: 'pointer',
+                      }}>{r.accountName.replace(aka + ' - ', '')}</button>
+                    ))}
+                    {dropboxView && (
+                      <a href={dropboxView} target="_blank" rel="noopener noreferrer" style={{
+                        marginLeft: '8px',
+                        fontSize: '12px', color: '#888', textDecoration: 'none',
+                      }}>
+                        Open full PDF ↗
+                      </a>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ color: '#999', fontSize: '13px' }}>No PDF link available for this account.</div>
-                )
-              })()}
-            </>
-          )}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
+                      background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '10px',
+                      padding: '9px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                    }}>
+                      Needs Fix → Re-generate
+                    </button>
+                    <button onClick={() => { setPdfApproved(true); setActiveStep(2); handleLoadPreview() }} style={{
+                      background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px',
+                      padding: '9px 22px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                    }}>
+                      Approve PDF →
+                    </button>
+                  </div>
+                </div>
+
+                {/* Thumbnail preview — fills remaining space */}
+                <div style={{
+                  flex: 1, minHeight: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: '#f5f5f7', borderRadius: '12px', padding: '20px', overflow: 'auto',
+                }}>
+                  {thumbnailUrl ? (
+                    <img
+                      src={thumbnailUrl}
+                      alt="Invoice preview"
+                      style={{
+                        maxHeight: '100%', maxWidth: '100%',
+                        width: 'auto', height: 'auto', display: 'block',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.12)', borderRadius: '4px',
+                      }}
+                    />
+                  ) : (
+                    <div style={{ color: '#999', fontSize: '13px', textAlign: 'center' }}>
+                      Preview still processing — open the PDF to view it.
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: '#999', fontSize: '13px' }}>No PDF link available for this account.</div>
+            )
+          })()}
         </div>
       )
 
