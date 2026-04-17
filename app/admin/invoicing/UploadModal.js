@@ -43,14 +43,32 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
     setError(null)
     setResult(null)
     try {
+      // Strip base64-encoded images from HTML to get under Vercel's 4.5MB body limit.
+      // OF statement HTML embeds avatars/thumbnails as data: URIs which bloat the file
+      // but aren't needed by the parser. Only applies to .html/.htm files.
+      let uploadFile = file
+      const isHtml = /\.html?$/i.test(file.name) || file.type.includes('html')
+      if (isHtml && file.size > 3_500_000) {
+        const text = await file.text()
+        const stripped = text.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+        const blob = new Blob([stripped], { type: file.type || 'text/html' })
+        uploadFile = new File([blob], file.name, { type: blob.type, lastModified: file.lastModified })
+      }
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('creator', creatorName)
       formData.append('accountName', accountName)
       formData.append('dataType', dataType)
       if (file.lastModified) formData.append('fileLastModified', String(file.lastModified))
       const res = await fetch('/api/admin/invoicing/upload-transactions', { method: 'POST', body: formData })
-      const data = await res.json()
+      const raw = await res.text()
+      let data
+      try { data = JSON.parse(raw) } catch {
+        if (res.status === 413 || /too large|request en/i.test(raw)) {
+          throw new Error('File too large after stripping. Try saving OF page as "HTML Only" or split statement into smaller date ranges.')
+        }
+        throw new Error(`Upload failed (${res.status}): ${raw.slice(0, 120)}`)
+      }
       if (!res.ok) throw new Error(data.error || 'Upload failed')
       setResult(data)
       setFile(null)
