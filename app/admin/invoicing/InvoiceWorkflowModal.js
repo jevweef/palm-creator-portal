@@ -320,32 +320,37 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       )
 
       case 2: return (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {!allHavePdfs ? (
             <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first.</div>
           ) : emailPreview ? (
-            <div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px', padding: '14px 16px', background: '#fafafa', borderRadius: '10px' }}>
-                {[
-                  { label: 'To', value: `evan@palm-mgmt.com, josh@palm-mgmt.com (test)` },
-                  { label: 'From', value: 'evan@palm-mgmt.com, josh@palm-mgmt.com' },
-                  { label: 'Subject', value: `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
-                ].map(r => (
-                  <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-                    <span style={{ color: '#999', width: '55px', flexShrink: 0 }}>{r.label}</span>
-                    <span style={{ color: '#4a4a4a' }}>{r.value}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              {/* Top bar: email meta + send button */}
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                gap: '12px', marginBottom: '14px', flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', background: '#fafafa', borderRadius: '10px', flex: 1 }}>
+                  {[
+                    { label: 'To', value: `evan@palm-mgmt.com, josh@palm-mgmt.com (test)` },
+                    { label: 'From', value: 'evan@palm-mgmt.com, josh@palm-mgmt.com' },
+                    { label: 'Subject', value: `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
+                  ].map(r => (
+                    <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+                      <span style={{ color: '#999', width: '55px', flexShrink: 0 }}>{r.label}</span>
+                      <span style={{ color: '#4a4a4a' }}>{r.value}</span>
+                    </div>
+                  ))}
+                </div>
                 <button onClick={() => { setEmailApproved(true); setActiveStep(3) }} style={{
-                  background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px',
-                  padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                  background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px',
+                  padding: '10px 22px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', flexShrink: 0,
                 }}>
                   Looks Good → Send
                 </button>
               </div>
-              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: '400px' }}>
+              {/* Email body preview — fills remaining space */}
+              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
                 <iframe
                   srcDoc={emailPreview.html || emailPreview.manual?.html || '<p>No preview available</p>'}
                   style={{ width: '100%', height: '100%', border: 'none' }}
