@@ -134,8 +134,12 @@ export async function GET(request) {
 
   const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
 
-  const to = email ? [email] : []
-  const cc = ['josh@palm-mgmt.com']
+  // TEST MODE — send only to Evan + Josh while we verify PDFs render correctly.
+  // Creator's Communication Email is still returned below so the UI can show who it
+  // *would* go to in production.
+  const to = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
+  const cc = []
+  const bcc = ['evan@palm-mgmt.com']
   const from = 'evan@palm-mgmt.com'
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
 
@@ -152,8 +156,12 @@ export async function GET(request) {
     html,
     to,
     cc,
+    bcc,
     from,
     subject,
+    testMode: true,
+    wouldSendTo: email ? [email] : [], // what production would use
+    wouldCc: ['josh@palm-mgmt.com'],
     invoices: invoices.map(inv => ({
       id: inv.id,
       accountName: inv.accountName,
@@ -214,14 +222,12 @@ export async function POST(request) {
     email = cr.fields?.['Communication Email'] || null
   }
 
-  if (!email) {
-    return Response.json({
-      error: `No Communication Email on file for ${creatorName || aka}. Add one to the creator's HQ record before sending.`,
-    }, { status: 400 })
-  }
-
-  const to = [email]
-  const cc = ['josh@palm-mgmt.com']
+  // TEST MODE — route all sends to Evan + Josh, BCC Evan for inbox copy.
+  // Creator Communication Email is still surfaced upstream so we know who it would hit
+  // in production, but not used as a recipient yet.
+  const to = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
+  const cc = []
+  const bcc = ['evan@palm-mgmt.com']
   const from = 'Evan <evan@palm-mgmt.com>'
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
   const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
@@ -231,7 +237,7 @@ export async function POST(request) {
     return Response.json({
       ok: false,
       manual: true,
-      to, cc, from, subject, html,
+      to, cc, bcc, from, subject, html,
       message: 'Resend API key not configured. Set RESEND_API_KEY in .env.local.',
     })
   }
@@ -275,7 +281,8 @@ export async function POST(request) {
     body: JSON.stringify({
       from,
       to,
-      cc,
+      ...(cc.length ? { cc } : {}),
+      ...(bcc.length ? { bcc } : {}),
       subject,
       html,
       attachments,
@@ -297,5 +304,5 @@ export async function POST(request) {
     })
   ))
 
-  return Response.json({ ok: true, to, cc, from, recordIds, sentAt })
+  return Response.json({ ok: true, to, cc, bcc, from, recordIds, sentAt })
 }
