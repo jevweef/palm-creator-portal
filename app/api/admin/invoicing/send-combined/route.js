@@ -22,20 +22,16 @@ async function downloadInvoicePdfFromDropbox(token, rootId, dropboxPath) {
   return Buffer.from(await res.arrayBuffer())
 }
 
-// Best-effort: extract the team-namespace file path from a Dropbox share URL.
-// Modern share URLs look like https://www.dropbox.com/scl/fi/<id>/<filename>?rlkey=...
-// The filename is URL-encoded and may contain spaces/dashes (our naming uses both).
-function dropboxPathFromShareUrl(shareUrl, { periodStart, periodEnd }) {
-  try {
-    const u = new URL(shareUrl)
-    const parts = u.pathname.split('/')
-    const filename = decodeURIComponent(parts[parts.length - 1] || '')
-    if (!filename.toLowerCase().endsWith('.pdf')) return null
-    // Canonical layout: /Palm Ops/Invoices/{period}/{filename}
-    const periodPart = periodStart && periodEnd ? `${periodStart} to ${periodEnd}` : null
-    if (periodPart) return `/Palm Ops/Invoices/${periodPart}/${filename}`
-    return null
-  } catch { return null }
+// Compute the canonical team-namespace path for an invoice PDF.
+// Must match the layout set in `/api/admin/invoicing/generate`:
+//   /Palm Ops/Invoices/{periodStart} to {periodEnd}/{AKA} - {period} - {invoice#}.pdf
+// Don't parse the Dropbox share URL — it mangles the filename (spaces → dashes) and
+// can't be round-tripped back to the real path.
+function dropboxInvoicePath({ aka, periodStart, periodEnd, invoiceNumber }) {
+  if (!aka || !periodStart || !periodEnd || !invoiceNumber) return null
+  const periodPart = `${periodStart} to ${periodEnd}`
+  const filename = `${aka} - ${periodPart} - ${invoiceNumber}.pdf`
+  return { path: `/Palm Ops/Invoices/${periodPart}/${filename}`, filename }
 }
 
 const atHeaders = () => ({
@@ -231,6 +227,7 @@ export async function POST(request) {
       periodEnd: f['Period End'] || '',
       dueDate: f['Due Date'] || '',
       dropboxLink: f['Invoice Dropbox Link'] || null,
+      invoiceNumber: f['Invoice Number'] || null,
       creatorIds: f['Creator'] || [],
       aka: (f['AKA (from Creator)'] || [])[0] || '',
     }
@@ -276,55 +273,44 @@ export async function POST(request) {
     })
   }
 
-  // Download PDFs via authenticated Dropbox API (not public ?dl=1 URLs, which can return
-  // HTML gates and produce corrupt attachments). Multi-account creators share ONE combined
-  // PDF, so dedupe by Dropbox link to avoid attaching the same file multiple times.
+  // Download PDFs via authenticated Dropbox API. Multi-account creators share ONE
+  // combined PDF across all their invoice records, so dedupe by (aka, period, invoice#).
   const attachments = []
-  const seenUrls = new Set()
+  const seenPaths = new Set()
   const dbxToken = await getDropboxAccessToken()
   const dbxRoot = await getDropboxRootNamespaceId(dbxToken)
   for (const inv of invoices) {
-    if (!inv.dropboxLink) continue
-    if (seenUrls.has(inv.dropboxLink)) continue
-    seenUrls.add(inv.dropboxLink)
+    const computed = dropboxInvoicePath({
+      aka: inv.aka || aka,
+      periodStart: inv.periodStart,
+      periodEnd: inv.periodEnd,
+      invoiceNumber: inv.invoiceNumber,
+    })
+    if (!computed) continue
+    if (seenPaths.has(computed.path)) continue
+    seenPaths.add(computed.path)
 
-    // Prefer filename straight from the share URL (already canonical form)
-    let filename = `invoice_${aka.toLowerCase().replace(/ /g, '_')}.pdf`
-    try {
-      const u = new URL(inv.dropboxLink)
-      const last = decodeURIComponent(u.pathname.split('/').pop() || '')
-      if (last.toLowerCase().endsWith('.pdf')) filename = last
-    } catch (_) {}
-
-    const teamPath = dropboxPathFromShareUrl(inv.dropboxLink, { periodStart, periodEnd })
     let pdfBuffer = null
-    if (teamPath) {
-      try {
-        pdfBuffer = await downloadInvoicePdfFromDropbox(dbxToken, dbxRoot, teamPath)
-      } catch (e) { console.warn('Auth Dropbox download failed, falling back to public URL:', e.message) }
-    }
-    // Fallback to public URL if the team path lookup failed
-    if (!pdfBuffer) {
-      try {
-        const pdfRes = await fetch(inv.dropboxLink.replace('?dl=0', '?dl=1'))
-        if (pdfRes.ok) pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
-      } catch (_) {}
+    try {
+      pdfBuffer = await downloadInvoicePdfFromDropbox(dbxToken, dbxRoot, computed.path)
+    } catch (e) {
+      console.warn('Auth Dropbox download failed:', computed.path, '—', e.message)
     }
     if (!pdfBuffer) continue
 
-    // Sanity check — a valid PDF always starts with "%PDF-". If not, skip (don't send a
-    // corrupt attachment that'll fail to preview in Gmail).
+    // Sanity check — a valid PDF starts with "%PDF"
     if (pdfBuffer.slice(0, 4).toString() !== '%PDF') {
-      console.warn(`Dropbox returned non-PDF bytes for ${filename} — skipping attachment`)
+      console.warn('Dropbox returned non-PDF bytes for', computed.path)
       continue
     }
 
     attachments.push({
-      filename,
+      filename: computed.filename,
       content: pdfBuffer.toString('base64'),
-      contentType: 'application/pdf',
+      content_type: 'application/pdf',
     })
   }
+  console.log(`[send-combined] attaching ${attachments.length} PDF(s) for ${aka}`)
 
   const sendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
