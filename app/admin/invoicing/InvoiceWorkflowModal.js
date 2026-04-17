@@ -258,7 +258,19 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               </div>
               {(() => {
                 const rec = sorted[pdfTab]
-                const embedUrl = rec?.pdfUrl || null // Airtable URL works in iframes
+                // Dropbox with raw=1 forces inline PDF rendering (Airtable attachment URLs
+                // return Content-Disposition: attachment and render as blank iframes).
+                let embedUrl = null
+                if (rec?.dropboxLink) {
+                  try {
+                    const u = new URL(rec.dropboxLink)
+                    u.searchParams.set('raw', '1')
+                    u.searchParams.delete('dl')
+                    embedUrl = u.toString()
+                  } catch { embedUrl = rec.pdfUrl || null }
+                } else {
+                  embedUrl = rec?.pdfUrl || null
+                }
                 const dropboxView = rec?.dropboxLink || null // Dropbox browsable link for "open in new tab"
                 return (embedUrl || dropboxView) ? (
                   <div>
