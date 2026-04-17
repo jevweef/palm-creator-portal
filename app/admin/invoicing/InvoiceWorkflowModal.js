@@ -298,7 +298,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                     {/* Actions */}
                     <div style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      marginTop: '14px', gap: '12px',
+                      marginTop: '14px', gap: '12px', flexShrink: 0,
                     }}>
                       {dropboxView ? (
                         <a href={dropboxView} target="_blank" rel="noopener noreferrer" style={{
@@ -461,7 +461,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '1280px',
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '1100px',
         height: '95vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         display: 'flex', flexDirection: 'row',
       }}>
