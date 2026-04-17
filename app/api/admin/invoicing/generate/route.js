@@ -149,12 +149,13 @@ export async function POST(request) {
     // Generate PDF
     const pdfBuffer = await generateInvoicePdf(invoiceData)
 
-    // Upload to Dropbox — organized as: /Palm Ops/Invoices/{AKA}/{period}/{invoice #}.pdf
+    // Upload to Dropbox — folder by pay period, filename combines AKA + period + invoice #
+    // e.g. /Palm Ops/Invoices/2026-03-29 to 2026-04-14/Amelia - 2026-03-29 to 2026-04-14 - 1148.pdf
     const token = await getDropboxToken()
-    const akaFolder = aka || 'Unassigned'
-    const periodFolder = periodStart && periodEnd ? `${periodStart} to ${periodEnd}` : 'unassigned'
-    const filename = `${invoiceNumber}.pdf`
-    const dropboxPath = `${DROPBOX_FOLDER}/${periodFolder}/${akaFolder}/${filename}`
+    const akaPart = aka || 'Unassigned'
+    const periodPart = periodStart && periodEnd ? `${periodStart} to ${periodEnd}` : 'unassigned'
+    const filename = `${akaPart} - ${periodPart} - ${invoiceNumber}.pdf`
+    const dropboxPath = `${DROPBOX_FOLDER}/${periodPart}/${filename}`
 
     await dropboxUpload(token, pdfBuffer, dropboxPath)
     const { browsable, direct } = await dropboxShareLink(token, dropboxPath)
