@@ -154,7 +154,7 @@ export async function POST(request) {
     const akaFolder = aka || 'Unassigned'
     const periodFolder = periodStart && periodEnd ? `${periodStart} to ${periodEnd}` : 'unassigned'
     const filename = `${invoiceNumber}.pdf`
-    const dropboxPath = `${DROPBOX_FOLDER}/${akaFolder}/${periodFolder}/${filename}`
+    const dropboxPath = `${DROPBOX_FOLDER}/${periodFolder}/${akaFolder}/${filename}`
 
     await dropboxUpload(token, pdfBuffer, dropboxPath)
     const { browsable, direct } = await dropboxShareLink(token, dropboxPath)
