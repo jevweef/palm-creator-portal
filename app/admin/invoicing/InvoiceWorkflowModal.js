@@ -199,6 +199,25 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     }
   }, [sorted, handleMarkPaid])
 
+  // Reset the entire invoice workflow back to Draft — flips status + clears Sent At so the
+  // modal re-opens on step 1. Used for re-doing a send after fixing a bad PDF/email.
+  const handleResetToDraft = useCallback(async () => {
+    if (!confirm('Reset this invoice back to Draft? You can re-generate and re-send after.')) return
+    try {
+      for (const r of sorted) {
+        await fetch('/api/admin/invoicing', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordId: r.id, fields: { status: 'Draft', sentAt: null } }),
+        })
+      }
+      onRecordsUpdate(prev => prev.map(r => sorted.find(s => s.id === r.id) ? { ...r, status: 'Draft', sentAt: null } : r))
+      setEmailApproved(false)
+      setPdfApproved(false)
+      setActiveStep(0)
+    } catch (e) { setError(e.message) }
+  }, [sorted, onRecordsUpdate])
+
   // Render step content
   const renderContent = () => {
     switch (activeStep) {
@@ -444,12 +463,23 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               )}
             </div>
           ))}
-          {!allPaid && (
-            <button onClick={handleMarkAllPaid} style={{
-              marginTop: '12px', background: '#22c55e', color: '#fff', border: 'none',
-              borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-            }}>Mark All Paid</button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
+            {!allPaid && (
+              <button onClick={handleMarkAllPaid} style={{
+                background: '#22c55e', color: '#fff', border: 'none',
+                borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              }}>Mark All Paid</button>
+            )}
+            <button onClick={handleResetToDraft} style={{
+              background: 'transparent', color: '#9ca3af', border: '1px solid #e5e7eb',
+              borderRadius: '10px', padding: '9px 18px', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = '#fecaca' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+            >
+              ↺ Reset to Draft
+            </button>
+          </div>
         </div>
       )
     }
