@@ -134,6 +134,11 @@ export async function GET(request) {
 
   const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
 
+  const to = email ? [email] : []
+  const cc = ['josh@palm-mgmt.com']
+  const from = 'evan@palm-mgmt.com'
+  const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
+
   return Response.json({
     email,
     creatorName,
@@ -145,6 +150,10 @@ export async function GET(request) {
     totalEarnings,
     allHavePdfs,
     html,
+    to,
+    cc,
+    from,
+    subject,
     invoices: invoices.map(inv => ({
       id: inv.id,
       accountName: inv.accountName,
@@ -205,9 +214,15 @@ export async function POST(request) {
     email = cr.fields?.['Communication Email'] || null
   }
 
-  // TESTING: hardcode recipients
-  const recipient = ['evan@palm-mgmt.com', 'josh@palm-mgmt.com']
+  if (!email) {
+    return Response.json({
+      error: `No Communication Email on file for ${creatorName || aka}. Add one to the creator's HQ record before sending.`,
+    }, { status: 400 })
+  }
 
+  const to = [email]
+  const cc = ['josh@palm-mgmt.com']
+  const from = 'Evan <evan@palm-mgmt.com>'
   const subject = `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`
   const html = buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission, invoices })
 
@@ -216,9 +231,7 @@ export async function POST(request) {
     return Response.json({
       ok: false,
       manual: true,
-      recipient,
-      subject,
-      html,
+      to, cc, from, subject, html,
       message: 'Resend API key not configured. Set RESEND_API_KEY in .env.local.',
     })
   }
@@ -249,8 +262,9 @@ export async function POST(request) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Evan <evan@palm-mgmt.com>',
-      to: Array.isArray(recipient) ? recipient : [recipient],
+      from,
+      to,
+      cc,
       subject,
       html,
       attachments,
@@ -272,5 +286,5 @@ export async function POST(request) {
     })
   ))
 
-  return Response.json({ ok: true, recipient, recordIds, sentAt })
+  return Response.json({ ok: true, to, cc, from, recordIds, sentAt })
 }

@@ -331,20 +331,27 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', background: '#fafafa', borderRadius: '10px', flex: 1 }}>
                   {[
-                    { label: 'To', value: `evan@palm-mgmt.com, josh@palm-mgmt.com (test)` },
-                    { label: 'From', value: 'evan@palm-mgmt.com, josh@palm-mgmt.com' },
-                    { label: 'Subject', value: `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
+                    { label: 'To', value: (emailPreview.to || []).join(', ') || '⚠ No creator email on file', warn: !(emailPreview.to || []).length },
+                    { label: 'Cc', value: (emailPreview.cc || []).join(', ') || '—' },
+                    { label: 'From', value: emailPreview.from || 'evan@palm-mgmt.com' },
+                    { label: 'Subject', value: emailPreview.subject || `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
                   ].map(r => (
                     <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
                       <span style={{ color: '#999', width: '55px', flexShrink: 0 }}>{r.label}</span>
-                      <span style={{ color: '#4a4a4a' }}>{r.value}</span>
+                      <span style={{ color: r.warn ? '#dc2626' : '#4a4a4a', fontWeight: r.warn ? 600 : 400 }}>{r.value}</span>
                     </div>
                   ))}
                 </div>
-                <button onClick={() => { setEmailApproved(true); setActiveStep(3) }} style={{
-                  background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px',
-                  padding: '10px 22px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', flexShrink: 0,
-                }}>
+                <button
+                  onClick={() => { setEmailApproved(true); setActiveStep(3) }}
+                  disabled={!(emailPreview.to || []).length}
+                  style={{
+                    background: (emailPreview.to || []).length ? '#22c55e' : '#e5e7eb',
+                    color: (emailPreview.to || []).length ? '#fff' : '#999',
+                    border: 'none', borderRadius: '10px',
+                    padding: '10px 22px', fontSize: '13px', fontWeight: 600,
+                    cursor: (emailPreview.to || []).length ? 'pointer' : 'not-allowed', flexShrink: 0,
+                  }}>
                   Looks Good → Send
                 </button>
               </div>
@@ -389,7 +396,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div style={{ padding: '20px 0' }}>
               <div style={{ padding: '14px 16px', background: '#fafafa', borderRadius: '10px', marginBottom: '16px' }}>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '6px' }}>
-                  Sending to <strong style={{ color: '#4a4a4a' }}>evan@palm-mgmt.com, josh@palm-mgmt.com</strong> (test mode)
+                  Sending to <strong style={{ color: '#4a4a4a' }}>{(emailPreview?.to || []).join(', ') || '(creator email missing)'}</strong>
+                  {emailPreview?.cc?.length ? <> · cc <strong style={{ color: '#4a4a4a' }}>{emailPreview.cc.join(', ')}</strong></> : null}
                 </div>
                 <div style={{ fontSize: '12px', color: '#999' }}>
                   {sorted.length} account{sorted.length > 1 ? 's' : ''} · Management fee: <strong style={{ color: '#E88FAC' }}>{fmt(totalCommission)}</strong>
