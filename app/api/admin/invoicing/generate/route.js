@@ -1,10 +1,13 @@
 import { requireAdmin } from '@/lib/adminAuth'
 import { generateInvoicePdf } from '@/lib/generateInvoicePdf'
+import { getDropboxAccessToken, getDropboxRootNamespaceId } from '@/lib/dropbox'
 
 const HQ_BASE = 'appL7c4Wtotpz07KS'
 const INVOICES_TABLE = 'tblKbU8VkdlOHXoJj'
 const CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
 const DROPBOX_FOLDER = '/Palm Ops/Invoices'
+// Hardcoded team namespace ID — same as chat logs, avoids hitting personal Palm Ops folder
+const PATH_ROOT_HEADER = (rootId) => JSON.stringify({ '.tag': 'root', root: rootId })
 
 const atHeaders = () => ({
   Authorization: `Bearer ${process.env.AIRTABLE_PAT}`,
@@ -37,48 +40,40 @@ async function getMaxInvoiceNumber() {
   return val ? Number(val) : 1141
 }
 
-async function getDropboxToken() {
-  const res = await fetch('https://api.dropbox.com/oauth2/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
-      client_id: process.env.DROPBOX_APP_KEY,
-      client_secret: process.env.DROPBOX_APP_SECRET,
-    }),
-  })
-  if (!res.ok) throw new Error('Dropbox token refresh failed')
-  const data = await res.json()
-  return data.access_token
-}
-
-async function dropboxUpload(token, fileBytes, dropboxPath) {
+async function dropboxUpload(token, rootId, fileBytes, dropboxPath) {
   const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
       'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath, mode: 'overwrite' }),
+      'Dropbox-API-Path-Root': PATH_ROOT_HEADER(rootId),
       'Content-Type': 'application/octet-stream',
     },
     body: fileBytes,
   })
-  if (!res.ok) throw new Error(`Dropbox upload failed: ${res.status}`)
+  if (!res.ok) throw new Error(`Dropbox upload failed: ${res.status} ${await res.text()}`)
   return res.json()
 }
 
-async function dropboxShareLink(token, dropboxPath) {
+async function dropboxShareLink(token, rootId, dropboxPath) {
   let url = null
   const res = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Dropbox-API-Path-Root': PATH_ROOT_HEADER(rootId),
+    },
     body: JSON.stringify({ path: dropboxPath, settings: { requested_visibility: 'public' } }),
   })
   if (res.status === 409) {
-    // Link already exists, fetch it
     const res2 = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Dropbox-API-Path-Root': PATH_ROOT_HEADER(rootId),
+      },
       body: JSON.stringify({ path: dropboxPath, direct_only: true }),
     })
     const data2 = await res2.json()
@@ -149,16 +144,17 @@ export async function POST(request) {
     // Generate PDF
     const pdfBuffer = await generateInvoicePdf(invoiceData)
 
-    // Upload to Dropbox — folder by pay period, filename combines AKA + period + invoice #
+    // Upload to team-space Palm Ops — folder by pay period, filename combines AKA + period + invoice #
     // e.g. /Palm Ops/Invoices/2026-03-29 to 2026-04-14/Amelia - 2026-03-29 to 2026-04-14 - 1148.pdf
-    const token = await getDropboxToken()
+    const token = await getDropboxAccessToken()
+    const rootId = await getDropboxRootNamespaceId(token)
     const akaPart = aka || 'Unassigned'
     const periodPart = periodStart && periodEnd ? `${periodStart} to ${periodEnd}` : 'unassigned'
     const filename = `${akaPart} - ${periodPart} - ${invoiceNumber}.pdf`
     const dropboxPath = `${DROPBOX_FOLDER}/${periodPart}/${filename}`
 
-    await dropboxUpload(token, pdfBuffer, dropboxPath)
-    const { browsable, direct } = await dropboxShareLink(token, dropboxPath)
+    await dropboxUpload(token, rootId, pdfBuffer, dropboxPath)
+    const { browsable, direct } = await dropboxShareLink(token, rootId, dropboxPath)
 
     // Update Airtable: attachment, invoice number, dropbox link, generated timestamp
     await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}/${recordId}`, {
