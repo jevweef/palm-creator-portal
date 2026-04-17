@@ -81,11 +81,12 @@ function buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission,
       <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;">${inv.accountName}</td>
       <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;text-align:right;">${fmtMoney(inv.earnings)}</td>
       <td style="padding:10px 16px;font-size:14px;color:#333;border-bottom:1px solid #f0f0f0;text-align:right;">${fmtMoney(inv.totalCommission)}</td>
-      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;text-align:center;">
-        ${inv.dropboxLink ? `<a href="${inv.dropboxLink}" style="color:#E88FAC;font-size:13px;font-weight:600;text-decoration:none;">View PDF</a>` : '—'}
-      </td>
     </tr>`
   ).join('')
+
+  // All invoice records in a group share the same combined PDF, so render ONE
+  // "View PDF" link below the table rather than repeating it per row.
+  const pdfLink = invoices.find(inv => inv.dropboxLink)?.dropboxLink || null
 
   // Only include the celebratory "great work" paragraph when earnings went up from the
   // previous pay period. If earnings were flat or down, drop that paragraph entirely so
@@ -111,24 +112,26 @@ function buildEmailHtml({ aka, periodStart, periodEnd, dueDate, totalCommission,
     <div style="padding:36px 40px;">
       <p style="font-size:17px;color:#111;margin:0 0 8px;font-weight:600;">Hey ${aka},</p>
       ${celebratoryParagraph}
-      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:16px;">
         <thead>
           <tr style="background:#fafafa;">
             <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:left;font-weight:600;">Account</th>
             <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:right;font-weight:600;">Revenue</th>
             <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:right;font-weight:600;">Mgmt Fee</th>
-            <th style="padding:10px 16px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.05em;text-align:center;font-weight:600;">Invoice</th>
           </tr>
         </thead>
         <tbody>${accountRows}</tbody>
       </table>
+      ${pdfLink ? `<div style="text-align:center;margin:0 0 28px;">
+        <a href="${pdfLink}" style="display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;">View Invoice PDF →</a>
+      </div>` : ''}
       <div style="background:#FFF8FA;border-radius:12px;padding:20px 24px;margin:0 0 28px;">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px;">Management Fee Due</div>
         <div style="font-size:28px;font-weight:800;color:#E88FAC;letter-spacing:-0.5px;">${fmtMoney(totalCommission)}</div>
       </div>
       <p style="font-size:15px;color:#555;margin:0 0 8px;line-height:1.6;">
         If you could send payment via <strong>Zelle</strong> by <strong>${fmtDate(dueDate)}</strong>, that would be great.
-        Payment details are on each invoice PDF above.
+        Payment details are on the invoice PDF above.
       </p>
       <p style="font-size:13px;color:#999;margin:24px 0 0;">
         Questions about your invoice? Just reply to this email and we'll sort it out.
