@@ -280,7 +280,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                         borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
                       }}>
                         <iframe
-                          src={embedUrl + '#view=FitH&toolbar=1&navpanes=0'}
+                          src={embedUrl + '#view=FitH&toolbar=1&pagemode=none&navpanes=0'}
                           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                           title="Invoice PDF"
                         />
@@ -458,8 +458,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '900px',
-        height: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '1280px',
+        height: '95vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
