@@ -261,7 +261,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 const thumbnailUrl = rec?.pdfThumbnail || null
                 const dropboxView = rec?.dropboxLink || null
                 return (thumbnailUrl || dropboxView) ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(95vh - 220px)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                     {/* Thumbnail preview — centered, clean, no viewer chrome */}
                     <div style={{
                       flex: 1,
@@ -361,10 +361,10 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   Looks Good → Send
                 </button>
               </div>
-              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden' }}>
+              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: '400px' }}>
                 <iframe
                   srcDoc={emailPreview.html || emailPreview.manual?.html || '<p>No preview available</p>'}
-                  style={{ width: '100%', height: 'calc(90vh - 420px)', border: 'none' }}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
                   sandbox="allow-same-origin"
                   title="Email Preview"
                 />
@@ -463,44 +463,51 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       <div onClick={e => e.stopPropagation()} style={{
         background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '1280px',
         height: '95vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-        display: 'flex', flexDirection: 'column',
+        display: 'flex', flexDirection: 'row',
       }}>
-        {/* Header */}
-        <div style={{ padding: '24px 28px 18px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</div>
-              <div style={{ fontSize: '12px', color: '#aaa', marginTop: '3px' }}>
-                {fmtDate(periodStart)} – {fmtDate(periodEnd)} · {sorted.length} account{sorted.length > 1 ? 's' : ''}
-                {dueDate && ` · Due ${fmtDate(dueDate)}`}
-              </div>
-            </div>
+        {/* Left sidebar: header info + stats + stepper */}
+        <div style={{
+          width: '260px', borderRight: '1px solid rgba(0,0,0,0.06)', flexShrink: 0,
+          display: 'flex', flexDirection: 'column', overflow: 'auto',
+        }}>
+          {/* Close button */}
+          <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={onClose} style={{
-              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
-              cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '28px', height: '28px',
+              cursor: 'pointer', fontSize: '13px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>✕</button>
           </div>
-          {/* Summary stats */}
-          <div style={{ display: 'flex', gap: '24px', marginTop: '14px' }}>
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{fmt(totalEarnings)}</div>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Revenue</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#E88FAC' }}>{fmt(totalCommission)}</div>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Mgmt Fee</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{fmt(totalEarnings - totalCommission)}</div>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Creator Take Home</div>
+
+          {/* Creator + period */}
+          <div style={{ padding: '8px 20px 18px' }}>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</div>
+            <div style={{ fontSize: '11px', color: '#aaa', marginTop: '4px', lineHeight: 1.4 }}>
+              {fmtDate(periodStart)} – {fmtDate(periodEnd)}<br/>
+              {sorted.length} account{sorted.length > 1 ? 's' : ''}{dueDate && ` · Due ${fmtDate(dueDate)}`}
             </div>
           </div>
-        </div>
 
-        {/* Body: stepper + content */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          {/* Left stepper */}
-          <div style={{ width: '200px', borderRight: '1px solid rgba(0,0,0,0.06)', padding: '16px 0', flexShrink: 0 }}>
+          {/* Summary stats — stacked vertically */}
+          <div style={{ padding: '0 20px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmt(totalEarnings)}</div>
+              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Revenue</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#E88FAC' }}>{fmt(totalCommission)}</div>
+              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Mgmt Fee</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#22c55e' }}>{fmt(totalEarnings - totalCommission)}</div>
+              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Creator Take Home</div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', margin: '0 20px' }} />
+
+          {/* Stepper */}
+          <div style={{ padding: '14px 0' }}>
             {STEPS.map((step, i) => {
               const status = stepStatus(i)
               const isActive = activeStep === i
@@ -542,19 +549,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               )
             })}
           </div>
+        </div>
 
-          {/* Right content */}
-          <div style={{ flex: 1, padding: '20px 28px', overflow: activeStep === 1 ? 'hidden' : 'auto' }}>
-            {error && (
-              <div style={{
-                marginBottom: '14px', padding: '10px 14px', background: '#fef2f2',
-                border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              }}>
-                <span>{error}</span>
-                <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>×</button>
-              </div>
-            )}
+        {/* Right content — fills full modal height */}
+        <div style={{ flex: 1, padding: '24px 28px', overflow: activeStep === 1 ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
+          {error && (
+            <div style={{
+              marginBottom: '14px', padding: '10px 14px', background: '#fef2f2',
+              border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span>{error}</span>
+              <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>×</button>
+            </div>
+          )}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             {renderContent()}
           </div>
         </div>
