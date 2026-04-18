@@ -911,9 +911,30 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
       .catch(() => {})
   }, [expanded])
 
-  function buildFormData() {
+  async function buildFormData() {
     const formData = new FormData()
-    formData.append('file', chatFile)
+    // Strip non-data content from chat HTML to stay under Vercel's 4.5MB body limit.
+    let uploadFile = chatFile
+    const isHtml = /\.html?$/i.test(chatFile.name) || (chatFile.type || '').includes('html')
+    if (isHtml && chatFile.size > 3_500_000) {
+      const text = await chatFile.text()
+      const stripped = text
+        .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<link\b[^>]*>/gi, '')
+        .replace(/<img\b[^>]*>/gi, '')
+        .replace(/<source\b[^>]*>/gi, '')
+        .replace(/<video[\s\S]*?<\/video>/gi, '')
+        .replace(/<audio[\s\S]*?<\/audio>/gi, '')
+        .replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+        .replace(/data:video\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+        .replace(/\s+srcset="[^"]*"/gi, '')
+        .replace(/\s+style="[^"]*"/gi, '')
+      const blob = new Blob([stripped], { type: chatFile.type || 'text/html' })
+      uploadFile = new File([blob], chatFile.name, { type: blob.type, lastModified: chatFile.lastModified })
+    }
+    formData.append('file', uploadFile)
     formData.append('fanName', a.fan)
     formData.append('fanUsername', a.username || '')
     formData.append('lifetime', a.lifetime)
@@ -946,8 +967,16 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: buildFormData() })
-      const data = await res.json()
+      const fd = await buildFormData()
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
+      const raw = await res.text()
+      let data
+      try { data = JSON.parse(raw) } catch {
+        if (res.status === 413 || /too large|request en/i.test(raw)) {
+          throw new Error('Chat HTML too large even after stripping. Try exporting a shorter date range from OF.')
+        }
+        throw new Error(`Analysis failed (${res.status}): ${raw.slice(0, 120)}`)
+      }
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       setAnalysis(data)
       // Don't clear chatFile — keep it for re-analyze
@@ -2122,12 +2151,35 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     return m
   }, [f.alertHistory, f.analysisRecords])
 
-  function buildFormData(fromTranscript = false) {
+  async function buildFormData(fromTranscript = false) {
     const formData = new FormData()
     if (fromTranscript) {
       formData.append('useTranscript', 'true')
     } else {
-      formData.append('file', chatFile)
+      // Strip non-data content from chat HTML to get under Vercel's 4.5MB body limit.
+      // OF chat HTML embeds inline SVGs (emoji, icons), scripts, styles, image thumbnails,
+      // and base64 media previews. The parser only needs the message text + timestamps.
+      let uploadFile = chatFile
+      const isHtml = /\.html?$/i.test(chatFile.name) || (chatFile.type || '').includes('html')
+      if (isHtml && chatFile.size > 3_500_000) {
+        const text = await chatFile.text()
+        const stripped = text
+          .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<link\b[^>]*>/gi, '')
+          .replace(/<img\b[^>]*>/gi, '')
+          .replace(/<source\b[^>]*>/gi, '')
+          .replace(/<video[\s\S]*?<\/video>/gi, '')
+          .replace(/<audio[\s\S]*?<\/audio>/gi, '')
+          .replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+          .replace(/data:video\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+          .replace(/\s+srcset="[^"]*"/gi, '')
+          .replace(/\s+style="[^"]*"/gi, '')
+        const blob = new Blob([stripped], { type: chatFile.type || 'text/html' })
+        uploadFile = new File([blob], chatFile.name, { type: blob.type, lastModified: chatFile.lastModified })
+      }
+      formData.append('file', uploadFile)
     }
     formData.append('fanName', f.fanName)
     formData.append('fanUsername', f.ofUsername || '')
@@ -2191,9 +2243,16 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-      const fd = fromTranscript ? buildFormData(true) : buildFormData()
+      const fd = await (fromTranscript ? buildFormData(true) : buildFormData())
       const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
-      const data = await res.json()
+      const raw = await res.text()
+      let data
+      try { data = JSON.parse(raw) } catch {
+        if (res.status === 413 || /too large|request en/i.test(raw)) {
+          throw new Error('Chat HTML too large even after stripping. Try exporting a shorter date range from OF.')
+        }
+        throw new Error(`Analysis failed (${res.status}): ${raw.slice(0, 120)}`)
+      }
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       setAnalysis(data)
       // Refresh fans list to show new analysis
