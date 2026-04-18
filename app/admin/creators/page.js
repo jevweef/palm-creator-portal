@@ -3512,7 +3512,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       // Hide deleted accounts by default
       if (!showDeleted && !f.ofUsername) return false
       // Account filter
-      if (accountFilter !== 'all' && (!f.accounts || !f.accounts.includes(accountFilter))) return false
+      // Account filter: 'all' = everyone, 'both' = fans on 2+ accounts, specific = fans ONLY on that account
+      if (accountFilter === 'both') {
+        if (!f.accounts || f.accounts.length < 2) return false
+      } else if (accountFilter !== 'all') {
+        if (!f.accounts || !f.accounts.includes(accountFilter) || f.accounts.length > 1) return false
+      }
       // Top 20% overrides heat/alert filters
       if (showTop20) return f.lifetimeSpend >= top20Threshold && top20Threshold > 0
       if (filter === 'active_alerts') return f.alertStatus !== 'None'
@@ -3630,14 +3635,14 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           {availableAccounts && availableAccounts.length > 1 && (
             <>
               <span style={{ width: '1px', height: '16px', background: '#E5E7EB', margin: '0 4px', alignSelf: 'center' }} />
-              {['all', ...availableAccounts].map(a => (
+              {['all', ...availableAccounts, 'both'].map(a => (
                 <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
                   style={{
                     padding: '3px 8px', fontSize: '10px', fontWeight: accountFilter === a ? 600 : 400,
                     background: accountFilter === a ? '#7C3AED' : '#F3F4F6', color: accountFilter === a ? '#fff' : '#666',
                     border: 'none', borderRadius: '4px', cursor: 'pointer',
                   }}>
-                  {a === 'all' ? 'All Accts' : a}
+                  {a === 'all' ? 'All Accts' : a === 'both' ? 'Both' : a}
                 </button>
               ))}
             </>
