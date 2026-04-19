@@ -622,39 +622,42 @@ HARD RULES:
   7. The chatter should never have to scroll back through chat history. If a moment matters, quote it here.
   8. No em-dashes, no corporate voice. Write like a friend telling another friend what's going on.
 
-OUTPUT FORMAT (produce exactly these sections in this order, with these exact headings):
+OUTPUT FORMAT (produce exactly these sections in this order, with these exact headings).
+
+LENGTH TARGET: ~600-800 words total for the brief. Be specific and evidence-backed but tight. No filler, no restatement across sections, no windup. A chatter should be able to scan this in ~90 seconds.
 
 FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total  •  [N] days since he last replied
 
 QUICK READ
-[2-4 short lines. The situation in plain words. What's at stake. Don't rehash evidence — that goes in the next section.]
+[1-2 short sentences. What's going on and what's at stake. That's it.]
 
 WHAT HAPPENED
-[3-8 sentences. Neutral diagnosis of what most likely caused the current situation. Dated events and quoted evidence. If a specific chatter action triggered it, name it directly. If it's a fan-side factor (budget, life event), cite the quote. If we genuinely don't know, say so honestly.]
+[3-5 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor (budget, life event), cite the quote. If genuinely unclear, say so and move on.]
 
 WHO HE IS
-[Bulleted timeless facts only. Name, age, location, job, family, pets, ongoing hobbies, recurring life details. Skip stale specifics. Each line should feel like a fact that would still be true 6 months from now.]
+[4-6 bulleted timeless facts only. Name/nickname, location, job if known, pets, ongoing hobbies, recurring life details. Skip stale specifics. Each line should still be true 6 months from now.]
 
 WHAT HE BUYS
 Content he responds to:
-  - [specific thing with quote evidence — "he said X on [date]"]
+  - [specific thing with short quote evidence]
+  - [specific thing]
   - [specific thing]
 Avoid:
-  - [specific thing that's killed conversations before — with evidence]
+  - [specific thing with evidence]
   - [specific thing]
 
 HOW TO WRITE TO HIM
-[4-6 short lines. Tone, length, do's, don'ts. Examples of what kinds of replies land, what kinds don't. Plain language.]
+[3-4 short lines. Tone, length of replies, one clear do, one clear don't. No lectures.]
 
 SLEEPING THREADS
-[Numbered. 1-4 items. Each: what it is (one line) + why it matters (one line). Unfinished deals with prices and dates. Unacknowledged life events. Preferences the fan stated that weren't honored.]
+[Numbered. 1-3 items max. Each: one short line for what it is + one short line for why it matters. Only include real, dated, specific threads — unfinished deals with dollar amounts, unacknowledged life events, explicit preferences not honored. Do not include generic "keep it personal" advice here.]
 
 NEXT MOVE
-[One paragraph of guidance — what to do in the next message, in plain language. Then a sample message in a quote block that's literally usable:]
+[1-2 sentences of guidance. Then a sample message in a quote block, copy-paste ready:]
 
-> "[Ready-to-send message. References specific timeless facts from the dossier. No sell. No content. No pricing. Tone matches the fan type.]"
+> "[Ready-to-send message. References specific timeless facts from the dossier. No sell. No content. No pricing.]"
 
-[Then: what to do if he replies (match his energy, don't pile on). What to do if he doesn't (one more soft check-in, then back off, leave the door open — never "give up").]`
+[Then: 1 sentence for what to do if he replies. 1 sentence for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]`
 
       : `You are a whale-hunting analyst for an OnlyFans agency. Your output is a short brief a chat manager will hand to a chatter. Write plainly, no jargon.
 
@@ -792,7 +795,10 @@ HARD RULES:
     // Thinking OFF for now — with thinking on, a chunk of max_tokens gets spent
     // before text output starts, and we can silently end up with zero text blocks.
     // Revisit once we've validated the base output quality.
-    const claudeMaxTokens = isHighValue ? 6000 : 2000
+    // Target ~600-800 words (~1200 tokens). Ceiling at 3000 gives plenty of headroom
+    // for longer chats without allowing runaway output. Billed per actual token so
+    // this is a ceiling, not a quota.
+    const claudeMaxTokens = isHighValue ? 3000 : 1500
     let fullAnalysis = 'Analysis failed'
     let claudeUsage = null
     let claudeStopReason = null
@@ -852,20 +858,37 @@ HARD RULES:
       openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: `You write concise chat manager briefs for an OnlyFans management agency. Take a full fan analysis and distill it into a brief that a chat manager can read in under a minute and act on immediately.
+          { role: 'system', content: `You write chat manager briefs for an OnlyFans management agency. Take a full fan analysis and distill it into a scannable brief that a chat manager can read in ~60 seconds and use to make a decision. Plain language. No jargon. Chatter-friendly.
 
-Format:
+Format (use these exact section headers, plain text, no markdown bullets unless noted):
+
 **${fanName}** (@${formData.get('fanUsername') || '?'}) — $${lifetime.toLocaleString()} lifetime | ${currentGap}d since last purchase
 
-**Situation**: (1-2 sentences max — what's happening)
-**Action**: (1-2 sentences — exactly what to do or not do)
-**Key Insight**: (1 sentence — the most important thing to know about this fan)
+**Situation**
+(3-5 sentences. What's going on with this fan right now, stated plainly. Specific dates and numbers where they matter — "silent since March 8, last tipped $25", not "has been inactive for a while". Include whether this is a cool-off, a budget issue, a burnout, or unclear.)
 
-Keep it tight. No filler. The chat manager has 50 of these to review.` },
+**Who He Is**
+(3-5 short bullets covering the key timeless facts: name/nickname he goes by, location, job if known, pets, recurring hobbies, anything that would let the chatter prove "I remember you". Quote-accurate details only — don't invent.)
+
+**What He Buys**
+(2-3 lines. What specific content types or scenarios he has historically paid for. Include what he has EXPLICITLY said he wants that hasn't been delivered, if anything.)
+
+**Action**
+(2-4 sentences. What the chatter should do next, in order. If there's a sample reopener worth quoting, include it verbatim in quotes. Be specific about what NOT to do (e.g. "no hardcore PPV until he replies").)
+
+**Key Insight**
+(1-2 sentences — the single thing a chatter should internalize. The "why" behind the action.)
+
+Rules:
+- Use the creator's AKA (stage name), never a legal/full name
+- Pull specific evidence — names, dates, quoted phrases — from the full analysis
+- No padding, no generic relationship-advice language
+- If the full analysis notes a sleeping deal, unfulfilled promise, or unacknowledged life event, surface it in Situation or Action
+- Never tell the team to give up on a fan. If odds are low, say so and prescribe patience instead.` },
           { role: 'user', content: fullAnalysis },
         ],
         temperature: 0.5,
-        max_tokens: 300,
+        max_tokens: 700,
       }).catch(err => { console.error('[Chat Analysis] Brief generation failed:', err); return null }),
 
       creatorRecordId
