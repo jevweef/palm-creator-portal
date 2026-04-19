@@ -359,11 +359,16 @@ export async function POST(request) {
     // creatorName (full legal name) is still used for Airtable Creator field saves,
     // Dropbox path consistency, and prior-analysis lookups.
     const creatorAka = formData.get('creatorAka') || creatorName
+    // accountName + accountKey — present only when the fan is subscribed to multiple accounts
+    // and the user explicitly chose which account's chat this upload represents.
+    const accountName = formData.get('accountName') || ''
+    const accountKey = getAccountKey(accountName) // null for single-account fans
 
     let parsed
     if (useTranscript) {
       // Re-analyze from saved Dropbox transcript (no HTML upload needed)
       const fanUsername = formData.get('fanUsername') || ''
+      // Re-analyze path: no accountKey → loads combined multi-account transcript when present
       const transcript = await loadChatHistory(creatorName, fanName, fanUsername)
       if (!transcript) return Response.json({ error: 'No saved transcript found in Dropbox. Upload a chat HTML first.' }, { status: 400 })
       // Build a minimal parsed object from the transcript text
@@ -428,6 +433,7 @@ export async function POST(request) {
           fanUsername,
           firstMessageDate: parsed.firstMessageDate,
           lastMessageDate: parsed.lastMessageDate,
+          accountKey,
         })
       } catch (err) {
         console.error('[Chat Analysis] Dropbox save failed:', err)
@@ -629,6 +635,7 @@ HARD RULES:
   7. The chatter should never have to scroll back through chat history. If a moment matters, quote it here.
   8. No em-dashes, no corporate voice. Write like a friend telling another friend what's going on.
   9. ALL dollar totals, lifetime numbers, rolling-30-day figures, and trend math come from the SPENDING DATA block above — that is the single source of truth. NEVER cite aggregate dollar amounts from inline chat purchase markers (e.g. don't say "he spent ~$400 in 2023"). Inline markers are qualitative buy-trigger evidence only — name content types and hooks, not totals.
+  10. MULTI-THREAD AWARENESS: If the conversation is split into sections with headers like "=== FREE OF THREAD ===" and "=== VIP OF THREAD ===", this fan is subscribed to two separate OF pages run by the same creator. Each thread is its own chat — do NOT assume context, nicknames, or inside jokes from one thread carry over to the other. Analyze behavior PER THREAD (what does he pay for on each page? how does he talk differently on each?) and surface the distinction in your output when it's meaningful ("he buys PPVs on VIP but only banters on Free"). When sample messages / next moves are prescribed, specify which account they're for.
 
 OUTPUT FORMAT (produce exactly these sections in this order, with these exact headings).
 
@@ -749,39 +756,54 @@ HARD RULES:
     // Per-fan context (priorContext) moves to the user message.
     const systemWithContext = finalPrompt
 
-    // Load accumulated chat history from Dropbox and merge with new upload
+    // Load accumulated chat history from Dropbox and merge with new upload.
+    // For multi-account fans (accountKey present), the merge is scoped to THIS account's
+    // transcript only — then the OTHER account's transcript is appended separately with a
+    // thread header so Claude can reason across both pages without conflating them.
     const fanUsername = formData.get('fanUsername') || ''
+
+    // Helper: dedup-merge a new-upload conversation against an existing transcript for the same thread
+    const mergeThread = (existing, incoming) => {
+      if (!existing) return incoming
+      const dateHeaders = [...existing.matchAll(/--- (.+?) ---/g)]
+      const lastExistingDate = dateHeaders.length > 0 ? dateHeaders[dateHeaders.length - 1][1] : ''
+      if (!lastExistingDate) return existing + '\n\n' + incoming
+      const newDateHeaders = [...incoming.matchAll(/--- (.+?) ---/g)]
+      let newStartIdx = -1
+      for (const m of newDateHeaders) {
+        if (m[1] > lastExistingDate) { newStartIdx = m.index; break }
+      }
+      if (newStartIdx > 0) {
+        return existing + '\n\n--- NEW MESSAGES SINCE LAST ANALYSIS ---\n' + incoming.slice(newStartIdx)
+      }
+      return existing + '\n\n--- UPDATED UPLOAD (may include overlapping dates) ---\n' + incoming
+    }
+
     let fullConversation = conversation
     if (priorContext) {
       try {
-        const existingTranscript = await loadChatHistory(creatorName, fanName, fanUsername)
-        if (existingTranscript) {
-          // Dedup: find last date in existing transcript, only include new messages after that
-          const dateHeaders = [...existingTranscript.matchAll(/--- (.+?) ---/g)]
-          const lastExistingDate = dateHeaders.length > 0 ? dateHeaders[dateHeaders.length - 1][1] : ''
+        if (accountKey) {
+          // Multi-account upload: merge new conversation into THIS account's history,
+          // then append OTHER account-keyed transcripts as separate labeled threads.
+          const thisAccountHistory = await loadChatHistory(creatorName, fanName, fanUsername, accountKey)
+          const thisThreadMerged = mergeThread(thisAccountHistory, conversation)
+          const thisLabel = getThreadLabel(accountKey)
+          const parts = [`=== ${thisLabel} ===\n${thisThreadMerged}`]
 
-          if (lastExistingDate) {
-            // Find where new messages start in the uploaded conversation
-            const newDateHeaders = [...conversation.matchAll(/--- (.+?) ---/g)]
-            let newStartIdx = -1
-            for (const m of newDateHeaders) {
-              // Find first date in new upload that's AFTER the last existing date
-              if (m[1] > lastExistingDate) {
-                newStartIdx = m.index
-                break
-              }
+          // Find and include other account threads (free/vip only, to start)
+          const otherKeys = ['free', 'vip'].filter(k => k !== accountKey)
+          for (const otherKey of otherKeys) {
+            const otherText = await loadChatHistory(creatorName, fanName, fanUsername, otherKey)
+            if (otherText && otherText.trim()) {
+              parts.push(`=== ${getThreadLabel(otherKey)} ===\n${otherText}`)
             }
-
-            if (newStartIdx > 0) {
-              const newMessages = conversation.slice(newStartIdx)
-              fullConversation = existingTranscript + '\n\n--- NEW MESSAGES SINCE LAST ANALYSIS ---\n' + newMessages
-            } else {
-              // All messages in the new upload overlap with existing — use the new upload as-is
-              // (may include more recent context even for overlapping dates)
-              fullConversation = existingTranscript + '\n\n--- UPDATED UPLOAD (may include overlapping dates) ---\n' + conversation
-            }
-          } else {
-            fullConversation = existingTranscript + '\n\n' + conversation
+          }
+          fullConversation = parts.join('\n\n')
+        } else {
+          // Single-account upload (or legacy fan): existing behavior.
+          const existingTranscript = await loadChatHistory(creatorName, fanName, fanUsername)
+          if (existingTranscript) {
+            fullConversation = mergeThread(existingTranscript, conversation)
           }
         }
       } catch (err) {
@@ -905,6 +927,7 @@ Rules:
         parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
         fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
         firstMessageDate: parsed.firstMessageDate, lastMessageDate: parsed.lastMessageDate,
+        accountKey,
       }).catch(err => console.error('[Chat Analysis] Dropbox save failed:', err)),
 
       saveToAirtable({
@@ -1016,34 +1039,91 @@ function getChatBasePath(creatorName, fanName, fanUsername) {
   return `/Palm Ops/Chat Logs/${safeCreator}/${safeFan}`
 }
 
-// Load the master transcript from Dropbox (returns empty string if none exists)
-async function loadChatHistory(creatorName, fanName, fanUsername) {
+// Normalize an OF account name ("Sunny - Free OF", "Taby - VIP OF") into a short
+// filename-safe key so multi-account fans can keep separate threads on Dropbox.
+// Returns null for single-account fans or when no account is known.
+function getAccountKey(accountName) {
+  if (!accountName) return null
+  if (/free/i.test(accountName)) return 'free'
+  if (/vip/i.test(accountName)) return 'vip'
+  const slug = accountName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)
+  return slug || null
+}
+
+// Human-readable thread label used in combined multi-account transcripts fed to Claude.
+function getThreadLabel(accountKey) {
+  if (accountKey === 'free') return 'FREE OF THREAD'
+  if (accountKey === 'vip') return 'VIP OF THREAD'
+  if (!accountKey) return null
+  return `${accountKey.toUpperCase()} THREAD`
+}
+
+// Filename for the master transcript for a given account key.
+// null/undefined key returns the legacy single-account filename for backward compat.
+function getTranscriptFilename(accountKey) {
+  return accountKey ? `transcript-${accountKey}.txt` : 'transcript.txt'
+}
+
+// Load master transcript(s) from Dropbox.
+// - When accountKey is passed, loads ONLY that account's transcript (used for per-account dedup on save).
+// - When accountKey is null/undefined, prefers account-keyed transcripts (free+vip etc., combined with
+//   thread headers so Claude can see both sides of a multi-account fan). Falls back to the legacy
+//   single-account transcript.txt when no keyed transcripts exist.
+async function loadChatHistory(creatorName, fanName, fanUsername, accountKey = null) {
   try {
     const token = await getDropboxAccessToken()
     const rootNs = await getDropboxRootNamespaceId(token)
     const basePath = getChatBasePath(creatorName, fanName, fanUsername)
-    const fullPath = `${basePath}/transcript.txt`
-    console.log('[Chat History] Attempting download from:', fullPath)
 
-    const buf = await downloadFromDropbox(token, rootNs, fullPath)
-    if (!buf) {
-      console.log('[Chat History] downloadFromDropbox returned null/empty for:', fullPath)
-      return ''
+    // Specific account requested
+    if (accountKey) {
+      const fullPath = `${basePath}/${getTranscriptFilename(accountKey)}`
+      try {
+        const buf = await downloadFromDropbox(token, rootNs, fullPath)
+        return buf ? buf.toString('utf8') : ''
+      } catch { return '' }
     }
-    console.log('[Chat History] Success, got', buf.length, 'bytes')
-    return buf.toString('utf8')
+
+    // No key — try account-keyed transcripts first (multi-account case)
+    const keyedFiles = ['transcript-free.txt', 'transcript-vip.txt']
+    const segments = []
+    for (const filename of keyedFiles) {
+      try {
+        const buf = await downloadFromDropbox(token, rootNs, `${basePath}/${filename}`)
+        if (buf) {
+          const text = buf.toString('utf8')
+          if (text.trim()) {
+            const key = filename.replace(/transcript-|\.txt/g, '')
+            const label = getThreadLabel(key)
+            segments.push(`\n=== ${label} ===\n${text}`)
+          }
+        }
+      } catch {}
+    }
+    if (segments.length > 0) return segments.join('\n').trim()
+
+    // Fall back to legacy single-account transcript
+    try {
+      const buf = await downloadFromDropbox(token, rootNs, `${basePath}/transcript.txt`)
+      return buf ? buf.toString('utf8') : ''
+    } catch { return '' }
   } catch (err) {
     console.error('[Chat History] Load failed:', err.message || err)
     return ''
   }
 }
 
-// Save parsed chat transcript to Dropbox, appending only new messages
-async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnalysis, managerBrief, creatorName, fanName, fanUsername, firstMessageDate, lastMessageDate }) {
+// Save parsed chat transcript to Dropbox, appending only new messages.
+// When accountKey is provided (multi-account fan), the master transcript is scoped to
+// that account (e.g. transcript-free.txt). The per-upload snapshot and analysis JSON
+// are also account-tagged so both accounts can coexist in the same folder.
+async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnalysis, managerBrief, creatorName, fanName, fanUsername, firstMessageDate, lastMessageDate, accountKey }) {
   const token = await getDropboxAccessToken()
   const rootNs = await getDropboxRootNamespaceId(token)
   const basePath = getChatBasePath(creatorName, fanName, fanUsername)
   const runDate = new Date().toISOString().split('T')[0]
+  const transcriptFilename = getTranscriptFilename(accountKey)
+  const accountTag = accountKey ? `-${accountKey}` : ''
 
   // Build clean date-range string from chat window for filenames
   // Input formats: "Nov 15", "Apr 6, 11:33 pm", "January 15, 2026" etc.
@@ -1063,10 +1143,10 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
   await createDropboxFolder(token, rootNs, `/Palm Ops/Chat Logs/${safeCreator}`)
   await createDropboxFolder(token, rootNs, basePath)
 
-  // Download existing master transcript (if it fails, treat as first upload)
+  // Download existing master transcript for THIS account key (if it fails, treat as first upload)
   let existingTranscript = ''
   try {
-    const existingBuf = await downloadFromDropbox(token, rootNs, `${basePath}/transcript.txt`)
+    const existingBuf = await downloadFromDropbox(token, rootNs, `${basePath}/${transcriptFilename}`)
     existingTranscript = existingBuf ? existingBuf.toString('utf8') : ''
   } catch (err) {
     console.log('[Chat Save] No existing transcript (first upload or download failed):', err.message)
@@ -1124,12 +1204,13 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
     newTranscript = parsedConversation
   }
 
-  // Save a snapshot of THIS upload's raw transcript (never overwritten — preserves each upload)
-  const snapshotName = `transcript-${chatStart}_to_${chatEnd}.txt`
+  // Save a snapshot of THIS upload's raw transcript (never overwritten — preserves each upload).
+  // Tagged with accountKey when present so free/vip snapshots don't collide.
+  const snapshotName = `transcript${accountTag}-${chatStart}_to_${chatEnd}.txt`
   await uploadToDropbox(token, rootNs, `${basePath}/${snapshotName}`, Buffer.from(parsedConversation, 'utf8'))
 
-  // Upload master transcript (cumulative — appends new messages)
-  await uploadToDropbox(token, rootNs, `${basePath}/transcript.txt`, Buffer.from(newTranscript, 'utf8'), { overwrite: true })
+  // Upload master transcript (cumulative — appends new messages; per-account when keyed)
+  await uploadToDropbox(token, rootNs, `${basePath}/${transcriptFilename}`, Buffer.from(newTranscript, 'utf8'), { overwrite: true })
 
   // Upload analysis snapshot keyed by chat window dates — skip if no analysis (transcript-only save)
   if (fullAnalysis) {
@@ -1142,7 +1223,7 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
       fullAnalysis,
       managerBrief,
     }, null, 2)
-    await uploadToDropbox(token, rootNs, `${basePath}/analysis-${chatStart}_to_${chatEnd}.json`, Buffer.from(analysisJson, 'utf8'))
+    await uploadToDropbox(token, rootNs, `${basePath}/analysis${accountTag}-${chatStart}_to_${chatEnd}.json`, Buffer.from(analysisJson, 'utf8'))
   }
 
   // Update Fan Tracker with Dropbox path and chat upload date

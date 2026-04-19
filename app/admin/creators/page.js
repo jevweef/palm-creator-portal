@@ -2146,8 +2146,22 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
 
+// Client-side mirror of getAccountKey() in /api/admin/creator-earnings/analyze-chat/route.js.
+// Kept in sync manually since it's a tiny pure function — both sides must normalize the same way
+// or the per-account transcript files on Dropbox will collide.
+function getClientAccountKey(accountName) {
+  if (!accountName) return null
+  if (/free/i.test(accountName)) return 'free'
+  if (/vip/i.test(accountName)) return 'vip'
+  const slug = accountName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)
+  return slug || null
+}
+
 function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts }) {
   const [chatFile, setChatFile] = useState(null)
+  // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
+  // null for single-account fans (whose uploads don't need an account tag).
+  const [uploadAccountName, setUploadAccountName] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
@@ -2334,6 +2348,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     formData.append('creatorName', creatorName || '')
     formData.append('creatorAka', creatorAka || creatorName || '')
     formData.append('creatorRecordId', creatorRecordId || '')
+    // Tag the upload with which account it came from (multi-account fans only).
+    // Server uses this to route to transcript-free.txt vs transcript-vip.txt on Dropbox.
+    if (uploadAccountName) formData.append('accountName', uploadAccountName)
     // Compute daily spend timeline for analysis context — real purchases only
     if (allTxns) {
       const dailySpend = {}
@@ -2392,6 +2409,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       fd.append('fanUsername', f.ofUsername || '')
       fd.append('creatorName', creatorName || '')
       fd.append('creatorRecordId', creatorRecordId || '')
+      if (uploadAccountName) fd.append('accountName', uploadAccountName)
       const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Save failed')
@@ -3173,14 +3191,47 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               <input ref={chatFileRef} type="file" accept=".html,.htm"
                 onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
                 style={{ display: 'none' }} />
-              <button onClick={() => chatFileRef.current?.click()}
-                style={{
-                  background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
-                  borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                  color: chatFile ? '#166534' : '#64748B',
-                }}>
-                {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
-              </button>
+
+              {accountNames.length > 1 ? (
+                // Multi-account fan: render one upload button per account, color-coded to match the
+                // badges. Clicking a button tags this upload with that account so the server knows
+                // which per-account transcript file to save into.
+                <>
+                  {accountNames.map(acct => {
+                    const isFree = /free/i.test(acct)
+                    const isVip = /vip/i.test(acct)
+                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : '#64748B'
+                    const baseBg = isFree ? '#EFF6FF' : isVip ? '#F5F3FF' : '#F8FAFC'
+                    const selected = chatFile && uploadAccountName === acct
+                    return (
+                      <button key={acct}
+                        onClick={() => {
+                          // Switching accounts clears any prior selection so we never analyze the wrong file under the wrong thread tag
+                          if (uploadAccountName !== acct) setChatFile(null)
+                          setUploadAccountName(acct)
+                          chatFileRef.current?.click()
+                        }}
+                        style={{
+                          background: selected ? '#F0FDF4' : baseBg,
+                          border: `1px solid ${selected ? '#BBF7D0' : baseColor + '66'}`,
+                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                          color: selected ? '#166534' : baseColor, fontWeight: selected ? 600 : 500,
+                        }}>
+                        {selected ? `\u2713 ${chatFile.name.slice(0, 24)}${chatFile.name.length > 24 ? '\u2026' : ''}` : `Upload ${acct.replace(/^.*?-\s*/, '')} chat`}
+                      </button>
+                    )
+                  })}
+                </>
+              ) : (
+                <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
+                  style={{
+                    background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                    color: chatFile ? '#166534' : '#64748B',
+                  }}>
+                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+                </button>
+              )}
               {chatFile && (
                 <button onClick={handleAnalyze} disabled={analyzing}
                   style={{
