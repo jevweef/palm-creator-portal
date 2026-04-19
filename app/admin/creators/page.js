@@ -3496,14 +3496,12 @@ function computeHeatStatus(fanTxns) {
   // Dead: no activity in 90+ days
   if (currentGap > 90) return { status: 'Dead', detail: buildDetail(`No purchases in ${currentGap} days`) }
 
-  // Going Cold: gap > 2x median (min 14d) OR 30d spend is <25% of historical baseline
-  if ((currentGap > medianGap * 2 && currentGap >= 14) ||
-      (baseline > 0 && rolling30 < baseline * 0.25 && currentGap >= 14)) {
-    const reason = currentGap > medianGap * 2
-      ? `${currentGap}d gap (${medianGap}d median)`
-      : `30d spend $${Math.round(rolling30)} vs $${Math.round(baseline)}/mo historical avg`
-    return { status: 'Going Cold', detail: buildDetail(reason) }
-  }
+  // NOTE: "Going Cold" is intentionally NOT assigned here. That state is owned
+  // by the server-side detectGoingCold() scoring system (goingColdAlerts from
+  // the earnings API). The overlay in allFans() forces heatStatus = "Going Cold"
+  // for any fan the server flagged. Keeping this function from independently
+  // classifying Going Cold prevents the Fans CRM and the Earnings tab's
+  // Going Cold panel from ever disagreeing — one source of truth.
 
   // Cooling: gap > 1.5x median (min 10d) OR 30d spend < 50% of historical baseline
   if ((currentGap > medianGap * 1.5 && currentGap >= 10) ||
