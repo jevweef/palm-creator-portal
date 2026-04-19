@@ -12,6 +12,18 @@ const TAG_CATEGORIES = [
   'Film Format',
 ]
 
+// A "real purchase" = tip, PPV, message unlock, post unlock, stream tip, etc.
+// Explicitly excludes subscription renewals (auto-charges, not an active choice)
+// and chargebacks. Used for fan-level spending math (lifetime, gaps, rolling30,
+// heat status) so recurring $X subscription charges don't make a dead fan look alive.
+function isRealPurchase(t) {
+  if (!t || !t.type) return true // unknown type — treat as real to be safe
+  const type = String(t.type)
+  return type !== 'Chargeback'
+    && type !== 'Subscription'
+    && type !== 'Recurring subscription'
+}
+
 // Parse OF chat HTML in the browser — mirrors parseChatHtml() in the server route.
 // Running this client-side keeps large HTML (often 20-100MB of SVG/media bloat)
 // off the wire; only the compact transcript (~2-5% of size) is uploaded.
@@ -2167,7 +2179,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     for (const t of allTxns) {
       const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
         (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
-      if (!match || t.type === 'Chargeback') continue
+      if (!match || !isRealPurchase(t)) continue // skip subs + chargebacks
       const d = t.date
       if (!d) continue
       dailySpend[d] = (dailySpend[d] || 0) + (t.net || 0)
@@ -2282,8 +2294,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       formData.append('lastPurchaseDate', f.goingCold.lastPurchaseDate || '')
     } else if (allTxns) {
       // Compute spending metrics from transaction data when no going-cold alert exists
+      // Exclude subscription renewals + chargebacks — only real purchases count
       const fanTxns = allTxns.filter(t => (t.ofUsername || '') === f.ofUsername || (t.displayName || '') === f.fanName)
-        .filter(t => t.date)
+        .filter(t => t.date && isRealPurchase(t))
         .sort((a, b) => a.date.localeCompare(b.date))
       if (fanTxns.length > 0) {
         const now = new Date()
@@ -2301,6 +2314,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         }
         gaps.sort((a, b) => a - b)
         const median = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 0
+        const lifetime = fanTxns.reduce((s, t) => s + (t.net || 0), 0)
+        formData.set('lifetime', lifetime) // overwrite any earlier lifetime that included subs
         formData.append('medianGap', median)
         formData.append('currentGap', gap)
         formData.append('rolling30', r30)
@@ -2310,10 +2325,11 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     }
     formData.append('creatorName', creatorName || '')
     formData.append('creatorRecordId', creatorRecordId || '')
-    // Compute daily spend timeline for analysis context
+    // Compute daily spend timeline for analysis context — real purchases only
     if (allTxns) {
       const dailySpend = {}
       for (const t of allTxns) {
+        if (!isRealPurchase(t)) continue
         if ((t.displayName || '') === f.fanName || (t.ofUsername || '') === f.ofUsername) {
           dailySpend[t.date] = (dailySpend[t.date] || 0) + (t.net || 0)
         }
@@ -2397,7 +2413,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       for (const t of allTxns) {
         const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
           (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
-        if (!match || t.type === 'Chargeback') continue
+        if (!match || !isRealPurchase(t)) continue
         if (t.net > 0) {
           const mo = (t.date || '').slice(0, 7)
           if (mo) monthlyMap[mo] = (monthlyMap[mo] || 0) + t.net
@@ -3529,9 +3545,17 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       const thirtyAgoStr = thirtyAgo.toISOString().split('T')[0]
 
       for (const t of allTxns) {
-        if (t.type === 'Chargeback') continue
+        // Accept ALL transaction types for account membership tracking,
+        // but only count real purchases toward spend/heat metrics.
         const key = (t.ofUsername || t.displayName || 'Unknown').toLowerCase()
         if (key === 'unknown') continue
+        const isReal = isRealPurchase(t)
+        if (!isReal && !fanMap.has(key)) {
+          // Fan has only subscription/chargeback txns so far — record account membership
+          // but don't create a full fan entry yet (wait for a real purchase).
+          // Actually we do want to show them on account filter even if no purchases —
+          // so we create the entry but their spend numbers stay at 0.
+        }
         if (!fanMap.has(key)) {
           fanMap.set(key, {
             id: `txn-${key}`,
@@ -3561,14 +3585,17 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           fanTxnMap.set(key, [])
         }
         const fan = fanMap.get(key)
-        fan.lifetimeSpend += t.net || 0
-        fan.txnCount += 1
+        // Always record identity + account membership
         if (t.displayName) fan.fanName = t.displayName
         if (!fan.ofUsername && t.ofUsername) fan.ofUsername = t.ofUsername
+        if (t.account) fan.accounts.add(t.account)
+        // Only count real purchases toward spend/cadence/heat math
+        if (!isReal) continue
+        fan.lifetimeSpend += t.net || 0
+        fan.txnCount += 1
         if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
         if (!fan.firstDate || t.date < fan.firstDate) fan.firstDate = t.date
         if (t.date >= thirtyAgoStr) fan.last30 += t.net || 0
-        if (t.account) fan.accounts.add(t.account)
         fanTxnMap.get(key).push(t)
       }
     }

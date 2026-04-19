@@ -683,9 +683,12 @@ HARD RULES:
     const priorContext = priorResult?.text || null
 
     // Determine if fan is currently active — check spending data directly, don't require tracker record
+    // Thresholds intentionally strict so fans who only have subscription-tier activity ($8/mo auto-renew)
+    // don't get flagged as hot. Rolling30 needs to reflect meaningful purchases.
     const fanIsHot = (priorResult?.isHot) || (
-      rolling30 > 0 &&
-      (monthlyAvg90 <= 0 || rolling30 >= monthlyAvg90 * 0.5) &&
+      rolling30 >= 40 && // floor — subscription-only activity won't clear this
+      monthlyAvg90 > 0 &&
+      rolling30 >= monthlyAvg90 * 0.5 &&
       currentGap < (medianGap > 0 ? medianGap * 2 : 30)
     )
 
