@@ -20,19 +20,23 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorName, creatorRecordId, alert, analysis, chatWindow } = await request.json()
+    const { creatorName, creatorAka, creatorRecordId, alert, analysis, chatWindow } = await request.json()
 
     if (!creatorName) return NextResponse.json({ error: 'Missing creatorName' }, { status: 400 })
     if (!alert) return NextResponse.json({ error: 'Missing alert data' }, { status: 400 })
     if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
 
-    const topic = getWhaleTopicForCreator(creatorName)
+    // Telegram topic routing is keyed on AKA (Sunny, Taby, MG, Laurel), not full legal name.
+    // Try AKA first, fall back to full name for backwards compat / Laurel where AKA == first name.
+    const topic = getWhaleTopicForCreator(creatorAka) || getWhaleTopicForCreator(creatorName)
     if (!topic) {
-      return NextResponse.json({ error: `No Telegram topic configured for "${creatorName}"` }, { status: 400 })
+      return NextResponse.json({
+        error: `No Telegram topic configured for "${creatorAka || creatorName}" — check lib/whaleAlertConfig.js`,
+      }, { status: 400 })
     }
 
     // Generate PDF (full analysis only, no manager brief)
-    const pdfBuffer = await generateWhaleAlertPdf({ creatorName, alert, analysis })
+    const pdfBuffer = await generateWhaleAlertPdf({ creatorName, creatorAka, alert, analysis })
 
     // Upload PDF to Dropbox — same folder as chat transcripts and analysis JSONs
     const accessToken = await getDropboxAccessToken()

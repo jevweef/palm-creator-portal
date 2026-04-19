@@ -1081,6 +1081,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorName,
+          creatorAka,
           creatorRecordId,
           alert: a,
           analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
@@ -1409,6 +1410,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         creatorName,
+                        creatorAka,
                         creatorRecordId,
                         alert: a,
                         analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
@@ -2457,7 +2459,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     const selRec = f.analysisRecords?.[selectedAnalysisIdx]
 
     return {
-      creatorName,
+      creatorName, // full legal name — used for Dropbox folder path consistency
+      creatorAka,  // stage name — used for Telegram topic routing
       creatorRecordId,
       alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, peakMonthlyAvg, peakRange },
       analysis: analysis
