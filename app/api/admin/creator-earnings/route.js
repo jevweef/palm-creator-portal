@@ -202,15 +202,17 @@ function detectWhales(transactions, now) {
 // ── Going Cold detection ───────────────────────────────────────────────────
 
 function detectGoingCold(transactions, now) {
-  const ninetyDaysAgo = new Date(now)
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
-  const thirtyDaysAgo = new Date(now)
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const sixtyDaysAgo = new Date(now);  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
+  const ninetyDaysAgo = new Date(now); ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
 
-  // Group by fan (prefer ofUsername for stability — display names change)
+  // Group by fan (prefer ofUsername — display names change)
+  // Exclude chargebacks and subscription renewals — subs auto-charge and don't
+  // reflect active spending intent.
   const fanTxns = {}
   for (const t of transactions) {
     if (t.type === 'Chargeback') continue
+    if (t.type === 'Subscription' || t.type === 'Recurring subscription') continue
     const key = t.ofUsername || t.displayName || 'Unknown'
     if (!fanTxns[key]) fanTxns[key] = []
     fanTxns[key].push(t)
@@ -218,28 +220,23 @@ function detectGoingCold(transactions, now) {
 
   const alerts = []
   for (const [fan, txns] of Object.entries(fanTxns)) {
-    // Skip fans with no username (deleted/deactivated accounts — can't re-engage)
     const hasUsername = txns.some(t => t.ofUsername)
-    if (!hasUsername) continue
+    if (!hasUsername) continue // skip deleted/deactivated OF accounts
 
-    // Sort chronologically
     const sorted = txns.filter(t => t.dt).sort((a, b) => a.dt - b.dt)
-    if (sorted.length < 3) continue // need enough history for median
+    if (sorted.length < 3) continue
 
-    // Only track significant spenders (>$500 in trailing 90 days OR >$1000 lifetime)
+    const lifetime = sorted.reduce((s, t) => s + t.net, 0)
     const trailing90 = sorted.filter(t => t.dt >= ninetyDaysAgo).reduce((s, t) => s + t.net, 0)
-    const lifetime = txns.reduce((s, t) => s + t.net, 0)
-    if (trailing90 < 500 && lifetime < 1000) continue
+    // Lower minimum — catches light-budget loyalists that the old $500/$1000
+    // threshold was missing. Still enough to filter out casual one-offs.
+    if (trailing90 < 200 && lifetime < 500) continue
 
-    // Calculate purchase gaps (days between consecutive purchase dates)
+    // Unique purchase dates → gaps
     const purchaseDates = []
     let lastDate = null
     for (const t of sorted) {
-      const dateStr = t.date
-      if (dateStr !== lastDate) {
-        purchaseDates.push(t.dt)
-        lastDate = dateStr
-      }
+      if (t.date !== lastDate) { purchaseDates.push(t.dt); lastDate = t.date }
     }
     if (purchaseDates.length < 3) continue
 
@@ -248,39 +245,107 @@ function detectGoingCold(transactions, now) {
       gaps.push(Math.round((purchaseDates[i] - purchaseDates[i - 1]) / 86400000))
     }
 
-    // Median of last 15 gaps (or all if fewer)
-    const recentGaps = gaps.slice(-15).sort((a, b) => a - b)
-    const medianGap = recentGaps[Math.floor(recentGaps.length / 2)]
-    const p90Gap = recentGaps[Math.floor(recentGaps.length * 0.9)]
+    // Burst-spender detection — all purchases within 10 days = binge behavior,
+    // not a regular cadence. Using raw median gap would flag them too easily.
+    const totalSpanDays = Math.round((purchaseDates[purchaseDates.length - 1] - purchaseDates[0]) / 86400000)
+    const isBurstSpender = totalSpanDays <= 10 && purchaseDates.length >= 3
 
-    // Current gap (days since last purchase)
+    const recentGapsSorted = gaps.slice(-15).sort((a, b) => a - b)
+    const rawMedianGap = recentGapsSorted[Math.floor(recentGapsSorted.length / 2)] || 0
+    // For burst spenders, treat "normal" as 21 days (typical re-engagement window
+    // for someone who binged — they're not going to come back in 2 days).
+    const medianGap = isBurstSpender ? 21 : rawMedianGap
+    const p90Gap = recentGapsSorted[Math.floor(recentGapsSorted.length * 0.9)] || medianGap
+
     const lastPurchase = purchaseDates[purchaseDates.length - 1]
     const currentGap = Math.floor((now - lastPurchase) / 86400000)
 
-    // Minimum 14-day gap before any alert fires (avoids false alarms on high-frequency buyers)
-    // Maximum 90-day gap — beyond this they're already lost, not "going cold"
+    // Absolute bounds — don't alert if they bought recently or if they're so far
+    // gone that they're effectively lost, not "going cold."
     const MIN_GAP_DAYS = 14
-    const MAX_GAP_DAYS = 90
+    const MAX_GAP_DAYS = 120
     if (currentGap < MIN_GAP_DAYS || currentGap > MAX_GAP_DAYS) continue
 
-    // Signal 1: Gap exceeds 2x personal median
-    const gapTriggered = medianGap > 0 && currentGap > medianGap * 2
-
-    // Signal 2: Rolling 30-day spend < 25% of trailing 90-day monthly avg
-    const rolling30 = sorted.filter(t => t.dt >= thirtyDaysAgo).reduce((s, t) => s + t.net, 0)
+    // ─── SPEND WINDOWS ─────────────────────────────────────────────
+    const r30 = sorted.filter(t => t.dt >= thirtyDaysAgo).reduce((s, t) => s + t.net, 0)
+    const r60 = sorted.filter(t => t.dt >= sixtyDaysAgo).reduce((s, t) => s + t.net, 0)
     const monthlyAvg90 = trailing90 / 3
-    const spendTriggered = monthlyAvg90 > 0 && rolling30 < monthlyAvg90 * 0.25
+    const r30to60 = Math.max(0, r60 - r30) // spend in 30-60 day window
 
-    if (!gapTriggered && !spendTriggered) continue
+    // ─── SCORE ─────────────────────────────────────────────────────
+    // Weighted signals. Each signal adds points based on severity.
+    // Total score → urgency. This catches slow decays + budget drops + whale
+    // risk earlier than the old binary triggers.
+    let score = 0
+    const reasons = []
 
-    // Determine trigger reason and urgency
-    let triggerReason = gapTriggered && spendTriggered ? 'both' : gapTriggered ? 'gap' : 'spend_drop'
+    // Signal 1: Gap ratio (0-30 pts)
     const gapRatio = medianGap > 0 ? currentGap / medianGap : 0
-    const spendDropRatio = monthlyAvg90 > 0 ? rolling30 / monthlyAvg90 : 0
+    if (gapRatio > 4) { score += 30; reasons.push(`${gapRatio.toFixed(1)}x normal gap`) }
+    else if (gapRatio > 3) { score += 22; reasons.push(`${gapRatio.toFixed(1)}x normal gap`) }
+    else if (gapRatio > 2) { score += 14; reasons.push(`${gapRatio.toFixed(1)}x normal gap`) }
+    else if (gapRatio > 1.5) { score += 6 }
 
-    let urgency = 'warning'
-    if (gapRatio > 4 || (spendTriggered && rolling30 === 0)) urgency = 'critical'
-    else if (gapRatio > 3 || (spendTriggered && spendDropRatio < 0.1)) urgency = 'high'
+    // Signal 2: Gap trend — are recent gaps lengthening? (0-15 pts)
+    // Catches slow decays that single-snapshot ratios miss.
+    if (gaps.length >= 4 && !isBurstSpender) {
+      const recent3 = gaps.slice(-3)
+      const earlier = gaps.slice(-10, -3)
+      if (earlier.length >= 2) {
+        const avgRecent = recent3.reduce((s, g) => s + g, 0) / recent3.length
+        const avgEarly = earlier.reduce((s, g) => s + g, 0) / earlier.length
+        if (avgEarly > 0) {
+          const trendRatio = avgRecent / avgEarly
+          if (trendRatio > 2) { score += 15; reasons.push('gaps lengthening fast') }
+          else if (trendRatio > 1.5) { score += 10; reasons.push('gaps lengthening') }
+          else if (trendRatio > 1.2) { score += 5 }
+        }
+      }
+    }
+
+    // Signal 3: Spend drop — rolling30 vs 90d avg (0-25 pts)
+    const spendDropRatio = monthlyAvg90 > 0 ? r30 / monthlyAvg90 : 1
+    if (monthlyAvg90 > 0) {
+      if (spendDropRatio < 0.05) { score += 25; reasons.push('spend collapsed') }
+      else if (spendDropRatio < 0.15) { score += 18; reasons.push(`spend ~${Math.round(spendDropRatio * 100)}% of avg`) }
+      else if (spendDropRatio < 0.35) { score += 10; reasons.push(`spend ~${Math.round(spendDropRatio * 100)}% of avg`) }
+      else if (spendDropRatio < 0.6) { score += 4 }
+    }
+
+    // Signal 4: Spend trend — last 30d vs 30-60d ago (0-12 pts)
+    // Catches fans whose amounts are shrinking even if frequency looks normal.
+    if (r30to60 > 0) {
+      const monthOverMonth = r30 / r30to60
+      if (monthOverMonth < 0.3) { score += 12; reasons.push('spend shrinking MoM') }
+      else if (monthOverMonth < 0.6) { score += 6 }
+    }
+
+    // Signal 5: Whale/patron bonus (0-15 pts)
+    // Higher-value fans get earlier detection — the cost of missing them is greater.
+    if (lifetime >= 5000) { score += 15; reasons.push('patron-tier') }
+    else if (lifetime >= 2000) { score += 10; reasons.push('whale') }
+    else if (lifetime >= 1000) { score += 5 }
+
+    // Signal 6: Absolute silence — $0 in last 30 days after having history (0-15 pts)
+    if (r30 === 0 && trailing90 > 0) {
+      score += 15
+      reasons.push('silent 30d+')
+    }
+
+    // Signal 7: Uptrend protection — subtract score if recently re-engaged.
+    // Prevents flagging fans who just came back (e.g. Chucky pattern).
+    if (gaps.length >= 2 && currentGap < medianGap) {
+      score -= 30
+    }
+
+    // Thresholds → urgency
+    let urgency = null
+    if (score >= 70) urgency = 'critical'
+    else if (score >= 45) urgency = 'high'
+    else if (score >= 25) urgency = 'warning'
+    if (!urgency) continue
+
+    let triggerReason = reasons[0] || 'multiple signals'
 
     // Monthly spending history (last 6 months)
     const sixMonthsAgo = new Date(now)
@@ -312,21 +377,24 @@ function detectGoingCold(transactions, now) {
       p90Gap,
       currentGap,
       gapRatio: Math.round(gapRatio * 10) / 10,
-      rolling30,
+      rolling30: r30,
       monthlyAvg90: Math.round(monthlyAvg90),
       spendDropRatio: Math.round(spendDropRatio * 100) / 100,
       lastPurchaseDate: sorted[sorted.length - 1]?.date || '',
       lifetime,
       triggerReason,
+      reasons,              // full list of firing signals
+      score,                // composite 0-100+ score that drove urgency
+      isBurstSpender,       // flagged separately so UI can note it
       urgency,
       monthlyHistory,
       totalPurchases: purchaseDates.length,
     })
   }
 
-  // Sort: critical first, then by gap ratio
+  // Sort: critical first, then by composite score (higher = more urgent)
   const urgencyOrder = { critical: 0, high: 1, warning: 2 }
-  alerts.sort((a, b) => (urgencyOrder[a.urgency] - urgencyOrder[b.urgency]) || b.gapRatio - a.gapRatio)
+  alerts.sort((a, b) => (urgencyOrder[a.urgency] - urgencyOrder[b.urgency]) || b.score - a.score)
   return alerts
 }
 
