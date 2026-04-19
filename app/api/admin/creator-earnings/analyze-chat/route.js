@@ -658,7 +658,7 @@ CRITICAL DATE RULES:
 - The "[N] days ago" MUST match the date you just wrote. Do not pull the number from one section and the date from another. If the fan last replied Feb 27 and today is Apr 19, that's 51 days. If unsure, count from the year-month-day.
 
 QUICK READ
-[1-2 sentences. The situation and what's at stake. Don't rehash evidence — that's the next section.]
+[1-2 sentences. Lead with the FAN'S situation and what's at stake — not with meta-commentary about the analysis itself. Do NOT open with "This is a follow-up," "This is the first analysis," "The record shows," or anything describing the brief. If prior context exists and is genuinely relevant, fold it in naturally ("Since the last analysis he's gone another 3 weeks silent"). Otherwise just describe what's happening with the fan right now.]
 
 WHAT HAPPENED
 [3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor, cite the quote. If genuinely unclear, say so. Do not speculate past the evidence.]
