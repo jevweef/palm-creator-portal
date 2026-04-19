@@ -228,9 +228,13 @@ function detectGoingCold(transactions, now) {
 
     const lifetime = sorted.reduce((s, t) => s + t.net, 0)
     const trailing90 = sorted.filter(t => t.dt >= ninetyDaysAgo).reduce((s, t) => s + t.net, 0)
-    // Lower minimum — catches light-budget loyalists that the old $500/$1000
-    // threshold was missing. Still enough to filter out casual one-offs.
-    if (trailing90 < 200 && lifetime < 500) continue
+    // Minimum lifetime spend to qualify as whale-hunt worthy.
+    // Per chat manager: <$400 lifetime isn't whale territory, don't alert on them.
+    // We intentionally do NOT require recent activity — the whole point of
+    // going-cold detection is to catch fans who USED to spend and have since
+    // gone silent. Gating on trailing-90d would filter out exactly the fans
+    // we're trying to find.
+    if (lifetime < 400) continue
 
     // Unique purchase dates → gaps
     const purchaseDates = []
