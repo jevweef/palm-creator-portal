@@ -842,7 +842,11 @@ HARD RULES:
     // Hard ceiling: ~1000 words for patrons (~1500 tokens), 400-600 for simpler
     // fans. max_tokens gives a small buffer above the prompt ceiling; the model
     // is instructed to stop at 1000 words. Billed per actual token generated.
-    const claudeMaxTokens = isHighValue ? 2000 : 1000
+    // max_tokens is a hard ceiling on the COMPLETION. We target ~1000 words (~1500 tokens)
+    // for patron-tier fans + a LAST TOUCH section + section headings. 3000 gives enough
+    // buffer so Claude can finish the sample message even when it hits the upper bound of
+    // the 1000-word target. Was 2000 — kept cutting mid-sentence in NEXT MOVE.
+    const claudeMaxTokens = isHighValue ? 3000 : 1200
     let fullAnalysis = 'Analysis failed'
     let claudeUsage = null
     let claudeStopReason = null
