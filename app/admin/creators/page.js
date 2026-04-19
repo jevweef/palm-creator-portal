@@ -3658,7 +3658,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   // Map CRM status → alert status display
   const crmToAlertStatus = (crmStatus) => {
     const map = {
-      'Going Cold': 'Alert Triggered',
+      // NOTE: 'Going Cold' intentionally NOT in this map.
+      // "Alert Triggered" is reserved for fans currently flagged by the scoring
+      // system (via the goingColdAlerts overlay in allFans). Historical CRM
+      // records with 'Going Cold' status should no longer surface as active
+      // alerts — if the fan is past the 120-day window or the scoring no longer
+      // flags them, their Alert column should be empty.
       'Analyzed': 'Fan Analyzed',
       'Alert Sent': 'Sent to Manager',
       'Recovering': 'Sent to Manager',
