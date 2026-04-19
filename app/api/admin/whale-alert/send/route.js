@@ -123,6 +123,8 @@ export async function POST(request) {
           creatorRecordId,
           creatorName,
           alertData: alert,
+          telegramMessageId: data.result?.message_id,
+          telegramChatId: topic.chatId,
         })
       } catch (err) {
         console.error('[Whale Alert] Fan tracker log failed:', err)
@@ -143,7 +145,7 @@ export async function POST(request) {
 
 // ── Fan Tracker logging ────────────────────────────────────────────────────
 
-async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, creatorName, alertData }) {
+async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, creatorName, alertData, telegramMessageId, telegramChatId }) {
   const now = new Date().toISOString()
   const alertEntry = {
     date: now,
@@ -182,6 +184,8 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
       'Lifetime Spend': alertData?.lifetime || record.fields['Lifetime Spend'] || 0,
       'Pre-Alert Spend 30d': alertData?.rolling30 || 0,
       'Effectiveness': 'Pending',
+      ...(telegramMessageId ? { 'Last Alert Message ID': telegramMessageId } : {}),
+      ...(telegramChatId ? { 'Last Alert Chat ID': telegramChatId } : {}),
     })
   } else {
     await createAirtableRecord(FAN_TRACKER_TABLE, {
@@ -197,6 +201,8 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
       'Pre-Alert Spend 30d': alertData?.rolling30 || 0,
       'Effectiveness': 'Pending',
       'Times Gone Cold': 1,
+      ...(telegramMessageId ? { 'Last Alert Message ID': telegramMessageId } : {}),
+      ...(telegramChatId ? { 'Last Alert Chat ID': telegramChatId } : {}),
     })
   }
 }
