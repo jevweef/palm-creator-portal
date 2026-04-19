@@ -2497,7 +2497,13 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       creatorName, // full legal name — used for Dropbox folder path consistency
       creatorAka,  // stage name — used for Telegram topic routing
       creatorRecordId,
-      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, accountNames, peakMonthlyAvg, peakRange },
+      alert: {
+        ...alertData, fan: f.fanName, username: f.ofUsername,
+        monthlyHistory, accountNames, peakMonthlyAvg, peakRange,
+        // Full list of creator's accounts — PDF uses this to decide whether
+        // to render per-account labels. Single-account creators skip labels.
+        creatorAccounts: availableAccounts || [],
+      },
       analysis: analysis
         ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief }
         : selRec
