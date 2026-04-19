@@ -2562,6 +2562,11 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         const refreshData = await refreshRes.json()
         if (refreshData.fans) setFans(refreshData.fans)
       } catch {}
+      // Auto-close the modal after a brief success confirmation (1.5s)
+      setTimeout(() => {
+        setShowSendModal(false)
+        setSendResult(null)
+      }, 1500)
     } catch (e) {
       setSendResult({ error: e.message })
     } finally {
@@ -3433,16 +3438,19 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               >Cancel</button>
               <button
                 onClick={handleSendToTelegram}
-                disabled={sending || previewLoading || !previewImage}
+                disabled={sending || previewLoading || !previewImage || sendResult?.success}
                 style={{
-                  background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                  background: sendResult?.success ? '#16A34A' : '#1a1a1a',
+                  border: 'none', borderRadius: '6px',
                   padding: '8px 16px', fontSize: '12px', color: '#fff', fontWeight: 600,
-                  cursor: (sending || previewLoading || !previewImage) ? 'not-allowed' : 'pointer',
-                  opacity: (sending || previewLoading || !previewImage) ? 0.5 : 1,
+                  cursor: (sending || previewLoading || !previewImage || sendResult?.success) ? 'not-allowed' : 'pointer',
+                  opacity: (sending || previewLoading || !previewImage) && !sendResult?.success ? 0.5 : 1,
                   display: 'flex', alignItems: 'center', gap: '6px',
+                  transition: 'background 0.2s',
                 }}
               >
-                <span style={{ fontSize: '14px' }}>&#9993;</span> {sending ? 'Sending...' : 'Confirm & Send'}
+                <span style={{ fontSize: '14px' }}>{sendResult?.success ? '\u2713' : '\u2709'}</span>
+                {sending ? 'Sending...' : sendResult?.success ? 'Sent' : 'Confirm & Send'}
               </button>
             </div>
 
