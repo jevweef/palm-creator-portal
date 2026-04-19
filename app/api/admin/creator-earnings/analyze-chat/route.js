@@ -644,9 +644,14 @@ HARD LENGTH CEILING: 1000 words for the most complex patron-tier fan. 400-600 wo
 FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
 
 LAST TOUCH
-Last message: [exact date from chat, e.g. "Mar 17" or "Mar 17, 2026"] — [N] days ago
-Last purchase: [exact date from SPENDING DATA block, e.g. "Feb 14, 2026"] — $[exact amount] [for content type if known from chat: "for the pool PPV", "tip after voice note", etc.]
-Last topic: [1-2 sentences on what they were actually talking about in the final exchange — the subject, not the vibe. Example: "He was asking about her trip to Asheville and mentioned he's visiting his mom for Easter. She sent a teaser photo, he didn't bite." — If the conversation just trailed off without closure, say so.]
+Last fan reply: [EXACT date of the FAN's most recent message — look at the chat transcript and find the last line tagged [FAN]. Ignore creator-side re-engagement pings that came after. Format: "Feb 27, 2026" or "Feb 27" — whichever is in the transcript. Then calculate days ago relative to today.] — [N] days ago
+Last purchase: [EXACT date from the SPENDING DATA block above — specifically the "Last purchase:" line. Format "Feb 14, 2026"] — $[EXACT amount from the SPENDING DATA block] [for content type if known from chat: "for the pool PPV", "tip after voice note", etc. Omit this phrase if you don't have chat evidence — do NOT guess.]
+Last topic: [1-2 sentences on what the fan was last actually responding to or talking about — the subject, not the vibe. Example: "He was asking about her trip to Asheville and mentioned he's visiting his mom for Easter. She sent a teaser photo, he didn't bite." If the fan just stopped replying with no clear conversation thread, say so: "He went silent mid-conversation after a price pitch — no final topic."]
+
+CRITICAL DATE RULES:
+- "Last fan reply" is the FAN's last message, NOT the creator's last message. Creator-side re-engagement pings sent after the fan went quiet do NOT count.
+- If today's date (or any obviously recent date) shows up in the transcript, it's usually a creator-side outbound ping — skip past it to find the fan's actual last reply.
+- The "[N] days ago" MUST match the date you just wrote. Do not pull the number from one section and the date from another. If the fan last replied Feb 27 and today is Apr 19, that's 51 days. If unsure, count from the year-month-day.
 
 QUICK READ
 [1-2 sentences. The situation and what's at stake. Don't rehash evidence — that's the next section.]
@@ -686,9 +691,9 @@ Read the conversation and produce a short brief in this exact format:
 FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
 
 LAST TOUCH
-Last message: [exact date, e.g. "Mar 17"] — [N] days ago
-Last purchase: [exact date from SPENDING DATA] — $[exact amount] [what it was for if known]
-Last topic: [1 sentence on what they were actually discussing in the final exchange.]
+Last fan reply: [EXACT date of the FAN's most recent message (last [FAN] line in transcript — ignore creator re-engagement pings sent after)] — [N] days ago (count from today)
+Last purchase: [EXACT date + $amount from the SPENDING DATA block above, e.g. "Feb 27, 2026 — $4.00"]
+Last topic: [1 sentence on what the fan was last actually discussing or responding to — not what the creator pushed at him afterward.]
 
 QUICK READ
 [2-3 sentences. What's going on in plain words.]
