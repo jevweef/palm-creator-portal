@@ -174,10 +174,12 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
     formula = `{Fan Name} = "${fanName}"`
   }
 
+  console.log('[Whale Alert] Tracker lookup formula:', formula)
   const existing = await fetchAirtableRecords(FAN_TRACKER_TABLE, {
     filterByFormula: formula,
     maxRecords: 1,
   })
+  console.log('[Whale Alert] Tracker lookup found:', existing.length, 'records; first id=', existing[0]?.id)
 
   if (existing[0]) {
     const record = existing[0]
@@ -185,6 +187,7 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
     try { history = JSON.parse(record.fields['Alert History'] || '[]') } catch {}
     history.push(alertEntry)
 
+    console.log('[Whale Alert] Patching tracker record', record.id, 'with Status=Alert Sent')
     await patchAirtableRecord(FAN_TRACKER_TABLE, record.id, {
       'Status': 'Alert Sent',
       'Last Alert Sent': now,
@@ -196,6 +199,21 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
       ...(telegramMessageId ? { 'Last Alert Message ID': telegramMessageId } : {}),
       ...(telegramChatId ? { 'Last Alert Chat ID': telegramChatId } : {}),
     })
+    console.log('[Whale Alert] Patch call returned without throwing for record', record.id)
+
+    // Verify-after-patch: re-read the record and confirm Status actually flipped.
+    // If Airtable silently ignored the write (shouldn't, but we've seen cases where it
+    // did), throw so the caller surfaces the trackerError to the UI.
+    const verify = await fetchAirtableRecords(FAN_TRACKER_TABLE, {
+      filterByFormula: `RECORD_ID() = "${record.id}"`,
+      maxRecords: 1,
+    })
+    const verifiedStatus = verify[0]?.fields?.['Status']
+    console.log('[Whale Alert] Post-patch verify: Status =', verifiedStatus)
+    if (verifiedStatus !== 'Alert Sent') {
+      throw new Error(`Patch appeared to succeed but Status is "${verifiedStatus || 'empty'}" instead of "Alert Sent". Check Airtable field write permissions on record ${record.id}.`)
+    }
+    return { action: 'patched', recordId: record.id }
   } else {
     await createAirtableRecord(FAN_TRACKER_TABLE, {
       'Fan Name': fanName,
@@ -213,5 +231,7 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
       ...(telegramMessageId ? { 'Last Alert Message ID': telegramMessageId } : {}),
       ...(telegramChatId ? { 'Last Alert Chat ID': telegramChatId } : {}),
     })
+    console.log('[Whale Alert] Created new tracker record for', fanName)
+    return { action: 'created' }
   }
 }
