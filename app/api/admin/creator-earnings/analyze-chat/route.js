@@ -641,7 +641,12 @@ OUTPUT FORMAT (produce exactly these sections in this order, with these exact he
 
 HARD LENGTH CEILING: 1000 words for the most complex patron-tier fan. 400-600 words for a simpler fan. If you hit 1000 words, stop — cut the least important bullet or shorten sentences. Do NOT pad simple fans. Specificity over length. No filler, no restatement across sections.
 
-FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total  •  [N] days since he last replied
+FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
+
+LAST TOUCH
+Last message: [exact date from chat, e.g. "Mar 17" or "Mar 17, 2026"] — [N] days ago
+Last purchase: [exact date from SPENDING DATA block, e.g. "Feb 14, 2026"] — $[exact amount] [for content type if known from chat: "for the pool PPV", "tip after voice note", etc.]
+Last topic: [1-2 sentences on what they were actually talking about in the final exchange — the subject, not the vibe. Example: "He was asking about her trip to Asheville and mentioned he's visiting his mom for Easter. She sent a teaser photo, he didn't bite." — If the conversation just trailed off without closure, say so.]
 
 QUICK READ
 [1-2 sentences. The situation and what's at stake. Don't rehash evidence — that's the next section.]
@@ -678,7 +683,12 @@ ${spendingContext}
 
 Read the conversation and produce a short brief in this exact format:
 
-FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total  •  [N] days since he last replied
+FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
+
+LAST TOUCH
+Last message: [exact date, e.g. "Mar 17"] — [N] days ago
+Last purchase: [exact date from SPENDING DATA] — $[exact amount] [what it was for if known]
+Last topic: [1 sentence on what they were actually discussing in the final exchange.]
 
 QUICK READ
 [2-3 sentences. What's going on in plain words.]
