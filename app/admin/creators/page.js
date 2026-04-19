@@ -2169,7 +2169,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   const saveFileRef = useRef(null)
 
   const heat = HEAT_CONFIG[f.heatStatus] || HEAT_CONFIG['Stable']
-  const ac = alertStatusColors[f.alertStatus] || alertStatusColors['None']
+  // For "Alert Triggered", color-tint by urgency (critical/high/warning) so
+  // critical pops in the list. Fallback to default red if no urgency attached.
+  const urgency = f.goingCold?.urgency
+  const ac = (f.alertStatus === 'Alert Triggered' && urgency && URGENCY_COLORS[urgency])
+    ? URGENCY_COLORS[urgency]
+    : (ALERT_STATUS_COLORS[f.alertStatus] || ALERT_STATUS_COLORS['None'])
   const ec = effectColors[f.effectiveness] || effectColors['Pending']
 
   // Analysis is now shown via cards (analysisRecords) — full text loads on demand via "View Full" modal or new analysis run
@@ -2589,7 +2594,13 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           {f.alertCount > 0 && <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
         <span title={heat.label} style={{ fontSize: '14px', lineHeight: '20px', textAlign: 'center' }}>{heat.emoji}</span>
-        <span>{f.alertStatus !== 'None' && <span style={{ background: ac.bg, color: ac.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.alertStatus}</span>}</span>
+        <span>{f.alertStatus !== 'None' && (
+          <span style={{ background: ac.bg, color: ac.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>
+            {f.alertStatus === 'Alert Triggered' && urgency
+              ? `${urgency.toUpperCase()}`
+              : f.alertStatus}
+          </span>
+        )}</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(f.lifetimeSpend)}</span>
         <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#DC2626' : '#666', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
         <span style={{ textAlign: 'right', color: '#666' }}>{f.txnCount || 0}</span>
@@ -3203,6 +3214,47 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
             </div>
           )}
+
+          {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
+          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={async () => {
+                const isBanned = f.banned
+                const confirmMsg = isBanned
+                  ? `Unban ${f.fanName}? They'll become eligible for alerts again.`
+                  : `Ban ${f.fanName}? They'll be hidden from the Fans list and excluded from all future alerts. The chat team won't see them.`
+                if (!confirm(confirmMsg)) return
+                try {
+                  const res = await fetch('/api/admin/fan-tracker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'update_status',
+                      recordId: f.crmId || null,
+                      fanName: f.fanName,
+                      fanUsername: f.ofUsername,
+                      creatorRecordId,
+                      status: isBanned ? 'Monitoring' : 'Banned', // flip to Monitoring when unbanning — neutral state
+                    }),
+                  })
+                  if (!res.ok) throw new Error('Ban update failed')
+                  // Refresh CRM data
+                  const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
+                  const refreshData = await refreshRes.json()
+                  if (refreshData.fans) setFans(refreshData.fans)
+                } catch (e) {
+                  alert(`Ban update failed: ${e.message}`)
+                }
+              }}
+              style={{
+                fontSize: '10px', color: f.banned ? '#1F2937' : '#9CA3AF',
+                background: 'none', border: 'none', cursor: 'pointer',
+                textDecoration: 'underline', fontWeight: f.banned ? 600 : 400,
+              }}
+            >
+              {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -3548,6 +3600,24 @@ const HEAT_CONFIG = {
 
 const HEAT_SORT_ORDER = { 'Dead': 0, 'Going Cold': 1, 'Cooling': 2, 'Warming Up': 3, 'Stable': 4, 'Hot': 5 }
 
+// Surfaced at module scope so both FanRow and FansPanel can reference.
+const ALERT_STATUS_COLORS = {
+  'None': { bg: '#F3F4F6', text: '#9CA3AF' },
+  'Alert Triggered': { bg: '#FEE2E2', text: '#DC2626' },
+  'Fan Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
+  'Sent to Manager': { bg: '#FFF3CD', text: '#D97706' },
+  'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
+  'Action Taken': { bg: '#DCFCE7', text: '#166534' },
+  'Banned': { bg: '#1F2937', text: '#fff' },
+}
+
+// Urgency colors for Alert Triggered — so Critical visually pops in lists.
+const URGENCY_COLORS = {
+  critical: { bg: '#FECACA', text: '#7F1D1D' },
+  high: { bg: '#FEE2E2', text: '#DC2626' },
+  warning: { bg: '#FEF3C7', text: '#92400E' },
+}
+
 function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -3557,6 +3627,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
   const [sortDir, setSortDir] = useState('desc')
   const [showDeleted, setShowDeleted] = useState(false)
+  const [showBanned, setShowBanned] = useState(false)
   const [accountFilter, setAccountFilter] = useState('all')
   const [showTop20, setShowTop20] = useState(false)
 
@@ -3588,6 +3659,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       'Monitoring': 'Sent to Manager',
       'Reactivated': 'Action Taken',
       'Lost': 'Action Taken',
+      'Banned': 'Banned',
     }
     return map[crmStatus] || 'None'
   }
@@ -3666,26 +3738,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       fan.heatDetail = heat.detail
     }
 
-    // 2. Overlay going cold alerts — force heat status for server-detected cold fans
-    if (goingColdAlerts) {
-      for (const a of goingColdAlerts) {
-        const key = (a.username || a.fan || '').toLowerCase()
-        if (!key) continue
-        if (fanMap.has(key)) {
-          const f = fanMap.get(key)
-          f.heatStatus = 'Going Cold'
-          f.goingCold = a // attach full alert data
-        }
-      }
-    }
-
-    // 3. Overlay CRM data (analyses, alerts, tracker status)
+    // 2. Overlay CRM data FIRST (so cooldown + ban info is available for step 3)
     for (const c of crmData) {
       const key = (c.ofUsername || c.fanName || '').toLowerCase()
       if (!key) continue
       if (fanMap.has(key)) {
         const f = fanMap.get(key)
-        // Map CRM status to alert status
         const mapped = crmToAlertStatus(c.status)
         if (mapped !== 'None') f.alertStatus = mapped
         if (c.alertCount > 0) { f.alertCount = c.alertCount }
@@ -3703,35 +3761,68 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
         f.lastChatUpload = c.lastChatUpload || f.lastChatUpload
         f.notes = c.notes || f.notes
         f.crmId = c.id
+        f.banned = c.status === 'Banned'
       } else {
         // CRM-only record (no transactions)
         const mapped = crmToAlertStatus(c.status)
-        fanMap.set(key, { ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '', source: 'crm', heatStatus: 'Stable', alertStatus: mapped !== 'None' ? mapped : 'Fan Analyzed' })
+        fanMap.set(key, {
+          ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '',
+          source: 'crm', heatStatus: 'Stable',
+          alertStatus: mapped !== 'None' ? mapped : 'Fan Analyzed',
+          banned: c.status === 'Banned',
+        })
       }
     }
 
-    // Sort: heat severity first (cold/dead on top), then alert status, then lifetime spend
+    // 3. Overlay going cold alerts — AFTER CRM data so we can check cooldown + ban.
+    // Suppresses alerts for fans who were recently sent to manager (14-day cooldown)
+    // or banned (never alert, never visible by default).
+    const now = new Date()
+    const COOLDOWN_DAYS = 14
+    if (goingColdAlerts) {
+      for (const a of goingColdAlerts) {
+        const key = (a.username || a.fan || '').toLowerCase()
+        if (!key) continue
+        if (!fanMap.has(key)) continue
+        const f = fanMap.get(key)
+        if (f.banned) continue // never flag banned fans
+        // Cooldown: if "Sent to Manager" fired within last 14 days, suppress re-alert
+        if (f.lastAlertSent) {
+          const daysSince = (now - new Date(f.lastAlertSent)) / 86400000
+          if (daysSince < COOLDOWN_DAYS) continue
+        }
+        f.heatStatus = 'Going Cold'
+        f.goingCold = a // attach full alert data (includes urgency, score, reasons)
+        // Only set alertStatus to "Alert Triggered" if nothing newer is set
+        // (don't overwrite Fan Analyzed / Sent to Manager / Action Taken)
+        if (f.alertStatus === 'None') f.alertStatus = 'Alert Triggered'
+      }
+    }
+
+    // Sort: most urgent first.
+    // Within Going Cold tier, sort by urgency (critical → high → warning) then by lifetime.
+    // Rationale: whale hunting = find biggest at-risk fans first.
     const alertOrder = { 'Alert Triggered': 0, 'Sent to Manager': 1, 'Fan Analyzed': 2, 'Action Taken': 3, 'None': 4 }
+    const urgencyOrder = { critical: 0, high: 1, warning: 2 }
     return Array.from(fanMap.values())
       .map(f => ({ ...f, accounts: f.accounts instanceof Set ? Array.from(f.accounts) : (f.accounts || []) }))
       .filter(f => f.lifetimeSpend > 0 || f.analysisRecords?.length > 0 || f.alertCount > 0)
       .sort((a, b) => {
         const ho = (HEAT_SORT_ORDER[a.heatStatus] ?? 4) - (HEAT_SORT_ORDER[b.heatStatus] ?? 4)
         if (ho !== 0) return ho
+        // Within same heat tier: urgency first if going cold
+        if (a.heatStatus === 'Going Cold') {
+          const au = urgencyOrder[a.goingCold?.urgency] ?? 99
+          const bu = urgencyOrder[b.goingCold?.urgency] ?? 99
+          if (au !== bu) return au - bu
+        }
         const ao = (alertOrder[a.alertStatus] ?? 99) - (alertOrder[b.alertStatus] ?? 99)
         if (ao !== 0) return ao
         return (b.lifetimeSpend || 0) - (a.lifetimeSpend || 0)
       })
   }, [allTxns, crmData, goingColdAlerts])
 
-  const alertStatusColors = {
-    'None': { bg: '#F3F4F6', text: '#9CA3AF' },
-    'Alert Triggered': { bg: '#FEE2E2', text: '#DC2626' },
-    'Fan Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
-    'Sent to Manager': { bg: '#FFF3CD', text: '#D97706' },
-    'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
-    'Action Taken': { bg: '#DCFCE7', text: '#166534' },
-  }
+  const alertStatusColors = ALERT_STATUS_COLORS
 
   const effectColors = {
     'Worked': { bg: '#DCFCE7', text: '#166534' },
@@ -3754,6 +3845,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
     let list = allFans.filter(f => {
       // Hide deleted accounts by default
       if (!showDeleted && !f.ofUsername) return false
+      if (!showBanned && f.banned) return false
       // Account filter
       // Account filter: 'all' = everyone, 'both' = fans on 2+ accounts, specific = fans ONLY on that account
       if (accountFilter === 'both') {
@@ -3785,7 +3877,9 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       })
     }
     return list
-  }, [allFans, filter, sortField, sortDir, showDeleted, accountFilter, showTop20, top20Threshold])
+  }, [allFans, filter, sortField, sortDir, showDeleted, showBanned, accountFilter, showTop20, top20Threshold])
+
+  const bannedCount = useMemo(() => allFans.filter(f => f.banned).length, [allFans])
 
   // Compute counts per heat status
   const heatCounts = {}
@@ -3873,6 +3967,16 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
                 border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
               }}>
               {showDeleted ? `Hide deleted (${deletedCount})` : `Show deleted (${deletedCount})`}
+            </button>
+          )}
+          {bannedCount > 0 && (
+            <button onClick={() => setShowBanned(!showBanned)}
+              style={{
+                padding: '3px 8px', fontSize: '10px', fontWeight: showBanned ? 600 : 400,
+                background: showBanned ? '#1F2937' : 'transparent', color: showBanned ? '#fff' : '#999',
+                border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
+              }}>
+              {showBanned ? `Hide banned (${bannedCount})` : `Show banned (${bannedCount})`}
             </button>
           )}
           {availableAccounts && availableAccounts.length > 1 && (
