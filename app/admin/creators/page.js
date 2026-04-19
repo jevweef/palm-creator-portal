@@ -2362,7 +2362,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       setAnalysis(data)
       // Refresh fans list to show new analysis
-      const refreshRes = await fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(creatorName)}`)
+      const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
       const refreshData = await refreshRes.json()
       if (refreshData.fans) setFans(refreshData.fans)
     } catch (e) {
@@ -2512,7 +2512,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       setSendResult({ success: true })
       // Refresh fan data so "Not Sent" badge updates to "Sent to Manager"
       try {
-        const refreshRes = await fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(creatorName)}`)
+        const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
         const refreshData = await refreshRes.json()
         if (refreshData.fans) setFans(refreshData.fans)
       } catch {}
@@ -3512,8 +3512,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   // Fetch CRM data (analyses + tracker records)
   useEffect(() => {
     setLoading(true)
-    const name = creator?.aka || creator?.name || ''
-    fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(name)}`)
+    const aka = creator?.aka || ''
+    const full = creator?.name || ''
+    const params = new URLSearchParams()
+    if (aka) params.set('creator', aka)
+    if (full) params.set('creatorFull', full)
+    fetch(`/api/admin/fan-tracker?${params}`)
       .then(r => r.json())
       .then(data => { setCrmData(data.fans || []); setLoading(false) })
       .catch(() => setLoading(false))

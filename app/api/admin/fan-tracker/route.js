@@ -14,24 +14,33 @@ export async function GET(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   const { searchParams } = new URL(request.url)
-  const creator = searchParams.get('creator') // creator AKA name
+  const creator = searchParams.get('creator') // creator AKA (e.g. "Sunny")
+  const creatorFull = searchParams.get('creatorFull') // creator full name (e.g. "Jahlisa Harvey")
   const status = searchParams.get('status') // optional status filter
 
+  // Escape for Airtable formula — quotes must be backslash-escaped
+  const esc = (s) => String(s || '').replace(/"/g, '\\"')
+
   try {
-    // Fetch Fan Tracker records
+    // Match Creator field against AKA OR full name — different creators have one or the other.
+    // Laurel/Raya use AKA as substring of full name (works with either); Sunny/Taby/MG don't.
     const trackerFilters = []
-    if (creator) trackerFilters.push(`FIND("${creator}", ARRAYJOIN({Creator}))`)
+    if (creator || creatorFull) {
+      const terms = [creator, creatorFull].filter(Boolean).map(n => `FIND("${esc(n)}", ARRAYJOIN({Creator}))`)
+      trackerFilters.push(terms.length > 1 ? `OR(${terms.join(', ')})` : terms[0])
+    }
     if (status && status !== 'all') trackerFilters.push(`{Status} = "${status}"`)
 
     const trackerFormula = trackerFilters.length > 1
       ? `AND(${trackerFilters.join(', ')})`
       : trackerFilters[0] || ''
 
-    // Fetch Fan Analysis records for this creator
-    // Creator field stores full name (e.g. "Laurel Driskill") but we filter by AKA (e.g. "Laurel")
-    const analysisFormula = creator
-      ? `FIND("${creator.replace(/"/g, '\\"')}", {Creator})`
-      : ''
+    // Fetch Fan Analysis records — Creator field stores the full name; fall back to AKA for older records
+    let analysisFormula = ''
+    if (creator || creatorFull) {
+      const terms = [creator, creatorFull].filter(Boolean).map(n => `FIND("${esc(n)}", {Creator})`)
+      analysisFormula = terms.length > 1 ? `OR(${terms.join(', ')})` : terms[0]
+    }
 
     const [trackerRecords, analysisRecords] = await Promise.all([
       fetchAirtableRecords(TABLE, {
