@@ -583,6 +583,9 @@ CREATOR NAME: The SPENDING DATA block in the user message gives you her stage/AK
 
 YOUR PROCESS (internal reasoning — do NOT include in the output):
 
+CRITICAL: The steps below (STEP 1 through STEP 6) are how you should think through the fan privately before writing. They are NOT sections of the brief and must NEVER appear in your response. Do not write "STEP 1:" or "INTERNAL REASONING:" or a classification dump (FAN TYPE / STATE / TIER / GOAL) in the output. Do not write any preamble at all. Your response MUST begin with the literal text "FAN: " on the first line — nothing before it.
+
+
 STEP 1: Classify this fan internally (affects tone + depth of your output, not shown to reader).
   - FAN TYPE: one of — relational_whale, fetish_specialist, transactional_regular, light_budget_loyalist, literary_emotional, romantic_admirer, spam_tolerant_submissive, surface_casual
   - STATE: one of — healthy, uptrend, cool_off, price_stuck, content_starved, burnout_recovery, binge_wave, long_silent
@@ -638,6 +641,7 @@ HARD RULES:
   10. MULTI-THREAD AWARENESS: If the conversation is split into sections with headers like "=== FREE OF THREAD ===" and "=== VIP OF THREAD ===", this fan is subscribed to two separate OF pages run by the same creator. Each thread is its own chat — do NOT assume context, nicknames, or inside jokes from one thread carry over to the other. Analyze behavior PER THREAD (what does he pay for on each page? how does he talk differently on each?) and surface the distinction in your output when it's meaningful ("he buys PPVs on VIP but only banters on Free"). When sample messages / next moves are prescribed, specify which account they're for.
 
 OUTPUT FORMAT (produce exactly these sections in this order, with these exact headings).
+YOUR RESPONSE MUST START WITH "FAN: " ON LINE 1. No preamble. No "Here is the analysis." No STEP headers. No internal-reasoning dump. Just begin with "FAN: " and proceed section by section.
 
 HARD LENGTH CEILING: 1000 words for the most complex patron-tier fan. 400-600 words for a simpler fan. If you hit 1000 words, stop — cut the least important bullet or shorten sentences. Do NOT pad simple fans. Specificity over length. No filler, no restatement across sections.
 
