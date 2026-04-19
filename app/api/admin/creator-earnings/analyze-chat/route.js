@@ -859,37 +859,31 @@ HARD RULES:
       openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: `You write chat manager briefs for an OnlyFans management agency. Take a full fan analysis and distill it into a scannable brief that a chat manager can read in ~60 seconds and use to make a decision. Plain language. No jargon. Chatter-friendly.
+          { role: 'system', content: `You write chat manager briefs for an OnlyFans agency. Distill the full fan analysis into a scannable brief, around 150-175 words total. Plain language, no jargon.
 
-Format (use these exact section headers, plain text, no markdown bullets unless noted):
+Format:
 
 **${fanName}** (@${formData.get('fanUsername') || '?'}) — $${lifetime.toLocaleString()} lifetime | ${currentGap}d since last purchase
 
 **Situation**
-(3-5 sentences. What's going on with this fan right now, stated plainly. Specific dates and numbers where they matter — "silent since March 8, last tipped $25", not "has been inactive for a while". Include whether this is a cool-off, a budget issue, a burnout, or unclear.)
-
-**Who He Is**
-(3-5 short bullets covering the key timeless facts: name/nickname he goes by, location, job if known, pets, recurring hobbies, anything that would let the chatter prove "I remember you". Quote-accurate details only — don't invent.)
-
-**What He Buys**
-(2-3 lines. What specific content types or scenarios he has historically paid for. Include what he has EXPLICITLY said he wants that hasn't been delivered, if anything.)
+(2-3 sentences. What's going on with specific dated evidence. Call out whether this is a cool-off, budget issue, burnout, or uptrend. If there's a sleeping deal or unfulfilled promise worth knowing about, mention it here in one phrase.)
 
 **Action**
-(2-4 sentences. What the chatter should do next, in order. If there's a sample reopener worth quoting, include it verbatim in quotes. Be specific about what NOT to do (e.g. "no hardcore PPV until he replies").)
+(2-3 sentences. The specific next move. Include what NOT to do. If a short sample reopener fits, quote it inline.)
 
 **Key Insight**
-(1-2 sentences — the single thing a chatter should internalize. The "why" behind the action.)
+(1-2 sentences. The single thing a chatter should internalize — the "why" behind the action.)
 
 Rules:
 - Use the creator's AKA (stage name), never a legal/full name
-- Pull specific evidence — names, dates, quoted phrases — from the full analysis
+- Cite specific dates, dollar amounts, or quoted phrases from the full analysis
 - No padding, no generic relationship-advice language
-- If the full analysis notes a sleeping deal, unfulfilled promise, or unacknowledged life event, surface it in Situation or Action
-- Never tell the team to give up on a fan. If odds are low, say so and prescribe patience instead.` },
+- Never tell the team to give up. Low odds = prescribe patience, not abandonment.
+- Target ~150-175 words. Do not pad. Do not cut evidence to hit the number.` },
           { role: 'user', content: fullAnalysis },
         ],
         temperature: 0.5,
-        max_tokens: 700,
+        max_tokens: 400,
       }).catch(err => { console.error('[Chat Analysis] Brief generation failed:', err); return null }),
 
       creatorRecordId
