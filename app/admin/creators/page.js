@@ -3448,6 +3448,14 @@ function computeHeatStatus(fanTxns) {
   for (const [mo, spend] of months) {
     if (spend > peakSpend) { peakSpend = spend; peakMonth = mo }
   }
+
+  // Lifetime monthly average — span from first purchase to today.
+  // Better baseline than rolling90 for cooling detection: a fan who peaked
+  // and then cooled has a depressed rolling90 that masks the decline.
+  const firstTxn = sorted[0]
+  const firstDate = new Date(firstTxn.date + 'T12:00:00')
+  const monthsActive = Math.max(1, (now - firstDate) / (86400000 * 30))
+  const lifetimeMonthlyAvg = lifetime / monthsActive
   // Find where spending started dropping (first month after peak that's < 50% of peak)
   let dropMonth = null
   if (peakMonth) {
@@ -3478,41 +3486,54 @@ function computeHeatStatus(fanTxns) {
   // Need minimum spend to classify
   if (lifetime < 50) return stable
 
+  // Baseline = max of lifetime monthly avg and 90d avg.
+  // Using lifetime avg catches fans who peaked and cooled — their rolling90
+  // gets dragged down by recent dead months, making a small tick look "hot"
+  // relative to the depressed window. Lifetime average anchors to their
+  // actual historical norm.
+  const baseline = Math.max(lifetimeMonthlyAvg, monthlyAvg90)
+
   // Dead: no activity in 90+ days
   if (currentGap > 90) return { status: 'Dead', detail: buildDetail(`No purchases in ${currentGap} days`) }
 
-  // Going Cold: gap > 2x median (min 14d) OR 30d spend < 25% of 90d avg
+  // Going Cold: gap > 2x median (min 14d) OR 30d spend is <25% of historical baseline
   if ((currentGap > medianGap * 2 && currentGap >= 14) ||
-      (monthlyAvg90 > 0 && rolling30 < monthlyAvg90 * 0.25 && currentGap >= 14)) {
+      (baseline > 0 && rolling30 < baseline * 0.25 && currentGap >= 14)) {
     const reason = currentGap > medianGap * 2
       ? `${currentGap}d gap (${medianGap}d median)`
-      : `30d spend $${Math.round(rolling30)} vs $${Math.round(monthlyAvg90)}/mo avg`
+      : `30d spend $${Math.round(rolling30)} vs $${Math.round(baseline)}/mo historical avg`
     return { status: 'Going Cold', detail: buildDetail(reason) }
   }
 
-  // Cooling: gap > 1.5x median (min 10d) OR 30d spend < 50% of avg
+  // Cooling: gap > 1.5x median (min 10d) OR 30d spend < 50% of historical baseline
   if ((currentGap > medianGap * 1.5 && currentGap >= 10) ||
-      (monthlyAvg90 > 0 && rolling30 < monthlyAvg90 * 0.5 && rolling30 < rolling30Prev * 0.7)) {
+      (baseline > 0 && rolling30 < baseline * 0.5)) {
     const reason = currentGap > medianGap * 1.5
       ? `${currentGap}d gap (${medianGap}d median)`
-      : `Spending trending down — $${Math.round(rolling30)} last 30d vs $${Math.round(monthlyAvg90)}/mo avg`
+      : `Spending trending down — $${Math.round(rolling30)} last 30d vs $${Math.round(baseline)}/mo historical avg`
     return { status: 'Cooling', detail: buildDetail(reason) }
   }
 
-  // Warming Up: spend increasing after a depressed period
-  if (rolling30Prev > 0 && rolling30 > rolling30Prev * 1.5 && rolling30Prev < monthlyAvg90 * 0.5) {
+  // Warming Up: spend rebounding after a depressed period, but still
+  // below peak — "coming back but not there yet."
+  if (rolling30Prev > 0 && rolling30 > rolling30Prev * 1.5 && rolling30Prev < baseline * 0.5 && rolling30 < peakSpend * 0.75) {
     return { status: 'Warming Up', detail: null }
   }
   if (currentGap < 7 && gaps.length > 3) {
     const recentGaps = gaps.slice(-3)
     const avgRecentGap = recentGaps.reduce((a, b) => a + b, 0) / recentGaps.length
-    if (avgRecentGap > medianGap * 1.5 && currentGap < medianGap) return { status: 'Warming Up', detail: null }
+    if (avgRecentGap > medianGap * 1.5 && currentGap < medianGap && rolling30 < peakSpend * 0.75) {
+      return { status: 'Warming Up', detail: null }
+    }
   }
 
-  // Hot: spending above average with tight gaps
-  if (monthlyAvg90 > 0 && rolling30 > monthlyAvg90 * 1.25 && currentGap < medianGap * 1.2) {
+  // Hot: spending at/near peak with tight gaps. Compares to PEAK monthly,
+  // not rolling90 — so a fan who cooled and has one small upswing isn't
+  // called Hot just because the recent baseline is also depressed.
+  if (peakSpend > 0 && rolling30 >= peakSpend * 0.75 && currentGap < medianGap * 1.2) {
     return { status: 'Hot', detail: null }
   }
+  // Absolute-spend Hot: big spender in the last week, regardless of history
   if (rolling30 > 500 && currentGap < 7) return { status: 'Hot', detail: null }
 
   return stable
