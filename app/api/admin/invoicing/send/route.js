@@ -85,13 +85,7 @@ export async function POST(request) {
   const { recordId } = await request.json()
   if (!recordId) return Response.json({ error: 'recordId required' }, { status: 400 })
 
-  // Re-fetch all details
-  const preflight = await (await fetch(
-    new URL(`/api/admin/invoicing/send?recordId=${recordId}`, 'http://localhost').toString().replace('http://localhost', ''),
-    { headers: atHeaders(), cache: 'no-store' }
-  ).catch(() => null))
-
-  // Fetch directly instead of calling self
+  // Fetch invoice details directly from Airtable
   const invRes = await fetch(
     `https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}/${recordId}?returnFieldsByFieldId=true` +
     `&fields[]=fldGggvFzR0zzl9p4&fields[]=fld37wwgvM0znxDPa&fields[]=fldhtbiwnxDm2KJpg` +
@@ -191,16 +185,28 @@ export async function POST(request) {
   })
 
   if (!sendRes.ok) {
-    const err = await sendRes.json()
+    let err
+    try {
+      err = await sendRes.json()
+    } catch {
+      err = { message: await sendRes.text().catch(() => `Resend error ${sendRes.status}`) }
+    }
     return Response.json({ error: err }, { status: 500 })
   }
 
   // Update invoice status to Sent
-  await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}/${recordId}`, {
-    method: 'PATCH',
-    headers: atHeaders(),
-    body: JSON.stringify({ fields: { fldQEjYB0DxpNWxhU: 'Sent' } }),
-  })
+  try {
+    const patchRes = await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${INVOICES_TABLE}/${recordId}`, {
+      method: 'PATCH',
+      headers: atHeaders(),
+      body: JSON.stringify({ fields: { fldQEjYB0DxpNWxhU: 'Sent' } }),
+    })
+    if (!patchRes.ok) {
+      console.error(`[Invoice Send] Failed to update status to Sent for ${recordId}: ${patchRes.status}`)
+    }
+  } catch (err) {
+    console.error(`[Invoice Send] Error updating status to Sent for ${recordId}:`, err.message)
+  }
 
   return Response.json({ ok: true, email, invoiceNumber })
 }

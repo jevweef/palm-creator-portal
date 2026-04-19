@@ -60,6 +60,9 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
+  // Test mode routes to Evan + Josh. Production mode routes to the creator's
+  // Communication Email, cc Josh, bcc Evan. Defaults to test for safety.
+  const [sendMode, setSendMode] = useState('test')
 
   const sorted = [...rows].sort((a, b) => accountRank(a.accountName) - accountRank(b.accountName))
   const allHavePdfs = sorted.every(r => r.hasPdf)
@@ -92,66 +95,66 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     }
   }
 
-  // Generate all PDFs
+  // Generate one combined PDF for all accounts in this creator+period group.
+  // The backend produces a single PDF with one line-item block per account and attaches
+  // the same file to every record in the group.
   const handleGenerateAll = useCallback(async () => {
     setGenerating(true)
     setError(null)
-    const toGenerate = sorted.filter(r => !r.hasPdf)
-    const total = toGenerate.length || sorted.length
-    setGenProgress({ done: 0, total })
+    setGenProgress({ done: 0, total: 1 })
 
-    const targets = toGenerate.length > 0 ? toGenerate : sorted // regenerate all if all exist
-    for (let i = 0; i < targets.length; i++) {
-      try {
-        const res = await fetch('/api/admin/invoicing/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordId: targets[i].id }),
-        })
-        if (!res.ok) {
-          const text = await res.text()
-          try { const err = JSON.parse(text); setError(`Failed: ${err.error}`) } catch (_) { setError(`Generation failed (${res.status}). May have timed out — try again.`) }
-          continue
-        }
+    try {
+      const res = await fetch('/api/admin/invoicing/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: sorted.map(r => r.id) }),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        try { const err = JSON.parse(text); setError(`Failed: ${err.error}`) } catch (_) { setError(`Generation failed (${res.status}). May have timed out — try again.`) }
+      } else {
         const data = await res.json()
         if (data.ok) {
-          onRecordsUpdate(prev => prev.map(r => r.id === targets[i].id ? {
+          const genAt = data.generatedAt || new Date().toISOString()
+          onRecordsUpdate(prev => prev.map(r => sorted.find(s => s.id === r.id) ? {
             ...r, hasPdf: true, dropboxLink: data.dropboxLink,
             invoiceNumber: data.invoiceNumber ? Number(data.invoiceNumber) : r.invoiceNumber,
-            generatedAt: data.generatedAt || new Date().toISOString(),
+            generatedAt: genAt,
           } : r))
         } else {
-          setError(`Failed to generate for ${targets[i].accountName}: ${data.error}`)
+          setError(`Failed to generate: ${data.error}`)
         }
-      } catch (e) {
-        setError(e.message)
       }
-      setGenProgress({ done: i + 1, total })
+      setGenProgress({ done: 1, total: 1 })
+    } catch (e) {
+      setError(e.message)
     }
-    // Reload all records to get fresh Airtable attachment URLs
+
+    // Reload to pick up fresh Airtable attachment URLs (needed for thumbnail preview)
     try {
       const refresh = await fetch('/api/admin/invoicing')
       const refreshData = await refresh.json()
       if (refreshData.records) onRecordsUpdate(() => refreshData.records)
     } catch (_) {}
     setGenerating(false)
-    setActiveStep(1) // auto-advance to Review PDFs
+    setActiveStep(1)
   }, [sorted, onRecordsUpdate])
 
-  // Load email preview
-  const handleLoadPreview = useCallback(async () => {
+  // Load email preview (for the currently selected send mode)
+  const handleLoadPreview = useCallback(async (modeOverride) => {
     setLoadingPreview(true)
     setError(null)
     try {
       const ids = sorted.map(r => r.id).join(',')
-      const res = await fetch(`/api/admin/invoicing/send-combined?recordIds=${ids}`)
+      const mode = modeOverride || sendMode
+      const res = await fetch(`/api/admin/invoicing/send-combined?recordIds=${ids}&mode=${mode}`)
       const data = await res.json()
       setEmailPreview(data)
     } catch (e) {
       setError(e.message)
     }
     setLoadingPreview(false)
-  }, [sorted])
+  }, [sorted, sendMode])
 
   // Send email
   const handleSend = useCallback(async () => {
@@ -161,7 +164,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       const res = await fetch('/api/admin/invoicing/send-combined', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordIds: sorted.map(r => r.id) }),
+        body: JSON.stringify({ recordIds: sorted.map(r => r.id), mode: sendMode }),
       })
       const data = await res.json()
       if (data.ok) {
@@ -180,7 +183,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       setError(e.message)
     }
     setSending(false)
-  }, [sorted, onRecordsUpdate])
+  }, [sorted, sendMode, onRecordsUpdate])
 
   // Mark paid
   const handleMarkPaid = useCallback(async (recordId) => {
@@ -199,6 +202,25 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       if (r.status !== 'Paid') await handleMarkPaid(r.id)
     }
   }, [sorted, handleMarkPaid])
+
+  // Reset the entire invoice workflow back to Draft — flips status + clears Sent At so the
+  // modal re-opens on step 1. Used for re-doing a send after fixing a bad PDF/email.
+  const handleResetToDraft = useCallback(async () => {
+    if (!confirm('Reset this invoice back to Draft? You can re-generate and re-send after.')) return
+    try {
+      for (const r of sorted) {
+        await fetch('/api/admin/invoicing', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordId: r.id, fields: { status: 'Draft', sentAt: null } }),
+        })
+      }
+      onRecordsUpdate(prev => prev.map(r => sorted.find(s => s.id === r.id) ? { ...r, status: 'Draft', sentAt: null } : r))
+      setEmailApproved(false)
+      setPdfApproved(false)
+      setActiveStep(0)
+    } catch (e) { setError(e.message) }
+  }, [sorted, onRecordsUpdate])
 
   // Render step content
   const renderContent = () => {
@@ -241,115 +263,221 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       )
 
       case 1: return (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {!allHavePdfs ? (
             <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first to review them.</div>
-          ) : (
-            <>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                {sorted.map((r, i) => (
-                  <button key={r.id} onClick={() => setPdfTab(i)} style={{
-                    background: pdfTab === i ? '#FFF0F3' : '#f5f5f5',
-                    border: pdfTab === i ? '1px solid #E88FAC' : '1px solid transparent',
-                    borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 500,
-                    color: pdfTab === i ? '#E88FAC' : '#888', cursor: 'pointer',
-                  }}>{r.accountName.replace(aka + ' - ', '')}</button>
-                ))}
-              </div>
-              {(() => {
-                const rec = sorted[pdfTab]
-                const embedUrl = rec?.pdfUrl || null // Airtable URL works in iframes
-                const dropboxView = rec?.dropboxLink || null // Dropbox browsable link for "open in new tab"
-                return (embedUrl || dropboxView) ? (
-                  <div>
-                    {embedUrl ? (
-                      <div style={{
-                        width: '100%', height: 'calc(90vh - 380px)',
-                        borderRadius: '10px', border: '1px solid #eee', overflow: 'hidden',
+          ) : (() => {
+            const rec = sorted[pdfTab]
+            const thumbnailUrl = rec?.pdfThumbnail || null
+            const dropboxView = rec?.dropboxLink || null
+            return (thumbnailUrl || dropboxView) ? (
+              <>
+                {/* Top bar: account tabs + actions — always visible */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: '12px', marginBottom: '14px', flexShrink: 0, flexWrap: 'wrap',
+                }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {sorted.map((r, i) => (
+                      <button key={r.id} onClick={() => setPdfTab(i)} style={{
+                        background: pdfTab === i ? '#FFF0F3' : '#f5f5f5',
+                        border: pdfTab === i ? '1px solid #E88FAC' : '1px solid transparent',
+                        borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 500,
+                        color: pdfTab === i ? '#E88FAC' : '#888', cursor: 'pointer',
+                      }}>{r.accountName.replace(aka + ' - ', '')}</button>
+                    ))}
+                    {dropboxView && (
+                      <a href={dropboxView} target="_blank" rel="noopener noreferrer" style={{
+                        marginLeft: '8px',
+                        fontSize: '12px', color: '#888', textDecoration: 'none',
                       }}>
-                        <iframe
-                          src={embedUrl + '#view=FitH&toolbar=1&navpanes=0'}
-                          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                          title="Invoice PDF"
-                        />
-                      </div>
-                    ) : (
-                      <div style={{
-                        width: '100%', height: '200px', borderRadius: '10px', border: '1px solid #eee',
-                        background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexDirection: 'column', gap: '8px',
-                      }}>
-                        <span style={{ color: '#aaa', fontSize: '13px' }}>PDF preview loading — try refreshing the page</span>
-                        {dropboxView && (
-                          <a href={dropboxView} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: '12px', color: '#E88FAC', fontWeight: 500 }}>
-                            View on Dropbox ↗
-                          </a>
-                        )}
-                      </div>
+                        Open full PDF ↗
+                      </a>
                     )}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-                      {dropboxView ? (
-                        <a href={dropboxView} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: '11px', color: '#E88FAC' }}>
-                          Open in new tab ↗
-                        </a>
-                      ) : <span />}
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
-                          background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px',
-                          padding: '8px 16px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                        }}>
-                          Needs Fix → Re-generate
-                        </button>
-                        <button onClick={() => { setPdfApproved(true); setActiveStep(2); handleLoadPreview() }} style={{
-                          background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px',
-                          padding: '8px 20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                        }}>
-                          Approve PDF →
-                        </button>
-                      </div>
-                    </div>
                   </div>
-                ) : (
-                  <div style={{ color: '#999', fontSize: '13px' }}>No PDF link available for this account.</div>
-                )
-              })()}
-            </>
-          )}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
+                      background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '10px',
+                      padding: '9px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                    }}>
+                      Needs Fix → Re-generate
+                    </button>
+                    <button onClick={() => { setPdfApproved(true); setActiveStep(2); handleLoadPreview() }} style={{
+                      background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px',
+                      padding: '9px 22px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                    }}>
+                      Approve PDF →
+                    </button>
+                  </div>
+                </div>
+
+                {/* Thumbnail preview — fills remaining space */}
+                <div style={{
+                  flex: 1, minHeight: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: '#f5f5f7', borderRadius: '12px', padding: '20px', overflow: 'auto',
+                }}>
+                  {thumbnailUrl ? (
+                    <img
+                      src={thumbnailUrl}
+                      alt="Invoice preview"
+                      style={{
+                        maxHeight: '100%', maxWidth: '100%',
+                        width: 'auto', height: 'auto', display: 'block',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.12)', borderRadius: '4px',
+                      }}
+                    />
+                  ) : (
+                    <div style={{ color: '#999', fontSize: '13px', textAlign: 'center' }}>
+                      Preview still processing — open the PDF to view it.
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: '#999', fontSize: '13px' }}>No PDF link available for this account.</div>
+            )
+          })()}
         </div>
       )
 
       case 2: return (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {!allHavePdfs ? (
             <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first.</div>
           ) : emailPreview ? (
-            <div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px', padding: '14px 16px', background: '#fafafa', borderRadius: '10px' }}>
-                {[
-                  { label: 'To', value: `evan@palm-mgmt.com, josh@palm-mgmt.com (test)` },
-                  { label: 'From', value: 'evan@palm-mgmt.com, josh@palm-mgmt.com' },
-                  { label: 'Subject', value: `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
-                ].map(r => (
-                  <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-                    <span style={{ color: '#999', width: '55px', flexShrink: 0 }}>{r.label}</span>
-                    <span style={{ color: '#4a4a4a' }}>{r.value}</span>
-                  </div>
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              {/* Test / Production mode toggle */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px', marginBottom: '12px', flexShrink: 0,
+                background: sendMode === 'production' ? '#FEF3C7' : '#F3F4F6',
+                border: `1px solid ${sendMode === 'production' ? '#FCD34D' : '#E5E7EB'}`,
+                borderRadius: '10px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{
+                    fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    color: sendMode === 'production' ? '#92400E' : '#6B7280',
+                  }}>
+                    {sendMode === 'production' ? '⚠ Production Mode' : '🧪 Test Mode'}
+                  </span>
+                  <span style={{ fontSize: '11px', color: sendMode === 'production' ? '#92400E' : '#9CA3AF' }}>
+                    {sendMode === 'production'
+                      ? 'Email will go to the creator (cc Josh, bcc Evan).'
+                      : 'Email will go to Evan + Josh only.'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '4px', background: '#fff', padding: '3px', borderRadius: '7px' }}>
+                  {[
+                    { key: 'test', label: 'Test' },
+                    { key: 'production', label: 'Production' },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => {
+                        if (sendMode === opt.key) return
+                        setSendMode(opt.key)
+                        handleLoadPreview(opt.key)
+                      }}
+                      style={{
+                        background: sendMode === opt.key ? '#1a1a1a' : 'transparent',
+                        color: sendMode === opt.key ? '#fff' : '#6B7280',
+                        border: 'none', borderRadius: '5px',
+                        padding: '4px 14px', fontSize: '11px', fontWeight: 600,
+                        cursor: 'pointer',
+                      }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                <button onClick={() => { setEmailApproved(true); setActiveStep(3) }} style={{
-                  background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px',
-                  padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              {/* Validation warnings — always visible when present */}
+              {(emailPreview.warnings || []).length > 0 && (
+                <div style={{ marginBottom: '12px', flexShrink: 0 }}>
+                  {emailPreview.warnings.map((w, i) => (
+                    <div key={i} style={{
+                      padding: '10px 14px',
+                      background: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      borderRadius: '10px',
+                      fontSize: '12px',
+                      color: '#B91C1C',
+                      marginBottom: '6px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                    }}>
+                      <span style={{ fontSize: '14px', lineHeight: 1 }}>⚠</span>
+                      <span>{w.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Earnings delta indicator */}
+              {emailPreview.earningsDelta && (
+                <div style={{
+                  marginBottom: '12px', flexShrink: 0, padding: '8px 14px',
+                  background: emailPreview.earningsDelta === 'up' ? '#F0FDF4' : '#F9FAFB',
+                  border: `1px solid ${emailPreview.earningsDelta === 'up' ? '#BBF7D0' : '#E5E7EB'}`,
+                  borderRadius: '10px', fontSize: '12px',
+                  color: emailPreview.earningsDelta === 'up' ? '#15803D' : '#6B7280',
                 }}>
-                  Looks Good → Send
-                </button>
+                  {emailPreview.earningsDelta === 'up'
+                    ? `📈 Earnings up from last period — "great work" paragraph will be included.`
+                    : emailPreview.earningsDelta === 'down'
+                    ? `📉 Earnings down from last period — celebratory paragraph omitted, straight to invoice.`
+                    : `Earnings flat vs. last period — celebratory paragraph omitted.`}
+                </div>
+              )}
+              {/* Top bar: email meta + send button */}
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                gap: '12px', marginBottom: '14px', flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', background: '#fafafa', borderRadius: '10px', flex: 1 }}>
+                  {[
+                    { label: 'To', value: (emailPreview.to || []).join(', ') + (emailPreview.testMode ? '  (test mode)' : '') },
+                    ...((emailPreview.bcc || []).length ? [{ label: 'Bcc', value: emailPreview.bcc.join(', ') }] : []),
+                    ...((emailPreview.cc || []).length ? [{ label: 'Cc', value: emailPreview.cc.join(', ') }] : []),
+                    { label: 'From', value: emailPreview.from || 'evan@palm-mgmt.com' },
+                    { label: 'Subject', value: emailPreview.subject || `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
+                  ].map(r => (
+                    <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+                      <span style={{ color: '#999', width: '55px', flexShrink: 0 }}>{r.label}</span>
+                      <span style={{ color: '#4a4a4a' }}>{r.value}</span>
+                    </div>
+                  ))}
+                  {emailPreview.testMode && (emailPreview.wouldSendTo || []).length > 0 && (
+                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed rgba(0,0,0,0.08)', fontSize: '11px', color: '#9ca3af' }}>
+                      <em>Production would send to <strong>{emailPreview.wouldSendTo.join(', ')}</strong>, cc <strong>{(emailPreview.wouldCc || []).join(', ')}</strong>.</em>
+                    </div>
+                  )}
+                </div>
+                {(() => {
+                  const canSend = (emailPreview.to || []).length > 0
+                  return (
+                    <button
+                      onClick={() => { setEmailApproved(true); setActiveStep(3) }}
+                      disabled={!canSend}
+                      style={{
+                        background: canSend ? '#22c55e' : '#e5e7eb',
+                        color: canSend ? '#fff' : '#999',
+                        border: 'none', borderRadius: '10px',
+                        padding: '10px 22px', fontSize: '13px', fontWeight: 600,
+                        cursor: canSend ? 'pointer' : 'not-allowed', flexShrink: 0,
+                      }}>
+                      Looks Good → Send
+                    </button>
+                  )
+                })()}
               </div>
-              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden' }}>
+              {/* Email body preview — fills remaining space */}
+              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
                 <iframe
                   srcDoc={emailPreview.html || emailPreview.manual?.html || '<p>No preview available</p>'}
-                  style={{ width: '100%', height: 'calc(90vh - 420px)', border: 'none' }}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
                   sandbox="allow-same-origin"
                   title="Email Preview"
                 />
@@ -386,7 +514,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div style={{ padding: '20px 0' }}>
               <div style={{ padding: '14px 16px', background: '#fafafa', borderRadius: '10px', marginBottom: '16px' }}>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '6px' }}>
-                  Sending to <strong style={{ color: '#4a4a4a' }}>evan@palm-mgmt.com, josh@palm-mgmt.com</strong> (test mode)
+                  Sending to <strong style={{ color: '#4a4a4a' }}>{(emailPreview?.to || []).join(', ') || '(creator email missing)'}</strong>
+                  {emailPreview?.cc?.length ? <> · cc <strong style={{ color: '#4a4a4a' }}>{emailPreview.cc.join(', ')}</strong></> : null}
                 </div>
                 <div style={{ fontSize: '12px', color: '#999' }}>
                   {sorted.length} account{sorted.length > 1 ? 's' : ''} · Management fee: <strong style={{ color: '#E88FAC' }}>{fmt(totalCommission)}</strong>
@@ -429,12 +558,23 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               )}
             </div>
           ))}
-          {!allPaid && (
-            <button onClick={handleMarkAllPaid} style={{
-              marginTop: '12px', background: '#22c55e', color: '#fff', border: 'none',
-              borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-            }}>Mark All Paid</button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
+            {!allPaid && (
+              <button onClick={handleMarkAllPaid} style={{
+                background: '#22c55e', color: '#fff', border: 'none',
+                borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              }}>Mark All Paid</button>
+            )}
+            <button onClick={handleResetToDraft} style={{
+              background: 'transparent', color: '#9ca3af', border: '1px solid #e5e7eb',
+              borderRadius: '10px', padding: '9px 18px', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = '#fecaca' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+            >
+              ↺ Reset to Draft
+            </button>
+          </div>
         </div>
       )
     }
@@ -446,46 +586,53 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '900px',
-        height: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-        display: 'flex', flexDirection: 'column',
+        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '1100px',
+        height: '95vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        display: 'flex', flexDirection: 'row',
       }}>
-        {/* Header */}
-        <div style={{ padding: '24px 28px 18px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</div>
-              <div style={{ fontSize: '12px', color: '#aaa', marginTop: '3px' }}>
-                {fmtDate(periodStart)} – {fmtDate(periodEnd)} · {sorted.length} account{sorted.length > 1 ? 's' : ''}
-                {dueDate && ` · Due ${fmtDate(dueDate)}`}
-              </div>
-            </div>
+        {/* Left sidebar: header info + stats + stepper */}
+        <div style={{
+          width: '260px', borderRight: '1px solid rgba(0,0,0,0.06)', flexShrink: 0,
+          display: 'flex', flexDirection: 'column', overflow: 'auto',
+        }}>
+          {/* Close button */}
+          <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={onClose} style={{
-              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
-              cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '28px', height: '28px',
+              cursor: 'pointer', fontSize: '13px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>✕</button>
           </div>
-          {/* Summary stats */}
-          <div style={{ display: 'flex', gap: '24px', marginTop: '14px' }}>
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{fmt(totalEarnings)}</div>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Revenue</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#E88FAC' }}>{fmt(totalCommission)}</div>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Mgmt Fee</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{fmt(totalEarnings - totalCommission)}</div>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Creator Take Home</div>
+
+          {/* Creator + period */}
+          <div style={{ padding: '8px 20px 18px' }}>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</div>
+            <div style={{ fontSize: '11px', color: '#aaa', marginTop: '4px', lineHeight: 1.4 }}>
+              {fmtDate(periodStart)} – {fmtDate(periodEnd)}<br/>
+              {sorted.length} account{sorted.length > 1 ? 's' : ''}{dueDate && ` · Due ${fmtDate(dueDate)}`}
             </div>
           </div>
-        </div>
 
-        {/* Body: stepper + content */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          {/* Left stepper */}
-          <div style={{ width: '200px', borderRight: '1px solid rgba(0,0,0,0.06)', padding: '16px 0', flexShrink: 0 }}>
+          {/* Summary stats — stacked vertically */}
+          <div style={{ padding: '0 20px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmt(totalEarnings)}</div>
+              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Revenue</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#E88FAC' }}>{fmt(totalCommission)}</div>
+              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Mgmt Fee</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#22c55e' }}>{fmt(totalEarnings - totalCommission)}</div>
+              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Creator Take Home</div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', margin: '0 20px' }} />
+
+          {/* Stepper */}
+          <div style={{ padding: '14px 0' }}>
             {STEPS.map((step, i) => {
               const status = stepStatus(i)
               const isActive = activeStep === i
@@ -527,19 +674,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               )
             })}
           </div>
+        </div>
 
-          {/* Right content */}
-          <div style={{ flex: 1, padding: '20px 28px', overflow: activeStep === 1 ? 'hidden' : 'auto' }}>
-            {error && (
-              <div style={{
-                marginBottom: '14px', padding: '10px 14px', background: '#fef2f2',
-                border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              }}>
-                <span>{error}</span>
-                <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>×</button>
-              </div>
-            )}
+        {/* Right content — fills full modal height */}
+        <div style={{ flex: 1, padding: '24px 28px', overflow: activeStep === 1 ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
+          {error && (
+            <div style={{
+              marginBottom: '14px', padding: '10px 14px', background: '#fef2f2',
+              border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span>{error}</span>
+              <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>×</button>
+            </div>
+          )}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             {renderContent()}
           </div>
         </div>

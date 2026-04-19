@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import InvoiceWorkflowModal from './InvoiceWorkflowModal'
 import RawDataUpload from './RawDataUpload'
 
@@ -208,182 +208,188 @@ function SummaryBar({ records }) {
   )
 }
 
-// ── Sticky column headers ────────────────────────────────────────────────────
-function TableHeader() {
-  return (
-    <div style={{
-      position: 'sticky', top: 0, zIndex: 10,
-      background: '#FFF5F7',
-      display: 'grid', gridTemplateColumns: COLS, gap: '12px',
-      padding: '6px 20px 8px', marginBottom: '4px',
-      borderBottom: '1px solid rgba(0,0,0,0.04)',
-    }}>
-      {[
-        { label: 'Account', align: 'left' },
-        { label: 'Earnings (TR)', align: 'left' },
-        { label: 'Commission', align: 'right' },
-        { label: 'Chat Fee', align: 'right' },
-        { label: 'Net Profit', align: 'right' },
-        { label: 'Status', align: 'center' },
-      ].map(col => (
-        <div key={col.label} style={{
-          fontSize: '11px', color: '#3f3f46', fontWeight: 600,
-          textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: col.align,
-        }}>
-          {col.label}
-        </div>
-      ))}
-    </div>
-  )
+// ── Creator group card ───────────────────────────────────────────────────────
+const STAGE_CONFIG = {
+  generate: { label: 'Generate',  dot: '#9ca3af', bg: '#f3f4f6', fg: '#6b7280' },
+  review:   { label: 'Review',    dot: '#E88FAC', bg: '#FFF0F3', fg: '#b4586f' },
+  send:     { label: 'Ready',     dot: '#3b82f6', bg: '#dbeafe', fg: '#1d4ed8' },
+  sent:     { label: 'Sent',      dot: '#3b82f6', bg: '#dbeafe', fg: '#1d4ed8' },
+  paid:     { label: 'Paid',      dot: '#22c55e', bg: '#dcfce7', fg: '#15803d' },
 }
 
-// ── Creator group card ───────────────────────────────────────────────────────
 function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingId }) {
   const commissionPct = rows[0]?.commissionPct || 0
   const totalTr = rows.reduce((s, r) => s + (r.earnings || 0), 0)
+  const totalFee = rows.reduce((s, r) => s + (r.totalCommission || 0), 0)
+  const totalChat = rows.reduce((s, r) => s + (r.chatTeamCost || 0), 0)
   const totalNet = rows.reduce((s, r) => s + (r.netProfit || 0), 0)
   const dueDate = rows[0]?.dueDate
+  const periodStart = rows[0]?.periodStart
+  const periodEnd = rows[0]?.periodEnd
   const allHavePdfs = rows.every(r => r.hasPdf)
   const allSent = rows.every(r => r.status === 'Sent' || r.status === 'Paid')
   const allPaid = rows.every(r => r.status === 'Paid')
   const sorted = [...rows].sort((a, b) => accountRank(a.accountName) - accountRank(b.accountName))
 
-  // Determine current stage (0-4)
-  const currentStage = allPaid ? 5 : allSent ? 4 : allHavePdfs ? 1 : 0
-  const STAGE_LABELS = ['Generate', 'Review', 'Preview', 'Send', 'Payment', 'Complete']
+  // Determine stage
+  let stageKey = 'generate'
+  if (allPaid) stageKey = 'paid'
+  else if (allSent) stageKey = 'sent'
+  else if (allHavePdfs) stageKey = 'review'
+  const stage = STAGE_CONFIG[stageKey]
+
+  // Shared-status bulk button
+  const allSame = rows.every(r => r.status === rows[0]?.status)
+  const currentStatus = allSame ? rows[0]?.status : null
+  const nextStatus = currentStatus ? STATUS_CONFIG[currentStatus]?.next : null
+  const ids = rows.map(r => r.id)
 
   return (
     <div style={{
-      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
-      marginBottom: '10px', overflow: 'hidden',
+      background: '#ffffff', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
+      marginBottom: '14px', overflow: 'hidden',
     }}>
-      {/* Creator header row */}
+      {/* ─── Top: name + period + stage + primary action ───────────────── */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '11px 20px', borderBottom: '1px solid rgba(0,0,0,0.04)', background: '#fafafa',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+        padding: '18px 22px 14px', gap: '16px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</span>
-          <span style={{ fontSize: '12px', color: '#999' }}>
-            {pct(commissionPct)} commission · {rows.length} {rows.length === 1 ? 'account' : 'accounts'}
-          </span>
-          {dueDate && (
-            <span style={{ fontSize: '11px', color: '#3f3f46', background: '#FFF0F3', padding: '2px 8px', borderRadius: '4px' }}>
-              Due {fmtDate(dueDate)}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <span style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', letterSpacing: '-0.01em' }}>
+              {aka}
             </span>
-          )}
-          {/* Stage progress dots */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
-            {[0,1,2,3,4].map(s => (
-              <div key={s} style={{
-                width: s < currentStage ? '16px' : s === currentStage ? '16px' : '6px',
-                height: '6px',
-                borderRadius: '3px',
-                background: s < currentStage ? '#22c55e' : s === currentStage ? '#E88FAC' : '#e5e7eb',
-                transition: '0.2s',
-              }} title={STAGE_LABELS[s]} />
-            ))}
-            <span style={{ fontSize: '10px', color: currentStage >= 5 ? '#22c55e' : '#999', marginLeft: '4px', fontWeight: 500 }}>
-              {STAGE_LABELS[Math.min(currentStage, 5)]}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '6px',
+              background: stage.bg, color: stage.fg,
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: stage.dot }} />
+              {stage.label}
             </span>
           </div>
+          <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+            {periodStart && periodEnd ? `${fmtDate(periodStart)} – ${fmtDate(periodEnd)}` : null}
+            {dueDate ? `  ·  Due ${fmtDate(dueDate)}` : null}
+            {`  ·  ${pct(commissionPct)} commission`}
+            {rows.length > 1 ? `  ·  ${rows.length} accounts` : null}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px', fontSize: '13px', alignItems: 'center' }}>
-          <span style={{ color: '#999' }}>TR: <span style={{ color: totalTr > 0 ? '#4a4a4a' : '#444' }}>{fmt(totalTr)}</span></span>
-          <span style={{ color: '#999' }}>Net: <span style={{ color: totalNet > 0 ? '#22c55e' : '#444' }}>{fmt(totalNet)}</span></span>
-          <span style={{ color: '#ddd', margin: '0 2px' }}>|</span>
-          {(() => {
-            const allSame = rows.every(r => r.status === rows[0]?.status)
-            const currentStatus = allSame ? rows[0]?.status : null
-            const nextStatus = currentStatus ? STATUS_CONFIG[currentStatus]?.next : null
-            const ids = rows.map(r => r.id)
-            return (<>
-              {currentStatus && nextStatus ? (
-                <button onClick={() => onBulkStatus(ids, nextStatus)}
-                  style={{
-                    background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '5px',
-                    color: '#E88FAC', fontSize: '11px', fontWeight: 600, padding: '3px 10px',
-                    cursor: 'pointer', whiteSpace: 'nowrap',
-                  }}>
-                  Mark All {nextStatus}
-                </button>
-              ) : (
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {['Sent', 'Paid'].map(s => (
-                    <button key={s} onClick={() => onBulkStatus(ids, s)}
-                      style={{
-                        background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '5px',
-                        color: '#E88FAC', fontSize: '10px', fontWeight: 600, padding: '2px 8px',
-                        cursor: 'pointer', whiteSpace: 'nowrap',
-                      }}>
-                      All {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button onClick={() => onOpenWorkflow(aka, rows)}
-                style={{
-                  background: '#1a1a1a', border: 'none', borderRadius: '5px',
-                  color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 12px',
-                  cursor: 'pointer', whiteSpace: 'nowrap',
-                }}>
-                Manage →
-              </button>
-            </>)
-          })()}
+
+        {/* Primary action + secondary bulk status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {currentStatus && nextStatus ? (
+            <button onClick={() => onBulkStatus(ids, nextStatus)} style={{
+              background: 'transparent', border: 'none',
+              color: '#9ca3af', fontSize: '12px', fontWeight: 500, padding: '6px 8px',
+              cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+              onMouseEnter={e => e.currentTarget.style.color = '#E88FAC'}
+              onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+            >
+              Mark All {nextStatus}
+            </button>
+          ) : null}
+          <button onClick={() => onOpenWorkflow(aka, rows)} style={{
+            background: '#1a1a1a', border: 'none', borderRadius: '8px',
+            color: '#fff', fontSize: '12px', fontWeight: 600, padding: '8px 16px',
+            cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>
+            Manage →
+          </button>
         </div>
       </div>
 
-      {/* Account rows */}
-      {sorted.map((record, i) => {
-        const isSavingStatus = savingId === record.id
-
-        return (
-          <div key={record.id}
-            style={{
-              display: 'grid', gridTemplateColumns: COLS,
-              alignItems: 'center', gap: '12px', padding: '10px 20px',
-              borderTop: i === 0 ? 'none' : '1px solid rgba(0,0,0,0.04)', transition: 'background 0.1s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            {/* Account name */}
-            <div style={{ fontSize: '13px', color: '#888' }}>
-              {record.accountName.replace(aka + ' - ', '')}
+      {/* ─── KPI blocks: Revenue · Mgmt Fee · Net Profit ─────────────── */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px',
+        background: 'rgba(0,0,0,0.05)', margin: '0 22px',
+        borderRadius: '10px', overflow: 'hidden',
+      }}>
+        {[
+          { label: 'Revenue',    value: totalTr,  color: '#1a1a1a' },
+          { label: 'Mgmt Fee',   value: totalFee, color: '#E88FAC' },
+          { label: 'Net Profit', value: totalNet, color: '#22c55e' },
+        ].map(k => (
+          <div key={k.label} style={{ background: '#fafafa', padding: '12px 14px' }}>
+            <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+              {k.label}
             </div>
-
-            {/* Earnings — editable */}
-            <EarningsCell record={record} onSave={onSave} disabled={isSavingStatus} />
-
-            {/* Commission */}
-            <div style={{ fontSize: '13px', color: record.totalCommission > 0 ? '#E88FAC' : '#444', textAlign: 'right' }}>
-              {fmt(record.totalCommission)}
-            </div>
-
-            {/* Chat fee */}
-            <div style={{ fontSize: '13px', color: record.chatTeamCost > 0 ? '#f59e0b' : '#444', textAlign: 'right' }}>
-              {record.chatTeamCost > 0 ? '− ' + fmt(record.chatTeamCost) : '—'}
-            </div>
-
-            {/* Net profit */}
-            <div style={{ fontSize: '13px', fontWeight: 600, color: record.netProfit > 0 ? '#22c55e' : '#444', textAlign: 'right' }}>
-              {fmt(record.netProfit)}
-            </div>
-
-            {/* Status */}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <span style={{
-                background: STATUS_CONFIG[record.status]?.bg || '#f3f4f6',
-                color: STATUS_CONFIG[record.status]?.color || '#999',
-                border: `1px solid ${(STATUS_CONFIG[record.status]?.color || '#999')}44`,
-                borderRadius: '20px', padding: '3px 10px', fontSize: '11px', fontWeight: 600,
-                letterSpacing: '0.03em',
-              }}>{record.status}</span>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: k.color, marginTop: '2px' }}>
+              {fmt(k.value)}
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* ─── Account breakdown (only when multi-account) ─────────────── */}
+      {sorted.length > 1 && (
+        <div style={{ padding: '8px 22px 6px', marginTop: '12px' }}>
+          <div style={{
+            fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em',
+            fontWeight: 600, marginBottom: '4px',
+          }}>
+            Accounts
+          </div>
+          {sorted.map(record => (
+            <div key={record.id} style={{
+              display: 'grid', gridTemplateColumns: '140px 1fr 120px 120px 120px 90px',
+              alignItems: 'center', gap: '12px', padding: '8px 0',
+              borderBottom: '1px solid rgba(0,0,0,0.04)',
+            }}>
+              <div style={{ fontSize: '13px', color: '#4a4a4a', fontWeight: 500 }}>
+                {record.accountName.replace(aka + ' - ', '')}
+              </div>
+              <EarningsCell record={record} onSave={onSave} disabled={savingId === record.id} />
+              <div style={{ fontSize: '12px', color: record.totalCommission > 0 ? '#E88FAC' : '#bbb', textAlign: 'right' }}>
+                {fmt(record.totalCommission)}
+              </div>
+              <div style={{ fontSize: '12px', color: record.chatTeamCost > 0 ? '#f59e0b' : '#bbb', textAlign: 'right' }}>
+                {record.chatTeamCost > 0 ? '− ' + fmt(record.chatTeamCost) : '—'}
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: record.netProfit > 0 ? '#22c55e' : '#bbb', textAlign: 'right' }}>
+                {fmt(record.netProfit)}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <span style={{
+                  background: STATUS_CONFIG[record.status]?.bg || '#f3f4f6',
+                  color: STATUS_CONFIG[record.status]?.color || '#999',
+                  borderRadius: '20px', padding: '2px 10px', fontSize: '10px', fontWeight: 600,
+                  letterSpacing: '0.03em',
+                }}>{record.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Single-account: just show editable earnings + status inline with small footer row */}
+      {sorted.length === 1 && (() => {
+        const record = sorted[0]
+        return (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 22px 16px', marginTop: '4px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: '#9ca3af' }}>
+              <span>Editable revenue:</span>
+              <EarningsCell record={record} onSave={onSave} disabled={savingId === record.id} />
+              {record.chatTeamCost > 0 && (
+                <span>Chat fee: <span style={{ color: '#f59e0b' }}>−{fmt(record.chatTeamCost)}</span></span>
+              )}
+            </div>
+            <span style={{
+              background: STATUS_CONFIG[record.status]?.bg || '#f3f4f6',
+              color: STATUS_CONFIG[record.status]?.color || '#999',
+              borderRadius: '20px', padding: '3px 12px', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.03em',
+            }}>{record.status}</span>
+          </div>
         )
-      })}
+      })()}
+
+      {/* Bottom spacer for multi-account to keep breathing room */}
+      {sorted.length > 1 && <div style={{ height: '10px' }} />}
     </div>
   )
 }
@@ -392,6 +398,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
 export default function InvoicingPage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
+  const pathname = usePathname()
 
   const [records, setRecords] = useState([])
   const [periods, setPeriods] = useState([])
@@ -491,7 +498,7 @@ export default function InvoicingPage() {
   const currentPeriod = periods.find(p => p.key === selectedPeriod)
 
   return (
-    <div style={{ maxWidth: '1060px' }}>
+    <div>
       {/* Workflow modal */}
       {workflowModal && (() => {
         const liveRows = periodRecords.filter(r => r.aka === workflowModal.aka)
@@ -513,7 +520,7 @@ export default function InvoicingPage() {
             { key: 'invoices', label: 'Invoices' },
             { key: 'upload', label: 'Raw Data Upload' },
           ].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} onClick={() => { setActiveTab(tab.key); router.replace(`${pathname}?tab=${tab.key}`, { scroll: false }) }}
               style={{
                 background: activeTab === tab.key ? '#FFF0F3' : 'transparent',
                 border: activeTab === tab.key ? '1px solid #E88FAC' : '1px solid transparent',
@@ -531,7 +538,7 @@ export default function InvoicingPage() {
       {activeTab === 'upload' && <RawDataUpload />}
 
       {/* Invoices tab */}
-      {activeTab === 'invoices' && (<>
+      {activeTab === 'invoices' && (<div>
       <div style={{ marginBottom: '20px' }}>
         {currentPeriod && (
           <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
@@ -589,7 +596,6 @@ export default function InvoicingPage() {
       {!loading && periodRecords.length > 0 && (
         <>
           <SummaryBar records={periodRecords} />
-          <TableHeader />
           {sortedCreators.map(aka => (
             <CreatorGroup
               key={aka} aka={aka} rows={grouped[aka]}
@@ -607,7 +613,7 @@ export default function InvoicingPage() {
           No invoice records for this period.
         </div>
       )}
-      </>)}
+      </div>)}
     </div>
   )
 }

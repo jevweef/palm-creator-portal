@@ -20,31 +20,50 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorName, creatorRecordId, alert, analysis } = await request.json()
+    const { creatorName, creatorAka, creatorRecordId, alert, analysis, chatWindow } = await request.json()
 
     if (!creatorName) return NextResponse.json({ error: 'Missing creatorName' }, { status: 400 })
     if (!alert) return NextResponse.json({ error: 'Missing alert data' }, { status: 400 })
     if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
 
-    const topic = getWhaleTopicForCreator(creatorName)
+    // Telegram topic routing is keyed on AKA (Sunny, Taby, MG, Laurel), not full legal name.
+    // Try AKA first, fall back to full name for backwards compat / Laurel where AKA == first name.
+    const topic = getWhaleTopicForCreator(creatorAka) || getWhaleTopicForCreator(creatorName)
     if (!topic) {
-      return NextResponse.json({ error: `No Telegram topic configured for "${creatorName}"` }, { status: 400 })
+      return NextResponse.json({
+        error: `No Telegram topic configured for "${creatorAka || creatorName}" — check lib/whaleAlertConfig.js`,
+      }, { status: 400 })
     }
 
     // Generate PDF (full analysis only, no manager brief)
-    const pdfBuffer = await generateWhaleAlertPdf({ creatorName, alert, analysis })
+    const pdfBuffer = await generateWhaleAlertPdf({ creatorName, creatorAka, alert, analysis })
 
-    // Upload PDF to Dropbox
+    // Upload PDF to Dropbox — same folder as chat transcripts and analysis JSONs
     const accessToken = await getDropboxAccessToken()
     const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
-    const fanSlug = (alert.fan || 'unknown').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-')
-    const dateStr = new Date().toISOString().slice(0, 10)
-    const dropboxPath = `/Palm/Whale Alerts/${creatorName}/${fanSlug}-${dateStr}.pdf`
+    // Match getChatBasePath() slug logic from analyze-chat route
+    const fanSlug = (alert.username || alert.fan || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_')
+    const creatorSlug = creatorName.replace(/[^a-zA-Z0-9_-]/g, '_')
+    const fanFolder = `/Palm Ops/Chat Logs/${creatorSlug}/${fanSlug}`
+
+    // Use chat window dates for PDF filename (matches transcript/analysis naming)
+    const cleanDate = (d) => {
+      if (!d) return null
+      const dateOnly = d.replace(/,?\s*\d{1,2}:\d{2}\s*(am|pm)?\s*$/i, '').trim()
+      return dateOnly.replace(/[,]/g, '').replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '') || null
+    }
+    const chatStart = cleanDate(chatWindow?.firstMessageDate)
+    const chatEnd = cleanDate(chatWindow?.lastMessageDate)
+    const dateSuffix = chatStart && chatEnd ? `${chatStart}_to_${chatEnd}` : new Date().toISOString().slice(0, 10)
+    const dropboxPath = `${fanFolder}/whale-alert-${dateSuffix}.pdf`
 
     // Ensure folder hierarchy exists before uploading
-    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm/Whale Alerts`)
-    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm/Whale Alerts/${creatorName}`)
+    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Chat Logs`)
+    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Chat Logs/${creatorSlug}`)
+    await createDropboxFolder(accessToken, rootNamespaceId, fanFolder)
+    console.log('[Whale Alert] Uploading PDF to', dropboxPath)
     await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, pdfBuffer, { overwrite: true })
+    console.log('[Whale Alert] Upload complete')
     const shareLink = await createDropboxSharedLink(accessToken, rootNamespaceId, dropboxPath)
 
     // Build Telegram text message
@@ -95,15 +114,19 @@ export async function POST(request) {
       return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
     }
 
-    // Log to Fan Tracker (fire-and-forget, don't block response)
+    // Log to Fan Tracker — await so the client refresh picks up the new alert history
     if (creatorRecordId) {
-      logAlertToFanTracker({
-        fanName: alert.fan,
-        ofUsername: alert.username,
-        creatorRecordId,
-        creatorName,
-        alertData: alert,
-      }).catch(err => console.error('[Whale Alert] Fan tracker log failed:', err))
+      try {
+        await logAlertToFanTracker({
+          fanName: alert.fan,
+          ofUsername: alert.username,
+          creatorRecordId,
+          creatorName,
+          alertData: alert,
+        })
+      } catch (err) {
+        console.error('[Whale Alert] Fan tracker log failed:', err)
+      }
     }
 
     return NextResponse.json({
@@ -132,12 +155,12 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
     sentTo: creatorName || '',
   }
 
-  // Find existing fan record
+  // Find existing fan record — match by OF Username or Fan Name (simpler than ARRAYJOIN on linked records)
   let formula
   if (ofUsername) {
-    formula = `AND({OF Username} = "${ofUsername}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
+    formula = `{OF Username} = "${ofUsername}"`
   } else {
-    formula = `AND({Fan Name} = "${fanName}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
+    formula = `{Fan Name} = "${fanName}"`
   }
 
   const existing = await fetchAirtableRecords(FAN_TRACKER_TABLE, {

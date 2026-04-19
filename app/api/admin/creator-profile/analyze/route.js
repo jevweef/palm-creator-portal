@@ -8,7 +8,7 @@ export const maxDuration = 60
 
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 const TAG_WEIGHTS_TABLE = 'tbljiwFQBknbUCpc6'
-const ANALYSIS_MODEL = 'gpt-5.4-mini'
+const ANALYSIS_MODEL = 'gpt-4o-mini'
 
 const CANONICAL_TAGS = {
   'Setting / Location': [

@@ -165,7 +165,7 @@ function InvoiceModal({ group, onClose }) {
               {/* Account line items */}
               {group.invoices.map((inv) => {
                 const acctLabel = Array.isArray(inv.accountName) ? inv.accountName.join(', ') : (inv.accountName || 'Account')
-                const pdfLink = inv.invoicePdfUrl || inv.invoiceDropboxUrl
+                const pdfLink = inv.invoicePdfUrl || null
                 return (
                   <div key={inv.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',

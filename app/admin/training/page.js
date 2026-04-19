@@ -21,11 +21,61 @@ function parseNotes(notes) {
 }
 
 const MODES = [
-  { value: 'Scenario / Fantasy', label: 'Scenario / Fantasy', color: '#a78bfa', desc: 'POV captions, viewer-perspective narrative' },
-  { value: 'Controversy / Opinion', label: 'Controversy / Opinion', color: '#f87171', desc: 'Provocative claims that spark debate' },
-  { value: 'Relationship / Conversation', label: 'Relationship / Conversation', color: '#f472b6', desc: 'iMessage texts, DM screenshots, dialogue' },
-  { value: 'Visual Callout', label: 'Visual Callout', color: '#60a5fa', desc: 'Text directly references what\'s on screen' },
-  { value: 'Relatable / Lifestyle', label: 'Relatable / Lifestyle', color: '#4ade80', desc: 'Routine captions, relatable moments' },
+  {
+    value: 'Scenario / Fantasy',
+    label: 'Scenario / Fantasy',
+    color: '#a78bfa',
+    desc: 'Text places the viewer into a specific situation or fantasy. The visual alone is generic — the text creates the whole concept.',
+    examples: [
+      '"POV: your wife canceled dinner so you call the girl next door"',
+      '"When you want to be restrained and edged till you cry but you gotta act cool"',
+      '"POV: your gym crush finally talks to you"',
+    ],
+  },
+  {
+    value: 'Controversy / Opinion',
+    label: 'Controversy / Opinion',
+    color: '#f87171',
+    desc: 'Text makes a bold claim or hot take that people argue about in the comments. The video is just a pretty girl — the text is the engagement driver.',
+    examples: [
+      '"she is 10/10, but..."',
+      '"Anything more than a handful is a waste"',
+      '"Girls who lift > girls who don\'t"',
+    ],
+  },
+  {
+    value: 'Relationship / Conversation',
+    label: 'Relationship / Conversation',
+    color: '#f472b6',
+    desc: 'Text is styled as a conversation — iMessage bubbles, DM screenshots, texts from "him," or back-and-forth dialogue. The format itself is part of the concept.',
+    examples: [
+      '"Him: You\'ve been running through my mind all day / Me: I\'m getting bored of that"',
+      '"Texts you\'ll never receive" + screenshot',
+      '"His last text vs what I sent back"',
+    ],
+  },
+  {
+    value: 'Visual Callout',
+    label: 'Visual Callout',
+    color: '#60a5fa',
+    desc: 'Text directly references or amplifies what\'s happening on screen. The visual works alone, but the text adds a flirty or provocative spin to it.',
+    examples: [
+      '"I need a big boy" (girl on leg press)',
+      '"Do I look like I eat salad?" (girl eating pizza)',
+      '"This is what __ looks like at 5am"',
+    ],
+  },
+  {
+    value: 'Relatable / Lifestyle',
+    label: 'Relatable / Lifestyle',
+    color: '#4ade80',
+    desc: 'Text is a relatable moment, routine caption, or lifestyle statement. Not provocative or scenario-driven — just a caption that makes viewers nod or tag a friend.',
+    examples: [
+      '"Things I do when I\'m home alone"',
+      '"No one: / Me at 2am:"',
+      '"Tell me you\'re a gym girl without telling me"',
+    ],
+  },
 ]
 
 export default function TextTrainingPage() {
@@ -202,29 +252,43 @@ export default function TextTrainingPage() {
         minHeight: '500px',
         boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
       }}>
-        {/* Left: Video */}
-        <div style={{ background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '100%', aspectRatio: '9/16' }}>
-            {embedHtml ? (
-              <div key={record.id} style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: embedHtml }} />
-            ) : videoUrl ? (
-              <video
-                key={record.id}
-                controls
-                autoPlay
-                muted
-                loop
-                playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              >
-                <source src={videoUrl} type="video/mp4" />
-              </video>
-            ) : record.thumbnail ? (
+        {/* Left: Thumbnail + play link */}
+        <div style={{ background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <div style={{ width: '100%', aspectRatio: '9/16', position: 'relative' }}>
+            {record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333' }}>
-                No video
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+                No thumbnail
               </div>
+            )}
+            {/* Play button overlay — opens Dropbox video in new tab */}
+            {(videoUrl || record.dbShareLink) && (
+              <a
+                href={record.dbShareLink || videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  textDecoration: 'none',
+                }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </a>
             )}
           </div>
         </div>
@@ -326,6 +390,32 @@ export default function TextTrainingPage() {
                   )
                 })}
               </div>
+
+              {/* Selected mode detail */}
+              {selectedMode && (() => {
+                const mode = MODES.find(m => m.value === selectedMode)
+                if (!mode) return null
+                return (
+                  <div style={{
+                    marginTop: '10px',
+                    background: `${mode.color}08`,
+                    border: `1px solid ${mode.color}30`,
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                  }}>
+                    <p style={{ fontSize: '12px', color: '#444', lineHeight: 1.5, margin: '0 0 8px' }}>
+                      {mode.desc}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {mode.examples.map((ex, j) => (
+                        <p key={j} style={{ fontSize: '11px', color: '#888', margin: 0, fontStyle: 'italic' }}>
+                          {ex}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Action buttons */}

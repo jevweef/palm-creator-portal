@@ -14,24 +14,33 @@ export async function GET(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   const { searchParams } = new URL(request.url)
-  const creator = searchParams.get('creator') // creator AKA name
+  const creator = searchParams.get('creator') // creator AKA (e.g. "Sunny")
+  const creatorFull = searchParams.get('creatorFull') // creator full name (e.g. "Jahlisa Harvey")
   const status = searchParams.get('status') // optional status filter
 
+  // Escape for Airtable formula — quotes must be backslash-escaped
+  const esc = (s) => String(s || '').replace(/"/g, '\\"')
+
   try {
-    // Fetch Fan Tracker records
+    // Match Creator field against AKA OR full name — different creators have one or the other.
+    // Laurel/Raya use AKA as substring of full name (works with either); Sunny/Taby/MG don't.
     const trackerFilters = []
-    if (creator) trackerFilters.push(`FIND("${creator}", ARRAYJOIN({Creator}))`)
+    if (creator || creatorFull) {
+      const terms = [creator, creatorFull].filter(Boolean).map(n => `FIND("${esc(n)}", ARRAYJOIN({Creator}))`)
+      trackerFilters.push(terms.length > 1 ? `OR(${terms.join(', ')})` : terms[0])
+    }
     if (status && status !== 'all') trackerFilters.push(`{Status} = "${status}"`)
 
     const trackerFormula = trackerFilters.length > 1
       ? `AND(${trackerFilters.join(', ')})`
       : trackerFilters[0] || ''
 
-    // Fetch Fan Analysis records for this creator
-    // Creator field stores full name (e.g. "Laurel Driskill") but we filter by AKA (e.g. "Laurel")
-    const analysisFormula = creator
-      ? `FIND("${creator.replace(/"/g, '\\"')}", {Creator})`
-      : ''
+    // Fetch Fan Analysis records — Creator field stores the full name; fall back to AKA for older records
+    let analysisFormula = ''
+    if (creator || creatorFull) {
+      const terms = [creator, creatorFull].filter(Boolean).map(n => `FIND("${esc(n)}", {Creator})`)
+      analysisFormula = terms.length > 1 ? `OR(${terms.join(', ')})` : terms[0]
+    }
 
     const [trackerRecords, analysisRecords] = await Promise.all([
       fetchAirtableRecords(TABLE, {
@@ -45,6 +54,12 @@ export async function GET(request) {
     const fanMap = new Map()
     for (const r of trackerRecords) {
       const key = (r.fields['OF Username'] || r.fields['Fan Name'] || '').toLowerCase()
+      // If duplicate key exists, merge: keep the one with more alert data
+      if (fanMap.has(key)) {
+        const existing = fanMap.get(key)
+        const newAlertCount = r.fields['Alert Count'] || 0
+        if (newAlertCount <= (existing.alertCount || 0)) continue // keep existing, skip this one
+      }
       fanMap.set(key, {
         id: r.id,
         source: 'tracker',
@@ -109,7 +124,10 @@ export async function GET(request) {
         id: a.id,
         date: a.analyzedDate,
         type: a.analysisType,
+        fullAnalysis: a.fullAnalysis,
         brief: a.managerBrief,
+        firstMessageDate: a.firstMessageDate || '',
+        lastMessageDate: a.lastMessageDate || '',
       })),
     }))
 
@@ -144,8 +162,11 @@ async function fetchAnalysisRecords(formula) {
       ofUsername: r.fields['OF Username'] || '',
       lifetimeSpend: r.fields['Lifetime Spend'] || 0,
       analysisType: r.fields['Analysis Type'] || '',
+      fullAnalysis: r.fields['Full Analysis'] || '',
       managerBrief: r.fields['Manager Brief'] || '',
       analyzedDate: r.fields['Analyzed Date'] || '',
+      firstMessageDate: r.fields['First Message Date'] || '',
+      lastMessageDate: r.fields['Last Message Date'] || '',
     }))
   } catch (err) {
     console.error('[Fan Tracker] Failed to fetch analyses:', err)
@@ -256,16 +277,27 @@ async function logAnalysis({ fanName, ofUsername, creatorRecordId, analysisRecor
     if (analysisRecordId && !analyses.includes(analysisRecordId)) {
       analyses.push(analysisRecordId)
     }
-    await patchAirtableRecord(TABLE, record.id, { 'Analyses': analyses })
+    // Promote the fan's status to "Analyzed" on manual analysis — unless they're
+    // already further along (Alert Sent / Recovering / etc). Don't downgrade from
+    // in-flight states.
+    const updates = { 'Analyses': analyses }
+    const currentStatus = record.fields['Status']
+    const downstreamStatuses = new Set(['Alert Sent', 'Recovering', 'Monitoring', 'Reactivated', 'Lost'])
+    if (!downstreamStatuses.has(currentStatus)) {
+      updates['Status'] = 'Analyzed'
+    }
+    await patchAirtableRecord(TABLE, record.id, updates)
     return NextResponse.json({ success: true, recordId: record.id })
   } else {
+    // New record from manual analysis — default to "Analyzed", NOT "Going Cold".
+    // "Going Cold" is reserved for the auto-detection algorithm; manually choosing
+    // a fan to analyze doesn't mean they're cold.
     const fields = {
       'Fan Name': fanName,
       'OF Username': ofUsername || '',
       'Creator': [creatorRecordId],
-      'Status': 'Going Cold',
+      'Status': 'Analyzed',
       'First Flagged': new Date().toISOString(),
-      'Times Gone Cold': 1,
       'Analyses': analysisRecordId ? [analysisRecordId] : [],
     }
     const created = await createAirtableRecord(TABLE, fields)
@@ -273,12 +305,34 @@ async function logAnalysis({ fanName, ofUsername, creatorRecordId, analysisRecor
   }
 }
 
-async function updateStatus({ recordId, status }) {
-  if (!recordId || !status) {
-    return NextResponse.json({ error: 'Missing recordId or status' }, { status: 400 })
+async function updateStatus({ recordId, status, fanName, fanUsername, creatorRecordId }) {
+  if (!status) {
+    return NextResponse.json({ error: 'Missing status' }, { status: 400 })
   }
-  await patchAirtableRecord(TABLE, recordId, { 'Status': status })
-  return NextResponse.json({ success: true })
+  // If we have a recordId, patch directly
+  if (recordId) {
+    await patchAirtableRecord(TABLE, recordId, { 'Status': status })
+    return NextResponse.json({ success: true })
+  }
+  // Otherwise upsert: look up by fan identity, create if not found.
+  // Useful for banning a fan who has no Fan Tracker record yet.
+  if (!fanName && !fanUsername) {
+    return NextResponse.json({ error: 'Missing recordId or fan identity' }, { status: 400 })
+  }
+  const existing = await findFanRecord(fanName, fanUsername, creatorRecordId)
+  if (existing) {
+    await patchAirtableRecord(TABLE, existing.id, { 'Status': status })
+    return NextResponse.json({ success: true, recordId: existing.id })
+  }
+  // Create new record with this status
+  const created = await createAirtableRecord(TABLE, {
+    'Fan Name': fanName || '',
+    'OF Username': fanUsername || '',
+    'Creator': creatorRecordId ? [creatorRecordId] : [],
+    'Status': status,
+    'First Flagged': new Date().toISOString(),
+  })
+  return NextResponse.json({ success: true, recordId: created.id, action: 'created' })
 }
 
 async function updateEffectiveness({ recordId, effectiveness, postAlertSpend30d }) {

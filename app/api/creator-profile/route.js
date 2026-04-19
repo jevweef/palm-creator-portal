@@ -118,8 +118,8 @@ export async function GET(request) {
         chatTeamCost: f['Chat Team Cost'] || 0,
         netProfit: f['Net Profit'] || 0,
         dueDate: f['Due Date'] || '',
-        invoicePdfUrl: f['Creator Invoice']?.[0]?.url || f['Chat Team Invoice']?.[0]?.url || null,
-        invoiceFilename: f['Creator Invoice']?.[0]?.filename || f['Chat Team Invoice']?.[0]?.filename || null,
+        invoicePdfUrl: f['Creator Invoice']?.[0]?.url || null,
+        invoiceFilename: f['Creator Invoice']?.[0]?.filename || null,
         invoiceDropboxUrl: f['Invoice Dropbox Link'] || null,
         invoiceStatus: f['Invoice Status'] || '',
         accountName: (() => {

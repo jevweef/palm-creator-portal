@@ -5,14 +5,14 @@ import { buildWhaleAlertHtml } from '@/lib/generateWhaleAlertPdf'
 
 const CHROMIUM_URL = 'https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 export async function POST(req) {
   try {
-    const { creatorName, alert, analysis } = await req.json()
+    const { creatorName, creatorAka, alert, analysis } = await req.json()
     if (!alert) return NextResponse.json({ error: 'Missing alert data' }, { status: 400 })
 
-    const html = buildWhaleAlertHtml({ creatorName, alert, analysis })
+    const html = buildWhaleAlertHtml({ creatorName, creatorAka, alert, analysis })
 
     const browser = await puppeteer.launch({
       args: chromium.args,

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    await requireAdmin()
+    await requireAdminOrEditor()
 
     const opsRecords = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `OR({Status} = 'Active', {Status} = 'Onboarding')`,

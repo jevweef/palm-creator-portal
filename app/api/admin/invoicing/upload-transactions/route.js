@@ -53,6 +53,63 @@ function parseHtml(html) {
   return txns
 }
 
+function parseChargebackHtml(html) {
+  const txns = []
+  // Chargeback rows from the disputes page — different structure than earnings
+  const rows = html.match(/<tr class="m-responsive__reset-pb">(.*?)<\/tr>/gs) || []
+
+  for (const row of rows) {
+    // Dispute date & time (first <strong> block)
+    const disputeM = row.match(/<td[^>]*><strong>\s*([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})\s*<br>\s*(\d{1,2}:\d{2}\s*[ap]m)\s*<\/strong>/)
+    if (!disputeM) continue
+
+    // Payment date (second <td>)
+    const payDateM = row.match(/<\/td>\s*<td[^>]*>\s*([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})\s*<br>\s*(\d{1,2}:\d{2}\s*[ap]m)/)
+
+    // Amounts — three dollar amounts: gross, fee, net
+    const amountMatches = [...row.matchAll(/\$\s*([\d,]+\.\d{2})/g)]
+    if (amountMatches.length < 3) continue
+
+    const gross = parseMoney(amountMatches[0][1])
+    const fee = parseMoney(amountMatches[1][1])
+    const net = parseMoney(amountMatches[2][1])
+
+    // Description — type + username
+    let type = '', username = '', displayName = ''
+    const linkM = row.match(/(Subscription|Payment for message|Tip|Recurring subscription|Stream)\s+from\s+<a[^>]*>([^<]+)<\/a>/)
+    const spanM = row.match(/(Subscription|Payment for message|Tip|Recurring subscription|Stream)\s+from\s+<span>([^<]+)<\/span>/)
+
+    if (linkM) {
+      type = linkM[1]
+      displayName = linkM[2].trim()
+      const urlM = row.match(/href="https:\/\/onlyfans\.com\/([^"]+)"/)
+      username = urlM ? urlM[1] : ''
+    } else if (spanM) {
+      type = spanM[1]
+      displayName = spanM[2].trim()
+    }
+
+    // Use payment date as the original transaction date (for chargeback matching)
+    const origDate = payDateM ? parseDate(payDateM[1].trim(), payDateM[2].trim()) : null
+    const dt = parseDate(disputeM[1].trim(), disputeM[2].trim())
+
+    txns.push({
+      dt,
+      gross: -gross,  // Chargebacks are negative
+      of_fee: -fee,
+      net: -net,
+      type: 'Chargeback',
+      username,
+      displayName,
+      fan: displayName,
+      desc: `Chargeback: ${type} from ${displayName}`,
+      origDate,
+    })
+  }
+
+  return txns
+}
+
 // ── Text parsers (for raw paste fallback) ───────────────────────────────────
 
 const SALES_RE = /^(\w{3}\s+\d{1,2},\s+\d{4})(\d{1,2}:\d{2}\s*[ap]m)\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})/
@@ -170,6 +227,32 @@ function parseDesc(desc) {
 
 // ── Google Sheets helpers ───────────────────────────────────────────────────
 
+// Retry a Sheets API call on transient quota / rate-limit errors.
+// Google Sheets returns 429 with reason "RATE_LIMIT_EXCEEDED" or 503 when
+// the per-minute read quota is burned (e.g. when dashboard is polling at
+// the same time as an upload). Exponential backoff handles this gracefully.
+async function withRetry(fn, label = 'sheets call') {
+  const delays = [1500, 4000, 10000, 20000] // ms between attempts
+  let lastErr
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      return await fn()
+    } catch (e) {
+      lastErr = e
+      const code = e?.code || e?.response?.status
+      const reason = e?.errors?.[0]?.reason || e?.response?.data?.error?.status || ''
+      const retryable = code === 429 || code === 503
+        || /quota|rate.?limit|rateLimit|RESOURCE_EXHAUSTED/i.test(reason)
+        || /quota|rate.?limit/i.test(e?.message || '')
+      if (!retryable || attempt === delays.length) throw e
+      const wait = delays[attempt]
+      console.warn(`[${label}] quota hit, retrying in ${wait}ms (attempt ${attempt + 1}):`, e.message)
+      await new Promise(r => setTimeout(r, wait))
+    }
+  }
+  throw lastErr
+}
+
 function getAuth() {
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -185,15 +268,18 @@ const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 
 async function getOrCreateTab(sheets, creator, dataType) {
   const tabName = `${creator} - ${dataType}`
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+  const spreadsheet = await withRetry(
+    () => sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID }),
+    'getOrCreateTab.get'
+  )
   const existing = spreadsheet.data.sheets.find(s => s.properties.title === tabName)
 
   if (!existing) {
-    await sheets.spreadsheets.batchUpdate({
+    await withRetry(() => sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: { requests: [{ addSheet: { properties: { title: tabName } } }] }
-    })
-    await sheets.spreadsheets.values.batchUpdate({
+    }), 'getOrCreateTab.addSheet')
+    await withRetry(() => sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: {
         valueInputOption: 'RAW',
@@ -202,17 +288,17 @@ async function getOrCreateTab(sheets, creator, dataType) {
           { range: `'${tabName}'!A3`, values: [HEADER_ROW] },
         ]
       }
-    })
+    }), 'getOrCreateTab.headers')
   }
   return tabName
 }
 
 async function getCutoff(sheets, tabName) {
   try {
-    const res = await sheets.spreadsheets.values.get({
+    const res = await withRetry(() => sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A4:A10000`,
-    })
+    }), 'getCutoff')
     const rows = res.data.values || []
     if (rows.length === 0) return null
     let latest = null
@@ -236,16 +322,16 @@ function txnFingerprint(dateTime, _unused, net, fan) {
 // Get the last N rows from the sheet for overlap matching
 async function getLastRows(sheets, tabName, count = 50) {
   try {
-    const colRes = await sheets.spreadsheets.values.get({
+    const colRes = await withRetry(() => sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID, range: `'${tabName}'!A:A`,
-    })
+    }), 'getLastRows.col')
     const totalRows = colRes.data.values?.length || 3
     if (totalRows <= 3) return [] // only header rows
     const startRow = Math.max(4, totalRows - count + 1)
-    const res = await sheets.spreadsheets.values.get({
+    const res = await withRetry(() => sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A${startRow}:I${totalRows}`,
-    })
+    }), 'getLastRows.range')
     return (res.data.values || []).map(row => ({
       dateTime: row[0] || '', gross: row[1] || '',
       ofFee: row[2] || '', net: row[3] || '', type: row[4] || '',
@@ -259,12 +345,107 @@ async function updateCutoff(sheets, tabName, cutoffDt) {
   const notice = cutoffDt
     ? `⚠️  ONLY UPLOAD SALES AFTER: ${cutoffDt.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}`
     : '⏳ No data uploaded yet — upload your first file!'
-  await sheets.spreadsheets.values.update({
+  await withRetry(() => sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `'${tabName}'!A1`,
     valueInputOption: 'RAW',
     resource: { values: [[notice]] },
-  })
+  }), 'updateCutoff')
+}
+
+// ── Airtable coverage update ───────────────────────────────────────────────
+
+const AIRTABLE_PAT = process.env.AIRTABLE_PAT
+const HQ_BASE = 'appL7c4Wtotpz07KS'
+const REVENUE_ACCOUNTS_TABLE = 'tblQqPWlsjiyJA0ba'
+const RA_FIELDS = {
+  accountName: 'fldkEi3jW9tUXSTc5',
+  earningsStart: 'fldIFvqIOE1mFCFbq',
+  earningsEnd: 'fldZtO52nDZXKY0R7',
+  earningsLastUpload: 'fldxD7iDFZHWttC9n',
+  chargebackStart: 'fldcWM6RkZUsNyUlp',
+  chargebackEnd: 'fldCbyspe7EiJo0iW',
+  chargebacksLastUpload: 'fldNCy327oIndVw2R',
+}
+
+async function updateAirtableCoverage(accountName, sheetType, txns, fileTimestamp) {
+  if (!AIRTABLE_PAT || !accountName) return
+
+  try {
+    // Find dates from transactions (may be empty if all skipped)
+    const dates = (txns || []).filter(t => t.dt).map(t => t.dt).sort((a, b) => a - b)
+    const earliest = dates.length > 0 ? dates[0] : null
+    const earliestStr = earliest ? fmtDate(earliest) : null
+
+    // Look up Revenue Account by Account Name
+    const params = new URLSearchParams()
+    params.append('filterByFormula', `{Account Name}="${accountName}"`)
+    params.append('fields[]', RA_FIELDS.accountName)
+    params.append('fields[]', RA_FIELDS.earningsStart)
+    params.append('fields[]', RA_FIELDS.earningsEnd)
+    params.append('fields[]', RA_FIELDS.chargebackStart)
+    params.append('fields[]', RA_FIELDS.chargebackEnd)
+    params.append('returnFieldsByFieldId', 'true')
+    params.append('pageSize', '1')
+
+    const searchRes = await fetch(
+      `https://api.airtable.com/v0/${HQ_BASE}/${REVENUE_ACCOUNTS_TABLE}?${params}`,
+      { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` } }
+    )
+    if (!searchRes.ok) return
+    const searchData = await searchRes.json()
+    const record = searchData.records?.[0]
+    if (!record) return
+
+    const fields = {}
+    const isSales = sheetType === 'Sales'
+
+    // Use the file's last modified timestamp as the coverage cutoff
+    const coverageDate = fileTimestamp ? new Date(fileTimestamp) : new Date()
+    const coverageISO = coverageDate.toISOString()
+    const coverageDateStr = coverageISO.split('T')[0]
+
+    if (isSales) {
+      fields[RA_FIELDS.earningsEnd] = coverageDateStr
+      fields[RA_FIELDS.earningsLastUpload] = coverageISO
+      if (earliestStr) {
+        const currentStart = record.fields[RA_FIELDS.earningsStart]
+        if (!currentStart || earliestStr < currentStart) {
+          fields[RA_FIELDS.earningsStart] = earliestStr
+        }
+      }
+    } else {
+      fields[RA_FIELDS.chargebackEnd] = coverageDateStr
+      fields[RA_FIELDS.chargebacksLastUpload] = coverageISO
+      const currentStart = record.fields[RA_FIELDS.chargebackStart]
+      if (earliestStr) {
+        if (!currentStart || earliestStr < currentStart) {
+          fields[RA_FIELDS.chargebackStart] = earliestStr
+        }
+      } else if (!currentStart) {
+        // No chargebacks — start at same time as earnings data
+        const earningsStart = record.fields[RA_FIELDS.earningsStart]
+        if (earningsStart) {
+          fields[RA_FIELDS.chargebackStart] = earningsStart
+        }
+      }
+    }
+
+    await fetch(
+      `https://api.airtable.com/v0/${HQ_BASE}/${REVENUE_ACCOUNTS_TABLE}/${record.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_PAT}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fields }),
+      }
+    )
+  } catch (err) {
+    // Non-blocking — log but don't fail the upload
+    console.error('Airtable coverage update error:', err)
+  }
 }
 
 // ── POST: upload transactions ───────────────────────────────────────────────
@@ -274,18 +455,30 @@ export async function POST(request) {
   if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const contentType = request.headers.get('content-type') || ''
-  let txns, creator, sheetType
+  let txns, creator, sheetType, fileTimestamp, accountName
 
   if (contentType.includes('multipart/form-data')) {
     // HTML file upload
     const formData = await request.formData()
     const file = formData.get('file')
     creator = formData.get('creator')
+    accountName = formData.get('accountName') || creator // accountName like "Amelia - Free OF"
     if (!file || !creator) return Response.json({ error: 'Missing file or creator' }, { status: 400 })
 
     const html = await file.text()
-    txns = parseHtml(html)
-    sheetType = 'Sales' // HTML is always the earnings/statements page
+    const formDataType = formData.get('dataType')
+    // Auto-detect page type from HTML, or use the explicit dataType from the modal
+    const isDisputesPage = html.includes('statements/disputes') || html.includes('Dispute date')
+    if (isDisputesPage || formDataType === 'chargebacks') {
+      txns = parseChargebackHtml(html)
+      sheetType = 'Chargebacks'
+    } else {
+      txns = parseHtml(html)
+      sheetType = 'Sales'
+    }
+    // File's last modified timestamp — when the HTML was saved on disk
+    const fileLastModified = formData.get('fileLastModified')
+    fileTimestamp = fileLastModified ? Number(fileLastModified) : (file.lastModified || null)
   } else {
     // JSON body — raw text paste (legacy fallback)
     const { rawData, creator: c, dataType } = await request.json()
@@ -304,14 +497,20 @@ export async function POST(request) {
   }
 
   if (!txns || txns.length === 0) {
-    return Response.json({ error: 'Could not parse any transactions from the uploaded data' }, { status: 400 })
+    // No transactions found — but still update coverage timestamp
+    // (e.g. chargeback page with "No data during selected period" is still valid data)
+    await updateAirtableCoverage(accountName, sheetType, [], fileTimestamp)
+    return Response.json({
+      message: `No ${sheetType === 'Chargebacks' ? 'chargebacks' : 'transactions'} found — coverage timestamp updated.`,
+      parsed: 0, skipped: 0, uploaded: 0, overlapMethod: 'none',
+    })
   }
 
   // Push to Google Sheets
   try {
     const authClient = getAuth()
     const sheets = google.sheets({ version: 'v4', auth: authClient })
-    const tabName = await getOrCreateTab(sheets, creator, sheetType)
+    const tabName = await getOrCreateTab(sheets, accountName, sheetType)
 
     // Overlap-based dedup: fetch last rows from sheet, find the match point
     // in the new data, only append everything after it
@@ -364,6 +563,8 @@ export async function POST(request) {
     }
 
     if (filtered.length === 0) {
+      // Still update the coverage timestamp even though no new rows
+      await updateAirtableCoverage(accountName, sheetType, txns, fileTimestamp)
       return Response.json({
         message: `All ${txns.length} transactions already exist in the sheet — nothing new to upload.`,
         parsed: txns.length, skipped: txns.length, uploaded: 0, overlapMethod,
@@ -371,7 +572,9 @@ export async function POST(request) {
     }
 
     // Convert to rows — combined datetime, 9 columns
-    const rows = filtered.map(t => [
+    // Sort newest first so inserted rows maintain descending order
+    const sortedFiltered = [...filtered].sort((a, b) => (b.dt || 0) - (a.dt || 0))
+    const rows = sortedFiltered.map(t => [
       t.dt ? fmtDateTime(t.dt) : '',
       t.gross,
       t.of_fee,
@@ -383,43 +586,36 @@ export async function POST(request) {
       t.desc,
     ])
 
-    // Find next empty row
-    let nextRow = 4
-    try {
-      const existing = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID, range: `'${tabName}'!A:A`,
-      })
-      nextRow = Math.max(4, (existing.data.values?.length || 3) + 1)
-    } catch {}
-
-    // Auto-expand sheet if needed (grid limit)
-    const requiredRows = nextRow + rows.length
-    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+    // Insert new rows at top (row 4, right after headers) so newest data is always first
+    const spreadsheet = await withRetry(
+      () => sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID }),
+      'post.getSheet'
+    )
     const sheetMeta = spreadsheet.data.sheets.find(s => s.properties.title === tabName)
-    const currentMaxRows = sheetMeta?.properties?.gridProperties?.rowCount || 1000
-    if (requiredRows > currentMaxRows) {
-      const addRows = requiredRows - currentMaxRows + 500 // add extra buffer
-      await sheets.spreadsheets.batchUpdate({
+    const sheetId = sheetMeta?.properties?.sheetId
+
+    // First, insert blank rows at position 4 to make room
+    if (sheetId !== undefined) {
+      await withRetry(() => sheets.spreadsheets.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
         resource: {
           requests: [{
-            appendDimension: {
-              sheetId: sheetMeta.properties.sheetId,
-              dimension: 'ROWS',
-              length: addRows,
+            insertDimension: {
+              range: { sheetId, dimension: 'ROWS', startIndex: 3, endIndex: 3 + rows.length },
+              inheritFromBefore: false,
             }
           }]
         }
-      })
+      }), 'post.insertRows')
     }
 
-    // Append rows
-    await sheets.spreadsheets.values.update({
+    // Write the new rows starting at row 4
+    await withRetry(() => sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${tabName}'!A${nextRow}`,
+      range: `'${tabName}'!A4`,
       valueInputOption: 'RAW',
       resource: { values: rows },
-    })
+    }), 'post.writeRows')
 
     // Update cutoff — find the latest timestamp across all sheet data + new rows
     let newCutoff = null
@@ -436,6 +632,9 @@ export async function POST(request) {
       if (t.dt && (!newCutoff || t.dt > newCutoff)) newCutoff = t.dt
     }
     await updateCutoff(sheets, tabName, newCutoff)
+
+    // Update Airtable coverage dates (non-blocking)
+    await updateAirtableCoverage(accountName, sheetType, txns, fileTimestamp)
 
     // Build summary
     const typeBreakdown = {}
@@ -481,14 +680,28 @@ export async function GET(request) {
     const tabs = spreadsheet.data.sheets.map(s => s.properties.title).filter(t => t.includes(' - '))
 
     const cutoffs = {}
+    const ranges = {}
     for (const tabName of tabs) {
       const cutoff = await getCutoff(sheets, tabName)
       cutoffs[tabName] = cutoff?.toISOString() || null
+      // Get all dates from column A to find the full range
+      try {
+        const allDates = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${tabName}'!A4:A`,
+        })
+        const dateVals = (allDates.data.values || []).map(r => r[0]?.split(' ')[0]).filter(Boolean)
+        if (dateVals.length > 0) {
+          const sorted = [...dateVals].sort()
+          ranges[tabName] = { earliest: sorted[0], latest: sorted[sorted.length - 1], rowCount: dateVals.length }
+        }
+      } catch (_) {}
     }
 
     return Response.json({
       spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}`,
       tabs: cutoffs,
+      ranges,
     })
   } catch (err) {
     console.error('Google Sheets error:', err)

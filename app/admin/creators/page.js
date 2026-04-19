@@ -12,6 +12,95 @@ const TAG_CATEGORIES = [
   'Film Format',
 ]
 
+// A "real purchase" = tip, PPV, message unlock, post unlock, stream tip, etc.
+// Explicitly excludes subscription renewals (auto-charges, not an active choice)
+// and chargebacks. Used for fan-level spending math (lifetime, gaps, rolling30,
+// heat status) so recurring $X subscription charges don't make a dead fan look alive.
+function isRealPurchase(t) {
+  if (!t || !t.type) return true // unknown type — treat as real to be safe
+  const type = String(t.type)
+  return type !== 'Chargeback'
+    && type !== 'Subscription'
+    && type !== 'Recurring subscription'
+}
+
+// Parse OF chat HTML in the browser — mirrors parseChatHtml() in the server route.
+// Running this client-side keeps large HTML (often 20-100MB of SVG/media bloat)
+// off the wire; only the compact transcript (~2-5% of size) is uploaded.
+function parseChatHtmlClient(html) {
+  const messages = []
+  const datePositions = []
+  const dateRe = /b-chat__messages__time.*?title="([^"]+)"/g
+  let dm
+  while ((dm = dateRe.exec(html))) {
+    const rawDate = dm[1].replace(/,?\s*12:00\s*am$/i, '').trim()
+    datePositions.push({ pos: dm.index, date: rawDate })
+  }
+  const msgRe = /class="b-chat__message\s([^"]*?)"/g
+  let mm
+  while ((mm = msgRe.exec(html))) {
+    const pos = mm.index
+    const classes = mm[1]
+    const block = html.slice(pos, pos + 5000)
+    const isFromMe = classes.includes('m-from-me')
+    const hasMedia = classes.includes('m-has-media')
+    const isTip = classes.includes('m-tip')
+    const isPrice = classes.includes('m-price')
+    let text = ''
+    const textMatch = block.match(/class="b-chat__message__text[^"]*"[^>]*>([\s\S]*?)<\/div>/)
+    if (textMatch) {
+      text = textMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ')
+    }
+    const mediaMatch = block.match(/switcher-media-content__val-total">(\d+)/)
+    const mediaCount = mediaMatch ? mediaMatch[1] : ''
+    let price = ''
+    if (isPrice) {
+      const priceMatch = block.match(/\$\s*([\d,.]+)/)
+      if (priceMatch) price = priceMatch[1]
+    }
+    let msgDate = ''
+    for (let i = datePositions.length - 1; i >= 0; i--) {
+      if (datePositions[i].pos < pos) { msgDate = datePositions[i].date; break }
+    }
+    let msgTime = ''
+    const timeMatch = block.match(/b-chat__message__time[^>]*>[\s\S]*?<span[^>]*>\s*([\d]{1,2}:[\d]{2}\s*[ap]m)\s*<\/span/i)
+    if (timeMatch) msgTime = timeMatch[1].trim()
+    const sender = isFromMe ? 'CREATOR' : 'FAN'
+    let line = `[${sender}]`
+    if (text) line += ` ${text}`
+    if (hasMedia) line += mediaCount ? ` [media x${mediaCount}]` : ' [media]'
+    if (isPrice && price) line += ` [PPV $${price}]`
+    if (isTip) line += ' [TIP]'
+    if (text || hasMedia || isTip) {
+      messages.push({ date: msgDate, time: msgTime, sender, line })
+    }
+  }
+  let currentDate = ''
+  const lines = []
+  for (const msg of messages) {
+    if (msg.date && msg.date !== currentDate) {
+      currentDate = msg.date
+      lines.push(`\n--- ${msg.date} ---`)
+    }
+    lines.push(msg.line)
+  }
+  const firstMsg = messages[0]
+  const lastMsg = messages[messages.length - 1]
+  const firstDate = firstMsg ? (firstMsg.time ? `${firstMsg.date}, ${firstMsg.time}` : firstMsg.date) : ''
+  const lastDate = lastMsg ? (lastMsg.time ? `${lastMsg.date}, ${lastMsg.time}` : lastMsg.date) : ''
+  return {
+    conversation: lines.join('\n'),
+    messages,
+    messageCount: messages.length,
+    fanMessages: messages.filter(m => m.sender === 'FAN').length,
+    creatorMessages: messages.filter(m => m.sender === 'CREATOR').length,
+    firstMessageDate: firstDate,
+    lastMessageDate: lastDate,
+  }
+}
+
 const STATUS_STYLES = {
   'Not Started':       { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' },
   'Ready to Analyze':  { bg: '#dbeafe', text: '#60a5fa', border: '#bfdbfe' },
@@ -887,7 +976,7 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
 
 // ── Going Cold Row ─────────────────────────────────────────────────────────
 
-function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecordId, allTxns }) {
+function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, creatorRecordId, allTxns }) {
   const [expanded, setExpanded] = useState(false)
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
@@ -911,9 +1000,26 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
       .catch(() => {})
   }, [expanded])
 
-  function buildFormData() {
+  async function buildFormData() {
     const formData = new FormData()
-    formData.append('file', chatFile)
+    // Parse chat HTML client-side so we upload plain text (~2-5% of raw size)
+    // and stay under Vercel's 4.5MB body limit.
+    const isHtml = /\.html?$/i.test(chatFile.name) || (chatFile.type || '').includes('html')
+    if (isHtml) {
+      const html = await chatFile.text()
+      const parsed = parseChatHtmlClient(html)
+      if (parsed.messageCount === 0) {
+        throw new Error('No messages found in the uploaded HTML.')
+      }
+      formData.append('parsedConversation', parsed.conversation)
+      formData.append('parsedMessages', JSON.stringify(parsed.messages))
+      formData.append('parsedFirstDate', parsed.firstMessageDate)
+      formData.append('parsedLastDate', parsed.lastMessageDate)
+      formData.append('parsedFanMsgs', String(parsed.fanMessages))
+      formData.append('parsedCreatorMsgs', String(parsed.creatorMessages))
+    } else {
+      formData.append('file', chatFile)
+    }
     formData.append('fanName', a.fan)
     formData.append('fanUsername', a.username || '')
     formData.append('lifetime', a.lifetime)
@@ -923,6 +1029,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
     formData.append('monthlyAvg90', a.monthlyAvg90)
     formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
     formData.append('creatorName', creatorName || '')
+    formData.append('creatorAka', creatorAka || creatorName || '')
     formData.append('creatorRecordId', creatorRecordId || '')
     // Compute daily spend for this fan from transaction data
     if (allTxns) {
@@ -946,8 +1053,16 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: buildFormData() })
-      const data = await res.json()
+      const fd = await buildFormData()
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
+      const raw = await res.text()
+      let data
+      try { data = JSON.parse(raw) } catch {
+        if (res.status === 413 || /too large|request en/i.test(raw)) {
+          throw new Error('Chat HTML too large even after stripping. Try exporting a shorter date range from OF.')
+        }
+        throw new Error(`Analysis failed (${res.status}): ${raw.slice(0, 120)}`)
+      }
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       setAnalysis(data)
       // Don't clear chatFile — keep it for re-analyze
@@ -966,6 +1081,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorName,
+          creatorAka,
           creatorRecordId,
           alert: a,
           analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
@@ -1294,6 +1410,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         creatorName,
+                        creatorAka,
                         creatorRecordId,
                         alert: a,
                         analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
@@ -1344,6 +1461,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [accountFilter, setAccountFilter] = useState('all') // 'all' | 'Free' | 'VIP' etc.
   const [showAllCold, setShowAllCold] = useState(false)
   const [showAllFans, setShowAllFans] = useState(false)
   const [slideDir, setSlideDir] = useState(null) // 'left' | 'right' | null
@@ -1354,10 +1472,83 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   const [uploadResult, setUploadResult] = useState(null)
   const [uploadError, setUploadError] = useState(null)
   const uploadFileRef = useRef(null)
+  const [coverageData, setCoverageData] = useState(null)
+  const [coverageLoading, setCoverageLoading] = useState(true)
+  const coverageScrollRef = useRef(null)
+
+  // Fetch coverage data for this creator
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/admin/earnings-coverage')
+        if (!res.ok) throw new Error('Failed to fetch coverage')
+        const { creators } = await res.json()
+        if (!cancelled) {
+          // Find matching creator by aka or name
+          const cAka = (creator?.aka || '').toLowerCase()
+          const cName = (creator?.name || '').toLowerCase()
+          const match = creators.find(c => {
+            const akaLower = (c.aka || '').toLowerCase()
+            return (cAka && akaLower === cAka) || (cName && akaLower === cName) ||
+              (cName && cName.includes(akaLower) && akaLower.length > 0)
+          })
+          setCoverageData(match || null)
+        }
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setCoverageLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [creator?.aka, creator?.name])
+
+  // Auto-scroll coverage chart to right
+  useEffect(() => {
+    if (coverageScrollRef.current) {
+      coverageScrollRef.current.scrollLeft = coverageScrollRef.current.scrollWidth
+    }
+  }, [coverageData])
 
   // Extract data safely — all hooks must run before any early returns
-  const { summary, byType, topFans: allTimeTopFans, transactions: allTxns, dailyData: rawDailyData, goingColdAlerts, goingColdCount, cachedAt } = data || {}
-  const dailyData = rawDailyData || []
+  const { summary: rawSummary, byType: rawByType, topFans: allTimeTopFans, transactions: rawTxns, dailyData: rawDailyData, goingColdAlerts, goingColdCount, cachedAt, accounts: availableAccounts } = data || {}
+
+  // Account-filtered transactions and daily data
+  const acctFiltered = useMemo(() => {
+    const allTxns = rawTxns || []
+    const allDaily = rawDailyData || []
+    if (accountFilter === 'all' || !availableAccounts?.length) {
+      return { allTxns, dailyData: allDaily, summary: rawSummary, byType: rawByType }
+    }
+    // Filter transactions by account
+    const txns = allTxns.filter(t => t.account === accountFilter)
+    // Rebuild daily data from filtered transactions
+    const dailyMap = {}
+    for (const t of txns) {
+      if (!t.date) continue
+      if (!dailyMap[t.date]) dailyMap[t.date] = { date: t.date, net: 0, gross: 0, txnCount: 0, byType: {} }
+      const d = dailyMap[t.date]
+      d.net += t.net; d.gross += t.gross; d.txnCount += 1
+      const tp = t.type || 'Unknown'
+      d.byType[tp] = (d.byType[tp] || 0) + t.net
+    }
+    const dailyData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date))
+    // Rebuild summary
+    let totalNet = 0, totalGross = 0, chargebackTotal = 0
+    const byType = {}
+    for (const t of txns) {
+      if (t.type === 'Chargeback') { chargebackTotal += t.net; continue }
+      totalNet += t.net; totalGross += t.gross
+      const tp = t.type || 'Unknown'
+      byType[tp] = (byType[tp] || 0) + t.net
+    }
+    return {
+      allTxns: txns,
+      dailyData,
+      summary: { ...rawSummary, totalNet, totalGross, chargebackTotal, transactionCount: txns.length },
+      byType,
+    }
+  }, [rawTxns, rawDailyData, rawSummary, rawByType, accountFilter, availableAccounts])
+
+  const { allTxns, dailyData, summary, byType } = acctFiltered
 
   // Compute top fans for current period (hook must be before early returns)
   const topFans = useMemo(() => {
@@ -1372,16 +1563,17 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         if (dt < ps || dt > new Date(pe.getTime() + 86400000)) continue
       }
       const key = t.displayName || 'Unknown'
-      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '' }
+      if (!fanMap[key]) fanMap[key] = { displayName: key, ofUsername: t.ofUsername, totalNet: 0, transactionCount: 0, lastDate: '', accounts: new Set() }
       fanMap[key].totalNet += t.net
       fanMap[key].transactionCount += 1
       if (!fanMap[key].lastDate || t.date > fanMap[key].lastDate) fanMap[key].lastDate = t.date
+      if (t.account) fanMap[key].accounts.add(t.account)
     }
     return Object.values(fanMap)
       .filter(f => f.totalNet > 0)
       .sort((a, b) => b.totalNet - a.totalNet)
       .slice(0, 25)
-      .map((f, i) => ({ rank: i + 1, ...f }))
+      .map((f, i) => ({ rank: i + 1, ...f, accounts: [...f.accounts] }))
   }, [allTxns, period, customStart, customEnd])
 
   // Early returns AFTER all hooks
@@ -1483,7 +1675,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   return (
     <div>
       {/* Controls bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '6px' }}>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           <button onClick={() => {
             const shift = -7
@@ -1526,8 +1718,32 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             </div>
           )}
         </div>
-        {/* Type filters + breakdown */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Account pills (only for multi-account creators) */}
+        {availableAccounts && availableAccounts.length > 1 && (
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <button onClick={() => setAccountFilter('all')}
+              style={{
+                background: accountFilter === 'all' ? '#1a1a1a' : 'transparent',
+                color: accountFilter === 'all' ? '#fff' : '#bbb',
+                border: accountFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
+                borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
+              }}>All Accounts</button>
+            {availableAccounts.map(a => (
+              <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
+                style={{
+                  background: accountFilter === a ? '#E88FAC18' : 'transparent',
+                  color: accountFilter === a ? '#E88FAC' : '#bbb',
+                  border: accountFilter === a ? '1px solid #E88FAC' : '1px solid transparent',
+                  borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
+                }}>
+                {`${creator?.aka || ''} - ${a}`}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Type filters + breakdown */}
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
           <button onClick={() => setTypeFilter('all')}
             style={{
               background: typeFilter === 'all' ? '#1a1a1a' : 'transparent',
@@ -1568,7 +1784,6 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           >
             Update Earnings Data
           </button>
-        </div>
       </div>
 
       {/* Inline upload panel */}
@@ -1616,6 +1831,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                     const formData = new FormData()
                     formData.append('file', uploadFile)
                     formData.append('creator', creator?.aka || creator?.name || '')
+                    if (uploadFile.lastModified) formData.append('fileLastModified', String(uploadFile.lastModified))
                     const res = await fetch('/api/admin/invoicing/upload-transactions', { method: 'POST', body: formData })
                     const data = await res.json()
                     if (!res.ok) throw new Error(data.error || 'Upload failed')
@@ -1663,6 +1879,155 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           )}
         </div>
       )}
+
+      {/* Data coverage chart — single creator, only when upload panel is open */}
+      {showUploadPanel && !coverageLoading && coverageData && (coverageData.earningsStart || coverageData.chargebackStart) && (() => {
+        const today = new Date()
+        const twoMonthsAgo = new Date(today)
+        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+        twoMonthsAgo.setDate(1)
+        const allDates = [coverageData.earningsStart, coverageData.earningsEnd, coverageData.chargebackStart, coverageData.chargebackEnd].filter(Boolean)
+        const sorted = [...allDates].sort()
+        const dataStart = sorted.length > 0 ? new Date(sorted[0] + 'T00:00:00') : twoMonthsAgo
+        const dataEnd = sorted.length > 0 ? new Date(sorted[sorted.length - 1] + 'T00:00:00') : today
+        const globalStart = new Date(Math.min(dataStart, twoMonthsAgo))
+        const globalEnd = new Date(Math.max(dataEnd, today))
+        const totalDays = Math.max(1, (globalEnd - globalStart) / 86400000)
+        const chartWidth = Math.max(400, totalDays * 8)
+
+        const periodLines = []
+        const periodLabels = []
+        const cursor = new Date(globalStart)
+        cursor.setDate(1)
+        while (cursor <= globalEnd) {
+          const yr = cursor.getFullYear()
+          const mo = cursor.getMonth()
+          const d1 = new Date(yr, mo, 1)
+          const d15 = new Date(yr, mo, 15)
+          const lastDay = new Date(yr, mo + 1, 0).getDate()
+
+          if (d1 >= globalStart && d1 <= globalEnd) periodLines.push({ date: new Date(d1), isFirst: true })
+          if (d15 >= globalStart && d15 <= globalEnd) periodLines.push({ date: new Date(d15), isFirst: false })
+
+          const moAbbr = d1.toLocaleDateString('en-US', { month: 'short' })
+          const p1S = new Date(yr, mo, 1), p1E = new Date(yr, mo, 14)
+          if (p1E >= globalStart && p1S <= globalEnd) periodLabels.push({ start: p1S, end: p1E, label: `${moAbbr} 1 – ${moAbbr} 14` })
+          const p2S = new Date(yr, mo, 15), p2E = new Date(yr, mo, lastDay)
+          if (p2E >= globalStart && p2S <= globalEnd) periodLabels.push({ start: p2S, end: p2E, label: `${moAbbr} 15 – ${moAbbr} ${lastDay}` })
+
+          cursor.setMonth(cursor.getMonth() + 1)
+        }
+
+        const dateToPx = (dateStr) => {
+          const d = new Date(dateStr + 'T00:00:00')
+          return Math.max(0, Math.min(chartWidth, ((d - globalStart) / 86400000 / totalDays) * chartWidth))
+        }
+        const fmtDateYear = (dateStr) => {
+          if (!dateStr) return ''
+          const d = new Date(dateStr + 'T00:00:00')
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        }
+        const fmtUpload = (iso) => {
+          if (!iso) return null
+          const d = new Date(iso)
+          return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+        }
+
+        const hasEarnings = coverageData.earningsStart && coverageData.earningsEnd
+        const hasCb = coverageData.chargebackStart && coverageData.chargebackEnd
+
+        const earningsTitle = hasEarnings
+          ? (coverageData.earningsLastUpload ? `Last upload: ${fmtUpload(coverageData.earningsLastUpload)}` : `Data through ${fmtDateYear(coverageData.earningsEnd)}`)
+          : null
+        const cbTitle = hasCb
+          ? (coverageData.chargebacksLastUpload ? `Last upload: ${fmtUpload(coverageData.chargebacksLastUpload)}` : `Data through ${fmtDateYear(coverageData.chargebackEnd)}`)
+          : null
+
+        return (
+          <div style={{
+            background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+            padding: '12px 16px', marginBottom: '12px',
+          }}>
+            <style>{`
+              .coverage-scroll::-webkit-scrollbar { height: 4px; }
+              .coverage-scroll::-webkit-scrollbar-track { background: transparent; }
+              .coverage-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+              .coverage-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+            `}</style>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+              Data Coverage
+            </div>
+            <div ref={coverageScrollRef} className="coverage-scroll" style={{ overflowX: 'auto' }}>
+              <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
+                {/* Period range labels centered in each pay period */}
+                <div style={{ position: 'relative', height: '18px', marginBottom: '4px' }}>
+                  {periodLabels.map((p, i) => {
+                    const startPx = ((p.start - globalStart) / 86400000 / totalDays) * chartWidth
+                    const endPx = ((p.end - globalStart) / 86400000 / totalDays) * chartWidth
+                    const centerPx = (startPx + endPx) / 2
+                    return (
+                      <span key={i} style={{
+                        position: 'absolute', left: `${centerPx}px`, transform: 'translateX(-50%)',
+                        fontSize: '9px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
+                      }}>
+                        {p.label}
+                      </span>
+                    )
+                  })}
+                </div>
+
+                {/* Earnings bar */}
+                <div style={{ position: 'relative', height: '16px', marginBottom: '4px' }}>
+                  {periodLines.map((p, i) => {
+                    const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+                    return <div key={i} style={{ position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px', background: p.isFirst ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.10)' }} />
+                  })}
+                  {hasEarnings ? (
+                    <div title={earningsTitle} style={{
+                      position: 'absolute', left: `${dateToPx(coverageData.earningsStart)}px`,
+                      width: `${Math.max(4, dateToPx(coverageData.earningsEnd) - dateToPx(coverageData.earningsStart))}px`,
+                      height: '100%', borderRadius: '3px', cursor: 'default',
+                      background: 'linear-gradient(90deg, #86efac, #22c55e)', opacity: 0.85,
+                    }} />
+                  ) : (
+                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                  )}
+                </div>
+
+                {/* Chargebacks bar */}
+                <div style={{ position: 'relative', height: '16px' }}>
+                  {periodLines.map((p, i) => {
+                    const px = ((p.date - globalStart) / 86400000 / totalDays) * chartWidth
+                    return <div key={i} style={{ position: 'absolute', left: `${px}px`, top: 0, bottom: 0, width: '1px', background: p.isFirst ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.10)' }} />
+                  })}
+                  {hasCb ? (
+                    <div title={cbTitle} style={{
+                      position: 'absolute', left: `${dateToPx(coverageData.chargebackStart)}px`,
+                      width: `${Math.max(4, dateToPx(coverageData.chargebackEnd) - dateToPx(coverageData.chargebackStart))}px`,
+                      height: '100%', borderRadius: '3px', cursor: 'default',
+                      background: 'linear-gradient(90deg, #fca5a5, #ef4444)', opacity: 0.85,
+                    }} />
+                  ) : (
+                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '10px', height: '6px', borderRadius: '2px', background: 'linear-gradient(90deg, #86efac, #22c55e)' }} />
+                <span style={{ fontSize: '10px', color: '#999' }}>Earnings</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '10px', height: '6px', borderRadius: '2px', background: 'linear-gradient(90deg, #fca5a5, #ef4444)' }} />
+                <span style={{ fontSize: '10px', color: '#999' }}>Chargebacks</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Revenue chart — immediately visible */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
@@ -1717,7 +2082,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
             </div>
             {(showAllCold ? goingColdAlerts : goingColdAlerts.slice(0, 10)).map((a, i) => (
-              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || creator?.aka || ''} creatorRecordId={creator?.id} allTxns={allTxns} />
+              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || creator?.aka || ''} creatorAka={creator?.aka || creator?.name || ''} creatorRecordId={creator?.id} allTxns={allTxns} />
             ))}
             {goingColdAlerts.length > 10 && !showAllCold && (
               <button onClick={() => setShowAllCold(true)}
@@ -1735,12 +2100,12 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           Top Fans — {PERIOD_PRESETS.find(p => p.key === period)?.label || (period === 'custom' ? 'Custom Range' : 'All Time')}
         </div>
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span>#</span><span>Name</span><span>Username</span><span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
+          <div style={{ display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span>#</span><span>Name</span><span>Username</span>{availableAccounts?.length > 1 && <span>Account</span>}<span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
           </div>
           {(showAllFans ? topFans : topFans.slice(0, 5)).map((fan, i) => (
             <div key={fan.displayName} style={{
-              display: 'grid', gridTemplateColumns: '36px 1fr 1fr 100px 60px 90px', padding: '8px 16px',
+              display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '8px 16px',
               fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)',
               background: i % 2 === 0 ? '#fff' : '#FAFAFA',
             }}>
@@ -1752,6 +2117,16 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                   @{fan.ofUsername}
                 </a>
               ) : <span style={{ color: '#ccc' }}>—</span>}</span>
+              {availableAccounts?.length > 1 && (
+                <span style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                  {(fan.accounts || []).map(a => (
+                    <span key={a} style={{
+                      background: '#f3f4f6', borderRadius: '8px', padding: '1px 6px',
+                      fontSize: '9px', color: '#666', fontWeight: 500, whiteSpace: 'nowrap',
+                    }}>{a}</span>
+                  ))}
+                </span>
+              )}
               <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(fan.totalNet)}</span>
               <span style={{ textAlign: 'right', color: '#666' }}>{fan.transactionCount}</span>
               <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{fan.lastDate}</span>
@@ -1771,13 +2146,12 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
 
-function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId, allTxns }) {
+function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts }) {
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
   const [showBrief, setShowBrief] = useState(false)
-  const [loadedFromAirtable, setLoadedFromAirtable] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState(null)
   const [showSendModal, setShowSendModal] = useState(false)
@@ -1786,45 +2160,55 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   const [selectedAnalysisIdx, setSelectedAnalysisIdx] = useState(0)
   const [chartMode, setChartMode] = useState('monthly') // 'daily' | 'monthly'
   const [showAllHistory, setShowAllHistory] = useState(false)
+  const [splitByAccount, setSplitByAccount] = useState(false)
   const [hoverIdx, setHoverIdx] = useState(null)
+  const [savingTranscript, setSavingTranscript] = useState(false)
+  const [transcriptSaved, setTranscriptSaved] = useState(false)
+  const [viewingAnalysisIdx, setViewingAnalysisIdx] = useState(null) // index into analysisRecords for full modal
   const chatFileRef = useRef(null)
+  const saveFileRef = useRef(null)
 
-  const sc = statusColors[f.status] || statusColors['Monitoring']
+  const heat = HEAT_CONFIG[f.heatStatus] || HEAT_CONFIG['Stable']
+  // For "Alert Triggered", color-tint by urgency (critical/high/warning) so
+  // critical pops in the list. Fallback to default red if no urgency attached.
+  const urgency = f.goingCold?.urgency
+  const ac = (f.alertStatus === 'Alert Triggered' && urgency && URGENCY_COLORS[urgency])
+    ? URGENCY_COLORS[urgency]
+    : (ALERT_STATUS_COLORS[f.alertStatus] || ALERT_STATUS_COLORS['None'])
   const ec = effectColors[f.effectiveness] || effectColors['Pending']
 
-  // Load existing analysis from Airtable when expanded
-  useEffect(() => {
-    if (!isExpanded || analysis || loadedFromAirtable) return
-    setLoadedFromAirtable(true)
-    fetch(`/api/admin/creator-earnings/analyze-chat?fan=${encodeURIComponent(f.fanName)}&creator=${encodeURIComponent(creatorName || '')}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.analysis) setAnalysis(data) })
-      .catch(() => {})
-  }, [isExpanded])
+  // Analysis is now shown via cards (analysisRecords) — full text loads on demand via "View Full" modal or new analysis run
 
   // Build daily + monthly spend data for this fan from allTxns
-  const { fanSpendData, monthlySpendData } = useMemo(() => {
-    if (!allTxns || !Array.isArray(allTxns)) return { fanSpendData: null, monthlySpendData: null }
+  const { fanSpendData, monthlySpendData, perAccountMonthly, perAccountDaily, accountNames } = useMemo(() => {
+    if (!allTxns || !Array.isArray(allTxns)) return { fanSpendData: null, monthlySpendData: null, perAccountMonthly: {}, perAccountDaily: {}, accountNames: [] }
     const dailySpend = {}
+    const dailyByAccount = {} // { account: { date: spend } }
     for (const t of allTxns) {
       const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
         (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
-      if (!match || t.type === 'Chargeback') continue
+      if (!match || !isRealPurchase(t)) continue // skip subs + chargebacks
       const d = t.date
       if (!d) continue
       dailySpend[d] = (dailySpend[d] || 0) + (t.net || 0)
+      const acct = t.account || 'Unknown'
+      if (!dailyByAccount[acct]) dailyByAccount[acct] = {}
+      dailyByAccount[acct][d] = (dailyByAccount[acct][d] || 0) + (t.net || 0)
     }
     const entries = Object.entries(dailySpend).sort(([a], [b]) => a.localeCompare(b))
-    if (entries.length < 1) return { fanSpendData: null, monthlySpendData: null }
+    if (entries.length < 1) return { fanSpendData: null, monthlySpendData: null, perAccountMonthly: {}, perAccountDaily: {}, accountNames: [] }
 
-    // Fill gaps with zero-spend days
+    // Fill gaps with zero-spend days — extend to today so the gap is visible
     const filled = []
     const startDate = new Date(entries[0][0] + 'T00:00:00')
-    const endDate = new Date(entries[entries.length - 1][0] + 'T00:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const endDate = today > new Date(entries[entries.length - 1][0] + 'T00:00:00') ? today : new Date(entries[entries.length - 1][0] + 'T00:00:00')
     const spendMap = Object.fromEntries(entries)
+    const lastSpendDate = entries[entries.length - 1][0]
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const key = d.toISOString().split('T')[0]
-      filled.push({ date: key, spend: spendMap[key] || 0 })
+      filled.push({ date: key, spend: spendMap[key] || 0, afterLastSpend: key > lastSpendDate })
     }
 
     // Build monthly totals — include all months from first to current
@@ -1846,7 +2230,23 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       cur = next
     }
 
-    return { fanSpendData: filled, monthlySpendData: allMonths }
+    // Per-account breakdowns (only useful when fan is on 2+ accounts)
+    const acctNames = Object.keys(dailyByAccount).sort()
+    const perMonthly = {}
+    const perDaily = {}
+    for (const acct of acctNames) {
+      const acctDaily = dailyByAccount[acct]
+      perDaily[acct] = filled.map(d => ({ date: d.date, spend: acctDaily[d.date] || 0, afterLastSpend: d.afterLastSpend }))
+      perMonthly[acct] = allMonths.map(m => {
+        let sum = 0
+        for (const [dt, v] of Object.entries(acctDaily)) {
+          if (dt.startsWith(m.month)) sum += v
+        }
+        return { month: m.month, spend: sum }
+      })
+    }
+
+    return { fanSpendData: filled, monthlySpendData: allMonths, perAccountMonthly: perMonthly, perAccountDaily: perDaily, accountNames: acctNames }
   }, [allTxns, f.ofUsername, f.fanName])
 
   // Milestone dates from alert history and analyses
@@ -1865,9 +2265,32 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     return m
   }, [f.alertHistory, f.analysisRecords])
 
-  function buildFormData() {
+  async function buildFormData(fromTranscript = false) {
     const formData = new FormData()
-    formData.append('file', chatFile)
+    if (fromTranscript) {
+      formData.append('useTranscript', 'true')
+    } else {
+      // Parse chat HTML client-side — sends only the extracted transcript text
+      // instead of the full HTML (which can be 20-100MB and blow past Vercel's
+      // 4.5MB body limit). Parsed transcripts are typically 2-5% of HTML size.
+      const isHtml = /\.html?$/i.test(chatFile.name) || (chatFile.type || '').includes('html')
+      if (isHtml) {
+        const html = await chatFile.text()
+        const parsed = parseChatHtmlClient(html)
+        if (parsed.messageCount === 0) {
+          throw new Error('No messages found in the uploaded HTML.')
+        }
+        formData.append('parsedConversation', parsed.conversation)
+        formData.append('parsedMessages', JSON.stringify(parsed.messages))
+        formData.append('parsedFirstDate', parsed.firstMessageDate)
+        formData.append('parsedLastDate', parsed.lastMessageDate)
+        formData.append('parsedFanMsgs', String(parsed.fanMessages))
+        formData.append('parsedCreatorMsgs', String(parsed.creatorMessages))
+      } else {
+        // Non-HTML file — send as-is (server will reject if not supported)
+        formData.append('file', chatFile)
+      }
+    }
     formData.append('fanName', f.fanName)
     formData.append('fanUsername', f.ofUsername || '')
     formData.append('lifetime', f.lifetimeSpend || 0)
@@ -1877,13 +2300,45 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       formData.append('rolling30', f.goingCold.rolling30 || 0)
       formData.append('monthlyAvg90', f.goingCold.monthlyAvg90 || 0)
       formData.append('lastPurchaseDate', f.goingCold.lastPurchaseDate || '')
+    } else if (allTxns) {
+      // Compute spending metrics from transaction data when no going-cold alert exists
+      // Exclude subscription renewals + chargebacks — only real purchases count
+      const fanTxns = allTxns.filter(t => (t.ofUsername || '') === f.ofUsername || (t.displayName || '') === f.fanName)
+        .filter(t => t.date && isRealPurchase(t))
+        .sort((a, b) => a.date.localeCompare(b.date))
+      if (fanTxns.length > 0) {
+        const now = new Date()
+        const thirtyAgo = new Date(now - 30 * 86400000)
+        const ninetyAgo = new Date(now - 90 * 86400000)
+        const r30 = fanTxns.filter(t => new Date(t.date) >= thirtyAgo).reduce((s, t) => s + (t.net || 0), 0)
+        const r90 = fanTxns.filter(t => new Date(t.date) >= ninetyAgo).reduce((s, t) => s + (t.net || 0), 0)
+        const lastTxn = fanTxns[fanTxns.length - 1]
+        const gap = Math.floor((now - new Date(lastTxn.date)) / 86400000)
+        // Compute median purchase gap
+        const gaps = []
+        for (let i = 1; i < fanTxns.length; i++) {
+          const d = Math.floor((new Date(fanTxns[i].date) - new Date(fanTxns[i-1].date)) / 86400000)
+          if (d > 0) gaps.push(d)
+        }
+        gaps.sort((a, b) => a - b)
+        const median = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 0
+        const lifetime = fanTxns.reduce((s, t) => s + (t.net || 0), 0)
+        formData.set('lifetime', lifetime) // overwrite any earlier lifetime that included subs
+        formData.append('medianGap', median)
+        formData.append('currentGap', gap)
+        formData.append('rolling30', r30)
+        formData.append('monthlyAvg90', Math.round(r90 / 3))
+        formData.append('lastPurchaseDate', lastTxn.date)
+      }
     }
     formData.append('creatorName', creatorName || '')
+    formData.append('creatorAka', creatorAka || creatorName || '')
     formData.append('creatorRecordId', creatorRecordId || '')
-    // Compute daily spend timeline for analysis context
+    // Compute daily spend timeline for analysis context — real purchases only
     if (allTxns) {
       const dailySpend = {}
       for (const t of allTxns) {
+        if (!isRealPurchase(t)) continue
         if ((t.displayName || '') === f.fanName || (t.ofUsername || '') === f.ofUsername) {
           dailySpend[t.date] = (dailySpend[t.date] || 0) + (t.net || 0)
         }
@@ -1897,23 +2352,55 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     return formData
   }
 
-  async function handleAnalyze() {
-    if (!chatFile) return
+  async function handleAnalyze(fromTranscript) {
+    fromTranscript = fromTranscript === true // guard against React event objects
+    if (!fromTranscript && !chatFile) return
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: buildFormData() })
-      const data = await res.json()
+      const fd = await (fromTranscript ? buildFormData(true) : buildFormData())
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
+      const raw = await res.text()
+      let data
+      try { data = JSON.parse(raw) } catch {
+        if (res.status === 413 || /too large|request en/i.test(raw)) {
+          throw new Error('Chat HTML too large even after stripping. Try exporting a shorter date range from OF.')
+        }
+        throw new Error(`Analysis failed (${res.status}): ${raw.slice(0, 120)}`)
+      }
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       setAnalysis(data)
       // Refresh fans list to show new analysis
-      const refreshRes = await fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(creatorName)}`)
+      const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
       const refreshData = await refreshRes.json()
       if (refreshData.fans) setFans(refreshData.fans)
     } catch (e) {
       setAnalysisError(e.message)
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  async function handleSaveTranscript(file) {
+    setSavingTranscript(true)
+    setAnalysisError(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('saveTranscriptOnly', 'true')
+      fd.append('fanName', f.fanName)
+      fd.append('fanUsername', f.ofUsername || '')
+      fd.append('creatorName', creatorName || '')
+      fd.append('creatorRecordId', creatorRecordId || '')
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      setTranscriptSaved(true)
+      setTimeout(() => setTranscriptSaved(false), 3000)
+    } catch (e) {
+      setAnalysisError(e.message)
+    } finally {
+      setSavingTranscript(false)
     }
   }
 
@@ -1928,23 +2415,53 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       currentGap: 0,
       gapRatio: 0,
     }
-    // Compute monthly spending history from transaction data for the PDF chart
-    // Use same matching logic as the fan spend chart (ofUsername or displayName)
-    const monthlyMap = {}
+    // Compute monthly spending history from transaction data for the PDF chart.
+    // Track both total AND per-account so the chart can show stacked bars for
+    // multi-account creators (e.g. Sunny's Free OF vs VIP OF).
+    const monthlyMap = {}       // { 'YYYY-MM': totalSpend }
+    const monthlyByAccount = {} // { 'YYYY-MM': { [accountName]: spend } }
+    const accountsSeen = new Set()
     if (allTxns) {
       for (const t of allTxns) {
         const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
           (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
-        if (!match || t.type === 'Chargeback') continue
+        if (!match || !isRealPurchase(t)) continue
         if (t.net > 0) {
           const mo = (t.date || '').slice(0, 7)
-          if (mo) monthlyMap[mo] = (monthlyMap[mo] || 0) + t.net
+          if (!mo) continue
+          monthlyMap[mo] = (monthlyMap[mo] || 0) + t.net
+          const acct = t.account || 'Unknown'
+          accountsSeen.add(acct)
+          if (!monthlyByAccount[mo]) monthlyByAccount[mo] = {}
+          monthlyByAccount[mo][acct] = (monthlyByAccount[mo][acct] || 0) + t.net
         }
       }
     }
-    const monthlyHistory = Object.entries(monthlyMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, spend]) => ({ month, spend: Math.round(spend) }))
+    const sortedMonths = Object.keys(monthlyMap).sort()
+    const accountNames = [...accountsSeen].sort()
+    // Fill gap months with zero so the cool-off is visible.
+    // Window: from first-purchase-month → current month (so a dead fan shows
+    // every empty month after their peak). Cap at last 12 months if history is longer.
+    let monthlyHistory = []
+    if (sortedMonths.length > 0) {
+      const now = new Date()
+      const curMo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const firstMo = sortedMonths[0]
+      const filled = []
+      let cur = firstMo
+      while (cur <= curMo) {
+        const spend = Math.round(monthlyMap[cur] || 0)
+        const byAcct = {}
+        if (monthlyByAccount[cur]) {
+          for (const [acct, v] of Object.entries(monthlyByAccount[cur])) byAcct[acct] = Math.round(v)
+        }
+        filled.push({ month: cur, spend, byAccount: byAcct })
+        const [y, m] = cur.split('-').map(Number)
+        cur = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+      }
+      // Cap at 12 most recent months so the chart stays readable
+      monthlyHistory = filled.length > 12 ? filled.slice(-12) : filled
+    }
 
     // Compute peak 90-day monthly avg (best 3-month rolling window) with date range
     let peakMonthlyAvg = 0
@@ -1973,11 +2490,23 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
     }
     const peakRange = peakStartMonth ? `${fmtPeakMonth(peakStartMonth)} – ${fmtPeakMonth(peakEndMonth)}` : ''
 
+    // Include chat window dates from the selected analysis record
+    const selRec = f.analysisRecords?.[selectedAnalysisIdx]
+
     return {
-      creatorName,
+      creatorName, // full legal name — used for Dropbox folder path consistency
+      creatorAka,  // stage name — used for Telegram topic routing
       creatorRecordId,
-      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, peakMonthlyAvg, peakRange },
-      analysis: analysis ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief } : null,
+      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, accountNames, peakMonthlyAvg, peakRange },
+      analysis: analysis
+        ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief }
+        : selRec
+          ? { analysis: selRec.fullAnalysis || selRec.brief || '', managerBrief: selRec.brief || '' }
+          : null,
+      chatWindow: {
+        firstMessageDate: analysis?.firstMessageDate || selRec?.firstMessageDate || null,
+        lastMessageDate: analysis?.lastMessageDate || selRec?.lastMessageDate || null,
+      },
     }
   }
 
@@ -1993,8 +2522,13 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
+      if (!res.ok) {
+        const text = await res.text()
+        let msg = 'Preview failed'
+        try { msg = JSON.parse(text).error || msg } catch { msg = res.status === 504 ? 'PDF generation timed out — try again (cold start)' : msg }
+        throw new Error(msg)
+      }
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Preview failed')
       setPreviewImage(data.image)
     } catch (e) {
       setSendResult({ error: 'Preview failed: ' + e.message })
@@ -2016,6 +2550,12 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Send failed')
       setSendResult({ success: true })
+      // Refresh fan data so "Not Sent" badge updates to "Sent to Manager"
+      try {
+        const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
+        const refreshData = await refreshRes.json()
+        if (refreshData.fans) setFans(refreshData.fans)
+      } catch {}
     } catch (e) {
       setSendResult({ error: e.message })
     } finally {
@@ -2028,7 +2568,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
       <div
         onClick={onToggle}
         style={{
-          display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 80px 80px 90px',
+          display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px',
           padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
           background: isExpanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
         }}
@@ -2036,10 +2576,31 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
         <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
         <div>
           <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{f.fanName}</span>
-          {f.ofUsername && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>}
+          {f.ofUsername
+            ? <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>
+            : <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px', background: '#F3F4F6', padding: '1px 4px', borderRadius: '3px' }} title="No username — account likely deleted/deactivated">deleted?</span>
+          }
+          {availableAccounts && availableAccounts.length > 1 && f.accounts && f.accounts.length > 0 && (
+            f.accounts.map(acct => {
+              const isFree = /free/i.test(acct)
+              return (
+                <span key={acct} style={{
+                  fontSize: '8px', fontWeight: 600, marginLeft: '4px', padding: '1px 5px', borderRadius: '3px',
+                  background: isFree ? '#DBEAFE' : '#EDE9FE', color: isFree ? '#1D4ED8' : '#7C3AED',
+                }}>{acct}</span>
+              )
+            })
+          )}
           {f.alertCount > 0 && <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
-        <span><span style={{ background: sc.bg, color: sc.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>{f.status}</span></span>
+        <span title={heat.label} style={{ fontSize: '14px', lineHeight: '20px', textAlign: 'center' }}>{heat.emoji}</span>
+        <span>{f.alertStatus !== 'None' && (
+          <span style={{ background: ac.bg, color: ac.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>
+            {f.alertStatus === 'Alert Triggered' && urgency
+              ? `${urgency.toUpperCase()}`
+              : f.alertStatus}
+          </span>
+        )}</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(f.lifetimeSpend)}</span>
         <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#DC2626' : '#666', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
         <span style={{ textAlign: 'right', color: '#666' }}>{f.txnCount || 0}</span>
@@ -2048,76 +2609,89 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
       {isExpanded && (
         <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
-          {/* Going cold details */}
-          {f.goingCold && (
-            <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA' }}>
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '12px' }}>
-                <div>
-                  <div style={{ fontSize: '10px', color: '#DC2626', fontWeight: 600, marginBottom: '2px' }}>Trigger</div>
-                  <div style={{ color: '#1a1a1a' }}>
-                    {f.goingCold.triggerReason === 'gap' && `Purchase gap ${f.goingCold.currentGap}d exceeds ${f.goingCold.medianGap * 2}d threshold (2\u00d7 median)`}
-                    {f.goingCold.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
-                    {f.goingCold.triggerReason === 'both' && `Gap ${f.goingCold.gapRatio}\u00d7 overdue + spending at ${Math.round(f.goingCold.spendDropRatio * 100)}% of normal`}
+
+          {/* ═══ SECTION 1: Fan Info Header ═══ */}
+          <div style={{ marginBottom: '16px' }}>
+            {/* Heat status banner — for cooling/cold/dead fans */}
+            {f.heatDetail && (
+              <div style={{
+                marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '11px',
+                display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column',
+                background: f.heatStatus === 'Dead' ? '#F3F4F6' : f.heatStatus === 'Going Cold' ? '#FEF2F2' : '#FFF7ED',
+                border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? '#FECACA' : '#FED7AA'}`,
+                color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#991B1B' : '#92400E',
+              }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '14px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
+                  <strong>{f.heatStatus}</strong>
+                  <span>{f.heatDetail.reason}</span>
+                </div>
+                {f.heatDetail.peakMonth && (
+                  <div style={{ fontSize: '10px', opacity: 0.85 }}>
+                    Peak: ${f.heatDetail.peakSpend?.toLocaleString()}/mo in {f.heatDetail.peakMonth}
+                    {f.heatDetail.dropMonth && <span> · Dropped around {f.heatDetail.dropMonth}</span>}
+                    {!f.ofUsername && <span> · <strong>No username — account may be deleted</strong></span>}
                   </div>
-                </div>
+                )}
+                {f.heatDetail.dropMonth && f.ofUsername && !(f.analysisRecords?.length > 0) && (
+                  <div style={{ fontSize: '10px', marginTop: '2px', fontStyle: 'italic' }}>
+                    Analyze chats starting from {f.heatDetail.dropMonth} to see what changed.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Stats grid */}
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              {f.firstDate && (
                 <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Purchase</div>
-                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.lastPurchaseDate}</div>
+                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Purchase</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.firstDate}</div>
                 </div>
+              )}
+              {f.heatDetail && (
+                <>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last Purchase</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.heatDetail.lastPurchase}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Gap</div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#DC2626' }}>{f.heatDetail.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.heatDetail.medianGap}d median)</span></div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last 30d</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.heatDetail.rolling30)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>90d Avg/mo</div>
+                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.heatDetail.monthlyAvg90)}</div>
+                  </div>
+                </>
+              )}
+              {f.firstFlagged && (
                 <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Gap</div>
-                  <div style={{ fontWeight: 600, color: '#DC2626' }}>{f.goingCold.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.goingCold.gapRatio}x median {f.goingCold.medianGap}d)</span></div>
+                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Flagged</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.firstFlagged)}</div>
                 </div>
+              )}
+              {f.timesGoneCold > 0 && (
                 <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last 30d</div>
-                  <div>{fmtMoney(f.goingCold.rolling30)}</div>
+                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Times Gone Cold</div>
+                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.timesGoneCold}</div>
                 </div>
+              )}
+              {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
                 <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>90d Avg/mo</div>
-                  <div>{fmtMoney(f.goingCold.monthlyAvg90)}</div>
+                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Post-Alert 30d</div>
+                  <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>{fmtMoney(f.postAlertSpend30d)}</div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Total Purchases</div>
-                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.goingCold.totalPurchases || f.txnCount || 0} sessions</div>
-                </div>
+              )}
+              <div>
+                <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Total Purchases</div>
+                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.txnCount || 0} sessions</div>
               </div>
             </div>
-          )}
-
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
-            {f.firstDate && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Purchase</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.firstDate}</div>
-              </div>
-            )}
-            {f.firstFlagged && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>First Flagged</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.firstFlagged)}</div>
-              </div>
-            )}
-            {f.timesGoneCold > 0 && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Times Gone Cold</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.timesGoneCold}</div>
-              </div>
-            )}
-            {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Post-Alert Spend (30d)</div>
-                <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>
-                  {fmtMoney(f.postAlertSpend30d)}
-                </div>
-              </div>
-            )}
-            {f.lastChatUpload && (
-              <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Chat Upload</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.lastChatUpload)}</div>
-              </div>
-            )}
           </div>
 
           {/* Spending chart — full width, monthly bars (default) / daily line toggle */}
@@ -2160,6 +2734,29 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                   <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
                   <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
                 </div>
+                {accountNames.length > 1 && (
+                  <button onClick={() => setSplitByAccount(!splitByAccount)}
+                    style={{
+                      padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                      borderRadius: '4px', background: splitByAccount ? '#7C3AED' : '#F3F4F6', color: splitByAccount ? '#fff' : '#666',
+                    }}>
+                    Split by account
+                  </button>
+                )}
+                {splitByAccount && accountNames.length > 1 && (
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '9px', color: '#666' }}>
+                    {accountNames.map(acct => {
+                      const isFree = /free/i.test(acct)
+                      const color = isFree ? '#60A5FA' : '#A78BFA'
+                      return (
+                        <span key={acct} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: color }} />
+                          {acct}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
 
@@ -2187,9 +2784,31 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                       const spendLabelY = padT + chartH - barH - 3
                       const defaultDotY = padT - 6
                       const dotY = hasMilestone && d.spend > 0 && spendLabelY < defaultDotY + 12 ? spendLabelY - 10 : defaultDotY
+                      // Stacked segments when splitting by account
+                      let segments = null
+                      if (splitByAccount && accountNames.length > 1 && d.spend > 0) {
+                        let yCursor = padT + chartH
+                        segments = accountNames.map(acct => {
+                          const acctSpend = perAccountMonthly[acct]?.[i]?.spend || 0
+                          if (acctSpend <= 0) return null
+                          const segH = (acctSpend / sharedMax) * chartH
+                          const isFree = /free/i.test(acct)
+                          const color = isFree ? '#60A5FA' : '#A78BFA'
+                          const rect = <rect key={acct} x={cx - barW / 2} y={yCursor - segH} width={barW} height={segH} fill={color} />
+                          yCursor -= segH
+                          return rect
+                        })
+                      }
                       return (
                         <g key={d.month}>
-                          <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
+                          {segments ? (
+                            <>
+                              <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill="none" />
+                              {segments}
+                            </>
+                          ) : (
+                            <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
+                          )}
                           {d.spend > 0 && <text x={cx} y={spendLabelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
                           <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#7C3AED' : '#999'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
                           {hasMilestone && <circle cx={cx} cy={dotY} r="3.5" fill="#7C3AED" />}
@@ -2217,8 +2836,19 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
               const xScale = (i) => padL + ((timestamps[i] - tStart) / tRange) * chartW
               const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
               const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
+              // Split into solid (active) and dashed (gap after last spend) segments
+              const lastSpendIdx = (() => {
+                for (let i = data.length - 1; i >= 0; i--) {
+                  if (!data[i].afterLastSpend) return i
+                }
+                return data.length - 1
+              })()
+              const solidPoints = points.slice(0, lastSpendIdx + 1)
+              const dashedPoints = lastSpendIdx < data.length - 1 ? points.slice(lastSpendIdx) : []
+              const solidPath = solidPoints.length > 0 ? 'M' + solidPoints.join(' L') : ''
+              const dashedPath = dashedPoints.length > 1 ? 'M' + dashedPoints.join(' L') : ''
               const linePath = 'M' + points.join(' L')
-              const areaPath = linePath + ` L${xScale(data.length - 1)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
+              const areaPath = solidPath + ` L${xScale(lastSpendIdx)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
               const moAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
               const fmtDateLabel = (dateStr) => {
                 const dt = new Date(dateStr + 'T12:00:00')
@@ -2270,11 +2900,34 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                         <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
                       </g>
                     ))}
-                    <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
-                    <path d={linePath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />
-                    {data.map((d, i) => d.spend > 0 ? (
-                      <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
-                    ) : null)}
+                    {splitByAccount && accountNames.length > 1 ? (
+                      // Per-account lines, clipped to visible daily window
+                      accountNames.map(acct => {
+                        const isFree = /free/i.test(acct)
+                        const color = isFree ? '#60A5FA' : '#A78BFA'
+                        const acctAll = perAccountDaily[acct] || []
+                        const visible = startMonth ? acctAll.filter(d => d.date >= startMonth) : acctAll
+                        const pts = visible.map((_, i) => `${xScale(i)},${yScale(visible[i].spend)}`)
+                        if (pts.length < 2) return null
+                        return (
+                          <g key={acct}>
+                            <path d={'M' + pts.join(' L')} fill="none" stroke={color} strokeWidth="1.5" />
+                            {visible.map((d, i) => d.spend > 0 ? (
+                              <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={2} fill={color} />
+                            ) : null)}
+                          </g>
+                        )
+                      })
+                    ) : (
+                      <>
+                        <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
+                        {solidPath && <path d={solidPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />}
+                        {dashedPath && <path d={dashedPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />}
+                        {data.map((d, i) => d.spend > 0 ? (
+                          <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
+                        ) : null)}
+                      </>
+                    )}
                     {hoverIdx !== null && data[hoverIdx] && (() => {
                       const d = data[hoverIdx]
                       const hx = xScale(hoverIdx)
@@ -2316,146 +2969,141 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
             return null
           })()}
 
-          {/* Alert history timeline */}
-          {f.alertHistory && f.alertHistory.length > 0 && (
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Alert History</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {f.alertHistory.slice().reverse().map((h, idx) => {
-                  const urgEmoji = { critical: '\uD83D\uDEA8', high: '\u26A0\uFE0F', warning: '\uD83D\uDFE1' }
+          {/* ═══ SECTION 2: Spending Chart (unchanged) ═══ */}
+          {/* (chart code above this block) */}
+
+          {/* ═══ SECTION 3: Analysis History ═══ */}
+          <div style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
+              Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
+            </div>
+
+            {/* Analysis cards */}
+            {f.analysisRecords && f.analysisRecords.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                {f.analysisRecords.map((rec, idx) => {
+                  // Check if this analysis was sent to manager (alert exists on or after analysis date)
+                  const sentAlert = f.alertHistory?.find(h => h.date && rec.date && h.date >= rec.date)
+                  const isSent = !!sentAlert
+
+                  // Truncate brief for card summary (first 2 meaningful lines)
+                  const briefSummary = (() => {
+                    if (!rec.brief) return null
+                    const lines = rec.brief.split('\n').map(l => l.trim()).filter(l => l && !/^\*\*[^*]+\*\*$/.test(l))
+                    const cleaned = lines.slice(0, 3).map(l => l.replace(/\*\*([^*]+)\*\*/g, '$1')).join(' ')
+                    return cleaned.length > 180 ? cleaned.slice(0, 180) + '...' : cleaned
+                  })()
+
                   return (
-                    <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px', color: '#666' }}>
-                      <span>{urgEmoji[h.urgency] || '\uD83D\uDFE1'}</span>
-                      <span style={{ color: '#999', minWidth: '90px' }}>{fmtDate(h.date)}</span>
-                      <span>{h.currentGap}d gap ({h.medianGap}d normal)</span>
-                      <span style={{ color: '#999' }}>&middot;</span>
-                      <span>30d: {fmtMoney(h.rolling30)}</span>
-                      <span style={{ color: '#999' }}>&middot;</span>
-                      <span>Lifetime: {fmtMoney(h.lifetime)}</span>
+                    <div key={rec.id || idx} style={{
+                      background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px',
+                      transition: 'box-shadow 0.15s', cursor: 'default',
+                    }}>
+                      {/* Card header row */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: briefSummary ? '8px' : 0, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{fmtDate(rec.date)}</span>
+                        {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
+
+                        {/* Send status */}
+                        {isSent
+                          ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 6px', borderRadius: '3px' }}>
+                              Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}
+                            </span>
+                          : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
+                        }
+
+                        {/* Chat window dates */}
+                        {(rec.firstMessageDate || rec.lastMessageDate) && (
+                          <span style={{ fontSize: '10px', color: '#999' }}>
+                            {rec.firstMessageDate || '?'} → {rec.lastMessageDate || '?'}
+                          </span>
+                        )}
+
+                        {/* Spacer + action buttons */}
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setViewingAnalysisIdx(idx); setSelectedAnalysisIdx(idx); setShowBrief(false) }}
+                            style={{ fontSize: '10px', color: '#7C3AED', background: '#EDE9FE', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontWeight: 600 }}>
+                            View Full
+                          </button>
+                          {!isSent && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedAnalysisIdx(idx); handlePreviewPdf() }}
+                              disabled={previewLoading}
+                              style={{ fontSize: '10px', color: '#fff', background: '#1a1a1a', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: previewLoading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: previewLoading ? 0.6 : 1 }}>
+                              {previewLoading && selectedAnalysisIdx === idx ? 'Generating...' : 'Send to Manager'}
+                            </button>
+                          )}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!confirm('Delete this analysis?')) return
+                              const res = await fetch(`/api/admin/fan-tracker?recordId=${rec.id}&table=analysis`, { method: 'DELETE' })
+                              if (res.ok) {
+                                // Update CRM data — match by finding which CRM record contains this analysis
+                                setFans(prev => prev.map(crmFan => {
+                                  if (!crmFan.analysisRecords?.some(ar => ar.id === rec.id)) return crmFan
+                                  const updated = { ...crmFan, analysisRecords: crmFan.analysisRecords.filter(ar => ar.id !== rec.id) }
+                                  if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
+                                  return updated
+                                }).filter(Boolean))
+                                setSelectedAnalysisIdx(0)
+                                if (viewingAnalysisIdx === idx) setViewingAnalysisIdx(null)
+                              }
+                            }}
+                            style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '14px', padding: '0 2px', lineHeight: 1 }}
+                            onMouseEnter={e => e.target.style.color = '#DC2626'}
+                            onMouseLeave={e => e.target.style.color = '#ccc'}
+                            title="Delete this analysis"
+                          >&times;</button>
+                        </div>
+                      </div>
+
+                      {/* Brief summary preview */}
+                      {briefSummary && (
+                        <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.5' }}>
+                          {briefSummary}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
               </div>
-            </div>
-          )}
+            ) : (
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '16px', fontStyle: 'italic' }}>No analyses yet. Upload an OF chat to get started.</div>
+            )}
 
-          {/* ── Chat Analysis Section (unified: history + viewer + upload) ── */}
-          <div style={{ marginTop: '12px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>
-                Chat Analysis {f.lifetimeSpend >= 1000 ? '(Deep Dive)' : '(Quick Snapshot)'}
-              </div>
-              {/* Analysis selector dropdown when multiple exist */}
-              {f.analysisRecords && f.analysisRecords.length > 1 && (
-                <select value={selectedAnalysisIdx} onChange={e => { setSelectedAnalysisIdx(Number(e.target.value)); setAnalysis(null); setShowBrief(false) }}
-                  style={{ fontSize: '11px', padding: '3px 8px', border: '1px solid #E2E8F0', borderRadius: '4px', color: '#666', background: '#FAFAFA' }}>
-                  {f.analysisRecords.map((a, idx) => (
-                    <option key={idx} value={idx}>{fmtDate(a.date)} — {a.type || 'Analysis'}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* Show selected analysis from history */}
-            {f.analysisRecords && f.analysisRecords.length > 0 && (() => {
-              const sel = f.analysisRecords[selectedAnalysisIdx] || f.analysisRecords[0]
-              // Check if this analysis has been sent (alert exists after analysis date)
-              const analysisSent = f.alertHistory?.some(h => {
-                if (!h.date || !sel.date) return false
-                return h.date >= sel.date
-              })
-              return (
-                <div style={{ marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '11px', color: '#999' }}>{fmtDate(sel.date)}</span>
-                    {sel.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: '3px' }}>{sel.type}</span>}
-                    {analysisSent
-                      ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 5px', borderRadius: '3px' }}>Sent to Manager</span>
-                      : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 5px', borderRadius: '3px' }}>Not Sent</span>
-                    }
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        if (!confirm('Delete this analysis?')) return
-                        const res = await fetch(`/api/admin/fan-tracker?recordId=${sel.id}&table=analysis`, { method: 'DELETE' })
-                        if (res.ok) {
-                          setFans(prev => prev.map(fan => {
-                            if (fan.id !== f.id) return fan
-                            const updated = { ...fan, analysisRecords: fan.analysisRecords.filter(ar => ar.id !== sel.id) }
-                            if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
-                            return updated
-                          }).filter(Boolean))
-                          setSelectedAnalysisIdx(0)
-                        }
-                      }}
-                      style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '14px', padding: '0 4px' }}
-                      onMouseEnter={e => e.target.style.color = '#DC2626'}
-                      onMouseLeave={e => e.target.style.color = '#ccc'}
-                      title="Delete this analysis"
-                    >&times;</button>
-                  </div>
-                  {sel.brief && <div style={{ fontSize: '11px', color: '#444', lineHeight: '1.5', marginBottom: '8px' }}>
-                    {sel.brief.split('\n').map((line, li) => {
-                      const t = line.trim()
-                      if (!t) return <div key={li} style={{ height: '4px' }} />
-                      if (/^\*\*[^*]+\*\*/.test(t)) {
-                        const m = t.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
-                        if (m) return <div key={li} style={{ marginTop: li > 0 ? '6px' : 0 }}><span style={{ fontWeight: 700, color: '#7C3AED' }}>{m[1]}:</span> {m[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</div>
-                      }
-                      return <div key={li}>{t.replace(/\*\*([^*]+)\*\*/g, '$1')}</div>
-                    })}
-                  </div>}
-                  {/* Send to Manager button — only if not already sent */}
-                  {!analysisSent && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <button onClick={handlePreviewPdf} disabled={previewLoading}
-                        style={{
-                          background: '#1a1a1a', border: 'none', borderRadius: '6px',
-                          padding: '6px 12px', fontSize: '11px', color: '#fff', fontWeight: 600,
-                          cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
-                          display: 'flex', alignItems: 'center', gap: '5px',
-                        }}>
-                        <span style={{ fontSize: '13px' }}>&#9993;</span> {previewLoading ? 'Generating preview...' : 'Send to Chat Manager'}
-                      </button>
-                      {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
-                      {sendResult?.error && !showSendModal && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* Full analysis viewer (loaded from Airtable or freshly analyzed) */}
+            {/* Freshly generated analysis (inline, before it gets saved to records) */}
             {analysis && (
-              <div style={{ marginBottom: '12px' }}>
+              <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#FFFBF5', border: '1px solid #FED7AA', borderRadius: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
+                    <span style={{ fontWeight: 600, color: '#EA580C' }}>New Analysis</span>
                     <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
-                    {analysis.lastMessageDate && <span>through {analysis.lastMessageDate}</span>}
+                    {(analysis.firstMessageDate || analysis.lastMessageDate) && (
+                      <span>Chats: {analysis.firstMessageDate || '?'} → {analysis.lastMessageDate || '?'}</span>
+                    )}
+                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>\u2713 Saved</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     {analysis.managerBrief && (
                       <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
                         <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
                         <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
                       </div>
                     )}
-                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>\u2713 Saved</span>}
+                    {chatFile && (
+                      <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }} disabled={analyzing}
+                        style={{ fontSize: '10px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                        {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
+                      </button>
+                    )}
                   </div>
-                  {chatFile ? (
-                    <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }} disabled={analyzing}
-                      style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-                      {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
-                    </button>
-                  ) : (
-                    <button onClick={() => { setAnalysis(null); setShowBrief(false) }}
-                      style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                      Upload new chat
-                    </button>
-                  )}
                 </div>
                 <div style={{
-                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
+                  background: showBrief ? '#F8FAFC' : '#fff',
                   border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
-                  borderRadius: '8px', padding: '16px 20px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
+                  borderRadius: '6px', padding: '14px 16px', fontSize: '12px', color: '#1a1a1a', lineHeight: '1.7',
                 }}>
                   {(() => {
                     const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
@@ -2467,17 +3115,17 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                         const hm = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
                         if (hm) {
                           const rest = hm[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
-                          return <div key={idx} style={{ marginTop: idx > 0 ? '14px' : 0, marginBottom: '4px' }}><div style={{ fontSize: '12px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
+                          return <div key={idx} style={{ marginTop: idx > 0 ? '12px' : 0, marginBottom: '3px' }}><div style={{ fontSize: '11px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
                         }
                       }
                       if (/^\d+\.\s/.test(trimmed)) {
                         const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
                         const nm = trimmed.match(/^(\d+)\./)
-                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '12px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
+                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '11px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
                       }
                       if (/^[-\u2022]\s/.test(trimmed)) {
                         const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
-                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>\u25CF</span><span>{content}</span></div>
+                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>●</span><span>{content}</span></div>
                       }
                       return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
                     })
@@ -2485,46 +3133,72 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Upload new chat */}
-            {!analysis && (
-              <div>
-                {/* Show "scroll back to" hint if there's a previous analysis */}
-                {analysis?.lastMessageDate && (
-                  <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '6px', fontSize: '11px', color: '#92400E' }}>
-                    Previous analysis covered messages through <strong>{analysis.lastMessageDate}</strong>. Scroll back to at least this date before saving the HTML.
-                  </div>
-                )}
-                {f.analysisRecords?.length > 0 && !analysis?.lastMessageDate && (
-                  <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', color: '#0369A1' }}>
-                    Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input ref={chatFileRef} type="file" accept=".html,.htm"
-                    onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
-                    style={{ display: 'none' }} />
-                  <button onClick={() => chatFileRef.current?.click()}
-                    style={{
-                      background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
-                      borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                      color: chatFile ? '#166534' : '#64748B',
-                    }}>
-                    {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
-                  </button>
-                  {chatFile && (
-                    <button onClick={handleAnalyze} disabled={analyzing}
-                      style={{
-                        background: '#EA580C', border: 'none', borderRadius: '6px',
-                        padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
-                        cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                      }}>
-                      {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
-                    </button>
-                  )}
+          {/* ═══ SECTION 4: Upload New Chat ═══ */}
+          <div style={{ marginTop: '4px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+              Upload Chat for {f.fanName}
+            </div>
+
+            {/* Scroll-back hint */}
+            {(() => {
+              const mostRecent = f.analysisRecords?.[0]
+              const lastDate = mostRecent?.lastMessageDate
+              if (lastDate) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '6px', fontSize: '11px', color: '#92400E' }}>
+                  Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
                 </div>
-              </div>
-            )}
+              )
+              if (f.analysisRecords?.length > 0) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', color: '#0369A1' }}>
+                  Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
+                </div>
+              )
+              return null
+            })()}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input ref={chatFileRef} type="file" accept=".html,.htm"
+                onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
+                style={{ display: 'none' }} />
+              <button onClick={() => chatFileRef.current?.click()}
+                style={{
+                  background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                  borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                  color: chatFile ? '#166534' : '#64748B',
+                }}>
+                {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+              </button>
+              {chatFile && (
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  style={{
+                    background: '#EA580C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                </button>
+              )}
+
+              {/* Re-analyze from Dropbox transcript */}
+              {!chatFile && f.analysisRecords?.length > 0 && (
+                <>
+                  <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                    style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                    {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
+                  </button>
+                  <span style={{ color: '#ddd' }}>|</span>
+                  <input ref={saveFileRef} type="file" accept=".html,.htm"
+                    onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
+                    style={{ display: 'none' }} />
+                  <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
+                    style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {savingTranscript ? 'Saving...' : transcriptSaved ? '\u2713 Saved' : 'Save transcript to Dropbox'}
+                  </button>
+                </>
+              )}
+            </div>
 
             {analysisError && (
               <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
@@ -2535,13 +3209,169 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
           {/* Notes */}
           {f.notes && (
-            <div style={{ marginTop: '12px' }}>
+            <div style={{ marginTop: '14px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
               <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
               <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
             </div>
           )}
+
+          {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
+          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={async () => {
+                const isBanned = f.banned
+                const confirmMsg = isBanned
+                  ? `Unban ${f.fanName}? They'll become eligible for alerts again.`
+                  : `Ban ${f.fanName}? They'll be hidden from the Fans list and excluded from all future alerts. The chat team won't see them.`
+                if (!confirm(confirmMsg)) return
+                try {
+                  const res = await fetch('/api/admin/fan-tracker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'update_status',
+                      recordId: f.crmId || null,
+                      fanName: f.fanName,
+                      fanUsername: f.ofUsername,
+                      creatorRecordId,
+                      status: isBanned ? 'Monitoring' : 'Banned', // flip to Monitoring when unbanning — neutral state
+                    }),
+                  })
+                  if (!res.ok) throw new Error('Ban update failed')
+                  // Refresh CRM data
+                  const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
+                  const refreshData = await refreshRes.json()
+                  if (refreshData.fans) setFans(refreshData.fans)
+                } catch (e) {
+                  alert(`Ban update failed: ${e.message}`)
+                }
+              }}
+              style={{
+                fontSize: '10px', color: f.banned ? '#1F2937' : '#9CA3AF',
+                background: 'none', border: 'none', cursor: 'pointer',
+                textDecoration: 'underline', fontWeight: f.banned ? 600 : 400,
+              }}
+            >
+              {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
+            </button>
+          </div>
         </div>
       )}
+
+      {/* ═══ Full Analysis Modal ═══ */}
+      {viewingAnalysisIdx !== null && f.analysisRecords?.[viewingAnalysisIdx] && (() => {
+        const rec = f.analysisRecords[viewingAnalysisIdx]
+        // Try to use the loaded analysis if it matches, otherwise use the record's brief
+        const fullText = analysis?.analysis || rec.fullAnalysis || null
+        const briefText = analysis?.managerBrief || rec.brief || null
+        const displayText = showBrief ? (briefText || fullText || 'No analysis text available.') : (fullText || briefText || 'No analysis text available.')
+        const accentColor = showBrief ? '#334155' : '#EA580C'
+        const hasFullText = !!(fullText || briefText)
+        const sentAlert = f.alertHistory?.find(h => h.date && rec.date && h.date >= rec.date)
+
+        return (
+          <div
+            onClick={() => { setViewingAnalysisIdx(null); setShowBrief(false) }}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: '#fff', borderRadius: '12px', padding: '24px',
+                maxWidth: '750px', width: '90vw', maxHeight: '85vh', overflowY: 'auto',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              }}
+            >
+              {/* Modal header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
+                    {f.fanName} — Analysis {fmtDate(rec.date)}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', fontSize: '11px', color: '#999' }}>
+                    {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
+                    {sentAlert
+                      ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 6px', borderRadius: '3px' }}>Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}</span>
+                      : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
+                    }
+                    {(rec.firstMessageDate || rec.lastMessageDate) && (
+                      <span>Chat window: {rec.firstMessageDate || '?'} → {rec.lastMessageDate || '?'}</span>
+                    )}
+                    {analysis && <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {hasFullText && fullText && briefText && (
+                    <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
+                      <button onClick={() => setShowBrief(false)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full Analysis</button>
+                      <button onClick={() => setShowBrief(true)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                    </div>
+                  )}
+                  <button onClick={() => { setViewingAnalysisIdx(null); setShowBrief(false) }} style={{ background: 'none', border: 'none', fontSize: '22px', color: '#999', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>&times;</button>
+                </div>
+              </div>
+
+              {/* Analysis body */}
+              {hasFullText ? (
+                <div style={{
+                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
+                  border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
+                  borderRadius: '8px', padding: '18px 22px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
+                }}>
+                  {displayText.split('\n').map((line, idx) => {
+                    const trimmed = line.trim()
+                    if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
+                    if (/^\*\*[^*]+\*\*/.test(trimmed)) {
+                      const hm = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                      if (hm) {
+                        const rest = hm[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
+                        return <div key={idx} style={{ marginTop: idx > 0 ? '14px' : 0, marginBottom: '4px' }}><div style={{ fontSize: '12px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
+                      }
+                    }
+                    if (/^\d+\.\s/.test(trimmed)) {
+                      const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                      const nm = trimmed.match(/^(\d+)\./)
+                      return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '12px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
+                    }
+                    if (/^[-\u2022]\s/.test(trimmed)) {
+                      const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                      return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>●</span><span>{content}</span></div>
+                    }
+                    return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                  Full analysis text not available. <button onClick={() => { setViewingAnalysisIdx(null); handleAnalyze(true) }} disabled={analyzing} style={{ color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600, fontSize: '13px' }}>
+                    {analyzing ? 'Loading...' : 'Load from saved transcript'}
+                  </button>
+                </div>
+              )}
+
+              {/* Modal footer actions */}
+              {!sentAlert && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px', gap: '8px' }}>
+                  <button
+                    onClick={() => { setViewingAnalysisIdx(null); handlePreviewPdf() }}
+                    disabled={previewLoading}
+                    style={{
+                      background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                      padding: '8px 16px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                      cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                    }}>
+                    <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Send to Chat Manager preview modal */}
       {showSendModal && (
@@ -2612,7 +3442,7 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
 
             {sendResult?.success && (
               <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
-                &#10003; Sent &amp; logged in Fan Tracker
+                &#10003; Sent to manager &amp; logged
               </div>
             )}
             {sendResult?.error && (
@@ -2627,29 +3457,217 @@ function FanRow({ f, i, isExpanded, onToggle, statusColors, effectColors, fmtDat
   )
 }
 
-function FansPanel({ creator, allTxns, goingColdAlerts }) {
+// ── Compute fan heat status from transaction data ──────────────────────────
+// Returns { status, detail } where detail has context for cold/cooling fans
+function computeHeatStatus(fanTxns) {
+  const stable = { status: 'Stable', detail: null }
+  if (!fanTxns || fanTxns.length < 3) return stable
+
+  const now = new Date()
+  const sorted = fanTxns.filter(t => t.date).sort((a, b) => a.date.localeCompare(b.date))
+  if (sorted.length === 0) return stable
+
+  const lastTxnDate = new Date(sorted[sorted.length - 1].date + 'T12:00:00')
+  const currentGap = Math.floor((now - lastTxnDate) / 86400000)
+
+  // Compute median purchase gap
+  const gaps = []
+  for (let i = 1; i < sorted.length; i++) {
+    const g = Math.floor((new Date(sorted[i].date + 'T12:00:00') - new Date(sorted[i - 1].date + 'T12:00:00')) / 86400000)
+    if (g > 0) gaps.push(g)
+  }
+  gaps.sort((a, b) => a - b)
+  const medianGap = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 14
+
+  // Compute rolling spend windows
+  const d30 = new Date(now - 30 * 86400000)
+  const d60 = new Date(now - 60 * 86400000)
+  const d90 = new Date(now - 90 * 86400000)
+  const rolling30 = sorted.filter(t => new Date(t.date) >= d30).reduce((s, t) => s + (t.net || 0), 0)
+  const rolling30Prev = sorted.filter(t => { const d = new Date(t.date); return d >= d60 && d < d30 }).reduce((s, t) => s + (t.net || 0), 0)
+  const rolling90 = sorted.filter(t => new Date(t.date) >= d90).reduce((s, t) => s + (t.net || 0), 0)
+  const monthlyAvg90 = rolling90 / 3
+  const lifetime = sorted.reduce((s, t) => s + (t.net || 0), 0)
+
+  // Find peak spending month and when drop started (for cold/cooling context)
+  const moSpend = {}
+  for (const t of sorted) {
+    const mo = t.date.slice(0, 7)
+    moSpend[mo] = (moSpend[mo] || 0) + (t.net || 0)
+  }
+  const months = Object.entries(moSpend).sort(([a], [b]) => a.localeCompare(b))
+  let peakMonth = null, peakSpend = 0
+  for (const [mo, spend] of months) {
+    if (spend > peakSpend) { peakSpend = spend; peakMonth = mo }
+  }
+
+  // Lifetime monthly average — span from first purchase to today.
+  // Better baseline than rolling90 for cooling detection: a fan who peaked
+  // and then cooled has a depressed rolling90 that masks the decline.
+  const firstTxn = sorted[0]
+  const firstDate = new Date(firstTxn.date + 'T12:00:00')
+  const monthsActive = Math.max(1, (now - firstDate) / (86400000 * 30))
+  const lifetimeMonthlyAvg = lifetime / monthsActive
+  // Find where spending started dropping (first month after peak that's < 50% of peak)
+  let dropMonth = null
+  if (peakMonth) {
+    let pastPeak = false
+    for (const [mo, spend] of months) {
+      if (mo === peakMonth) { pastPeak = true; continue }
+      if (pastPeak && spend < peakSpend * 0.5) { dropMonth = mo; break }
+    }
+  }
+  const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const fmtMo = (mo) => { if (!mo) return ''; const [y, m] = mo.split('-'); return `${moNames[parseInt(m) - 1]} ${y}` }
+  const lastPurchase = sorted[sorted.length - 1].date
+
+  const buildDetail = (reason) => ({
+    currentGap,
+    medianGap,
+    rolling30: Math.round(rolling30),
+    monthlyAvg90: Math.round(monthlyAvg90),
+    lastPurchase,
+    peakMonth: fmtMo(peakMonth),
+    peakSpend: Math.round(peakSpend),
+    dropMonth: fmtMo(dropMonth),
+    reason,
+    // Suggest chat window to analyze: from 2 weeks before drop (or peak) to last purchase
+    analyzeFrom: dropMonth ? dropMonth + '-01' : (peakMonth ? peakMonth + '-01' : null),
+  })
+
+  // Need minimum spend to classify
+  if (lifetime < 50) return stable
+
+  // Baseline = max of lifetime monthly avg and 90d avg.
+  // Using lifetime avg catches fans who peaked and cooled — their rolling90
+  // gets dragged down by recent dead months, making a small tick look "hot"
+  // relative to the depressed window. Lifetime average anchors to their
+  // actual historical norm.
+  const baseline = Math.max(lifetimeMonthlyAvg, monthlyAvg90)
+
+  // Dead: no activity in 90+ days
+  if (currentGap > 90) return { status: 'Dead', detail: buildDetail(`No purchases in ${currentGap} days`) }
+
+  // NOTE: "Going Cold" is intentionally NOT assigned here. That state is owned
+  // by the server-side detectGoingCold() scoring system (goingColdAlerts from
+  // the earnings API). The overlay in allFans() forces heatStatus = "Going Cold"
+  // for any fan the server flagged. Keeping this function from independently
+  // classifying Going Cold prevents the Fans CRM and the Earnings tab's
+  // Going Cold panel from ever disagreeing — one source of truth.
+
+  // Cooling: gap > 1.5x median (min 10d) OR 30d spend < 50% of historical baseline
+  if ((currentGap > medianGap * 1.5 && currentGap >= 10) ||
+      (baseline > 0 && rolling30 < baseline * 0.5)) {
+    const reason = currentGap > medianGap * 1.5
+      ? `${currentGap}d gap (${medianGap}d median)`
+      : `Spending trending down — $${Math.round(rolling30)} last 30d vs $${Math.round(baseline)}/mo historical avg`
+    return { status: 'Cooling', detail: buildDetail(reason) }
+  }
+
+  // Warming Up: spend rebounding after a depressed period, but still
+  // below peak — "coming back but not there yet."
+  if (rolling30Prev > 0 && rolling30 > rolling30Prev * 1.5 && rolling30Prev < baseline * 0.5 && rolling30 < peakSpend * 0.75) {
+    return { status: 'Warming Up', detail: null }
+  }
+  if (currentGap < 7 && gaps.length > 3) {
+    const recentGaps = gaps.slice(-3)
+    const avgRecentGap = recentGaps.reduce((a, b) => a + b, 0) / recentGaps.length
+    if (avgRecentGap > medianGap * 1.5 && currentGap < medianGap && rolling30 < peakSpend * 0.75) {
+      return { status: 'Warming Up', detail: null }
+    }
+  }
+
+  // Hot: spending at/near peak with tight gaps. Compares to PEAK monthly,
+  // not rolling90 — so a fan who cooled and has one small upswing isn't
+  // called Hot just because the recent baseline is also depressed.
+  if (peakSpend > 0 && rolling30 >= peakSpend * 0.75 && currentGap < medianGap * 1.2) {
+    return { status: 'Hot', detail: null }
+  }
+  // Absolute-spend Hot: big spender in the last week, regardless of history
+  if (rolling30 > 500 && currentGap < 7) return { status: 'Hot', detail: null }
+
+  return stable
+}
+
+const HEAT_CONFIG = {
+  'Dead':       { emoji: '💀', color: '#6B7280', label: 'Dead — no activity 90+ days' },
+  'Going Cold': { emoji: '🥶', color: '#3B82F6', label: 'Going Cold — purchase gap or spend drop' },
+  'Cooling':    { emoji: '❄️', color: '#93C5FD', label: 'Cooling — spending trending down' },
+  'Stable':     { emoji: '😐', color: '#84CC16', label: 'Stable — normal spending pattern' },
+  'Warming Up': { emoji: '🔥', color: '#F59E0B', label: 'Warming Up — spending increasing' },
+  'Hot':        { emoji: '🔥', color: '#EF4444', label: 'Hot — above average spending' },
+}
+
+const HEAT_SORT_ORDER = { 'Dead': 0, 'Going Cold': 1, 'Cooling': 2, 'Warming Up': 3, 'Stable': 4, 'Hot': 5 }
+
+// Surfaced at module scope so both FanRow and FansPanel can reference.
+const ALERT_STATUS_COLORS = {
+  'None': { bg: '#F3F4F6', text: '#9CA3AF' },
+  'Alert Triggered': { bg: '#FEE2E2', text: '#DC2626' },
+  'Fan Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
+  'Sent to Manager': { bg: '#FFF3CD', text: '#D97706' },
+  'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
+  'Action Taken': { bg: '#DCFCE7', text: '#166534' },
+  'Banned': { bg: '#1F2937', text: '#fff' },
+}
+
+// Urgency colors for Alert Triggered — so Critical visually pops in lists.
+const URGENCY_COLORS = {
+  critical: { bg: '#FECACA', text: '#7F1D1D' },
+  high: { bg: '#FEE2E2', text: '#DC2626' },
+  warning: { bg: '#FEF3C7', text: '#92400E' },
+}
+
+function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
   const [showAllFans, setShowAllFans] = useState(false)
+  const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
+  const [sortDir, setSortDir] = useState('desc')
+  const [showDeleted, setShowDeleted] = useState(false)
+  const [showBanned, setShowBanned] = useState(false)
+  const [accountFilter, setAccountFilter] = useState('all')
+  const [showTop20, setShowTop20] = useState(false)
 
-  const creatorName = creator?.name || creator?.aka || ''
+  const creatorName = creator?.name || creator?.aka || ''  // full legal name — for Airtable lookups, Dropbox paths
+  const creatorAka = creator?.aka || creator?.name || ''   // stage name — shown in AI output to chatters
   const creatorRecordId = creator?.id || ''
 
   // Fetch CRM data (analyses + tracker records)
   useEffect(() => {
     setLoading(true)
-    const name = creator?.aka || creator?.name || ''
-    fetch(`/api/admin/fan-tracker?creator=${encodeURIComponent(name)}`)
+    const aka = creator?.aka || ''
+    const full = creator?.name || ''
+    const params = new URLSearchParams()
+    if (aka) params.set('creator', aka)
+    if (full) params.set('creatorFull', full)
+    fetch(`/api/admin/fan-tracker?${params}`)
       .then(r => r.json())
       .then(data => { setCrmData(data.fans || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [creator?.id])
 
+  // Map CRM status → alert status display
+  const crmToAlertStatus = (crmStatus) => {
+    const map = {
+      'Going Cold': 'Alert Triggered',
+      'Analyzed': 'Fan Analyzed',
+      'Alert Sent': 'Sent to Manager',
+      'Recovering': 'Sent to Manager',
+      'Monitoring': 'Sent to Manager',
+      'Reactivated': 'Action Taken',
+      'Lost': 'Action Taken',
+      'Banned': 'Banned',
+    }
+    return map[crmStatus] || 'None'
+  }
+
   // Build comprehensive fan list from allTxns + CRM data + going cold alerts
   const allFans = useMemo(() => {
     const fanMap = new Map() // keyed by ofUsername or displayName
+    const fanTxnMap = new Map() // accumulate per-fan transactions for heat computation
 
     // 1. Build from transaction data — every fan who's spent money
     if (allTxns && Array.isArray(allTxns)) {
@@ -2658,9 +3676,17 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
       const thirtyAgoStr = thirtyAgo.toISOString().split('T')[0]
 
       for (const t of allTxns) {
-        if (t.type === 'Chargeback') continue
+        // Accept ALL transaction types for account membership tracking,
+        // but only count real purchases toward spend/heat metrics.
         const key = (t.ofUsername || t.displayName || 'Unknown').toLowerCase()
         if (key === 'unknown') continue
+        const isReal = isRealPurchase(t)
+        if (!isReal && !fanMap.has(key)) {
+          // Fan has only subscription/chargeback txns so far — record account membership
+          // but don't create a full fan entry yet (wait for a real purchase).
+          // Actually we do want to show them on account filter even if no purchases —
+          // so we create the entry but their spend numbers stay at 0.
+        }
         if (!fanMap.has(key)) {
           fanMap.set(key, {
             id: `txn-${key}`,
@@ -2671,7 +3697,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
             txnCount: 0,
             lastDate: '',
             firstDate: '',
-            status: 'Fan',
+            heatStatus: 'Stable',
+            alertStatus: 'None',
             alertCount: 0,
             alertHistory: [],
             analysisRecords: [],
@@ -2684,48 +3711,46 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
             lastChatUpload: null,
             notes: '',
             source: 'transactions',
+            accounts: new Set(),
           })
+          fanTxnMap.set(key, [])
         }
         const fan = fanMap.get(key)
-        fan.lifetimeSpend += t.net || 0
-        fan.txnCount += 1
+        // Always record identity + account membership
         if (t.displayName) fan.fanName = t.displayName
         if (!fan.ofUsername && t.ofUsername) fan.ofUsername = t.ofUsername
+        if (t.account) fan.accounts.add(t.account)
+        // Only count real purchases toward spend/cadence/heat math
+        if (!isReal) continue
+        fan.lifetimeSpend += t.net || 0
+        fan.txnCount += 1
         if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
         if (!fan.firstDate || t.date < fan.firstDate) fan.firstDate = t.date
         if (t.date >= thirtyAgoStr) fan.last30 += t.net || 0
+        fanTxnMap.get(key).push(t)
       }
     }
 
-    // 2. Overlay going cold alerts
-    if (goingColdAlerts) {
-      for (const a of goingColdAlerts) {
-        const key = (a.username || a.fan || '').toLowerCase()
-        if (!key) continue
-        if (fanMap.has(key)) {
-          const f = fanMap.get(key)
-          f.status = 'Going Cold'
-          f.goingCold = a // attach full alert data
-        }
-      }
+    // 1b. Compute heat status for each fan from their transactions
+    for (const [key, fan] of fanMap) {
+      const heat = computeHeatStatus(fanTxnMap.get(key) || [])
+      fan.heatStatus = heat.status
+      fan.heatDetail = heat.detail
     }
 
-    // 3. Overlay CRM data (analyses, alerts, tracker status)
+    // 2. Overlay CRM data FIRST (so cooldown + ban info is available for step 3)
     for (const c of crmData) {
       const key = (c.ofUsername || c.fanName || '').toLowerCase()
       if (!key) continue
       if (fanMap.has(key)) {
         const f = fanMap.get(key)
-        // CRM status takes priority over "Fan" but not over "Going Cold"
-        // Don't let CRM status set "Going Cold" — only the live goingColdAlerts detection should do that
-        if (c.status && f.status !== 'Going Cold') {
-          f.status = c.status === 'Going Cold' ? f.status : c.status
-        }
+        const mapped = crmToAlertStatus(c.status)
+        if (mapped !== 'None') f.alertStatus = mapped
         if (c.alertCount > 0) { f.alertCount = c.alertCount }
         if (c.alertHistory) f.alertHistory = c.alertHistory
         if (c.analysisRecords && c.analysisRecords.length > 0) {
           f.analysisRecords = c.analysisRecords
-          if (f.status === 'Fan') f.status = 'Analyzed'
+          if (f.alertStatus === 'None') f.alertStatus = 'Fan Analyzed'
         }
         f.effectiveness = c.effectiveness || f.effectiveness
         f.preAlertSpend30d = c.preAlertSpend30d || f.preAlertSpend30d
@@ -2736,33 +3761,68 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
         f.lastChatUpload = c.lastChatUpload || f.lastChatUpload
         f.notes = c.notes || f.notes
         f.crmId = c.id
+        f.banned = c.status === 'Banned'
       } else {
         // CRM-only record (no transactions)
-        fanMap.set(key, { ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '', source: 'crm' })
+        const mapped = crmToAlertStatus(c.status)
+        fanMap.set(key, {
+          ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '',
+          source: 'crm', heatStatus: 'Stable',
+          alertStatus: mapped !== 'None' ? mapped : 'Fan Analyzed',
+          banned: c.status === 'Banned',
+        })
       }
     }
 
-    // Sort: Going Cold first, then Alert Sent, Analyzed, then by lifetime spend
-    const statusOrder = { 'Going Cold': 0, 'Alert Sent': 1, 'Analyzed': 2, 'Recovering': 3, 'Monitoring': 4, 'Reactivated': 5, 'Lost': 6, 'Fan': 7 }
+    // 3. Overlay going cold alerts — AFTER CRM data so we can check cooldown + ban.
+    // Suppresses alerts for fans who were recently sent to manager (14-day cooldown)
+    // or banned (never alert, never visible by default).
+    const now = new Date()
+    const COOLDOWN_DAYS = 14
+    if (goingColdAlerts) {
+      for (const a of goingColdAlerts) {
+        const key = (a.username || a.fan || '').toLowerCase()
+        if (!key) continue
+        if (!fanMap.has(key)) continue
+        const f = fanMap.get(key)
+        if (f.banned) continue // never flag banned fans
+        // Cooldown: if "Sent to Manager" fired within last 14 days, suppress re-alert
+        if (f.lastAlertSent) {
+          const daysSince = (now - new Date(f.lastAlertSent)) / 86400000
+          if (daysSince < COOLDOWN_DAYS) continue
+        }
+        f.heatStatus = 'Going Cold'
+        f.goingCold = a // attach full alert data (includes urgency, score, reasons)
+        // Only set alertStatus to "Alert Triggered" if nothing newer is set
+        // (don't overwrite Fan Analyzed / Sent to Manager / Action Taken)
+        if (f.alertStatus === 'None') f.alertStatus = 'Alert Triggered'
+      }
+    }
+
+    // Sort: most urgent first.
+    // Within Going Cold tier, sort by urgency (critical → high → warning) then by lifetime.
+    // Rationale: whale hunting = find biggest at-risk fans first.
+    const alertOrder = { 'Alert Triggered': 0, 'Sent to Manager': 1, 'Fan Analyzed': 2, 'Action Taken': 3, 'None': 4 }
+    const urgencyOrder = { critical: 0, high: 1, warning: 2 }
     return Array.from(fanMap.values())
+      .map(f => ({ ...f, accounts: f.accounts instanceof Set ? Array.from(f.accounts) : (f.accounts || []) }))
       .filter(f => f.lifetimeSpend > 0 || f.analysisRecords?.length > 0 || f.alertCount > 0)
       .sort((a, b) => {
-        const so = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
-        if (so !== 0) return so
+        const ho = (HEAT_SORT_ORDER[a.heatStatus] ?? 4) - (HEAT_SORT_ORDER[b.heatStatus] ?? 4)
+        if (ho !== 0) return ho
+        // Within same heat tier: urgency first if going cold
+        if (a.heatStatus === 'Going Cold') {
+          const au = urgencyOrder[a.goingCold?.urgency] ?? 99
+          const bu = urgencyOrder[b.goingCold?.urgency] ?? 99
+          if (au !== bu) return au - bu
+        }
+        const ao = (alertOrder[a.alertStatus] ?? 99) - (alertOrder[b.alertStatus] ?? 99)
+        if (ao !== 0) return ao
         return (b.lifetimeSpend || 0) - (a.lifetimeSpend || 0)
       })
   }, [allTxns, crmData, goingColdAlerts])
 
-  const statusColors = {
-    'Going Cold': { bg: '#FEE2E2', text: '#DC2626' },
-    'Alert Sent': { bg: '#FFF3CD', text: '#D97706' },
-    'Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
-    'Recovering': { bg: '#FEF9C3', text: '#A16207' },
-    'Reactivated': { bg: '#DCFCE7', text: '#166534' },
-    'Lost': { bg: '#F3F4F6', text: '#6B7280' },
-    'Monitoring': { bg: '#DBEAFE', text: '#1D4ED8' },
-    'Fan': { bg: '#F3F4F6', text: '#666' },
-  }
+  const alertStatusColors = ALERT_STATUS_COLORS
 
   const effectColors = {
     'Worked': { bg: '#DCFCE7', text: '#166534' },
@@ -2771,16 +3831,73 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
     'Pending': { bg: '#F3F4F6', text: '#6B7280' },
   }
 
-  const filtered = allFans.filter(f => {
-    if (filter === 'going_cold') return f.status === 'Going Cold'
-    if (filter === 'tracked') return ['Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)
-    if (filter === 'resolved') return ['Reactivated', 'Lost'].includes(f.status)
-    return true
-  })
+  const deletedCount = useMemo(() => allFans.filter(f => !f.ofUsername).length, [allFans])
 
-  const goingColdCount = allFans.filter(f => f.status === 'Going Cold').length
-  const trackedCount = allFans.filter(f => ['Alert Sent', 'Analyzed', 'Recovering', 'Monitoring'].includes(f.status)).length
+  // Top 20% spend threshold
+  const top20Threshold = useMemo(() => {
+    const spends = allFans.filter(f => f.lifetimeSpend > 0).map(f => f.lifetimeSpend).sort((a, b) => b - a)
+    if (spends.length === 0) return 0
+    const idx = Math.max(0, Math.ceil(spends.length * 0.2) - 1)
+    return spends[idx] || 0
+  }, [allFans])
+
+  const filtered = useMemo(() => {
+    let list = allFans.filter(f => {
+      // Hide deleted accounts by default
+      if (!showDeleted && !f.ofUsername) return false
+      if (!showBanned && f.banned) return false
+      // Account filter
+      // Account filter: 'all' = everyone, 'both' = fans on 2+ accounts, specific = fans ONLY on that account
+      if (accountFilter === 'both') {
+        if (!f.accounts || f.accounts.length < 2) return false
+      } else if (accountFilter !== 'all') {
+        if (!f.accounts || !f.accounts.includes(accountFilter) || f.accounts.length > 1) return false
+      }
+      // Top 20% overrides heat/alert filters
+      if (showTop20) return f.lifetimeSpend >= top20Threshold && top20Threshold > 0
+      if (filter === 'active_alerts') return f.alertStatus !== 'None'
+      if (filter === 'dead') return f.heatStatus === 'Dead'
+      if (filter === 'going_cold') return f.heatStatus === 'Going Cold'
+      if (filter === 'cooling') return f.heatStatus === 'Cooling'
+      if (filter === 'stable') return f.heatStatus === 'Stable'
+      if (filter === 'warming_up') return f.heatStatus === 'Warming Up'
+      if (filter === 'hot') return f.heatStatus === 'Hot'
+      return true
+    })
+    if (sortField) {
+      list = [...list].sort((a, b) => {
+        let av, bv
+        if (sortField === 'lifetime') { av = a.lifetimeSpend || 0; bv = b.lifetimeSpend || 0 }
+        else if (sortField === 'last30') { av = a.last30 || 0; bv = b.last30 || 0 }
+        else if (sortField === 'txns') { av = a.txnCount || 0; bv = b.txnCount || 0 }
+        else if (sortField === 'lastDate') { av = a.lastDate || ''; bv = b.lastDate || '' }
+        else return 0
+        if (sortField === 'lastDate') return sortDir === 'desc' ? bv.localeCompare(av) : av.localeCompare(bv)
+        return sortDir === 'desc' ? bv - av : av - bv
+      })
+    }
+    return list
+  }, [allFans, filter, sortField, sortDir, showDeleted, showBanned, accountFilter, showTop20, top20Threshold])
+
+  const bannedCount = useMemo(() => allFans.filter(f => f.banned).length, [allFans])
+
+  // Compute counts per heat status
+  const heatCounts = {}
+  for (const f of allFans) {
+    heatCounts[f.heatStatus] = (heatCounts[f.heatStatus] || 0) + 1
+  }
+  const activeAlertCount = allFans.filter(f => f.alertStatus !== 'None').length
   const displayFans = showAllFans ? filtered : filtered.slice(0, 25)
+
+  function toggleSort(field) {
+    if (sortField === field) {
+      if (sortDir === 'desc') setSortDir('asc')
+      else { setSortField(null); setSortDir('desc') } // third click resets
+    } else {
+      setSortField(field)
+      setSortDir('desc')
+    }
+  }
 
   function fmtDate(iso) {
     if (!iso) return '—'
@@ -2808,26 +3925,75 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
           <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Fan CRM</h3>
           <p style={{ fontSize: '12px', color: '#999', margin: '2px 0 0' }}>
             {allFans.length} fan{allFans.length !== 1 ? 's' : ''}
-            {goingColdCount > 0 && <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {goingColdCount} going cold</span>}
-            {trackedCount > 0 && <span> &middot; {trackedCount} tracked</span>}
+            {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0) > 0 && (
+              <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0)} need attention</span>
+            )}
+            {(heatCounts['Hot'] || 0) > 0 && <span style={{ color: '#EF4444', fontWeight: 600 }}> &middot; {heatCounts['Hot']} hot</span>}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
           {[
-            ['all', `All (${allFans.length})`],
-            ['going_cold', `Going Cold (${goingColdCount})`],
-            ['tracked', `Tracked (${trackedCount})`],
-            ['resolved', 'Resolved'],
-          ].map(([key, label]) => (
-            <button key={key} onClick={() => setFilter(key)}
+            ['all', `All`, null],
+            ['hot', `🔥 Hot`, heatCounts['Hot']],
+            ['warming_up', `🔥 Warming`, heatCounts['Warming Up']],
+            ['stable', `😐 Stable`, heatCounts['Stable']],
+            ['cooling', `❄️ Cooling`, heatCounts['Cooling']],
+            ['going_cold', `🥶 Cold`, heatCounts['Going Cold']],
+            ['dead', `💀 Dead`, heatCounts['Dead']],
+            ['active_alerts', `⚡ Alerts`, activeAlertCount],
+          ].filter(([, , count]) => count === null || count > 0).map(([key, label, count]) => (
+            <button key={key} onClick={() => { setFilter(filter === key ? 'all' : key); setShowTop20(false) }}
               style={{
-                padding: '4px 10px', fontSize: '11px', fontWeight: filter === key ? 600 : 400,
+                padding: '3px 8px', fontSize: '10px', fontWeight: filter === key ? 600 : 400,
                 background: filter === key ? '#1a1a1a' : '#F3F4F6', color: filter === key ? '#fff' : '#666',
                 border: 'none', borderRadius: '4px', cursor: 'pointer',
               }}>
-              {label}
+              {label}{count != null ? ` (${count})` : ''}
             </button>
           ))}
+          <button onClick={() => { setShowTop20(!showTop20); if (!showTop20) setFilter('all') }}
+            style={{
+              padding: '3px 8px', fontSize: '10px', fontWeight: showTop20 ? 600 : 400,
+              background: showTop20 ? '#F59E0B' : '#F3F4F6', color: showTop20 ? '#fff' : '#666',
+              border: 'none', borderRadius: '4px', cursor: 'pointer',
+            }}>
+            💎 Top 20%
+          </button>
+          {deletedCount > 0 && (
+            <button onClick={() => setShowDeleted(!showDeleted)}
+              style={{
+                padding: '3px 8px', fontSize: '10px', fontWeight: showDeleted ? 600 : 400,
+                background: showDeleted ? '#6B7280' : 'transparent', color: showDeleted ? '#fff' : '#999',
+                border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
+              }}>
+              {showDeleted ? `Hide deleted (${deletedCount})` : `Show deleted (${deletedCount})`}
+            </button>
+          )}
+          {bannedCount > 0 && (
+            <button onClick={() => setShowBanned(!showBanned)}
+              style={{
+                padding: '3px 8px', fontSize: '10px', fontWeight: showBanned ? 600 : 400,
+                background: showBanned ? '#1F2937' : 'transparent', color: showBanned ? '#fff' : '#999',
+                border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
+              }}>
+              {showBanned ? `Hide banned (${bannedCount})` : `Show banned (${bannedCount})`}
+            </button>
+          )}
+          {availableAccounts && availableAccounts.length > 1 && (
+            <>
+              <span style={{ width: '1px', height: '16px', background: '#E5E7EB', margin: '0 4px', alignSelf: 'center' }} />
+              {['all', ...availableAccounts, 'both'].map(a => (
+                <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
+                  style={{
+                    padding: '3px 8px', fontSize: '10px', fontWeight: accountFilter === a ? 600 : 400,
+                    background: accountFilter === a ? '#7C3AED' : '#F3F4F6', color: accountFilter === a ? '#fff' : '#666',
+                    border: 'none', borderRadius: '4px', cursor: 'pointer',
+                  }}>
+                  {a === 'all' ? 'All Accts' : a === 'both' ? 'Both' : a}
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </div>
 
@@ -2838,16 +4004,21 @@ function FansPanel({ creator, allTxns, goingColdAlerts }) {
       ) : (
         <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <span></span><span>Fan</span><span>Status</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+            <span></span><span>Fan</span><span title="Heat Status">🌡️</span><span>Alert</span>
+            {[['lifetime', 'Lifetime'], ['last30', 'Last 30d'], ['txns', 'Txns'], ['lastDate', 'Last Active']].map(([key, label]) => (
+              <span key={key} onClick={() => toggleSort(key)} style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                {label}{sortField === key ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+              </span>
+            ))}
           </div>
           {displayFans.map((f, i) => (
             <FanRow key={f.id} f={f} i={i} isExpanded={expandedId === f.id}
               onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
-              statusColors={statusColors} effectColors={effectColors}
+              alertStatusColors={alertStatusColors} effectColors={effectColors}
               fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
-              creatorName={creatorName} creatorRecordId={creatorRecordId}
-              allTxns={allTxns} />
+              creatorName={creatorName} creatorAka={creatorAka} creatorRecordId={creatorRecordId}
+              allTxns={allTxns} availableAccounts={availableAccounts} />
           ))}
           {filtered.length > 25 && !showAllFans && (
             <button onClick={() => setShowAllFans(true)}
@@ -3056,7 +4227,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
       {/* ── Fans CRM section ────────────────────────────────────────────── */}
       {activeSection === 'fans' && (
-        <FansPanel creator={creator} allTxns={earningsData?.transactions} goingColdAlerts={earningsData?.goingColdAlerts || []} />
+        <FansPanel creator={creator} allTxns={earningsData?.transactions} goingColdAlerts={earningsData?.goingColdAlerts || []} availableAccounts={earningsData?.accounts || []} />
       )}
 
       {/* ── DNA section ──────────────────────────────────────────────────── */}

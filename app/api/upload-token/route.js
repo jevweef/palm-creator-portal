@@ -24,7 +24,8 @@ export async function POST(request) {
     const user = await currentUser()
     const role = user?.publicMetadata?.role
     const isAdmin = role === 'admin' || role === 'super_admin'
-    if (!isAdmin && user?.publicMetadata?.airtableHqId !== creatorHqId) {
+    const isEditor = role === 'editor'
+    if (!isAdmin && !isEditor && user?.publicMetadata?.airtableHqId !== creatorHqId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
