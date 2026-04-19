@@ -2624,9 +2624,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       } else {
         setSendResult({ success: true })
       }
-      // Refresh fan data so "Not Sent" badge updates to "Sent to Manager"
+      // Refresh fan data so "Not Sent" badge updates to "Sent to Manager".
+      // cache: 'no-store' prevents any Next.js/browser caching from returning stale status.
+      // Small delay lets Airtable indexes settle after the PATCH so the GET sees the new status.
+      await new Promise(r => setTimeout(r, 600))
       try {
-        const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
+        const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`, { cache: 'no-store' })
         const refreshData = await refreshRes.json()
         if (refreshData.fans) setFans(refreshData.fans)
       } catch {}
