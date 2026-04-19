@@ -114,7 +114,12 @@ export async function POST(request) {
       return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
     }
 
-    // Log to Fan Tracker — await so the client refresh picks up the new alert history
+    // Log to Fan Tracker — await so the client refresh picks up the new alert history.
+    // If this fails (bad linked record, missing field, etc.) the Telegram message already
+    // went out, so we don't want to mask the send as a failure — but we DO surface the
+    // tracker error to the client so the UI can flag "sent but not tracked" instead of
+    // silently showing stale status.
+    let trackerError = null
     if (creatorRecordId) {
       try {
         await logAlertToFanTracker({
@@ -127,8 +132,11 @@ export async function POST(request) {
           telegramChatId: topic.chatId,
         })
       } catch (err) {
-        console.error('[Whale Alert] Fan tracker log failed:', err)
+        console.error('[Whale Alert] Fan tracker log failed:', err?.stack || err)
+        trackerError = err?.message || String(err)
       }
+    } else {
+      trackerError = 'Missing creatorRecordId — nothing was logged in Fan Tracker'
     }
 
     return NextResponse.json({
@@ -136,6 +144,7 @@ export async function POST(request) {
       messageId: data.result?.message_id,
       sentTo: { creator: creatorName, chatId: topic.chatId, threadId: topic.threadId },
       dropboxLink: shareLink,
+      trackerError, // null on success; string with reason if the Fan Tracker write failed
     })
   } catch (err) {
     console.error('[Whale Alert] Send error:', err)

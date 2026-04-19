@@ -2616,18 +2616,26 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Send failed')
-      setSendResult({ success: true })
+      // Telegram went through. trackerError is non-null when the Fan Tracker Airtable write
+      // failed — surface that explicitly so the user knows the alert column won't update.
+      if (data.trackerError) {
+        setSendResult({ success: true, trackerError: data.trackerError })
+      } else {
+        setSendResult({ success: true })
+      }
       // Refresh fan data so "Not Sent" badge updates to "Sent to Manager"
       try {
         const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
         const refreshData = await refreshRes.json()
         if (refreshData.fans) setFans(refreshData.fans)
       } catch {}
-      // Auto-close the modal after a brief success confirmation (1.5s)
-      setTimeout(() => {
-        setShowSendModal(false)
-        setSendResult(null)
-      }, 1500)
+      // Auto-close modal on clean success; keep it open if there's a tracker error to read
+      if (!data.trackerError) {
+        setTimeout(() => {
+          setShowSendModal(false)
+          setSendResult(null)
+        }, 1500)
+      }
     } catch (e) {
       setSendResult({ error: e.message })
     } finally {
@@ -3578,9 +3586,16 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               </button>
             </div>
 
-            {sendResult?.success && (
+            {sendResult?.success && !sendResult.trackerError && (
               <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
                 &#10003; Sent to manager &amp; logged
+              </div>
+            )}
+            {sendResult?.success && sendResult.trackerError && (
+              <div style={{ marginTop: '12px', padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', color: '#92400E' }}>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>&#10003; Sent to Telegram &mdash; but Fan Tracker log failed</div>
+                <div style={{ fontSize: '11px', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word' }}>{sendResult.trackerError}</div>
+                <div style={{ fontSize: '11px', marginTop: '6px' }}>The fan's Alert column won't update. Please share this error so we can fix it.</div>
               </div>
             )}
             {sendResult?.error && (
