@@ -196,8 +196,8 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
       'Lifetime Spend': alertData?.lifetime || record.fields['Lifetime Spend'] || 0,
       'Pre-Alert Spend 30d': alertData?.rolling30 || 0,
       'Effectiveness': 'Pending',
-      ...(telegramMessageId ? { 'Last Alert Message ID': telegramMessageId } : {}),
-      ...(telegramChatId ? { 'Last Alert Chat ID': telegramChatId } : {}),
+      ...(telegramMessageId ? { 'Last Alert Message ID': Number(telegramMessageId) } : {}),
+      ...(telegramChatId ? { 'Last Alert Chat ID': Number(telegramChatId) } : {}),
     })
     console.log('[Whale Alert] Patch call returned without throwing for record', record.id)
 
@@ -228,8 +228,8 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
       'Pre-Alert Spend 30d': alertData?.rolling30 || 0,
       'Effectiveness': 'Pending',
       'Times Gone Cold': 1,
-      ...(telegramMessageId ? { 'Last Alert Message ID': telegramMessageId } : {}),
-      ...(telegramChatId ? { 'Last Alert Chat ID': telegramChatId } : {}),
+      ...(telegramMessageId ? { 'Last Alert Message ID': Number(telegramMessageId) } : {}),
+      ...(telegramChatId ? { 'Last Alert Chat ID': Number(telegramChatId) } : {}),
     })
     console.log('[Whale Alert] Created new tracker record for', fanName)
     return { action: 'created' }
