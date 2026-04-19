@@ -1089,7 +1089,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Send failed')
-      setSendResult({ success: true, tracked: true })
+      setSendResult({ success: true, tracked: !data.trackerError, trackerError: data.trackerError || null })
     } catch (e) {
       setSendResult({ error: e.message })
     } finally {
@@ -1181,7 +1181,8 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
             >
               <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
             </button>
-            {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
+            {sendResult?.success && !sendResult.trackerError && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
+            {sendResult?.success && sendResult.trackerError && <span style={{ fontSize: '11px', color: '#d97706', fontWeight: 500 }} title={sendResult.trackerError}>&#10003; Sent \u2014 tracker failed (hover)</span>}
             {sendResult?.error && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
           </div>
 

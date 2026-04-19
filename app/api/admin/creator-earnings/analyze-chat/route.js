@@ -1017,7 +1017,14 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
       })
     }
   } else {
-    // Create new tracker record
+    // Create new tracker record.
+    // NOTE: Status is deliberately omitted here. The Airtable singleSelect doesn't include
+    // an "Analyzed" option (valid ones are Going Cold, Alert Sent, Recovering, Reactivated,
+    // Lost, Monitoring, Received by Manager, Banned), and setting an invalid value caused
+    // every create to 422 silently — which is why newly-analyzed fans had no tracker record
+    // and stayed stuck on "Fan Analyzed" in the UI even after Send to Manager. The synthetic
+    // 'Analyzed' entry in /api/admin/fan-tracker GET handles the display fallback when a
+    // fan has an analysis but no tracker status.
     const createRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}`, {
       method: 'POST',
       headers: AIRTABLE_HEADERS,
@@ -1026,9 +1033,6 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
           'Fan Name': fanName,
           'OF Username': fanUsername || '',
           'Creator': [creatorRecordId],
-          // Manual analysis → "Analyzed" status. "Going Cold" is reserved for
-          // fans flagged by the auto-detection algorithm (goingColdAlerts).
-          'Status': 'Analyzed',
           'First Flagged': now,
           'Lifetime Spend': lifetime || 0,
         },
@@ -1037,6 +1041,8 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
     const createData = await createRes.json()
     if (createData.error) {
       console.error('[Fan Tracker] Airtable create error:', createData.error)
+      // Re-throw so the caller's .catch logs it with stack info instead of eating silently
+      throw new Error(`Fan Tracker create failed: ${createData.error.type || ''} ${createData.error.message || JSON.stringify(createData.error)}`)
     }
   }
 }
