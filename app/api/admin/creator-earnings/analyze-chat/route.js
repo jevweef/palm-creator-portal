@@ -147,15 +147,46 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
   }
 }
 
-async function saveToAirtable(record) {
+async function saveToAirtable(record, { fanUsername, fanName, creatorName } = {}) {
+  // Upsert: find existing analysis for this (fan, creator) and PATCH it, else POST new.
+  // Prevents duplicate records and prevents a failed retry from hiding a prior success.
   try {
-    await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}`, {
-      method: 'POST',
-      headers: AIRTABLE_HEADERS,
-      body: JSON.stringify({ records: [{ fields: record }], typecast: true }),
-    })
+    let existingId = null
+    if (fanUsername || fanName) {
+      const terms = []
+      if (fanUsername) terms.push(`{OF Username} = "${fanUsername.replace(/"/g, '\\"')}"`)
+      else if (fanName) terms.push(`{Fan Name} = "${fanName.replace(/"/g, '\\"')}"`)
+      if (creatorName) terms.push(`FIND("${creatorName.replace(/"/g, '\\"')}", {Creator})`)
+      const formula = terms.length > 1 ? `AND(${terms.join(', ')})` : terms[0]
+      const params = new URLSearchParams()
+      params.set('maxRecords', '1')
+      params.set('filterByFormula', formula)
+      const lookupRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}?${params}`, {
+        headers: AIRTABLE_HEADERS, cache: 'no-store',
+      })
+      const lookupData = await lookupRes.json()
+      existingId = lookupData.records?.[0]?.id || null
+    }
+
+    const url = existingId
+      ? `https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}/${existingId}`
+      : `https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}`
+    const method = existingId ? 'PATCH' : 'POST'
+    const body = existingId
+      ? JSON.stringify({ fields: record, typecast: true })
+      : JSON.stringify({ records: [{ fields: record }], typecast: true })
+
+    const res = await fetch(url, { method, headers: AIRTABLE_HEADERS, body })
+    if (!res.ok) {
+      // Surface the actual Airtable error — silent 422s were hiding successful analyses
+      const errText = await res.text().catch(() => '')
+      console.error(`[Airtable Save] ${method} failed ${res.status}: ${errText.slice(0, 500)}`)
+      throw new Error(`Airtable save failed (${res.status}): ${errText.slice(0, 200)}`)
+    }
+    console.log(`[Airtable Save] ${method} ok — ${existingId || 'new record'} — ${fanName || fanUsername}`)
   } catch (e) {
-    console.error('Failed to save analysis to Airtable:', e)
+    console.error('[Airtable Save] Exception:', e?.message || e)
+    throw e // let the caller decide whether to surface
   }
 }
 
@@ -542,9 +573,7 @@ THIS is the level of depth, specificity, and evidence you must match. Note:
 
 YOUR AUDIENCE: a chat manager, who passes the brief to a chatter. Write at an 8th-grade reading level. No jargon. No business-school framing. No archetype labels or internal classification language in the final output. The chatter must be able to scan and use this in under 60 seconds.
 
-CREATOR NAME: The Creator name passed in SPENDING DATA is her stage/AKA name (e.g. "Sunny", "Taby") — that's what chatters and fans know her as. Use that name throughout the brief. Never use a legal/full name even if you see one elsewhere. If no AKA is given, just say "the creator."
-
-${spendingContext}
+CREATOR NAME: The SPENDING DATA block in the user message gives you her stage/AKA name (e.g. "Sunny", "Taby") — that's what chatters and fans know her as. Use that name throughout the brief. Never use a legal/full name even if you see one elsewhere. If no AKA is given, just say "the creator."
 
 YOUR PROCESS (internal reasoning — do NOT include in the output):
 
@@ -706,9 +735,9 @@ HARD RULES:
     if (fanIsHot) {
       finalPrompt += `\n\nCURRENT STATE NOTE: Spending data shows this fan is ACTIVE and spending right now. Your internal classification STATE should be "healthy" or "uptrend," not "cool_off." Frame the brief around keeping him engaged and protecting the momentum, not around re-engagement. The "WHAT HAPPENED" section should describe what's going RIGHT (what brought him back or what's keeping him hot). NEXT MOVE should prescribe how to ride the wave without breaking it.`
     }
-    const systemWithContext = priorContext
-      ? finalPrompt + priorContext
-      : finalPrompt
+    // systemWithContext stays stable across fans for prompt caching.
+    // Per-fan context (priorContext) moves to the user message.
+    const systemWithContext = finalPrompt
 
     // Load accumulated chat history from Dropbox and merge with new upload
     const fanUsername = formData.get('fanUsername') || ''
@@ -768,6 +797,16 @@ HARD RULES:
     let claudeUsage = null
     let claudeStopReason = null
     try {
+      // Per-fan volatile content goes in the user message; the system prompt
+      // stays byte-stable across fans so prompt caching actually hits.
+      const userContent = [
+        spendingContext,
+        priorContext || '',
+        '---',
+        `Analyze this conversation between ${creatorAka} (CREATOR) and ${fanName} (FAN):`,
+        '',
+        fullConversation,
+      ].filter(Boolean).join('\n\n')
       const stream = anthropic.messages.stream({
         model: 'claude-sonnet-4-6',
         max_tokens: claudeMaxTokens,
@@ -775,7 +814,7 @@ HARD RULES:
           { type: 'text', text: systemWithContext, cache_control: { type: 'ephemeral' } },
         ],
         messages: [
-          { role: 'user', content: `Analyze this conversation between ${creatorAka} (CREATOR) and ${fanName} (FAN):\n\n${fullConversation}` },
+          { role: 'user', content: userContent },
         ],
       })
       const claudeMessage = await stream.finalMessage()
@@ -862,7 +901,7 @@ Keep it tight. No filler. The chat manager has 50 of these to review.` },
       [F.analyzedDate]: new Date().toISOString(),
       [F.firstMessageDate]: parsed.firstMessageDate || '',
       [F.lastMessageDate]: parsed.lastMessageDate || '',
-    }),
+    }, { fanUsername, fanName, creatorName }).catch(err => console.error('[Chat Analysis] Airtable save failed:', err)),
     ])
 
     return Response.json({
