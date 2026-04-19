@@ -3598,7 +3598,13 @@ const HEAT_CONFIG = {
   'Hot':        { emoji: '🔥', color: '#EF4444', label: 'Hot — above average spending' },
 }
 
-const HEAT_SORT_ORDER = { 'Dead': 0, 'Going Cold': 1, 'Cooling': 2, 'Warming Up': 3, 'Stable': 4, 'Hot': 5 }
+// Sort order reflects whale-hunting urgency: actionable fans first, already-lost last.
+// Going Cold = actively cooling NOW, needs intervention → top.
+// Cooling = trending down but not critical yet.
+// Dead = 90+ days silent, already lost — ranked below actionable states.
+// Stable = baseline, no action needed.
+// Hot / Warming Up = performing well, rank last (don't prioritize what's working).
+const HEAT_SORT_ORDER = { 'Going Cold': 0, 'Cooling': 1, 'Dead': 2, 'Stable': 3, 'Warming Up': 4, 'Hot': 5 }
 
 // Surfaced at module scope so both FanRow and FansPanel can reference.
 const ALERT_STATUS_COLORS = {
