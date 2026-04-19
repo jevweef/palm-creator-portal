@@ -1,10 +1,12 @@
 import { auth } from '@clerk/nextjs/server'
+import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
 
 export const maxDuration = 120
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) // still used for the lightweight manager-brief summary
 
 // ── Airtable ───────────────────────────────────────────────────────────────
 
@@ -755,17 +757,23 @@ HARD RULES:
       fullConversation = beginning + '\n\n[... earlier messages omitted ...]\n\n' + end
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    // Main whale-hunting analysis — Claude Sonnet 4.6.
+    // Using streaming + finalMessage() so long outputs don't hit HTTP timeouts.
+    // Prompt caching is applied to the system prompt so repeated calls on the
+    // same fan (or different fans with the same base instructions) save cost.
+    const stream = anthropic.messages.stream({
+      model: 'claude-sonnet-4-6',
+      max_tokens: isHighValue ? 5000 : 1500,
+      thinking: { type: 'adaptive' },
+      system: [
+        { type: 'text', text: systemWithContext, cache_control: { type: 'ephemeral' } },
+      ],
       messages: [
-        { role: 'system', content: systemWithContext },
         { role: 'user', content: `Analyze this conversation between ${creatorAka} (CREATOR) and ${fanName} (FAN):\n\n${fullConversation}` },
       ],
-      temperature: 0.5,
-      max_tokens: isHighValue ? 3000 : 1000,
     })
-
-    const fullAnalysis = completion.choices[0]?.message?.content || 'Analysis failed'
+    const claudeMessage = await stream.finalMessage()
+    const fullAnalysis = claudeMessage.content.find(b => b.type === 'text')?.text || 'Analysis failed'
 
     // Run manager brief, Dropbox save, and fan tracker upsert in parallel
     const creatorRecordId = formData.get('creatorRecordId') || ''
