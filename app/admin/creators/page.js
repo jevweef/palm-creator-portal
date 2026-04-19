@@ -4017,7 +4017,11 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
         f.timesGoneCold = c.timesGoneCold || f.timesGoneCold
         f.lastChatUpload = c.lastChatUpload || f.lastChatUpload
         f.notes = c.notes || f.notes
-        f.crmId = c.id
+        f.lifetimeOverride = c.lifetimeOverride || null // manual PDF/Telegram lifetime override
+        // Only carry over REAL tracker record IDs (synthetic "analysis-XXX" IDs from the
+        // fan-tracker GET endpoint aren't patchable — leave crmId null in that case so the
+        // POST handler knows to upsert by fan identity instead.
+        f.crmId = (c.id && !c.id.startsWith('analysis-')) ? c.id : null
         f.banned = c.status === 'Banned'
       } else {
         // CRM-only record (no transactions)
@@ -4027,6 +4031,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           source: 'crm', heatStatus: 'Stable',
           alertStatus: mapped !== 'None' ? mapped : 'Fan Analyzed',
           banned: c.status === 'Banned',
+          crmId: (c.id && !c.id.startsWith('analysis-')) ? c.id : null,
+          lifetimeOverride: c.lifetimeOverride || null,
         })
       }
     }
