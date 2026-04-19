@@ -2,12 +2,12 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdminOrEditor } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 // POST — download a file from a Google Drive URL and upload to Dropbox Long Form folder
 export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireAdminOrEditor() } catch (e) { return e }
 
   try {
     const { url, creatorName, fileName } = await request.json()
