@@ -2166,6 +2166,10 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   // Multi-account fans: tracks per-account save state. { 'Sunny - Free OF': 'saving' | 'saved' | 'error', ... }
   // Each account uploads to Dropbox independently on pick; final Analyze loads combined transcripts.
   const [accountUploadState, setAccountUploadState] = useState({})
+  // Inline edit for manual lifetime override (used in PDF/Telegram only).
+  const [editingLifetime, setEditingLifetime] = useState(false)
+  const [lifetimeDraft, setLifetimeDraft] = useState('')
+  const [savingLifetime, setSavingLifetime] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
@@ -2467,10 +2471,15 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   }
 
   function buildAlertPayload() {
-    const alertData = f.goingCold || {
+    // If a manual override is set (real OF lifetime, not just what earnings data can see),
+    // use it for the PDF + Telegram stats. Computed lifetime stays the default.
+    const effectiveLifetime = (f.lifetimeOverride !== null && f.lifetimeOverride !== undefined && f.lifetimeOverride > 0)
+      ? f.lifetimeOverride
+      : f.lifetimeSpend
+    const alertData = f.goingCold ? { ...f.goingCold, lifetime: effectiveLifetime } : {
       fan: f.fanName,
       username: f.ofUsername,
-      lifetime: f.lifetimeSpend,
+      lifetime: effectiveLifetime,
       rolling30: f.last30,
       urgency: 'warning',
       medianGap: 0,
@@ -2605,6 +2614,38 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     }
   }
 
+  // Save the manual lifetime override via fan-tracker API. Upserts by fan identity if
+  // no tracker record exists yet. Pass an empty string to clear the override.
+  async function saveLifetimeOverride(valueStr) {
+    setSavingLifetime(true)
+    try {
+      const override = valueStr.trim() === '' ? null : Number(valueStr.replace(/[^\d.-]/g, ''))
+      const res = await fetch('/api/admin/fan-tracker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_lifetime_override',
+          recordId: f.crmId || null,
+          fanName: f.fanName,
+          fanUsername: f.ofUsername,
+          creatorRecordId,
+          override,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      // Refresh CRM data so the override shows up
+      const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`, { cache: 'no-store' })
+      const refreshData = await refreshRes.json()
+      if (refreshData.fans) setFans(refreshData.fans)
+      setEditingLifetime(false)
+    } catch (e) {
+      alert(`Lifetime override save failed: ${e.message}`)
+    } finally {
+      setSavingLifetime(false)
+    }
+  }
+
   async function handleSendToTelegram() {
     setSending(true)
     setSendResult(null)
@@ -2727,6 +2768,54 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
             {/* Stats grid */}
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              {/* Lifetime — inline editable. Override used in PDF/Telegram; computed shown as faded secondary when override active. */}
+              <div>
+                <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  Lifetime
+                  {f.lifetimeOverride > 0 && (
+                    <span title="Manual override in effect — used on the Telegram PDF" style={{ fontSize: '8px', background: '#FEF3C7', color: '#92400E', padding: '0 4px', borderRadius: '3px', fontWeight: 700 }}>OVERRIDE</span>
+                  )}
+                </div>
+                {editingLifetime ? (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#1a1a1a' }}>$</span>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={lifetimeDraft}
+                      onChange={e => setLifetimeDraft(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveLifetimeOverride(lifetimeDraft)
+                        if (e.key === 'Escape') setEditingLifetime(false)
+                      }}
+                      placeholder="blank to clear"
+                      disabled={savingLifetime}
+                      style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid #CBD5E1', borderRadius: '3px' }}
+                    />
+                    <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
+                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#16A34A', color: '#fff', borderRadius: '3px', cursor: 'pointer' }}>
+                      {savingLifetime ? '…' : 'Save'}
+                    </button>
+                    <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
+                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid #CBD5E1', background: '#fff', borderRadius: '3px', cursor: 'pointer', color: '#64748B' }}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => { setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
+                    title="Click to set a manual lifetime override (used on the Telegram PDF when the actual OF lifetime is higher than what earnings data shows)"
+                    style={{ fontSize: '12px', color: '#1a1a1a', cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
+                    onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
+                    onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}
+                  >
+                    <strong>{fmtMoney(f.lifetimeOverride > 0 ? f.lifetimeOverride : f.lifetimeSpend)}</strong>
+                    {f.lifetimeOverride > 0 && (
+                      <span style={{ fontSize: '10px', color: '#94A3B8', textDecoration: 'line-through' }}>{fmtMoney(f.lifetimeSpend)}</span>
+                    )}
+                  </div>
+                )}
+              </div>
               {f.firstDate && (
                 <div>
                   <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Purchase</div>
