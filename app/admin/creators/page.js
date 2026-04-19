@@ -3563,7 +3563,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const crmToAlertStatus = (crmStatus) => {
     const map = {
       'Going Cold': 'Alert Triggered',
-      'Analyzed': 'Analysis Complete',
+      'Analyzed': 'Fan Analyzed',
       'Alert Sent': 'Sent to Manager',
       'Recovering': 'Sent to Manager',
       'Monitoring': 'Sent to Manager',
@@ -3673,7 +3673,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
         if (c.alertHistory) f.alertHistory = c.alertHistory
         if (c.analysisRecords && c.analysisRecords.length > 0) {
           f.analysisRecords = c.analysisRecords
-          if (f.alertStatus === 'None') f.alertStatus = 'Analysis Complete'
+          if (f.alertStatus === 'None') f.alertStatus = 'Fan Analyzed'
         }
         f.effectiveness = c.effectiveness || f.effectiveness
         f.preAlertSpend30d = c.preAlertSpend30d || f.preAlertSpend30d
@@ -3687,12 +3687,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       } else {
         // CRM-only record (no transactions)
         const mapped = crmToAlertStatus(c.status)
-        fanMap.set(key, { ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '', source: 'crm', heatStatus: 'Stable', alertStatus: mapped !== 'None' ? mapped : 'Analysis Complete' })
+        fanMap.set(key, { ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '', source: 'crm', heatStatus: 'Stable', alertStatus: mapped !== 'None' ? mapped : 'Fan Analyzed' })
       }
     }
 
     // Sort: heat severity first (cold/dead on top), then alert status, then lifetime spend
-    const alertOrder = { 'Alert Triggered': 0, 'Sent to Manager': 1, 'Analysis Complete': 2, 'Action Taken': 3, 'None': 4 }
+    const alertOrder = { 'Alert Triggered': 0, 'Sent to Manager': 1, 'Fan Analyzed': 2, 'Action Taken': 3, 'None': 4 }
     return Array.from(fanMap.values())
       .map(f => ({ ...f, accounts: f.accounts instanceof Set ? Array.from(f.accounts) : (f.accounts || []) }))
       .filter(f => f.lifetimeSpend > 0 || f.analysisRecords?.length > 0 || f.alertCount > 0)
@@ -3708,7 +3708,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const alertStatusColors = {
     'None': { bg: '#F3F4F6', text: '#9CA3AF' },
     'Alert Triggered': { bg: '#FEE2E2', text: '#DC2626' },
-    'Analysis Complete': { bg: '#EDE9FE', text: '#7C3AED' },
+    'Fan Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
     'Sent to Manager': { bg: '#FFF3CD', text: '#D97706' },
     'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
     'Action Taken': { bg: '#DCFCE7', text: '#166534' },

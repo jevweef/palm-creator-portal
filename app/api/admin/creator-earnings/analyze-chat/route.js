@@ -984,10 +984,11 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
           'Fan Name': fanName,
           'OF Username': fanUsername || '',
           'Creator': [creatorRecordId],
-          'Status': 'Going Cold',
+          // Manual analysis → "Analyzed" status. "Going Cold" is reserved for
+          // fans flagged by the auto-detection algorithm (goingColdAlerts).
+          'Status': 'Analyzed',
           'First Flagged': now,
           'Lifetime Spend': lifetime || 0,
-          'Times Gone Cold': 1,
         },
       }),
     })

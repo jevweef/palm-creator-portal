@@ -277,16 +277,27 @@ async function logAnalysis({ fanName, ofUsername, creatorRecordId, analysisRecor
     if (analysisRecordId && !analyses.includes(analysisRecordId)) {
       analyses.push(analysisRecordId)
     }
-    await patchAirtableRecord(TABLE, record.id, { 'Analyses': analyses })
+    // Promote the fan's status to "Analyzed" on manual analysis — unless they're
+    // already further along (Alert Sent / Recovering / etc). Don't downgrade from
+    // in-flight states.
+    const updates = { 'Analyses': analyses }
+    const currentStatus = record.fields['Status']
+    const downstreamStatuses = new Set(['Alert Sent', 'Recovering', 'Monitoring', 'Reactivated', 'Lost'])
+    if (!downstreamStatuses.has(currentStatus)) {
+      updates['Status'] = 'Analyzed'
+    }
+    await patchAirtableRecord(TABLE, record.id, updates)
     return NextResponse.json({ success: true, recordId: record.id })
   } else {
+    // New record from manual analysis — default to "Analyzed", NOT "Going Cold".
+    // "Going Cold" is reserved for the auto-detection algorithm; manually choosing
+    // a fan to analyze doesn't mean they're cold.
     const fields = {
       'Fan Name': fanName,
       'OF Username': ofUsername || '',
       'Creator': [creatorRecordId],
-      'Status': 'Going Cold',
+      'Status': 'Analyzed',
       'First Flagged': new Date().toISOString(),
-      'Times Gone Cold': 1,
       'Analyses': analysisRecordId ? [analysisRecordId] : [],
     }
     const created = await createAirtableRecord(TABLE, fields)
