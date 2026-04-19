@@ -305,12 +305,34 @@ async function logAnalysis({ fanName, ofUsername, creatorRecordId, analysisRecor
   }
 }
 
-async function updateStatus({ recordId, status }) {
-  if (!recordId || !status) {
-    return NextResponse.json({ error: 'Missing recordId or status' }, { status: 400 })
+async function updateStatus({ recordId, status, fanName, fanUsername, creatorRecordId }) {
+  if (!status) {
+    return NextResponse.json({ error: 'Missing status' }, { status: 400 })
   }
-  await patchAirtableRecord(TABLE, recordId, { 'Status': status })
-  return NextResponse.json({ success: true })
+  // If we have a recordId, patch directly
+  if (recordId) {
+    await patchAirtableRecord(TABLE, recordId, { 'Status': status })
+    return NextResponse.json({ success: true })
+  }
+  // Otherwise upsert: look up by fan identity, create if not found.
+  // Useful for banning a fan who has no Fan Tracker record yet.
+  if (!fanName && !fanUsername) {
+    return NextResponse.json({ error: 'Missing recordId or fan identity' }, { status: 400 })
+  }
+  const existing = await findFanRecord(fanName, fanUsername, creatorRecordId)
+  if (existing) {
+    await patchAirtableRecord(TABLE, existing.id, { 'Status': status })
+    return NextResponse.json({ success: true, recordId: existing.id })
+  }
+  // Create new record with this status
+  const created = await createAirtableRecord(TABLE, {
+    'Fan Name': fanName || '',
+    'OF Username': fanUsername || '',
+    'Creator': creatorRecordId ? [creatorRecordId] : [],
+    'Status': status,
+    'First Flagged': new Date().toISOString(),
+  })
+  return NextResponse.json({ success: true, recordId: created.id, action: 'created' })
 }
 
 async function updateEffectiveness({ recordId, effectiveness, postAlertSpend30d }) {
