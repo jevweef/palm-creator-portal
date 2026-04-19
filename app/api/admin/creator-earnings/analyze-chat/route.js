@@ -321,6 +321,11 @@ export async function POST(request) {
     const rolling30 = parseFloat(formData.get('rolling30')) || 0
     const monthlyAvg90 = parseFloat(formData.get('monthlyAvg90')) || 0
     const creatorName = formData.get('creatorName') || 'the creator'
+    // creatorAka is the name chatters know her by ("Sunny", "Taby") — used in the
+    // prompt text and output so briefs reference the stage name, not the legal name.
+    // creatorName (full legal name) is still used for Airtable Creator field saves,
+    // Dropbox path consistency, and prior-analysis lookups.
+    const creatorAka = formData.get('creatorAka') || creatorName
 
     let parsed
     if (useTranscript) {
@@ -460,7 +465,7 @@ export async function POST(request) {
 - Normal purchase cadence: every ${medianGap} days
 - Gap since last purchase (at end of chat): ${cappedCurrentGap} days
 - Last 30 days of chat window: $${cappedRolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
-- Creator name: ${creatorName}${chatWindowNote}
+- Creator name (refer to her as this in the brief): ${creatorAka}${chatWindowNote}
 ${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}`
 
     // ── Example of a great analysis (few-shot calibration) ─────────────
@@ -534,6 +539,8 @@ THIS is the level of depth, specificity, and evidence you must match. Note:
       ? `You are a whale-hunting analyst for an OnlyFans management agency. Your output is a brief that a chat manager will hand to a chatter so they can send the right next message to one specific fan.
 
 YOUR AUDIENCE: a chat manager, who passes the brief to a chatter. Write at an 8th-grade reading level. No jargon. No business-school framing. No archetype labels or internal classification language in the final output. The chatter must be able to scan and use this in under 60 seconds.
+
+CREATOR NAME: The Creator name passed in SPENDING DATA is her stage/AKA name (e.g. "Sunny", "Taby") — that's what chatters and fans know her as. Use that name throughout the brief. Never use a legal/full name even if you see one elsewhere. If no AKA is given, just say "the creator."
 
 ${spendingContext}
 
@@ -752,7 +759,7 @@ HARD RULES:
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemWithContext },
-        { role: 'user', content: `Analyze this conversation between ${creatorName} (CREATOR) and ${fanName} (FAN):\n\n${fullConversation}` },
+        { role: 'user', content: `Analyze this conversation between ${creatorAka} (CREATOR) and ${fanName} (FAN):\n\n${fullConversation}` },
       ],
       temperature: 0.5,
       max_tokens: isHighValue ? 3000 : 1000,

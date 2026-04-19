@@ -976,7 +976,7 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
 
 // ── Going Cold Row ─────────────────────────────────────────────────────────
 
-function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecordId, allTxns }) {
+function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, creatorRecordId, allTxns }) {
   const [expanded, setExpanded] = useState(false)
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
@@ -1029,6 +1029,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
     formData.append('monthlyAvg90', a.monthlyAvg90)
     formData.append('lastPurchaseDate', a.lastPurchaseDate || '')
     formData.append('creatorName', creatorName || '')
+    formData.append('creatorAka', creatorAka || creatorName || '')
     formData.append('creatorRecordId', creatorRecordId || '')
     // Compute daily spend for this fan from transaction data
     if (allTxns) {
@@ -2079,7 +2080,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
             </div>
             {(showAllCold ? goingColdAlerts : goingColdAlerts.slice(0, 10)).map((a, i) => (
-              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || creator?.aka || ''} creatorRecordId={creator?.id} allTxns={allTxns} />
+              <GoingColdRow key={a.fan} alert={a} index={i} fmtMoney={fmtMoney} creatorName={creator?.name || creator?.aka || ''} creatorAka={creator?.aka || creator?.name || ''} creatorRecordId={creator?.id} allTxns={allTxns} />
             ))}
             {goingColdAlerts.length > 10 && !showAllCold && (
               <button onClick={() => setShowAllCold(true)}
@@ -2143,7 +2144,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
 
-function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorRecordId, allTxns, availableAccounts }) {
+function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts }) {
   const [chatFile, setChatFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
@@ -2324,6 +2325,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       }
     }
     formData.append('creatorName', creatorName || '')
+    formData.append('creatorAka', creatorAka || creatorName || '')
     formData.append('creatorRecordId', creatorRecordId || '')
     // Compute daily spend timeline for analysis context — real purchases only
     if (allTxns) {
@@ -3506,7 +3508,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const [accountFilter, setAccountFilter] = useState('all')
   const [showTop20, setShowTop20] = useState(false)
 
-  const creatorName = creator?.name || creator?.aka || ''
+  const creatorName = creator?.name || creator?.aka || ''  // full legal name — for Airtable lookups, Dropbox paths
+  const creatorAka = creator?.aka || creator?.name || ''   // stage name — shown in AI output to chatters
   const creatorRecordId = creator?.id || ''
 
   // Fetch CRM data (analyses + tracker records)
@@ -3858,7 +3861,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
               onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
               alertStatusColors={alertStatusColors} effectColors={effectColors}
               fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
-              creatorName={creatorName} creatorRecordId={creatorRecordId}
+              creatorName={creatorName} creatorAka={creatorAka} creatorRecordId={creatorRecordId}
               allTxns={allTxns} availableAccounts={availableAccounts} />
           ))}
           {filtered.length > 25 && !showAllFans && (
