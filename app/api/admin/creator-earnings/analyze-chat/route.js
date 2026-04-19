@@ -350,9 +350,25 @@ export async function POST(request) {
         lastMessageDate: messages[messages.length - 1]?.date || '',
       }
     } else {
-      if (!file) return Response.json({ error: 'No file uploaded' }, { status: 400 })
-      const html = await file.text()
-      parsed = parseChatHtml(html)
+      // Prefer client-side parsed payload (keeps us under the 4.5MB body limit)
+      const parsedConversation = formData.get('parsedConversation')
+      if (parsedConversation) {
+        let clientMessages = []
+        try { clientMessages = JSON.parse(formData.get('parsedMessages') || '[]') } catch {}
+        parsed = {
+          conversation: parsedConversation,
+          messages: clientMessages,
+          messageCount: clientMessages.length,
+          fanMessages: parseInt(formData.get('parsedFanMsgs')) || clientMessages.filter(m => m.sender === 'FAN').length,
+          creatorMessages: parseInt(formData.get('parsedCreatorMsgs')) || clientMessages.filter(m => m.sender === 'CREATOR').length,
+          firstMessageDate: formData.get('parsedFirstDate') || '',
+          lastMessageDate: formData.get('parsedLastDate') || '',
+        }
+      } else {
+        if (!file) return Response.json({ error: 'No file uploaded' }, { status: 400 })
+        const html = await file.text()
+        parsed = parseChatHtml(html)
+      }
     }
 
     if (parsed.messageCount === 0) {

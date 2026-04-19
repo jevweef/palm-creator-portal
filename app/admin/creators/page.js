@@ -12,6 +12,83 @@ const TAG_CATEGORIES = [
   'Film Format',
 ]
 
+// Parse OF chat HTML in the browser — mirrors parseChatHtml() in the server route.
+// Running this client-side keeps large HTML (often 20-100MB of SVG/media bloat)
+// off the wire; only the compact transcript (~2-5% of size) is uploaded.
+function parseChatHtmlClient(html) {
+  const messages = []
+  const datePositions = []
+  const dateRe = /b-chat__messages__time.*?title="([^"]+)"/g
+  let dm
+  while ((dm = dateRe.exec(html))) {
+    const rawDate = dm[1].replace(/,?\s*12:00\s*am$/i, '').trim()
+    datePositions.push({ pos: dm.index, date: rawDate })
+  }
+  const msgRe = /class="b-chat__message\s([^"]*?)"/g
+  let mm
+  while ((mm = msgRe.exec(html))) {
+    const pos = mm.index
+    const classes = mm[1]
+    const block = html.slice(pos, pos + 5000)
+    const isFromMe = classes.includes('m-from-me')
+    const hasMedia = classes.includes('m-has-media')
+    const isTip = classes.includes('m-tip')
+    const isPrice = classes.includes('m-price')
+    let text = ''
+    const textMatch = block.match(/class="b-chat__message__text[^"]*"[^>]*>([\s\S]*?)<\/div>/)
+    if (textMatch) {
+      text = textMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ')
+    }
+    const mediaMatch = block.match(/switcher-media-content__val-total">(\d+)/)
+    const mediaCount = mediaMatch ? mediaMatch[1] : ''
+    let price = ''
+    if (isPrice) {
+      const priceMatch = block.match(/\$\s*([\d,.]+)/)
+      if (priceMatch) price = priceMatch[1]
+    }
+    let msgDate = ''
+    for (let i = datePositions.length - 1; i >= 0; i--) {
+      if (datePositions[i].pos < pos) { msgDate = datePositions[i].date; break }
+    }
+    let msgTime = ''
+    const timeMatch = block.match(/b-chat__message__time[^>]*>[\s\S]*?<span[^>]*>\s*([\d]{1,2}:[\d]{2}\s*[ap]m)\s*<\/span/i)
+    if (timeMatch) msgTime = timeMatch[1].trim()
+    const sender = isFromMe ? 'CREATOR' : 'FAN'
+    let line = `[${sender}]`
+    if (text) line += ` ${text}`
+    if (hasMedia) line += mediaCount ? ` [media x${mediaCount}]` : ' [media]'
+    if (isPrice && price) line += ` [PPV $${price}]`
+    if (isTip) line += ' [TIP]'
+    if (text || hasMedia || isTip) {
+      messages.push({ date: msgDate, time: msgTime, sender, line })
+    }
+  }
+  let currentDate = ''
+  const lines = []
+  for (const msg of messages) {
+    if (msg.date && msg.date !== currentDate) {
+      currentDate = msg.date
+      lines.push(`\n--- ${msg.date} ---`)
+    }
+    lines.push(msg.line)
+  }
+  const firstMsg = messages[0]
+  const lastMsg = messages[messages.length - 1]
+  const firstDate = firstMsg ? (firstMsg.time ? `${firstMsg.date}, ${firstMsg.time}` : firstMsg.date) : ''
+  const lastDate = lastMsg ? (lastMsg.time ? `${lastMsg.date}, ${lastMsg.time}` : lastMsg.date) : ''
+  return {
+    conversation: lines.join('\n'),
+    messages,
+    messageCount: messages.length,
+    fanMessages: messages.filter(m => m.sender === 'FAN').length,
+    creatorMessages: messages.filter(m => m.sender === 'CREATOR').length,
+    firstMessageDate: firstDate,
+    lastMessageDate: lastDate,
+  }
+}
+
 const STATUS_STYLES = {
   'Not Started':       { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' },
   'Ready to Analyze':  { bg: '#dbeafe', text: '#60a5fa', border: '#bfdbfe' },
@@ -913,28 +990,24 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorRecord
 
   async function buildFormData() {
     const formData = new FormData()
-    // Strip non-data content from chat HTML to stay under Vercel's 4.5MB body limit.
-    let uploadFile = chatFile
+    // Parse chat HTML client-side so we upload plain text (~2-5% of raw size)
+    // and stay under Vercel's 4.5MB body limit.
     const isHtml = /\.html?$/i.test(chatFile.name) || (chatFile.type || '').includes('html')
-    if (isHtml && chatFile.size > 3_500_000) {
-      const text = await chatFile.text()
-      const stripped = text
-        .replace(/<svg[\s\S]*?<\/svg>/gi, '')
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<link\b[^>]*>/gi, '')
-        .replace(/<img\b[^>]*>/gi, '')
-        .replace(/<source\b[^>]*>/gi, '')
-        .replace(/<video[\s\S]*?<\/video>/gi, '')
-        .replace(/<audio[\s\S]*?<\/audio>/gi, '')
-        .replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
-        .replace(/data:video\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
-        .replace(/\s+srcset="[^"]*"/gi, '')
-        .replace(/\s+style="[^"]*"/gi, '')
-      const blob = new Blob([stripped], { type: chatFile.type || 'text/html' })
-      uploadFile = new File([blob], chatFile.name, { type: blob.type, lastModified: chatFile.lastModified })
+    if (isHtml) {
+      const html = await chatFile.text()
+      const parsed = parseChatHtmlClient(html)
+      if (parsed.messageCount === 0) {
+        throw new Error('No messages found in the uploaded HTML.')
+      }
+      formData.append('parsedConversation', parsed.conversation)
+      formData.append('parsedMessages', JSON.stringify(parsed.messages))
+      formData.append('parsedFirstDate', parsed.firstMessageDate)
+      formData.append('parsedLastDate', parsed.lastMessageDate)
+      formData.append('parsedFanMsgs', String(parsed.fanMessages))
+      formData.append('parsedCreatorMsgs', String(parsed.creatorMessages))
+    } else {
+      formData.append('file', chatFile)
     }
-    formData.append('file', uploadFile)
     formData.append('fanName', a.fan)
     formData.append('fanUsername', a.username || '')
     formData.append('lifetime', a.lifetime)
@@ -2156,30 +2229,26 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     if (fromTranscript) {
       formData.append('useTranscript', 'true')
     } else {
-      // Strip non-data content from chat HTML to get under Vercel's 4.5MB body limit.
-      // OF chat HTML embeds inline SVGs (emoji, icons), scripts, styles, image thumbnails,
-      // and base64 media previews. The parser only needs the message text + timestamps.
-      let uploadFile = chatFile
+      // Parse chat HTML client-side — sends only the extracted transcript text
+      // instead of the full HTML (which can be 20-100MB and blow past Vercel's
+      // 4.5MB body limit). Parsed transcripts are typically 2-5% of HTML size.
       const isHtml = /\.html?$/i.test(chatFile.name) || (chatFile.type || '').includes('html')
-      if (isHtml && chatFile.size > 3_500_000) {
-        const text = await chatFile.text()
-        const stripped = text
-          .replace(/<svg[\s\S]*?<\/svg>/gi, '')
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<link\b[^>]*>/gi, '')
-          .replace(/<img\b[^>]*>/gi, '')
-          .replace(/<source\b[^>]*>/gi, '')
-          .replace(/<video[\s\S]*?<\/video>/gi, '')
-          .replace(/<audio[\s\S]*?<\/audio>/gi, '')
-          .replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
-          .replace(/data:video\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
-          .replace(/\s+srcset="[^"]*"/gi, '')
-          .replace(/\s+style="[^"]*"/gi, '')
-        const blob = new Blob([stripped], { type: chatFile.type || 'text/html' })
-        uploadFile = new File([blob], chatFile.name, { type: blob.type, lastModified: chatFile.lastModified })
+      if (isHtml) {
+        const html = await chatFile.text()
+        const parsed = parseChatHtmlClient(html)
+        if (parsed.messageCount === 0) {
+          throw new Error('No messages found in the uploaded HTML.')
+        }
+        formData.append('parsedConversation', parsed.conversation)
+        formData.append('parsedMessages', JSON.stringify(parsed.messages))
+        formData.append('parsedFirstDate', parsed.firstMessageDate)
+        formData.append('parsedLastDate', parsed.lastMessageDate)
+        formData.append('parsedFanMsgs', String(parsed.fanMessages))
+        formData.append('parsedCreatorMsgs', String(parsed.creatorMessages))
+      } else {
+        // Non-HTML file — send as-is (server will reject if not supported)
+        formData.append('file', chatFile)
       }
-      formData.append('file', uploadFile)
     }
     formData.append('fanName', f.fanName)
     formData.append('fanUsername', f.ofUsername || '')
