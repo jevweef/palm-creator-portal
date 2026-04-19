@@ -2162,6 +2162,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
   // null for single-account fans (whose uploads don't need an account tag).
   const [uploadAccountName, setUploadAccountName] = useState(null)
+  // Multi-account fans: tracks per-account save state. { 'Sunny - Free OF': 'saving' | 'saved' | 'error', ... }
+  // Each account uploads to Dropbox independently on pick; final Analyze loads combined transcripts.
+  const [accountUploadState, setAccountUploadState] = useState({})
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
@@ -2395,6 +2398,46 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       setAnalysisError(e.message)
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  // Multi-account flow: user picks a file for a specific account → save that account's
+  // transcript to Dropbox immediately (parsed client-side first to stay under 4.5MB body limit).
+  // Once all desired accounts are uploaded, a single Analyze Conversation button loads the
+  // combined transcripts from Dropbox and runs the AI analysis.
+  async function handleAccountUpload(accountName, file) {
+    setAccountUploadState(s => ({ ...s, [accountName]: 'saving' }))
+    setAnalysisError(null)
+    try {
+      const isHtml = /\.html?$/i.test(file.name) || (file.type || '').includes('html')
+      const fd = new FormData()
+      fd.append('saveTranscriptOnly', 'true')
+      fd.append('fanName', f.fanName)
+      fd.append('fanUsername', f.ofUsername || '')
+      fd.append('creatorName', creatorName || '')
+      fd.append('creatorRecordId', creatorRecordId || '')
+      fd.append('accountName', accountName)
+      if (isHtml) {
+        // Parse client-side so we don't send the full 20-100MB HTML
+        const html = await file.text()
+        const parsed = parseChatHtmlClient(html)
+        if (parsed.messageCount === 0) throw new Error('No messages found in HTML')
+        fd.append('parsedConversation', parsed.conversation)
+        fd.append('parsedMessages', JSON.stringify(parsed.messages))
+        fd.append('parsedFirstDate', parsed.firstMessageDate)
+        fd.append('parsedLastDate', parsed.lastMessageDate)
+        fd.append('parsedFanMsgs', String(parsed.fanMessages))
+        fd.append('parsedCreatorMsgs', String(parsed.creatorMessages))
+      } else {
+        fd.append('file', file)
+      }
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      setAccountUploadState(s => ({ ...s, [accountName]: 'saved' }))
+    } catch (e) {
+      setAccountUploadState(s => ({ ...s, [accountName]: 'error' }))
+      setAnalysisError(`${accountName} upload failed: ${e.message}`)
     }
   }
 
@@ -3189,35 +3232,51 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               <input ref={chatFileRef} type="file" accept=".html,.htm"
-                onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
+                onChange={e => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  setAnalysisError(null)
+                  if (accountNames.length > 1 && uploadAccountName) {
+                    // Multi-account: auto-save this account's transcript to Dropbox immediately.
+                    // User can then pick another account and repeat. Final Analyze uses combined transcripts.
+                    handleAccountUpload(uploadAccountName, file)
+                  } else {
+                    // Single-account: existing flow — hold file in state, user clicks Analyze to run.
+                    setChatFile(file)
+                  }
+                  e.target.value = '' // allow re-selecting the same filename
+                }}
                 style={{ display: 'none' }} />
 
               {accountNames.length > 1 ? (
-                // Multi-account fan: render one upload button per account, color-coded to match the
-                // badges. Clicking a button tags this upload with that account so the server knows
-                // which per-account transcript file to save into.
+                // Multi-account fan: one button per account, color-coded to match the badges.
+                // Clicking opens picker; picking a file auto-saves to that account's Dropbox transcript.
                 <>
                   {accountNames.map(acct => {
                     const isFree = /free/i.test(acct)
                     const isVip = /vip/i.test(acct)
                     const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : '#64748B'
                     const baseBg = isFree ? '#EFF6FF' : isVip ? '#F5F3FF' : '#F8FAFC'
-                    const selected = chatFile && uploadAccountName === acct
+                    const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
+                    const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
+                    const displayText = state === 'saving' ? `Saving ${label}\u2026`
+                      : state === 'saved' ? `\u2713 ${label} saved`
+                      : state === 'error' ? `\u26A0 ${label} failed \u2014 retry`
+                      : `Upload ${label} chat`
+                    const isSuccess = state === 'saved'
                     return (
                       <button key={acct}
-                        onClick={() => {
-                          // Switching accounts clears any prior selection so we never analyze the wrong file under the wrong thread tag
-                          if (uploadAccountName !== acct) setChatFile(null)
-                          setUploadAccountName(acct)
-                          chatFileRef.current?.click()
-                        }}
+                        disabled={state === 'saving'}
+                        onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
                         style={{
-                          background: selected ? '#F0FDF4' : baseBg,
-                          border: `1px solid ${selected ? '#BBF7D0' : baseColor + '66'}`,
-                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                          color: selected ? '#166534' : baseColor, fontWeight: selected ? 600 : 500,
+                          background: isSuccess ? '#F0FDF4' : baseBg,
+                          border: `1px solid ${isSuccess ? '#BBF7D0' : baseColor + '66'}`,
+                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
+                          cursor: state === 'saving' ? 'wait' : 'pointer',
+                          color: isSuccess ? '#166534' : baseColor, fontWeight: isSuccess ? 600 : 500,
+                          opacity: state === 'saving' ? 0.7 : 1,
                         }}>
-                        {selected ? `\u2713 ${chatFile.name.slice(0, 24)}${chatFile.name.length > 24 ? '\u2026' : ''}` : `Upload ${acct.replace(/^.*?-\s*/, '')} chat`}
+                        {displayText}
                       </button>
                     )
                   })}
@@ -3232,6 +3291,20 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
                 </button>
               )}
+              {/* Multi-account: Analyze button appears once at least one account's transcript is saved.
+                  Uses the "useTranscript" flow — server loads ALL saved account transcripts from Dropbox,
+                  combines them with thread headers, and sends to Claude for one unified analysis. */}
+              {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
+                <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                  style={{
+                    background: '#EA580C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
+                </button>
+              )}
+
               {chatFile && (
                 <button onClick={handleAnalyze} disabled={analyzing}
                   style={{
