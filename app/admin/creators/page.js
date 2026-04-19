@@ -2410,9 +2410,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       currentGap: 0,
       gapRatio: 0,
     }
-    // Compute monthly spending history from transaction data for the PDF chart
-    // Use same matching logic as the fan spend chart (ofUsername or displayName)
-    const monthlyMap = {}
+    // Compute monthly spending history from transaction data for the PDF chart.
+    // Track both total AND per-account so the chart can show stacked bars for
+    // multi-account creators (e.g. Sunny's Free OF vs VIP OF).
+    const monthlyMap = {}       // { 'YYYY-MM': totalSpend }
+    const monthlyByAccount = {} // { 'YYYY-MM': { [accountName]: spend } }
+    const accountsSeen = new Set()
     if (allTxns) {
       for (const t of allTxns) {
         const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
@@ -2420,13 +2423,40 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         if (!match || !isRealPurchase(t)) continue
         if (t.net > 0) {
           const mo = (t.date || '').slice(0, 7)
-          if (mo) monthlyMap[mo] = (monthlyMap[mo] || 0) + t.net
+          if (!mo) continue
+          monthlyMap[mo] = (monthlyMap[mo] || 0) + t.net
+          const acct = t.account || 'Unknown'
+          accountsSeen.add(acct)
+          if (!monthlyByAccount[mo]) monthlyByAccount[mo] = {}
+          monthlyByAccount[mo][acct] = (monthlyByAccount[mo][acct] || 0) + t.net
         }
       }
     }
-    const monthlyHistory = Object.entries(monthlyMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, spend]) => ({ month, spend: Math.round(spend) }))
+    const sortedMonths = Object.keys(monthlyMap).sort()
+    const accountNames = [...accountsSeen].sort()
+    // Fill gap months with zero so the cool-off is visible.
+    // Window: from first-purchase-month → current month (so a dead fan shows
+    // every empty month after their peak). Cap at last 12 months if history is longer.
+    let monthlyHistory = []
+    if (sortedMonths.length > 0) {
+      const now = new Date()
+      const curMo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const firstMo = sortedMonths[0]
+      const filled = []
+      let cur = firstMo
+      while (cur <= curMo) {
+        const spend = Math.round(monthlyMap[cur] || 0)
+        const byAcct = {}
+        if (monthlyByAccount[cur]) {
+          for (const [acct, v] of Object.entries(monthlyByAccount[cur])) byAcct[acct] = Math.round(v)
+        }
+        filled.push({ month: cur, spend, byAccount: byAcct })
+        const [y, m] = cur.split('-').map(Number)
+        cur = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+      }
+      // Cap at 12 most recent months so the chart stays readable
+      monthlyHistory = filled.length > 12 ? filled.slice(-12) : filled
+    }
 
     // Compute peak 90-day monthly avg (best 3-month rolling window) with date range
     let peakMonthlyAvg = 0
@@ -2462,7 +2492,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       creatorName, // full legal name — used for Dropbox folder path consistency
       creatorAka,  // stage name — used for Telegram topic routing
       creatorRecordId,
-      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, peakMonthlyAvg, peakRange },
+      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, accountNames, peakMonthlyAvg, peakRange },
       analysis: analysis
         ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief }
         : selRec
