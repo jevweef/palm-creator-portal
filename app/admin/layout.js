@@ -25,6 +25,10 @@ const ADMIN_NAV = [
     { key: 'earnings', label: 'Earnings' },
     { key: 'dna', label: 'DNA Profile' },
   ]},
+  { href: '/admin/whale-hunting', label: 'Whale Hunting', icon: '🐋', children: [
+    { key: 'internal', label: 'Palm Internal' },
+    { key: 'team', label: 'Chat Team Report' },
+  ]},
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
   { href: '/admin/invoicing', label: 'Invoicing', icon: '💸', children: [
     { key: 'invoices', label: 'Invoices' },
