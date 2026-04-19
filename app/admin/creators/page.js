@@ -2145,6 +2145,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   const [selectedAnalysisIdx, setSelectedAnalysisIdx] = useState(0)
   const [chartMode, setChartMode] = useState('monthly') // 'daily' | 'monthly'
   const [showAllHistory, setShowAllHistory] = useState(false)
+  const [splitByAccount, setSplitByAccount] = useState(false)
   const [hoverIdx, setHoverIdx] = useState(null)
   const [savingTranscript, setSavingTranscript] = useState(false)
   const [transcriptSaved, setTranscriptSaved] = useState(false)
@@ -2159,9 +2160,10 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   // Analysis is now shown via cards (analysisRecords) — full text loads on demand via "View Full" modal or new analysis run
 
   // Build daily + monthly spend data for this fan from allTxns
-  const { fanSpendData, monthlySpendData } = useMemo(() => {
-    if (!allTxns || !Array.isArray(allTxns)) return { fanSpendData: null, monthlySpendData: null }
+  const { fanSpendData, monthlySpendData, perAccountMonthly, perAccountDaily, accountNames } = useMemo(() => {
+    if (!allTxns || !Array.isArray(allTxns)) return { fanSpendData: null, monthlySpendData: null, perAccountMonthly: {}, perAccountDaily: {}, accountNames: [] }
     const dailySpend = {}
+    const dailyByAccount = {} // { account: { date: spend } }
     for (const t of allTxns) {
       const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
         (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
@@ -2169,9 +2171,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       const d = t.date
       if (!d) continue
       dailySpend[d] = (dailySpend[d] || 0) + (t.net || 0)
+      const acct = t.account || 'Unknown'
+      if (!dailyByAccount[acct]) dailyByAccount[acct] = {}
+      dailyByAccount[acct][d] = (dailyByAccount[acct][d] || 0) + (t.net || 0)
     }
     const entries = Object.entries(dailySpend).sort(([a], [b]) => a.localeCompare(b))
-    if (entries.length < 1) return { fanSpendData: null, monthlySpendData: null }
+    if (entries.length < 1) return { fanSpendData: null, monthlySpendData: null, perAccountMonthly: {}, perAccountDaily: {}, accountNames: [] }
 
     // Fill gaps with zero-spend days — extend to today so the gap is visible
     const filled = []
@@ -2205,7 +2210,23 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       cur = next
     }
 
-    return { fanSpendData: filled, monthlySpendData: allMonths }
+    // Per-account breakdowns (only useful when fan is on 2+ accounts)
+    const acctNames = Object.keys(dailyByAccount).sort()
+    const perMonthly = {}
+    const perDaily = {}
+    for (const acct of acctNames) {
+      const acctDaily = dailyByAccount[acct]
+      perDaily[acct] = filled.map(d => ({ date: d.date, spend: acctDaily[d.date] || 0, afterLastSpend: d.afterLastSpend }))
+      perMonthly[acct] = allMonths.map(m => {
+        let sum = 0
+        for (const [dt, v] of Object.entries(acctDaily)) {
+          if (dt.startsWith(m.month)) sum += v
+        }
+        return { month: m.month, spend: sum }
+      })
+    }
+
+    return { fanSpendData: filled, monthlySpendData: allMonths, perAccountMonthly: perMonthly, perAccountDaily: perDaily, accountNames: acctNames }
   }, [allTxns, f.ofUsername, f.fanName])
 
   // Milestone dates from alert history and analyses
@@ -2651,6 +2672,29 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
                   <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
                 </div>
+                {accountNames.length > 1 && (
+                  <button onClick={() => setSplitByAccount(!splitByAccount)}
+                    style={{
+                      padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                      borderRadius: '4px', background: splitByAccount ? '#7C3AED' : '#F3F4F6', color: splitByAccount ? '#fff' : '#666',
+                    }}>
+                    Split by account
+                  </button>
+                )}
+                {splitByAccount && accountNames.length > 1 && (
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '9px', color: '#666' }}>
+                    {accountNames.map(acct => {
+                      const isFree = /free/i.test(acct)
+                      const color = isFree ? '#60A5FA' : '#A78BFA'
+                      return (
+                        <span key={acct} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: color }} />
+                          {acct}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
 
@@ -2678,9 +2722,31 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       const spendLabelY = padT + chartH - barH - 3
                       const defaultDotY = padT - 6
                       const dotY = hasMilestone && d.spend > 0 && spendLabelY < defaultDotY + 12 ? spendLabelY - 10 : defaultDotY
+                      // Stacked segments when splitting by account
+                      let segments = null
+                      if (splitByAccount && accountNames.length > 1 && d.spend > 0) {
+                        let yCursor = padT + chartH
+                        segments = accountNames.map(acct => {
+                          const acctSpend = perAccountMonthly[acct]?.[i]?.spend || 0
+                          if (acctSpend <= 0) return null
+                          const segH = (acctSpend / sharedMax) * chartH
+                          const isFree = /free/i.test(acct)
+                          const color = isFree ? '#60A5FA' : '#A78BFA'
+                          const rect = <rect key={acct} x={cx - barW / 2} y={yCursor - segH} width={barW} height={segH} fill={color} />
+                          yCursor -= segH
+                          return rect
+                        })
+                      }
                       return (
                         <g key={d.month}>
-                          <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
+                          {segments ? (
+                            <>
+                              <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill="none" />
+                              {segments}
+                            </>
+                          ) : (
+                            <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
+                          )}
                           {d.spend > 0 && <text x={cx} y={spendLabelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
                           <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#7C3AED' : '#999'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
                           {hasMilestone && <circle cx={cx} cy={dotY} r="3.5" fill="#7C3AED" />}
@@ -2772,12 +2838,34 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                         <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
                       </g>
                     ))}
-                    <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
-                    {solidPath && <path d={solidPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />}
-                    {dashedPath && <path d={dashedPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />}
-                    {data.map((d, i) => d.spend > 0 ? (
-                      <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
-                    ) : null)}
+                    {splitByAccount && accountNames.length > 1 ? (
+                      // Per-account lines, clipped to visible daily window
+                      accountNames.map(acct => {
+                        const isFree = /free/i.test(acct)
+                        const color = isFree ? '#60A5FA' : '#A78BFA'
+                        const acctAll = perAccountDaily[acct] || []
+                        const visible = startMonth ? acctAll.filter(d => d.date >= startMonth) : acctAll
+                        const pts = visible.map((_, i) => `${xScale(i)},${yScale(visible[i].spend)}`)
+                        if (pts.length < 2) return null
+                        return (
+                          <g key={acct}>
+                            <path d={'M' + pts.join(' L')} fill="none" stroke={color} strokeWidth="1.5" />
+                            {visible.map((d, i) => d.spend > 0 ? (
+                              <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={2} fill={color} />
+                            ) : null)}
+                          </g>
+                        )
+                      })
+                    ) : (
+                      <>
+                        <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
+                        {solidPath && <path d={solidPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />}
+                        {dashedPath && <path d={dashedPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />}
+                        {data.map((d, i) => d.spend > 0 ? (
+                          <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
+                        ) : null)}
+                      </>
+                    )}
                     {hoverIdx !== null && data[hoverIdx] && (() => {
                       const d = data[hoverIdx]
                       const hx = xScale(hoverIdx)
