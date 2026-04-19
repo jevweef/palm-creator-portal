@@ -758,22 +758,51 @@ HARD RULES:
     }
 
     // Main whale-hunting analysis — Claude Sonnet 4.6.
-    // Using streaming + finalMessage() so long outputs don't hit HTTP timeouts.
-    // Prompt caching is applied to the system prompt so repeated calls on the
-    // same fan (or different fans with the same base instructions) save cost.
-    const stream = anthropic.messages.stream({
-      model: 'claude-sonnet-4-6',
-      max_tokens: isHighValue ? 5000 : 1500,
-      thinking: { type: 'adaptive' },
-      system: [
-        { type: 'text', text: systemWithContext, cache_control: { type: 'ephemeral' } },
-      ],
-      messages: [
-        { role: 'user', content: `Analyze this conversation between ${creatorAka} (CREATOR) and ${fanName} (FAN):\n\n${fullConversation}` },
-      ],
-    })
-    const claudeMessage = await stream.finalMessage()
-    const fullAnalysis = claudeMessage.content.find(b => b.type === 'text')?.text || 'Analysis failed'
+    // Streaming + finalMessage() so long outputs don't hit HTTP timeouts.
+    // Prompt caching on the system prompt saves cost on repeat calls.
+    // Thinking OFF for now — with thinking on, a chunk of max_tokens gets spent
+    // before text output starts, and we can silently end up with zero text blocks.
+    // Revisit once we've validated the base output quality.
+    const claudeMaxTokens = isHighValue ? 6000 : 2000
+    let fullAnalysis = 'Analysis failed'
+    let claudeUsage = null
+    let claudeStopReason = null
+    try {
+      const stream = anthropic.messages.stream({
+        model: 'claude-sonnet-4-6',
+        max_tokens: claudeMaxTokens,
+        system: [
+          { type: 'text', text: systemWithContext, cache_control: { type: 'ephemeral' } },
+        ],
+        messages: [
+          { role: 'user', content: `Analyze this conversation between ${creatorAka} (CREATOR) and ${fanName} (FAN):\n\n${fullConversation}` },
+        ],
+      })
+      const claudeMessage = await stream.finalMessage()
+      claudeUsage = claudeMessage.usage
+      claudeStopReason = claudeMessage.stop_reason
+      const textBlock = claudeMessage.content.find(b => b.type === 'text')
+      if (textBlock?.text) {
+        fullAnalysis = textBlock.text
+      } else {
+        console.error('[Whale Analysis] Claude returned no text block. stop_reason:', claudeStopReason, 'content blocks:', claudeMessage.content.map(b => b.type))
+        fullAnalysis = `Analysis failed — model stopped before producing output (reason: ${claudeStopReason}). Try again or contact support.`
+      }
+    } catch (err) {
+      console.error('[Whale Analysis] Claude call threw:', err?.status, err?.message, err?.error)
+      fullAnalysis = `Analysis failed — ${err?.message || 'unknown error'}. Check Vercel logs for details.`
+    }
+
+    // Cost + usage logging for real-time visibility (Anthropic Console lags ~15min-2hr)
+    if (claudeUsage) {
+      const input = claudeUsage.input_tokens || 0
+      const output = claudeUsage.output_tokens || 0
+      const cacheRead = claudeUsage.cache_read_input_tokens || 0
+      const cacheCreate = claudeUsage.cache_creation_input_tokens || 0
+      // Sonnet 4.6 pricing per million tokens
+      const cost = (input * 3 + output * 15 + cacheRead * 0.3 + cacheCreate * 3.75) / 1_000_000
+      console.log(`[Whale Analysis] ${fanName} • ${creatorAka} | stop_reason=${claudeStopReason} | in=${input} out=${output} cacheR=${cacheRead} cacheW=${cacheCreate} | $${cost.toFixed(4)}`)
+    }
 
     // Run manager brief, Dropbox save, and fan tracker upsert in parallel
     const creatorRecordId = formData.get('creatorRecordId') || ''
