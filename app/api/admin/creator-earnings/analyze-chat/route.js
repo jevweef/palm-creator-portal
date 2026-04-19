@@ -624,40 +624,38 @@ HARD RULES:
 
 OUTPUT FORMAT (produce exactly these sections in this order, with these exact headings).
 
-LENGTH TARGET: scale with fan complexity. Aim for ~1000 words for a rich, long-history, high-lifetime fan with multiple incidents and rich personal details. Aim for 400-600 words for a simpler fan with a short history, sparse personal detail, or straightforward situation. Do NOT pad a simple fan to hit a word count, and do NOT truncate a complex fan's evidence to stay brief. Specificity over length. No filler, no restatement across sections.
+HARD LENGTH CEILING: 1000 words for the most complex patron-tier fan. 400-600 words for a simpler fan. If you hit 1000 words, stop — cut the least important bullet or shorten sentences. Do NOT pad simple fans. Specificity over length. No filler, no restatement across sections.
 
 FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total  •  [N] days since he last replied
 
 QUICK READ
-[1-3 sentences. The situation in plain words and what's at stake. Don't rehash evidence here — that's the next section.]
+[1-2 sentences. The situation and what's at stake. Don't rehash evidence — that's the next section.]
 
 WHAT HAPPENED
-[As long as the evidence needs, typically 3-8 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor (budget, life event), cite the quote. If genuinely unclear, say so. Do not speculate past the evidence.]
+[3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor, cite the quote. If genuinely unclear, say so. Do not speculate past the evidence.]
 
 WHO HE IS
-[Bulleted timeless facts. Aim for 4-8 lines depending on how much is genuinely known. Name/nickname, location, job if known, pets, ongoing hobbies, recurring life details, stated values. Each line should still be true 6 months from now — skip stale specifics like "he went to Florida last week."]
+[4-7 bulleted timeless facts. One short line each. Name/nickname, location, job, pets, ongoing hobbies, stated values. Each line should still be true 6 months from now — skip stale specifics.]
 
-WHAT HE BUYS
+WHAT HE BUYS & HOW TO WRITE TO HIM
 Content he responds to:
-  - [specific thing with short quote evidence]
+  - [specific thing + short quote evidence]
   - [specific thing]
   - [specific thing]
 Avoid:
-  - [specific thing with evidence]
+  - [specific thing + evidence]
   - [specific thing]
-
-HOW TO WRITE TO HIM
-[3-5 short lines. Tone, length of replies, clear do's, clear don'ts. Plain language. Skip if the fan is too simple for this to add signal.]
+How to write: [2-3 sentences on tone, reply length, key do's and don'ts. Plain language, no lectures.]
 
 SLEEPING THREADS
-[Numbered. Only include real, dated, specific threads — unfinished deals with dollar amounts, unacknowledged life events, explicit preferences not honored. If there aren't any, write "None surfaced." Don't pad with generic advice. Each: one short line for what it is + one short line for why it matters.]
+[Numbered. Only real, dated, specific threads — unfinished deals with dollar amounts, unacknowledged life events, explicit preferences not honored. If there aren't any, write "None surfaced." Don't pad. Each: one line for what it is + one line for why it matters.]
 
 NEXT MOVE
-[1-3 sentences of guidance. Then a sample message in a quote block, copy-paste ready:]
+[1-2 sentences of guidance. Then a sample message in a quote block, copy-paste ready:]
 
 > "[Ready-to-send message. References specific timeless facts from the dossier. No sell. No content. No pricing.]"
 
-[Then: 1-2 sentences for what to do if he replies. 1-2 sentences for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]`
+[1-2 sentences for what to do if he replies. 1 sentence for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]`
 
       : `You are a whale-hunting analyst for an OnlyFans agency. Your output is a short brief a chat manager will hand to a chatter. Write plainly, no jargon.
 
@@ -795,11 +793,10 @@ HARD RULES:
     // Thinking OFF for now — with thinking on, a chunk of max_tokens gets spent
     // before text output starts, and we can silently end up with zero text blocks.
     // Revisit once we've validated the base output quality.
-    // Target scales with fan complexity: ~1000 words (~1500 tokens) for rich
-    // patron-tier fans, 400-600 words (~900 tokens) for simpler fans. Ceiling
-    // gives headroom without allowing runaway output. Billed per actual token
-    // generated, so this is a cap not a quota.
-    const claudeMaxTokens = isHighValue ? 4000 : 1500
+    // Hard ceiling: ~1000 words for patrons (~1500 tokens), 400-600 for simpler
+    // fans. max_tokens gives a small buffer above the prompt ceiling; the model
+    // is instructed to stop at 1000 words. Billed per actual token generated.
+    const claudeMaxTokens = isHighValue ? 2000 : 1000
     let fullAnalysis = 'Analysis failed'
     let claudeUsage = null
     let claudeStopReason = null
