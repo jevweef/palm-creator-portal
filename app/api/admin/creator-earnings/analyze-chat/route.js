@@ -599,6 +599,13 @@ STEP 3: Check for these specific patterns and surface them as evidence when pres
   - LIFETIME VS RECENT PATTERN: Quote-backs (creator pasting fan's words back without adding new content) and recycled scripts (same paragraph used 2+ times).
   - DISPLAY-NAME METADATA: If the fan's display name contains operator notes ("Read pin//VIP...", "for sale $300", status emojis), extract them as pending-deal context.
 
+STEP 3.5: MINE INLINE PURCHASE MARKERS. The chat HTML contains inline payment markers like "$10 paid", "Tipped $X", "Purchased ... for $X" attached to specific messages. Treat these as QUALITATIVE buy-trigger evidence — what he actually pays for and what message preceded the payment — NOT as totals.
+  - Note the CONTENT TYPE he pays for (pool sets, voice notes, customs, specific kinks, PPV topics) with one-line quote/date evidence
+  - Note the MESSAGE TONE/HOOK that preceded each payment (morning check-in, flirty tease, direct ask, voice note, etc.) — "what works" patterns
+  - Note what he IGNORED — expensive PPVs he didn't open, pitches that died
+  - Include 1-2 concrete "proven buy trigger" observations in WHAT HE BUYS. Be specific: "He opened a $25 PPV after the pool-set preview on Apr 2 — waterproof/poolside angles convert."
+  - Chat-observed purchases older than the spending context block are fine to use for qualitative patterns. They remain valid insight about who he is.
+
 STEP 4: Build the dossier. Tag every personal detail as:
   - TIMELESS (always safe to reference): name, pets, job, ongoing hobbies, hometown, stated kinks, family situation, core values
   - TIME-SENSITIVE (stale after ~3 weeks): specific trips, "how was your weekend," upcoming events he mentioned, current-events reactions
@@ -621,6 +628,7 @@ HARD RULES:
   6. "Personal circumstances" / "natural cooling" are not diagnoses. Either name a specific signal or say "we don't know why."
   7. The chatter should never have to scroll back through chat history. If a moment matters, quote it here.
   8. No em-dashes, no corporate voice. Write like a friend telling another friend what's going on.
+  9. ALL dollar totals, lifetime numbers, rolling-30-day figures, and trend math come from the SPENDING DATA block above — that is the single source of truth. NEVER cite aggregate dollar amounts from inline chat purchase markers (e.g. don't say "he spent ~$400 in 2023"). Inline markers are qualitative buy-trigger evidence only — name content types and hooks, not totals.
 
 OUTPUT FORMAT (produce exactly these sections in this order, with these exact headings).
 
@@ -691,7 +699,8 @@ HARD RULES:
 - Never write "mark as lost," "write off," "move on," "cold list" — doors stay open.
 - Every claim needs a quote or date as evidence. No vibes labels.
 - Sample messages must be copy-paste ready. Pull actual phrases from the chat.
-- If the fan is a $50 one-off with no rapport, output 3 sentences total with guidance to "keep it light, no investment" rather than a full brief.`
+- If the fan is a $50 one-off with no rapport, output 3 sentences total with guidance to "keep it light, no investment" rather than a full brief.
+- Inline chat payment markers ("$10 paid", "Tipped $X", "Purchased ... for $X") are QUALITATIVE buy-trigger evidence — use them to name content types and hooks that convert, NOT to cite dollar totals. All totals come from the SPENDING DATA block above.`
 
     // Annotate conversation with daily spend amounts at each date
     let conversation = parsed.conversation
