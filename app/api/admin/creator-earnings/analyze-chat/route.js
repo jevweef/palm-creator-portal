@@ -60,9 +60,13 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
     const trackerData = await trackerRes.json()
     const tracker = trackerData.records?.[0]?.fields || null
 
-    if (!prevAnalysis && !tracker) return null
+    // Only seed prior context when there's actual analysis text to learn from. A tracker
+     // record alone (e.g. leftover stats from a deleted analysis) is not enough — without
+     // a previous Manager Brief or Full Analysis, there's nothing meaningful to reference.
+    if (!prevAnalysis) return null
+    if (!prevAnalysis['Manager Brief'] && !prevAnalysis['Full Analysis']) return null
 
-    let context = '\n\nPRIOR CONTEXT FOR THIS FAN (this is NOT the first time we are analyzing them):\n'
+    let context = '\n\nPRIOR CONTEXT FOR THIS FAN (background only — do NOT narrate this in the output):\n'
 
     if (prevAnalysis) {
       const prevDate = prevAnalysis['Analyzed Date']
@@ -112,29 +116,27 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
       const isCurrentlyHot = rolling30 > 0 && (monthlyAvg90 <= 0 || rolling30 >= monthlyAvg90 * 0.5) && currentGap < (medianGap > 0 ? medianGap * 2 : 30)
       const isReengaged = rolling30 > 0 && preAlert === 0
 
-      context += `\n\nIMPORTANT: This fan has been flagged ${timesGoneCold} time(s) before. This is a FOLLOW-UP analysis.`
-
+      // Framing: treat prior context as background the model silently considers, not as
+      // a format directive. The brief should read standalone — no "this is a re-analysis",
+      // no "acknowledge we've flagged them before". If there's something relevant since last
+      // time, fold it in naturally (e.g. "he's gone another 3 weeks silent since").
       if (isCurrentlyHot || isReengaged) {
-        context += ` The fan appears to have RE-ENGAGED — they are currently spending ($${Math.round(rolling30).toLocaleString()} in the last 30 days). Your analysis MUST:`
-        context += `\n- Recognize this is a SUCCESS — the fan came back. Do NOT frame this as "going cold" or needing recovery`
-        context += `\n- Identify what WORKED to bring them back — compare the new chat messages to the previous approach`
-        context += `\n- Evaluate whether the previous action items were followed and which ones drove the re-engagement`
-        context += `\n- Highlight what's keeping them engaged NOW so the team can maintain it`
-        context += `\n- Warn about specific risks that could cause them to go cold AGAIN (based on their history)`
-        context += `\n- Action items should focus on MAINTAINING momentum, not recovery`
-        context += `\n- Recovery Odds should be replaced with RETENTION outlook (High/Medium/Low chance they stay engaged)`
+        context += `\n\nThe fan appears to have RE-ENGAGED — they are currently spending ($${Math.round(rolling30).toLocaleString()} in the last 30 days). For this brief:`
+        context += `\n- This is a SUCCESS case. Frame the brief around maintaining momentum, not recovery.`
+        context += `\n- Identify what worked to bring them back (compare recent chat messages to the previous approach).`
+        context += `\n- Evaluate whether previous action items were followed and which drove the re-engagement.`
+        context += `\n- Warn about specific risks that could cause them to go cold again.`
+        context += `\n- Replace Recovery Odds with Retention Outlook (High/Medium/Low chance they stay engaged).`
       } else {
-        context += ` Your analysis MUST:`
-        context += `\n- Start by acknowledging this is a re-analysis, not a first look`
-        context += `\n- Evaluate whether the previous action items were followed in the NEW chat messages`
-        context += `\n- Compare spending BEFORE vs AFTER the alert was sent to the chat manager`
-        context += `\n- If the fan re-engaged after the intervention, identify what worked and why`
-        context += `\n- If the fan did NOT re-engage, assess whether the action items were even attempted`
-        context += `\n- Identify if this is a PATTERN (recurring going-cold cycle) vs a one-time issue`
-        context += `\n- If previous action items didn't work or weren't tried, suggest a DIFFERENT approach`
-        context += `\n- Be honest about recovery odds given the history`
+        context += `\n\nFor this brief:`
+        context += `\n- Quietly evaluate whether previous action items were followed in the NEW messages, without narrating the evaluation in the output.`
+        context += `\n- Compare spending BEFORE vs AFTER the alert date — if relevant, fold it into WHAT HAPPENED.`
+        context += `\n- Identify if this is a recurring going-cold pattern or a one-time issue.`
+        context += `\n- If previous action items didn't work, prescribe a DIFFERENT approach in NEXT MOVE.`
+        context += `\n- Be honest about recovery odds given history.`
       }
-      context += `\n- The conversation now includes BOTH old messages (from prior analysis) and NEW messages. Look for changes in tone, engagement, or spending patterns after the alert date.`
+      context += `\n- The conversation may include both old and new messages. Look for changes in tone, engagement, or spending after the last alert date.`
+      context += `\n- NEVER open the output with "This is a follow-up," "This is a re-analysis," or any meta-commentary. QUICK READ must start with the fan's actual situation.`
     }
 
     // Return both the context string and whether fan is currently hot
