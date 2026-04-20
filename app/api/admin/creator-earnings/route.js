@@ -19,6 +19,7 @@ const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 // ── Airtable (Revenue Accounts) ────────────────────────────────────────────
 
 const HQ_BASE = 'appL7c4Wtotpz07KS'
+const OPS_BASE = 'applLIT2t83plMqNx'
 const REVENUE_ACCOUNTS_TABLE = 'tblQqPWlsjiyJA0ba'
 const HQ_CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
@@ -697,7 +698,44 @@ export async function GET(request) {
       .map((f, i) => ({ rank: i + 1, ...f, accounts: [...f.accounts] }))
 
     // ── Going cold alerts ────────────────────────────────────────────────
-    const goingColdAlerts = detectGoingCold(transactions, now)
+    const rawGoingColdAlerts = detectGoingCold(transactions, now)
+
+    // Filter out fans already dealt with: hide any whose Fan Tracker Status is
+    // Alert Sent / Received by Manager / Recovering / Reactivated / Monitoring
+    // OR whose Last Alert Sent is within the 14-day cooldown window. This keeps
+    // the admin dashboard "undealt-with" list clean — once someone gets sent to
+    // the chat manager they drop off until the cooldown expires.
+    // If the lookup fails for any reason we fall back to the raw list so alerts
+    // never silently disappear.
+    const COOLDOWN_DAYS = 14
+    const dealtWithStatuses = new Set(['Alert Sent', 'Received by Manager', 'Recovering', 'Reactivated', 'Monitoring', 'Banned'])
+    const dealtWithUsernames = new Set()
+    try {
+      const alertUsernames = rawGoingColdAlerts.map(a => a.username).filter(Boolean)
+      if (alertUsernames.length > 0) {
+        const cooldownCutoff = new Date(now)
+        cooldownCutoff.setDate(cooldownCutoff.getDate() - COOLDOWN_DAYS)
+        // Formula: usernames in this creator's going-cold list AND (active status OR recent alert)
+        const usernameClauses = alertUsernames.map(u => `{OF Username} = "${u.replace(/"/g, '\\"')}"`).join(', ')
+        const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Fan Tracker')}?filterByFormula=${encodeURIComponent(`OR(${usernameClauses})`)}`, {
+          headers: AIRTABLE_HEADERS, cache: 'no-store',
+        })
+        const data = await res.json()
+        for (const r of (data.records || [])) {
+          const username = r.fields['OF Username']
+          if (!username) continue
+          const status = r.fields['Status']
+          const lastAlert = r.fields['Last Alert Sent']
+          const recentlyAlerted = lastAlert && new Date(lastAlert) >= cooldownCutoff
+          if (dealtWithStatuses.has(status) || recentlyAlerted) {
+            dealtWithUsernames.add(username)
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Going Cold] Failed to filter dealt-with fans, showing all:', err?.message || err)
+    }
+    const goingColdAlerts = rawGoingColdAlerts.filter(a => !dealtWithUsernames.has(a.username))
 
     // Lightweight mode: skip chart/topFans computation, just return alerts
     if (goingColdOnly) {
@@ -705,6 +743,7 @@ export async function GET(request) {
         creator,
         goingColdAlerts: goingColdAlerts.slice(0, 30),
         goingColdCount: goingColdAlerts.length,
+        filteredDealtWith: dealtWithUsernames.size, // for debugging
       })
     }
 
