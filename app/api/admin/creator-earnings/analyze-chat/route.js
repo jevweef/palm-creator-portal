@@ -60,9 +60,13 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
     const trackerData = await trackerRes.json()
     const tracker = trackerData.records?.[0]?.fields || null
 
-    if (!prevAnalysis && !tracker) return null
+    // Only seed prior context when there's actual analysis text to learn from. A tracker
+     // record alone (e.g. leftover stats from a deleted analysis) is not enough — without
+     // a previous Manager Brief or Full Analysis, there's nothing meaningful to reference.
+    if (!prevAnalysis) return null
+    if (!prevAnalysis['Manager Brief'] && !prevAnalysis['Full Analysis']) return null
 
-    let context = '\n\nPRIOR CONTEXT FOR THIS FAN (this is NOT the first time we are analyzing them):\n'
+    let context = '\n\nPRIOR CONTEXT FOR THIS FAN (background only — do NOT narrate this in the output):\n'
 
     if (prevAnalysis) {
       const prevDate = prevAnalysis['Analyzed Date']
@@ -112,29 +116,27 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
       const isCurrentlyHot = rolling30 > 0 && (monthlyAvg90 <= 0 || rolling30 >= monthlyAvg90 * 0.5) && currentGap < (medianGap > 0 ? medianGap * 2 : 30)
       const isReengaged = rolling30 > 0 && preAlert === 0
 
-      context += `\n\nIMPORTANT: This fan has been flagged ${timesGoneCold} time(s) before. This is a FOLLOW-UP analysis.`
-
+      // Framing: treat prior context as background the model silently considers, not as
+      // a format directive. The brief should read standalone — no "this is a re-analysis",
+      // no "acknowledge we've flagged them before". If there's something relevant since last
+      // time, fold it in naturally (e.g. "he's gone another 3 weeks silent since").
       if (isCurrentlyHot || isReengaged) {
-        context += ` The fan appears to have RE-ENGAGED — they are currently spending ($${Math.round(rolling30).toLocaleString()} in the last 30 days). Your analysis MUST:`
-        context += `\n- Recognize this is a SUCCESS — the fan came back. Do NOT frame this as "going cold" or needing recovery`
-        context += `\n- Identify what WORKED to bring them back — compare the new chat messages to the previous approach`
-        context += `\n- Evaluate whether the previous action items were followed and which ones drove the re-engagement`
-        context += `\n- Highlight what's keeping them engaged NOW so the team can maintain it`
-        context += `\n- Warn about specific risks that could cause them to go cold AGAIN (based on their history)`
-        context += `\n- Action items should focus on MAINTAINING momentum, not recovery`
-        context += `\n- Recovery Odds should be replaced with RETENTION outlook (High/Medium/Low chance they stay engaged)`
+        context += `\n\nThe fan appears to have RE-ENGAGED — they are currently spending ($${Math.round(rolling30).toLocaleString()} in the last 30 days). For this brief:`
+        context += `\n- This is a SUCCESS case. Frame the brief around maintaining momentum, not recovery.`
+        context += `\n- Identify what worked to bring them back (compare recent chat messages to the previous approach).`
+        context += `\n- Evaluate whether previous action items were followed and which drove the re-engagement.`
+        context += `\n- Warn about specific risks that could cause them to go cold again.`
+        context += `\n- Replace Recovery Odds with Retention Outlook (High/Medium/Low chance they stay engaged).`
       } else {
-        context += ` Your analysis MUST:`
-        context += `\n- Start by acknowledging this is a re-analysis, not a first look`
-        context += `\n- Evaluate whether the previous action items were followed in the NEW chat messages`
-        context += `\n- Compare spending BEFORE vs AFTER the alert was sent to the chat manager`
-        context += `\n- If the fan re-engaged after the intervention, identify what worked and why`
-        context += `\n- If the fan did NOT re-engage, assess whether the action items were even attempted`
-        context += `\n- Identify if this is a PATTERN (recurring going-cold cycle) vs a one-time issue`
-        context += `\n- If previous action items didn't work or weren't tried, suggest a DIFFERENT approach`
-        context += `\n- Be honest about recovery odds given the history`
+        context += `\n\nFor this brief:`
+        context += `\n- Quietly evaluate whether previous action items were followed in the NEW messages, without narrating the evaluation in the output.`
+        context += `\n- Compare spending BEFORE vs AFTER the alert date — if relevant, fold it into WHAT HAPPENED.`
+        context += `\n- Identify if this is a recurring going-cold pattern or a one-time issue.`
+        context += `\n- If previous action items didn't work, prescribe a DIFFERENT approach in NEXT MOVE.`
+        context += `\n- Be honest about recovery odds given history.`
       }
-      context += `\n- The conversation now includes BOTH old messages (from prior analysis) and NEW messages. Look for changes in tone, engagement, or spending patterns after the alert date.`
+      context += `\n- The conversation may include both old and new messages. Look for changes in tone, engagement, or spending after the last alert date.`
+      context += `\n- NEVER open the output with "This is a follow-up," "This is a re-analysis," or any meta-commentary. QUICK READ must start with the fan's actual situation.`
     }
 
     // Return both the context string and whether fan is currently hot
@@ -359,11 +361,16 @@ export async function POST(request) {
     // creatorName (full legal name) is still used for Airtable Creator field saves,
     // Dropbox path consistency, and prior-analysis lookups.
     const creatorAka = formData.get('creatorAka') || creatorName
+    // accountName + accountKey — present only when the fan is subscribed to multiple accounts
+    // and the user explicitly chose which account's chat this upload represents.
+    const accountName = formData.get('accountName') || ''
+    const accountKey = getAccountKey(accountName) // null for single-account fans
 
     let parsed
     if (useTranscript) {
       // Re-analyze from saved Dropbox transcript (no HTML upload needed)
       const fanUsername = formData.get('fanUsername') || ''
+      // Re-analyze path: no accountKey → loads combined multi-account transcript when present
       const transcript = await loadChatHistory(creatorName, fanName, fanUsername)
       if (!transcript) return Response.json({ error: 'No saved transcript found in Dropbox. Upload a chat HTML first.' }, { status: 400 })
       // Build a minimal parsed object from the transcript text
@@ -428,6 +435,7 @@ export async function POST(request) {
           fanUsername,
           firstMessageDate: parsed.firstMessageDate,
           lastMessageDate: parsed.lastMessageDate,
+          accountKey,
         })
       } catch (err) {
         console.error('[Chat Analysis] Dropbox save failed:', err)
@@ -577,6 +585,9 @@ CREATOR NAME: The SPENDING DATA block in the user message gives you her stage/AK
 
 YOUR PROCESS (internal reasoning — do NOT include in the output):
 
+CRITICAL: The steps below (STEP 1 through STEP 6) are how you should think through the fan privately before writing. They are NOT sections of the brief and must NEVER appear in your response. Do not write "STEP 1:" or "INTERNAL REASONING:" or a classification dump (FAN TYPE / STATE / TIER / GOAL) in the output. Do not write any preamble at all. Your response MUST begin with the literal text "FAN: " on the first line — nothing before it.
+
+
 STEP 1: Classify this fan internally (affects tone + depth of your output, not shown to reader).
   - FAN TYPE: one of — relational_whale, fetish_specialist, transactional_regular, light_budget_loyalist, literary_emotional, romantic_admirer, spam_tolerant_submissive, surface_casual
   - STATE: one of — healthy, uptrend, cool_off, price_stuck, content_starved, burnout_recovery, binge_wave, long_silent
@@ -598,6 +609,13 @@ STEP 3: Check for these specific patterns and surface them as evidence when pres
   - CONTENT-TYPE MISMATCH: Is the creator-side content the fan engages with different from what they've been sending lately (e.g. romantic → hardcore, banter → mass PPV)?
   - LIFETIME VS RECENT PATTERN: Quote-backs (creator pasting fan's words back without adding new content) and recycled scripts (same paragraph used 2+ times).
   - DISPLAY-NAME METADATA: If the fan's display name contains operator notes ("Read pin//VIP...", "for sale $300", status emojis), extract them as pending-deal context.
+
+STEP 3.5: MINE INLINE PURCHASE MARKERS. The chat HTML contains inline payment markers like "$10 paid", "Tipped $X", "Purchased ... for $X" attached to specific messages. Treat these as QUALITATIVE buy-trigger evidence — what he actually pays for and what message preceded the payment — NOT as totals.
+  - Note the CONTENT TYPE he pays for (pool sets, voice notes, customs, specific kinks, PPV topics) with one-line quote/date evidence
+  - Note the MESSAGE TONE/HOOK that preceded each payment (morning check-in, flirty tease, direct ask, voice note, etc.) — "what works" patterns
+  - Note what he IGNORED — expensive PPVs he didn't open, pitches that died
+  - Include 1-2 concrete "proven buy trigger" observations in WHAT HE BUYS. Be specific: "He opened a $25 PPV after the pool-set preview on Apr 2 — waterproof/poolside angles convert."
+  - Chat-observed purchases older than the spending context block are fine to use for qualitative patterns. They remain valid insight about who he is.
 
 STEP 4: Build the dossier. Tag every personal detail as:
   - TIMELESS (always safe to reference): name, pets, job, ongoing hobbies, hometown, stated kinks, family situation, core values
@@ -621,15 +639,28 @@ HARD RULES:
   6. "Personal circumstances" / "natural cooling" are not diagnoses. Either name a specific signal or say "we don't know why."
   7. The chatter should never have to scroll back through chat history. If a moment matters, quote it here.
   8. No em-dashes, no corporate voice. Write like a friend telling another friend what's going on.
+  9. ALL dollar totals, lifetime numbers, rolling-30-day figures, and trend math come from the SPENDING DATA block above — that is the single source of truth. NEVER cite aggregate dollar amounts from inline chat purchase markers (e.g. don't say "he spent ~$400 in 2023"). Inline markers are qualitative buy-trigger evidence only — name content types and hooks, not totals.
+  10. MULTI-THREAD AWARENESS: If the conversation is split into sections with headers like "=== FREE OF THREAD ===" and "=== VIP OF THREAD ===", this fan is subscribed to two separate OF pages run by the same creator. Each thread is its own chat — do NOT assume context, nicknames, or inside jokes from one thread carry over to the other. Analyze behavior PER THREAD (what does he pay for on each page? how does he talk differently on each?) and surface the distinction in your output when it's meaningful ("he buys PPVs on VIP but only banters on Free"). When sample messages / next moves are prescribed, specify which account they're for.
 
 OUTPUT FORMAT (produce exactly these sections in this order, with these exact headings).
+YOUR RESPONSE MUST START WITH "FAN: " ON LINE 1. No preamble. No "Here is the analysis." No STEP headers. No internal-reasoning dump. Just begin with "FAN: " and proceed section by section.
 
 HARD LENGTH CEILING: 1000 words for the most complex patron-tier fan. 400-600 words for a simpler fan. If you hit 1000 words, stop — cut the least important bullet or shorten sentences. Do NOT pad simple fans. Specificity over length. No filler, no restatement across sections.
 
-FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total  •  [N] days since he last replied
+FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
+
+LAST TOUCH
+Last fan reply: [EXACT date of the FAN's most recent message — look at the chat transcript and find the last line tagged [FAN]. Ignore creator-side re-engagement pings that came after. Format: "Feb 27, 2026" or "Feb 27" — whichever is in the transcript. Then calculate days ago relative to today.] — [N] days ago
+Last purchase: [EXACT date from the SPENDING DATA block above — specifically the "Last purchase:" line. Format "Feb 14, 2026"] — $[EXACT amount from the SPENDING DATA block] [for content type if known from chat: "for the pool PPV", "tip after voice note", etc. Omit this phrase if you don't have chat evidence — do NOT guess.]
+Last topic: [1-2 sentences on what the fan was last actually responding to or talking about — the subject, not the vibe. Example: "He was asking about her trip to Asheville and mentioned he's visiting his mom for Easter. She sent a teaser photo, he didn't bite." If the fan just stopped replying with no clear conversation thread, say so: "He went silent mid-conversation after a price pitch — no final topic."]
+
+CRITICAL DATE RULES:
+- "Last fan reply" is the FAN's last message, NOT the creator's last message. Creator-side re-engagement pings sent after the fan went quiet do NOT count.
+- If today's date (or any obviously recent date) shows up in the transcript, it's usually a creator-side outbound ping — skip past it to find the fan's actual last reply.
+- The "[N] days ago" MUST match the date you just wrote. Do not pull the number from one section and the date from another. If the fan last replied Feb 27 and today is Apr 19, that's 51 days. If unsure, count from the year-month-day.
 
 QUICK READ
-[1-2 sentences. The situation and what's at stake. Don't rehash evidence — that's the next section.]
+[1-2 sentences. Lead with the FAN'S situation and what's at stake — not with meta-commentary about the analysis itself. Do NOT open with "This is a follow-up," "This is the first analysis," "The record shows," or anything describing the brief. If prior context exists and is genuinely relevant, fold it in naturally ("Since the last analysis he's gone another 3 weeks silent"). Otherwise just describe what's happening with the fan right now.]
 
 WHAT HAPPENED
 [3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor, cite the quote. If genuinely unclear, say so. Do not speculate past the evidence.]
@@ -663,7 +694,12 @@ ${spendingContext}
 
 Read the conversation and produce a short brief in this exact format:
 
-FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total  •  [N] days since he last replied
+FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
+
+LAST TOUCH
+Last fan reply: [EXACT date of the FAN's most recent message (last [FAN] line in transcript — ignore creator re-engagement pings sent after)] — [N] days ago (count from today)
+Last purchase: [EXACT date + $amount from the SPENDING DATA block above, e.g. "Feb 27, 2026 — $4.00"]
+Last topic: [1 sentence on what the fan was last actually discussing or responding to — not what the creator pushed at him afterward.]
 
 QUICK READ
 [2-3 sentences. What's going on in plain words.]
@@ -691,7 +727,8 @@ HARD RULES:
 - Never write "mark as lost," "write off," "move on," "cold list" — doors stay open.
 - Every claim needs a quote or date as evidence. No vibes labels.
 - Sample messages must be copy-paste ready. Pull actual phrases from the chat.
-- If the fan is a $50 one-off with no rapport, output 3 sentences total with guidance to "keep it light, no investment" rather than a full brief.`
+- If the fan is a $50 one-off with no rapport, output 3 sentences total with guidance to "keep it light, no investment" rather than a full brief.
+- Inline chat payment markers ("$10 paid", "Tipped $X", "Purchased ... for $X") are QUALITATIVE buy-trigger evidence — use them to name content types and hooks that convert, NOT to cite dollar totals. All totals come from the SPENDING DATA block above.`
 
     // Annotate conversation with daily spend amounts at each date
     let conversation = parsed.conversation
@@ -740,39 +777,54 @@ HARD RULES:
     // Per-fan context (priorContext) moves to the user message.
     const systemWithContext = finalPrompt
 
-    // Load accumulated chat history from Dropbox and merge with new upload
+    // Load accumulated chat history from Dropbox and merge with new upload.
+    // For multi-account fans (accountKey present), the merge is scoped to THIS account's
+    // transcript only — then the OTHER account's transcript is appended separately with a
+    // thread header so Claude can reason across both pages without conflating them.
     const fanUsername = formData.get('fanUsername') || ''
+
+    // Helper: dedup-merge a new-upload conversation against an existing transcript for the same thread
+    const mergeThread = (existing, incoming) => {
+      if (!existing) return incoming
+      const dateHeaders = [...existing.matchAll(/--- (.+?) ---/g)]
+      const lastExistingDate = dateHeaders.length > 0 ? dateHeaders[dateHeaders.length - 1][1] : ''
+      if (!lastExistingDate) return existing + '\n\n' + incoming
+      const newDateHeaders = [...incoming.matchAll(/--- (.+?) ---/g)]
+      let newStartIdx = -1
+      for (const m of newDateHeaders) {
+        if (m[1] > lastExistingDate) { newStartIdx = m.index; break }
+      }
+      if (newStartIdx > 0) {
+        return existing + '\n\n--- NEW MESSAGES SINCE LAST ANALYSIS ---\n' + incoming.slice(newStartIdx)
+      }
+      return existing + '\n\n--- UPDATED UPLOAD (may include overlapping dates) ---\n' + incoming
+    }
+
     let fullConversation = conversation
     if (priorContext) {
       try {
-        const existingTranscript = await loadChatHistory(creatorName, fanName, fanUsername)
-        if (existingTranscript) {
-          // Dedup: find last date in existing transcript, only include new messages after that
-          const dateHeaders = [...existingTranscript.matchAll(/--- (.+?) ---/g)]
-          const lastExistingDate = dateHeaders.length > 0 ? dateHeaders[dateHeaders.length - 1][1] : ''
+        if (accountKey) {
+          // Multi-account upload: merge new conversation into THIS account's history,
+          // then append OTHER account-keyed transcripts as separate labeled threads.
+          const thisAccountHistory = await loadChatHistory(creatorName, fanName, fanUsername, accountKey)
+          const thisThreadMerged = mergeThread(thisAccountHistory, conversation)
+          const thisLabel = getThreadLabel(accountKey)
+          const parts = [`=== ${thisLabel} ===\n${thisThreadMerged}`]
 
-          if (lastExistingDate) {
-            // Find where new messages start in the uploaded conversation
-            const newDateHeaders = [...conversation.matchAll(/--- (.+?) ---/g)]
-            let newStartIdx = -1
-            for (const m of newDateHeaders) {
-              // Find first date in new upload that's AFTER the last existing date
-              if (m[1] > lastExistingDate) {
-                newStartIdx = m.index
-                break
-              }
+          // Find and include other account threads (free/vip only, to start)
+          const otherKeys = ['free', 'vip'].filter(k => k !== accountKey)
+          for (const otherKey of otherKeys) {
+            const otherText = await loadChatHistory(creatorName, fanName, fanUsername, otherKey)
+            if (otherText && otherText.trim()) {
+              parts.push(`=== ${getThreadLabel(otherKey)} ===\n${otherText}`)
             }
-
-            if (newStartIdx > 0) {
-              const newMessages = conversation.slice(newStartIdx)
-              fullConversation = existingTranscript + '\n\n--- NEW MESSAGES SINCE LAST ANALYSIS ---\n' + newMessages
-            } else {
-              // All messages in the new upload overlap with existing — use the new upload as-is
-              // (may include more recent context even for overlapping dates)
-              fullConversation = existingTranscript + '\n\n--- UPDATED UPLOAD (may include overlapping dates) ---\n' + conversation
-            }
-          } else {
-            fullConversation = existingTranscript + '\n\n' + conversation
+          }
+          fullConversation = parts.join('\n\n')
+        } else {
+          // Single-account upload (or legacy fan): existing behavior.
+          const existingTranscript = await loadChatHistory(creatorName, fanName, fanUsername)
+          if (existingTranscript) {
+            fullConversation = mergeThread(existingTranscript, conversation)
           }
         }
       } catch (err) {
@@ -796,7 +848,11 @@ HARD RULES:
     // Hard ceiling: ~1000 words for patrons (~1500 tokens), 400-600 for simpler
     // fans. max_tokens gives a small buffer above the prompt ceiling; the model
     // is instructed to stop at 1000 words. Billed per actual token generated.
-    const claudeMaxTokens = isHighValue ? 2000 : 1000
+    // max_tokens is a hard ceiling on the COMPLETION. We target ~1000 words (~1500 tokens)
+    // for patron-tier fans + a LAST TOUCH section + section headings. 3000 gives enough
+    // buffer so Claude can finish the sample message even when it hits the upper bound of
+    // the 1000-word target. Was 2000 — kept cutting mid-sentence in NEXT MOVE.
+    const claudeMaxTokens = isHighValue ? 3000 : 1200
     let fullAnalysis = 'Analysis failed'
     let claudeUsage = null
     let claudeStopReason = null
@@ -896,6 +952,7 @@ Rules:
         parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
         fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
         firstMessageDate: parsed.firstMessageDate, lastMessageDate: parsed.lastMessageDate,
+        accountKey,
       }).catch(err => console.error('[Chat Analysis] Dropbox save failed:', err)),
 
       saveToAirtable({
@@ -975,7 +1032,14 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
       })
     }
   } else {
-    // Create new tracker record
+    // Create new tracker record.
+    // NOTE: Status is deliberately omitted here. The Airtable singleSelect doesn't include
+    // an "Analyzed" option (valid ones are Going Cold, Alert Sent, Recovering, Reactivated,
+    // Lost, Monitoring, Received by Manager, Banned), and setting an invalid value caused
+    // every create to 422 silently — which is why newly-analyzed fans had no tracker record
+    // and stayed stuck on "Fan Analyzed" in the UI even after Send to Manager. The synthetic
+    // 'Analyzed' entry in /api/admin/fan-tracker GET handles the display fallback when a
+    // fan has an analysis but no tracker status.
     const createRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}`, {
       method: 'POST',
       headers: AIRTABLE_HEADERS,
@@ -984,9 +1048,6 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
           'Fan Name': fanName,
           'OF Username': fanUsername || '',
           'Creator': [creatorRecordId],
-          // Manual analysis → "Analyzed" status. "Going Cold" is reserved for
-          // fans flagged by the auto-detection algorithm (goingColdAlerts).
-          'Status': 'Analyzed',
           'First Flagged': now,
           'Lifetime Spend': lifetime || 0,
         },
@@ -995,6 +1056,8 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
     const createData = await createRes.json()
     if (createData.error) {
       console.error('[Fan Tracker] Airtable create error:', createData.error)
+      // Re-throw so the caller's .catch logs it with stack info instead of eating silently
+      throw new Error(`Fan Tracker create failed: ${createData.error.type || ''} ${createData.error.message || JSON.stringify(createData.error)}`)
     }
   }
 }
@@ -1007,34 +1070,91 @@ function getChatBasePath(creatorName, fanName, fanUsername) {
   return `/Palm Ops/Chat Logs/${safeCreator}/${safeFan}`
 }
 
-// Load the master transcript from Dropbox (returns empty string if none exists)
-async function loadChatHistory(creatorName, fanName, fanUsername) {
+// Normalize an OF account name ("Sunny - Free OF", "Taby - VIP OF") into a short
+// filename-safe key so multi-account fans can keep separate threads on Dropbox.
+// Returns null for single-account fans or when no account is known.
+function getAccountKey(accountName) {
+  if (!accountName) return null
+  if (/free/i.test(accountName)) return 'free'
+  if (/vip/i.test(accountName)) return 'vip'
+  const slug = accountName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)
+  return slug || null
+}
+
+// Human-readable thread label used in combined multi-account transcripts fed to Claude.
+function getThreadLabel(accountKey) {
+  if (accountKey === 'free') return 'FREE OF THREAD'
+  if (accountKey === 'vip') return 'VIP OF THREAD'
+  if (!accountKey) return null
+  return `${accountKey.toUpperCase()} THREAD`
+}
+
+// Filename for the master transcript for a given account key.
+// null/undefined key returns the legacy single-account filename for backward compat.
+function getTranscriptFilename(accountKey) {
+  return accountKey ? `transcript-${accountKey}.txt` : 'transcript.txt'
+}
+
+// Load master transcript(s) from Dropbox.
+// - When accountKey is passed, loads ONLY that account's transcript (used for per-account dedup on save).
+// - When accountKey is null/undefined, prefers account-keyed transcripts (free+vip etc., combined with
+//   thread headers so Claude can see both sides of a multi-account fan). Falls back to the legacy
+//   single-account transcript.txt when no keyed transcripts exist.
+async function loadChatHistory(creatorName, fanName, fanUsername, accountKey = null) {
   try {
     const token = await getDropboxAccessToken()
     const rootNs = await getDropboxRootNamespaceId(token)
     const basePath = getChatBasePath(creatorName, fanName, fanUsername)
-    const fullPath = `${basePath}/transcript.txt`
-    console.log('[Chat History] Attempting download from:', fullPath)
 
-    const buf = await downloadFromDropbox(token, rootNs, fullPath)
-    if (!buf) {
-      console.log('[Chat History] downloadFromDropbox returned null/empty for:', fullPath)
-      return ''
+    // Specific account requested
+    if (accountKey) {
+      const fullPath = `${basePath}/${getTranscriptFilename(accountKey)}`
+      try {
+        const buf = await downloadFromDropbox(token, rootNs, fullPath)
+        return buf ? buf.toString('utf8') : ''
+      } catch { return '' }
     }
-    console.log('[Chat History] Success, got', buf.length, 'bytes')
-    return buf.toString('utf8')
+
+    // No key — try account-keyed transcripts first (multi-account case)
+    const keyedFiles = ['transcript-free.txt', 'transcript-vip.txt']
+    const segments = []
+    for (const filename of keyedFiles) {
+      try {
+        const buf = await downloadFromDropbox(token, rootNs, `${basePath}/${filename}`)
+        if (buf) {
+          const text = buf.toString('utf8')
+          if (text.trim()) {
+            const key = filename.replace(/transcript-|\.txt/g, '')
+            const label = getThreadLabel(key)
+            segments.push(`\n=== ${label} ===\n${text}`)
+          }
+        }
+      } catch {}
+    }
+    if (segments.length > 0) return segments.join('\n').trim()
+
+    // Fall back to legacy single-account transcript
+    try {
+      const buf = await downloadFromDropbox(token, rootNs, `${basePath}/transcript.txt`)
+      return buf ? buf.toString('utf8') : ''
+    } catch { return '' }
   } catch (err) {
     console.error('[Chat History] Load failed:', err.message || err)
     return ''
   }
 }
 
-// Save parsed chat transcript to Dropbox, appending only new messages
-async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnalysis, managerBrief, creatorName, fanName, fanUsername, firstMessageDate, lastMessageDate }) {
+// Save parsed chat transcript to Dropbox, appending only new messages.
+// When accountKey is provided (multi-account fan), the master transcript is scoped to
+// that account (e.g. transcript-free.txt). The per-upload snapshot and analysis JSON
+// are also account-tagged so both accounts can coexist in the same folder.
+async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnalysis, managerBrief, creatorName, fanName, fanUsername, firstMessageDate, lastMessageDate, accountKey }) {
   const token = await getDropboxAccessToken()
   const rootNs = await getDropboxRootNamespaceId(token)
   const basePath = getChatBasePath(creatorName, fanName, fanUsername)
   const runDate = new Date().toISOString().split('T')[0]
+  const transcriptFilename = getTranscriptFilename(accountKey)
+  const accountTag = accountKey ? `-${accountKey}` : ''
 
   // Build clean date-range string from chat window for filenames
   // Input formats: "Nov 15", "Apr 6, 11:33 pm", "January 15, 2026" etc.
@@ -1054,10 +1174,10 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
   await createDropboxFolder(token, rootNs, `/Palm Ops/Chat Logs/${safeCreator}`)
   await createDropboxFolder(token, rootNs, basePath)
 
-  // Download existing master transcript (if it fails, treat as first upload)
+  // Download existing master transcript for THIS account key (if it fails, treat as first upload)
   let existingTranscript = ''
   try {
-    const existingBuf = await downloadFromDropbox(token, rootNs, `${basePath}/transcript.txt`)
+    const existingBuf = await downloadFromDropbox(token, rootNs, `${basePath}/${transcriptFilename}`)
     existingTranscript = existingBuf ? existingBuf.toString('utf8') : ''
   } catch (err) {
     console.log('[Chat Save] No existing transcript (first upload or download failed):', err.message)
@@ -1115,12 +1235,13 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
     newTranscript = parsedConversation
   }
 
-  // Save a snapshot of THIS upload's raw transcript (never overwritten — preserves each upload)
-  const snapshotName = `transcript-${chatStart}_to_${chatEnd}.txt`
+  // Save a snapshot of THIS upload's raw transcript (never overwritten — preserves each upload).
+  // Tagged with accountKey when present so free/vip snapshots don't collide.
+  const snapshotName = `transcript${accountTag}-${chatStart}_to_${chatEnd}.txt`
   await uploadToDropbox(token, rootNs, `${basePath}/${snapshotName}`, Buffer.from(parsedConversation, 'utf8'))
 
-  // Upload master transcript (cumulative — appends new messages)
-  await uploadToDropbox(token, rootNs, `${basePath}/transcript.txt`, Buffer.from(newTranscript, 'utf8'), { overwrite: true })
+  // Upload master transcript (cumulative — appends new messages; per-account when keyed)
+  await uploadToDropbox(token, rootNs, `${basePath}/${transcriptFilename}`, Buffer.from(newTranscript, 'utf8'), { overwrite: true })
 
   // Upload analysis snapshot keyed by chat window dates — skip if no analysis (transcript-only save)
   if (fullAnalysis) {
@@ -1133,7 +1254,7 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
       fullAnalysis,
       managerBrief,
     }, null, 2)
-    await uploadToDropbox(token, rootNs, `${basePath}/analysis-${chatStart}_to_${chatEnd}.json`, Buffer.from(analysisJson, 'utf8'))
+    await uploadToDropbox(token, rootNs, `${basePath}/analysis${accountTag}-${chatStart}_to_${chatEnd}.json`, Buffer.from(analysisJson, 'utf8'))
   }
 
   // Update Fan Tracker with Dropbox path and chat upload date

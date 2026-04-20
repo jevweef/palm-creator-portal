@@ -114,7 +114,12 @@ export async function POST(request) {
       return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
     }
 
-    // Log to Fan Tracker — await so the client refresh picks up the new alert history
+    // Log to Fan Tracker — await so the client refresh picks up the new alert history.
+    // If this fails (bad linked record, missing field, etc.) the Telegram message already
+    // went out, so we don't want to mask the send as a failure — but we DO surface the
+    // tracker error to the client so the UI can flag "sent but not tracked" instead of
+    // silently showing stale status.
+    let trackerError = null
     if (creatorRecordId) {
       try {
         await logAlertToFanTracker({
@@ -123,10 +128,15 @@ export async function POST(request) {
           creatorRecordId,
           creatorName,
           alertData: alert,
+          telegramMessageId: data.result?.message_id,
+          telegramChatId: topic.chatId,
         })
       } catch (err) {
-        console.error('[Whale Alert] Fan tracker log failed:', err)
+        console.error('[Whale Alert] Fan tracker log failed:', err?.stack || err)
+        trackerError = err?.message || String(err)
       }
+    } else {
+      trackerError = 'Missing creatorRecordId — nothing was logged in Fan Tracker'
     }
 
     return NextResponse.json({
@@ -134,6 +144,7 @@ export async function POST(request) {
       messageId: data.result?.message_id,
       sentTo: { creator: creatorName, chatId: topic.chatId, threadId: topic.threadId },
       dropboxLink: shareLink,
+      trackerError, // null on success; string with reason if the Fan Tracker write failed
     })
   } catch (err) {
     console.error('[Whale Alert] Send error:', err)
@@ -143,7 +154,7 @@ export async function POST(request) {
 
 // ── Fan Tracker logging ────────────────────────────────────────────────────
 
-async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, creatorName, alertData }) {
+async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, creatorName, alertData, telegramMessageId, telegramChatId }) {
   const now = new Date().toISOString()
   const alertEntry = {
     date: now,
@@ -163,10 +174,12 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
     formula = `{Fan Name} = "${fanName}"`
   }
 
+  console.log('[Whale Alert] Tracker lookup formula:', formula)
   const existing = await fetchAirtableRecords(FAN_TRACKER_TABLE, {
     filterByFormula: formula,
     maxRecords: 1,
   })
+  console.log('[Whale Alert] Tracker lookup found:', existing.length, 'records; first id=', existing[0]?.id)
 
   if (existing[0]) {
     const record = existing[0]
@@ -174,6 +187,7 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
     try { history = JSON.parse(record.fields['Alert History'] || '[]') } catch {}
     history.push(alertEntry)
 
+    console.log('[Whale Alert] Patching tracker record', record.id, 'with Status=Alert Sent')
     await patchAirtableRecord(FAN_TRACKER_TABLE, record.id, {
       'Status': 'Alert Sent',
       'Last Alert Sent': now,
@@ -182,7 +196,24 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
       'Lifetime Spend': alertData?.lifetime || record.fields['Lifetime Spend'] || 0,
       'Pre-Alert Spend 30d': alertData?.rolling30 || 0,
       'Effectiveness': 'Pending',
+      ...(telegramMessageId ? { 'Last Alert Message ID': Number(telegramMessageId) } : {}),
+      ...(telegramChatId ? { 'Last Alert Chat ID': Number(telegramChatId) } : {}),
     })
+    console.log('[Whale Alert] Patch call returned without throwing for record', record.id)
+
+    // Verify-after-patch: re-read the record and confirm Status actually flipped.
+    // If Airtable silently ignored the write (shouldn't, but we've seen cases where it
+    // did), throw so the caller surfaces the trackerError to the UI.
+    const verify = await fetchAirtableRecords(FAN_TRACKER_TABLE, {
+      filterByFormula: `RECORD_ID() = "${record.id}"`,
+      maxRecords: 1,
+    })
+    const verifiedStatus = verify[0]?.fields?.['Status']
+    console.log('[Whale Alert] Post-patch verify: Status =', verifiedStatus)
+    if (verifiedStatus !== 'Alert Sent') {
+      throw new Error(`Patch appeared to succeed but Status is "${verifiedStatus || 'empty'}" instead of "Alert Sent". Check Airtable field write permissions on record ${record.id}.`)
+    }
+    return { action: 'patched', recordId: record.id }
   } else {
     await createAirtableRecord(FAN_TRACKER_TABLE, {
       'Fan Name': fanName,
@@ -197,6 +228,10 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
       'Pre-Alert Spend 30d': alertData?.rolling30 || 0,
       'Effectiveness': 'Pending',
       'Times Gone Cold': 1,
+      ...(telegramMessageId ? { 'Last Alert Message ID': Number(telegramMessageId) } : {}),
+      ...(telegramChatId ? { 'Last Alert Chat ID': Number(telegramChatId) } : {}),
     })
+    console.log('[Whale Alert] Created new tracker record for', fanName)
+    return { action: 'created' }
   }
 }

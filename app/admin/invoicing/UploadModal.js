@@ -56,6 +56,16 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
           .replace(/<style[\s\S]*?<\/style>/gi, '')
           .replace(/<link\b[^>]*>/gi, '')
           .replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+          // Drop class values that aren't needed by the parser (keeps b-table*
+          // and m-responsive__reset-pb which the parser uses as row anchors).
+          .replace(/\sclass="([^"]*)"/g, (m, v) =>
+            /b-table|m-responsive__reset-pb/.test(v) ? ` class="${v}"` : ''
+          )
+          // Drop non-parser attrs: tabindex, aria-*, data-* (except data-title
+          // which carries Amount/Fee/Net anchors)
+          .replace(/\stabindex="[^"]*"/g, '')
+          .replace(/\saria-[a-z-]+="[^"]*"/g, '')
+          .replace(/\sdata-(?!title=)[a-z-]+="[^"]*"/g, '')
         const blob = new Blob([stripped], { type: file.type || 'text/html' })
         uploadFile = new File([blob], file.name, { type: blob.type, lastModified: file.lastModified })
       }

@@ -1089,7 +1089,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Send failed')
-      setSendResult({ success: true, tracked: true })
+      setSendResult({ success: true, tracked: !data.trackerError, trackerError: data.trackerError || null })
     } catch (e) {
       setSendResult({ error: e.message })
     } finally {
@@ -1181,7 +1181,8 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
             >
               <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
             </button>
-            {sendResult?.success && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
+            {sendResult?.success && !sendResult.trackerError && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
+            {sendResult?.success && sendResult.trackerError && <span style={{ fontSize: '11px', color: '#d97706', fontWeight: 500 }} title={sendResult.trackerError}>&#10003; Sent \u2014 tracker failed (hover)</span>}
             {sendResult?.error && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
           </div>
 
@@ -2146,8 +2147,29 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
 
+// Client-side mirror of getAccountKey() in /api/admin/creator-earnings/analyze-chat/route.js.
+// Kept in sync manually since it's a tiny pure function — both sides must normalize the same way
+// or the per-account transcript files on Dropbox will collide.
+function getClientAccountKey(accountName) {
+  if (!accountName) return null
+  if (/free/i.test(accountName)) return 'free'
+  if (/vip/i.test(accountName)) return 'vip'
+  const slug = accountName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)
+  return slug || null
+}
+
 function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts }) {
   const [chatFile, setChatFile] = useState(null)
+  // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
+  // null for single-account fans (whose uploads don't need an account tag).
+  const [uploadAccountName, setUploadAccountName] = useState(null)
+  // Multi-account fans: tracks per-account save state. { 'Sunny - Free OF': 'saving' | 'saved' | 'error', ... }
+  // Each account uploads to Dropbox independently on pick; final Analyze loads combined transcripts.
+  const [accountUploadState, setAccountUploadState] = useState({})
+  // Inline edit for manual lifetime override (used in PDF/Telegram only).
+  const [editingLifetime, setEditingLifetime] = useState(false)
+  const [lifetimeDraft, setLifetimeDraft] = useState('')
+  const [savingLifetime, setSavingLifetime] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [analysisError, setAnalysisError] = useState(null)
@@ -2334,6 +2356,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     formData.append('creatorName', creatorName || '')
     formData.append('creatorAka', creatorAka || creatorName || '')
     formData.append('creatorRecordId', creatorRecordId || '')
+    // Tag the upload with which account it came from (multi-account fans only).
+    // Server uses this to route to transcript-free.txt vs transcript-vip.txt on Dropbox.
+    if (uploadAccountName) formData.append('accountName', uploadAccountName)
     // Compute daily spend timeline for analysis context — real purchases only
     if (allTxns) {
       const dailySpend = {}
@@ -2381,6 +2406,46 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     }
   }
 
+  // Multi-account flow: user picks a file for a specific account → save that account's
+  // transcript to Dropbox immediately (parsed client-side first to stay under 4.5MB body limit).
+  // Once all desired accounts are uploaded, a single Analyze Conversation button loads the
+  // combined transcripts from Dropbox and runs the AI analysis.
+  async function handleAccountUpload(accountName, file) {
+    setAccountUploadState(s => ({ ...s, [accountName]: 'saving' }))
+    setAnalysisError(null)
+    try {
+      const isHtml = /\.html?$/i.test(file.name) || (file.type || '').includes('html')
+      const fd = new FormData()
+      fd.append('saveTranscriptOnly', 'true')
+      fd.append('fanName', f.fanName)
+      fd.append('fanUsername', f.ofUsername || '')
+      fd.append('creatorName', creatorName || '')
+      fd.append('creatorRecordId', creatorRecordId || '')
+      fd.append('accountName', accountName)
+      if (isHtml) {
+        // Parse client-side so we don't send the full 20-100MB HTML
+        const html = await file.text()
+        const parsed = parseChatHtmlClient(html)
+        if (parsed.messageCount === 0) throw new Error('No messages found in HTML')
+        fd.append('parsedConversation', parsed.conversation)
+        fd.append('parsedMessages', JSON.stringify(parsed.messages))
+        fd.append('parsedFirstDate', parsed.firstMessageDate)
+        fd.append('parsedLastDate', parsed.lastMessageDate)
+        fd.append('parsedFanMsgs', String(parsed.fanMessages))
+        fd.append('parsedCreatorMsgs', String(parsed.creatorMessages))
+      } else {
+        fd.append('file', file)
+      }
+      const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      setAccountUploadState(s => ({ ...s, [accountName]: 'saved' }))
+    } catch (e) {
+      setAccountUploadState(s => ({ ...s, [accountName]: 'error' }))
+      setAnalysisError(`${accountName} upload failed: ${e.message}`)
+    }
+  }
+
   async function handleSaveTranscript(file) {
     setSavingTranscript(true)
     setAnalysisError(null)
@@ -2392,6 +2457,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       fd.append('fanUsername', f.ofUsername || '')
       fd.append('creatorName', creatorName || '')
       fd.append('creatorRecordId', creatorRecordId || '')
+      if (uploadAccountName) fd.append('accountName', uploadAccountName)
       const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Save failed')
@@ -2405,10 +2471,15 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   }
 
   function buildAlertPayload() {
-    const alertData = f.goingCold || {
+    // If a manual override is set (real OF lifetime, not just what earnings data can see),
+    // use it for the PDF + Telegram stats. Computed lifetime stays the default.
+    const effectiveLifetime = (f.lifetimeOverride !== null && f.lifetimeOverride !== undefined && f.lifetimeOverride > 0)
+      ? f.lifetimeOverride
+      : f.lifetimeSpend
+    const alertData = f.goingCold ? { ...f.goingCold, lifetime: effectiveLifetime } : {
       fan: f.fanName,
       username: f.ofUsername,
-      lifetime: f.lifetimeSpend,
+      lifetime: effectiveLifetime,
       rolling30: f.last30,
       urgency: 'warning',
       medianGap: 0,
@@ -2497,7 +2568,13 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       creatorName, // full legal name — used for Dropbox folder path consistency
       creatorAka,  // stage name — used for Telegram topic routing
       creatorRecordId,
-      alert: { ...alertData, fan: f.fanName, username: f.ofUsername, monthlyHistory, accountNames, peakMonthlyAvg, peakRange },
+      alert: {
+        ...alertData, fan: f.fanName, username: f.ofUsername,
+        monthlyHistory, accountNames, peakMonthlyAvg, peakRange,
+        // Full list of creator's accounts — PDF uses this to decide whether
+        // to render per-account labels. Single-account creators skip labels.
+        creatorAccounts: availableAccounts || [],
+      },
       analysis: analysis
         ? { analysis: analysis.analysis, managerBrief: analysis.managerBrief }
         : selRec
@@ -2537,6 +2614,38 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     }
   }
 
+  // Save the manual lifetime override via fan-tracker API. Upserts by fan identity if
+  // no tracker record exists yet. Pass an empty string to clear the override.
+  async function saveLifetimeOverride(valueStr) {
+    setSavingLifetime(true)
+    try {
+      const override = valueStr.trim() === '' ? null : Number(valueStr.replace(/[^\d.-]/g, ''))
+      const res = await fetch('/api/admin/fan-tracker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_lifetime_override',
+          recordId: f.crmId || null,
+          fanName: f.fanName,
+          fanUsername: f.ofUsername,
+          creatorRecordId,
+          override,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      // Refresh CRM data so the override shows up
+      const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`, { cache: 'no-store' })
+      const refreshData = await refreshRes.json()
+      if (refreshData.fans) setFans(refreshData.fans)
+      setEditingLifetime(false)
+    } catch (e) {
+      alert(`Lifetime override save failed: ${e.message}`)
+    } finally {
+      setSavingLifetime(false)
+    }
+  }
+
   async function handleSendToTelegram() {
     setSending(true)
     setSendResult(null)
@@ -2549,13 +2658,29 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Send failed')
-      setSendResult({ success: true })
-      // Refresh fan data so "Not Sent" badge updates to "Sent to Manager"
+      // Telegram went through. trackerError is non-null when the Fan Tracker Airtable write
+      // failed — surface that explicitly so the user knows the alert column won't update.
+      if (data.trackerError) {
+        setSendResult({ success: true, trackerError: data.trackerError })
+      } else {
+        setSendResult({ success: true })
+      }
+      // Refresh fan data so "Not Sent" badge updates to "Sent to Manager".
+      // cache: 'no-store' prevents any Next.js/browser caching from returning stale status.
+      // Small delay lets Airtable indexes settle after the PATCH so the GET sees the new status.
+      await new Promise(r => setTimeout(r, 600))
       try {
-        const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
+        const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`, { cache: 'no-store' })
         const refreshData = await refreshRes.json()
         if (refreshData.fans) setFans(refreshData.fans)
       } catch {}
+      // Auto-close modal on clean success; keep it open if there's a tracker error to read
+      if (!data.trackerError) {
+        setTimeout(() => {
+          setShowSendModal(false)
+          setSendResult(null)
+        }, 1500)
+      }
     } catch (e) {
       setSendResult({ error: e.message })
     } finally {
@@ -2643,6 +2768,54 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
             {/* Stats grid */}
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              {/* Lifetime — inline editable. Override used in PDF/Telegram; computed shown as faded secondary when override active. */}
+              <div>
+                <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  Lifetime
+                  {f.lifetimeOverride > 0 && (
+                    <span title="Manual override in effect — used on the Telegram PDF" style={{ fontSize: '8px', background: '#FEF3C7', color: '#92400E', padding: '0 4px', borderRadius: '3px', fontWeight: 700 }}>OVERRIDE</span>
+                  )}
+                </div>
+                {editingLifetime ? (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#1a1a1a' }}>$</span>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={lifetimeDraft}
+                      onChange={e => setLifetimeDraft(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveLifetimeOverride(lifetimeDraft)
+                        if (e.key === 'Escape') setEditingLifetime(false)
+                      }}
+                      placeholder="blank to clear"
+                      disabled={savingLifetime}
+                      style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid #CBD5E1', borderRadius: '3px' }}
+                    />
+                    <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
+                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#16A34A', color: '#fff', borderRadius: '3px', cursor: 'pointer' }}>
+                      {savingLifetime ? '…' : 'Save'}
+                    </button>
+                    <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
+                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid #CBD5E1', background: '#fff', borderRadius: '3px', cursor: 'pointer', color: '#64748B' }}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => { setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
+                    title="Click to set a manual lifetime override (used on the Telegram PDF when the actual OF lifetime is higher than what earnings data shows)"
+                    style={{ fontSize: '12px', color: '#1a1a1a', cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
+                    onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
+                    onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}
+                  >
+                    <strong>{fmtMoney(f.lifetimeOverride > 0 ? f.lifetimeOverride : f.lifetimeSpend)}</strong>
+                    {f.lifetimeOverride > 0 && (
+                      <span style={{ fontSize: '10px', color: '#94A3B8', textDecoration: 'line-through' }}>{fmtMoney(f.lifetimeSpend)}</span>
+                    )}
+                  </div>
+                )}
+              </div>
               {f.firstDate && (
                 <div>
                   <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Purchase</div>
@@ -3160,16 +3333,79 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               <input ref={chatFileRef} type="file" accept=".html,.htm"
-                onChange={e => { if (e.target.files[0]) { setChatFile(e.target.files[0]); setAnalysisError(null) }}}
+                onChange={e => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  setAnalysisError(null)
+                  if (accountNames.length > 1 && uploadAccountName) {
+                    // Multi-account: auto-save this account's transcript to Dropbox immediately.
+                    // User can then pick another account and repeat. Final Analyze uses combined transcripts.
+                    handleAccountUpload(uploadAccountName, file)
+                  } else {
+                    // Single-account: existing flow — hold file in state, user clicks Analyze to run.
+                    setChatFile(file)
+                  }
+                  e.target.value = '' // allow re-selecting the same filename
+                }}
                 style={{ display: 'none' }} />
-              <button onClick={() => chatFileRef.current?.click()}
-                style={{
-                  background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
-                  borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                  color: chatFile ? '#166534' : '#64748B',
-                }}>
-                {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
-              </button>
+
+              {accountNames.length > 1 ? (
+                // Multi-account fan: one button per account, color-coded to match the badges.
+                // Clicking opens picker; picking a file auto-saves to that account's Dropbox transcript.
+                <>
+                  {accountNames.map(acct => {
+                    const isFree = /free/i.test(acct)
+                    const isVip = /vip/i.test(acct)
+                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : '#64748B'
+                    const baseBg = isFree ? '#EFF6FF' : isVip ? '#F5F3FF' : '#F8FAFC'
+                    const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
+                    const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
+                    const displayText = state === 'saving' ? `Saving ${label}\u2026`
+                      : state === 'saved' ? `\u2713 ${label} saved`
+                      : state === 'error' ? `\u26A0 ${label} failed \u2014 retry`
+                      : `Upload ${label} chat`
+                    const isSuccess = state === 'saved'
+                    return (
+                      <button key={acct}
+                        disabled={state === 'saving'}
+                        onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
+                        style={{
+                          background: isSuccess ? '#F0FDF4' : baseBg,
+                          border: `1px solid ${isSuccess ? '#BBF7D0' : baseColor + '66'}`,
+                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
+                          cursor: state === 'saving' ? 'wait' : 'pointer',
+                          color: isSuccess ? '#166534' : baseColor, fontWeight: isSuccess ? 600 : 500,
+                          opacity: state === 'saving' ? 0.7 : 1,
+                        }}>
+                        {displayText}
+                      </button>
+                    )
+                  })}
+                </>
+              ) : (
+                <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
+                  style={{
+                    background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                    color: chatFile ? '#166534' : '#64748B',
+                  }}>
+                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+                </button>
+              )}
+              {/* Multi-account: Analyze button appears once at least one account's transcript is saved.
+                  Uses the "useTranscript" flow — server loads ALL saved account transcripts from Dropbox,
+                  combines them with thread headers, and sends to Claude for one unified analysis. */}
+              {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
+                <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                  style={{
+                    background: '#EA580C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
+                </button>
+              )}
+
               {chatFile && (
                 <button onClick={handleAnalyze} disabled={analyzing}
                   style={{
@@ -3427,22 +3663,32 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               >Cancel</button>
               <button
                 onClick={handleSendToTelegram}
-                disabled={sending || previewLoading || !previewImage}
+                disabled={sending || previewLoading || !previewImage || sendResult?.success}
                 style={{
-                  background: '#1a1a1a', border: 'none', borderRadius: '6px',
+                  background: sendResult?.success ? '#16A34A' : '#1a1a1a',
+                  border: 'none', borderRadius: '6px',
                   padding: '8px 16px', fontSize: '12px', color: '#fff', fontWeight: 600,
-                  cursor: (sending || previewLoading || !previewImage) ? 'not-allowed' : 'pointer',
-                  opacity: (sending || previewLoading || !previewImage) ? 0.5 : 1,
+                  cursor: (sending || previewLoading || !previewImage || sendResult?.success) ? 'not-allowed' : 'pointer',
+                  opacity: (sending || previewLoading || !previewImage) && !sendResult?.success ? 0.5 : 1,
                   display: 'flex', alignItems: 'center', gap: '6px',
+                  transition: 'background 0.2s',
                 }}
               >
-                <span style={{ fontSize: '14px' }}>&#9993;</span> {sending ? 'Sending...' : 'Confirm & Send'}
+                <span style={{ fontSize: '14px' }}>{sendResult?.success ? '\u2713' : '\u2709'}</span>
+                {sending ? 'Sending...' : sendResult?.success ? 'Sent' : 'Confirm & Send'}
               </button>
             </div>
 
-            {sendResult?.success && (
+            {sendResult?.success && !sendResult.trackerError && (
               <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
                 &#10003; Sent to manager &amp; logged
+              </div>
+            )}
+            {sendResult?.success && sendResult.trackerError && (
+              <div style={{ marginTop: '12px', padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', color: '#92400E' }}>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>&#10003; Sent to Telegram &mdash; but Fan Tracker log failed</div>
+                <div style={{ fontSize: '11px', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word' }}>{sendResult.trackerError}</div>
+                <div style={{ fontSize: '11px', marginTop: '6px' }}>The fan's Alert column won't update. Please share this error so we can fix it.</div>
               </div>
             )}
             {sendResult?.error && (
@@ -3598,7 +3844,13 @@ const HEAT_CONFIG = {
   'Hot':        { emoji: '🔥', color: '#EF4444', label: 'Hot — above average spending' },
 }
 
-const HEAT_SORT_ORDER = { 'Dead': 0, 'Going Cold': 1, 'Cooling': 2, 'Warming Up': 3, 'Stable': 4, 'Hot': 5 }
+// Sort order reflects whale-hunting urgency: actionable fans first, already-lost last.
+// Going Cold = actively cooling NOW, needs intervention → top.
+// Cooling = trending down but not critical yet.
+// Dead = 90+ days silent, already lost — ranked below actionable states.
+// Stable = baseline, no action needed.
+// Hot / Warming Up = performing well, rank last (don't prioritize what's working).
+const HEAT_SORT_ORDER = { 'Going Cold': 0, 'Cooling': 1, 'Dead': 2, 'Stable': 3, 'Warming Up': 4, 'Hot': 5 }
 
 // Surfaced at module scope so both FanRow and FansPanel can reference.
 const ALERT_STATUS_COLORS = {
@@ -3652,7 +3904,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   // Map CRM status → alert status display
   const crmToAlertStatus = (crmStatus) => {
     const map = {
-      'Going Cold': 'Alert Triggered',
+      // NOTE: 'Going Cold' intentionally NOT in this map.
+      // "Alert Triggered" is reserved for fans currently flagged by the scoring
+      // system (via the goingColdAlerts overlay in allFans). Historical CRM
+      // records with 'Going Cold' status should no longer surface as active
+      // alerts — if the fan is past the 120-day window or the scoring no longer
+      // flags them, their Alert column should be empty.
       'Analyzed': 'Fan Analyzed',
       'Alert Sent': 'Sent to Manager',
       'Recovering': 'Sent to Manager',
@@ -3760,7 +4017,11 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
         f.timesGoneCold = c.timesGoneCold || f.timesGoneCold
         f.lastChatUpload = c.lastChatUpload || f.lastChatUpload
         f.notes = c.notes || f.notes
-        f.crmId = c.id
+        f.lifetimeOverride = c.lifetimeOverride || null // manual PDF/Telegram lifetime override
+        // Only carry over REAL tracker record IDs (synthetic "analysis-XXX" IDs from the
+        // fan-tracker GET endpoint aren't patchable — leave crmId null in that case so the
+        // POST handler knows to upsert by fan identity instead.
+        f.crmId = (c.id && !c.id.startsWith('analysis-')) ? c.id : null
         f.banned = c.status === 'Banned'
       } else {
         // CRM-only record (no transactions)
@@ -3770,6 +4031,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           source: 'crm', heatStatus: 'Stable',
           alertStatus: mapped !== 'None' ? mapped : 'Fan Analyzed',
           banned: c.status === 'Banned',
+          crmId: (c.id && !c.id.startsWith('analysis-')) ? c.id : null,
+          lifetimeOverride: c.lifetimeOverride || null,
         })
       }
     }

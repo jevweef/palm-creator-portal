@@ -93,6 +93,24 @@ export async function POST(request) {
 
     console.log(`[clerk-webhook] Set metadata for ${match.name}: ${JSON.stringify(metadata)}`)
 
+    // Also write HQ Record ID onto the Ops record so the admin view-as-creator
+    // dropdown can resolve hqId for this creator. Without this, palm-creators API
+    // returns hqId: null and the dashboard silently falls back to the admin's own hqId.
+    if (match.opsId && match.hqId) {
+      try {
+        await fetch(
+          `https://api.airtable.com/v0/${OPS_BASE}/${OPS_CREATORS_TABLE}/${match.opsId}`,
+          {
+            method: 'PATCH',
+            headers: atHeaders,
+            body: JSON.stringify({ fields: { 'HQ Record ID': match.hqId } }),
+          }
+        )
+      } catch (linkErr) {
+        console.error('[clerk-webhook] Failed to set HQ Record ID on Ops:', linkErr.message)
+      }
+    }
+
     // Update onboarding status if this creator was in "Link Sent" state
     try {
       const hqStatusUrl = `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}/${match.hqId}?fields%5B%5D=Onboarding+Status`

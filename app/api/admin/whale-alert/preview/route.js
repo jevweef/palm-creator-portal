@@ -25,7 +25,8 @@ export async function POST(req) {
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 10000 })
 
     const contentHeight = await page.evaluate(() => document.body.scrollHeight)
-    const captureHeight = Math.min(Math.max(contentHeight, 600), 2400)
+    // Match generateWhaleAlertPdf's ceiling so preview matches the real PDF
+    const captureHeight = Math.min(Math.max(contentHeight, 600), 4500)
 
     const screenshotBuffer = await page.screenshot({
       type: 'jpeg',

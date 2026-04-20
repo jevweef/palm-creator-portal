@@ -72,6 +72,7 @@ export async function GET(request) {
         alertCount: r.fields['Alert Count'] || 0,
         alertHistory: parseJSON(r.fields['Alert History']),
         lifetimeSpend: r.fields['Lifetime Spend'] || 0,
+        lifetimeOverride: r.fields['Lifetime Override'] || null, // manual override used in PDF/Telegram
         preAlertSpend30d: r.fields['Pre-Alert Spend 30d'] || 0,
         postAlertSpend30d: r.fields['Post-Alert Spend 30d'] || 0,
         effectiveness: r.fields['Effectiveness'] || '',
@@ -193,6 +194,8 @@ export async function POST(request) {
       return await updateEffectiveness(body)
     } else if (action === 'upsert') {
       return await upsertFan(body)
+    } else if (action === 'update_lifetime_override') {
+      return await updateLifetimeOverride(body)
     } else {
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
     }
@@ -344,6 +347,43 @@ async function updateEffectiveness({ recordId, effectiveness, postAlertSpend30d 
   if (postAlertSpend30d !== undefined) updates['Post-Alert Spend 30d'] = postAlertSpend30d
   await patchAirtableRecord(TABLE, recordId, updates)
   return NextResponse.json({ success: true })
+}
+
+// Set/clear the manual Lifetime Override. Used when Google Sheets earnings data
+// doesn't cover the full OF history and the real lifetime is known to be higher.
+// The override is only applied to the PDF + Telegram message — not to analysis.
+// Supports upserting by fan identity when no recordId is passed.
+async function updateLifetimeOverride({ recordId, override, fanName, fanUsername, creatorRecordId }) {
+  const value = (override === null || override === undefined || override === '') ? null : Number(override)
+  if (value !== null && (!Number.isFinite(value) || value < 0)) {
+    return NextResponse.json({ error: 'override must be a non-negative number or null' }, { status: 400 })
+  }
+
+  let targetId = recordId
+  if (!targetId) {
+    if (!fanName && !fanUsername) {
+      return NextResponse.json({ error: 'Missing recordId, fanName, or fanUsername' }, { status: 400 })
+    }
+    const existing = await findFanRecord(fanName || '', fanUsername, creatorRecordId)
+    if (existing) {
+      targetId = existing.id
+    } else if (creatorRecordId) {
+      // Create a bare tracker record so the override has somewhere to live
+      const created = await createAirtableRecord(TABLE, {
+        'Fan Name': fanName || fanUsername || 'Unknown',
+        'OF Username': fanUsername || '',
+        'Creator': [creatorRecordId],
+        'First Flagged': new Date().toISOString(),
+      })
+      targetId = created.id
+    } else {
+      return NextResponse.json({ error: 'Fan has no tracker record and creatorRecordId not provided' }, { status: 400 })
+    }
+  }
+
+  // null clears the override (Airtable treats empty-string as clear for currency fields).
+  await patchAirtableRecord(TABLE, targetId, { 'Lifetime Override': value })
+  return NextResponse.json({ success: true, recordId: targetId, override: value })
 }
 
 async function upsertFan({ fanName, ofUsername, creatorRecordId, fields: extraFields }) {
