@@ -62,7 +62,9 @@ export async function POST(request) {
         const dnaRaw = creatorRecords[0]?.fields?.['Music DNA Processed']
         if (dnaRaw) {
           const dna = JSON.parse(dnaRaw)
-          const dnaTracks = (dna.tracks || []).slice(0, 6)
+          // Shuffle DNA tracks so each refresh uses different seeds
+          const shuffledDna = [...(dna.tracks || [])].sort(() => Math.random() - 0.5)
+          const dnaTracks = shuffledDna.slice(0, 20)
           for (const t of dnaTracks) {
             seedTracks.push({
               track: t.track,
@@ -73,7 +75,7 @@ export async function POST(request) {
           }
           // Also add top genres from DNA
           if (dna.topGenres?.length) {
-            seedTracks.push({ track: '', artist: '', spotifyId: null, genres: dna.topGenres.slice(0, 5) })
+            seedTracks.push({ track: '', artist: '', spotifyId: null, genres: dna.topGenres.slice(0, 8) })
           }
         }
       } catch (e) {
@@ -89,7 +91,7 @@ export async function POST(request) {
 
     console.log(`[Music Suggest] Finding similar music with ${seedTracks.length} seed(s)...`)
 
-    const suggestions = await findSimilarMusic(seedTracks, { limit: 40 })
+    const suggestions = await findSimilarMusic(seedTracks, { limit: 100 })
     // Shuffle so each session gets a different order
     for (let i = suggestions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
