@@ -15,27 +15,66 @@ export async function POST(request) {
       return NextResponse.json({ error: 'url and creatorName required' }, { status: 400 })
     }
 
-    // Convert Google Drive share URL to direct download URL
-    let downloadUrl = url
-    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/)
-    if (driveMatch) {
-      downloadUrl = `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`
-    }
-    // Also handle docs.google.com/uc? format
-    const ucMatch = url.match(/drive\.google\.com\/uc\?.*id=([^&]+)/)
-    if (ucMatch) {
-      downloadUrl = `https://drive.google.com/uc?export=download&id=${ucMatch[1]}`
+    // Extract Google Drive file ID from various URL formats
+    let fileId = null
+    const patterns = [
+      /drive\.google\.com\/file\/d\/([^/?]+)/,
+      /drive\.google\.com\/open\?id=([^&]+)/,
+      /drive\.google\.com\/uc\?.*id=([^&]+)/,
+    ]
+    for (const p of patterns) {
+      const m = url.match(p)
+      if (m) { fileId = m[1]; break }
     }
 
-    console.log(`[LongForm] Downloading from: ${downloadUrl.substring(0, 80)}...`)
+    if (!fileId) {
+      return NextResponse.json({ error: 'Could not extract Google Drive file ID from URL' }, { status: 400 })
+    }
 
-    // Download the file
+    console.log(`[LongForm] Google Drive file ID: ${fileId}`)
+
+    // Use the confirm=t parameter to bypass the virus scan warning for large files
+    const downloadUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`
+    console.log(`[LongForm] Downloading from: ${downloadUrl}`)
+
     const dlRes = await fetch(downloadUrl, { redirect: 'follow' })
     if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
 
-    const buffer = Buffer.from(await dlRes.arrayBuffer())
-    const size = buffer.length
-    console.log(`[LongForm] Downloaded: ${(size / 1024 / 1024).toFixed(1)}MB`)
+    const contentType = dlRes.headers.get('content-type') || ''
+    console.log(`[LongForm] Content-Type: ${contentType}`)
+
+    let buffer = Buffer.from(await dlRes.arrayBuffer())
+    let size = buffer.length
+    console.log(`[LongForm] Downloaded: ${(size / 1024 / 1024).toFixed(2)}MB`)
+
+    // If we got HTML back (confirmation page), try to extract the confirmation token and retry
+    if (contentType.includes('text/html')) {
+      const html = buffer.toString('utf8')
+      // Look for UUID confirmation token in the form
+      const uuidMatch = html.match(/name="uuid"\s+value="([^"]+)"/)
+      const confirmMatch = html.match(/name="confirm"\s+value="([^"]+)"/)
+
+      if (uuidMatch || confirmMatch) {
+        const params = new URLSearchParams({ id: fileId, export: 'download' })
+        if (uuidMatch) params.set('uuid', uuidMatch[1])
+        if (confirmMatch) params.set('confirm', confirmMatch[1])
+        const retryUrl = `https://drive.usercontent.google.com/download?${params.toString()}`
+        console.log(`[LongForm] Retrying with confirmation: ${retryUrl}`)
+
+        const retryRes = await fetch(retryUrl, { redirect: 'follow' })
+        if (!retryRes.ok) throw new Error(`Retry download failed: ${retryRes.status}`)
+        buffer = Buffer.from(await retryRes.arrayBuffer())
+        size = buffer.length
+        console.log(`[LongForm] Retry downloaded: ${(size / 1024 / 1024).toFixed(2)}MB`)
+
+        // Check again — if still HTML, we failed
+        if (buffer.slice(0, 15).toString() === '<!DOCTYPE html>' || buffer.slice(0, 5).toString() === '<html') {
+          throw new Error('Google Drive returned HTML after confirmation retry. The file may not be publicly accessible. Make sure the share link is set to "Anyone with the link".')
+        }
+      } else {
+        throw new Error('Google Drive returned HTML instead of the file. Make sure the share link is set to "Anyone with the link" and the file is publicly accessible.')
+      }
+    }
 
     if (size > 150 * 1024 * 1024) {
       return NextResponse.json({ error: `File too large (${(size / 1024 / 1024).toFixed(0)}MB). Max 150MB.` }, { status: 400 })
