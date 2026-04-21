@@ -2099,9 +2099,31 @@ export default function EditorQueue() {
 
   return (
     <div>
+      {/* Mobile-only header overrides */}
+      <style>{`
+        @media (max-width: 768px) {
+          .admin-editor-header {
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            margin-bottom: 16px !important;
+          }
+          .admin-editor-tabs {
+            order: 2;
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            white-space: nowrap;
+            flex-wrap: nowrap !important;
+          }
+          .admin-editor-tabs::-webkit-scrollbar { display: none; }
+          .admin-editor-tabs button { flex-shrink: 0; }
+          .admin-editor-notif { order: 1; margin-left: auto; }
+        }
+      `}</style>
       {/* Header row: tabs + notification */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
+      <div className="admin-editor-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div className="admin-editor-tabs" style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -2119,7 +2141,7 @@ export default function EditorQueue() {
         </div>
         {/* Notification opt-in */}
         {'Notification' in (typeof window !== 'undefined' ? window : {}) && (
-          <div style={{ flexShrink: 0 }}>
+          <div className="admin-editor-notif" style={{ flexShrink: 0 }}>
             {notifStatus === 'idle' && (
               <button onClick={handleEnableNotifications}
                 style={{ fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '8px', border: '1px solid #E8C4CC', background: 'transparent', color: '#999', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>

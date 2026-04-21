@@ -1302,10 +1302,10 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
         </div>
 
         {/* Body — two columns */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <div className="editor-task-modal-body" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
           {/* LEFT — media panels */}
-          <div style={{ width: '50%', padding: '20px', borderRight: '1px solid #F0D0D8', display: 'flex', gap: '12px', overflow: 'hidden' }}>
+          <div className="editor-task-modal-left" style={{ width: '50%', padding: '20px', borderRight: '1px solid #F0D0D8', display: 'flex', gap: '12px', overflow: 'hidden' }}>
             {editedLink ? (
               <>
                 <MediaPanel
@@ -1344,7 +1344,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
           </div>
 
           {/* RIGHT — info + action */}
-          <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+          <div className="editor-task-modal-right" style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
 
             {/* Admin feedback */}
             {task?.adminFeedback && (

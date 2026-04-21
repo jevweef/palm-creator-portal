@@ -31,9 +31,26 @@ export default function EditorDashboardPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
+      {/* Mobile-only overrides — desktop untouched */}
+      <style>{`
+        @media (max-width: 768px) {
+          .editor-page-inner { padding: 14px 14px !important; }
+          .editor-page-tabs {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            white-space: nowrap;
+            flex-wrap: nowrap !important;
+            margin: 0 -14px 18px !important;
+            padding: 0 14px !important;
+          }
+          .editor-page-tabs::-webkit-scrollbar { display: none; }
+          .editor-page-tabs button { flex-shrink: 0; }
+        }
+      `}</style>
+      <div className="editor-page-inner" style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
         {/* Tab bar */}
-        <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)', marginBottom: '24px' }}>
+        <div className="editor-page-tabs" style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)', marginBottom: '24px' }}>
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => switchTab(tab.key)}
               style={{
