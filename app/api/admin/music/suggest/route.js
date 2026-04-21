@@ -89,10 +89,30 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    const artists = [...new Set(seedTracks.map(t => t.artist?.split(',')[0]?.trim()).filter(Boolean))]
+    const artists = [...new Set(seedTracks.map(t => t.artist?.split(/[,&]/)[0]?.trim()).filter(Boolean))]
     const genres = [...new Set(seedTracks.flatMap(t => t.genres || []))]
     console.log(`[Music Suggest] seeds=${seedTracks.length} artists=${artists.length} genres=${genres.length}`)
-    console.log(`[Music Suggest] sample artists:`, artists.slice(0, 5))
+
+    // Sanity-check Spotify auth up front so we can surface clear errors
+    let spotifyAuthOk = true
+    let spotifyAuthError = null
+    try {
+      const { searchTrack } = await import('@/lib/spotify')
+      const probe = await searchTrack(artists[0] || 'test')
+      if (!probe || !Array.isArray(probe)) throw new Error('Invalid probe response')
+    } catch (e) {
+      spotifyAuthOk = false
+      spotifyAuthError = e.message
+      console.error(`[Music Suggest] Spotify auth probe failed:`, e.message)
+    }
+
+    if (!spotifyAuthOk) {
+      return NextResponse.json({
+        error: 'Spotify API unavailable',
+        details: spotifyAuthError,
+        hint: 'Check SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET env vars on this deployment.',
+      }, { status: 500 })
+    }
 
     const suggestions = await findSimilarMusic(seedTracks, { limit: 100 })
     console.log(`[Music Suggest] returned ${suggestions.length} suggestions`)
