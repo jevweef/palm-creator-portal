@@ -56,16 +56,18 @@ export async function GET(request) {
     // Fetch this creator's accounts + all their posts in parallel
     const creatorAccounts = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
 
-    // Pull posts for this creator (14 days back, everything forward).
-    // Includes past sent posts so they render as the "already posted" bottom of the grid.
-    const posts = await fetchAirtableRecords('Posts', {
-      filterByFormula: `AND(FIND('${creatorId}', ARRAYJOIN({Creator}))>0, IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days')))`,
+    // Pull posts in window (last 60 days + future), filter to this creator in memory.
+    // Can't filter by Creator record ID in Airtable formula — ARRAYJOIN returns
+    // display names, not IDs. Fetch-then-filter is fine at this scale (tens of posts).
+    const allRecentPosts = await fetchAirtableRecords('Posts', {
+      filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
       fields: [
         'Post Name', 'Creator', 'Account', 'Asset', 'Task',
         'Status', 'Platform', 'Caption', 'Thumbnail',
         'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link',
       ],
     })
+    const posts = allRecentPosts.filter(p => (p.fields?.Creator || []).includes(creatorId))
 
     // Pull asset thumbnails (fallback when Post doesn't have its own thumb yet)
     const assetIds = [...new Set(posts.flatMap(p => p.fields?.Asset || []).filter(Boolean))]

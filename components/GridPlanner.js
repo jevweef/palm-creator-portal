@@ -30,6 +30,15 @@ function postStatus(post) {
 
 // ─── Phone frame mimicking IG profile ──────────────────────────────────────────
 
+// Deterministic pastel gradient per handle so each account visually differentiates
+function avatarGradient(handle) {
+  const str = handle || 'x'
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  const hue = Math.abs(hash) % 360
+  return `linear-gradient(135deg, hsl(${hue}, 70%, 60%) 0%, hsl(${(hue + 40) % 360}, 70%, 50%) 100%)`
+}
+
 function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEnd, onDrop, onCellClick }) {
   const handle = account?.handle || account?.name || ''
 
@@ -82,7 +91,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           {/* Avatar */}
           <div style={{
             width: '64px', height: '64px', borderRadius: '50%',
-            background: 'linear-gradient(135deg, #E88FAC 0%, #f59e0b 100%)',
+            background: avatarGradient(handle),
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: '24px', fontWeight: 700,
             border: '2px solid #fff',
@@ -129,7 +138,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '2px',
         background: '#fff',
-        minHeight: '400px',
+        minHeight: allCells.length === 0 ? '120px' : '200px',
       }}>
         {allCells.length === 0 && (
           <div style={{ gridColumn: '1 / -1', padding: '40px 20px', textAlign: 'center', color: '#999', fontSize: '12px' }}>
