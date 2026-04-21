@@ -1,77 +1,67 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdminOrEditor, fetchAirtableRecords, OPS_BASE, airtableHeaders } from '@/lib/adminAuth'
+import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord, OPS_BASE, airtableHeaders } from '@/lib/adminAuth'
 
-const TASKS_TABLE = 'tblXMh2UznOJMgxl6'
-const ASSETS_TABLE = 'tblAPl8Pi5v1qmMNM'
-
+// POST — create a new Task for a library asset and flip the asset out of the
+// unreviewed library by setting Pipeline Status = 'In Editing'.
+//
+// CRITICAL: this route historically used field IDs (e.g. fld96IKrBmR1d5qdz for
+// Pipeline Status) instead of field names. If the Airtable schema drifted, the
+// PATCH would silently succeed but not update Pipeline Status — leaving the
+// asset visible in the unreviewed library. Now uses field names everywhere
+// (matches the rest of the codebase) and throws if the status update fails.
 export async function POST(req) {
   try { await requireAdminOrEditor() } catch (e) { return e }
 
   try {
     const { assetId, creatorId } = await req.json()
-
     if (!assetId || !creatorId) {
       return NextResponse.json({ error: 'assetId and creatorId are required' }, { status: 400 })
     }
 
-    // Fetch the asset to get its name
-    const assetRes = await fetch(
-      `https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`,
-      { headers: airtableHeaders }
-    )
-    if (!assetRes.ok) {
-      const text = await assetRes.text()
-      throw new Error(`Failed to fetch asset: ${text}`)
+    // 1. Fetch the asset (by record ID via fetchAirtableRecords → returns field NAMES)
+    const assetRecords = await fetchAirtableRecords('Assets', {
+      filterByFormula: `RECORD_ID()='${assetId}'`,
+      fields: ['Asset Name', 'Tasks', 'Inspiration Source', 'Pipeline Status'],
+    })
+    if (!assetRecords.length) {
+      return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
     }
-    const assetRecord = await assetRes.json()
-    const assetName = assetRecord.fields?.['fldRYYzl5OjSMnSBt'] || assetRecord.fields?.['Asset Name'] || 'Untitled'
-    const existingTasks = assetRecord.fields?.['fld4CCeJODpSsV9Fs'] || assetRecord.fields?.['Tasks'] || []
-    const inspoSourceIds = assetRecord.fields?.['fld5CDjdr9Xy0tQyw'] || assetRecord.fields?.['Inspiration Source'] || []
+    const assetFields = assetRecords[0].fields || {}
+    const assetName = assetFields['Asset Name'] || 'Untitled'
+    const existingTasks = assetFields['Tasks'] || []
+    const inspoSourceIds = assetFields['Inspiration Source'] || []
 
-    // Create a new Task record
-    const createRes = await fetch(
-      `https://api.airtable.com/v0/${OPS_BASE}/${TASKS_TABLE}`,
-      {
-        method: 'POST',
-        headers: airtableHeaders,
-        body: JSON.stringify({
-          fields: {
-            fldewc1Wffh8WQsGg: `Edit: ${assetName}`,
-            fldCSCps8fliHfmZV: 'To Do',
-            fldtRiiDWYBuQFetr: [creatorId],
-            fldUGXeqxXMvedl9z: [assetId],
-            ...(inspoSourceIds.length ? { fldGcodJMsxLA9uvT: inspoSourceIds } : {}),
-          },
-        }),
-      }
-    )
-    if (!createRes.ok) {
-      const text = await createRes.text()
-      throw new Error(`Failed to create task: ${text}`)
-    }
-    const newRecord = await createRes.json()
-    const taskId = newRecord.id
+    // 2. Create the Task record
+    const newTask = await createAirtableRecord('Tasks', {
+      'Name': `Edit: ${assetName}`,
+      'Status': 'To Do',
+      'Creator': [creatorId],
+      'Asset': [assetId],
+      ...(inspoSourceIds.length ? { 'Inspiration': inspoSourceIds } : {}),
+    })
+    const taskId = newTask.id
 
-    // PATCH the asset: set Pipeline Status to "In Editing" and add task to Tasks field
+    // 3. Flip the asset: Pipeline Status → 'In Editing', link the new Task.
+    //    Throws if the PATCH fails — we don't want to leave a zombie task
+    //    while the asset still shows as 'Uploaded'.
     const updatedTasks = [...new Set([...existingTasks, taskId])]
-    const patchRes = await fetch(
-      `https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`,
-      {
-        method: 'PATCH',
-        headers: airtableHeaders,
-        body: JSON.stringify({
-          fields: {
-            fld96IKrBmR1d5qdz: 'In Editing',
-            fld4CCeJODpSsV9Fs: updatedTasks,
-          },
-        }),
-      }
-    )
-    if (!patchRes.ok) {
-      const text = await patchRes.text()
-      throw new Error(`Failed to update asset: ${text}`)
+    try {
+      await patchAirtableRecord('Assets', assetId, {
+        'Pipeline Status': 'In Editing',
+        'Tasks': updatedTasks,
+      })
+    } catch (patchErr) {
+      console.error(`[Editor Tasks] Asset PATCH failed after task ${taskId} was created:`, patchErr.message)
+      // Roll back the task so we don't leave orphaned records while the asset
+      // is still showing as 'Uploaded' in the library
+      try {
+        await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Tasks/${taskId}`, {
+          method: 'DELETE', headers: airtableHeaders,
+        })
+      } catch {}
+      throw new Error(`Could not update asset pipeline status: ${patchErr.message}`)
     }
 
     return NextResponse.json({ taskId })
@@ -81,6 +71,7 @@ export async function POST(req) {
   }
 }
 
+// DELETE — cancel a task and return the asset to the unreviewed library
 export async function DELETE(req) {
   try { await requireAdminOrEditor() } catch (e) { return e }
   try {
@@ -89,21 +80,16 @@ export async function DELETE(req) {
 
     // Delete the task record
     const delRes = await fetch(
-      `https://api.airtable.com/v0/${OPS_BASE}/${TASKS_TABLE}/${taskId}`,
+      `https://api.airtable.com/v0/${OPS_BASE}/Tasks/${taskId}`,
       { method: 'DELETE', headers: airtableHeaders }
     )
     if (!delRes.ok) throw new Error(`Failed to delete task: ${await delRes.text()}`)
 
-    // Reset asset pipeline status back to Uploaded
+    // Reset the asset's Pipeline Status so it reappears in the library
     if (assetId) {
-      await fetch(
-        `https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`,
-        {
-          method: 'PATCH',
-          headers: airtableHeaders,
-          body: JSON.stringify({ fields: { fld96IKrBmR1d5qdz: 'Uploaded' } }),
-        }
-      )
+      await patchAirtableRecord('Assets', assetId, {
+        'Pipeline Status': 'Uploaded',
+      })
     }
 
     return NextResponse.json({ ok: true })
