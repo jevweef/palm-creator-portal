@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 
 // GET /api/admin/grid-planner
 //   - No params: returns list of creators who have managed IG accounts
@@ -197,6 +197,81 @@ export async function PATCH(request) {
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
   } catch (err) {
     console.error('[Grid Planner] PATCH error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// POST /api/admin/grid-planner
+//   body: { action: 'fanOut', postId: 'rec...', accountIds: ['recA', 'recB', 'recC'] }
+//     → First account: assign the existing Post to it.
+//     → Other accounts: clone the Post (same asset, caption, hashtags, platform, thumbnail)
+//       with a staggered Scheduled Date (+2h and +4h from the first).
+//
+// Default times when creating siblings: 9am, 1pm, 6pm ET on the first post's day.
+// Existing Post's scheduledDate is preserved for the first account.
+export async function POST(request) {
+  try { await requireAdmin() } catch (e) { return e }
+
+  try {
+    const body = await request.json()
+    const { action } = body
+
+    if (action !== 'fanOut') {
+      return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
+    }
+
+    const { postId, accountIds } = body
+    if (!postId || !Array.isArray(accountIds) || accountIds.length === 0) {
+      return NextResponse.json({ error: 'postId and accountIds[] required' }, { status: 400 })
+    }
+
+    // Fetch the source post
+    const sourceRecs = await fetchAirtableRecords('Posts', {
+      filterByFormula: `RECORD_ID()='${postId}'`,
+      fields: ['Post Name', 'Creator', 'Asset', 'Task', 'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Scheduled Date'],
+    })
+    if (!sourceRecs.length) return NextResponse.json({ error: 'Source post not found' }, { status: 404 })
+    const src = sourceRecs[0].fields || {}
+
+    // Stagger times: use the source's scheduled date as first slot, then +2h, +4h
+    // for sibling posts (prevents cross-posting at the same exact minute which IG flags).
+    const baseDate = src['Scheduled Date'] ? new Date(src['Scheduled Date']) : new Date()
+    const makeStaggered = (i) => {
+      const d = new Date(baseDate)
+      d.setHours(d.getHours() + i * 2)
+      return d.toISOString()
+    }
+
+    // 1. Assign the existing post to the FIRST account
+    await patchAirtableRecord('Posts', postId, {
+      'Account': [accountIds[0]],
+      ...(src['Scheduled Date'] ? {} : { 'Scheduled Date': makeStaggered(0) }),
+    })
+
+    // 2. Clone the post for each remaining account with staggered times
+    const clones = []
+    for (let i = 1; i < accountIds.length; i++) {
+      const accId = accountIds[i]
+      const fields = {
+        'Post Name': src['Post Name'] || '',
+        ...(src.Creator ? { 'Creator': src.Creator } : {}),
+        ...(src.Asset ? { 'Asset': src.Asset } : {}),
+        ...(src.Task ? { 'Task': src.Task } : {}),
+        'Account': [accId],
+        'Status': 'Prepping',
+        ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
+        ...(src.Caption ? { 'Caption': src.Caption } : {}),
+        ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
+        ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
+        'Scheduled Date': makeStaggered(i),
+      }
+      const created = await createAirtableRecord('Posts', fields)
+      clones.push(created.id)
+    }
+
+    return NextResponse.json({ ok: true, assigned: postId, clones, accountCount: accountIds.length })
+  } catch (err) {
+    console.error('[Grid Planner] POST error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

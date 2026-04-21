@@ -234,7 +234,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
 // ─── Unassigned tray ───────────────────────────────────────────────────────────
 
-function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, onAssign }) {
+function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, onFanOut }) {
   if (posts.length === 0) return null
   return (
     <div style={{
@@ -247,38 +247,57 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Unassigned posts</div>
-          <div style={{ fontSize: '11px', color: '#999' }}>{posts.length} post{posts.length !== 1 && 's'} — drag into an account grid to assign</div>
+          <div style={{ fontSize: '11px', color: '#999' }}>
+            {posts.length} to assign — drag to one account, or use Fan Out to post across all {accounts.length}
+          </div>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px' }}>
+      <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
         {posts.map(p => (
-          <div
-            key={p.id}
-            draggable
-            onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(p.id, null) }}
-            onDragEnd={onDragEnd}
-            title={`${p.name} · ${formatScheduled(p.scheduledDate)}`}
-            style={{
-              width: '80px', height: '80px', flexShrink: 0,
-              background: '#000', borderRadius: '8px', overflow: 'hidden',
-              cursor: 'grab', position: 'relative',
-              opacity: draggingId === p.id ? 0.4 : 1,
-              border: '1px solid #E8C4CC',
-            }}
-          >
-            {p.thumbnail ? (
-              <img src={p.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF5F7', color: '#999', fontSize: '18px' }}>✏</div>
-            )}
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0,
-              background: 'rgba(0,0,0,0.6)', color: '#fff',
-              fontSize: '9px', padding: '2px 4px',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {p.scheduledDate ? new Date(p.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' }) : 'no date'}
+          <div key={p.id} style={{ flexShrink: 0, width: '96px' }}>
+            <div
+              draggable
+              onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(p.id, null) }}
+              onDragEnd={onDragEnd}
+              title={`${p.name} · ${formatScheduled(p.scheduledDate)}`}
+              style={{
+                width: '96px', height: '96px',
+                background: '#000', borderRadius: '8px', overflow: 'hidden',
+                cursor: 'grab', position: 'relative',
+                opacity: draggingId === p.id ? 0.4 : 1,
+                border: '1px solid #E8C4CC',
+              }}
+            >
+              {p.thumbnail ? (
+                <img src={p.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF5F7', color: '#999', fontSize: '22px' }}>✏</div>
+              )}
+              <div style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0,
+                background: 'rgba(0,0,0,0.65)', color: '#fff',
+                fontSize: '9px', padding: '2px 5px',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {p.scheduledDate ? new Date(p.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' }) : 'no date'}
+              </div>
             </div>
+            {onFanOut && accounts.length > 1 && (
+              <button
+                onClick={() => onFanOut(p)}
+                style={{
+                  marginTop: '4px', width: '96px',
+                  padding: '3px 6px', fontSize: '9px', fontWeight: 700,
+                  background: '#FFF0F3', color: '#E88FAC',
+                  border: '1px solid #E8C4CC', borderRadius: '5px',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                }}
+                title={`Duplicate this post to all ${accounts.length} account grids`}
+              >
+                ⇉ Fan Out
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -424,10 +443,36 @@ export default function GridPlanner() {
     }
   }
 
-  const unassignedPosts = posts.filter(p => !p.accountId)
+  // Unassigned: only scheduled/draft posts (not historical sent/posted without account).
+  // Historical posts without an Account are noise — nothing to do with them.
+  // Sort soonest-scheduled first so the planner feels sequential.
+  const unassignedPosts = posts
+    .filter(p => !p.accountId && !p.telegramSentAt && !p.postedAt)
+    .sort((a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0))
   const postsByAccount = Object.fromEntries(
     accounts.map(a => [a.id, posts.filter(p => p.accountId === a.id)])
   )
+
+  // Fan out: duplicate post to all managed accounts, auto-staggering times
+  const handleFanOut = async (post) => {
+    if (!accounts.length) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fanOut', postId: post.id, accountIds: accounts.map(a => a.id) }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fan out failed')
+      showToast(`Fanned out to ${accounts.length} account${accounts.length > 1 ? 's' : ''}`)
+      await loadCreator(selectedCreatorId)
+    } catch (e) {
+      showToast(e.message, true)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div>
@@ -477,6 +522,7 @@ export default function GridPlanner() {
             draggingId={dragging.postId}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            onFanOut={handleFanOut}
           />
 
           {/* Phones */}
