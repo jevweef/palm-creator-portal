@@ -18,6 +18,7 @@ const ADMIN_NAV = [
     { key: 'editorview', label: 'Dashboard' },
     { key: 'review', label: 'For Review' },
     { key: 'postprep', label: 'Post Prep' },
+    { key: 'grid', label: 'Grid Planner' },
     { key: 'library', label: 'Creator Library' },
     { key: 'longform', label: 'Long Form' },
   ]},

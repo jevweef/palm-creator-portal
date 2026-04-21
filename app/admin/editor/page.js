@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { EditorDashboardContent, getSlotLabel } from '@/components/EditorDashboard'
 import PostsPage from '@/app/admin/posts/page'
 import LongFormUpload from '@/components/LongFormUpload'
+import GridPlanner from '@/components/GridPlanner'
 
 function formatSlot(isoDate) {
   const label = getSlotLabel(isoDate)
@@ -2093,6 +2094,7 @@ export default function EditorQueue() {
     { key: 'editorview', label: '📋 Dashboard' },
     { key: 'review', label: '👁 For Review' },
     { key: 'postprep', label: '✈️ Post Prep' },
+    { key: 'grid', label: '▦ Grid Planner' },
     { key: 'library', label: '📁 Creator Library' },
     { key: 'longform', label: '🎬 Long Form' },
   ]
@@ -2162,6 +2164,7 @@ export default function EditorQueue() {
       {activeSection === 'editorview' && <EditorDashboardContent />}
       {activeSection === 'review' && <ForReview showToast={showToast} />}
       {activeSection === 'postprep' && <PostsPage />}
+      {activeSection === 'grid' && <GridPlanner />}
       {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
       {activeSection === 'longform' && <LongFormUpload showToast={showToast} />}
 
