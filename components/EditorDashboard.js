@@ -1257,12 +1257,33 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const creatorNotes = task?.asset?.creatorNotes || clip?.creatorNotes || task?.creatorNotes || ''
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '24px' }}
+    <div className="editor-task-modal-backdrop" style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '24px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '16px', width: '100%', maxWidth: '1050px', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Mobile-only modal overrides */}
+      <style>{`
+        @media (max-width: 768px) {
+          .editor-task-modal-backdrop { padding: 0 !important; align-items: stretch !important; }
+          .editor-task-modal-shell {
+            max-width: 100% !important; max-height: 100vh !important;
+            border-radius: 0 !important; height: 100vh !important;
+          }
+          .editor-task-modal-body { flex-direction: column !important; overflow-y: auto !important; }
+          .editor-task-modal-left {
+            width: 100% !important; border-right: none !important;
+            border-bottom: 1px solid #F0D0D8 !important;
+            padding: 12px !important;
+            max-height: 45vh;
+            flex-shrink: 0;
+          }
+          .editor-task-modal-right { padding: 14px !important; }
+          .editor-task-modal-header { padding: 12px 14px !important; }
+          .editor-task-modal-header > div:first-child > div:first-child > div:first-child { font-size: 14px !important; }
+        }
+      `}</style>
+      <div className="editor-task-modal-shell" style={{ background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '16px', width: '100%', maxWidth: '1050px', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header bar */}
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #F0D0D8', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+        <div className="editor-task-modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid #F0D0D8', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
@@ -1606,27 +1627,28 @@ function SlotThumbnail({ slot }) {
   const clip = slot.clip
   const size = '64px'
   const style = { width: size, height: size, borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }
+  const cls = 'editor-slot-thumb'
 
   if (slot.type === 'empty') return null
 
   if (slot.type === 'done') {
     const editedUrl = task?.asset?.editedFileLink ? rawDropboxUrl(task.asset.editedFileLink) : ''
     const thumb = task?.asset?.thumbnail || task?.inspo?.thumbnail || ''
-    if (editedUrl) return <video src={editedUrl} muted playsInline style={{ ...style, opacity: 0.7 }} />
-    if (thumb) return <img src={thumb} alt="" style={{ ...style, opacity: 0.6 }} />
+    if (editedUrl) return <video className={cls} src={editedUrl} muted playsInline style={{ ...style, opacity: 0.7 }} />
+    if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, opacity: 0.6 }} />
     return null
   }
 
   if (slot.type === 'inspoClip') {
     const thumb = clip?.thumbnail || clip?.inspo?.thumbnail || ''
-    return thumb ? <img src={thumb} alt="" style={style} /> : null
+    return thumb ? <img className={cls} src={thumb} alt="" style={style} /> : null
   }
 
   // toDo or inProgress
   const thumb = task?.inspo?.thumbnail || task?.asset?.thumbnail || ''
   const rawClipUrl = !thumb ? rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '') : ''
-  if (thumb) return <img src={thumb} alt="" style={{ ...style, ...(task?.adminReviewStatus === 'Needs Revision' ? { border: '1px solid #fecaca' } : {}) }} />
-  if (rawClipUrl) return <video src={rawClipUrl} muted playsInline style={style} />
+  if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, ...(task?.adminReviewStatus === 'Needs Revision' ? { border: '1px solid #fecaca' } : {}) }} />
+  if (rawClipUrl) return <video className={cls} src={rawClipUrl} muted playsInline style={style} />
   return null
 }
 
@@ -1759,6 +1781,7 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
 
   return (
     <div
+      className="editor-slot-card"
       onClick={clickable ? () => onSlotClick(slot) : undefined}
       style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '12px 14px', minHeight: '90px', overflow: 'hidden', display: 'flex', gap: '12px', alignItems: 'center', cursor: clickable ? 'pointer' : 'default', transition: 'border-color 0.15s', opacity }}
       onMouseEnter={e => { if (clickable) e.currentTarget.style.borderColor = typeStyle.dotColor }}
@@ -1766,7 +1789,7 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
     >
       <SlotThumbnail slot={slot} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="editor-slot-label-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
             <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: typeStyle.dotColor, flexShrink: 0 }} />
             <span style={{ fontSize: '10px', fontWeight: 700, color: typeStyle.dotColor, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
@@ -2026,7 +2049,7 @@ function CreatorSection({ creator, onRefresh }) {
   return (
     <div style={{ background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '16px', height: '100%' }}>
       {/* Header */}
-      <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #F0D0D8' }}>
+      <div className="editor-creator-header" style={{ padding: '18px 24px 14px', borderBottom: '1px solid #F0D0D8' }}>
         {/* Row 1: name + See More inline left, Weekly label top right */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2045,7 +2068,7 @@ function CreatorSection({ creator, onRefresh }) {
           <span style={{ fontSize: '9px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0, paddingTop: '4px' }}>Weekly</span>
         </div>
         {/* Row 2: status pills — always has at least the 'needed' pill */}
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+        <div className="editor-creator-pills" style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
           {creator.needsRevision.length > 0 && (
             <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca' }}>
               ⚠ {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''}
@@ -2085,9 +2108,9 @@ function CreatorSection({ creator, onRefresh }) {
       </div>
 
       {/* Daily Work Slots */}
-      <div style={{ padding: '16px 24px' }}>
+      <div className="editor-creator-body" style={{ padding: '16px 24px' }}>
         {/* Date navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div className="editor-date-nav" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <button onClick={() => shiftDate(-1)}
             style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
           <div style={{ position: 'relative', minWidth: '180px' }}>
@@ -2258,12 +2281,12 @@ function BufferCreatorCard({ creator }) {
   const barBg = isGreen ? '#dcfce7' : isYellow ? '#fef3c7' : '#fee2e2'
 
   return (
-    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '16px 18px' }}>
+    <div className="editor-buffer-card" style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '16px 18px' }}>
       {/* Name + buffer days */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <span style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</span>
+        <span className="editor-buffer-name" style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</span>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
-          <span style={{ fontSize: '22px', fontWeight: 800, color, lineHeight: 1 }}>{bufferDays}</span>
+          <span className="editor-buffer-days" style={{ fontSize: '22px', fontWeight: 800, color, lineHeight: 1 }}>{bufferDays}</span>
           <span style={{ fontSize: '11px', color, fontWeight: 600 }}>d runway</span>
         </div>
       </div>
@@ -2318,7 +2341,7 @@ function BufferOverview({ creators }) {
           <span style={{ fontSize: '12px', color: '#f59e0b' }}>Some creators running low</span>
         )}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+      <div className="editor-dash-buffer-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
         {sorted.map(creator => (
           <BufferCreatorCard key={creator.id} creator={creator} />
         ))}
@@ -2372,7 +2395,34 @@ export function EditorDashboardContent() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+      {/* Mobile-only overrides — desktop untouched */}
+      <style>{`
+        @media (max-width: 768px) {
+          .editor-dash-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+          .editor-dash-buffer-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .editor-creator-header { padding: 14px 16px 10px !important; }
+          .editor-creator-header h2 { font-size: 16px !important; }
+          .editor-creator-body { padding: 12px 14px !important; }
+          .editor-creator-pills span,
+          .editor-creator-pills button { font-size: 10px !important; padding: 3px 8px !important; }
+          .editor-slot-card { padding: 10px 12px !important; min-height: 78px !important; gap: 10px !important; }
+          .editor-slot-thumb { width: 52px !important; height: 52px !important; flex-shrink: 0; }
+          .editor-slot-thumb img, .editor-slot-thumb video { width: 52px !important; height: 52px !important; }
+          .editor-slot-label-row { flex-wrap: wrap !important; gap: 4px 8px !important; }
+          .editor-date-nav { flex-wrap: wrap !important; gap: 6px !important; }
+          .editor-date-nav > :last-child { margin-left: 0 !important; }
+          .editor-buffer-card { padding: 12px 14px !important; }
+          .editor-buffer-card > div:first-child { margin-bottom: 8px !important; }
+          .editor-buffer-name { font-size: 13px !important; }
+          .editor-buffer-days { font-size: 20px !important; }
+          .editor-dash-header { flex-wrap: wrap; gap: 8px; }
+        }
+        @media (max-width: 420px) {
+          .editor-dash-buffer-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+
+      <div className="editor-dash-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
         <div>
           <span style={{ fontSize: '13px', color: '#999' }}>{greeting}, </span>
           <span style={{ fontSize: '13px', fontWeight: 700, color: '#888' }}>{firstName}</span>
@@ -2390,7 +2440,7 @@ export function EditorDashboardContent() {
           No creators assigned — toggle Social Media Editing on a creator to assign them.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+        <div className="editor-dash-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           {creators.map(creator => (
             <div key={creator.id} style={{ minWidth: 0 }}>
               <CreatorSection creator={creator} onRefresh={() => fetchData(true)} />

@@ -54,6 +54,11 @@ export default function AdminLayout({ children }) {
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  // Close mobile nav on route change
+  useEffect(() => { setMobileNavOpen(false) }, [pathname, activeTab])
+
   useEffect(() => {
     if (!isLoaded) return
     if (!isAdmin && !isEditor) {
@@ -76,9 +81,78 @@ export default function AdminLayout({ children }) {
   const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
+    <div className="admin-shell" style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
+      {/* Mobile-only styles — desktop untouched */}
+      <style>{`
+        @media (max-width: 768px) {
+          .admin-shell { display: block !important; }
+          .admin-sidebar {
+            position: fixed !important;
+            top: 49px; left: 0; bottom: 0;
+            width: 240px !important;
+            z-index: 250;
+            transform: translateX(-100%);
+            transition: transform 0.22s ease;
+            overflow-y: auto;
+          }
+          .admin-sidebar.open { transform: translateX(0); }
+          .admin-sidebar-backdrop {
+            display: none;
+            position: fixed; inset: 49px 0 0 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 240;
+          }
+          .admin-sidebar-backdrop.open { display: block; }
+          .admin-mobile-bar {
+            display: flex !important;
+          }
+          .admin-main {
+            padding: 12px 14px !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .admin-mobile-bar { display: none !important; }
+          .admin-sidebar-backdrop { display: none !important; }
+        }
+      `}</style>
+
+      {/* Mobile top bar — only visible on mobile */}
+      <div className="admin-mobile-bar" style={{
+        display: 'none',
+        position: 'sticky', top: 0, zIndex: 220,
+        background: '#ffffff',
+        borderBottom: '1px solid #F0D0D8',
+        padding: '10px 14px',
+        alignItems: 'center', gap: '12px',
+      }}>
+        <button
+          onClick={() => setMobileNavOpen(o => !o)}
+          aria-label="Open navigation"
+          style={{
+            background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '8px',
+            width: '36px', height: '36px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+          }}
+        >
+          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '3px' }}>
+            <span style={{ width: '16px', height: '2px', background: '#E88FAC', borderRadius: '2px' }} />
+            <span style={{ width: '16px', height: '2px', background: '#E88FAC', borderRadius: '2px' }} />
+            <span style={{ width: '16px', height: '2px', background: '#E88FAC', borderRadius: '2px' }} />
+          </span>
+        </button>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>
+          {isAdmin ? 'Admin' : 'Editor'}
+        </div>
+      </div>
+
+      {/* Backdrop (mobile only) */}
+      <div
+        className={`admin-sidebar-backdrop${mobileNavOpen ? ' open' : ''}`}
+        onClick={() => setMobileNavOpen(false)}
+      />
+
       {/* Sidebar */}
-      <aside style={{
+      <aside className={`admin-sidebar${mobileNavOpen ? ' open' : ''}`} style={{
         width: '180px',
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
         padding: '20px 0',
@@ -148,7 +222,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main content */}
-      <main style={{ flex: 1, padding: '24px 32px', minWidth: 0, overflowX: 'hidden', overflowY: 'auto' }}>
+      <main className="admin-main" style={{ flex: 1, padding: '24px 32px', minWidth: 0, overflowX: 'hidden', overflowY: 'auto' }}>
         {children}
       </main>
     </div>
