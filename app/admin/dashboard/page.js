@@ -221,7 +221,11 @@ const CREATOR_COLORS = {
   Amara: '#818cf8',
   'Meadow Marie': '#4ade80',
 }
-const EARNINGS_CREATORS = ['Laurel', 'Amelia', 'Taby', 'Gracie', 'MG', 'Sunny', 'Raya', 'Ocean Ray', 'Amara', 'Meadow Marie']
+// Fallback palette for creators not explicitly colored above
+const FALLBACK_COLORS = ['#ef4444', '#06b6d4', '#eab308', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16']
+function colorForCreator(name, index) {
+  return CREATOR_COLORS[name] || FALLBACK_COLORS[index % FALLBACK_COLORS.length]
+}
 const PERIODS = [
   { key: 'last30', label: 'Last 30 Days' },
   { key: 'last90', label: 'Last 90 Days' },
@@ -231,11 +235,21 @@ const PERIODS = [
 ]
 
 /* ─── Agency Revenue Chart ─── */
-function AgencyRevenueChart({ earningsData, earningsLoading }) {
+function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] }) {
   const [hover, setHover] = useState(null)
   const [period, setPeriod] = useState('last30')
-  const [enabledCreators, setEnabledCreators] = useState(new Set(EARNINGS_CREATORS))
+  const [enabledCreators, setEnabledCreators] = useState(() => new Set(creatorList))
   const [showDropdown, setShowDropdown] = useState(false)
+
+  // Sync enabled set when creator list changes (e.g. earnings finish loading)
+  useEffect(() => {
+    setEnabledCreators(prev => {
+      // Only reset if the set of known creators changed
+      const next = new Set(prev)
+      creatorList.forEach(n => next.add(n))
+      return next
+    })
+  }, [creatorList.join('|')])
   const svgRef = useRef(null)
   const dropdownRef = useRef(null)
 
@@ -363,8 +377,8 @@ function AgencyRevenueChart({ earningsData, earningsLoading }) {
   }
 
   const toggleAll = () => {
-    if (enabledCreators.size === EARNINGS_CREATORS.length) setEnabledCreators(new Set())
-    else setEnabledCreators(new Set(EARNINGS_CREATORS))
+    if (enabledCreators.size === creatorList.length) setEnabledCreators(new Set())
+    else setEnabledCreators(new Set(creatorList))
   }
 
   return (
@@ -417,13 +431,13 @@ function AgencyRevenueChart({ earningsData, earningsLoading }) {
                   onClick={toggleAll}
                   style={{
                     padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                    color: enabledCreators.size === EARNINGS_CREATORS.length ? '#E88FAC' : '#666',
+                    color: enabledCreators.size === creatorList.length ? '#E88FAC' : '#666',
                     borderBottom: '1px solid #f0f0f0',
                   }}
                 >
-                  {enabledCreators.size === EARNINGS_CREATORS.length ? 'Deselect All' : 'Select All'}
+                  {enabledCreators.size === creatorList.length ? 'Deselect All' : 'Select All'}
                 </div>
-                {EARNINGS_CREATORS.map(name => {
+                {creatorList.map(name => {
                   const active = enabledCreators.has(name)
                   const hasData = earningsData?.[name]?.dailyData?.length > 0
                   if (!hasData) return null
@@ -583,13 +597,20 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // Derive creator list dynamically from revenue data (all AKAs with invoices)
+  const creatorList = useMemo(() => {
+    if (!data?.revenue?.byCreator) return []
+    const names = Array.from(new Set(data.revenue.byCreator.map(c => c.name).filter(Boolean)))
+    return names.sort()
+  }, [data])
+
   // Fetch all creator earnings for agency chart (lazy, after main dashboard loads)
   useEffect(() => {
-    if (!data || earningsFetched.current) return
+    if (!data || earningsFetched.current || creatorList.length === 0) return
     earningsFetched.current = true
     setEarningsLoading(true)
     Promise.all(
-      EARNINGS_CREATORS.map(name =>
+      creatorList.map(name =>
         fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
           .then(r => r.ok ? r.json() : null)
           .catch(() => null)
@@ -598,13 +619,13 @@ export default function AdminDashboard() {
       const dataMap = {}
       results.forEach((r, i) => {
         if (r && r.dailyData?.length > 0) {
-          dataMap[EARNINGS_CREATORS[i]] = r
+          dataMap[creatorList[i]] = r
         }
       })
       setEarningsData(dataMap)
       setEarningsLoading(false)
     })
-  }, [data])
+  }, [data, creatorList])
 
   // Fetch whale alerts for all creators (lazy, after main dashboard loads)
   const WHALE_CREATORS = ['Laurel', 'Taby', 'MG', 'Sunny']
@@ -724,7 +745,7 @@ export default function AdminDashboard() {
       )}
 
       {/* ─── AGENCY REVENUE CHART — full width hero ─── */}
-      <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} />
+      <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} creatorList={creatorList} />
 
       {/* ─── KPI STRIP ─── */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
