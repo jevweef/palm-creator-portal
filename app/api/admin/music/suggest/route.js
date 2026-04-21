@@ -89,9 +89,14 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    console.log(`[Music Suggest] Finding similar music with ${seedTracks.length} seed(s)...`)
+    const artists = [...new Set(seedTracks.map(t => t.artist?.split(',')[0]?.trim()).filter(Boolean))]
+    const genres = [...new Set(seedTracks.flatMap(t => t.genres || []))]
+    console.log(`[Music Suggest] seeds=${seedTracks.length} artists=${artists.length} genres=${genres.length}`)
+    console.log(`[Music Suggest] sample artists:`, artists.slice(0, 5))
 
     const suggestions = await findSimilarMusic(seedTracks, { limit: 100 })
+    console.log(`[Music Suggest] returned ${suggestions.length} suggestions`)
+
     // Shuffle so each session gets a different order
     for (let i = suggestions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -103,9 +108,15 @@ export async function POST(request) {
       identifiedSong,
       suggestions,
       seedCount: seedTracks.length,
+      diagnostics: {
+        seedTracksCount: seedTracks.length,
+        uniqueArtists: artists.length,
+        uniqueGenres: genres.length,
+        sampleArtists: artists.slice(0, 5),
+      },
     })
   } catch (err) {
     console.error('[Music Suggest] error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 })
   }
 }
