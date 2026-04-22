@@ -1174,8 +1174,8 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
             <button
               onClick={() => { setSendResult(null); setShowSendModal(true) }}
               style={{
-                background: 'var(--foreground)', border: 'none', borderRadius: '6px',
-                padding: '7px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                background: 'var(--palm-pink)', border: 'none', borderRadius: '6px',
+                padding: '7px 14px', fontSize: '12px', color: '#060606', fontWeight: 600,
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
               }}
             >
@@ -1429,9 +1429,10 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                 }}
                 disabled={sending}
                 style={{
-                  background: sending ? 'var(--foreground-muted)' : 'var(--foreground)', border: 'none', borderRadius: '6px',
-                  padding: '8px 20px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                  background: sending ? 'rgba(232, 160, 160, 0.3)' : 'var(--palm-pink)', border: 'none', borderRadius: '6px',
+                  padding: '8px 20px', fontSize: '12px', color: '#060606', fontWeight: 600, letterSpacing: '0.05em',
                   cursor: sending ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s var(--ease-stripe)',
                 }}
               >
                 {sending ? 'Generating & Sending...' : 'Send PDF to Telegram'}
@@ -3203,7 +3204,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                             <button
                               onClick={(e) => { e.stopPropagation(); setSelectedAnalysisIdx(idx); handlePreviewPdf() }}
                               disabled={previewLoading}
-                              style={{ fontSize: '10px', color: 'var(--foreground)', background: 'var(--foreground)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: previewLoading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: previewLoading ? 0.6 : 1 }}>
+                              style={{ fontSize: '10px', color: '#060606', background: 'var(--palm-pink)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: previewLoading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: previewLoading ? 0.6 : 1 }}>
                               {previewLoading && selectedAnalysisIdx === idx ? 'Generating...' : 'Send to Manager'}
                             </button>
                           )}
@@ -3595,8 +3596,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                     onClick={() => { setViewingAnalysisIdx(null); handlePreviewPdf() }}
                     disabled={previewLoading}
                     style={{
-                      background: 'var(--foreground)', border: 'none', borderRadius: '6px',
-                      padding: '8px 16px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                      background: 'var(--palm-pink)', border: 'none', borderRadius: '6px',
+                      padding: '8px 16px', fontSize: '12px', color: '#060606', fontWeight: 600,
                       cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
                       display: 'flex', alignItems: 'center', gap: '5px',
                     }}>
