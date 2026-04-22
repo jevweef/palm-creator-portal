@@ -54,7 +54,21 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
     .filter(p => p.telegramSentAt || p.postedAt)
     .sort((a, b) => new Date(b.telegramSentAt || b.postedAt || 0) - new Date(a.telegramSentAt || a.postedAt || 0))
 
-  const allCells = [...scheduled, ...past]
+  // Scraped IG posts from RapidAPI — show as locked "posted" cells beneath scheduled/past.
+  // These are the real IG feed thumbnails so the grid reads like the account's actual page.
+  const scrapedCells = (account?.scrapedFeed || []).map(s => ({
+    id: `scraped-${s.url}`,
+    thumbnail: s.thumbnail,
+    postLink: s.url,
+    postedAt: s.postedAt,
+    _scraped: true,
+  }))
+
+  // Dedupe: if a scraped post matches a Post record's postLink, skip the scraped one
+  const postLinks = new Set(past.map(p => p.postLink).filter(Boolean))
+  const uniqScraped = scrapedCells.filter(s => !postLinks.has(s.postLink))
+
+  const allCells = [...scheduled, ...past, ...uniqScraped]
 
   return (
     <div style={{
@@ -453,6 +467,28 @@ export default function GridPlanner() {
     accounts.map(a => [a.id, posts.filter(p => p.accountId === a.id)])
   )
 
+  // Refresh scraped IG feed for all of this creator's accounts
+  const [refreshing, setRefreshing] = useState(false)
+  const handleRefreshFeed = async () => {
+    if (!selectedCreatorId) return
+    setRefreshing(true)
+    try {
+      const res = await fetch('/api/admin/grid-planner/refresh-feed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: selectedCreatorId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Refresh failed')
+      showToast(`Refreshed ${data.refreshed}/${data.refreshed + data.failed} accounts`)
+      await loadCreator(selectedCreatorId)
+    } catch (e) {
+      showToast(e.message, true)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   // Fan out: duplicate post to all managed accounts, auto-staggering times
   const handleFanOut = async (post) => {
     if (!accounts.length) return
@@ -493,12 +529,21 @@ export default function GridPlanner() {
         </div>
         <div style={{ flex: 1 }} />
         {saving && <span style={{ fontSize: '12px', color: '#E88FAC' }}>Saving…</span>}
+        {refreshing && <span style={{ fontSize: '12px', color: '#E88FAC' }}>Scraping IG…</span>}
+        <button
+          onClick={handleRefreshFeed}
+          disabled={refreshing || !selectedCreatorId}
+          title="Pull the latest posts from each IG account so you see the real grid"
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? '#f0f0f0' : '#FFF0F3', color: refreshing ? '#bbb' : '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
+        >
+          {refreshing ? 'Scraping…' : '⟳ Refresh IG Feed'}
+        </button>
         <button
           onClick={() => selectedCreatorId && loadCreator(selectedCreatorId)}
           disabled={loading || !selectedCreatorId}
           style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#fff', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}
         >
-          Refresh
+          Reload
         </button>
       </div>
 

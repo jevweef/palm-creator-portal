@@ -56,6 +56,20 @@ export async function GET(request) {
     // Fetch this creator's accounts + all their posts in parallel
     const creatorAccounts = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
 
+    // Fetch scraped feed data separately (bigger fields — multilineText JSON).
+    // Small extra roundtrip is fine, keeps the main GET lean.
+    const scrapedRecords = creatorAccounts.length
+      ? await fetchAirtableRecords('Creator Platform Directory', {
+          filterByFormula: `OR(${creatorAccounts.map(a => `RECORD_ID()='${a.id}'`).join(',')})`,
+          fields: ['Scraped Feed', 'Scraped Feed Updated'],
+        })
+      : []
+    const scrapedMap = Object.fromEntries(scrapedRecords.map(r => {
+      let feed = []
+      try { feed = JSON.parse(r.fields?.['Scraped Feed'] || '[]') } catch {}
+      return [r.id, { feed, updated: r.fields?.['Scraped Feed Updated'] || null }]
+    }))
+
     // Pull posts in window (last 60 days + future), filter to this creator in memory.
     // Can't filter by Creator record ID in Airtable formula — ARRAYJOIN returns
     // display names, not IDs. Fetch-then-filter is fine at this scale (tens of posts).
@@ -85,6 +99,7 @@ export async function GET(request) {
       const f = a.fields || {}
       const rawUrl = (f['URL'] || '').trim()
       const handle = (f['Handle/ Username'] || '').trim().replace(/^@/, '')
+      const scraped = scrapedMap[a.id] || { feed: [], updated: null }
       return {
         id: a.id,
         name: f['Account Name'] || '',
@@ -93,6 +108,8 @@ export async function GET(request) {
         followers: f['Follower Count'] || null,
         accountType: f['Account Type'] || '',
         status: f['Status'] || '',
+        scrapedFeed: scraped.feed,
+        scrapedFeedUpdated: scraped.updated,
       }
     }).sort((a, b) => {
       // Main first, then numbered Palm IGs in order
