@@ -291,7 +291,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {inspoDirection && (
               <div>
                 <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>Inspo Direction</p>
-                <p style={{fontSize:'14px', color:'#333', lineHeight:'1.6'}}>{inspoDirection}</p>
+                <p style={{fontSize:'14px', color:'rgba(240, 236, 232, 0.92)', lineHeight:'1.7'}}>{inspoDirection}</p>
               </div>
             )}
 
@@ -299,7 +299,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {whatMattersMost && (
               <div>
                 <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>What Matters Most</p>
-                <p style={{fontSize:'14px', color:'#333', lineHeight:'1.6'}}>{whatMattersMost}</p>
+                <p style={{fontSize:'14px', color:'rgba(240, 236, 232, 0.92)', lineHeight:'1.7'}}>{whatMattersMost}</p>
               </div>
             )}
 

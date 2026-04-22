@@ -418,7 +418,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         cursor: 'pointer',
         fontWeight: sort === value ? 600 : 400,
         background: sort === value ? 'var(--palm-pink)' : 'transparent',
-        color: sort === value ? 'rgba(255,255,255,0.08)' : '#999',
+        color: sort === value ? '#060606' : 'var(--foreground-muted)',
         transition: 'all 0.15s',
       }}
     >
