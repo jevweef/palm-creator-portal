@@ -116,7 +116,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           {/* Stats */}
           <div style={{ flex: 1, display: 'flex', justifyContent: 'space-around', fontSize: '12px' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 700, fontSize: '14px' }}>{past.length + scheduled.length}</div>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>{past.length + scheduled.length + uniqScraped.length}</div>
               <div style={{ color: '#666', fontSize: '10px' }}>posts</div>
             </div>
             <div style={{ textAlign: 'center' }}>
@@ -155,9 +155,19 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
         minHeight: allCells.length === 0 ? '120px' : '200px',
       }}>
         {allCells.length === 0 && (
-          <div style={{ gridColumn: '1 / -1', padding: '40px 20px', textAlign: 'center', color: '#999', fontSize: '12px' }}>
-            No posts yet.
-            <div style={{ fontSize: '11px', marginTop: '4px' }}>Drag unassigned posts here.</div>
+          <div style={{ gridColumn: '1 / -1', padding: '30px 20px', textAlign: 'center', color: '#999', fontSize: '12px' }}>
+            {account?.scrapedFeedUpdated ? (
+              <>
+                <div style={{ color: '#ef4444', fontWeight: 600 }}>Couldn't find this handle on IG.</div>
+                <div style={{ fontSize: '11px', marginTop: '6px', color: '#888' }}>@{account.handle} returned "user does not exist"</div>
+                <div style={{ fontSize: '10px', marginTop: '8px', color: '#bbb' }}>Check Creator Platform Directory for the correct handle.</div>
+              </>
+            ) : (
+              <>
+                No posts yet.
+                <div style={{ fontSize: '11px', marginTop: '4px' }}>Click "Refresh IG Feed" to pull real posts.</div>
+              </>
+            )}
           </div>
         )}
         {allCells.map((post) => {
