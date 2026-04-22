@@ -766,8 +766,10 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* ─── CREATORS TABLE — full width ─── */}
-      <div style={{ ...CARD, marginBottom: '12px', padding: '14px 16px' }}>
+      {/* ─── ROW: Creators + Whale Alerts ─── */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
+      {/* ─── CREATORS TABLE ─── */}
+      <div style={{ ...CARD, flex: '2 1 0', padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Creators</div>
           <div style={{
             display: 'grid',
@@ -841,9 +843,6 @@ export default function AdminDashboard() {
             )
           })}
       </div>
-
-      {/* ─── TWO COLUMN: Whale Alerts + Pipeline/Posting ─── */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
 
       {/* ─── WHALE ALERTS ─── */}
       <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
@@ -969,11 +968,13 @@ export default function AdminDashboard() {
         })}
       </div>
 
-        {/* Right column: Pipeline + Posting stacked */}
-        <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      </div>{/* close Creators + Whale row */}
+
+      {/* ─── ROW: Pipeline + Posting ─── */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
 
         {/* Pipeline Health */}
-        <div style={{ ...CARD, flex: '0 0 auto', padding: '14px 16px' }}>
+        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Pipeline</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
@@ -1038,8 +1039,7 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-        </div>{/* close right column */}
-      </div>{/* close two-column wrapper */}
+      </div>{/* close Pipeline + Posting row */}
 
       {/* ─── Period History ─── */}
       {revenue.periods.length > 1 && (
