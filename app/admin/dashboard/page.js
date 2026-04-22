@@ -923,10 +923,16 @@ export default function AdminDashboard() {
                         padding: '8px 8px', fontSize: '12px', alignItems: 'center',
                         background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
                       }}>
-                        <div>
-                          <span style={{ fontWeight: 500 }}>{a.fan}</span>
-                          {a.username && <span style={{ color: 'var(--palm-pink)', fontSize: '11px', marginLeft: '4px' }}>@{a.username}</span>}
-                          <span style={{ background: uc.bg, color: uc.text, padding: '1px 5px', borderRadius: '3px', fontSize: '9px', fontWeight: 700, marginLeft: '6px', textTransform: 'uppercase' }}>{a.urgency}</span>
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                            <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{a.fan}</span>
+                            <span style={{ background: uc.bg, color: uc.text, padding: '1px 5px', borderRadius: '3px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', flexShrink: 0 }}>{a.urgency}</span>
+                          </div>
+                          {a.username && (
+                            <div style={{ color: 'var(--palm-pink)', fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              @{a.username}
+                            </div>
+                          )}
                         </div>
                         <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{a.medianGap}d</span>
                         <span style={{ textAlign: 'right', fontWeight: 600, color: a.currentGap > a.medianGap * 3 ? '#E87878' : '#E88C5C' }}>
