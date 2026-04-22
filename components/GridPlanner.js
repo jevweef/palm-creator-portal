@@ -287,7 +287,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
         position: 'relative',
         cursor: draggable ? 'grab' : 'pointer',
         opacity: isDragging ? 0.4 : (status === 'posted' ? 1 : 1),
-        outline: isOver ? '2px solid #E88FAC' : 'none',
+        outline: isOver ? '1px solid var(--palm-pink)' : 'none',
         outlineOffset: '-2px',
         overflow: 'hidden',
       }}

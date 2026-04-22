@@ -37,7 +37,7 @@ export default function OnboardingProgress({ currentStep, completedSteps = [], o
                 fontWeight: 600,
                 background: isCompleted ? '#E88FAC' : isActive ? '#FFF0F3' : '#f5f5f5',
                 color: isCompleted ? '#fff' : isActive ? '#E88FAC' : '#999',
-                border: isActive ? '2px solid #E88FAC' : '2px solid transparent',
+                border: isActive ? '1px solid var(--palm-pink)' : '2px solid transparent',
                 transition: 'all 0.2s',
               }}>
                 {isCompleted ? '✓' : i + 1}

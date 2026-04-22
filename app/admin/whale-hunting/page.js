@@ -38,9 +38,9 @@ export default function WhaleHuntingPage() {
           <button key={t.key} onClick={() => switchTab(t.key)}
             style={{
               padding: '10px 0', fontSize: '13px', fontWeight: tab === t.key ? 700 : 500,
-              color: tab === t.key ? '#1a1a1a' : '#999',
+              color: tab === t.key ? 'var(--foreground)' : 'var(--foreground-muted)',
               background: 'none', border: 'none', cursor: 'pointer',
-              borderBottom: tab === t.key ? '2px solid #E88FAC' : '2px solid transparent',
+              borderBottom: tab === t.key ? '1px solid var(--palm-pink)' : '2px solid transparent',
               marginBottom: '-1px',
             }}>
             {t.label}

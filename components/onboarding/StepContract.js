@@ -243,7 +243,7 @@ export default function StepContract({ hqId, onComplete }) {
             style={{
               padding: '8px 16px',
               borderRadius: '8px',
-              border: signMode === 'draw' ? '2px solid #E88FAC' : '2px solid #e0e0e0',
+              border: signMode === 'draw' ? '1px solid var(--palm-pink)' : '1px solid var(--white-8)',
               background: signMode === 'draw' ? '#FFF0F3' : '#fff',
               color: signMode === 'draw' ? '#E88FAC' : '#666',
               fontSize: '13px',
@@ -259,7 +259,7 @@ export default function StepContract({ hqId, onComplete }) {
             style={{
               padding: '8px 16px',
               borderRadius: '8px',
-              border: signMode === 'type' ? '2px solid #E88FAC' : '2px solid #e0e0e0',
+              border: signMode === 'type' ? '1px solid var(--palm-pink)' : '1px solid var(--white-8)',
               background: signMode === 'type' ? '#FFF0F3' : '#fff',
               color: signMode === 'type' ? '#E88FAC' : '#666',
               fontSize: '13px',

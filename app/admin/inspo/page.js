@@ -41,7 +41,7 @@ export default function InspoBoard() {
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === tab.key ? 600 : 400,
               color: activeTab === tab.key ? '#E88FAC' : '#999',
               background: 'none', border: 'none',
-              borderBottom: activeTab === tab.key ? '2px solid #E88FAC' : '2px solid transparent',
+              borderBottom: activeTab === tab.key ? '1px solid var(--palm-pink)' : '2px solid transparent',
               cursor: 'pointer', marginBottom: '-1px',
               transition: 'color 0.15s',
             }}

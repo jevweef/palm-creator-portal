@@ -4174,7 +4174,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   if (loading && (!allTxns || allTxns.length === 0)) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
-        <div style={{ width: '24px', height: '24px', border: '2px solid #E88FAC', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto 12px' }} />
+        <div style={{ width: '24px', height: '24px', border: '1px solid var(--palm-pink)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto 12px' }} />
         <div style={{ fontSize: '13px', color: '#999' }}>Loading fans...</div>
       </div>
     )
@@ -4702,8 +4702,8 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400,
-              color: activeTab === key ? '#1a1a1a' : '#999', background: 'none', border: 'none',
-              borderBottom: activeTab === key ? '2px solid #E88FAC' : '2px solid transparent',
+              color: activeTab === key ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none',
+              borderBottom: activeTab === key ? '1px solid var(--palm-pink)' : '2px solid transparent',
               cursor: 'pointer', marginBottom: '-1px',
             }}>
             {label}
@@ -4946,7 +4946,7 @@ export default function CreatorsPage() {
                 style={{
                   padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,
                   color: activeSection === key ? '#1a1a1a' : '#bbb', background: 'none', border: 'none',
-                  borderBottom: activeSection === key ? '2px solid #E88FAC' : '2px solid transparent',
+                  borderBottom: activeSection === key ? '1px solid var(--palm-pink)' : '2px solid transparent',
                   cursor: 'pointer', marginBottom: '-2px',
                 }}>
                 {label}

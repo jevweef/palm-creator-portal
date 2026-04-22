@@ -613,7 +613,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                           fontWeight: activeFormats.includes(fmt) ? 600 : 400,
                           background: activeFormats.includes(fmt) ? '#E88FAC' : '#FFF0F3',
                           color: activeFormats.includes(fmt) ? '#fff' : '#888',
-                          outline: activeFormats.includes(fmt) ? '2px solid #E88FAC' : 'none',
+                          outline: activeFormats.includes(fmt) ? '1px solid var(--palm-pink)' : 'none',
                           boxShadow: activeFormats.includes(fmt) ? 'none' : '0 1px 3px rgba(0,0,0,0.04)',
                           outlineOffset: activeFormats.includes(fmt) ? '1px' : '0',
                         }}

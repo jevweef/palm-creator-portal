@@ -2091,27 +2091,27 @@ function CreatorSection({ creator, onRefresh }) {
         {/* Row 2: status pills — always has at least the 'needed' pill */}
         <div className="editor-creator-pills" style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
           {creator.needsRevision.length > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid transparent' }}>
               ⚠ {creator.needsRevision.length} revision{creator.needsRevision.length > 1 ? 's' : ''}
             </span>
           )}
           {creator.queue.length > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: '1px solid transparent' }}>
               {creator.queue.length} queued
             </span>
           )}
           {creator.inProgress.length > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#eff6ff', color: '#60a5fa', border: '1px solid #bfdbfe' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8', border: '1px solid transparent' }}>
               {creator.inProgress.length} editing
             </span>
           )}
           {creator.inReview.length > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#fefce8', color: '#a3e635', border: '1px solid #d9f99d' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 200, 120, 0.08)', color: '#E8C878', border: '1px solid transparent' }}>
               {creator.inReview.length} in review
             </span>
           )}
           {(creator.approved || []).length > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#dcfce7', color: '#22c55e', border: '1px solid #bbf7d0' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid transparent' }}>
               {creator.approved.length} approved
             </span>
           )}

@@ -2125,16 +2125,16 @@ export default function EditorQueue() {
       `}</style>
       {/* Header row: tabs + notification */}
       <div className="admin-editor-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div className="admin-editor-tabs" style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
+        <div className="admin-editor-tabs" style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => switchSection(tab.key)}
             style={{
-              padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === tab.key ? 700 : 400,
-              color: activeSection === tab.key ? '#1a1a1a' : '#bbb', background: 'none', border: 'none',
-              borderBottom: activeSection === tab.key ? '2px solid #E88FAC' : '2px solid transparent',
-              cursor: 'pointer', marginBottom: '-2px', transition: 'all 0.15s',
+              padding: '10px 20px', fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: activeSection === tab.key ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none',
+              borderBottom: activeSection === tab.key ? '1px solid var(--palm-pink)' : '1px solid transparent',
+              cursor: 'pointer', marginBottom: '-1px', transition: 'all 0.3s var(--ease-stripe)',
             }}
           >
             {tab.label}

@@ -183,7 +183,7 @@ export default function AdminLayout({ children }) {
                     fontWeight: isActive ? 600 : 400,
                     color: isActive ? 'var(--palm-pink)' : 'var(--foreground-muted)',
                     background: isActive ? 'rgba(232, 160, 160, 0.08)' : 'transparent',
-                    borderLeft: isActive ? '2px solid #E88FAC' : '2px solid transparent',
+                    borderLeft: isActive ? '1px solid var(--palm-pink)' : '2px solid transparent',
                     textDecoration: 'none',
                     transition: '0.15s ease',
                   }}

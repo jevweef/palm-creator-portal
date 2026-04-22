@@ -334,7 +334,7 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
             style={{
               padding: '10px 20px',
               borderRadius: '10px',
-              border: selectedPlatforms.includes(p.key) ? '2px solid #E88FAC' : '2px solid #e0e0e0',
+              border: selectedPlatforms.includes(p.key) ? '1px solid var(--palm-pink)' : '1px solid var(--white-8)',
               background: selectedPlatforms.includes(p.key) ? '#FFF0F3' : '#fff',
               color: selectedPlatforms.includes(p.key) ? '#E88FAC' : '#666',
               fontSize: '13px',
