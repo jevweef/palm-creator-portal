@@ -30,7 +30,7 @@ export default function EditorDashboardPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
       {/* Mobile-only overrides — desktop untouched */}
       <style>{`
         @media (max-width: 768px) {
@@ -50,14 +50,14 @@ export default function EditorDashboardPage() {
       `}</style>
       <div className="editor-page-inner" style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
         {/* Tab bar */}
-        <div className="editor-page-tabs" style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)', marginBottom: '24px' }}>
+        <div className="editor-page-tabs" style={{ display: 'flex', gap: '0', borderBottom: '1px solid var(--card-border)', marginBottom: '32px' }}>
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => switchTab(tab.key)}
               style={{
-                padding: '6px 16px', fontSize: '13px', fontWeight: activeTab === tab.key ? 700 : 400,
-                color: activeTab === tab.key ? '#1a1a1a' : '#bbb', background: 'none', border: 'none',
-                borderBottom: activeTab === tab.key ? '2px solid #E88FAC' : '2px solid transparent',
-                cursor: 'pointer', marginBottom: '-2px', transition: 'all 0.15s',
+                padding: '10px 20px', fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: activeTab === tab.key ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none',
+                borderBottom: activeTab === tab.key ? '1px solid var(--palm-pink)' : '1px solid transparent',
+                cursor: 'pointer', marginBottom: '-1px', transition: 'all 0.3s var(--ease-stripe)',
               }}>
               {tab.label}
             </button>

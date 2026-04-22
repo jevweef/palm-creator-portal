@@ -16,7 +16,7 @@ export default function QuotaBar({ used, target }) {
         <div style={{
           width: `${pct}%`,
           height: '100%',
-          background: isComplete ? '#4ade80' : pct >= 80 ? '#facc15' : '#E88FAC',
+          background: isComplete ? '#4ade80' : pct >= 80 ? '#facc15' : 'var(--palm-pink)',
           borderRadius: '9999px',
           transition: 'width 0.4s ease',
         }} />

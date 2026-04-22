@@ -85,7 +85,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   return (
     <div style={{
       width: '320px', flexShrink: 0,
-      background: '#fff',
+      background: 'var(--card-bg-solid)',
       borderRadius: '32px',
       border: '10px solid #1a1a1a',
       boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
@@ -93,7 +93,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
       {/* Notch */}
-      <div style={{ background: '#1a1a1a', height: '18px', position: 'relative' }}>
+      <div style={{ background: 'var(--foreground)', height: '18px', position: 'relative' }}>
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: '4px',
           width: '100px', height: '14px', background: '#000', borderRadius: '8px' }} />
       </div>
@@ -152,19 +152,19 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
               <div style={{ fontWeight: 700, fontSize: '14px' }}>
                 {profile?.postCount != null ? formatCount(profile.postCount) : (past.length + scheduled.length + uniqScraped.length)}
               </div>
-              <div style={{ color: '#666', fontSize: '10px' }}>posts</div>
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>posts</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>
                 {profile?.followers != null ? formatCount(profile.followers) : (account?.followers ? formatCount(account.followers) : '—')}
               </div>
-              <div style={{ color: '#666', fontSize: '10px' }}>followers</div>
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>followers</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>
                 {profile?.following != null ? formatCount(profile.following) : '—'}
               </div>
-              <div style={{ color: '#666', fontSize: '10px' }}>following</div>
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>following</div>
             </div>
           </div>
         </div>
@@ -174,7 +174,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
             {profile.bio}
           </div>
         ) : (
-          <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>{account?.accountType || 'Instagram'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '8px' }}>{account?.accountType || 'Instagram'}</div>
         )}
         {/* Buttons */}
         <div style={{ display: 'flex', gap: '4px' }}>
@@ -193,7 +193,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
               </span>
             )}
             {account?.scrapedFeedUpdated && (
-              <span style={{ color: '#aaa' }}>
+              <span style={{ color: 'var(--foreground-subtle)' }}>
                 scraped {relativeTime(account.scrapedFeedUpdated)}
               </span>
             )}
@@ -204,8 +204,8 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       {/* Tabs */}
       <div style={{ display: 'flex', borderTop: '1px solid #eee', borderBottom: '1px solid #eee' }}>
         <div style={{ flex: 1, padding: '8px', textAlign: 'center', borderBottom: '1px solid #1a1a1a' }}>▦</div>
-        <div style={{ flex: 1, padding: '8px', textAlign: 'center', color: '#999' }}>▷</div>
-        <div style={{ flex: 1, padding: '8px', textAlign: 'center', color: '#999' }}>◯</div>
+        <div style={{ flex: 1, padding: '8px', textAlign: 'center', color: 'var(--foreground-muted)' }}>▷</div>
+        <div style={{ flex: 1, padding: '8px', textAlign: 'center', color: 'var(--foreground-muted)' }}>◯</div>
       </div>
 
       {/* Grid */}
@@ -213,20 +213,20 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '2px',
-        background: '#fff',
+        background: 'var(--card-bg-solid)',
         minHeight: allCells.length === 0 ? '120px' : '200px',
       }}>
         {allCells.length === 0 && (
-          <div style={{ gridColumn: '1 / -1', padding: '30px 20px', textAlign: 'center', color: '#999', fontSize: '12px' }}>
+          <div style={{ gridColumn: '1 / -1', padding: '30px 20px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '12px' }}>
             {account?.scrapedError && !account?.scrapedFeedUpdated ? (
               <>
                 <div style={{ color: '#ef4444', fontWeight: 600 }}>Handle not found on IG</div>
-                <div style={{ fontSize: '11px', marginTop: '6px', color: '#888' }}>@{account.handle}</div>
-                <div style={{ fontSize: '10px', marginTop: '8px', color: '#bbb', padding: '0 8px' }}>Update the handle in Creator Platform Directory, then Refresh.</div>
+                <div style={{ fontSize: '11px', marginTop: '6px', color: 'var(--foreground-muted)' }}>@{account.handle}</div>
+                <div style={{ fontSize: '10px', marginTop: '8px', color: 'var(--foreground-subtle)', padding: '0 8px' }}>Update the handle in Creator Platform Directory, then Refresh.</div>
               </>
             ) : account?.scrapedFeedUpdated ? (
               <>
-                <div style={{ color: '#E88FAC', fontWeight: 600 }}>Feed scraped, 0 posts.</div>
+                <div style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>Feed scraped, 0 posts.</div>
                 <div style={{ fontSize: '11px', marginTop: '4px' }}>This account may have no public posts.</div>
               </>
             ) : (
@@ -264,8 +264,8 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
   const [isOver, setIsOver] = useState(false)
 
   const borderByStatus = {
-    scheduled: { bg: '#FFF0F3', ring: '#E88FAC', badge: '#E88FAC' },
-    draft:     { bg: '#FFF5F7', ring: '#E8C4CC', badge: '#999' },
+    scheduled: { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
+    draft:     { bg: 'var(--background)', ring: 'var(--card-border)', badge: '#999' },
     sent:      { bg: '#f0fdf4', ring: '#bbf7d0', badge: '#22c55e' },
     posted:    { bg: '#fff', ring: 'transparent', badge: '#666' },
   }
@@ -329,7 +329,7 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
   if (posts.length === 0) return null
   return (
     <div style={{
-      background: '#fff',
+      background: 'var(--card-bg-solid)',
       border: '1px dashed #E8C4CC',
       borderRadius: '14px',
       padding: '14px 16px',
@@ -337,8 +337,8 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Unassigned posts</div>
-          <div style={{ fontSize: '11px', color: '#999' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Unassigned posts</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
             {posts.length} to assign — drag to one account, or use Fan Out to post across all {accounts.length}
           </div>
         </div>
@@ -362,7 +362,7 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
               {p.thumbnail ? (
                 <img src={p.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF5F7', color: '#999', fontSize: '22px' }}>✏</div>
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px' }}>✏</div>
               )}
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -379,7 +379,7 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
                 style={{
                   marginTop: '4px', width: '96px',
                   padding: '3px 6px', fontSize: '9px', fontWeight: 700,
-                  background: '#FFF0F3', color: '#E88FAC',
+                  background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)',
                   border: '1px solid #E8C4CC', borderRadius: '5px',
                   cursor: 'pointer',
                   textTransform: 'uppercase', letterSpacing: '0.04em',
@@ -599,11 +599,11 @@ export default function GridPlanner() {
       {/* Header row: creator picker + refresh */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Creator</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Creator</div>
           <select
             value={selectedCreatorId || ''}
             onChange={e => setSelectedCreatorId(e.target.value)}
-            style={{ padding: '7px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', background: '#fff', minWidth: '180px' }}
+            style={{ padding: '7px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', background: 'var(--card-bg-solid)', minWidth: '180px' }}
           >
             <option value="">Select creator…</option>
             {creators.map(c => (
@@ -612,20 +612,20 @@ export default function GridPlanner() {
           </select>
         </div>
         <div style={{ flex: 1 }} />
-        {saving && <span style={{ fontSize: '12px', color: '#E88FAC' }}>Saving…</span>}
-        {refreshing && <span style={{ fontSize: '12px', color: '#E88FAC' }}>Scraping IG…</span>}
+        {saving && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Saving…</span>}
+        {refreshing && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Scraping IG…</span>}
         <button
           onClick={handleRefreshFeed}
           disabled={refreshing || !selectedCreatorId}
           title="Pull the latest posts + profile from each IG account. Skips anything scraped < 6h ago. Shift-click to force re-scrape."
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? '#f0f0f0' : '#FFF0F3', color: refreshing ? '#bbb' : '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? '#f0f0f0' : 'rgba(232, 160, 160, 0.05)', color: refreshing ? '#bbb' : 'var(--palm-pink)', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
         >
           {refreshing ? 'Scraping…' : '⟳ Refresh IG Feed'}
         </button>
         <button
           onClick={() => selectedCreatorId && loadCreator(selectedCreatorId)}
           disabled={loading || !selectedCreatorId}
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#fff', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}
         >
           Reload
         </button>
@@ -633,13 +633,13 @@ export default function GridPlanner() {
 
       {/* Summary bar */}
       {selectedCreatorId && !loading && !error && (
-        <div style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '14px' }}>
           {accounts.length} account{accounts.length !== 1 && 's'} · {posts.length} post{posts.length !== 1 && 's'}
-          {unassignedPosts.length > 0 && <span style={{ color: '#E88FAC', fontWeight: 600 }}> · {unassignedPosts.length} unassigned</span>}
+          {unassignedPosts.length > 0 && <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}> · {unassignedPosts.length} unassigned</span>}
         </div>
       )}
 
-      {loading && <div style={{ padding: '40px', textAlign: 'center', color: '#999', fontSize: '14px' }}>Loading…</div>}
+      {loading && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading…</div>}
       {error && <div style={{ padding: '20px', background: '#fef2f2', color: '#ef4444', borderRadius: '8px', fontSize: '13px' }}>{error}</div>}
 
       {!loading && !error && selectedCreatorId && (
@@ -656,7 +656,7 @@ export default function GridPlanner() {
 
           {/* Phones */}
           {accounts.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#999', fontSize: '13px', background: '#FFF5F7', borderRadius: '12px' }}>
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--background)', borderRadius: '12px' }}>
               No Instagram accounts found for this creator in Creator Platform Directory.
             </div>
           ) : (

@@ -23,50 +23,50 @@ function CreatorDnaModal({ creatorId, creatorName, onClose }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '560px',
+        background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '560px',
         maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
       }}>
         <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{creatorName}</div>
-            <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>Creator DNA</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)' }}>{creatorName}</div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>Creator DNA</div>
           </div>
           <button onClick={onClose} style={{
             background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
-            cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', fontSize: '14px', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>✕</button>
         </div>
         <div style={{ padding: '20px 28px 28px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', color: '#999', padding: '20px', fontSize: '13px' }}>Loading...</div>
+            <div style={{ textAlign: 'center', color: 'var(--foreground-muted)', padding: '20px', fontSize: '13px' }}>Loading...</div>
           ) : !data ? (
-            <div style={{ textAlign: 'center', color: '#999', padding: '20px', fontSize: '13px' }}>No profile data</div>
+            <div style={{ textAlign: 'center', color: 'var(--foreground-muted)', padding: '20px', fontSize: '13px' }}>No profile data</div>
           ) : (
             <>
               {data.profileSummary && (
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Profile</div>
-                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{data.profileSummary}</div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Profile</div>
+                  <div style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: '1.6' }}>{data.profileSummary}</div>
                 </div>
               )}
               {data.contentDirectionNotes && (
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
-                  <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6' }}>{data.contentDirectionNotes}</div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                  <div style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: '1.6' }}>{data.contentDirectionNotes}</div>
                 </div>
               )}
               {data.dosDonts && (
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Do / Don't</div>
-                  <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{data.dosDonts}</div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Do / Don't</div>
+                  <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{data.dosDonts}</div>
                 </div>
               )}
               {data.topTags?.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Top Tags</div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Top Tags</div>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {data.topTags.map(tw => (
-                      <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid rgba(0,0,0,0.04)' }}>
+                      <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid rgba(0,0,0,0.04)' }}>
                         {tw.tag} · {tw.weight}
                       </span>
                     ))}
@@ -100,8 +100,8 @@ function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
   const photoFile = forcePhoto || isPhoto(link)
 
   return (
-    <div style={{ background: '#FFF5F7', border: '1px solid #FFF0F3', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '3/4', maxHeight: '320px', overflow: 'hidden', background: '#FFF5F7' }}>
+    <div style={{ background: 'var(--background)', border: '1px solid #FFF0F3', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '3/4', maxHeight: '320px', overflow: 'hidden', background: 'var(--background)' }}>
         {videoFile && rawUrl ? (
           <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
@@ -111,30 +111,30 @@ function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
         ) : asset.thumbnail ? (
           <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '28px' }}>&#127916;</div>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '28px' }}>&#127916;</div>
         )}
         {asset.uploadWeek && (
-          <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: '#999', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
+          <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: 'var(--foreground-muted)', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
             {asset.uploadWeek}
           </div>
         )}
       </div>
       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
         {asset.name && (
-          <div style={{ fontSize: '11px', color: '#888', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
         )}
         {asset.creatorNotes && (
-          <div style={{ fontSize: '10px', color: '#999', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
         )}
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {link && (
             <a href={link} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-              style={{ textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}>
+              style={{ textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--foreground-muted)', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}>
               View ↗
             </a>
           )}
           <button onClick={() => onAssign(asset)} disabled={!!assigning}
-            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: assigning === asset.id ? '#FFF0F3' : '#FFF0F3', color: assigning === asset.id ? '#D4A0B0' : '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: assigning ? 'default' : 'pointer', opacity: assigning && assigning !== asset.id ? 0.5 : 1 }}>
+            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: assigning === asset.id ? 'rgba(232, 160, 160, 0.05)' : 'rgba(232, 160, 160, 0.05)', color: assigning === asset.id ? '#D4A0B0' : 'var(--palm-pink)', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: assigning ? 'default' : 'pointer', opacity: assigning && assigning !== asset.id ? 0.5 : 1 }}>
             {assigning === asset.id ? 'Starting…' : 'Start Edit'}
           </button>
         </div>
@@ -148,10 +148,10 @@ function LibPickerPaginator({ page, totalPages, onChange }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <button onClick={() => onChange(page - 1)} disabled={page <= 1}
-        style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: page <= 1 ? '#E8C4CC' : '#999', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
-      <span style={{ fontSize: '12px', color: '#999' }}>{page} / {totalPages}</span>
+        style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: page <= 1 ? 'var(--card-border)' : '#999', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
+      <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{page} / {totalPages}</span>
       <button onClick={() => onChange(page + 1)} disabled={page >= totalPages}
-        style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: page >= totalPages ? '#E8C4CC' : '#999', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
+        style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: page >= totalPages ? 'var(--card-border)' : '#999', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
     </div>
   )
 }
@@ -182,16 +182,16 @@ export function QuotaDots({ slotColors, quota, done }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
         {Array.from({ length: quota }).map((_, i) => {
-          const color = slotColors?.[i] || '#F0D0D8'
-          const lit = color !== '#F0D0D8'
+          const color = slotColors?.[i] || 'var(--card-border)'
+          const lit = color !== 'var(--card-border)'
           const isNewDay = i > 0 && i % 2 === 0
           return (
             <div key={i} style={{ display: 'contents' }}>
-              {isNewDay && <div style={{ width: '1px', height: '8px', background: '#E8C4CC', flexShrink: 0 }} />}
+              {isNewDay && <div style={{ width: '1px', height: '8px', background: 'var(--card-border)', flexShrink: 0 }} />}
               <div style={{
                 width: '11px', height: '11px', borderRadius: '50%', flexShrink: 0,
                 background: color,
-                border: `1.5px solid ${lit ? color : '#E8C4CC'}`,
+                border: `1.5px solid ${lit ? color : 'var(--card-border)'}`,
                 transition: 'all 0.2s',
               }} />
             </div>
@@ -209,7 +209,7 @@ export function QuotaDots({ slotColors, quota, done }) {
 
 const SECTION = {
   needsRevision: { dot: '#ef4444', label: 'Needs Revision' },
-  queue:         { dot: '#E88FAC', label: 'Ready to Edit' },
+  queue:         { dot: 'var(--palm-pink)', label: 'Ready to Edit' },
   inProgress:    { dot: '#3b82f6', label: 'In Editing' },
   inReview:      { dot: '#22c55e', label: 'Sent for Review' },
 }
@@ -222,7 +222,7 @@ export function SectionLabel({ type, count }) {
       <span style={{ fontSize: '11px', fontWeight: 700, color: s.dot, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {s.label}
       </span>
-      <span style={{ fontSize: '11px', color: '#aaa', fontWeight: 500 }}>({count})</span>
+      <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)', fontWeight: 500 }}>({count})</span>
     </div>
   )
 }
@@ -316,13 +316,13 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}
     >
       <div
-        style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '16px', padding: '28px', width: '460px', maxWidth: '95vw' }}
+        style={{ background: 'var(--card-bg-solid)', border: '1px solid #E8C4CC', borderRadius: '16px', padding: '28px', width: '460px', maxWidth: '95vw' }}
         onClick={e => e.stopPropagation()}
       >
-        <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 4px' }}>
+        <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--foreground)', margin: '0 0 4px' }}>
           {isRevision ? 'Upload Revision' : 'Submit Edit for Review'}
         </h3>
-        <p style={{ fontSize: '12px', color: '#999', marginBottom: '20px' }}>
+        <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>
           {task.inspo.title || task.name} · {creatorName}
         </p>
 
@@ -331,7 +331,7 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f) }}
           onDragOver={e => e.preventDefault()}
           style={{
-            border: `2px dashed ${file ? '#22c55e' : '#E8C4CC'}`, borderRadius: '10px',
+            border: `2px dashed ${file ? '#22c55e' : 'var(--card-border)'}`, borderRadius: '10px',
             padding: '28px', textAlign: 'center', cursor: 'pointer',
             background: file ? '#dcfce7' : 'transparent',
           }}
@@ -339,14 +339,14 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
           {file ? (
             <>
               <div style={{ fontSize: '13px', color: '#22c55e', fontWeight: 600 }}>{file.name}</div>
-              <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
                 {(file.size / 1024 / 1024).toFixed(1)} MB · click to change
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: '13px', color: '#888' }}>Drop video here or click to browse</div>
-              <div style={{ fontSize: '11px', color: '#bbb', marginTop: '4px' }}>MP4, MOV</div>
+              <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Drop video here or click to browse</div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>MP4, MOV</div>
             </>
           )}
           <input ref={fileRef} type="file" accept="video/*,.mp4,.mov" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
@@ -359,25 +359,25 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
           disabled={uploading}
           style={{
             width: '100%', marginTop: '12px', padding: '10px 12px',
-            background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '8px',
-            color: '#4a4a4a', fontSize: '13px', resize: 'vertical', minHeight: '60px',
+            background: 'var(--background)', border: '1px solid #E8C4CC', borderRadius: '8px',
+            color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', resize: 'vertical', minHeight: '60px',
             fontFamily: 'inherit', boxSizing: 'border-box',
           }}
         />
 
         {error && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '8px' }}>{error}</p>}
-        {progress && <p style={{ fontSize: '12px', color: '#E88FAC', marginTop: '8px' }}>{progress}</p>}
+        {progress && <p style={{ fontSize: '12px', color: 'var(--palm-pink)', marginTop: '8px' }}>{progress}</p>}
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} disabled={uploading}
-            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#E8C4CC' }}>
+            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: 'var(--card-border)' }}>
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={!file || uploading}
             style={{
               padding: '9px 22px', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: 600,
               cursor: !file || uploading ? 'not-allowed' : 'pointer',
-              background: !file || uploading ? '#E8C4CC' : isRevision ? '#ef4444' : '#E88FAC',
+              background: !file || uploading ? 'var(--card-border)' : isRevision ? '#ef4444' : 'var(--palm-pink)',
               opacity: uploading ? 0.6 : 1,
             }}>
             {uploading ? 'Uploading...' : isRevision ? 'Submit Revision' : 'Submit for Review'}
@@ -394,30 +394,30 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
   const [expanded, setExpanded] = useState(false)
   const borderColors = {
     needsRevision: '#f5c6c6',
-    queue:         '#E8C4CC',
+    queue:         'var(--card-border)',
     inProgress:    '#bfdbfe',
     inReview:      '#bbf7d0',
   }
 
   return (
     <div style={{
-      background: '#FFF5F7', border: `1px solid ${borderColors[type]}`, borderRadius: '12px',
+      background: 'var(--background)', border: `1px solid ${borderColors[type]}`, borderRadius: '12px',
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
     }}>
       {/* Thumbnail strip: inspo → creator clip */}
-      <div style={{ display: 'flex', height: '155px', background: '#FFF5F7' }}>
+      <div style={{ display: 'flex', height: '155px', background: 'var(--background)' }}>
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {task.inspo.thumbnail ? (
             <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '11px' }}>No thumbnail</div>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '11px' }}>No thumbnail</div>
           )}
-          <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.8)', padding: '1px 6px', borderRadius: '3px', fontSize: '9px', color: '#E88FAC', fontWeight: 700, letterSpacing: '0.06em' }}>
+          <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.8)', padding: '1px 6px', borderRadius: '3px', fontSize: '9px', color: 'var(--palm-pink)', fontWeight: 700, letterSpacing: '0.06em' }}>
             INSPO
           </div>
         </div>
 
-        <div style={{ width: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '13px', flexShrink: 0 }}>→</div>
+        <div style={{ width: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '13px', flexShrink: 0 }}>→</div>
 
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {task.asset.dropboxLink ? (
@@ -435,7 +435,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
               )}
             </a>
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '11px' }}>No clip yet</div>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '11px' }}>No clip yet</div>
           )}
           <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.8)', padding: '1px 6px', borderRadius: '3px', fontSize: '9px', color: '#22c55e', fontWeight: 700, letterSpacing: '0.06em' }}>
             CLIP
@@ -451,18 +451,18 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
       {/* Content */}
       <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#2a2a2a', lineHeight: 1.3 }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', lineHeight: 1.3 }}>
             {task.inspo.title || task.name || 'Untitled'}
           </div>
           {task.inspo.username && (
-            <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>@{task.inspo.username}</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>@{task.inspo.username}</div>
           )}
         </div>
 
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {task.inspo.contentLink && (
             <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '2px 8px', background: '#FFF0F3', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+              style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '2px 8px', background: 'rgba(232, 160, 160, 0.05)', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
               Original ↗
             </a>
           )}
@@ -504,22 +504,22 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
         )}
 
         {(task.creatorNotes || task.asset.creatorNotes) && (
-          <div style={{ fontSize: '11px', color: '#999', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.4 }}>
-            <span style={{ fontWeight: 600, color: '#aaa' }}>Creator: </span>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.4 }}>
+            <span style={{ fontWeight: 600, color: 'var(--foreground-subtle)' }}>Creator: </span>
             {task.creatorNotes || task.asset.creatorNotes}
           </div>
         )}
 
         {task.inspo.notes && (
           <button onClick={() => setExpanded(p => !p)}
-            style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '11px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+            style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
             {expanded ? '▾ Hide direction' : '▸ View direction'}
           </button>
         )}
 
         {expanded && (
-          <div style={{ background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ fontSize: '11px', color: '#4a4a4a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
+          <div style={{ background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
             {task.inspo.onScreenText && (
               <div style={{ fontSize: '11px', color: '#f59e0b', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', padding: '6px 8px' }}>
                 "{task.inspo.onScreenText}"
@@ -537,7 +537,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
           )}
           {type === 'inProgress' && (
             <button onClick={() => onAction('submit', task)}
-              style={{ width: '100%', padding: '9px', fontSize: '13px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '9px', fontSize: '13px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
               Submit for Review
             </button>
           )}
@@ -618,33 +618,33 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '20px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '16px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid #F0D0D8', borderRadius: '16px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid #F0D0D8', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a' }}>Unreviewed Library</div>
-            <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>{creator.name}</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>Unreviewed Library</div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{creator.name}</div>
           </div>
           {tabs.length > 1 && !loading && (
-            <div style={{ display: 'flex', gap: '4px', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px' }}>
               {tabs.map(t => (
                 <button key={t.key} onClick={() => switchTab(t.key)}
                   style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                    background: activeTab === t.key ? '#FFF0F3' : 'transparent',
-                    color: activeTab === t.key ? '#4a4a4a' : '#999' }}>
+                    background: activeTab === t.key ? 'rgba(232, 160, 160, 0.05)' : 'transparent',
+                    color: activeTab === t.key ? 'rgba(240, 236, 232, 0.85)' : '#999' }}>
                   {t.label} <span style={{ color: activeTab === t.key ? '#999' : '#aaa', fontWeight: 400 }}>{t.count}</span>
                 </button>
               ))}
             </div>
           )}
           {!loading && (
-            <div style={{ display: 'flex', gap: '4px', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px' }}>
               {[{ key: 'newest', label: 'Newest' }, { key: 'oldest', label: 'Oldest' }].map(s => (
                 <button key={s.key} onClick={() => { setSortOrder(s.key); setPage(1) }}
                   style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                    background: sortOrder === s.key ? '#FFF0F3' : 'transparent',
-                    color: sortOrder === s.key ? '#4a4a4a' : '#999' }}>
+                    background: sortOrder === s.key ? 'rgba(232, 160, 160, 0.05)' : 'transparent',
+                    color: sortOrder === s.key ? 'rgba(240, 236, 232, 0.85)' : '#999' }}>
                   {s.label}
                 </button>
               ))}
@@ -653,15 +653,15 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
           {!loading && totalPages > 1 && (
             <LibPickerPaginator page={page} totalPages={totalPages} onChange={setPage} />
           )}
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
 
         {/* Body */}
         <div style={{ overflowY: 'auto', padding: '20px 28px', flex: 1 }}>
-          {loading && <div style={{ color: '#999', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>Loading library…</div>}
+          {loading && <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>Loading library…</div>}
           {err && <div style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>{err}</div>}
           {!loading && !err && library?.length === 0 && (
-            <div style={{ color: '#aaa', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>No unreviewed clips found for {creator.name}.</div>
+            <div style={{ color: 'var(--foreground-subtle)', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>No unreviewed clips found for {creator.name}.</div>
           )}
           {!loading && paged.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
@@ -706,8 +706,8 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
-      <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
-      <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', background: '#FFF5F7', aspectRatio: '9/16', flex: 1 }}>
+      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+      <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', background: 'var(--background)', aspectRatio: '9/16', flex: 1 }}>
         {videoSrc ? (
           <video src={videoSrc} autoPlay muted loop playsInline preload="metadata"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
@@ -717,18 +717,18 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
         ) : fallbackThumb ? (
           <img src={fallbackThumb} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '32px' }}>&#127916;</div>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '32px' }}>&#127916;</div>
         )}
       </div>
       {link && (
         <div style={{ display: 'flex', gap: '6px' }}>
           <a href={link} target="_blank" rel="noopener noreferrer"
-            style={{ flex: 1, display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: '#FFF5F7', color: accentColor, border: `1px solid #E8C4CC`, borderRadius: '7px', textDecoration: 'none' }}>
+            style={{ flex: 1, display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: 'var(--background)', color: accentColor, border: `1px solid #E8C4CC`, borderRadius: '7px', textDecoration: 'none' }}>
             Open ↗
           </a>
           {filename && (
             <button onClick={copyFilename}
-              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: copied ? '#dcfce7' : '#FFF5F7', color: copied ? '#22c55e' : '#999', border: `1px solid ${copied ? '#bbf7d0' : '#E8C4CC'}`, borderRadius: '7px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
+              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: copied ? '#dcfce7' : 'var(--background)', color: copied ? '#22c55e' : '#999', border: `1px solid ${copied ? '#bbf7d0' : 'var(--card-border)'}`, borderRadius: '7px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
               {copied ? '✓' : 'Copy Name'}
             </button>
           )}
@@ -753,8 +753,8 @@ function TrackList({ tracks, playingPreview, setPlayingPreview, downloading, han
               <img src={track.albumArt} alt="" style={{ width: '28px', height: '28px', borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }} />
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.track}</div>
-              <div style={{ color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px' }}>{track.artist}</div>
+              <div style={{ fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.track}</div>
+              <div style={{ color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px' }}>{track.artist}</div>
             </div>
             {track.spotifyId && (
               <button onClick={() => setPlayingPreview(playingPreview === track.spotifyId ? null : track.spotifyId)}
@@ -964,10 +964,10 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
 
       {/* Identified song */}
       {identifiedSong && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '6px 8px', background: '#fff', borderRadius: '6px', border: '1px solid #E0D4F0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '6px 8px', background: 'var(--card-bg-solid)', borderRadius: '6px', border: '1px solid #E0D4F0' }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{identifiedSong.title}</div>
-            <div style={{ fontSize: '11px', color: '#999' }}>{identifiedSong.artist}</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{identifiedSong.title}</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{identifiedSong.artist}</div>
           </div>
           {identifiedSong.spotifyUrl && (
             <a href={identifiedSong.spotifyUrl} target="_blank" rel="noopener noreferrer"
@@ -997,7 +997,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
         <>
           {!hasPlaylist ? (
             <div style={{ textAlign: 'center', padding: '12px 8px' }}>
-              <div style={{ fontSize: '11px', color: '#999', marginBottom: '6px' }}>No Music DNA playlist uploaded for this creator</div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>No Music DNA playlist uploaded for this creator</div>
               <span style={{ fontSize: '10px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '4px 10px', borderRadius: '4px' }}>Need Playlist</span>
             </div>
           ) : !suggestions ? (
@@ -1006,7 +1006,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
               {loadingSuggestions ? 'Loading...' : 'Load Music Radio'}
             </button>
           ) : suggestions.length === 0 ? (
-            <div style={{ fontSize: '11px', color: '#999' }}>No suggestions found.</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>No suggestions found.</div>
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
@@ -1024,22 +1024,22 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
       {/* TikTok tab */}
       {musicTab === 'top50' && (
         loadingTop50 ? (
-          <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
         ) : top50 && top50.length > 0 ? (
           <TrackList tracks={filterUsed(top50)} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
         ) : top50 && top50.length === 0 ? (
-          <div style={{ fontSize: '11px', color: '#999' }}>No chart data available.</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>No chart data available.</div>
         ) : null
       )}
 
       {/* Billboard tab */}
       {musicTab === 'billboard' && (
         loadingBillboard ? (
-          <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', textAlign: 'center', padding: '12px' }}>Loading chart...</div>
         ) : billboard && billboard.length > 0 ? (
           <TrackList tracks={filterUsed(billboard)} playingPreview={playingPreview} setPlayingPreview={setPlayingPreview} downloading={downloading} handleDownload={handleDownload} />
         ) : billboard && billboard.length === 0 ? (
-          <div style={{ fontSize: '11px', color: '#999' }}>No chart data available.</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>No chart data available.</div>
         ) : null
       )}
 
@@ -1280,25 +1280,25 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
           .editor-task-modal-header > div:first-child > div:first-child > div:first-child { font-size: 14px !important; }
         }
       `}</style>
-      <div className="editor-task-modal-shell" style={{ background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '16px', width: '100%', maxWidth: '1050px', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="editor-task-modal-shell" style={{ background: 'var(--card-bg-solid)', border: '1px solid #F0D0D8', borderRadius: '16px', width: '100%', maxWidth: '1050px', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header bar */}
         <div className="editor-task-modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid #F0D0D8', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
               {creator?.name && (
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#E88FAC', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '4px', padding: '2px 8px', flexShrink: 0 }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.05)', border: '1px solid #E8C4CC', borderRadius: '4px', padding: '2px 8px', flexShrink: 0 }}>
                   {creator.name}
                 </span>
               )}
             </div>
-            {username && <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>@{username}</div>}
+            {username && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>@{username}</div>}
           </div>
           {statusBadge && (
             <span style={{ fontSize: '11px', fontWeight: 700, color: statusBadge.color, background: statusBadge.bg, border: `1px solid ${statusBadge.border}`, borderRadius: '4px', padding: '3px 10px', flexShrink: 0 }}>{statusBadge.label}</span>
           )}
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', fontSize: '22px', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
 
         {/* Body — two columns */}
@@ -1357,7 +1357,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {/* Admin screenshots */}
             {task?.adminScreenshots?.length > 0 && (
               <div>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Reference Screenshots</div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Reference Screenshots</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {task.adminScreenshots.map((url, i) => (
                     <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', flexShrink: 0 }}>
@@ -1371,8 +1371,8 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {/* Direction */}
             {inspo.notes && (
               <div>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Direction</div>
-                <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: 1.6, background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px', whiteSpace: 'pre-wrap' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Direction</div>
+                <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.6, background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px', whiteSpace: 'pre-wrap' }}>
                   {inspo.notes}
                 </div>
               </div>
@@ -1389,8 +1389,8 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {/* Creator notes */}
             {creatorNotes && (
               <div>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Creator Notes</div>
-                <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.5, background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Creator Notes</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.5, background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px' }}>
                   {creatorNotes}
                 </div>
               </div>
@@ -1400,7 +1400,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {inspo.tags?.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {inspo.tags.map(tag => (
-                  <span key={tag} style={{ fontSize: '11px', color: '#999', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '4px', padding: '2px 8px' }}>{tag}</span>
+                  <span key={tag} style={{ fontSize: '11px', color: 'var(--foreground-muted)', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '4px', padding: '2px 8px' }}>{tag}</span>
                 ))}
               </div>
             )}
@@ -1429,10 +1429,10 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {slot.type === 'inProgress' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {/* Tab switcher */}
-                <div style={{ display: 'flex', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px', gap: '3px' }}>
+                <div style={{ display: 'flex', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px', gap: '3px' }}>
                   {['create', 'upload', 'asis'].map(tab => (
                     <button key={tab} onClick={() => setEditorTab(tab)}
-                      style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: editorTab === tab ? '#FFF0F3' : 'transparent', color: editorTab === tab ? '#1a1a1a' : '#999' }}>
+                      style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: editorTab === tab ? 'rgba(232, 160, 160, 0.05)' : 'transparent', color: editorTab === tab ? 'var(--foreground)' : '#999' }}>
                       {tab === 'create' ? 'Creatomate' : tab === 'upload' ? 'Upload' : 'Post As Is'}
                     </button>
                   ))}
@@ -1442,19 +1442,19 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 {editorTab === 'create' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Caption Text</div>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Caption Text</div>
                       <textarea
                         value={caption}
                         onChange={e => setCaption(e.target.value)}
                         placeholder="Type the on-screen text..."
                         rows={2}
-                        style={{ width: '100%', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: '#2a2a2a', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                        style={{ width: '100%', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: 'var(--foreground)', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                       />
                     </div>
 
                     {/* Vertical position picker */}
                     <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
                         Position — {yPosition <= 25 ? 'Top' : yPosition <= 55 ? 'Middle' : 'Lower Third'}
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -1476,9 +1476,9 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                         <input
                           type="range" min={5} max={95} value={yPosition}
                           onChange={e => setYPosition(Number(e.target.value))}
-                          style={{ writingMode: 'vertical-lr', height: '96px', width: '20px', accentColor: '#E88FAC', cursor: 'pointer', flexShrink: 0 }}
+                          style={{ writingMode: 'vertical-lr', height: '96px', width: '20px', accentColor: 'var(--palm-pink)', cursor: 'pointer', flexShrink: 0 }}
                         />
-                        <div style={{ fontSize: '11px', color: '#999' }}>{yPosition}%</div>
+                        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{yPosition}%</div>
                       </div>
                     </div>
 
@@ -1492,22 +1492,22 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                     {renderErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{renderErr}</div>}
 
                     {renderStatus === 'rendering' && (
-                      <div style={{ fontSize: '12px', color: '#E88FAC', textAlign: 'center' }}>Rendering... this takes ~30–40s</div>
+                      <div style={{ fontSize: '12px', color: 'var(--palm-pink)', textAlign: 'center' }}>Rendering... this takes ~30–40s</div>
                     )}
 
                     {!renderUrl ? (
                       <button onClick={handleRender} disabled={rendering || renderStatus === 'rendering' || !caption.trim()}
-                        style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #D4A0B0', borderRadius: '8px', cursor: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 'not-allowed' : 'pointer', opacity: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 0.5 : 1 }}>
+                        style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #D4A0B0', borderRadius: '8px', cursor: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 'not-allowed' : 'pointer', opacity: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 0.5 : 1 }}>
                         {rendering ? 'Starting...' : renderStatus === 'rendering' ? 'Rendering...' : 'Render ↗'}
                       </button>
                     ) : (
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => { setRenderUrl(null); setRenderId(null); setRenderStatus('idle') }}
-                          style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: '#999', border: '1px solid #F0D0D8', borderRadius: '8px', cursor: 'pointer' }}>
+                          style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid #F0D0D8', borderRadius: '8px', cursor: 'pointer' }}>
                           Re-render
                         </button>
                         <button onClick={() => handleSave(renderUrl)} disabled={saving || saved}
-                          style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saved ? '#dcfce7' : '#FFF0F3', color: saved ? '#22c55e' : '#E88FAC', border: `1px solid ${saved ? '#bbf7d0' : '#E88FAC'}`, borderRadius: '8px', cursor: (saving || saved) ? 'not-allowed' : 'pointer' }}>
+                          style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saved ? '#dcfce7' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#22c55e' : 'var(--palm-pink)', border: `1px solid ${saved ? '#bbf7d0' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved) ? 'not-allowed' : 'pointer' }}>
                           {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save & Submit ↑'}
                         </button>
                       </div>
@@ -1523,38 +1523,38 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                       onDragOver={e => e.preventDefault()}
                       onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setUploadFile(f) }}
                       onClick={() => fileInputRef.current?.click()}
-                      style={{ border: `2px dashed ${uploadFile ? '#E88FAC' : '#E8C4CC'}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: '#FFF5F7', transition: 'border-color 0.2s' }}
+                      style={{ border: `2px dashed ${uploadFile ? 'var(--palm-pink)' : 'var(--card-border)'}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: 'var(--background)', transition: 'border-color 0.2s' }}
                     >
                       <input ref={fileInputRef} type="file" accept="video/*,.mov,.mp4,.m4v" style={{ display: 'none' }}
                         onChange={e => { const f = e.target.files?.[0]; if (f) setUploadFile(f) }} />
                       {uploadFile ? (
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#E88FAC' }}>{uploadFile.name}</div>
-                          <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>{(uploadFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--palm-pink)' }}>{uploadFile.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>{(uploadFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div>
                         </div>
                       ) : (
                         <div>
                           <div style={{ fontSize: '24px', marginBottom: '6px' }}>⬆</div>
-                          <div style={{ fontSize: '13px', color: '#999' }}>Drop video here or click to browse</div>
-                          <div style={{ fontSize: '11px', color: '#ccc', marginTop: '4px' }}>MP4, MOV supported</div>
+                          <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Drop video here or click to browse</div>
+                          <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>MP4, MOV supported</div>
                         </div>
                       )}
                     </div>
 
                     {/* Or paste link */}
-                    <div style={{ fontSize: '11px', color: '#ccc', textAlign: 'center' }}>— or paste a Dropbox link —</div>
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', textAlign: 'center' }}>— or paste a Dropbox link —</div>
                     <input type="url" value={uploadUrl} onChange={e => setUploadUrl(e.target.value)}
                       placeholder="https://www.dropbox.com/..."
-                      style={{ width: '100%', background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '7px', padding: '8px 10px', fontSize: '12px', color: '#2a2a2a', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                      style={{ width: '100%', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '7px', padding: '8px 10px', fontSize: '12px', color: 'var(--foreground)', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
 
-                    {uploadProgress && <div style={{ fontSize: '12px', color: '#E88FAC' }}>{uploadProgress}</div>}
+                    {uploadProgress && <div style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>{uploadProgress}</div>}
                     {uploadError && <div style={{ fontSize: '12px', color: '#ef4444' }}>{uploadError}</div>}
                     {saveErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{saveErr}</div>}
 
                     <button
                       onClick={() => uploadFile ? handleFileUpload(uploadFile) : handleSave(uploadUrl)}
                       disabled={saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress}
-                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#dcfce7' : '#FFF0F3', color: saved ? '#22c55e' : '#E88FAC', border: `1px solid ${saved ? '#bbf7d0' : '#E88FAC'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
+                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#dcfce7' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#22c55e' : 'var(--palm-pink)', border: `1px solid ${saved ? '#bbf7d0' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
                       {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : 'Save & Submit ↑'}
                     </button>
                   </div>
@@ -1563,14 +1563,14 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 {/* POST AS IS tab */}
                 {editorTab === 'asis' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ fontSize: '12px', color: '#999', lineHeight: 1.5, background: '#FFF5F7', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.5, background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px' }}>
                       Sends the raw clip for review with no edits. Use this when the clip doesn't need a caption or any changes.
                     </div>
                     {saveErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{saveErr}</div>}
                     <button
                       onClick={() => handleSave(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '')}
                       disabled={saving || saved}
-                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#dcfce7' : '#ffffff', color: saved ? '#22c55e' : '#999', border: `1px solid ${saved ? '#bbf7d0' : '#E8C4CC'}`, borderRadius: '8px', cursor: (saving || saved) ? 'not-allowed' : 'pointer' }}>
+                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? '#dcfce7' : 'var(--card-bg-solid)', color: saved ? '#22c55e' : '#999', border: `1px solid ${saved ? '#bbf7d0' : 'var(--card-border)'}`, borderRadius: '8px', cursor: (saving || saved) ? 'not-allowed' : 'pointer' }}>
                       {saved ? 'Submitted ✓' : saving ? 'Submitting...' : 'Submit Raw Clip for Review ↑'}
                     </button>
                   </div>
@@ -1594,18 +1594,18 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
               <div style={{ borderTop: '1px solid #F0D0D8', paddingTop: '12px', marginTop: '4px' }}>
                 {!confirmCancel ? (
                   <button onClick={() => setConfirmCancel(true)}
-                    style={{ background: 'none', border: 'none', color: '#999', fontSize: '11px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                    style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '11px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                     Remove from queue
                   </button>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', color: '#888' }}>Remove this task and reset the clip?</span>
+                    <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Remove this task and reset the clip?</span>
                     <button onClick={handleCancelEdit} disabled={cancelling}
                       style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '5px', padding: '3px 10px', cursor: cancelling ? 'default' : 'pointer' }}>
                       {cancelling ? 'Removing...' : 'Yes, remove'}
                     </button>
                     <button onClick={() => setConfirmCancel(false)}
-                      style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      style={{ fontSize: '11px', color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
                       Cancel
                     </button>
                   </div>
@@ -1658,13 +1658,13 @@ function SlotText({ slot }) {
   const clip = slot.clip
 
   if (slot.type === 'empty') {
-    return <div style={{ fontSize: '12px', color: '#E8C4CC' }}>+ Assign from library</div>
+    return <div style={{ fontSize: '12px', color: 'var(--card-border)' }}>+ Assign from library</div>
   }
 
   if (slot.type === 'done') {
     const title = task?.inspo?.title || task?.name || ''
     return (
-      <div style={{ fontSize: '13px', fontWeight: 600, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground-subtle)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {title || 'Edit task'}
       </div>
     )
@@ -1675,8 +1675,8 @@ function SlotText({ slot }) {
     const username = clip?.inspo?.username || ''
     return (
       <>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Creator clip'}</div>
-        {username && <div style={{ fontSize: '11px', color: '#aaa' }}>@{username}</div>}
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Creator clip'}</div>
+        {username && <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>@{username}</div>}
       </>
     )
   }
@@ -1687,9 +1687,9 @@ function SlotText({ slot }) {
   const isRevision = task?.adminReviewStatus === 'Needs Revision'
   return (
     <>
-      <div style={{ fontSize: '13px', fontWeight: 600, color: isRevision ? '#ef4444' : '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
-      {isRevision && task.adminFeedback && <div style={{ fontSize: '11px', color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>}
-      {!isRevision && username && <div style={{ fontSize: '11px', color: '#aaa' }}>@{username}</div>}
+      <div style={{ fontSize: '13px', fontWeight: 600, color: isRevision ? '#ef4444' : 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
+      {isRevision && task.adminFeedback && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>}
+      {!isRevision && username && <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>@{username}</div>}
     </>
   )
 }
@@ -1718,21 +1718,21 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
   const firstDay = new Date(calYear, calMonth, 1).getDay()
   const cells = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
 
-  const navBtn = { background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '14px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }
+  const navBtn = { background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '14px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }
   const dotColors = { green: '#22c55e', yellow: '#facc15', red: '#ef4444' }
 
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
-      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: '6px', background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '12px', padding: '14px', width: '228px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: '6px', background: 'var(--card-bg-solid)', border: '1px solid #E8C4CC', borderRadius: '12px', padding: '14px', width: '228px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <button onClick={() => shiftMonth(-1)} style={navBtn}>‹</button>
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#4a4a4a' }}>{monthNames[calMonth]} {calYear}</span>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)' }}>{monthNames[calMonth]} {calYear}</span>
           <button onClick={() => shiftMonth(1)} style={navBtn}>›</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '4px' }}>
           {['S','M','T','W','T','F','S'].map((d, i) => (
-            <div key={i} style={{ textAlign: 'center', fontSize: '10px', color: '#999', fontWeight: 600, padding: '3px 0' }}>{d}</div>
+            <div key={i} style={{ textAlign: 'center', fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, padding: '3px 0' }}>{d}</div>
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
@@ -1744,7 +1744,7 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
             const color = dateColors[ds]
             return (
               <button key={i} onClick={() => { onSelect(ds); onClose() }}
-                style={{ background: isSel ? '#E88FAC' : isToday ? '#FFF0F3' : 'transparent', border: isToday && !isSel ? '1px solid #E8C4CC' : '1px solid transparent', borderRadius: '6px', color: isSel ? '#fff' : isToday ? '#E88FAC' : '#888', fontSize: '12px', fontWeight: isSel || isToday ? 700 : 400, padding: '4px 0 2px', cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                style={{ background: isSel ? 'var(--palm-pink)' : isToday ? 'rgba(232, 160, 160, 0.05)' : 'transparent', border: isToday && !isSel ? '1px solid #E8C4CC' : '1px solid transparent', borderRadius: '6px', color: isSel ? '#fff' : isToday ? 'var(--palm-pink)' : '#888', fontSize: '12px', fontWeight: isSel || isToday ? 700 : 400, padding: '4px 0 2px', cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                 <span>{day}</span>
                 <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: color ? dotColors[color] : 'transparent', flexShrink: 0 }} />
               </button>
@@ -1753,7 +1753,7 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #F0D0D8' }}>
           <button onClick={() => { onSelect(todayStr); onClose() }}
-            style={{ fontSize: '11px', fontWeight: 700, color: '#E88FAC', background: 'none', border: 'none', cursor: 'pointer' }}>Today</button>
+            style={{ fontSize: '11px', fontWeight: 700, color: 'var(--palm-pink)', background: 'none', border: 'none', cursor: 'pointer' }}>Today</button>
         </div>
       </div>
     </>
@@ -1770,10 +1770,10 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
     ? { borderColor: '#fde68a', bg: '#fefce8', dotColor: '#f59e0b', label: 'Creator clip uploaded' }
     : {
         inProgress: { borderColor: '#bfdbfe', bg: '#eff6ff', dotColor: '#3b82f6', label: 'In editing' },
-        toDo:       { borderColor: '#E8C4CC', bg: '#FFF5F7', dotColor: '#E88FAC', label: 'Ready to edit' },
+        toDo:       { borderColor: 'var(--card-border)', bg: 'var(--background)', dotColor: 'var(--palm-pink)', label: 'Ready to edit' },
         inspoClip:  { borderColor: '#fde68a', bg: '#fefce8', dotColor: '#f59e0b', label: 'Creator clip uploaded' },
-        empty:      { borderColor: '#F0D0D8', bg: '#FFF5F7', dotColor: '#aaa', label: 'Open slot' },
-      }[slot.type] || { borderColor: '#F0D0D8', bg: '#FFF5F7', dotColor: '#aaa', label: '' }
+        empty:      { borderColor: 'var(--card-border)', bg: 'var(--background)', dotColor: '#aaa', label: 'Open slot' },
+      }[slot.type] || { borderColor: 'var(--card-border)', bg: 'var(--background)', dotColor: '#aaa', label: '' }
 
   const isDone = slot.type === 'done'
   const clickable = true
@@ -1797,7 +1797,7 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
             </span>
           </div>
           {slotLabel && (
-            <span style={{ fontSize: '10px', color: '#aaa', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{slotLabel}</span>
+            <span style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{slotLabel}</span>
           )}
         </div>
         <SlotText slot={slot} />
@@ -1978,7 +1978,7 @@ function CreatorSection({ creator, onRefresh }) {
           colors.push(statusColor(doneTasks[s].adminReviewStatus))
         } else if (isPast) {
           // Past day, unfilled slot = locked empty
-          colors.push('#F0D0D8')
+          colors.push('var(--card-border)')
         } else {
           // Today or future: fill from queue
           if (queueIdx < dotQueueItems.length) {
@@ -1986,9 +1986,9 @@ function CreatorSection({ creator, onRefresh }) {
             queueIdx++
             if (type === 'inProgress') colors.push('#3b82f6')       // blue
             else if (type === 'inspoClip') colors.push('#f59e0b')   // yellow/amber
-            else colors.push('#E88FAC')                              // pink (To Do)
+            else colors.push('var(--palm-pink)')                              // pink (To Do)
           } else {
-            colors.push('#F0D0D8') // empty
+            colors.push('var(--card-border)') // empty
           }
         }
       }
@@ -2047,25 +2047,25 @@ function CreatorSection({ creator, onRefresh }) {
   const allDone = selectedDoneList.length >= dailyQuota
 
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #F0D0D8', borderRadius: '16px', height: '100%' }}>
+    <div style={{ background: 'var(--card-bg-solid)', border: '1px solid #F0D0D8', borderRadius: '16px', height: '100%' }}>
       {/* Header */}
       <div className="editor-creator-header" style={{ padding: '18px 24px 14px', borderBottom: '1px solid #F0D0D8' }}>
         {/* Row 1: name + See More inline left, Weekly label top right */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>{creator.name}</h2>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{creator.name}</h2>
             <Link href={`/editor/${creator.id}`}
-              style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: '#999', border: '1px solid #E8C4CC', textDecoration: 'none', flexShrink: 0 }}>
+              style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid #E8C4CC', textDecoration: 'none', flexShrink: 0 }}>
               See More →
             </Link>
             {creator.hasProfile && (
               <button onClick={() => setDnaModal(true)}
-                style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', cursor: 'pointer', flexShrink: 0 }}>
+                style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', cursor: 'pointer', flexShrink: 0 }}>
                 DNA
               </button>
             )}
           </div>
-          <span style={{ fontSize: '9px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0, paddingTop: '4px' }}>Weekly</span>
+          <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0, paddingTop: '4px' }}>Weekly</span>
         </div>
         {/* Row 2: status pills — always has at least the 'needed' pill */}
         <div className="editor-creator-pills" style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
@@ -2075,7 +2075,7 @@ function CreatorSection({ creator, onRefresh }) {
             </span>
           )}
           {creator.queue.length > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #E8C4CC' }}>
               {creator.queue.length} queued
             </span>
           )}
@@ -2097,7 +2097,7 @@ function CreatorSection({ creator, onRefresh }) {
           {(() => {
             const needed = Math.max(0, creator.quota - creator.doneToday)
             return needed > 0 ? (
-              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: '#ffffff', color: '#aaa', border: '1px solid #E8C4CC' }}>
+              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'var(--card-bg-solid)', color: 'var(--foreground-subtle)', border: '1px solid #E8C4CC' }}>
                 {needed} open
               </span>
             ) : null
@@ -2112,14 +2112,14 @@ function CreatorSection({ creator, onRefresh }) {
         {/* Date navigation */}
         <div className="editor-date-nav" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <button onClick={() => shiftDate(-1)}
-            style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
+            style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
           <div style={{ position: 'relative', minWidth: '180px' }}>
             <button onClick={() => setShowDatePicker(p => !p)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: isToday ? '#E88FAC' : '#999', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: isToday ? 'var(--palm-pink)' : '#999', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 {isToday ? 'Today · ' : ''}{selectedDayLabel}
               </span>
-              <span style={{ fontSize: '10px', color: '#aaa' }}>▾</span>
+              <span style={{ fontSize: '10px', color: 'var(--foreground-subtle)' }}>▾</span>
             </button>
             {showDatePicker && (
               <CustomCalendar
@@ -2132,12 +2132,12 @@ function CreatorSection({ creator, onRefresh }) {
             )}
           </div>
           <button onClick={() => shiftDate(1)}
-            style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#999', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>›</button>
+            style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>›</button>
           {!isToday && (
             <button onClick={() => setSelectedDate(todayDateStr)}
-              style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}>Today</button>
+              style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}>Today</button>
           )}
-          <span style={{ marginLeft: 'auto', fontSize: '9px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Daily</span>
+          <span style={{ marginLeft: 'auto', fontSize: '9px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Daily</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {(() => {
@@ -2284,7 +2284,7 @@ function BufferCreatorCard({ creator }) {
     <div className="editor-buffer-card" style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '16px 18px' }}>
       {/* Name + buffer days */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <span className="editor-buffer-name" style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{creator.name}</span>
+        <span className="editor-buffer-name" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>{creator.name}</span>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
           <span className="editor-buffer-days" style={{ fontSize: '22px', fontWeight: 800, color, lineHeight: 1 }}>{bufferDays}</span>
           <span style={{ fontSize: '11px', color, fontWeight: 600 }}>d runway</span>
@@ -2292,7 +2292,7 @@ function BufferCreatorCard({ creator }) {
       </div>
 
       {/* Buffer bar */}
-      <div style={{ height: '4px', background: '#F0D0D8', borderRadius: '2px', marginBottom: '10px', overflow: 'hidden' }}>
+      <div style={{ height: '4px', background: 'var(--card-border)', borderRadius: '2px', marginBottom: '10px', overflow: 'hidden' }}>
         <div style={{
           height: '100%', borderRadius: '2px', background: color,
           width: `${Math.min(100, (bufferDays / 7) * 100)}%`,
@@ -2302,12 +2302,12 @@ function BufferCreatorCard({ creator }) {
 
       {/* Stats row */}
       <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
-        <span style={{ color: '#999' }}>
+        <span style={{ color: 'var(--foreground-muted)' }}>
           <span style={{ color: color, fontWeight: 600 }}>{approvedBuffer}</span> posts scheduled
         </span>
         {pendingEdit > 0 && (
-          <span style={{ color: '#999' }}>
-            <span style={{ color: '#E88FAC', fontWeight: 600 }}>{pendingEdit}</span> to edit
+          <span style={{ color: 'var(--foreground-muted)' }}>
+            <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>{pendingEdit}</span> to edit
           </span>
         )}
       </div>
@@ -2330,7 +2330,7 @@ function BufferOverview({ creators }) {
   return (
     <div style={{ marginBottom: '32px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '14px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           Content Buffer
         </h2>
         {allHealthy ? (
@@ -2383,7 +2383,7 @@ export function EditorDashboardContent() {
   useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) {
-    return <div style={{ color: '#bbb', fontSize: '14px', padding: '40px 0' }}>Loading editor dashboard...</div>
+    return <div style={{ color: 'var(--foreground-subtle)', fontSize: '14px', padding: '40px 0' }}>Loading editor dashboard...</div>
   }
 
   if (error) {
@@ -2424,11 +2424,11 @@ export function EditorDashboardContent() {
 
       <div className="editor-dash-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
         <div>
-          <span style={{ fontSize: '13px', color: '#999' }}>{greeting}, </span>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: '#888' }}>{firstName}</span>
+          <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>{greeting}, </span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)' }}>{firstName}</span>
         </div>
         <button onClick={fetchData}
-          style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: '#ffffff', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}>
+          style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
@@ -2436,7 +2436,7 @@ export function EditorDashboardContent() {
       <BufferOverview creators={creators} />
 
       {creators.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#aaa', fontSize: '14px', background: '#FFF5F7', borderRadius: '12px', border: '1px solid #F0D0D8' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--foreground-subtle)', fontSize: '14px', background: 'var(--background)', borderRadius: '12px', border: '1px solid #F0D0D8' }}>
           No creators assigned — toggle Social Media Editing on a creator to assign them.
         </div>
       ) : (

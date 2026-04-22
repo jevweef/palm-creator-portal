@@ -65,16 +65,16 @@ export default function SuperAdminBar() {
 
   const tabStyle = (active) => ({
     padding: '4px 14px',
-    fontSize: '11px',
-    fontWeight: 700,
-    letterSpacing: '0.06em',
+    fontSize: '10px',
+    fontWeight: 500,
+    letterSpacing: '0.12em',
     textTransform: 'uppercase',
     borderRadius: '4px',
     cursor: 'pointer',
     border: 'none',
-    background: active ? '#E88FAC' : 'transparent',
-    color: active ? '#fff' : '#999',
-    transition: 'all 0.15s',
+    background: active ? 'var(--palm-pink)' : 'transparent',
+    color: active ? '#060606' : 'var(--foreground-muted)',
+    transition: 'all 0.3s var(--ease-stripe)',
   })
 
   const handleAdminTab = () => router.push('/admin/inspo')
@@ -91,14 +91,14 @@ export default function SuperAdminBar() {
 
   return (
     <div style={{
-      background: '#FFF0F3',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      padding: '6px 24px',
+      background: 'rgba(232, 160, 160, 0.04)',
+      borderBottom: '1px solid var(--card-border)',
+      padding: '8px 24px',
       display: 'flex',
       alignItems: 'center',
       gap: '4px',
     }}>
-      <span style={{ fontSize: '10px', fontWeight: 700, color: '#C88FA0', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: '8px' }}>
+      <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--palm-pink)', textTransform: 'uppercase', letterSpacing: '0.2em', marginRight: '12px', opacity: 0.7 }}>
         View as
       </span>
 
@@ -139,16 +139,17 @@ export default function SuperAdminBar() {
             position: 'absolute',
             top: 'calc(100% + 6px)',
             left: 0,
-            background: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            minWidth: '180px',
+            background: '#0a0a0a',
+            border: '1px solid var(--card-border)',
+            borderRadius: '12px',
+            minWidth: '200px',
             zIndex: 1000,
             overflow: 'hidden',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(20px)',
           }}>
             {creators.length === 0 && (
-              <div style={{ padding: '10px 14px', fontSize: '12px', color: '#999' }}>Loading...</div>
+              <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--foreground-muted)' }}>Loading...</div>
             )}
             {creators.map(c => (
               <button
@@ -157,20 +158,21 @@ export default function SuperAdminBar() {
                 style={{
                   display: 'block',
                   width: '100%',
-                  padding: '9px 14px',
+                  padding: '10px 16px',
                   textAlign: 'left',
-                  background: selectedCreator?.id === c.id ? '#FFF0F3' : 'transparent',
+                  background: selectedCreator?.id === c.id ? 'rgba(232, 160, 160, 0.08)' : 'transparent',
                   border: 'none',
-                  borderBottom: '1px solid rgba(0,0,0,0.04)',
-                  color: selectedCreator?.id === c.id ? '#E88FAC' : '#4a4a4a',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  color: selectedCreator?.id === c.id ? 'var(--palm-pink)' : 'var(--foreground)',
                   fontSize: '13px',
                   cursor: 'pointer',
+                  transition: 'background 0.2s var(--ease-stripe)',
                 }}
-                onMouseEnter={e => { if (selectedCreator?.id !== c.id) e.currentTarget.style.background = '#FFF5F7' }}
+                onMouseEnter={e => { if (selectedCreator?.id !== c.id) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
                 onMouseLeave={e => { if (selectedCreator?.id !== c.id) e.currentTarget.style.background = 'transparent' }}
               >
                 {c.aka || c.name}
-                <span style={{ fontSize: '10px', color: '#999', marginLeft: '6px' }}>{c.status}</span>
+                <span style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginLeft: '8px' }}>{c.status}</span>
               </button>
             ))}
           </div>
