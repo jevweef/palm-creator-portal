@@ -636,9 +636,9 @@ function SampleMessageBlock({ message }) {
             padding: '4px 10px',
             fontSize: '11px',
             fontWeight: 600,
-            color: copied ? '#16a34a' : '#0369A1',
-            background: copied ? '#DCFCE7' : '#E0F2FE',
-            border: `1px solid ${copied ? '#BBF7D0' : '#BAE6FD'}`,
+            color: copied ? '#7DD3A4' : '#0369A1',
+            background: copied ? 'rgba(125, 211, 164, 0.08)' : '#E0F2FE',
+            border: `1px solid ${copied ? 'rgba(125, 211, 164, 0.2)' : '#BAE6FD'}`,
             borderRadius: '5px',
             cursor: 'pointer',
             transition: 'all 0.15s',
@@ -663,7 +663,7 @@ function SampleMessageBlock({ message }) {
 function SectionCard({ section, isOpen, onToggle }) {
   return (
     <div style={{
-      background: '#ffffff',
+      background: 'var(--card-bg-solid)',
       borderRadius: '16px',
       boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
       overflow: 'hidden',
@@ -692,16 +692,16 @@ function SectionCard({ section, isOpen, onToggle }) {
         >
           <span style={{ fontSize: '22px', lineHeight: 1 }}>{section.icon}</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)' }}>
               {section.title}
             </div>
-            <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
               {section.scenario}
             </div>
           </div>
           <span style={{
             fontSize: '18px',
-            color: '#ccc',
+            color: 'var(--foreground-subtle)',
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s',
           }}>
@@ -720,8 +720,8 @@ function SectionCard({ section, isOpen, onToggle }) {
               padding: '6px 12px',
               fontSize: '11px',
               fontWeight: 600,
-              color: '#E88FAC',
-              background: '#FFF0F3',
+              color: 'var(--palm-pink)',
+              background: 'rgba(232, 160, 160, 0.04)',
               border: '1px solid #F5D5DD',
               borderRadius: '6px',
               textDecoration: 'none',
@@ -746,8 +746,8 @@ function SectionCard({ section, isOpen, onToggle }) {
                   width: '26px',
                   height: '26px',
                   borderRadius: '50%',
-                  background: '#FFF0F3',
-                  color: '#E88FAC',
+                  background: 'rgba(232, 160, 160, 0.04)',
+                  color: 'var(--palm-pink)',
                   fontSize: '13px',
                   fontWeight: 700,
                   display: 'flex',
@@ -759,10 +759,10 @@ function SectionCard({ section, isOpen, onToggle }) {
                   {i + 1}
                 </div>
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>
                     {step.heading}
                   </div>
-                  <div style={{ fontSize: '13px', color: '#666', marginTop: '3px', lineHeight: 1.55, whiteSpace: 'pre-line' }}>
+                  <div style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', marginTop: '3px', lineHeight: 1.55, whiteSpace: 'pre-line' }}>
                     {step.detail}
                   </div>
                 </div>
@@ -784,7 +784,7 @@ function SectionCard({ section, isOpen, onToggle }) {
               borderRadius: '10px',
               border: '1px solid #FDE68A',
             }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: '#92400E', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#E8A878', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 Tips
               </div>
               <ul style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -865,10 +865,10 @@ export default function HelpPage() {
     <div style={{ maxWidth: '720px' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
           Help
         </h1>
-        <p style={{ fontSize: '13px', color: '#999', margin: '4px 0 0' }}>
+        <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 0' }}>
           How to do things in the admin portal. Search or browse by scenario.
         </p>
       </div>
@@ -890,11 +890,11 @@ export default function HelpPage() {
             width: '100%',
             padding: '12px 14px 12px 40px',
             fontSize: '14px',
-            border: '1px solid #E8C4CC',
+            border: '1px solid transparent',
             borderRadius: '12px',
-            background: '#FFF5F7',
+            background: 'var(--background)',
             outline: 'none',
-            color: '#1a1a1a',
+            color: 'var(--foreground)',
             boxSizing: 'border-box',
           }}
         />
@@ -908,9 +908,9 @@ export default function HelpPage() {
             padding: '6px 12px',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#999',
+            color: 'var(--foreground-muted)',
             background: 'none',
-            border: '1px solid #eee',
+            border: '1px solid transparent',
             borderRadius: '6px',
             cursor: 'pointer',
           }}
@@ -923,9 +923,9 @@ export default function HelpPage() {
             padding: '6px 12px',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#999',
+            color: 'var(--foreground-muted)',
             background: 'none',
-            border: '1px solid #eee',
+            border: '1px solid transparent',
             borderRadius: '6px',
             cursor: 'pointer',
           }}
@@ -933,7 +933,7 @@ export default function HelpPage() {
           Collapse all
         </button>
         {isSearching && (
-          <span style={{ fontSize: '12px', color: '#999', alignSelf: 'center', marginLeft: '8px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--foreground-muted)', alignSelf: 'center', marginLeft: '8px' }}>
             {filteredSections.length} result{filteredSections.length !== 1 ? 's' : ''}
           </span>
         )}
@@ -947,7 +947,7 @@ export default function HelpPage() {
             <div style={{
               padding: '40px 20px',
               textAlign: 'center',
-              color: '#999',
+              color: 'var(--foreground-muted)',
               fontSize: '14px',
             }}>
               No results for &ldquo;{search}&rdquo;. Try different keywords.
@@ -976,7 +976,7 @@ export default function HelpPage() {
                 <div style={{
                   fontSize: '11px',
                   fontWeight: 600,
-                  color: '#999',
+                  color: 'var(--foreground-muted)',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   marginBottom: '10px',

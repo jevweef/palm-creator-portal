@@ -18,11 +18,11 @@ function formatTime(ts) {
 
 function StatusPill({ status }) {
   const colors = {
-    Processing: { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
-    Complete: { bg: '#dcfce7', text: '#22c55e', border: '#bbf7d0' },
-    Error: { bg: '#FEF2F2', text: '#ef4444', border: '#FECACA' },
+    Processing: { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8C878', border: 'rgba(232, 200, 120, 0.2)' },
+    Complete: { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4', border: 'rgba(125, 211, 164, 0.2)' },
+    Error: { bg: 'rgba(232, 120, 120, 0.06)', text: '#E87878', border: 'rgba(232, 120, 120, 0.2)' },
   }
-  const c = colors[status] || { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' }
+  const c = colors[status] || { bg: 'rgba(232, 160, 160, 0.06)', text: '#999', border: 'transparent' }
   return (
     <span style={{
       padding: '2px 8px',
@@ -51,10 +51,10 @@ function shortcode(url) {
 }
 
 const GRADE_COLORS = {
-  'A+': '#E88FAC', A: '#E88FAC', 'A-': '#E88FAC',
-  'B+': '#22c55e', B: '#22c55e', 'B-': '#22c55e',
-  'C+': '#f59e0b', C: '#f59e0b', 'C-': '#f59e0b',
-  D: '#ef4444', F: '#ef4444',
+  'A+': 'var(--palm-pink)', A: 'var(--palm-pink)', 'A-': 'var(--palm-pink)',
+  'B+': '#7DD3A4', B: '#7DD3A4', 'B-': '#7DD3A4',
+  'C+': '#E8C878', C: '#E8C878', 'C-': '#E8C878',
+  D: '#E87878', F: '#E87878',
 }
 
 function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreatorsChange }) {
@@ -129,16 +129,16 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
+        style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>@{source.handle}</div>
-              <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)' }}>@{source.handle}</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
                 {loading ? 'Loading...' : `${reels?.length || 0} reels on inspo board`}
-                {sources.length > 1 && <span style={{ color: '#3f3f46', marginLeft: '8px' }}>{currentIdx + 1} / {sources.length}</span>}
+                {sources.length > 1 && <span style={{ color: 'var(--foreground-muted)', marginLeft: '8px' }}>{currentIdx + 1} / {sources.length}</span>}
               </div>
             </div>
             {/* Prev / Next with handle labels */}
@@ -146,37 +146,37 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
               <button
                 onClick={() => currentIdx > 0 && onNavigate(sources[currentIdx - 1])}
                 disabled={currentIdx <= 0}
-                style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: currentIdx <= 0 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
+                style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: currentIdx <= 0 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
               >{currentIdx > 0 ? `‹ @${sources[currentIdx - 1].handle}` : '‹'}</button>
               <button
                 onClick={() => currentIdx < sources.length - 1 && onNavigate(sources[currentIdx + 1])}
                 disabled={currentIdx >= sources.length - 1}
-                style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
+                style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
               >{currentIdx < sources.length - 1 ? `@${sources[currentIdx + 1].handle} ›` : '›'}</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               onClick={() => setEditMode(m => !m)}
-              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: editMode ? '#450a0a' : 'none', color: editMode ? '#fca5a5' : '#999', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}
+              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: editMode ? '#450a0a' : 'none', color: editMode ? '#E87878' : '#999', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}
             >{editMode ? '✕ Done removing' : 'Remove reels'}</button>
             <a
               href={`https://instagram.com/${source.handle}`}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}
+              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}
             >
               Open Profile ↗
             </a>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
         </div>
 
         {/* Creator Assignment */}
         {allCreators.length > 0 && (
-          <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#FFF5F7', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-              Assigned to creators {savingCreators && <span style={{ color: '#3f3f46' }}>saving...</span>}
+          <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'var(--background)', borderRadius: '8px', border: '1px solid transparent' }}>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+              Assigned to creators {savingCreators && <span style={{ color: 'var(--foreground-muted)' }}>saving...</span>}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {allCreators.map(c => {
@@ -189,9 +189,9 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
                     style={{
                       padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                       borderRadius: '20px', cursor: 'pointer', border: 'none',
-                      background: assigned ? '#FFF0F3' : '#ffffff',
-                      color: assigned ? '#E88FAC' : '#666',
-                      outline: assigned ? '1px solid #E88FAC' : '1px solid #E8C4CC',
+                      background: assigned ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
+                      color: assigned ? 'var(--palm-pink)' : 'rgba(240, 236, 232, 0.75)',
+                      outline: assigned ? '1px solid #E88FAC' : '1px solid transparent',
                       transition: 'all 0.15s',
                     }}
                   >
@@ -205,9 +205,9 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
 
         {/* Grid */}
         {loading ? (
-          <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '40px' }}>Loading...</div>
+          <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', textAlign: 'center', padding: '40px' }}>Loading...</div>
         ) : reels?.length === 0 ? (
-          <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '40px' }}>No inspo board reels for this account yet.</div>
+          <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', textAlign: 'center', padding: '40px' }}>No inspo board reels for this account yet.</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px' }}>
             {reels.map(reel => (
@@ -226,7 +226,7 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
                       fontSize: '12px', fontWeight: 700,
                       border: 'none', cursor: 'pointer',
                       background: reel.hidden ? '#14532d' : '#450a0a',
-                      color: reel.hidden ? '#4ade80' : '#fca5a5',
+                      color: reel.hidden ? '#4ade80' : '#E87878',
                       opacity: toggling[reel.id] ? 0.5 : 1,
                       letterSpacing: '0.02em',
                     }}
@@ -277,25 +277,25 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
+        background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '24px', width: '380px',
       }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
           Update & Re-scrape @{source.handle}?
         </h3>
         <p style={{ fontSize: '13px', color: '#a3a3a3', marginBottom: '16px', lineHeight: 1.5 }}>
-          Limit: <span style={{ color: '#999' }}>{oldLimit}</span> → <span style={{ color: '#E88FAC', fontWeight: 600 }}>{newLimit}</span> reels
+          Limit: <span style={{ color: 'var(--foreground-muted)' }}>{oldLimit}</span> → <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>{newLimit}</span> reels
         </p>
 
-        <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', fontWeight: 800, color: '#f59e0b', marginBottom: '4px' }}>~${estCost}</div>
+        <div style={{ background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #fde68a', borderRadius: '10px', padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '32px', fontWeight: 800, color: '#E8C878', marginBottom: '4px' }}>~${estCost}</div>
           <div style={{ fontSize: '12px', color: '#a3a3a3' }}>Estimated Apify cost for {newLimit} reels</div>
-          <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '8px' }}>Duplicates auto-skipped (free)</div>
+          <div style={{ fontSize: '11px', color: '#7DD3A4', marginTop: '8px' }}>Duplicates auto-skipped (free)</div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
-          <button onClick={confirm} disabled={saving} style={{ ...btnStyle, background: '#E88FAC', opacity: saving ? 0.6 : 1 }}>
+          <button onClick={onClose} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
+          <button onClick={confirm} disabled={saving} style={{ ...btnStyle, background: 'var(--palm-pink)', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Scraping...' : 'Update & Scrape'}
           </button>
         </div>
@@ -366,41 +366,41 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
+          background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
           padding: '24px', width: '400px',
         }}
       >
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Enable @{source.handle}?</h3>
-        <p style={{ fontSize: '12px', color: '#999', marginBottom: '16px', lineHeight: 1.4 }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>Enable @{source.handle}?</h3>
+        <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px', lineHeight: 1.4 }}>
           Adjust scrape settings, then scrape now or add to batch.
         </p>
 
         <label style={labelStyle}>Lookback Days</label>
         <input type="text" inputMode="numeric" value={lookback} onChange={e => setLookback(parseInt(e.target.value.replace(/\D/g, '')) || '')} onBlur={e => { if (!e.target.value) setLookback(180) }} style={inputStyle} />
-        <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>How far back to scrape reels (from today)</div>
+        <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', marginTop: '2px' }}>How far back to scrape reels (from today)</div>
 
         <label style={labelStyle}>Max Reels to Scrape</label>
         <input type="text" inputMode="numeric" value={limit} onChange={e => setLimit(parseInt(e.target.value.replace(/\D/g, '')) || '')} onBlur={e => { if (!e.target.value) setLimit(15) }} style={inputStyle} />
-        <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Limits the number of reels Apify will return</div>
+        <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', marginTop: '2px' }}>Limits the number of reels Apify will return</div>
 
-        <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#f59e0b' }}>~${estCost}</div>
+        <div style={{ background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#E8C878' }}>~${estCost}</div>
           <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Est. Apify cost for {limit} reels</div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+          <button type="button" onClick={onClose} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
           <button
             onClick={addToBatch}
             disabled={saving}
-            style={{ ...btnStyle, background: '#FFF0F3', border: '1px solid #E88FAC', color: '#E88FAC', opacity: saving ? 0.6 : 1 }}
+            style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', color: 'var(--palm-pink)', opacity: saving ? 0.6 : 1 }}
           >
             {saving ? '...' : `Add to Batch${batchCount > 0 ? ` (${batchCount})` : ''}`}
           </button>
           <button
             onClick={() => doEnable(true)}
             disabled={saving}
-            style={{ ...btnStyle, background: '#E88FAC', opacity: saving ? 0.6 : 1 }}
+            style={{ ...btnStyle, background: 'var(--palm-pink)', opacity: saving ? 0.6 : 1 }}
           >
             {saving ? 'Saving...' : 'Enable & Scrape'}
           </button>
@@ -496,12 +496,12 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#ffffff', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
+        background: 'var(--card-bg-solid)', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '24px', width: '460px', maxHeight: '85vh', overflow: 'auto',
       }}>
         {step === 1 && (<>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Add Sources</h3>
-          <p style={{ fontSize: '12px', color: '#999', marginBottom: '16px' }}>Paste Instagram handles or URLs, one per line</p>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>Add Sources</h3>
+          <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>Paste Instagram handles or URLs, one per line</p>
           <textarea
             value={rawText}
             onChange={e => setRawText(e.target.value)}
@@ -516,16 +516,16 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
             const existCount = preview.filter(p => p.exists).length
             const deadCount = preview.filter(p => p.dead).length
             return (
-              <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '8px' }}>
                 {newCount} new
                 {existCount > 0 && <> · {existCount} already exist</>}
-                {deadCount > 0 && <> · <span style={{ color: '#ef4444' }}>{deadCount} dead (auto-skipped)</span></>}
+                {deadCount > 0 && <> · <span style={{ color: '#E87878' }}>{deadCount} dead (auto-skipped)</span></>}
               </div>
             )
           })()}
           <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-            <button onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
-            <button onClick={goToTag} disabled={!rawText.trim()} style={{ ...btnStyle, background: '#E88FAC', opacity: !rawText.trim() ? 0.5 : 1 }}>
+            <button onClick={onClose} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
+            <button onClick={goToTag} disabled={!rawText.trim()} style={{ ...btnStyle, background: 'var(--palm-pink)', opacity: !rawText.trim() ? 0.5 : 1 }}>
               Next — Tag Creators
             </button>
           </div>
@@ -534,7 +534,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
         {step === 2 && current && (<>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>
                 @{current.handle}
               </h3>
               <a
@@ -543,14 +543,14 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
                 rel="noopener noreferrer"
                 style={{
                   padding: '3px 10px', fontSize: '11px', fontWeight: 600,
-                  background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC',
+                  background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent',
                   borderRadius: '6px', textDecoration: 'none', whiteSpace: 'nowrap',
                 }}
               >
                 View IG ↗
               </a>
             </div>
-            <span style={{ fontSize: '12px', color: '#999' }}>
+            <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
               {parsed.filter(p => !p.exists).indexOf(current) + 1} of {newCount}
             </span>
           </div>
@@ -569,9 +569,9 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
                       style={{
                         padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                         borderRadius: '20px', cursor: 'pointer', border: 'none',
-                        background: selected ? '#FFF0F3' : '#ffffff',
-                        color: selected ? '#E88FAC' : '#666',
-                        outline: selected ? '1px solid #E88FAC' : '1px solid #E8C4CC',
+                        background: selected ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
+                        color: selected ? 'var(--palm-pink)' : 'rgba(240, 236, 232, 0.75)',
+                        outline: selected ? '1px solid #E88FAC' : '1px solid transparent',
                       }}
                     >
                       {c.aka || c.name}
@@ -583,12 +583,12 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
           )}
 
           <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'space-between' }}>
-            <button onClick={markDead} style={{ ...btnStyle, background: '#FEF2F2', color: '#ef4444', border: '1px solid #FECACA', fontSize: '11px' }}>
+            <button onClick={markDead} style={{ ...btnStyle, background: 'rgba(232, 120, 120, 0.06)', color: '#E87878', border: '1px solid #FECACA', fontSize: '11px' }}>
               Dead Account
             </button>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={nextHandle} style={{ ...btnStyle, background: '#E8C4CC' }}>Skip</button>
-              <button onClick={nextHandle} style={{ ...btnStyle, background: '#E88FAC' }}>
+              <button onClick={nextHandle} style={{ ...btnStyle, background: 'transparent' }}>Skip</button>
+              <button onClick={nextHandle} style={{ ...btnStyle, background: 'var(--palm-pink)' }}>
                 {parsed.filter((p, i) => i > currentIdx && !p.exists && !p.dead && !p.markedDead).length > 0 ? 'Next' : 'Review'}
               </button>
             </div>
@@ -596,11 +596,11 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
         </>)}
 
         {step === 3 && (<>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
             Add {newCount - deadCount} Source{newCount - deadCount !== 1 ? 's' : ''}
-            {deadCount > 0 && <span style={{ color: '#ef4444', fontSize: '13px', fontWeight: 500 }}> + {deadCount} dead</span>}
+            {deadCount > 0 && <span style={{ color: '#E87878', fontSize: '13px', fontWeight: 500 }}> + {deadCount} dead</span>}
           </h3>
-          <p style={{ fontSize: '11px', color: '#999', marginBottom: '12px' }}>
+          <p style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
             {deadCount > 0 && 'Dead accounts will be logged and hidden from the sources list.'}
           </p>
           <div style={{ maxHeight: '300px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -608,17 +608,17 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '8px 12px', borderRadius: '8px',
-                background: item.markedDead ? '#FEF2F2' : item.dead ? '#f5f5f5' : item.exists ? '#f5f5f5' : '#FFF5F7',
+                background: item.markedDead ? 'rgba(232, 120, 120, 0.06)' : item.dead ? 'rgba(255,255,255,0.03)' : item.exists ? 'rgba(255,255,255,0.03)' : 'var(--background)',
                 opacity: item.exists || item.dead ? 0.5 : 1,
               }}>
-                <span style={{ fontSize: '13px', fontWeight: 500, color: item.markedDead ? '#ef4444' : '#1a1a1a' }}>
+                <span style={{ fontSize: '13px', fontWeight: 500, color: item.markedDead ? '#E87878' : 'var(--foreground)' }}>
                   @{item.handle}
-                  {item.exists && <span style={{ color: '#999', fontSize: '11px', marginLeft: '8px' }}>already exists</span>}
-                  {item.dead && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>dead account</span>}
+                  {item.exists && <span style={{ color: 'var(--foreground-muted)', fontSize: '11px', marginLeft: '8px' }}>already exists</span>}
+                  {item.dead && <span style={{ color: '#E87878', fontSize: '11px', marginLeft: '8px' }}>dead account</span>}
                   {item.markedDead && <span style={{ fontSize: '11px', marginLeft: '8px' }}>will be logged as dead</span>}
                 </span>
                 {!item.exists && !item.dead && !item.markedDead && item.creators.length > 0 && (
-                  <span style={{ fontSize: '11px', color: '#E88FAC' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--palm-pink)' }}>
                     {item.creators.length} creator{item.creators.length !== 1 ? 's' : ''}
                   </span>
                 )}
@@ -626,8 +626,8 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
             ))}
           </div>
           <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-            <button onClick={() => setStep(1)} style={{ ...btnStyle, background: '#E8C4CC' }}>Back</button>
-            <button onClick={submit} disabled={saving || newCount === 0} style={{ ...btnStyle, background: '#E88FAC', opacity: saving || newCount === 0 ? 0.5 : 1 }}>
+            <button onClick={() => setStep(1)} style={{ ...btnStyle, background: 'transparent' }}>Back</button>
+            <button onClick={submit} disabled={saving || newCount === 0} style={{ ...btnStyle, background: 'var(--palm-pink)', opacity: saving || newCount === 0 ? 0.5 : 1 }}>
               {saving ? 'Adding...' : `Add All ${newCount} Sources`}
             </button>
           </div>
@@ -637,9 +637,9 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
   )
 }
 
-const labelStyle = { display: 'block', fontSize: '11px', color: '#999', fontWeight: 600, marginBottom: '4px', marginTop: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }
-const inputStyle = { width: '100%', padding: '8px 12px', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
-const btnStyle = { padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
+const labelStyle = { display: 'block', fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 600, marginBottom: '4px', marginTop: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }
+const inputStyle = { width: '100%', padding: '8px 12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', color: 'var(--foreground)', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
+const btnStyle = { padding: '8px 16px', border: 'none', borderRadius: '6px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
 
 export default function AdminSources() {
   const [sources, setSources] = useState([])
@@ -827,20 +827,20 @@ export default function AdminSources() {
   }
 
   if (loading) {
-    return <div style={{ color: '#555', fontSize: '14px', padding: '40px' }}>Loading sources...</div>
+    return <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px' }}>Loading sources...</div>
   }
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>Inspo Sources</h1>
+        <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>Inspo Sources</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
           {!activeFilters.has('all') && filteredSources.length > 0 && (
-            <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
+            <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
               {batchScraping ? 'Scraping...' : `Scrape All Visible (${filteredSources.filter(s => s.enabled).length})`}
             </button>
           )}
-          <button onClick={() => setShowAdd(true)} style={{ ...btnStyle, background: '#E88FAC' }}>+ Add Sources</button>
+          <button onClick={() => setShowAdd(true)} style={{ ...btnStyle, background: 'var(--palm-pink)' }}>+ Add Sources</button>
         </div>
       </div>
 
@@ -857,9 +857,9 @@ export default function AdminSources() {
               style={{
                 padding: '5px 14px', fontSize: '12px', fontWeight: 600,
                 borderRadius: '20px', cursor: 'pointer', border: 'none',
-                background: active ? '#FFF0F3' : '#ffffff',
-                color: active ? '#E88FAC' : '#999',
-                outline: active ? '1.5px solid #E88FAC' : '1px solid #E8C4CC',
+                background: active ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
+                color: active ? 'var(--palm-pink)' : '#999',
+                outline: active ? '1.5px solid #E88FAC' : '1px solid transparent',
                 transition: 'all 0.15s',
               }}
             >
@@ -871,7 +871,7 @@ export default function AdminSources() {
       </div>
 
       <div style={{
-        background: '#ffffff',
+        background: 'var(--card-bg-solid)',
         border: 'none',
         boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         borderRadius: '18px',
@@ -882,10 +882,10 @@ export default function AdminSources() {
           display: 'grid',
           gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 90px',
           padding: '10px 16px',
-          borderBottom: '1px solid rgba(0,0,0,0.04)',
+          borderBottom: '1px solid transparent',
           fontSize: '11px',
           fontWeight: 600,
-          color: '#999',
+          color: 'var(--foreground-muted)',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
           gap: '8px',
@@ -911,7 +911,7 @@ export default function AdminSources() {
               display: 'grid',
               gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 90px',
               padding: '10px 16px',
-              borderBottom: '1px solid rgba(0,0,0,0.04)',
+              borderBottom: '1px solid transparent',
               alignItems: 'center',
               fontSize: '13px',
               gap: '8px',
@@ -924,14 +924,14 @@ export default function AdminSources() {
                 onClick={() => toggleEnabled(source)}
                 style={{
                   width: '32px', height: '18px', borderRadius: '9px',
-                  background: source.enabled ? '#E88FAC' : '#E8C4CC',
+                  background: source.enabled ? 'var(--palm-pink)' : 'transparent',
                   border: 'none', cursor: 'pointer', position: 'relative',
                   transition: 'background 0.2s',
                 }}
               >
                 <div style={{
                   width: '14px', height: '14px', borderRadius: '50%',
-                  background: '#fff', position: 'absolute', top: '2px',
+                  background: 'var(--card-bg-solid)', position: 'absolute', top: '2px',
                   left: source.enabled ? '16px' : '2px',
                   transition: 'left 0.2s',
                 }} />
@@ -940,26 +940,26 @@ export default function AdminSources() {
 
             {/* Handle */}
             <div
-              style={{ color: '#1a1a1a', fontWeight: 500, cursor: 'pointer' }}
+              style={{ color: 'var(--foreground)', fontWeight: 500, cursor: 'pointer' }}
               onClick={() => setReelsSource(source)}
-              onMouseEnter={e => e.currentTarget.style.color = '#E88FAC'}
-              onMouseLeave={e => e.currentTarget.style.color = '#1a1a1a'}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--palm-pink)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--foreground)'}
             >
               @{source.handle}
               {source.ageRestricted && (
-                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#ef4444', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
+                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #FECACA', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
               )}
               {source.addedBy && (
-                <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 500, color: '#999', verticalAlign: 'middle' }}>by {source.addedBy}</span>
+                <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 500, color: 'var(--foreground-muted)', verticalAlign: 'middle' }}>by {source.addedBy}</span>
               )}
             </div>
 
             {/* Followers */}
-            <div style={{ color: '#4a4a4a', textAlign: 'right', paddingRight: '16px' }}>
+            <div style={{ color: 'rgba(240, 236, 232, 0.85)', textAlign: 'right', paddingRight: '16px' }}>
               {source.followerCount ? (
                 source.followerCount >= 1000000
-                  ? <>{(source.followerCount / 1000000).toFixed(1)}<span style={{ color: '#E88FAC', fontWeight: 600 }}>M</span></>
-                  : <>{(source.followerCount / 1000).toFixed(0)}<span style={{ color: '#999', fontWeight: 600 }}>K</span></>
+                  ? <>{(source.followerCount / 1000000).toFixed(1)}<span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>M</span></>
+                  : <>{(source.followerCount / 1000).toFixed(0)}<span style={{ color: 'var(--foreground-muted)', fontWeight: 600 }}>K</span></>
               ) : '—'}
             </div>
 
@@ -982,8 +982,8 @@ export default function AdminSources() {
                     body: JSON.stringify({ id: source.id, fields: { 'Lookback Days': val } }),
                   })
                 }}
-                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#999', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
-                onFocus={e => e.target.style.borderColor = '#E8C4CC'}
+                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor = 'transparent'}
                 onBlurCapture={e => e.target.style.borderColor = 'transparent'}
               />
             </div>
@@ -1012,8 +1012,8 @@ export default function AdminSources() {
                 onKeyDown={e => {
                   if (e.key === 'Enter') e.target.blur()
                 }}
-                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#999', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
-                onFocus={e => e.target.style.borderColor = '#E8C4CC'}
+                style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor = 'transparent'}
                 onBlurCapture={e => e.target.style.borderColor = 'transparent'}
               />
             </div>
@@ -1022,16 +1022,16 @@ export default function AdminSources() {
             <div><StatusPill status={source.pipelineStatus} /></div>
 
             {/* Last Scraped */}
-            <div style={{ color: '#999' }}>{formatTime(source.lastScrapedAt)}</div>
+            <div style={{ color: 'var(--foreground-muted)' }}>{formatTime(source.lastScrapedAt)}</div>
 
             {/* Scraped */}
-            <div style={{ color: '#4a4a4a', textAlign: 'right' }}>{source.reelsScraped || '—'}</div>
+            <div style={{ color: 'rgba(240, 236, 232, 0.85)', textAlign: 'right' }}>{source.reelsScraped || '—'}</div>
 
             {/* Added */}
-            <div style={{ color: '#4a4a4a', textAlign: 'right' }}>{source.sourceReelsAdded || '—'}</div>
+            <div style={{ color: 'rgba(240, 236, 232, 0.85)', textAlign: 'right' }}>{source.sourceReelsAdded || '—'}</div>
 
             {/* Date Added */}
-            <div style={{ color: '#999', fontSize: '11px' }}>{source.dateAdded ? formatTime(source.dateAdded + 'T12:00:00') : '—'}</div>
+            <div style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{source.dateAdded ? formatTime(source.dateAdded + 'T12:00:00') : '—'}</div>
 
             {/* Scrape button */}
             <div>
@@ -1040,9 +1040,9 @@ export default function AdminSources() {
                 disabled={scraping[source.id] || !source.enabled}
                 style={{
                   padding: '4px 10px', fontSize: '11px', fontWeight: 600,
-                  background: scraping[source.id] ? '#E8C4CC' : '#FFF0F3',
-                  color: scraping[source.id] ? '#555' : '#E88FAC',
-                  border: '1px solid #E8C4CC', borderRadius: '4px',
+                  background: scraping[source.id] ? 'transparent' : 'rgba(232, 160, 160, 0.06)',
+                  color: scraping[source.id] ? 'rgba(240, 236, 232, 0.85)' : 'var(--palm-pink)',
+                  border: '1px solid transparent', borderRadius: '4px',
                   cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -1053,7 +1053,7 @@ export default function AdminSources() {
         ))}
 
         {sources.length === 0 && (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#555', fontSize: '14px' }}>
+          <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px' }}>
             No sources configured. Add one to get started.
           </div>
         )}
@@ -1065,28 +1065,28 @@ export default function AdminSources() {
       {/* Scrape All Visible confirmation */}
       {showScrapeAll && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowScrapeAll(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#ffffff', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '420px', maxHeight: '80vh', overflow: 'auto' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Scrape All Visible?</h3>
-            <p style={{ fontSize: '12px', color: '#999', marginBottom: '16px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg-solid)', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '420px', maxHeight: '80vh', overflow: 'auto' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>Scrape All Visible?</h3>
+            <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>
               {filteredSources.filter(s => s.enabled).length} enabled source{filteredSources.filter(s => s.enabled).length !== 1 ? 's' : ''} will be scraped
             </p>
             <div style={{ maxHeight: '200px', overflow: 'auto', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {filteredSources.filter(s => s.enabled).map(s => (
-                <div key={s.id} style={{ fontSize: '12px', color: '#4a4a4a', padding: '4px 8px', background: '#FFF5F7', borderRadius: '6px' }}>
-                  @{s.handle} <span style={{ color: '#999' }}>({s.apifyLimit || 100} reels)</span>
+                <div key={s.id} style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', padding: '4px 8px', background: 'var(--background)', borderRadius: '6px' }}>
+                  @{s.handle} <span style={{ color: 'var(--foreground-muted)' }}>({s.apifyLimit || 100} reels)</span>
                 </div>
               ))}
             </div>
-            <div style={{ background: '#FFFBEB', border: '1px solid #fde68a', borderRadius: '10px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b' }}>
+            <div style={{ background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #fde68a', borderRadius: '10px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#E8C878' }}>
                 ~${filteredSources.filter(s => s.enabled).reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
               </div>
               <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Estimated Apify cost</div>
-              <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '6px' }}>Duplicates auto-skipped (free)</div>
+              <div style={{ fontSize: '11px', color: '#7DD3A4', marginTop: '6px' }}>Duplicates auto-skipped (free)</div>
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowScrapeAll(false)} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
-              <button onClick={scrapeAllVisible} disabled={batchScraping} style={{ ...btnStyle, background: '#E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
+              <button onClick={() => setShowScrapeAll(false)} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
+              <button onClick={scrapeAllVisible} disabled={batchScraping} style={{ ...btnStyle, background: 'var(--palm-pink)', opacity: batchScraping ? 0.6 : 1 }}>
                 {batchScraping ? 'Scraping...' : 'Scrape All'}
               </button>
             </div>
@@ -1117,33 +1117,33 @@ export default function AdminSources() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
         }}>
           <div style={{
-            background: '#FFF0F3', border: '1px solid #E88FAC', borderRadius: '12px',
+            background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', borderRadius: '12px',
             padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '16px',
             boxShadow: '0 -4px 20px rgba(167, 139, 250, 0.15)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: '#E88FAC' }}>{batch.length}</span>
-              <span style={{ fontSize: '13px', color: '#4a4a4a' }}>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--palm-pink)' }}>{batch.length}</span>
+              <span style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)' }}>
                 {batch.length === 1 ? 'creator' : 'creators'} queued
               </span>
-              <span style={{ fontSize: '12px', color: '#999' }}>
+              <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
                 ({batch.map(s => `@${s.handle}`).join(', ')})
               </span>
             </div>
-            <div style={{ width: '1px', height: '20px', background: '#E8C4CC' }} />
-            <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600 }}>
+            <div style={{ width: '1px', height: '20px', background: 'transparent' }} />
+            <div style={{ fontSize: '13px', color: '#E8C878', fontWeight: 600 }}>
               ~${batch.reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
             </div>
             <button
               onClick={() => setBatch([])}
-              style={{ ...btnStyle, background: '#E8C4CC', fontSize: '12px', padding: '6px 12px' }}
+              style={{ ...btnStyle, background: 'transparent', fontSize: '12px', padding: '6px 12px' }}
             >
               Clear
             </button>
             <button
               onClick={scrapeBatch}
               disabled={batchScraping}
-              style={{ ...btnStyle, background: '#E88FAC', fontSize: '13px', padding: '8px 20px', opacity: batchScraping ? 0.6 : 1 }}
+              style={{ ...btnStyle, background: 'var(--palm-pink)', fontSize: '13px', padding: '8px 20px', opacity: batchScraping ? 0.6 : 1 }}
             >
               {batchScraping ? 'Scraping...' : `Scrape All (${batch.length})`}
             </button>

@@ -30,17 +30,34 @@ export default function EditorDashboardPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
+      {/* Mobile-only overrides — desktop untouched */}
+      <style>{`
+        @media (max-width: 768px) {
+          .editor-page-inner { padding: 14px 14px !important; }
+          .editor-page-tabs {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            white-space: nowrap;
+            flex-wrap: nowrap !important;
+            margin: 0 -14px 18px !important;
+            padding: 0 14px !important;
+          }
+          .editor-page-tabs::-webkit-scrollbar { display: none; }
+          .editor-page-tabs button { flex-shrink: 0; }
+        }
+      `}</style>
+      <div className="editor-page-inner" style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
         {/* Tab bar */}
-        <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)', marginBottom: '24px' }}>
+        <div className="editor-page-tabs" style={{ display: 'flex', gap: '0', borderBottom: '1px solid var(--card-border)', marginBottom: '32px' }}>
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => switchTab(tab.key)}
               style={{
-                padding: '6px 16px', fontSize: '13px', fontWeight: activeTab === tab.key ? 700 : 400,
-                color: activeTab === tab.key ? '#1a1a1a' : '#bbb', background: 'none', border: 'none',
-                borderBottom: activeTab === tab.key ? '2px solid #E88FAC' : '2px solid transparent',
-                cursor: 'pointer', marginBottom: '-2px', transition: 'all 0.15s',
+                padding: '10px 20px', fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: activeTab === tab.key ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none',
+                borderBottom: activeTab === tab.key ? '1px solid var(--palm-pink)' : '1px solid transparent',
+                cursor: 'pointer', marginBottom: '-1px', transition: 'all 0.3s var(--ease-stripe)',
               }}>
               {tab.label}
             </button>
@@ -54,9 +71,9 @@ export default function EditorDashboardPage() {
           <div style={{
             position: 'fixed', bottom: '24px', right: '24px', zIndex: 100,
             padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-            background: toast.error ? '#fef2f2' : '#dcfce7',
-            color: toast.error ? '#ef4444' : '#22c55e',
-            border: `1px solid ${toast.error ? '#fecaca' : '#bbf7d0'}`,
+            background: toast.error ? 'rgba(232, 120, 120, 0.06)' : 'rgba(125, 211, 164, 0.08)',
+            color: toast.error ? '#E87878' : '#7DD3A4',
+            border: `1px solid ${toast.error ? 'rgba(232, 120, 120, 0.2)' : 'rgba(125, 211, 164, 0.2)'}`,
             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           }}>
             {toast.msg}

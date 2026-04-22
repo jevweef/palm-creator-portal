@@ -1,22 +1,283 @@
 @import "tailwindcss";
 
-* {
-  box-sizing: border-box;
+/* ============================================================
+   Palm 2.0 — exact tokens from colors_and_type.css
+   ============================================================ */
+
+:root {
+  /* ─── Base colors ─── */
+  --background: #060606;
+  --background-soft: #0a0a0a;
+  --foreground: #f0ece8;
+
+  /* Accent — palm pink */
+  --palm-pink:       #E8A0A0;
+  --palm-pink-light: #F5C6C6;
+  --palm-pink-dark:  #C47A7A;
+
+  /* Neutral scale */
+  --white-2:  rgba(255,255,255,0.02);
+  --white-3:  rgba(255,255,255,0.03);
+  --white-5:  rgba(255,255,255,0.05);
+  --white-8:  rgba(255,255,255,0.08);
+  --white-10: rgba(255,255,255,0.10);
+  --white-15: rgba(255,255,255,0.15);
+  --white-30: rgba(255,255,255,0.30);
+
+  --muted: #7a7a7a;
+  --muted-strong: #9a9a9a;
+
+  /* Semantic foreground */
+  --fg-1: var(--foreground);
+  --fg-2: var(--muted);
+  --fg-3: rgba(255,255,255,0.30);
+  --fg-4: rgba(255,255,255,0.15);
+  --fg-accent: var(--palm-pink);
+  --fg-accent-60: rgba(232,160,160,0.60);
+  --fg-accent-40: rgba(232,160,160,0.40);
+
+  /* Back-compat with portal legacy names */
+  --foreground-muted: var(--muted);
+  --foreground-subtle: var(--fg-3);
+
+  /* Glass surfaces — exact v2 values */
+  --card-bg:     rgba(255,255,255,0.03);
+  --card-bg-solid: #0f0f0f;
+  --card-bg-elevated: #141414;
+  --card-border: transparent;       /* outlines off — elevation only */
+  --card-border-hover: rgba(232,160,160,0.12);
+
+  /* Input surfaces */
+  --input-bg: rgba(255,255,255,0.03);
+  --input-border: transparent;
+  --input-focus: rgba(232,160,160,0.30);
+
+  /* ─── Typography ─── */
+  --font-display: var(--font-display-sora), "Sora", system-ui, -apple-system, sans-serif;
+  --font-body:    var(--font-body-inter), "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Type scale */
+  --text-display-xl:  clamp(3rem, 7vw, 5.25rem);
+  --text-display-lg:  clamp(2.25rem, 5vw, 3.75rem);
+  --text-display-md:  clamp(1.875rem, 4vw, 3rem);
+  --text-display-sm:  1.5rem;
+
+  --text-body-lg: 1.125rem;
+  --text-body:    1rem;
+  --text-body-sm: 0.875rem;
+  --text-caption: 0.75rem;
+  --text-micro:   0.625rem;
+
+  /* Letter-spacing */
+  --track-display: -0.015em;
+  --track-wide:    0.15em;
+  --track-eyebrow: 0.3em;
+  --track-micro:   0.4em;
+
+  /* Line-height */
+  --lh-tight: 1.05;
+  --lh-snug:  1.1;
+  --lh-body:  1.6;
+
+  /* ─── Motion ─── */
+  --ease-stripe: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --dur-hover:  300ms;
+  --dur-card:   500ms;
+  --dur-reveal: 700ms;
+
+  /* ─── Spacing (8-pt baseline) ─── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* ─── Radii ─── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ─── Shadows — v2 elevation system ─── */
+  --shadow-card-inset: inset 0 1px 0 0 rgba(255,255,255,0.04);
+  --shadow-card-inset-hover: inset 0 1px 0 0 rgba(255,255,255,0.06);
+  --pink-glow:       0 0 80px rgba(232,160,160,0.06);
+  --pink-glow-hover: 0 0 30px rgba(232,160,160,0.30);
+  --shadow-card:     0 1px 2px rgba(0,0,0,0.4), 0 6px 24px rgba(0,0,0,0.25);
+  --shadow-card-hover: 0 2px 4px rgba(0,0,0,0.5), 0 12px 40px rgba(0,0,0,0.35);
+
+  /* ─── Blurs ─── */
+  --blur-glass: 20px;
+  --blur-nav:   12px;
+
+  /* ─── Gradients ─── */
+  --gradient-text: linear-gradient(135deg, #fff 0%, #F5C6C6 40%, #E8A0A0 70%, #C47A7A 100%);
+  --gradient-text-pink: linear-gradient(135deg, #F5C6C6 0%, #E8A0A0 60%, #C47A7A 100%);
+  --aurora-bg:
+    radial-gradient(ellipse 80% 60% at 50% 0%,  rgba(232,160,160,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 80% at 80% 50%, rgba(196,122,122,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 60% at 20% 60%, rgba(245,198,198,0.03) 0%, transparent 50%),
+    var(--background);
+  --section-divider: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
 }
 
-body {
-  background-color: #FFF5F7;
-  color: #1a1a1a;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+/* ============================================================
+   Base styles
+   ============================================================ */
+
+* { box-sizing: border-box; transition-timing-function: var(--ease-stripe); }
+
+html, body {
+  background: var(--background);
+  color: var(--fg-1);
+  font-family: var(--font-body);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+
+/* ─── Scrollbar (Palm 2.0) ─── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(232,160,160,0.2); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(232,160,160,0.35); }
+
+/* ─── Display font ─── */
+.font-display { font-family: var(--font-display); }
+.font-body    { font-family: var(--font-body); }
+
+/* ─── Gradient text (white → pink) ─── */
+.gradient-text {
+  background: var(--gradient-text);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
 }
-::-webkit-scrollbar-track {
-  background: #F0E0E4;
+.gradient-text-pink {
+  background: var(--gradient-text-pink);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
 }
-::-webkit-scrollbar-thumb {
-  background: #D4A0B0;
-  border-radius: 3px;
+
+/* ─── Glass cards — elevation-based (no borders) ─── */
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  border: none;
+  box-shadow: var(--shadow-card-inset), var(--shadow-card);
+  border-radius: var(--radius-xl);
+  transition: all var(--dur-card) var(--ease-stripe);
+}
+.glass-card:hover {
+  box-shadow: var(--shadow-card-inset-hover), var(--shadow-card-hover), var(--pink-glow);
+}
+
+/* Dense variant for tables & slot grids */
+.glass-card-dense {
+  background: var(--card-bg-solid);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-inset), 0 1px 2px rgba(0,0,0,0.3);
+  transition: all var(--dur-hover) var(--ease-stripe);
+}
+.glass-card-dense:hover { background: var(--card-bg-elevated); }
+
+/* ─── Aurora ─── */
+.aurora-bg { background: var(--aurora-bg); }
+.pink-glow { box-shadow: var(--pink-glow); }
+.section-divider { height: 1px; background: var(--section-divider); }
+
+/* ─── Eyebrow label utilities ─── */
+.eyebrow {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: var(--track-eyebrow);
+  color: var(--fg-accent-60);
+}
+.eyebrow-micro {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--track-micro);
+  color: var(--fg-accent-60);
+}
+
+/* ─── Buttons — Palm 2.0 sharp-edge CTAs ─── */
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 14px; white-space: nowrap;
+  background: var(--palm-pink); color: var(--background);
+  padding: 14px 28px; font-size: var(--text-body-sm); letter-spacing: var(--track-wide);
+  text-transform: uppercase; font-weight: 500; border: none;
+  border-radius: var(--radius-sm);
+  transition: all var(--dur-card) var(--ease-stripe);
+  cursor: pointer;
+}
+.btn-primary:hover {
+  box-shadow: var(--pink-glow-hover);
+  transform: translateY(-2px);
+}
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 14px; white-space: nowrap;
+  background: transparent; color: var(--muted);
+  padding: 14px 28px; font-size: var(--text-body-sm); letter-spacing: var(--track-wide);
+  text-transform: uppercase; font-weight: 500;
+  border: 1px solid var(--white-10);
+  border-radius: var(--radius-sm);
+  transition: all var(--dur-card) var(--ease-stripe);
+  cursor: pointer;
+}
+.btn-ghost:hover {
+  color: var(--foreground);
+  border-color: var(--white-15);
+  background: var(--white-2);
+}
+
+/* ─── Inputs ─── */
+.input-dark {
+  background: var(--input-bg);
+  border: none;
+  color: var(--foreground);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: var(--text-body-sm);
+  font-family: var(--font-body);
+  transition: box-shadow var(--dur-hover) var(--ease-stripe);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+.input-dark:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--input-focus);
+}
+.input-dark::placeholder { color: var(--fg-3); }
+
+/* ─── Tags / pills ─── */
+.tag-pink {
+  display: inline-flex; align-items: center;
+  padding: 4px 10px; font-size: var(--text-micro);
+  letter-spacing: var(--track-eyebrow); text-transform: uppercase;
+  background: rgba(232,160,160,0.08); color: var(--palm-pink);
+  border-radius: var(--radius-full);
+}
+
+/* ─── Headings inherit Sora in marketing contexts; preserve inline styles elsewhere ─── */
+.prose-palm h1, .prose-palm h2, .prose-palm h3, .prose-palm h4 {
+  font-family: var(--font-display);
+  letter-spacing: var(--track-display);
+  color: var(--fg-1);
+}
+.prose-palm p {
+  font-family: var(--font-body);
+  font-weight: 300;
+  color: var(--fg-2);
+  line-height: var(--lh-body);
 }

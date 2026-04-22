@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchUpdateRecords, airtableHeaders, OPS_BASE } from '@/lib/adminAuth'
 import { embedText, cosineSimilarity, buildCreatorEmbeddingText } from '@/lib/embeddings'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 
 export const maxDuration = 60
 
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 const TAG_WEIGHTS_TABLE = 'tbljiwFQBknbUCpc6'
-const ANALYSIS_MODEL = 'gpt-5.4-mini'
+const ANALYSIS_MODEL = 'claude-sonnet-4-6'
 
 const TAG_TO_CATEGORY = {
   'Beach Girl': 'Setting / Location', 'Car Content': 'Setting / Location', 'City Girl': 'Setting / Location',
@@ -206,14 +206,9 @@ export async function POST(request) {
       }
     })
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-    const response = await openai.chat.completions.create({
-      model: ANALYSIS_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: `You are refining an existing creator profile for an OnlyFans management agency based on admin feedback.
+    const systemPrompt = `You are refining an existing creator profile for an OnlyFans management agency based on admin feedback.
 
 You will receive:
 1. The CURRENT profile (summary, brand voice, content direction, dos/donts)
@@ -222,9 +217,11 @@ You will receive:
 
 Your job: adjust the profile and tag weights based on the feedback. Do NOT start from scratch. Preserve everything that isn't contradicted by the feedback. Make targeted adjustments only.
 
-Tag weight scoring: 0 = irrelevant, 1-30 = low, 31-60 = moderate, 61-80 = strong, 81-100 = core identity.
+Tag weight scoring: 0 = doesn't apply at all, 1-30 = possibly relevant / occasional fit, 31-60 = moderate fit / secondary lane, 61-80 = strong fit / primary lane, 81-100 = core to her identity.
 
-Respond ONLY with valid JSON matching this exact schema:
+COVERAGE GUIDANCE: These weights drive inspo reel matching. A creator with only 5-6 non-zero tags gets a near-empty inspo feed. When refining, look for tags at 0 that the feedback implies should be non-zero (even 15-30) and bump them. Aim for a creator to have 15-25 tags with non-zero weight after refinement.
+
+Respond ONLY with valid JSON matching this exact schema (no prose before or after, no markdown fences):
 {
   "profile_summary": "...",
   "brand_voice_notes": "...",
@@ -234,7 +231,14 @@ Respond ONLY with valid JSON matching this exact schema:
   "film_format_weights": { "Tag Name": 0, ... },
   "changes_made": "1-3 sentence summary of what you adjusted and why"
 }`
-        },
+
+    const claudeResponse = await anthropic.messages.create({
+      model: ANALYSIS_MODEL,
+      max_tokens: 4000,
+      system: [
+        { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
+      ],
+      messages: [
         {
           role: 'user',
           content: `CURRENT PROFILE:
@@ -253,14 +257,14 @@ CURRENT FILM FORMAT WEIGHTS:
 ${JSON.stringify(currentFilmFormatWeights, null, 2)}
 
 ADMIN FEEDBACK:
-${feedback}`
+${feedback}`,
         },
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
     })
-
-    const result = JSON.parse(response.choices[0].message.content)
+    const textBlock = claudeResponse.content.find(b => b.type === 'text')
+    if (!textBlock?.text) throw new Error(`Claude returned no text (stop: ${claudeResponse.stop_reason})`)
+    const cleanedJson = textBlock.text.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
+    const result = JSON.parse(cleanedJson)
 
     // Return proposal + current state for diff display — nothing written yet
     return NextResponse.json({

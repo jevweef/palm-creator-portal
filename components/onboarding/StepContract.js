@@ -113,14 +113,14 @@ export default function StepContract({ hqId, onComplete }) {
   const canSign = signMode === 'draw' ? hasDrawn : signMode === 'type' ? typedName.length > 0 : false
 
   if (loading) {
-    return <div style={{ color: '#999', fontSize: '14px', padding: '20px' }}>Loading contract...</div>
+    return <div style={{ color: 'var(--foreground-muted)', fontSize: '14px', padding: '20px' }}>Loading contract...</div>
   }
 
   if (signed) {
     return (
       <div>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#E8F5E9', padding: '8px 16px', borderRadius: '8px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(125, 211, 164, 0.08)', padding: '8px 16px', borderRadius: '8px' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="#2E7D32"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             <span style={{ fontSize: '14px', fontWeight: 600, color: '#2E7D32' }}>Contract Signed Successfully</span>
           </div>
@@ -129,8 +129,8 @@ export default function StepContract({ hqId, onComplete }) {
         {/* Show the signed PDF */}
         {pdfBlobUrl && (
           <div style={{
-            background: '#fff',
-            border: '1px solid #e0e0e0',
+            background: 'var(--card-bg-solid)',
+            border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '12px',
             overflow: 'hidden',
             marginBottom: '20px',
@@ -148,7 +148,7 @@ export default function StepContract({ hqId, onComplete }) {
         )}
 
         <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: '13px', color: '#999', marginBottom: '16px' }}>
+          <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>
             Your signed contract has been saved.
           </p>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
@@ -158,8 +158,8 @@ export default function StepContract({ hqId, onComplete }) {
                 download={pdfFilename}
                 style={{
                   padding: '10px 24px',
-                  background: '#fff',
-                  color: '#E88FAC',
+                  background: 'var(--card-bg-solid)',
+                  color: 'var(--palm-pink)',
                   border: '1px solid #E88FAC',
                   borderRadius: '8px',
                   fontSize: '14px',
@@ -176,8 +176,8 @@ export default function StepContract({ hqId, onComplete }) {
               onClick={onComplete}
               style={{
                 padding: '10px 32px',
-                background: '#E88FAC',
-                color: '#fff',
+                background: 'var(--palm-pink)',
+                color: '#060606',
                 border: 'none',
                 borderRadius: '8px',
                 fontSize: '14px',
@@ -195,17 +195,17 @@ export default function StepContract({ hqId, onComplete }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+      <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
         Contract
       </h2>
-      <p style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
+      <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>
         Please read the agreement below, then sign at the bottom.
       </p>
 
       {/* Contract preview */}
       <div style={{
-        background: '#fff',
-        border: '1px solid #e0e0e0',
+        background: 'var(--card-bg-solid)',
+        border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '12px',
         maxHeight: '500px',
         overflow: 'auto',
@@ -226,12 +226,12 @@ export default function StepContract({ hqId, onComplete }) {
 
       {/* Signature section */}
       <div style={{
-        background: '#fff',
-        border: '1px solid #e0e0e0',
+        background: 'var(--card-bg-solid)',
+        border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '12px',
         padding: '20px',
       }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '12px' }}>
           Sign Below
         </div>
 
@@ -243,9 +243,9 @@ export default function StepContract({ hqId, onComplete }) {
             style={{
               padding: '8px 16px',
               borderRadius: '8px',
-              border: signMode === 'draw' ? '2px solid #E88FAC' : '2px solid #e0e0e0',
-              background: signMode === 'draw' ? '#FFF0F3' : '#fff',
-              color: signMode === 'draw' ? '#E88FAC' : '#666',
+              border: signMode === 'draw' ? '1px solid var(--palm-pink)' : '1px solid var(--white-8)',
+              background: signMode === 'draw' ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
+              color: signMode === 'draw' ? 'var(--palm-pink)' : 'rgba(240, 236, 232, 0.75)',
               fontSize: '13px',
               fontWeight: signMode === 'draw' ? 600 : 400,
               cursor: 'pointer',
@@ -259,9 +259,9 @@ export default function StepContract({ hqId, onComplete }) {
             style={{
               padding: '8px 16px',
               borderRadius: '8px',
-              border: signMode === 'type' ? '2px solid #E88FAC' : '2px solid #e0e0e0',
-              background: signMode === 'type' ? '#FFF0F3' : '#fff',
-              color: signMode === 'type' ? '#E88FAC' : '#666',
+              border: signMode === 'type' ? '1px solid var(--palm-pink)' : '1px solid var(--white-8)',
+              background: signMode === 'type' ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
+              color: signMode === 'type' ? 'var(--palm-pink)' : 'rgba(240, 236, 232, 0.75)',
               fontSize: '13px',
               fontWeight: signMode === 'type' ? 600 : 400,
               cursor: 'pointer',
@@ -285,7 +285,7 @@ export default function StepContract({ hqId, onComplete }) {
               onTouchMove={draw}
               onTouchEnd={endDraw}
               style={{
-                border: '1px solid #e0e0e0',
+                border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '8px',
                 cursor: 'crosshair',
                 maxWidth: '100%',
@@ -298,11 +298,11 @@ export default function StepContract({ hqId, onComplete }) {
               style={{
                 marginTop: '8px',
                 padding: '4px 12px',
-                background: '#f5f5f5',
+                background: 'rgba(255,255,255,0.03)',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '11px',
-                color: '#999',
+                color: 'var(--foreground-muted)',
                 cursor: 'pointer',
               }}
             >
@@ -325,7 +325,7 @@ export default function StepContract({ hqId, onComplete }) {
                 fontSize: '20px',
                 fontFamily: "'Georgia', serif",
                 fontStyle: 'italic',
-                border: '1px solid #e0e0e0',
+                border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '8px',
                 outline: 'none',
               }}
@@ -340,8 +340,8 @@ export default function StepContract({ hqId, onComplete }) {
             style={{
               marginTop: '16px',
               padding: '10px 32px',
-              background: !canSign || signing ? '#F0D0D8' : '#E88FAC',
-              color: '#fff',
+              background: !canSign || signing ? 'transparent' : 'var(--palm-pink)',
+              color: 'var(--foreground)',
               border: 'none',
               borderRadius: '8px',
               fontSize: '14px',

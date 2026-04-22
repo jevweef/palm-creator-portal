@@ -89,9 +89,34 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    console.log(`[Music Suggest] Finding similar music with ${seedTracks.length} seed(s)...`)
+    const artists = [...new Set(seedTracks.map(t => t.artist?.split(/[,&]/)[0]?.trim()).filter(Boolean))]
+    const genres = [...new Set(seedTracks.flatMap(t => t.genres || []))]
+    console.log(`[Music Suggest] seeds=${seedTracks.length} artists=${artists.length} genres=${genres.length}`)
+
+    // Sanity-check Spotify auth up front so we can surface clear errors
+    let spotifyAuthOk = true
+    let spotifyAuthError = null
+    try {
+      const { searchTrack } = await import('@/lib/spotify')
+      const probe = await searchTrack(artists[0] || 'test')
+      if (!probe || !Array.isArray(probe)) throw new Error('Invalid probe response')
+    } catch (e) {
+      spotifyAuthOk = false
+      spotifyAuthError = e.message
+      console.error(`[Music Suggest] Spotify auth probe failed:`, e.message)
+    }
+
+    if (!spotifyAuthOk) {
+      return NextResponse.json({
+        error: 'Spotify API unavailable',
+        details: spotifyAuthError,
+        hint: 'Check SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET env vars on this deployment.',
+      }, { status: 500 })
+    }
 
     const suggestions = await findSimilarMusic(seedTracks, { limit: 100 })
+    console.log(`[Music Suggest] returned ${suggestions.length} suggestions`)
+
     // Shuffle so each session gets a different order
     for (let i = suggestions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -103,9 +128,15 @@ export async function POST(request) {
       identifiedSong,
       suggestions,
       seedCount: seedTracks.length,
+      diagnostics: {
+        seedTracksCount: seedTracks.length,
+        uniqueArtists: artists.length,
+        uniqueGenres: genres.length,
+        sampleArtists: artists.slice(0, 5),
+      },
     })
   } catch (err) {
     console.error('[Music Suggest] error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 })
   }
 }

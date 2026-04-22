@@ -15,7 +15,7 @@ const deltaPct = n => {
 }
 
 const CARD = {
-  background: '#ffffff',
+  background: 'var(--card-bg-solid)',
   borderRadius: '18px',
   padding: '20px',
   boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
@@ -26,7 +26,7 @@ const SECTION_TITLE = {
   fontWeight: 600,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
-  color: '#999',
+  color: 'var(--foreground-muted)',
   marginBottom: '12px',
 }
 
@@ -35,23 +35,23 @@ const LABEL = {
   fontWeight: 600,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
-  color: '#999',
+  color: 'var(--foreground-muted)',
 }
 
 /* ─── Stat Card with optional delta ─── */
 function StatCard({ label, value, sub, color, delta }) {
   const deltaStr = deltaPct(delta)
-  const deltaColor = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#999'
+  const deltaColor = delta > 0 ? '#7DD3A4' : delta < 0 ? '#E87878' : '#999'
   return (
     <div style={{ ...CARD, flex: '1 1 160px', minWidth: '140px' }}>
       <div style={LABEL}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
-        <span style={{ fontSize: '28px', fontWeight: 700, color: color || '#1a1a1a' }}>{value}</span>
+        <span style={{ fontSize: '28px', fontWeight: 700, color: color || 'var(--foreground)' }}>{value}</span>
         {deltaStr && (
           <span style={{ fontSize: '12px', fontWeight: 600, color: deltaColor }}>{deltaStr}</span>
         )}
       </div>
-      {sub && <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>{sub}</div>}
+      {sub && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{sub}</div>}
     </div>
   )
 }
@@ -59,13 +59,13 @@ function StatCard({ label, value, sub, color, delta }) {
 /* ─── Status Badge (only renders for non-Draft) ─── */
 function StatusBadge({ status }) {
   if (!status || status === 'Draft') return null
-  const colors = { Paid: '#22c55e', Sent: '#3b82f6', Overdue: '#ef4444' }
-  const bg = { Paid: '#f0fdf4', Sent: '#eff6ff', Overdue: '#fef2f2' }
+  const colors = { Paid: '#7DD3A4', Sent: '#78B4E8', Overdue: '#E87878' }
+  const bg = { Paid: 'rgba(125, 211, 164, 0.06)', Sent: 'rgba(120, 180, 232, 0.06)', Overdue: 'rgba(232, 120, 120, 0.06)' }
   return (
     <span style={{
       display: 'inline-block', padding: '2px 8px', borderRadius: '4px',
       fontSize: '11px', fontWeight: 600,
-      color: colors[status] || '#999', background: bg[status] || '#f5f5f5',
+      color: colors[status] || '#999', background: bg[status] || 'rgba(255,255,255,0.03)',
     }}>
       {status}
     </span>
@@ -76,7 +76,7 @@ function StatusBadge({ status }) {
 function TrendBar({ values, delta }) {
   if (!values || !values.length) return null
   const max = Math.max(...values, 1)
-  const deltaColor = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#999'
+  const deltaColor = delta > 0 ? '#7DD3A4' : delta < 0 ? '#E87878' : '#999'
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '28px' }}>
@@ -84,7 +84,7 @@ function TrendBar({ values, delta }) {
           <div key={i} style={{
             width: '10px',
             height: `${Math.max(2, (v / max) * 28)}px`,
-            background: i === values.length - 1 ? '#E88FAC' : '#f3d1dc',
+            background: i === values.length - 1 ? 'var(--palm-pink)' : '#f3d1dc',
             borderRadius: '2px',
           }} />
         ))}
@@ -100,12 +100,12 @@ function TrendBar({ values, delta }) {
 
 /* ─── Runway Bar ─── */
 function RunwayBar({ days }) {
-  const color = days < 1 ? '#ef4444' : days < 2 ? '#f59e0b' : '#22c55e'
-  const bg = days < 1 ? '#fef2f2' : days < 2 ? '#fffbeb' : '#f0fdf4'
+  const color = days < 1 ? '#E87878' : days < 2 ? '#E8C878' : '#7DD3A4'
+  const bg = days < 1 ? 'rgba(232, 120, 120, 0.06)' : days < 2 ? 'rgba(232, 200, 120, 0.06)' : 'rgba(125, 211, 164, 0.06)'
   const width = Math.min(100, (days / 7) * 100)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{ flex: 1, height: '6px', background: '#f0f0f0', borderRadius: '3px', overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.04)', borderRadius: '3px', overflow: 'hidden' }}>
         <div style={{
           width: `${width}%`, height: '100%', background: color, borderRadius: '3px',
           transition: 'width 0.4s ease',
@@ -124,13 +124,13 @@ function RunwayBar({ days }) {
 /* ─── Alert Pill ─── */
 function AlertPill({ alert }) {
   const config = {
-    low_runway: { color: '#ef4444', bg: '#fef2f2', icon: '!', label: `${alert.creator}: ${alert.bufferDays}d runway` },
-    overdue_invoice: { color: '#ef4444', bg: '#fef2f2', icon: '$', label: `${alert.creator}: overdue` },
-    revision_stuck: { color: '#f59e0b', bg: '#fffbeb', icon: '!', label: `${alert.creator}: ${alert.count} revision${(alert.count || 0) > 1 ? 's' : ''}` },
-    analysis_errors: { color: '#f59e0b', bg: '#fffbeb', icon: '!', label: `${alert.count} analysis error${(alert.count || 0) > 1 ? 's' : ''}` },
-    empty_library: { color: '#f59e0b', bg: '#fffbeb', icon: '0', label: `${alert.creator}: no content` },
+    low_runway: { color: '#E87878', bg: 'rgba(232, 120, 120, 0.06)', icon: '!', label: `${alert.creator}: ${alert.bufferDays}d runway` },
+    overdue_invoice: { color: '#E87878', bg: 'rgba(232, 120, 120, 0.06)', icon: '$', label: `${alert.creator}: overdue` },
+    revision_stuck: { color: '#E8C878', bg: 'rgba(232, 200, 120, 0.06)', icon: '!', label: `${alert.creator}: ${alert.count} revision${(alert.count || 0) > 1 ? 's' : ''}` },
+    analysis_errors: { color: '#E8C878', bg: 'rgba(232, 200, 120, 0.06)', icon: '!', label: `${alert.count} analysis error${(alert.count || 0) > 1 ? 's' : ''}` },
+    empty_library: { color: '#E8C878', bg: 'rgba(232, 200, 120, 0.06)', icon: '0', label: `${alert.creator}: no content` },
   }
-  const c = config[alert.type] || { color: '#999', bg: '#f5f5f5', icon: '?', label: alert.type }
+  const c = config[alert.type] || { color: 'var(--foreground-muted)', bg: 'rgba(255,255,255,0.03)', icon: '?', label: alert.type }
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -150,11 +150,11 @@ function MiniCalendar({ calendar }) {
     <div style={{ display: 'flex', gap: '3px' }}>
       {days.map(([date, count]) => {
         const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' })
-        const bg = count >= 2 ? '#22c55e' : count === 1 ? '#fbbf24' : '#f0f0f0'
-        const color = count >= 2 ? '#fff' : count === 1 ? '#78350f' : '#ccc'
+        const bg = count >= 2 ? '#7DD3A4' : count === 1 ? '#fbbf24' : 'rgba(255,255,255,0.04)'
+        const color = count >= 2 ? 'var(--foreground)' : count === 1 ? '#78350f' : '#ccc'
         return (
           <div key={date} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#999', marginBottom: '2px' }}>{dayLabel}</div>
+            <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginBottom: '2px' }}>{dayLabel}</div>
             <div style={{
               width: '22px', height: '22px', borderRadius: '4px',
               background: bg, color, display: 'flex', alignItems: 'center',
@@ -210,10 +210,10 @@ function fmtChartDate(dateStr) {
 }
 
 const CREATOR_COLORS = {
-  Laurel: '#E88FAC',
-  Taby: '#60a5fa',
-  MG: '#fb923c',
-  Sunny: '#a78bfa',
+  Laurel: 'var(--palm-pink)',
+  Taby: '#78B4E8',
+  MG: '#E8A878',
+  Sunny: '#A78BFA',
   Gracie: '#34d399',
   Amelia: '#f472b6',
   Raya: '#38bdf8',
@@ -222,7 +222,7 @@ const CREATOR_COLORS = {
   'Meadow Marie': '#4ade80',
 }
 // Fallback palette for creators not explicitly colored above
-const FALLBACK_COLORS = ['#ef4444', '#06b6d4', '#eab308', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16']
+const FALLBACK_COLORS = ['#E87878', '#06b6d4', '#eab308', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16']
 function colorForCreator(name, index) {
   return CREATOR_COLORS[name] || FALLBACK_COLORS[index % FALLBACK_COLORS.length]
 }
@@ -341,7 +341,7 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
       <div style={{ ...CARD, marginBottom: '16px' }}>
         <div style={SECTION_TITLE}>Agency Revenue</div>
         <div style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: '13px', color: '#999' }}>Loading earnings data...</span>
+          <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Loading earnings data...</span>
         </div>
       </div>
     )
@@ -387,10 +387,10 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
           <span style={{ ...SECTION_TITLE, marginBottom: 0 }}>Agency Revenue</span>
-          <span style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>
+          <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)' }}>
             {fmtK(totalForPeriod)}
           </span>
-          <span style={{ fontSize: '11px', color: '#999' }}>
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
             {activeCount} account{activeCount !== 1 ? 's' : ''}
           </span>
         </div>
@@ -400,8 +400,8 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
             value={period}
             onChange={e => setPeriod(e.target.value)}
             style={{
-              padding: '4px 8px', borderRadius: '6px', border: '1px solid #e5e5e5',
-              fontSize: '11px', color: '#666', background: '#fff', cursor: 'pointer',
+              padding: '4px 8px', borderRadius: '6px', border: '1px solid transparent',
+              fontSize: '11px', color: 'rgba(240, 236, 232, 0.75)', background: 'var(--card-bg-solid)', cursor: 'pointer',
             }}
           >
             {PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -412,8 +412,8 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               style={{
-                padding: '4px 10px', borderRadius: '6px', border: '1px solid #e5e5e5',
-                fontSize: '11px', color: '#666', background: '#fff', cursor: 'pointer',
+                padding: '4px 10px', borderRadius: '6px', border: '1px solid transparent',
+                fontSize: '11px', color: 'rgba(240, 236, 232, 0.75)', background: 'var(--card-bg-solid)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '4px',
               }}
             >
@@ -423,7 +423,7 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
             {showDropdown && (
               <div style={{
                 position: 'absolute', right: 0, top: '100%', marginTop: '4px',
-                background: '#fff', borderRadius: '8px', border: '1px solid #e5e5e5',
+                background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.1)', padding: '8px 0', zIndex: 50,
                 minWidth: '160px',
               }}>
@@ -431,8 +431,8 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
                   onClick={toggleAll}
                   style={{
                     padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                    color: enabledCreators.size === creatorList.length ? '#E88FAC' : '#666',
-                    borderBottom: '1px solid #f0f0f0',
+                    color: enabledCreators.size === creatorList.length ? 'var(--palm-pink)' : 'rgba(240, 236, 232, 0.75)',
+                    borderBottom: '1px solid transparent',
                   }}
                 >
                   {enabledCreators.size === creatorList.length ? 'Deselect All' : 'Select All'}
@@ -447,12 +447,12 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
                       style={{
                         padding: '5px 12px', fontSize: '12px', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px',
-                        color: active ? '#1a1a1a' : '#ccc',
+                        color: active ? 'var(--foreground)' : '#ccc',
                       }}
                     >
                       <div style={{
                         width: '10px', height: '10px', borderRadius: '2px',
-                        background: active ? (CREATOR_COLORS[name] || '#E88FAC') : '#e5e5e5',
+                        background: active ? (CREATOR_COLORS[name] || 'var(--palm-pink)') : '#e5e5e5',
                       }} />
                       {name}
                     </div>
@@ -523,7 +523,7 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
                 <div style={{
                   position: 'absolute', left: dotLeft, top: dotTop,
                   width: '10px', height: '10px', marginLeft: '-5px', marginTop: '-5px',
-                  borderRadius: '50%', background: '#E88FAC', border: '2px solid #fff',
+                  borderRadius: '50%', background: 'var(--palm-pink)', border: '2px solid #fff',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
                   transition: 'left 0.08s ease, top 0.08s ease',
                 }} />
@@ -531,22 +531,22 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
                   position: 'absolute',
                   left: `clamp(10px, calc(${dotLeft} - 85px), calc(100% - 190px))`,
                   top: ttAbove ? `calc(${dotTop} - ${36 + breakdown.length * 20}px)` : `calc(${dotTop} + 16px)`,
-                  background: '#fff', borderRadius: '8px', padding: '8px 14px',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)',
+                  background: 'var(--card-bg-solid)', borderRadius: '8px', padding: '8px 14px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.1)', border: '1px solid transparent',
                   transition: 'left 0.08s ease, top 0.08s ease',
                   whiteSpace: 'nowrap', minWidth: '140px',
                 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>{fmtDate(hover.date)}</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>{fmtDate(hover.date)}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: breakdown.length > 0 ? '4px' : 0 }}>
-                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#E88FAC' }} />
-                    <span style={{ fontSize: '11px', color: '#999' }}>Total</span>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', marginLeft: 'auto' }}>{fmt(hover.total)}</span>
+                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--palm-pink)' }} />
+                    <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Total</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginLeft: 'auto' }}>{fmt(hover.total)}</span>
                   </div>
                   {breakdown.slice(0, 5).map(([name, val]) => (
                     <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                       <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: CREATOR_COLORS[name] || '#ccc' }} />
-                      <span style={{ fontSize: '10px', color: '#999' }}>{name}</span>
-                      <span style={{ fontSize: '11px', fontWeight: 500, color: '#666', marginLeft: 'auto' }}>{fmt(val)}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{name}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 500, color: 'rgba(240, 236, 232, 0.75)', marginLeft: 'auto' }}>{fmt(val)}</span>
                     </div>
                   ))}
                 </div>
@@ -556,7 +556,7 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
         </div>
       ) : (
         <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: '13px', color: '#999' }}>No daily data for this period</span>
+          <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>No daily data for this period</span>
         </div>
       )}
     </div>
@@ -654,18 +654,18 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-        <div style={{ color: '#999', fontSize: '14px' }}>Loading dashboard...</div>
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading dashboard...</div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div style={{ ...CARD, color: '#ef4444', textAlign: 'center', padding: '40px' }}>
+      <div style={{ ...CARD, color: '#E87878', textAlign: 'center', padding: '40px' }}>
         <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>Error loading dashboard</div>
-        <div style={{ fontSize: '13px', color: '#999' }}>{error}</div>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>{error}</div>
         <button onClick={fetchData} style={{
-          marginTop: '12px', padding: '8px 16px', background: '#E88FAC', color: '#fff',
+          marginTop: '12px', padding: '8px 16px', background: 'var(--palm-pink)', color: '#060606',
           border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
         }}>
           Retry
@@ -714,8 +714,8 @@ export default function AdminDashboard() {
     <div>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Dashboard</h1>
-        <span style={{ fontSize: '12px', color: '#999' }}>{formatPeriodLabel(revenue.currentPeriodLabel)}</span>
+        <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Dashboard</h1>
+        <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{formatPeriodLabel(revenue.currentPeriodLabel)}</span>
       </div>
 
       {/* ─── ALERTS ─── */}
@@ -723,22 +723,22 @@ export default function AdminDashboard() {
         <div style={{
           ...CARD, marginBottom: '12px', padding: '8px 14px',
           display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center',
-          border: '1px solid #fde8e8',
+          border: 'none',
         }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, color: '#ef4444', marginRight: '4px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#E87878', marginRight: '4px' }}>
             {sortedAlerts.length}
           </span>
           {visibleAlerts.map((a, i) => <AlertPill key={i} alert={a} />)}
           {hiddenCount > 0 && !alertsExpanded && (
             <button onClick={() => setAlertsExpanded(true)} style={{
               padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-              color: '#999', background: '#f5f5f5', border: 'none', cursor: 'pointer',
+              color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer',
             }}>+{hiddenCount} more</button>
           )}
           {alertsExpanded && sortedAlerts.length > MAX_COLLAPSED_ALERTS && (
             <button onClick={() => setAlertsExpanded(false)} style={{
               padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-              color: '#999', background: '#f5f5f5', border: 'none', cursor: 'pointer',
+              color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer',
             }}>show less</button>
           )}
         </div>
@@ -762,7 +762,7 @@ export default function AdminDashboard() {
           label="Outstanding"
           value={revenue.outstandingInvoices.count}
           sub={revenue.outstandingInvoices.count > 0 ? fmtK(revenue.outstandingInvoices.total) : 'all clear'}
-          color={revenue.outstandingInvoices.count > 0 ? '#f59e0b' : '#22c55e'}
+          color={revenue.outstandingInvoices.count > 0 ? '#E8C878' : '#7DD3A4'}
         />
       </div>
 
@@ -772,7 +772,7 @@ export default function AdminDashboard() {
           <div style={{
             display: 'grid',
             gridTemplateColumns: '80px 72px 36px 68px 44px 90px 60px 1fr',
-            gap: '4px', padding: '2px 0 6px', borderBottom: '1px solid #f0f0f0',
+            gap: '4px', padding: '2px 0 6px', borderBottom: '1px solid transparent',
             alignItems: 'center',
           }}>
             <span style={{ ...LABEL, fontSize: '9px' }}>Creator</span>
@@ -790,8 +790,8 @@ export default function AdminDashboard() {
             const rwy = c.runway
             const lib = c.library
             const bufferDays = rwy?.bufferDays ?? null
-            const runwayColor = bufferDays === null ? '#ddd' : bufferDays < 1 ? '#ef4444' : bufferDays < 2 ? '#f59e0b' : '#22c55e'
-            const runwayBg = bufferDays === null ? '#fafafa' : bufferDays < 1 ? '#fef2f2' : bufferDays < 2 ? '#fffbeb' : '#f0fdf4'
+            const runwayColor = bufferDays === null ? 'rgba(255,255,255,0.08)' : bufferDays < 1 ? '#E87878' : bufferDays < 2 ? '#E8C878' : '#7DD3A4'
+            const runwayBg = bufferDays === null ? 'var(--card-bg-solid)' : bufferDays < 1 ? 'rgba(232, 120, 120, 0.06)' : bufferDays < 2 ? 'rgba(232, 200, 120, 0.06)' : 'rgba(125, 211, 164, 0.06)'
             const editQueue = rwy ? (rwy.toEdit + rwy.inProgress + rwy.needsRevision + rwy.inReview) : null
 
             return (
@@ -799,15 +799,15 @@ export default function AdminDashboard() {
                 display: 'grid',
                 gridTemplateColumns: '80px 72px 36px 68px 44px 90px 60px 1fr',
                 gap: '4px', padding: '5px 0',
-                borderBottom: '1px solid #fafafa',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
                 alignItems: 'center',
               }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</span>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: rev ? '#1a1a1a' : '#ddd' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{c.name}</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: rev ? 'var(--foreground)' : 'rgba(255,255,255,0.08)' }}>
                   {rev ? fmtK(rev.currentTR) : '—'}
                 </span>
-                <span style={{ fontSize: '10px', color: '#999' }}>{rev ? pct(rev.commissionPct) : ''}</span>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: rev ? '#22c55e' : '#ddd' }}>
+                <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{rev ? pct(rev.commissionPct) : ''}</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: rev ? '#7DD3A4' : 'rgba(255,255,255,0.08)' }}>
                   {rev ? fmtK(rev.palmCut) : '—'}
                 </span>
                 <span style={{
@@ -816,21 +816,21 @@ export default function AdminDashboard() {
                 }}>
                   {bufferDays !== null ? `${bufferDays}d` : '—'}
                 </span>
-                <div style={{ fontSize: '10px', color: '#666', display: 'flex', gap: '4px' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(240, 236, 232, 0.75)', display: 'flex', gap: '4px' }}>
                   {rwy ? (
                     editQueue > 0 ? (
                       <>
                         {rwy.toEdit > 0 && <span>{rwy.toEdit}q</span>}
                         {rwy.inProgress > 0 && <span>{rwy.inProgress}a</span>}
-                        {rwy.needsRevision > 0 && <span style={{ color: '#ef4444' }}>{rwy.needsRevision}r</span>}
-                        {rwy.inReview > 0 && <span style={{ color: '#3b82f6' }}>{rwy.inReview}rv</span>}
+                        {rwy.needsRevision > 0 && <span style={{ color: '#E87878' }}>{rwy.needsRevision}r</span>}
+                        {rwy.inReview > 0 && <span style={{ color: '#78B4E8' }}>{rwy.inReview}rv</span>}
                       </>
-                    ) : <span style={{ color: '#ccc' }}>—</span>
-                  ) : <span style={{ color: '#ddd' }}>—</span>}
+                    ) : <span style={{ color: 'var(--foreground-subtle)' }}>—</span>
+                  ) : <span style={{ color: 'var(--foreground)' }}>—</span>}
                 </div>
                 <span style={{
                   fontSize: '11px', fontWeight: 600,
-                  color: lib ? (lib.total === 0 ? '#ef4444' : '#666') : '#ddd',
+                  color: lib ? (lib.total === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)') : 'rgba(255,255,255,0.08)',
                 }}>
                   {lib ? lib.total : '—'}
                 </span>
@@ -852,11 +852,11 @@ export default function AdminDashboard() {
             <span style={{ fontSize: '16px' }}>&#x1F433;</span>
             <span style={SECTION_TITLE}>Whale Alerts</span>
           </div>
-          {whaleLoading && <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>}
+          {whaleLoading && <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Loading...</span>}
         </div>
 
         {whaleAlerts && Object.keys(whaleAlerts).length === 0 && !whaleLoading && (
-          <div style={{ fontSize: '13px', color: '#999', padding: '8px 0' }}>No whale alerts right now.</div>
+          <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '8px 0' }}>No whale alerts right now.</div>
         )}
 
         {whaleAlerts && Object.entries(whaleAlerts).map(([creator, { alerts: cAlerts, count }]) => {
@@ -864,7 +864,7 @@ export default function AdminDashboard() {
           const urgCount = { critical: 0, high: 0, warning: 0 }
           cAlerts.forEach(a => { urgCount[a.urgency] = (urgCount[a.urgency] || 0) + 1 })
           return (
-            <div key={creator} style={{ borderBottom: '1px solid #f0f0f0' }}>
+            <div key={creator} style={{ borderBottom: '1px solid transparent' }}>
               <div
                 onClick={() => setWhaleExpandedCreator(isExpanded ? null : creator)}
                 style={{
@@ -873,14 +873,14 @@ export default function AdminDashboard() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ color: '#ccc', fontSize: '10px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
-                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>{creator}</span>
-                  <span style={{ fontSize: '12px', color: '#EA580C', fontWeight: 600 }}>{count} fan{count !== 1 ? 's' : ''}</span>
+                  <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
+                  <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--foreground)' }}>{creator}</span>
+                  <span style={{ fontSize: '12px', color: '#E88C5C', fontWeight: 600 }}>{count} fan{count !== 1 ? 's' : ''}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  {urgCount.critical > 0 && <span style={{ background: '#FEE2E2', color: '#DC2626', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.critical} CRITICAL</span>}
-                  {urgCount.high > 0 && <span style={{ background: '#FFF3CD', color: '#D97706', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.high} HIGH</span>}
-                  {urgCount.warning > 0 && <span style={{ background: '#FEF9C3', color: '#A16207', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.warning} WARNING</span>}
+                  {urgCount.critical > 0 && <span style={{ background: 'rgba(232, 120, 120, 0.1)', color: '#E87878', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.critical} CRITICAL</span>}
+                  {urgCount.high > 0 && <span style={{ background: 'rgba(232, 200, 120, 0.08)', color: '#E8A878', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.high} HIGH</span>}
+                  {urgCount.warning > 0 && <span style={{ background: 'rgba(232, 200, 120, 0.08)', color: '#E8C878', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{urgCount.warning} WARNING</span>}
                 </div>
               </div>
 
@@ -889,8 +889,8 @@ export default function AdminDashboard() {
                   {/* Header */}
                   <div style={{
                     display: 'grid', gridTemplateColumns: '1fr 60px 70px 70px 70px 70px 70px',
-                    padding: '4px 8px', fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase',
-                    borderBottom: '1px solid #f0f0f0',
+                    padding: '4px 8px', fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase',
+                    borderBottom: '1px solid transparent',
                   }}>
                     <span>Fan</span>
                     <span style={{ textAlign: 'right' }}>Median</span>
@@ -905,29 +905,29 @@ export default function AdminDashboard() {
                     const sendKey = `${creator}-${a.fan}`
                     const isSending = whaleSending[sendKey]
                     const result = whaleSent[sendKey]
-                    const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
+                    const urgColors = { critical: { bg: 'rgba(232, 120, 120, 0.1)', text: '#E87878' }, high: { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8A878' }, warning: { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8C878' } }
                     const uc = urgColors[a.urgency] || urgColors.warning
                     return (
                       <div key={a.fan} style={{
                         display: 'grid', gridTemplateColumns: '1fr 60px 70px 70px 70px 70px 70px',
                         padding: '8px 8px', fontSize: '12px', alignItems: 'center',
-                        background: i % 2 === 0 ? '#fff' : '#FAFAFA',
+                        background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
                       }}>
                         <div>
                           <span style={{ fontWeight: 500 }}>{a.fan}</span>
-                          {a.username && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '4px' }}>@{a.username}</span>}
+                          {a.username && <span style={{ color: 'var(--palm-pink)', fontSize: '11px', marginLeft: '4px' }}>@{a.username}</span>}
                           <span style={{ background: uc.bg, color: uc.text, padding: '1px 5px', borderRadius: '3px', fontSize: '9px', fontWeight: 700, marginLeft: '6px', textTransform: 'uppercase' }}>{a.urgency}</span>
                         </div>
-                        <span style={{ textAlign: 'right', color: '#666' }}>{a.medianGap}d</span>
-                        <span style={{ textAlign: 'right', fontWeight: 600, color: a.currentGap > a.medianGap * 3 ? '#DC2626' : '#EA580C' }}>
-                          {a.currentGap}d <span style={{ fontSize: '10px', color: '#999', fontWeight: 400 }}>({a.gapRatio}x)</span>
+                        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{a.medianGap}d</span>
+                        <span style={{ textAlign: 'right', fontWeight: 600, color: a.currentGap > a.medianGap * 3 ? '#E87878' : '#E88C5C' }}>
+                          {a.currentGap}d <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 400 }}>({a.gapRatio}x)</span>
                         </span>
-                        <span style={{ textAlign: 'right', color: a.rolling30 === 0 ? '#DC2626' : '#666', fontWeight: a.rolling30 === 0 ? 600 : 400 }}>{fmtK(a.rolling30)}</span>
-                        <span style={{ textAlign: 'right', color: '#666' }}>{fmtK(a.monthlyAvg90)}</span>
-                        <span style={{ textAlign: 'right', color: '#666' }}>{fmtK(a.lifetime)}</span>
+                        <span style={{ textAlign: 'right', color: a.rolling30 === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)', fontWeight: a.rolling30 === 0 ? 600 : 400 }}>{fmtK(a.rolling30)}</span>
+                        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{fmtK(a.monthlyAvg90)}</span>
+                        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{fmtK(a.lifetime)}</span>
                         <div style={{ textAlign: 'center' }}>
                           {result?.success ? (
-                            <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent</span>
+                            <span style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 500 }}>&#10003; Sent</span>
                           ) : (
                             <button
                               disabled={isSending}
@@ -949,15 +949,15 @@ export default function AdminDashboard() {
                                 }
                               }}
                               style={{
-                                background: isSending ? '#E5E7EB' : '#1a1a1a', border: 'none', borderRadius: '4px',
-                                padding: '4px 8px', fontSize: '10px', color: isSending ? '#999' : '#fff', fontWeight: 600,
+                                background: isSending ? 'rgba(255,255,255,0.08)' : 'var(--palm-pink)', border: 'none', borderRadius: '4px',
+                                padding: '4px 10px', fontSize: '10px', color: isSending ? 'var(--foreground-muted)' : '#060606', fontWeight: 700,
                                 cursor: isSending ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
                               }}
                             >
                               {isSending ? '...' : 'Send'}
                             </button>
                           )}
-                          {result?.error && <div style={{ fontSize: '9px', color: '#DC2626', marginTop: '2px' }}>{result.error}</div>}
+                          {result?.error && <div style={{ fontSize: '9px', color: '#E87878', marginTop: '2px' }}>{result.error}</div>}
                         </div>
                       </div>
                     )
@@ -978,37 +978,37 @@ export default function AdminDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
               <div style={{ ...LABEL, fontSize: '9px' }}>Today</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedToday}</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', marginTop: '2px' }}>{pipeline.scrapedToday}</div>
             </div>
             <div>
               <div style={{ ...LABEL, fontSize: '9px' }}>This Week</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.scrapedThisWeek}</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', marginTop: '2px' }}>{pipeline.scrapedThisWeek}</div>
             </div>
             <div>
               <div style={{ ...LABEL, fontSize: '9px' }}>Promoted</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#E88FAC', marginTop: '2px' }}>{pipeline.promotedThisWeek}</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--palm-pink)', marginTop: '2px' }}>{pipeline.promotedThisWeek}</div>
             </div>
             <div>
               <div style={{ ...LABEL, fontSize: '9px' }}>Review</div>
               <div style={{
                 fontSize: '18px', fontWeight: 700, marginTop: '2px',
-                color: pipeline.reviewQueue > 20 ? '#f59e0b' : '#1a1a1a',
+                color: pipeline.reviewQueue > 20 ? '#E8C878' : 'var(--foreground)',
               }}>{pipeline.reviewQueue}</div>
             </div>
             <div>
               <div style={{ ...LABEL, fontSize: '9px' }}>Analysis</div>
               <div style={{
                 fontSize: '18px', fontWeight: 700, marginTop: '2px',
-                color: pipeline.analysisQueue > 0 ? '#3b82f6' : '#1a1a1a',
+                color: pipeline.analysisQueue > 0 ? '#78B4E8' : 'var(--foreground)',
               }}>{pipeline.analysisQueue}</div>
             </div>
             <div>
               <div style={{ ...LABEL, fontSize: '9px' }}>Sources</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', marginTop: '2px' }}>{pipeline.sourcesEnabled}</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', marginTop: '2px' }}>{pipeline.sourcesEnabled}</div>
             </div>
           </div>
           {pipeline.lastScrape && (
-            <div style={{ fontSize: '10px', color: '#999', marginTop: '8px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '8px' }}>
               Last scrape: {new Date(pipeline.lastScrape).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
             </div>
           )}
@@ -1021,14 +1021,14 @@ export default function AdminDashboard() {
             {posting.map(c => (
               <div key={c.name} style={{
                 display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0',
-                borderBottom: '1px solid #fafafa',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
               }}>
-                <div style={{ width: '60px', fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{c.name}</div>
-                <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: '#666' }}>
-                  <span><strong style={{ color: '#1a1a1a' }}>{c.postedToday}</strong> today</span>
-                  <span><strong style={{ color: '#1a1a1a' }}>{c.postedThisWeek}</strong>/wk</span>
+                <div style={{ width: '60px', fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{c.name}</div>
+                <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: 'rgba(240, 236, 232, 0.75)' }}>
+                  <span><strong style={{ color: 'var(--foreground)' }}>{c.postedToday}</strong> today</span>
+                  <span><strong style={{ color: 'var(--foreground)' }}>{c.postedThisWeek}</strong>/wk</span>
                   {c.telegramPending > 0 && (
-                    <span style={{ color: '#f59e0b' }}><strong>{c.telegramPending}</strong> TG</span>
+                    <span style={{ color: '#E8C878' }}><strong>{c.telegramPending}</strong> TG</span>
                   )}
                 </div>
                 <div style={{ marginLeft: 'auto' }}>
@@ -1048,7 +1048,7 @@ export default function AdminDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
-              gap: '6px', padding: '2px 0', borderBottom: '1px solid #f0f0f0',
+              gap: '6px', padding: '2px 0', borderBottom: '1px solid transparent',
             }}>
               <span style={{ ...LABEL, fontSize: '9px' }}>Period</span>
               <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>TR</span>
@@ -1060,18 +1060,18 @@ export default function AdminDashboard() {
               const periodDelta = prevPeriod && prevPeriod.totalTR > 0
                 ? (p.totalTR - prevPeriod.totalTR) / prevPeriod.totalTR : null
               const deltaStr = deltaPct(periodDelta)
-              const deltaColor = periodDelta > 0 ? '#22c55e' : periodDelta < 0 ? '#ef4444' : '#999'
+              const deltaColor = periodDelta > 0 ? '#7DD3A4' : periodDelta < 0 ? '#E87878' : '#999'
               return (
                 <div key={i} style={{
                   display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
-                  gap: '6px', padding: '4px 0', borderBottom: '1px solid #fafafa',
+                  gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
                   opacity: i === 0 ? 1 : 0.7,
                 }}>
-                  <span style={{ fontSize: '12px', color: '#1a1a1a', fontWeight: i === 0 ? 600 : 400 }}>
+                  <span style={{ fontSize: '12px', color: 'var(--foreground)', fontWeight: i === 0 ? 600 : 400 }}>
                     {formatPeriodLabel(p.label) || `${p.start} – ${p.end}`}
                   </span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#22c55e', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#7DD3A4', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
                   <span style={{ fontSize: '11px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
                     {deltaStr || '—'}
                   </span>

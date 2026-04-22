@@ -229,8 +229,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
         <div>
           <div style={{ marginBottom: '16px' }}>
             <button onClick={handleGenerateAll} disabled={generating} style={{
-              background: generating ? '#e5e7eb' : allHavePdfs ? '#f3f4f6' : '#3b82f6',
-              color: generating ? '#999' : allHavePdfs ? '#666' : '#fff',
+              background: generating ? 'rgba(255,255,255,0.08)' : allHavePdfs ? 'rgba(255,255,255,0.04)' : '#78B4E8',
+              color: generating ? '#999' : allHavePdfs ? 'rgba(240, 236, 232, 0.75)' : 'var(--foreground)',
               border: 'none', borderRadius: '10px', padding: '10px 24px',
               fontSize: '14px', fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer',
             }}>
@@ -242,20 +242,20 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
             <div key={r.id} style={{
               display: 'flex', alignItems: 'center', gap: '12px',
               padding: '10px 14px', marginBottom: '4px',
-              background: '#fafafa', borderRadius: '10px',
+              background: 'var(--card-bg-solid)', borderRadius: '10px',
             }}>
               <span style={{
                 width: '20px', height: '20px', borderRadius: '50%', display: 'flex',
                 alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0,
-                background: r.hasPdf ? '#dcfce7' : '#f3f4f6',
-                color: r.hasPdf ? '#16a34a' : '#999',
+                background: r.hasPdf ? 'rgba(125, 211, 164, 0.08)' : 'rgba(255,255,255,0.04)',
+                color: r.hasPdf ? '#7DD3A4' : '#999',
               }}>{r.hasPdf ? '✓' : '—'}</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', minWidth: '80px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', minWidth: '80px' }}>
                 {r.accountName.replace(aka + ' - ', '')}
               </span>
-              <span style={{ fontSize: '12px', color: '#888' }}>{fmt(r.earnings)}</span>
+              <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{fmt(r.earnings)}</span>
               {r.generatedAt && (
-                <span style={{ fontSize: '10px', color: '#aaa', marginLeft: 'auto' }}>{fmtTs(r.generatedAt)}</span>
+                <span style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginLeft: 'auto' }}>{fmtTs(r.generatedAt)}</span>
               )}
             </div>
           ))}
@@ -265,7 +265,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       case 1: return (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {!allHavePdfs ? (
-            <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first to review them.</div>
+            <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first to review them.</div>
           ) : (() => {
             const rec = sorted[pdfTab]
             const thumbnailUrl = rec?.pdfThumbnail || null
@@ -280,16 +280,16 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     {sorted.map((r, i) => (
                       <button key={r.id} onClick={() => setPdfTab(i)} style={{
-                        background: pdfTab === i ? '#FFF0F3' : '#f5f5f5',
+                        background: pdfTab === i ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.03)',
                         border: pdfTab === i ? '1px solid #E88FAC' : '1px solid transparent',
                         borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 500,
-                        color: pdfTab === i ? '#E88FAC' : '#888', cursor: 'pointer',
+                        color: pdfTab === i ? 'var(--palm-pink)' : '#888', cursor: 'pointer',
                       }}>{r.accountName.replace(aka + ' - ', '')}</button>
                     ))}
                     {dropboxView && (
                       <a href={dropboxView} target="_blank" rel="noopener noreferrer" style={{
                         marginLeft: '8px',
-                        fontSize: '12px', color: '#888', textDecoration: 'none',
+                        fontSize: '12px', color: 'var(--foreground-muted)', textDecoration: 'none',
                       }}>
                         Open full PDF ↗
                       </a>
@@ -297,13 +297,13 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
-                      background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '10px',
+                      background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid transparent', borderRadius: '10px',
                       padding: '9px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                     }}>
                       Needs Fix → Re-generate
                     </button>
                     <button onClick={() => { setPdfApproved(true); setActiveStep(2); handleLoadPreview() }} style={{
-                      background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px',
+                      background: 'rgba(125, 211, 164, 0.15)', color: '#7DD3A4', border: '1px solid transparent', borderRadius: '10px',
                       padding: '9px 22px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                     }}>
                       Approve PDF →
@@ -315,7 +315,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 <div style={{
                   flex: 1, minHeight: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: '#f5f5f7', borderRadius: '12px', padding: '20px', overflow: 'auto',
+                  background: 'rgba(255,255,255,0.02)', borderRadius: '12px', padding: '20px', overflow: 'auto',
                 }}>
                   {thumbnailUrl ? (
                     <img
@@ -328,14 +328,14 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                       }}
                     />
                   ) : (
-                    <div style={{ color: '#999', fontSize: '13px', textAlign: 'center' }}>
+                    <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center' }}>
                       Preview still processing — open the PDF to view it.
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              <div style={{ color: '#999', fontSize: '13px' }}>No PDF link available for this account.</div>
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No PDF link available for this account.</div>
             )
           })()}
         </div>
@@ -344,32 +344,32 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       case 2: return (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {!allHavePdfs ? (
-            <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first.</div>
+            <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first.</div>
           ) : emailPreview ? (
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
               {/* Test / Production mode toggle */}
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 14px', marginBottom: '12px', flexShrink: 0,
-                background: sendMode === 'production' ? '#FEF3C7' : '#F3F4F6',
-                border: `1px solid ${sendMode === 'production' ? '#FCD34D' : '#E5E7EB'}`,
+                background: sendMode === 'production' ? 'rgba(232, 200, 120, 0.08)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${sendMode === 'production' ? '#FCD34D' : 'rgba(255,255,255,0.08)'}`,
                 borderRadius: '10px',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{
                     fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em',
                     textTransform: 'uppercase',
-                    color: sendMode === 'production' ? '#92400E' : '#6B7280',
+                    color: sendMode === 'production' ? '#E8A878' : '#6B7280',
                   }}>
                     {sendMode === 'production' ? '⚠ Production Mode' : '🧪 Test Mode'}
                   </span>
-                  <span style={{ fontSize: '11px', color: sendMode === 'production' ? '#92400E' : '#9CA3AF' }}>
+                  <span style={{ fontSize: '11px', color: sendMode === 'production' ? '#E8A878' : '#9CA3AF' }}>
                     {sendMode === 'production'
                       ? 'Email will go to the creator (cc Josh, bcc Evan).'
                       : 'Email will go to Evan + Josh only.'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '4px', background: '#fff', padding: '3px', borderRadius: '7px' }}>
+                <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', padding: '3px', borderRadius: '7px' }}>
                   {[
                     { key: 'test', label: 'Test' },
                     { key: 'production', label: 'Production' },
@@ -382,8 +382,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                         handleLoadPreview(opt.key)
                       }}
                       style={{
-                        background: sendMode === opt.key ? '#1a1a1a' : 'transparent',
-                        color: sendMode === opt.key ? '#fff' : '#6B7280',
+                        background: sendMode === opt.key ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        color: sendMode === opt.key ? 'var(--foreground)' : '#6B7280',
                         border: 'none', borderRadius: '5px',
                         padding: '4px 14px', fontSize: '11px', fontWeight: 600,
                         cursor: 'pointer',
@@ -399,7 +399,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   {emailPreview.warnings.map((w, i) => (
                     <div key={i} style={{
                       padding: '10px 14px',
-                      background: '#FEF2F2',
+                      background: 'rgba(232, 120, 120, 0.06)',
                       border: '1px solid #FECACA',
                       borderRadius: '10px',
                       fontSize: '12px',
@@ -419,8 +419,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
               {emailPreview.earningsDelta && (
                 <div style={{
                   marginBottom: '12px', flexShrink: 0, padding: '8px 14px',
-                  background: emailPreview.earningsDelta === 'up' ? '#F0FDF4' : '#F9FAFB',
-                  border: `1px solid ${emailPreview.earningsDelta === 'up' ? '#BBF7D0' : '#E5E7EB'}`,
+                  background: emailPreview.earningsDelta === 'up' ? 'rgba(125, 211, 164, 0.06)' : '#F9FAFB',
+                  border: `1px solid ${emailPreview.earningsDelta === 'up' ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.08)'}`,
                   borderRadius: '10px', fontSize: '12px',
                   color: emailPreview.earningsDelta === 'up' ? '#15803D' : '#6B7280',
                 }}>
@@ -436,7 +436,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
                 gap: '12px', marginBottom: '14px', flexShrink: 0,
               }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', background: '#fafafa', borderRadius: '10px', flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', background: 'var(--card-bg-solid)', borderRadius: '10px', flex: 1 }}>
                   {[
                     { label: 'To', value: (emailPreview.to || []).join(', ') + (emailPreview.testMode ? '  (test mode)' : '') },
                     ...((emailPreview.bcc || []).length ? [{ label: 'Bcc', value: emailPreview.bcc.join(', ') }] : []),
@@ -445,8 +445,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                     { label: 'Subject', value: emailPreview.subject || `Your Palm Invoice — ${fmtDate(periodStart)} to ${fmtDate(periodEnd)}` },
                   ].map(r => (
                     <div key={r.label} style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-                      <span style={{ color: '#999', width: '55px', flexShrink: 0 }}>{r.label}</span>
-                      <span style={{ color: '#4a4a4a' }}>{r.value}</span>
+                      <span style={{ color: 'var(--foreground-muted)', width: '55px', flexShrink: 0 }}>{r.label}</span>
+                      <span style={{ color: 'rgba(240, 236, 232, 0.85)' }}>{r.value}</span>
                     </div>
                   ))}
                   {emailPreview.testMode && (emailPreview.wouldSendTo || []).length > 0 && (
@@ -462,8 +462,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                       onClick={() => { setEmailApproved(true); setActiveStep(3) }}
                       disabled={!canSend}
                       style={{
-                        background: canSend ? '#22c55e' : '#e5e7eb',
-                        color: canSend ? '#fff' : '#999',
+                        background: canSend ? '#7DD3A4' : 'rgba(255,255,255,0.08)',
+                        color: canSend ? 'rgba(255,255,255,0.08)' : '#999',
                         border: 'none', borderRadius: '10px',
                         padding: '10px 22px', fontSize: '13px', fontWeight: 600,
                         cursor: canSend ? 'pointer' : 'not-allowed', flexShrink: 0,
@@ -474,7 +474,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 })()}
               </div>
               {/* Email body preview — fills remaining space */}
-              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+              <div style={{ border: '1px solid transparent', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
                 <iframe
                   srcDoc={emailPreview.html || emailPreview.manual?.html || '<p>No preview available</p>'}
                   style={{ width: '100%', height: '100%', border: 'none' }}
@@ -486,8 +486,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           ) : (
             <div style={{ padding: '20px 0' }}>
               <button onClick={handleLoadPreview} disabled={loadingPreview} style={{
-                background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px',
-                padding: '10px 24px', fontSize: '14px', fontWeight: 600,
+                background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '10px',
+                padding: '10px 24px', fontSize: '14px', fontWeight: 600, letterSpacing: '0.02em',
                 cursor: loadingPreview ? 'not-allowed' : 'pointer',
                 opacity: loadingPreview ? 0.6 : 1,
               }}>
@@ -503,26 +503,26 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           {allSent ? (
             <div style={{ padding: '20px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>✓</span>
-                <span style={{ fontSize: '15px', fontWeight: 600, color: '#16a34a' }}>Invoice Sent</span>
+                <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>✓</span>
+                <span style={{ fontSize: '15px', fontWeight: 600, color: '#7DD3A4' }}>Invoice Sent</span>
               </div>
-              {latestSentAt && <div style={{ fontSize: '12px', color: '#aaa' }}>Sent {fmtTs(latestSentAt)}</div>}
+              {latestSentAt && <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)' }}>Sent {fmtTs(latestSentAt)}</div>}
             </div>
           ) : !allHavePdfs ? (
-            <div style={{ color: '#999', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first.</div>
+            <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', padding: '20px 0' }}>Generate PDFs first.</div>
           ) : (
             <div style={{ padding: '20px 0' }}>
-              <div style={{ padding: '14px 16px', background: '#fafafa', borderRadius: '10px', marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', color: '#999', marginBottom: '6px' }}>
-                  Sending to <strong style={{ color: '#4a4a4a' }}>{(emailPreview?.to || []).join(', ') || '(creator email missing)'}</strong>
-                  {emailPreview?.cc?.length ? <> · cc <strong style={{ color: '#4a4a4a' }}>{emailPreview.cc.join(', ')}</strong></> : null}
+              <div style={{ padding: '14px 16px', background: 'var(--card-bg-solid)', borderRadius: '10px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>
+                  Sending to <strong style={{ color: 'rgba(240, 236, 232, 0.85)' }}>{(emailPreview?.to || []).join(', ') || '(creator email missing)'}</strong>
+                  {emailPreview?.cc?.length ? <> · cc <strong style={{ color: 'rgba(240, 236, 232, 0.85)' }}>{emailPreview.cc.join(', ')}</strong></> : null}
                 </div>
-                <div style={{ fontSize: '12px', color: '#999' }}>
-                  {sorted.length} account{sorted.length > 1 ? 's' : ''} · Management fee: <strong style={{ color: '#E88FAC' }}>{fmt(totalCommission)}</strong>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                  {sorted.length} account{sorted.length > 1 ? 's' : ''} · Management fee: <strong style={{ color: 'var(--palm-pink)' }}>{fmt(totalCommission)}</strong>
                 </div>
               </div>
               <button onClick={handleSend} disabled={sending} style={{
-                background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px',
+                background: '#78B4E8', color: 'var(--foreground)', border: 'none', borderRadius: '10px',
                 padding: '12px 28px', fontSize: '14px', fontWeight: 600,
                 cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.6 : 1,
               }}>
@@ -538,21 +538,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           {sorted.map(r => (
             <div key={r.id} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 14px', marginBottom: '4px', background: '#fafafa', borderRadius: '10px',
+              padding: '10px 14px', marginBottom: '4px', background: 'var(--card-bg-solid)', borderRadius: '10px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>
                   {r.accountName.replace(aka + ' - ', '')}
                 </span>
                 <span style={{
                   fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '5px',
-                  background: r.status === 'Paid' ? '#dcfce7' : r.status === 'Sent' ? '#fef3c7' : '#f3f4f6',
-                  color: r.status === 'Paid' ? '#16a34a' : r.status === 'Sent' ? '#d97706' : '#6b7280',
+                  background: r.status === 'Paid' ? 'rgba(125, 211, 164, 0.08)' : r.status === 'Sent' ? 'rgba(232, 200, 120, 0.08)' : 'rgba(255,255,255,0.04)',
+                  color: r.status === 'Paid' ? '#7DD3A4' : r.status === 'Sent' ? '#E8A878' : '#6b7280',
                 }}>{r.status}</span>
               </div>
               {r.status !== 'Paid' && (
                 <button onClick={() => handleMarkPaid(r.id)} style={{
-                  background: '#dcfce7', color: '#16a34a', border: 'none', borderRadius: '6px',
+                  background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: 'none', borderRadius: '6px',
                   padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
                 }}>Mark Paid</button>
               )}
@@ -561,16 +561,16 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
             {!allPaid && (
               <button onClick={handleMarkAllPaid} style={{
-                background: '#22c55e', color: '#fff', border: 'none',
+                background: 'rgba(125, 211, 164, 0.15)', color: '#7DD3A4', border: '1px solid transparent',
                 borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
               }}>Mark All Paid</button>
             )}
             <button onClick={handleResetToDraft} style={{
-              background: 'transparent', color: '#9ca3af', border: '1px solid #e5e7eb',
+              background: 'transparent', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '10px', padding: '9px 18px', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
             }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = '#fecaca' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#E87878'; e.currentTarget.style.borderColor = 'rgba(232, 120, 120, 0.2)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
             >
               ↺ Reset to Draft
             </button>
@@ -586,27 +586,27 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '1100px',
+        background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '1100px',
         height: '95vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         display: 'flex', flexDirection: 'row',
       }}>
         {/* Left sidebar: header info + stats + stepper */}
         <div style={{
-          width: '260px', borderRight: '1px solid rgba(0,0,0,0.06)', flexShrink: 0,
+          width: '260px', borderRight: '1px solid transparent', flexShrink: 0,
           display: 'flex', flexDirection: 'column', overflow: 'auto',
         }}>
           {/* Close button */}
           <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={onClose} style={{
-              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '28px', height: '28px',
-              cursor: 'pointer', fontSize: '13px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '50%', width: '28px', height: '28px',
+              cursor: 'pointer', fontSize: '13px', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>✕</button>
           </div>
 
           {/* Creator + period */}
           <div style={{ padding: '8px 20px 18px' }}>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{aka}</div>
-            <div style={{ fontSize: '11px', color: '#aaa', marginTop: '4px', lineHeight: 1.4 }}>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>{aka}</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px', lineHeight: 1.4 }}>
               {fmtDate(periodStart)} – {fmtDate(periodEnd)}<br/>
               {sorted.length} account{sorted.length > 1 ? 's' : ''}{dueDate && ` · Due ${fmtDate(dueDate)}`}
             </div>
@@ -615,21 +615,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           {/* Summary stats — stacked vertically */}
           <div style={{ padding: '0 20px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>{fmt(totalEarnings)}</div>
-              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Revenue</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>{fmt(totalEarnings)}</div>
+              <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Revenue</div>
             </div>
             <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#E88FAC' }}>{fmt(totalCommission)}</div>
-              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Mgmt Fee</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--palm-pink)' }}>{fmt(totalCommission)}</div>
+              <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Mgmt Fee</div>
             </div>
             <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#22c55e' }}>{fmt(totalEarnings - totalCommission)}</div>
-              <div style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Creator Take Home</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#7DD3A4' }}>{fmt(totalEarnings - totalCommission)}</div>
+              <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Creator Take Home</div>
             </div>
           </div>
 
           {/* Divider */}
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', margin: '0 20px' }} />
+          <div style={{ borderTop: '1px solid transparent', margin: '0 20px' }} />
 
           {/* Stepper */}
           <div style={{ padding: '14px 0' }}>
@@ -645,7 +645,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   disabled={isLocked}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-                    padding: '10px 20px', background: isActive ? '#FFF8FA' : 'transparent',
+                    padding: '10px 20px', background: isActive ? 'rgba(232, 160, 160, 0.04)' : 'transparent',
                     border: 'none', borderLeft: isActive ? '3px solid #E88FAC' : '3px solid transparent',
                     cursor: isLocked ? 'not-allowed' : 'pointer', textAlign: 'left',
                     transition: '0.15s',
@@ -653,21 +653,21 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   <span style={{
                     width: '24px', height: '24px', borderRadius: '50%', display: 'flex',
                     alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0,
-                    background: isComplete ? '#dcfce7' : isActive ? '#E88FAC' : isLocked ? '#f3f4f6' : '#dbeafe',
-                    color: isComplete ? '#16a34a' : isActive ? '#fff' : isLocked ? '#ccc' : '#3b82f6',
+                    background: isComplete ? 'rgba(125, 211, 164, 0.08)' : isActive ? 'var(--palm-pink)' : isLocked ? 'rgba(255,255,255,0.04)' : 'rgba(120, 180, 232, 0.08)',
+                    color: isComplete ? '#7DD3A4' : isActive ? 'var(--foreground)' : isLocked ? '#ccc' : '#78B4E8',
                   }}>
                     {isComplete ? '✓' : step.icon}
                   </span>
                   <div>
                     <div style={{
                       fontSize: '12px', fontWeight: isActive ? 600 : 400,
-                      color: isLocked ? '#ccc' : isComplete ? '#16a34a' : '#1a1a1a',
+                      color: isLocked ? '#ccc' : isComplete ? '#7DD3A4' : 'var(--foreground)',
                     }}>{step.label}</div>
                     {i === 0 && latestGenAt && isComplete && (
-                      <div style={{ fontSize: '9px', color: '#aaa', marginTop: '1px' }}>{fmtTs(latestGenAt)}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', marginTop: '1px' }}>{fmtTs(latestGenAt)}</div>
                     )}
                     {i === 3 && latestSentAt && isComplete && (
-                      <div style={{ fontSize: '9px', color: '#aaa', marginTop: '1px' }}>{fmtTs(latestSentAt)}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', marginTop: '1px' }}>{fmtTs(latestSentAt)}</div>
                     )}
                   </div>
                 </button>
@@ -680,12 +680,12 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
         <div style={{ flex: 1, padding: '24px 28px', overflow: activeStep === 1 ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
           {error && (
             <div style={{
-              marginBottom: '14px', padding: '10px 14px', background: '#fef2f2',
-              border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626',
+              marginBottom: '14px', padding: '10px 14px', background: 'rgba(232, 120, 120, 0.06)',
+              border: '1px solid transparent', borderRadius: '8px', fontSize: '12px', color: '#E87878',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <span>{error}</span>
-              <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>×</button>
+              <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#E87878', cursor: 'pointer' }}>×</button>
             </div>
           )}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>

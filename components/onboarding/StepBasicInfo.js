@@ -6,11 +6,11 @@ const inputStyle = {
   width: '100%',
   padding: '10px 14px',
   fontSize: '14px',
-  border: '1px solid #e0e0e0',
+  border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: '8px',
   outline: 'none',
   transition: 'border-color 0.15s',
-  background: '#fff',
+  background: 'var(--card-bg-solid)',
 }
 
 const labelStyle = {
@@ -83,10 +83,10 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+      <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
         Basic Info
       </h2>
-      <p style={{ fontSize: '13px', color: '#999', marginBottom: '24px' }}>
+      <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '24px' }}>
         Let&apos;s start with the basics. This info helps us set up your account.
       </p>
 
@@ -105,7 +105,7 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
 
         <div>
           <label style={labelStyle}>Stage Name / AKA</label>
-          <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px', lineHeight: '1.4' }}>
             The name we&apos;ll use on your social accounts, OF page, and bios. Can be your real name or a stage name — whatever your fans know you by.
           </div>
           <input
@@ -124,7 +124,7 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
             value={form.birthday}
             onChange={e => update('birthday', e.target.value)}
             max={new Date().toISOString().split('T')[0]}
-            style={{ ...inputStyle, color: form.birthday ? '#1a1a1a' : '#999' }}
+            style={{ ...inputStyle, color: form.birthday ? 'var(--foreground)' : '#999' }}
             required
           />
         </div>
@@ -166,7 +166,7 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
 
         <div>
           <label style={labelStyle}>Telegram</label>
-          <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px', lineHeight: '1.4' }}>
             We use Telegram for day-to-day communication. You can enter your username (e.g. @yourname) or the phone number linked to your account.
           </div>
           {!form.noTelegram && (
@@ -184,7 +184,7 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
             gap: '8px',
             marginTop: '8px',
             fontSize: '12px',
-            color: '#666',
+            color: 'rgba(240, 236, 232, 0.75)',
             cursor: 'pointer',
           }}>
             <input
@@ -194,7 +194,7 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
                 update('noTelegram', e.target.checked)
                 if (e.target.checked) update('telegram', '')
               }}
-              style={{ accentColor: '#E88FAC' }}
+              style={{ accentColor: 'var(--palm-pink)' }}
             />
             I don&apos;t have Telegram
           </label>
@@ -214,8 +214,8 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
                   border: 'none',
                   fontSize: '12px',
                   fontWeight: form.communication.includes(opt) ? 600 : 400,
-                  background: form.communication.includes(opt) ? '#E88FAC' : '#f5f5f5',
-                  color: form.communication.includes(opt) ? '#fff' : '#666',
+                  background: form.communication.includes(opt) ? 'var(--palm-pink)' : 'rgba(255,255,255,0.03)',
+                  color: form.communication.includes(opt) ? 'var(--foreground)' : 'rgba(240, 236, 232, 0.75)',
                   cursor: 'pointer',
                   transition: 'all 0.15s',
                 }}
@@ -233,8 +233,8 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
         style={{
           marginTop: '28px',
           padding: '10px 32px',
-          background: saving ? '#F0D0D8' : '#E88FAC',
-          color: '#fff',
+          background: saving ? 'transparent' : 'var(--palm-pink)',
+          color: 'var(--foreground)',
           border: 'none',
           borderRadius: '8px',
           fontSize: '14px',

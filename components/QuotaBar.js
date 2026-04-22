@@ -16,14 +16,14 @@ export default function QuotaBar({ used, target }) {
         <div style={{
           width: `${pct}%`,
           height: '100%',
-          background: isComplete ? '#4ade80' : pct >= 80 ? '#facc15' : '#E88FAC',
+          background: isComplete ? '#4ade80' : pct >= 80 ? '#E8C878' : 'var(--palm-pink)',
           borderRadius: '9999px',
           transition: 'width 0.4s ease',
         }} />
       </div>
       <span style={{
         fontSize: '13px',
-        color: isComplete ? '#16a34a' : '#888',
+        color: isComplete ? '#7DD3A4' : '#888',
         fontWeight: 500,
         whiteSpace: 'nowrap',
         flexShrink: 0,

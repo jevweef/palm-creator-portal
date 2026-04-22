@@ -111,20 +111,20 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#fff', borderRadius: '16px', width: '480px', maxWidth: '90vw',
+          background: 'var(--card-bg-solid)', borderRadius: '16px', width: '480px', maxWidth: '90vw',
           boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden',
         }}
       >
         {/* Header */}
         <div style={{
-          padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0',
+          padding: '20px 24px 16px', borderBottom: '1px solid transparent',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>
             Upload Data
           </div>
           <button onClick={onClose} style={{
-            background: 'none', border: 'none', fontSize: '20px', color: '#999',
+            background: 'none', border: 'none', fontSize: '20px', color: 'var(--foreground-muted)',
             cursor: 'pointer', padding: '0 4px', lineHeight: 1,
           }}>×</button>
         </div>
@@ -133,15 +133,15 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
         <div style={{ padding: '20px 24px' }}>
           {/* Account selector */}
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
               Account
             </label>
             <select
               value={accountName}
               onChange={e => { setAccountName(e.target.value); setResult(null); setError(null) }}
               style={{
-                width: '100%', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
-                color: '#1a1a1a', fontSize: '14px', padding: '10px 12px', outline: 'none',
+                width: '100%', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
+                color: 'var(--foreground)', fontSize: '14px', padding: '10px 12px', outline: 'none',
               }}
             >
               {(allAccounts || []).map(a => (
@@ -152,7 +152,7 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
 
           {/* Data type toggle */}
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
               Data Type
             </label>
             <div style={{ display: 'flex', gap: '4px' }}>
@@ -166,8 +166,8 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
                   style={{
                     flex: 1, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
                     cursor: 'pointer', transition: 'all 0.15s', border: 'none',
-                    background: dataType === t.key ? (t.key === 'sales' ? '#dcfce7' : '#fee2e2') : '#f9fafb',
-                    color: dataType === t.key ? (t.key === 'sales' ? '#166534' : '#991b1b') : '#999',
+                    background: dataType === t.key ? (t.key === 'sales' ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 120, 120, 0.1)') : '#f9fafb',
+                    color: dataType === t.key ? (t.key === 'sales' ? '#7DD3A4' : '#991b1b') : '#999',
                   }}
                 >
                   {t.label}
@@ -178,16 +178,16 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
 
           {/* Scroll-back instruction */}
           <div style={{
-            background: lastDate ? '#FFFBEB' : '#F0F9FF',
-            border: `1px solid ${lastDate ? '#FDE68A' : '#BAE6FD'}`,
+            background: lastDate ? 'rgba(232, 200, 120, 0.06)' : '#F0F9FF',
+            border: `1px solid ${lastDate ? 'rgba(232, 200, 120, 0.2)' : '#BAE6FD'}`,
             borderRadius: '10px', padding: '12px 16px', marginBottom: '16px',
           }}>
             {lastDate ? (
               <>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#E8A878', marginBottom: '4px' }}>
                   Scroll back to {fmtDate(lastDate)}
                 </div>
-                <div style={{ fontSize: '12px', color: '#A16207' }}>
+                <div style={{ fontSize: '12px', color: '#E8C878' }}>
                   Data is current through this date. On the OF Statements page, scroll past this date — duplicates are automatically skipped.
                 </div>
                 {lastUpload && (
@@ -225,9 +225,9 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
               }
             }}
             style={{
-              border: `2px dashed ${dragOver ? '#E88FAC' : file ? '#22c55e' : '#e5e7eb'}`,
+              border: `2px dashed ${dragOver ? 'var(--palm-pink)' : file ? '#7DD3A4' : 'rgba(255,255,255,0.08)'}`,
               borderRadius: '10px', padding: '20px', textAlign: 'center',
-              background: dragOver ? '#FFF0F3' : file ? '#F0FDF4' : '#fafafa',
+              background: dragOver ? 'rgba(232, 160, 160, 0.06)' : file ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)',
               cursor: 'pointer', transition: 'all 0.15s', marginBottom: '16px',
             }}
             onClick={() => fileRef.current?.click()}
@@ -240,13 +240,13 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
               style={{ display: 'none' }}
             />
             {file ? (
-              <div style={{ fontSize: '13px', color: '#166534', fontWeight: 600 }}>
+              <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>
                 ✓ {file.name}
               </div>
             ) : (
               <>
                 <div style={{ fontSize: '24px', marginBottom: '4px' }}>📄</div>
-                <div style={{ fontSize: '13px', color: '#999' }}>
+                <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
                   Drop HTML file here or click to browse
                 </div>
               </>
@@ -259,8 +259,8 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
             onClick={handleUpload}
             style={{
               width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
-              background: !file || uploading ? '#e5e7eb' : '#1a1a1a',
-              color: !file || uploading ? '#999' : '#fff',
+              background: !file || uploading ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.08)',
+              color: !file || uploading ? '#999' : 'var(--foreground)',
               fontSize: '14px', fontWeight: 600, cursor: !file || uploading ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s',
             }}
@@ -271,8 +271,8 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
           {/* Error */}
           {error && (
             <div style={{
-              marginTop: '12px', padding: '10px 14px', background: '#FEF2F2',
-              border: '1px solid #FECACA', borderRadius: '8px', fontSize: '12px', color: '#DC2626',
+              marginTop: '12px', padding: '10px 14px', background: 'rgba(232, 120, 120, 0.06)',
+              border: '1px solid #FECACA', borderRadius: '8px', fontSize: '12px', color: '#E87878',
             }}>
               {error}
             </div>
@@ -281,10 +281,10 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
           {/* Result */}
           {result && (
             <div style={{
-              marginTop: '12px', padding: '12px 16px', background: '#F0FDF4',
+              marginTop: '12px', padding: '12px 16px', background: 'rgba(125, 211, 164, 0.06)',
               border: '1px solid #BBF7D0', borderRadius: '8px',
             }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '6px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#7DD3A4', marginBottom: '6px' }}>
                 {result.uploaded > 0 ? `Added ${result.uploaded} new transactions` : (result.message || 'No new transactions to add')}
               </div>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px', color: '#15803D' }}>
@@ -295,7 +295,7 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
               </div>
               {result.typeBreakdown && (
                 <div style={{ marginTop: '8px' }}>
-                  <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600, marginBottom: '2px' }}>By Type:</div>
+                  <div style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 600, marginBottom: '2px' }}>By Type:</div>
                   {Object.entries(result.typeBreakdown).map(([type, total]) => (
                     <div key={type} style={{ fontSize: '12px', color: '#15803D', paddingLeft: '8px' }}>
                       {type}: {fmtMoney(total)}

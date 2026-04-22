@@ -6,10 +6,10 @@ const inputStyle = {
   width: '100%',
   padding: '10px 14px',
   fontSize: '14px',
-  border: '1px solid #e0e0e0',
+  border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: '8px',
   outline: 'none',
-  background: '#fff',
+  background: 'var(--card-bg-solid)',
 }
 
 const labelStyle = {
@@ -23,14 +23,14 @@ const labelStyle = {
 const sectionHeaderStyle = {
   fontSize: '15px',
   fontWeight: 600,
-  color: '#1a1a1a',
+  color: 'var(--foreground)',
   marginBottom: '4px',
   marginTop: '24px',
 }
 
 const hintStyle = {
   fontSize: '11px',
-  color: '#999',
+  color: 'var(--foreground-muted)',
   marginBottom: '12px',
 }
 
@@ -46,24 +46,24 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
 
   return (
     <div style={{
-      background: '#fff',
-      border: '1px solid #e0e0e0',
+      background: 'var(--card-bg-solid)',
+      border: '1px solid rgba(255,255,255,0.08)',
       borderRadius: '12px',
       padding: '16px',
       marginBottom: '12px',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <span style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>{platform.label}</span>
+        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{platform.label}</span>
         <button
           type="button"
           onClick={onRemove}
           style={{
             padding: '4px 10px',
-            background: '#f5f5f5',
+            background: 'rgba(255,255,255,0.03)',
             border: 'none',
             borderRadius: '6px',
             fontSize: '11px',
-            color: '#999',
+            color: 'var(--foreground-muted)',
             cursor: 'pointer',
           }}
         >
@@ -78,11 +78,11 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
             <span style={{
               padding: '10px 12px',
               fontSize: '14px',
-              background: '#f5f5f5',
-              border: '1px solid #e0e0e0',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.08)',
               borderRight: 'none',
               borderRadius: '8px 0 0 8px',
-              color: '#999',
+              color: 'var(--foreground-muted)',
               whiteSpace: 'nowrap',
             }}>
               {platform.prefix}
@@ -114,13 +114,13 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
           gap: '8px',
           cursor: 'pointer',
           fontSize: '12px',
-          color: '#666',
+          color: 'rgba(240, 236, 232, 0.75)',
         }}>
           <input
             type="checkbox"
             checked={sendDirect}
             onChange={e => onSendDirect(e.target.checked)}
-            style={{ accentColor: '#E88FAC' }}
+            style={{ accentColor: 'var(--palm-pink)' }}
           />
           I&apos;ll send my password directly to my manager
         </label>
@@ -167,18 +167,18 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
                 )}
               </button>
             </div>
-            <div style={{ fontSize: '11px', color: '#999', marginTop: '6px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '6px' }}>
               Only your account manager has access to your password. It&apos;s stored securely and encrypted.
             </div>
           </div>
         ) : (
           <div style={{
-            background: '#FFF8E1',
+            background: 'rgba(232, 200, 120, 0.06)',
             border: '1px solid #FFE082',
             borderRadius: '8px',
             padding: '10px 14px',
             fontSize: '12px',
-            color: '#666',
+            color: 'rgba(240, 236, 232, 0.75)',
           }}>
             Please send your {platform.label} password to your manager via text or secure message before continuing.
           </div>
@@ -314,10 +314,10 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+      <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
         Accounts & Access
       </h2>
-      <p style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
+      <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>
         We need access to your accounts to manage your page. All credentials are transmitted securely over HTTPS.
       </p>
 
@@ -334,9 +334,9 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
             style={{
               padding: '10px 20px',
               borderRadius: '10px',
-              border: selectedPlatforms.includes(p.key) ? '2px solid #E88FAC' : '2px solid #e0e0e0',
-              background: selectedPlatforms.includes(p.key) ? '#FFF0F3' : '#fff',
-              color: selectedPlatforms.includes(p.key) ? '#E88FAC' : '#666',
+              border: selectedPlatforms.includes(p.key) ? '1px solid var(--palm-pink)' : '1px solid var(--white-8)',
+              background: selectedPlatforms.includes(p.key) ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
+              color: selectedPlatforms.includes(p.key) ? 'var(--palm-pink)' : 'rgba(240, 236, 232, 0.75)',
               fontSize: '13px',
               fontWeight: selectedPlatforms.includes(p.key) ? 600 : 400,
               cursor: 'pointer',
@@ -375,11 +375,11 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
             <span style={{
               padding: '10px 12px',
               fontSize: '14px',
-              background: '#f5f5f5',
-              border: '1px solid #e0e0e0',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.08)',
               borderRight: 'none',
               borderRadius: '8px 0 0 8px',
-              color: '#999',
+              color: 'var(--foreground-muted)',
               whiteSpace: 'nowrap',
             }}>@</span>
             <input
@@ -397,11 +397,11 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
             <span style={{
               padding: '10px 12px',
               fontSize: '14px',
-              background: '#f5f5f5',
-              border: '1px solid #e0e0e0',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.08)',
               borderRight: 'none',
               borderRadius: '8px 0 0 8px',
-              color: '#999',
+              color: 'var(--foreground-muted)',
               whiteSpace: 'nowrap',
             }}>@</span>
             <input
@@ -419,11 +419,11 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
             <span style={{
               padding: '10px 12px',
               fontSize: '14px',
-              background: '#f5f5f5',
-              border: '1px solid #e0e0e0',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.08)',
               borderRight: 'none',
               borderRadius: '8px 0 0 8px',
-              color: '#999',
+              color: 'var(--foreground-muted)',
               whiteSpace: 'nowrap',
             }}>u/</span>
             <input
@@ -473,8 +473,8 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
         style={{
           marginTop: '28px',
           padding: '10px 32px',
-          background: saving ? '#F0D0D8' : '#E88FAC',
-          color: '#fff',
+          background: saving ? 'transparent' : 'var(--palm-pink)',
+          color: 'var(--foreground)',
           border: 'none',
           borderRadius: '8px',
           fontSize: '14px',

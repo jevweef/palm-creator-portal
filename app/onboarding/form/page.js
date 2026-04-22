@@ -33,9 +33,9 @@ function AccountLinkingScreen() {
   }, [hasAutoRefreshed])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{
-        background: '#fff',
+        background: 'var(--card-bg-solid)',
         borderRadius: '20px',
         padding: '40px',
         maxWidth: '440px',
@@ -52,15 +52,15 @@ function AccountLinkingScreen() {
           animation: 'spin 0.8s linear infinite',
           margin: '0 auto 20px',
         }} />
-        <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
           Setting Up Your Account
         </h1>
-        <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5', marginBottom: '16px' }}>
+        <p style={{ fontSize: '14px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.5', marginBottom: '16px' }}>
           We&apos;re linking your account to our system. This usually takes a few seconds.
         </p>
-        <div style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>
           {countdown > 0 ? (
-            <>Auto-refreshing in <span style={{ fontWeight: 600, color: '#E88FAC' }}>{countdown}s</span></>
+            <>Auto-refreshing in <span style={{ fontWeight: 600, color: 'var(--palm-pink)' }}>{countdown}s</span></>
           ) : (
             'Refreshing...'
           )}
@@ -69,8 +69,8 @@ function AccountLinkingScreen() {
           onClick={() => window.location.reload()}
           style={{
             padding: '10px 24px',
-            background: '#E88FAC',
-            color: '#fff',
+            background: 'var(--palm-pink)',
+            color: '#060606',
             border: 'none',
             borderRadius: '8px',
             fontSize: '14px',
@@ -240,8 +240,8 @@ export default function OnboardingForm() {
 
   if (!isLoaded || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#999', fontSize: '14px' }}>Loading your onboarding...</div>
+      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading your onboarding...</div>
       </div>
     )
   }
@@ -282,30 +282,30 @@ export default function OnboardingForm() {
 
   const renderComingSoon = (label) => (
     <div style={{
-      background: '#fff',
+      background: 'var(--card-bg-solid)',
       borderRadius: '16px',
       padding: '40px',
       textAlign: 'center',
       boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
     }}>
-      <div style={{ fontSize: '14px', fontWeight: 600, color: '#999', marginBottom: '12px' }}>Coming Soon</div>
-      <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
+      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground-muted)', marginBottom: '12px' }}>Coming Soon</div>
+      <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
         {label}
       </h2>
-      <p style={{ fontSize: '13px', color: '#999' }}>
+      <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
         This step is coming soon. We&apos;ll let you know when it&apos;s ready.
       </p>
     </div>
   )
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
+    <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '32px 20px' }}>
         <div style={{ marginBottom: '8px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>
             Onboarding
           </h1>
-          <p style={{ fontSize: '13px', color: '#999' }}>
+          <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
             Complete each step below. Your progress is saved automatically.
           </p>
         </div>
@@ -317,7 +317,7 @@ export default function OnboardingForm() {
         />
 
         <div style={{
-          background: currentStep === 'survey' ? 'transparent' : '#fff',
+          background: currentStep === 'survey' ? 'transparent' : 'rgba(255,255,255,0.08)',
           borderRadius: '16px',
           padding: currentStep === 'survey' ? '0' : '28px',
           boxShadow: currentStep === 'survey' ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
@@ -393,10 +393,10 @@ export default function OnboardingForm() {
 
 const navBtnStyle = {
   padding: '6px 14px',
-  background: '#fff',
-  border: '1px solid #e0e0e0',
+  background: 'var(--card-bg-solid)',
+  border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: '6px',
   fontSize: '12px',
-  color: '#666',
+  color: 'rgba(240, 236, 232, 0.75)',
   cursor: 'pointer',
 }

@@ -14,8 +14,8 @@ function gradeColor(grade) {
   if (!grade) return '#ccc'
   if (grade === 'A+') return '#ffd700'
   if (grade.startsWith('A')) return '#4ade80'
-  if (grade.startsWith('B')) return '#60a5fa'
-  if (grade.startsWith('C')) return '#fb923c'
+  if (grade.startsWith('B')) return '#78B4E8'
+  if (grade.startsWith('C')) return '#E8A878'
   return '#999'
 }
 
@@ -32,13 +32,13 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
   return (
     <div
       onClick={onClick}
-      className="group relative bg-white overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.01]"
+      className="group relative bg-[#0f0f0f] overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.01]"
       style={{display:'flex', flexDirection:'column', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', border: 'none', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)'}}
       onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-[9/16] bg-[#FFF0F3] overflow-hidden">
+      <div className="relative aspect-[9/16] bg-[rgba(232,160,160,0.06)] overflow-hidden">
         {record.thumbnail && !imgError ? (
           <img
             src={record.thumbnail}
@@ -84,7 +84,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
             onClick={(e) => { e.stopPropagation(); onSave(record.id) }}
             className="absolute bottom-[52px] right-3 z-20 transition-all duration-200 hover:scale-110"
             style={{
-              background: isSaved ? '#E88FAC' : 'rgba(0,0,0,0.6)',
+              background: isSaved ? 'var(--palm-pink)' : 'rgba(0,0,0,0.6)',
               backdropFilter: 'blur(4px)',
               border: isSaved ? 'none' : '1px solid rgba(255,255,255,0.2)',
               borderRadius: '8px',
@@ -96,10 +96,10 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
             }}
             title={isSaved ? 'Unsave' : 'Save to film later'}
           >
-            <svg className="w-3.5 h-3.5" fill={isSaved ? '#fff' : 'none'} viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
+            <svg className="w-3.5 h-3.5" fill={isSaved ? 'var(--foreground)' : 'none'} viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
-            <span style={{fontSize:'10px', fontWeight:600, color:'#fff'}}>{isSaved ? 'Saved' : 'Save'}</span>
+            <span style={{fontSize:'10px', fontWeight:600, color:'var(--foreground)'}}>{isSaved ? 'Saved' : 'Save'}</span>
           </button>
         )}
 
@@ -145,7 +145,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
 
       {/* Card body */}
       <div style={{padding:'14px', flex:1}}>
-        <h3 style={{fontSize:'13px', fontWeight:600, color:'#1a1a1a', marginBottom:'10px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{record.title}</h3>
+        <h3 style={{fontSize:'13px', fontWeight:600, color:'var(--foreground)', marginBottom:'10px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{record.title}</h3>
 
         {/* Tags — single line, overflow hidden */}
         <div style={{display:'flex', gap:'6px', overflow:'hidden', whiteSpace:'nowrap'}}>
@@ -155,7 +155,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
             </span>
           ))}
           {extraCount > 0 && (
-            <span style={{padding:'3px 8px', flexShrink:0, fontSize:'10px', borderRadius:'9999px', background:'#FFF0F3', color:'#999'}}>
+            <span style={{padding:'3px 8px', flexShrink:0, fontSize:'10px', borderRadius:'9999px', background:'rgba(232, 160, 160, 0.06)', color:'#999'}}>
               +{extraCount}
             </span>
           )}

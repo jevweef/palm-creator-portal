@@ -8,8 +8,8 @@ function gradeColor(grade) {
   if (!grade) return '#ccc'
   if (grade === 'A+') return '#ffd700'
   if (grade.startsWith('A')) return '#4ade80'
-  if (grade.startsWith('B')) return '#60a5fa'
-  if (grade.startsWith('C')) return '#fb923c'
+  if (grade.startsWith('B')) return '#78B4E8'
+  if (grade.startsWith('C')) return '#E8A878'
   return '#999'
 }
 
@@ -87,12 +87,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-white overflow-hidden flex flex-col" style={{boxShadow: '0 8px 40px rgba(0,0,0,0.15)', border: 'none'}}>
+      <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-[#0f0f0f] overflow-hidden flex flex-col" style={{boxShadow: '0 8px 40px rgba(0,0,0,0.15)', border: 'none'}}>
 
         {/* Header */}
-        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid rgba(0,0,0,0.06)', gap:'16px'}}>
+        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid transparent', gap:'16px'}}>
           <div style={{minWidth:0}}>
-            <h2 style={{fontSize:'18px', fontWeight:600, color:'#1a1a1a', lineHeight:1.4, margin:0}}>{record.title}</h2>
+            <h2 style={{fontSize:'18px', fontWeight:600, color:'var(--foreground)', lineHeight:1.4, margin:0}}>{record.title}</h2>
             {record.username && (
               <p style={{fontSize:'12px', color:'#999', marginTop:'6px'}}>@{record.username}</p>
             )}
@@ -102,7 +102,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               <button
                 onClick={onUpload}
                 style={{
-                  background: '#E88FAC',
+                  background: 'var(--palm-pink)',
                   border: '1px solid #E88FAC',
                   borderRadius: '9999px',
                   padding: '6px 14px',
@@ -110,7 +110,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: '#fff',
+                  color: 'var(--foreground)',
                   fontSize: '12px',
                   fontWeight: 500,
                   transition: 'all 0.2s',
@@ -126,7 +126,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               <button
                 onClick={() => onSave(record.id)}
                 style={{
-                  background: isSaved ? '#E88FAC' : '#FFF0F3',
+                  background: isSaved ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
                   border: isSaved ? '1px solid #E88FAC' : 'none',
                   boxShadow: isSaved ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
                   borderRadius: '9999px',
@@ -135,13 +135,13 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: isSaved ? '#fff' : '#888',
+                  color: isSaved ? 'var(--foreground)' : '#888',
                   fontSize: '12px',
                   fontWeight: 500,
                   transition: 'all 0.2s',
                 }}
               >
-                <svg className="w-3.5 h-3.5" fill={isSaved ? '#fff' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3.5 h-3.5" fill={isSaved ? 'var(--foreground)' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
                 {isSaved ? 'Saved' : 'Save'}
@@ -183,7 +183,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
           </div>
 
           {/* Details — absolute on desktop, pinned to right of video, scrolls within video height */}
-          <div className="flex flex-col gap-5 p-[22px_28px] bg-white md:absolute md:top-0 md:bottom-0 md:left-[280px] md:right-0 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[rgba(0,0,0,0.06)]">
+          <div className="flex flex-col gap-5 p-[22px_28px] bg-[#0f0f0f] md:absolute md:top-0 md:bottom-0 md:left-[280px] md:right-0 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[rgba(0,0,0,0.06)]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>
@@ -283,7 +283,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {record.onScreenText && (
               <div>
                 <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>On-Screen Text</p>
-                <p style={{fontSize:'14px', color:'#4a4a4a', fontStyle:'italic'}}>"{record.onScreenText}"</p>
+                <p style={{fontSize:'14px', color:'rgba(240, 236, 232, 0.85)', fontStyle:'italic'}}>"{record.onScreenText}"</p>
               </div>
             )}
 
@@ -291,7 +291,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {inspoDirection && (
               <div>
                 <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>Inspo Direction</p>
-                <p style={{fontSize:'14px', color:'#333', lineHeight:'1.6'}}>{inspoDirection}</p>
+                <p style={{fontSize:'14px', color:'rgba(240, 236, 232, 0.92)', lineHeight:'1.7'}}>{inspoDirection}</p>
               </div>
             )}
 
@@ -299,7 +299,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {whatMattersMost && (
               <div>
                 <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>What Matters Most</p>
-                <p style={{fontSize:'14px', color:'#333', lineHeight:'1.6'}}>{whatMattersMost}</p>
+                <p style={{fontSize:'14px', color:'rgba(240, 236, 232, 0.92)', lineHeight:'1.7'}}>{whatMattersMost}</p>
               </div>
             )}
 
@@ -311,7 +311,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs transition-colors"
-                  style={{color:'#E88FAC'}}
+                  style={{color:'var(--palm-pink)'}}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -325,12 +325,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Prev / Next */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 22px', borderTop:'1px solid rgba(0,0,0,0.04)'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 22px', borderTop:'1px solid transparent'}}>
           <button
             onClick={onPrev}
             disabled={!hasPrev}
             className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{background:'#FFF0F3', color:'#666', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'8px 18px'}}
+            style={{background:'rgba(232, 160, 160, 0.06)', color:'rgba(240, 236, 232, 0.75)', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'8px 18px'}}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -341,7 +341,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             onClick={onNext}
             disabled={!hasNext}
             className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{background:'#FFF0F3', color:'#666', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'8px 18px'}}
+            style={{background:'rgba(232, 160, 160, 0.06)', color:'rgba(240, 236, 232, 0.75)', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'8px 18px'}}
           >
             Next
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

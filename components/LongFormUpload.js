@@ -110,9 +110,9 @@ export default function LongFormUpload({ showToast }) {
       <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: '20px', flexWrap: 'wrap' }}>
         {/* Creator picker */}
         <div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Creator</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Creator</div>
           <select value={selectedCreator} onChange={e => setSelectedCreator(e.target.value)}
-            style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', background: '#fff', minWidth: '180px' }}>
+            style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid transparent', background: 'var(--card-bg-solid)', minWidth: '180px' }}>
             <option value="">Select creator...</option>
             {creators.map(c => (
               <option key={c.id} value={c.id}>{c.aka || c.name}</option>
@@ -122,11 +122,11 @@ export default function LongFormUpload({ showToast }) {
 
         {/* Mode toggle */}
         <div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Source</div>
-          <div style={{ display: 'flex', gap: '0', border: '1px solid #E8C4CC', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Source</div>
+          <div style={{ display: 'flex', gap: '0', border: '1px solid transparent', borderRadius: '8px', overflow: 'hidden' }}>
             {[{ key: 'file', label: 'File' }, { key: 'url', label: 'URL' }].map(m => (
               <button key={m.key} onClick={() => setUploadMode(m.key)}
-                style={{ padding: '7px 14px', fontSize: '11px', fontWeight: 600, background: uploadMode === m.key ? '#FFF0F3' : '#fff', color: uploadMode === m.key ? '#E88FAC' : '#999', border: 'none', cursor: 'pointer' }}>
+                style={{ padding: '7px 14px', fontSize: '11px', fontWeight: 600, background: uploadMode === m.key ? 'rgba(232, 160, 160, 0.05)' : 'rgba(255,255,255,0.08)', color: uploadMode === m.key ? 'var(--palm-pink)' : '#999', border: 'none', cursor: 'pointer' }}>
                 {m.label}
               </button>
             ))}
@@ -136,9 +136,9 @@ export default function LongFormUpload({ showToast }) {
         {uploadMode === 'file' && (
           <>
             <div>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Files</div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Files</div>
               <button onClick={() => fileRef.current?.click()}
-                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
+                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
                 {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Choose files'}
               </button>
               <input ref={fileRef} type="file" multiple accept="video/*" style={{ display: 'none' }}
@@ -147,9 +147,9 @@ export default function LongFormUpload({ showToast }) {
             <button onClick={handleUpload} disabled={!selectedCreator || files.length === 0 || uploading}
               style={{
                 padding: '8px 20px', fontSize: '13px', fontWeight: 700,
-                background: uploading || !selectedCreator || files.length === 0 ? '#f0f0f0' : '#dcfce7',
-                color: uploading || !selectedCreator || files.length === 0 ? '#999' : '#22c55e',
-                border: `1px solid ${uploading ? '#e0e0e0' : '#bbf7d0'}`,
+                background: uploading || !selectedCreator || files.length === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(125, 211, 164, 0.08)',
+                color: uploading || !selectedCreator || files.length === 0 ? '#999' : '#7DD3A4',
+                border: `1px solid ${uploading ? 'rgba(255,255,255,0.08)' : 'rgba(125, 211, 164, 0.2)'}`,
                 borderRadius: '8px', cursor: uploading ? 'default' : 'pointer',
               }}>
               {uploading ? progress || 'Uploading...' : 'Upload'}
@@ -161,13 +161,13 @@ export default function LongFormUpload({ showToast }) {
       {uploadMode === 'url' && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           <input value={urlInput} onChange={e => setUrlInput(e.target.value)} placeholder="Paste Google Drive link..."
-            style={{ flex: 1, padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', outline: 'none' }} />
+            style={{ flex: 1, padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid transparent', outline: 'none' }} />
           <button onClick={handleUrlUpload} disabled={!selectedCreator || !urlInput.trim() || uploading}
             style={{
               padding: '8px 20px', fontSize: '13px', fontWeight: 700, flexShrink: 0,
-              background: uploading || !selectedCreator || !urlInput.trim() ? '#f0f0f0' : '#dcfce7',
-              color: uploading || !selectedCreator || !urlInput.trim() ? '#999' : '#22c55e',
-              border: `1px solid ${uploading ? '#e0e0e0' : '#bbf7d0'}`,
+              background: uploading || !selectedCreator || !urlInput.trim() ? 'rgba(255,255,255,0.04)' : 'rgba(125, 211, 164, 0.08)',
+              color: uploading || !selectedCreator || !urlInput.trim() ? '#999' : '#7DD3A4',
+              border: `1px solid ${uploading ? 'rgba(255,255,255,0.08)' : 'rgba(125, 211, 164, 0.2)'}`,
               borderRadius: '8px', cursor: uploading ? 'default' : 'pointer',
             }}>
             {uploading ? progress || 'Downloading...' : 'Upload from URL'}
@@ -176,34 +176,34 @@ export default function LongFormUpload({ showToast }) {
       )}
 
       {uploadMode === 'file' && files.length > 0 && (
-        <div style={{ marginBottom: '16px', padding: '12px', background: '#fff', borderRadius: '10px', border: '1px solid #E8C4CC' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Ready to upload</div>
+        <div style={{ marginBottom: '16px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '10px', border: '1px solid transparent' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Ready to upload</div>
           {files.map((f, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px' }}>
               <span style={{ color: '#333' }}>{f.name}</span>
-              <span style={{ color: '#999', fontSize: '11px' }}>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+              <span style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
             </div>
           ))}
         </div>
       )}
 
       {selectedCreator && (
-        <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px' }}>
-          Uploads go to: <span style={{ color: '#666', fontFamily: 'monospace' }}>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>
+          Uploads go to: <span style={{ color: 'var(--foreground-muted)', fontFamily: 'monospace' }}>
             /Creators/{creators.find(c => c.id === selectedCreator)?.aka || '...'}/Long Form/35_FINALS_FOR_REVIEW/
           </span>
         </div>
       )}
 
       {uploads.length > 0 && (
-        <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+        <div style={{ padding: '12px', background: 'rgba(125, 211, 164, 0.06)', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
             Uploaded this session ({uploads.length})
           </div>
           {uploads.map((u, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0', fontSize: '11px' }}>
               <span style={{ color: '#333' }}>{u.name}</span>
-              <span style={{ color: '#999' }}>{(u.size / 1024 / 1024).toFixed(1)} MB</span>
+              <span style={{ color: 'var(--foreground-muted)' }}>{(u.size / 1024 / 1024).toFixed(1)} MB</span>
             </div>
           ))}
         </div>

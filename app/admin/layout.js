@@ -18,6 +18,7 @@ const ADMIN_NAV = [
     { key: 'editorview', label: 'Dashboard' },
     { key: 'review', label: 'For Review' },
     { key: 'postprep', label: 'Post Prep' },
+    { key: 'grid', label: 'Grid Planner' },
     { key: 'library', label: 'Creator Library' },
     { key: 'longform', label: 'Long Form' },
   ]},
@@ -54,6 +55,11 @@ export default function AdminLayout({ children }) {
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  // Close mobile nav on route change
+  useEffect(() => { setMobileNavOpen(false) }, [pathname, activeTab])
+
   useEffect(() => {
     if (!isLoaded) return
     if (!isAdmin && !isEditor) {
@@ -67,8 +73,8 @@ export default function AdminLayout({ children }) {
   // Early returns AFTER all hooks
   if (!isLoaded || (!isAdmin && !isEditor)) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#999', fontSize: '14px' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading...</div>
       </div>
     )
   }
@@ -76,16 +82,85 @@ export default function AdminLayout({ children }) {
   const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
+    <div className="admin-shell" style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>
+      {/* Mobile-only styles — desktop untouched */}
+      <style>{`
+        @media (max-width: 768px) {
+          .admin-shell { display: block !important; }
+          .admin-sidebar {
+            position: fixed !important;
+            top: 49px; left: 0; bottom: 0;
+            width: 240px !important;
+            z-index: 250;
+            transform: translateX(-100%);
+            transition: transform 0.22s ease;
+            overflow-y: auto;
+          }
+          .admin-sidebar.open { transform: translateX(0); }
+          .admin-sidebar-backdrop {
+            display: none;
+            position: fixed; inset: 49px 0 0 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 240;
+          }
+          .admin-sidebar-backdrop.open { display: block; }
+          .admin-mobile-bar {
+            display: flex !important;
+          }
+          .admin-main {
+            padding: 12px 14px !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .admin-mobile-bar { display: none !important; }
+          .admin-sidebar-backdrop { display: none !important; }
+        }
+      `}</style>
+
+      {/* Mobile top bar — only visible on mobile */}
+      <div className="admin-mobile-bar" style={{
+        display: 'none',
+        position: 'sticky', top: 0, zIndex: 220,
+        background: 'rgba(10, 10, 10, 0.95)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        padding: '10px 14px',
+        alignItems: 'center', gap: '12px',
+      }}>
+        <button
+          onClick={() => setMobileNavOpen(o => !o)}
+          aria-label="Open navigation"
+          style={{
+            background: 'rgba(232, 160, 160, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px',
+            width: '36px', height: '36px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+          }}
+        >
+          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '3px' }}>
+            <span style={{ width: '16px', height: '2px', background: 'var(--palm-pink)', borderRadius: '2px' }} />
+            <span style={{ width: '16px', height: '2px', background: 'var(--palm-pink)', borderRadius: '2px' }} />
+            <span style={{ width: '16px', height: '2px', background: 'var(--palm-pink)', borderRadius: '2px' }} />
+          </span>
+        </button>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>
+          {isAdmin ? 'Admin' : 'Editor'}
+        </div>
+      </div>
+
+      {/* Backdrop (mobile only) */}
+      <div
+        className={`admin-sidebar-backdrop${mobileNavOpen ? ' open' : ''}`}
+        onClick={() => setMobileNavOpen(false)}
+      />
+
       {/* Sidebar */}
-      <aside style={{
+      <aside className={`admin-sidebar${mobileNavOpen ? ' open' : ''}`} style={{
         width: '180px',
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
         padding: '20px 0',
         flexShrink: 0,
-        background: '#ffffff',
+        background: 'rgba(10, 10, 10, 0.95)',
       }}>
-        <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {isAdmin ? 'Admin' : 'Editor'}
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
@@ -106,9 +181,9 @@ export default function AdminLayout({ children }) {
                     padding: '8px 16px',
                     fontSize: '13px',
                     fontWeight: isActive ? 600 : 400,
-                    color: isActive ? '#E88FAC' : '#666',
-                    background: isActive ? '#FFF0F3' : 'transparent',
-                    borderLeft: isActive ? '2px solid #E88FAC' : '2px solid transparent',
+                    color: isActive ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+                    background: isActive ? 'rgba(232, 160, 160, 0.08)' : 'transparent',
+                    borderLeft: isActive ? '1px solid var(--palm-pink)' : '2px solid transparent',
                     textDecoration: 'none',
                     transition: '0.15s ease',
                   }}
@@ -129,10 +204,10 @@ export default function AdminLayout({ children }) {
                             padding: '5px 16px 5px 42px',
                             fontSize: '11px',
                             fontWeight: isChildActive ? 600 : 400,
-                            color: isChildActive ? '#E88FAC' : '#999',
+                            color: isChildActive ? 'var(--palm-pink)' : '#999',
                             textDecoration: 'none',
                             transition: '0.15s ease',
-                            background: isChildActive ? '#FFF8FA' : 'transparent',
+                            background: isChildActive ? 'rgba(232, 160, 160, 0.04)' : 'transparent',
                           }}
                         >
                           {child.label}
@@ -148,7 +223,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main content */}
-      <main style={{ flex: 1, padding: '24px 32px', minWidth: 0, overflowX: 'hidden', overflowY: 'auto' }}>
+      <main className="admin-main" style={{ flex: 1, padding: '24px 32px', minWidth: 0, overflowX: 'hidden', overflowY: 'auto' }}>
         {children}
       </main>
     </div>

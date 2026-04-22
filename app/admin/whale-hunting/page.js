@@ -23,14 +23,14 @@ export default function WhaleHuntingPage() {
   return (
     <div style={{ padding: '32px 40px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>🐋 Whale Hunting</h1>
-        <p style={{ fontSize: '13px', color: '#666', margin: '6px 0 0' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>🐋 Whale Hunting</h1>
+        <p style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', margin: '6px 0 0' }}>
           Aggregate reports across analyzed whales. Per-fan briefs live on each creator&apos;s Fans tab.
         </p>
       </div>
 
       {/* Tab headers */}
-      <div style={{ display: 'flex', gap: '24px', borderBottom: '1px solid #E5E7EB', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', gap: '24px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '24px' }}>
         {[
           { key: 'internal', label: 'Palm Internal' },
           { key: 'team', label: 'Chat Team Report' },
@@ -38,9 +38,9 @@ export default function WhaleHuntingPage() {
           <button key={t.key} onClick={() => switchTab(t.key)}
             style={{
               padding: '10px 0', fontSize: '13px', fontWeight: tab === t.key ? 700 : 500,
-              color: tab === t.key ? '#1a1a1a' : '#999',
+              color: tab === t.key ? 'var(--foreground)' : 'var(--foreground-muted)',
               background: 'none', border: 'none', cursor: 'pointer',
-              borderBottom: tab === t.key ? '2px solid #E88FAC' : '2px solid transparent',
+              borderBottom: tab === t.key ? '1px solid var(--palm-pink)' : '2px solid transparent',
               marginBottom: '-1px',
             }}>
             {t.label}
@@ -90,7 +90,7 @@ function PalmInternalTab() {
       </div>
 
       <div style={{
-        marginTop: '32px', padding: '16px 20px', background: '#FEF9C3',
+        marginTop: '32px', padding: '16px 20px', background: 'rgba(232, 200, 120, 0.08)',
         border: '1px solid #FDE68A', borderRadius: '8px', fontSize: '12px', color: '#78350F',
       }}>
         <strong>Phase 1:</strong> Per-fan analysis format has been rebuilt with the new
@@ -138,8 +138,8 @@ function ChatTeamTab() {
       </div>
 
       <div style={{
-        marginTop: '32px', padding: '16px 20px', background: '#F3F4F6',
-        border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: '12px', color: '#374151',
+        marginTop: '32px', padding: '16px 20px', background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '12px', color: '#374151',
       }}>
         <strong>Cadence:</strong> Weekly digest + monthly retrospective. Output is a single
         downloadable PDF/doc the chat manager can read on their own and use for coaching conversations.
@@ -151,11 +151,11 @@ function ChatTeamTab() {
 function SectionCard({ title, description }) {
   return (
     <div style={{
-      padding: '20px 24px', background: '#fff', borderRadius: '12px',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid #F3F4F6',
+      padding: '20px 24px', background: 'var(--card-bg-solid)', borderRadius: '12px',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: 'none',
     }}>
-      <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>{title}</div>
-      <div style={{ fontSize: '12px', color: '#666', lineHeight: '1.6' }}>{description}</div>
+      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '6px' }}>{title}</div>
+      <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.6' }}>{description}</div>
     </div>
   )
 }
@@ -163,15 +163,15 @@ function SectionCard({ title, description }) {
 function ComingSoonCard({ title, description }) {
   return (
     <div style={{
-      padding: '16px 18px', background: '#FAFAFA', borderRadius: '10px',
-      border: '1px dashed #D1D5DB', position: 'relative',
+      padding: '16px 18px', background: 'var(--card-bg-solid)', borderRadius: '10px',
+      border: '1px dashed rgba(255,255,255,0.08)', position: 'relative',
     }}>
       <div style={{
         position: 'absolute', top: '10px', right: '12px', fontSize: '9px', fontWeight: 700,
-        color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em',
+        color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em',
       }}>Coming Soon</div>
-      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>{title}</div>
-      <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.5' }}>{description}</div>
+      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>{title}</div>
+      <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.5' }}>{description}</div>
     </div>
   )
 }

@@ -141,7 +141,8 @@ const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 // 50MB Telegram bot upload limit
 
 function rawDropboxUrl(url) {
   if (!url) return ''
-  return url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
+  const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
+  return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
 
 function isVideo(url) {
@@ -163,21 +164,23 @@ function getFilename(url) {
   return url.split('/').pop()?.split('?')[0] || 'file'
 }
 
-async function telegramUpload(method, form) {
+async function telegramUpload(method, form, { signal } = {}) {
   const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
     method: 'POST',
     body: form,
+    signal,
   })
   const data = await res.json()
   if (!data.ok) throw new Error(`Telegram ${method} failed: ${data.description}`)
   return data
 }
 
-async function telegramJson(method, body) {
+async function telegramJson(method, body, { signal } = {}) {
   const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal,
   })
   const data = await res.json()
   if (!data.ok) throw new Error(`Telegram ${method} failed: ${data.description}`)
@@ -203,37 +206,60 @@ export async function POST(request) {
 
     let result
 
-    // Strategy: try URL method first (fast, ~2s) with a 10s timeout.
-    // If it fails, download from Dropbox and upload directly to Telegram.
+    // Strategy: try URL method first (Telegram pulls directly from Dropbox).
+    // Timeout is generous (35s) because Telegram pulling a 30-50MB file can
+    // legitimately take 15-30s. AbortController actually cancels the request
+    // so we don't keep a zombie fetch eating the remaining function budget.
+    // If URL method TIMES OUT, we do NOT fall through — the download+upload
+    // fallback can't fit in the remaining ~25s for big files either.
+    // If URL method returns a real error (e.g. Telegram rejects the URL),
+    // we DO fall through — that fast failure leaves plenty of budget.
+    let urlMethodTimedOut = false
     if (isVideo(editedFileLink) && !needsRemux) {
+      const controller = new AbortController()
+      const timer = setTimeout(() => {
+        urlMethodTimedOut = true
+        controller.abort()
+      }, 35000)
       try {
-        console.log('[Telegram Send] Trying URL method (10s timeout)...')
-        const urlPromise = thumbnailUrl
-          ? (async () => {
-              // Download + resize thumbnail, send media group with video URL
-              const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
-              if (!thumbRes.ok) throw new Error('Thumb download failed')
-              const rawThumb = await thumbRes.arrayBuffer()
-              const thumbBuffer = await resizeImage(rawThumb, getFilename(thumbnailUrl))
-              const form = new FormData()
-              form.append('chat_id', String(chatId))
-              form.append('message_thread_id', String(threadId))
-              form.append('media', JSON.stringify([
-                { type: 'video', media: rawUrl, thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
-                { type: 'photo', media: 'attach://photo_file' },
-              ]))
-              form.append('thumb_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
-              form.append('photo_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
-              return telegramUpload('sendMediaGroup', form)
-            })()
-          : telegramJson('sendVideo', { chat_id: chatId, message_thread_id: threadId, video: rawUrl, supports_streaming: true, ...(caption ? { caption } : {}) })
-
-        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('URL method timeout')), 10000))
-        result = await Promise.race([urlPromise, timeout])
+        console.log('[Telegram Send] Trying URL method (35s timeout)...')
+        if (thumbnailUrl) {
+          // Download + resize thumbnail in parallel with prep, send media group with video URL
+          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl), { signal: controller.signal })
+          if (!thumbRes.ok) throw new Error('Thumb download failed')
+          const rawThumb = await thumbRes.arrayBuffer()
+          const thumbBuffer = await resizeImage(rawThumb, getFilename(thumbnailUrl))
+          const form = new FormData()
+          form.append('chat_id', String(chatId))
+          form.append('message_thread_id', String(threadId))
+          form.append('media', JSON.stringify([
+            { type: 'video', media: rawUrl, thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
+            { type: 'photo', media: 'attach://photo_file' },
+          ]))
+          form.append('thumb_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
+          form.append('photo_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
+          result = await telegramUpload('sendMediaGroup', form, { signal: controller.signal })
+        } else {
+          result = await telegramJson('sendVideo', {
+            chat_id: chatId,
+            message_thread_id: threadId,
+            video: rawUrl,
+            supports_streaming: true,
+            ...(caption ? { caption } : {}),
+          }, { signal: controller.signal })
+        }
         console.log('[Telegram Send] URL method succeeded')
       } catch (urlErr) {
+        if (urlMethodTimedOut || urlErr.name === 'AbortError') {
+          console.error('[Telegram Send] URL method timed out after 35s — aborting (fallback would not fit)')
+          return NextResponse.json({
+            error: 'Telegram is slow to fetch the video from Dropbox. Try again in a moment, or if it keeps failing, the file may be too large or Dropbox is throttling.',
+          }, { status: 504 })
+        }
         console.warn('[Telegram Send] URL method failed:', urlErr.message, '— falling back to upload')
         result = null // fall through to download+upload
+      } finally {
+        clearTimeout(timer)
       }
     }
 

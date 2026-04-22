@@ -33,13 +33,13 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
   if (coverageLoading) {
     return (
       <div style={{
-        background: '#fff', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.06)',
+        background: 'var(--card-bg-solid)', borderRadius: '14px', border: '1px solid transparent',
         padding: '20px 24px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
       }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
           Data Coverage
         </div>
-        <div style={{ fontSize: '13px', color: '#ccc', padding: '20px 0', textAlign: 'center' }}>Loading coverage data...</div>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-subtle)', padding: '20px 0', textAlign: 'center' }}>Loading coverage data...</div>
       </div>
     )
   }
@@ -126,7 +126,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
   return (
     <div style={{
-      background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.06)',
+      background: 'var(--card-bg-solid)', borderBottom: '1px solid transparent',
       padding: '20px 24px', marginBottom: '20px',
     }}>
       <style>{`
@@ -137,14 +137,14 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
         .coverage-bar:hover { opacity: 0.8; filter: brightness(1.05); }
       `}</style>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Data Coverage
         </div>
         <button
           onClick={() => setZoomed(z => !z)}
           style={{
-            background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px',
-            padding: '3px 10px', fontSize: '11px', color: '#999', cursor: 'pointer',
+            background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px',
+            padding: '3px 10px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer',
             fontWeight: 500, transition: 'all 0.15s',
           }}
         >
@@ -158,7 +158,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
           <div style={{ height: '20px', marginBottom: '4px' }} /> {/* spacer for date labels */}
           {sortedCreators.map(c => (
             <div key={c.id} style={{ height: '35px', display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', lineHeight: '1.2' }}>{c.accountName || c.aka || '—'}</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', lineHeight: '1.2' }}>{c.accountName || c.aka || '—'}</span>
             </div>
           ))}
         </div>
@@ -175,7 +175,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                 return (
                   <span key={i} style={{
                     position: 'absolute', left: `${centerPx}px`, transform: 'translateX(-50%)',
-                    fontSize: '9px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
+                    fontSize: '9px', color: 'var(--foreground-subtle)', whiteSpace: 'nowrap', fontWeight: 500,
                   }}>
                     {p.label}
                   </span>
@@ -212,12 +212,12 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                         zIndex: 3, pointerEvents: 'none', display: 'flex', alignItems: 'center',
                       }}>
                         <div style={{
-                          width: '1.5px', height: '100%', background: '#E88FAC',
+                          width: '1.5px', height: '100%', background: 'var(--palm-pink)',
                         }} />
                         <div style={{
                           position: 'absolute', top: '50%', left: '-3px', transform: 'translateY(-50%)',
                           width: '7px', height: '7px', borderRadius: '50%',
-                          background: '#E88FAC', border: '1.5px solid #fff',
+                          background: 'var(--palm-pink)', border: '1.5px solid #fff',
                         }} />
                       </div>
                     ) : null
@@ -235,7 +235,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                       position: 'absolute', left: 0,
                       width: `${dateToPx(todayStr)}px`,
                       height: '100%', borderRadius: '3px',
-                      background: '#f3f4f6', opacity: 0.5,
+                      background: 'rgba(255,255,255,0.04)', opacity: 0.5,
                     }} />
                     {hasEarnings && (
                       <div style={{
@@ -261,7 +261,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
                       position: 'absolute', left: 0,
                       width: `${dateToPx(todayStr)}px`,
                       height: '100%', borderRadius: '3px',
-                      background: '#f3f4f6', opacity: 0.5,
+                      background: 'rgba(255,255,255,0.04)', opacity: 0.5,
                     }} />
                     {hasChargebacks && (
                       <div style={{
@@ -285,19 +285,19 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
       <div style={{ display: 'flex', gap: '16px', marginTop: '12px', marginLeft: '170px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ width: '12px', height: '8px', borderRadius: '2px', background: 'linear-gradient(90deg, #86efac, #22c55e)' }} />
-          <span style={{ fontSize: '10px', color: '#999' }}>Earnings</span>
+          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>Earnings</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ width: '12px', height: '8px', borderRadius: '2px', background: 'linear-gradient(90deg, #fca5a5, #ef4444)' }} />
-          <span style={{ fontSize: '10px', color: '#999' }}>Chargebacks</span>
+          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>Chargebacks</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ width: '1px', height: '10px', background: 'rgba(0,0,0,0.15)' }} />
-          <span style={{ fontSize: '10px', color: '#999' }}>Invoice periods (1st &amp; 15th)</span>
+          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>Invoice periods (1st &amp; 15th)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#E88FAC', border: '1px solid #fff' }} />
-          <span style={{ fontSize: '10px', color: '#999' }}>Management start</span>
+          <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--palm-pink)', border: '1px solid #fff' }} />
+          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>Management start</span>
         </div>
       </div>
     </div>
@@ -397,18 +397,18 @@ export default function RawDataUpload() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
             Raw Data Upload
           </h2>
-          <p style={{ fontSize: '13px', color: '#999', margin: '4px 0 0' }}>
+          <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 0' }}>
             Upload saved OF statements page to extract transactions
           </p>
         </div>
         {spreadsheetUrl && (
           <a href={spreadsheetUrl} target="_blank" rel="noopener noreferrer"
             style={{
-              fontSize: '12px', color: '#E88FAC', textDecoration: 'none',
-              border: '1px solid #E8C4CC', borderRadius: '6px', padding: '6px 12px',
+              fontSize: '12px', color: 'var(--palm-pink)', textDecoration: 'none',
+              border: '1px solid transparent', borderRadius: '6px', padding: '6px 12px',
             }}>
             View Spreadsheet ↗
           </a>
@@ -417,13 +417,13 @@ export default function RawDataUpload() {
 
       {/* Creator selector */}
       <div style={{ marginBottom: '16px' }}>
-        <label style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+        <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
           Creator
         </label>
         <select value={creator} onChange={e => setCreator(e.target.value)}
           style={{
-            width: '100%', maxWidth: '300px', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
-            color: '#1a1a1a', fontSize: '14px', padding: '10px 12px', outline: 'none',
+            width: '100%', maxWidth: '300px', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
+            color: 'var(--foreground)', fontSize: '14px', padding: '10px 12px', outline: 'none',
           }}>
           {CREATORS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -453,8 +453,8 @@ export default function RawDataUpload() {
 
       {/* How-to */}
       <div style={{
-        background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px',
-        padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: '#64748B',
+        background: 'var(--card-bg-solid)', border: '1px solid #E2E8F0', borderRadius: '10px',
+        padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: 'var(--foreground-muted)',
       }}>
         <strong style={{ color: '#475569' }}>How to upload:</strong>
         <ol style={{ margin: '6px 0 0', paddingLeft: '18px', lineHeight: '1.7' }}>
@@ -472,10 +472,10 @@ export default function RawDataUpload() {
         onDrop={handleDrop}
         onClick={() => fileRef.current?.click()}
         style={{
-          border: `2px dashed ${dragOver ? '#E88FAC' : file ? '#22c55e' : '#e5e7eb'}`,
+          border: `2px dashed ${dragOver ? 'var(--palm-pink)' : file ? '#7DD3A4' : 'rgba(255,255,255,0.08)'}`,
           borderRadius: '12px', padding: '40px 20px', textAlign: 'center',
           cursor: 'pointer', marginBottom: '16px', transition: 'all 0.15s',
-          background: dragOver ? '#FFF0F3' : file ? '#F0FDF4' : '#FAFAFA',
+          background: dragOver ? 'rgba(232, 160, 160, 0.06)' : file ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)',
         }}
       >
         <input
@@ -488,18 +488,18 @@ export default function RawDataUpload() {
         {file ? (
           <>
             <div style={{ fontSize: '28px', marginBottom: '8px' }}>✓</div>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#166534' }}>{file.name}</div>
-            <div style={{ fontSize: '12px', color: '#22c55e', marginTop: '4px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#7DD3A4' }}>{file.name}</div>
+            <div style={{ fontSize: '12px', color: '#7DD3A4', marginTop: '4px' }}>
               {(file.size / 1024 / 1024).toFixed(1)} MB — Ready to upload
             </div>
           </>
         ) : (
           <>
             <div style={{ fontSize: '28px', marginBottom: '8px', opacity: 0.4 }}>📄</div>
-            <div style={{ fontSize: '14px', color: '#999' }}>
-              Drop HTML file here or <span style={{ color: '#E88FAC', fontWeight: 600 }}>click to browse</span>
+            <div style={{ fontSize: '14px', color: 'var(--foreground-muted)' }}>
+              Drop HTML file here or <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>click to browse</span>
             </div>
-            <div style={{ fontSize: '12px', color: '#ccc', marginTop: '4px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>
               Accepts .html files saved from OF Statements page
             </div>
           </>
@@ -509,9 +509,9 @@ export default function RawDataUpload() {
       {/* Upload button */}
       <button onClick={handleUpload} disabled={uploading || !file}
         style={{
-          background: file ? '#E88FAC' : '#f3f4f6',
+          background: file ? 'var(--palm-pink)' : 'rgba(255,255,255,0.04)',
           border: 'none', borderRadius: '8px',
-          color: file ? '#fff' : '#999',
+          color: file ? 'var(--foreground)' : '#999',
           fontSize: '14px', fontWeight: 600, padding: '12px 24px',
           cursor: file && !uploading ? 'pointer' : 'not-allowed',
           opacity: uploading ? 0.6 : 1, width: '100%',
@@ -523,8 +523,8 @@ export default function RawDataUpload() {
       {/* Error */}
       {error && (
         <div style={{
-          marginTop: '16px', padding: '12px 16px', background: '#FEF2F2',
-          border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#DC2626',
+          marginTop: '16px', padding: '12px 16px', background: 'rgba(232, 120, 120, 0.06)',
+          border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#E87878',
         }}>
           {error}
         </div>
@@ -533,10 +533,10 @@ export default function RawDataUpload() {
       {/* Success result */}
       {result && (
         <div style={{
-          marginTop: '16px', background: '#F0FDF4', border: '1px solid #BBF7D0',
+          marginTop: '16px', background: 'rgba(125, 211, 164, 0.06)', border: '1px solid #BBF7D0',
           borderRadius: '12px', padding: '16px 20px',
         }}>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#166534', marginBottom: '8px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: '#7DD3A4', marginBottom: '8px' }}>
             {result.message}
           </div>
 
@@ -549,7 +549,7 @@ export default function RawDataUpload() {
               { label: 'Gross', value: fmt(result.totalGross) },
               { label: 'Net', value: fmt(result.totalNet) },
             ].map(s => (
-              <div key={s.label} style={{ fontSize: '12px', color: '#166534' }}>
+              <div key={s.label} style={{ fontSize: '12px', color: '#7DD3A4' }}>
                 <span style={{ color: '#4ADE80', fontWeight: 500 }}>{s.label}:</span>{' '}
                 <span style={{ fontWeight: 600 }}>{s.value}</span>
               </div>
@@ -558,9 +558,9 @@ export default function RawDataUpload() {
 
           {result.typeBreakdown && (
             <div style={{ marginBottom: '10px' }}>
-              <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600, marginBottom: '4px' }}>By Type:</div>
+              <div style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 600, marginBottom: '4px' }}>By Type:</div>
               {Object.entries(result.typeBreakdown).map(([type, total]) => (
-                <div key={type} style={{ fontSize: '12px', color: '#166534', paddingLeft: '8px' }}>
+                <div key={type} style={{ fontSize: '12px', color: '#7DD3A4', paddingLeft: '8px' }}>
                   {type}: {fmt(total)}
                 </div>
               ))}
@@ -569,9 +569,9 @@ export default function RawDataUpload() {
 
           {result.topFans?.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600, marginBottom: '4px' }}>Top Fans:</div>
+              <div style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 600, marginBottom: '4px' }}>Top Fans:</div>
               {result.topFans.map(f => (
-                <div key={f.name} style={{ fontSize: '12px', color: '#166534', paddingLeft: '8px' }}>
+                <div key={f.name} style={{ fontSize: '12px', color: '#7DD3A4', paddingLeft: '8px' }}>
                   {f.name}: {fmt(f.total)}
                 </div>
               ))}

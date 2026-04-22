@@ -26,12 +26,12 @@ export default function InspoBoard() {
   return (
     <div>
       <div style={{ marginBottom: '24px' }}>
-        <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>Inspo Board</div>
-        <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>Scrape, promote, review, and import reels for the inspiration board.</div>
+        <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)' }}>Inspo Board</div>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginTop: '4px' }}>Scrape, promote, review, and import reels for the inspiration board.</div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '0' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid transparent', paddingBottom: '0' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -39,9 +39,9 @@ export default function InspoBoard() {
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === tab.key ? 600 : 400,
-              color: activeTab === tab.key ? '#E88FAC' : '#999',
+              color: activeTab === tab.key ? 'var(--palm-pink)' : '#999',
               background: 'none', border: 'none',
-              borderBottom: activeTab === tab.key ? '2px solid #E88FAC' : '2px solid transparent',
+              borderBottom: activeTab === tab.key ? '1px solid var(--palm-pink)' : '2px solid transparent',
               cursor: 'pointer', marginBottom: '-1px',
               transition: 'color 0.15s',
             }}
