@@ -23,12 +23,12 @@ function isPhoto(url) {
 // ── Status config ──────────────────────────────────────────────────────────────
 
 const STATUS_META = {
-  needsRevision: { dot: '#ef4444', label: 'Needs Revision',       bg: '#fef2f2', border: '#fecaca' },
-  inProgress:    { dot: '#3b82f6', label: 'In Editing',           bg: '#dbeafe', border: '#bfdbfe' },
-  queue:         { dot: '#E88FAC', label: 'Queue',                bg: '#fdf4ff', border: 'transparent' },
-  inReview:      { dot: '#22c55e', label: 'Submitted for Review', bg: '#f0fdf4', border: '#bbf7d0' },
-  approved:      { dot: '#f59e0b', label: 'Approved',             bg: '#fffbeb', border: '#fde68a' },
-  history:       { dot: '#aaa', label: 'History',              bg: '#f5f5f5', border: 'rgba(0,0,0,0.04)' },
+  needsRevision: { dot: '#E87878', label: 'Needs Revision',       bg: 'rgba(232, 120, 120, 0.06)', border: 'transparent' },
+  inProgress:    { dot: '#78B4E8', label: 'In Editing',           bg: 'rgba(120, 180, 232, 0.06)', border: 'transparent' },
+  queue:         { dot: 'var(--palm-pink)', label: 'Queue',        bg: 'rgba(232, 160, 160, 0.06)', border: 'transparent' },
+  inReview:      { dot: '#7DD3A4', label: 'Submitted for Review', bg: 'rgba(125, 211, 164, 0.06)', border: 'transparent' },
+  approved:      { dot: '#E8C878', label: 'Approved',             bg: 'rgba(232, 200, 120, 0.06)', border: 'transparent' },
+  history:       { dot: 'var(--foreground-subtle)', label: 'History', bg: 'var(--card-bg-solid)', border: 'transparent' },
 }
 
 // ── SectionLabel ──────────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ function SectionLabel({ type, count }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
       <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: m.dot }} />
       <span style={{ fontSize: '11px', fontWeight: 700, color: m.dot, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}</span>
-      <span style={{ fontSize: '11px', color: '#aaa' }}>({count})</span>
+      <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>({count})</span>
     </div>
   )
 }
@@ -51,18 +51,18 @@ function TaskRow({ task, type }) {
   const m = STATUS_META[type]
 
   return (
-    <div style={{ background: m.bg, border: `1px solid ${m.border}`, borderRadius: '18px', padding: '12px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div style={{ background: m.bg, border: 'none', borderRadius: '18px', padding: '12px 16px', boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
         {task.inspo?.thumbnail && (
           <img src={task.inspo.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {task.inspo?.title || task.name || 'Untitled'}
           </div>
-          {task.inspo?.username && <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>@{task.inspo.username}</div>}
+          {task.inspo?.username && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>@{task.inspo.username}</div>}
           {task.completedAt && (
-            <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '2px' }}>
               {new Date(task.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           )}
@@ -70,19 +70,19 @@ function TaskRow({ task, type }) {
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
           {task.inspo?.contentLink && (
             <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '2px 8px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid transparent' }}>
+              style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '2px 8px', background: 'rgba(232, 160, 160, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
               Inspo ↗
             </a>
           )}
           {task.asset?.editedFileLink && (
             <a href={task.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '2px 8px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+              style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '2px 8px', background: 'rgba(125, 211, 164, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
               Edited file ↗
             </a>
           )}
           {task.asset?.dropboxLinks?.length > 0 && !task.asset?.editedFileLink && (
             <a href={task.asset.dropboxLinks[0]} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '2px 8px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+              style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '2px 8px', background: 'rgba(125, 211, 164, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
               Clip ↗
             </a>
           )}
@@ -90,7 +90,7 @@ function TaskRow({ task, type }) {
       </div>
 
       {type === 'needsRevision' && task.adminFeedback && (
-        <div style={{ fontSize: '11px', color: '#ef4444', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.5 }}>
+        <div style={{ fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.5 }}>
           {task.adminFeedback}
         </div>
       )}
@@ -98,14 +98,14 @@ function TaskRow({ task, type }) {
       {task.inspo?.notes && (
         <>
           <button onClick={() => setExpanded(p => !p)}
-            style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '11px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+            style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
             {expanded ? '▾ Hide direction' : '▸ View direction'}
           </button>
           {expanded && (
-            <div style={{ fontSize: '11px', color: '#4a4a4a', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+            <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
               {task.inspo.notes}
               {task.inspo.onScreenText && (
-                <div style={{ marginTop: '6px', color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '4px 6px' }}>
+                <div style={{ marginTop: '6px', color: '#E8C878', background: 'rgba(232, 200, 120, 0.06)', border: '1px solid transparent', borderRadius: '4px', padding: '4px 6px' }}>
                   &ldquo;{task.inspo.onScreenText}&rdquo;
                 </div>
               )}
@@ -124,14 +124,14 @@ function CompactThumbCard({ task, type }) {
   const thumb = task.inspo?.thumbnail || task.asset?.thumbnail || ''
   const title = task.inspo?.title || task.name || 'Untitled'
   return (
-    <div style={{ background: m.bg, border: `1px solid ${m.border}`, borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+    <div style={{ background: m.bg, border: 'none', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center' }}>
       {thumb && (
         <img src={thumb} alt="" style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
         {task.completedAt && (
-          <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
             {new Date(task.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </div>
         )}
@@ -139,13 +139,13 @@ function CompactThumbCard({ task, type }) {
       <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
         {task.asset?.editedFileLink && (
           <a href={task.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '10px', color: '#22c55e', textDecoration: 'none', padding: '2px 6px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+            style={{ fontSize: '10px', color: '#7DD3A4', textDecoration: 'none', padding: '2px 6px', background: 'rgba(125, 211, 164, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
             File ↗
           </a>
         )}
         {task.inspo?.contentLink && (
           <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '10px', color: '#E88FAC', textDecoration: 'none', padding: '2px 6px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid transparent' }}>
+            style={{ fontSize: '10px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '2px 6px', background: 'rgba(232, 160, 160, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
             Inspo ↗
           </a>
         )}
@@ -163,18 +163,18 @@ function CollapsibleColumn({ sectionKey, items }) {
   const hasMore = items.length > COLLAPSED_LIMIT
 
   return (
-    <div style={{ background: 'var(--background)', border: `1px solid ${m.border}`, borderRadius: '12px', padding: '14px 16px' }}>
+    <div style={{ background: 'var(--background)', border: 'none', borderRadius: '12px', padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: m.dot }} />
         <span style={{ fontSize: '11px', fontWeight: 700, color: m.dot, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}</span>
-        <span style={{ fontSize: '11px', color: '#aaa' }}>({items.length})</span>
+        <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>({items.length})</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {shown.map(task => <CompactThumbCard key={task.id} task={task} type={sectionKey} />)}
       </div>
       {hasMore && (
         <button onClick={() => setExpanded(p => !p)}
-          style={{ marginTop: '10px', width: '100%', background: 'none', border: 'none', color: '#999', fontSize: '11px', cursor: 'pointer', textAlign: 'center', padding: '4px 0' }}>
+          style={{ marginTop: '10px', width: '100%', background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '11px', cursor: 'pointer', textAlign: 'center', padding: '4px 0' }}>
           {expanded ? '▴ Show less' : `▾ Show ${items.length - COLLAPSED_LIMIT} more`}
         </button>
       )}
@@ -186,26 +186,26 @@ function CollapsibleColumn({ sectionKey, items }) {
 
 function InspoClipRow({ clip }) {
   return (
-    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '18px', padding: '12px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', display: 'flex', gap: '12px', alignItems: 'center' }}>
+    <div style={{ background: 'rgba(232, 200, 120, 0.06)', border: '1px solid transparent', borderRadius: '18px', padding: '12px 16px', boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)', display: 'flex', gap: '12px', alignItems: 'center' }}>
       {(clip.thumbnail || clip.inspo?.thumbnail) && (
         <img src={clip.thumbnail || clip.inspo?.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#2a2a2a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {clip.inspo?.title || clip.name}
         </div>
-        {clip.inspo?.username && <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>@{clip.inspo.username}</div>}
+        {clip.inspo?.username && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>@{clip.inspo.username}</div>}
       </div>
       <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
         {clip.dropboxLink && (
           <a href={clip.dropboxLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '11px', color: '#22c55e', textDecoration: 'none', padding: '2px 8px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+            style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '2px 8px', background: 'rgba(125, 211, 164, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
             Clip ↗
           </a>
         )}
         {clip.inspo?.contentLink && (
           <a href={clip.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '2px 8px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid transparent' }}>
+            style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '2px 8px', background: 'rgba(232, 160, 160, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
             Inspo ↗
           </a>
         )}
@@ -256,7 +256,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '28px' }}>&#127916;</div>
         )}
         {asset.uploadWeek && (
-          <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: '#999', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
+          <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: 'var(--foreground-muted)', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
             {asset.uploadWeek}
           </div>
         )}
@@ -266,12 +266,12 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
           <div style={{ fontSize: '11px', color: '#888', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
         )}
         {asset.creatorNotes && (
-          <div style={{ fontSize: '10px', color: '#999', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
         )}
         <div style={{ display: 'flex', gap: '4px', marginTop: 'auto' }}>
           {link && (
             <a href={link} target="_blank" rel="noopener noreferrer"
-              style={{ flex: 1, textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: '#999', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}>
+              style={{ flex: 1, textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}>
               View ↗
             </a>
           )}
@@ -280,7 +280,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
           style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: starting ? '#fdf4ff' : '#fdf4ff', color: starting ? 'rgba(212, 160, 176, 0.3)' : '#E88FAC', border: '1px solid transparent', borderRadius: '6px', cursor: starting ? 'default' : 'pointer' }}>
           {starting ? 'Starting...' : 'Start Edit'}
         </button>
-        {error && <div style={{ fontSize: '10px', color: '#ef4444' }}>{error}</div>}
+        {error && <div style={{ fontSize: '10px', color: '#E87878' }}>{error}</div>}
       </div>
     </div>
   )
@@ -294,7 +294,7 @@ function Paginator({ page, totalPages, onChange }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <button onClick={() => onChange(page - 1)} disabled={page <= 1}
         style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: page <= 1 ? 'transparent' : '#999', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
-      <span style={{ fontSize: '12px', color: '#999' }}>{page} / {totalPages}</span>
+      <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{page} / {totalPages}</span>
       <button onClick={() => onChange(page + 1)} disabled={page >= totalPages}
         style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: page >= totalPages ? 'transparent' : '#999', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
     </div>
@@ -332,8 +332,8 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot, flexShrink: 0 }} />
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#4a4a4a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
-          <span style={{ fontSize: '11px', color: '#aaa' }}>({assets.length})</span>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
+          <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>({assets.length})</span>
         </div>
         {tabs.length > 1 && (
           <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
@@ -399,13 +399,13 @@ export default function CreatorDetailPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
       Loading...
     </div>
   )
 
   if (error) return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#E87878', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
       {error}
     </div>
   )
@@ -422,13 +422,13 @@ export default function CreatorDetailPage() {
   const hasApprovedOrHistory = tasks.approved.length > 0 || tasks.history.length > 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)', fontFamily: 'var(--font-body)' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px' }}>
           <Link href="/editor"
-            style={{ fontSize: '12px', color: '#999', textDecoration: 'none', padding: '5px 10px', border: '1px solid transparent', borderRadius: '6px' }}>
+            style={{ fontSize: '12px', color: 'var(--foreground-muted)', textDecoration: 'none', padding: '5px 10px', border: '1px solid transparent', borderRadius: '6px' }}>
             ← Back
           </Link>
           <div style={{ flex: 1 }}>
@@ -466,9 +466,9 @@ export default function CreatorDetailPage() {
         {inspoClips.length > 0 && (
           <div style={{ marginBottom: '28px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#f59e0b' }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Creator Clips Uploaded</span>
-              <span style={{ fontSize: '11px', color: '#aaa' }}>({inspoClips.length})</span>
+              <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#E8C878' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#E8C878', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Creator Clips Uploaded</span>
+              <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>({inspoClips.length})</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {inspoClips.map(clip => <InspoClipRow key={clip.id} clip={clip} />)}
@@ -485,7 +485,7 @@ export default function CreatorDetailPage() {
 
         {/* Empty state */}
         {taskSections.every(s => s.items.length === 0) && !hasApprovedOrHistory && inspoClips.length === 0 && library.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px', color: '#aaa', fontSize: '14px', background: 'var(--background)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--foreground-subtle)', fontSize: '14px', background: 'var(--background)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
             No editing activity yet for {creator.name}.
           </div>
         )}
