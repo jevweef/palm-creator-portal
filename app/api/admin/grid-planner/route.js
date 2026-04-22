@@ -61,22 +61,26 @@ export async function GET(request) {
     const scrapedRecords = creatorAccounts.length
       ? await fetchAirtableRecords('Creator Platform Directory', {
           filterByFormula: `OR(${creatorAccounts.map(a => `RECORD_ID()='${a.id}'`).join(',')})`,
-          fields: ['Scraped Feed', 'Scraped Feed Updated'],
+          fields: ['Scraped Feed', 'Scraped Feed Updated', 'Scraped Profile'],
         })
       : []
     const scrapedMap = Object.fromEntries(scrapedRecords.map(r => {
       let feed = []
       let scrapedError = null
+      let profile = null
       try {
         const parsed = JSON.parse(r.fields?.['Scraped Feed'] || '[]')
         if (Array.isArray(parsed)) {
           feed = parsed
         } else if (parsed?.error) {
-          // Failed scrape — store the error message for UI display
           scrapedError = parsed.error
         }
       } catch {}
-      return [r.id, { feed, updated: r.fields?.['Scraped Feed Updated'] || null, error: scrapedError }]
+      try {
+        const p = JSON.parse(r.fields?.['Scraped Profile'] || 'null')
+        if (p && typeof p === 'object') profile = p
+      } catch {}
+      return [r.id, { feed, updated: r.fields?.['Scraped Feed Updated'] || null, error: scrapedError, profile }]
     }))
 
     // Pull posts in window (last 60 days + future), filter to this creator in memory.
@@ -121,6 +125,7 @@ export async function GET(request) {
         scrapedFeed: scraped.feed,
         scrapedFeedUpdated: scraped.updated,
         scrapedError: scraped.error,
+        scrapedProfile: scraped.profile,  // { followers, following, bio, fullName, profilePicUrl, isVerified, isPrivate, postCount }
       }
     }).sort((a, b) => {
       // Main first, then numbered Palm IGs in order

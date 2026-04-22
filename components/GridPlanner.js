@@ -39,8 +39,20 @@ function avatarGradient(handle) {
   return `linear-gradient(135deg, hsl(${hue}, 70%, 60%) 0%, hsl(${(hue + 40) % 360}, 70%, 50%) 100%)`
 }
 
+function relativeTime(iso) {
+  if (!iso) return ''
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  return `${days}d ago`
+}
+
 function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEnd, onDrop, onCellClick }) {
   const handle = account?.handle || account?.name || ''
+  const profile = account?.scrapedProfile
 
   // Sort: scheduled first (by date asc), then sent/posted (by date desc). Top-left = most recent scheduled.
   // IG actually shows newest-at-top-left, but for PLANNING we want:
@@ -95,48 +107,86 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       {/* IG header */}
       <div style={{ padding: '6px 12px 10px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '6px' }}>
         <span style={{ fontSize: '11px' }}>‹</span>
-        <span style={{ fontSize: '14px', fontWeight: 700, flex: 1 }}>{handle}</span>
+        <span style={{ fontSize: '14px', fontWeight: 700, flex: 1, display: 'flex', alignItems: 'center', gap: '3px' }}>
+          {handle}
+          {profile?.isVerified && (
+            <span title="Verified" style={{ background: '#1e90ff', color: '#fff', width: '12px', height: '12px', borderRadius: '50%', fontSize: '8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
+          )}
+        </span>
         <span style={{ fontSize: '14px', fontWeight: 700 }}>···</span>
       </div>
 
       {/* IG profile section */}
       <div style={{ padding: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: '10px' }}>
-          {/* Avatar */}
+          {/* Avatar — use real profile pic if scraped */}
+          {profile?.profilePicUrl ? (
+            <img
+              src={profile.profilePicUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling && (e.currentTarget.nextSibling.style.display = 'flex') }}
+              style={{
+                width: '64px', height: '64px', borderRadius: '50%',
+                objectFit: 'cover',
+                border: '2px solid #fff',
+                boxShadow: '0 0 0 2px #E88FAC',
+              }}
+            />
+          ) : null}
           <div style={{
             width: '64px', height: '64px', borderRadius: '50%',
             background: avatarGradient(handle),
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: profile?.profilePicUrl ? 'none' : 'flex',
+            alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: '24px', fontWeight: 700,
             border: '2px solid #fff',
             boxShadow: '0 0 0 2px #E88FAC',
+            flexShrink: 0,
           }}>
             {(handle?.[0] || creator?.name?.[0] || '?').toUpperCase()}
           </div>
           {/* Stats */}
           <div style={{ flex: 1, display: 'flex', justifyContent: 'space-around', fontSize: '12px' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 700, fontSize: '14px' }}>{past.length + scheduled.length + uniqScraped.length}</div>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                {profile?.postCount != null ? formatCount(profile.postCount) : (past.length + scheduled.length + uniqScraped.length)}
+              </div>
               <div style={{ color: '#666', fontSize: '10px' }}>posts</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 700, fontSize: '14px' }}>{account?.followers ? formatCount(account.followers) : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                {profile?.followers != null ? formatCount(profile.followers) : (account?.followers ? formatCount(account.followers) : '—')}
+              </div>
               <div style={{ color: '#666', fontSize: '10px' }}>followers</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 700, fontSize: '14px' }}>—</div>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                {profile?.following != null ? formatCount(profile.following) : '—'}
+              </div>
               <div style={{ color: '#666', fontSize: '10px' }}>following</div>
             </div>
           </div>
         </div>
-        <div style={{ fontSize: '12px', fontWeight: 600 }}>{creator?.name}</div>
-        <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>{account?.accountType || 'Instagram'}</div>
+        <div style={{ fontSize: '12px', fontWeight: 600 }}>{profile?.fullName || creator?.name}</div>
+        {profile?.bio ? (
+          <div style={{ fontSize: '11px', color: '#333', marginTop: '2px', marginBottom: '8px', whiteSpace: 'pre-wrap', lineHeight: 1.3 }}>
+            {profile.bio}
+          </div>
+        ) : (
+          <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>{account?.accountType || 'Instagram'}</div>
+        )}
         {/* Buttons */}
         <div style={{ display: 'flex', gap: '4px' }}>
           <div style={{ flex: 1, padding: '5px 0', textAlign: 'center', background: '#0095f6', color: '#fff', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>Follow</div>
           <div style={{ flex: 1, padding: '5px 0', textAlign: 'center', background: '#efefef', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>Message</div>
           <div style={{ padding: '5px 8px', background: '#efefef', borderRadius: '6px', fontSize: '11px' }}>▼</div>
         </div>
+        {account?.scrapedFeedUpdated && (
+          <div style={{ fontSize: '9px', color: '#aaa', marginTop: '6px', textAlign: 'right' }}>
+            scraped {relativeTime(account.scrapedFeedUpdated)}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -482,20 +532,26 @@ export default function GridPlanner() {
     accounts.map(a => [a.id, posts.filter(p => p.accountId === a.id)])
   )
 
-  // Refresh scraped IG feed for all of this creator's accounts
+  // Refresh scraped IG feed for all of this creator's accounts.
+  // Shift-click forces a re-scrape even if cached within 6h.
   const [refreshing, setRefreshing] = useState(false)
-  const handleRefreshFeed = async () => {
+  const handleRefreshFeed = async (e) => {
     if (!selectedCreatorId) return
+    const force = e?.shiftKey === true
     setRefreshing(true)
     try {
       const res = await fetch('/api/admin/grid-planner/refresh-feed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId: selectedCreatorId }),
+        body: JSON.stringify({ creatorId: selectedCreatorId, force }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Refresh failed')
-      showToast(`Refreshed ${data.refreshed}/${data.refreshed + data.failed} accounts`)
+      const parts = []
+      if (data.refreshed) parts.push(`${data.refreshed} scraped`)
+      if (data.skipped) parts.push(`${data.skipped} cached (< 6h)`)
+      if (data.failed) parts.push(`${data.failed} failed`)
+      showToast(parts.join(' · ') || 'Nothing to do')
       await loadCreator(selectedCreatorId)
     } catch (e) {
       showToast(e.message, true)
@@ -548,7 +604,7 @@ export default function GridPlanner() {
         <button
           onClick={handleRefreshFeed}
           disabled={refreshing || !selectedCreatorId}
-          title="Pull the latest posts from each IG account so you see the real grid"
+          title="Pull the latest posts + profile from each IG account. Skips anything scraped < 6h ago. Shift-click to force re-scrape."
           style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? '#f0f0f0' : '#FFF0F3', color: refreshing ? '#bbb' : '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
         >
           {refreshing ? 'Scraping…' : '⟳ Refresh IG Feed'}
