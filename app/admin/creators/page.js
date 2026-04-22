@@ -104,7 +104,7 @@ function parseChatHtmlClient(html) {
 const STATUS_STYLES = {
   'Not Started':       { bg: 'rgba(232, 160, 160, 0.06)', text: 'var(--foreground-muted)', border: 'transparent' },
   'Ready to Analyze':  { bg: '#dbeafe', text: '#78B4E8', border: '#bfdbfe' },
-  'Analyzing':         { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
+  'Analyzing':         { bg: '#fef3c7', text: '#E8C878', border: '#fde68a' },
   'Analyzed':          { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4', border: '#bbf7d0' },
   'Reanalyze':         { bg: '#ffedd5', text: '#E8A878', border: '#fed7aa' },
 }
@@ -205,7 +205,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
                 padding: '5px 12px', fontSize: '12px', fontWeight: inputType === value ? 600 : 400,
                 background: inputType === value ? 'rgba(232, 160, 160, 0.06)' : 'var(--card-bg-solid)',
                 color: inputType === value ? 'var(--palm-pink)' : 'var(--foreground-muted)',
-                border: inputType === value ? '1px solid #E88FAC' : '1px solid transparent',
+                border: inputType === value ? '1px solid var(--palm-pink)' : '1px solid transparent',
                 borderRadius: '6px', cursor: 'pointer',
               }}>
               {label}
@@ -346,7 +346,7 @@ function DocumentRow({ doc, isNew }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '10px 12px', background: isNew ? '#FFFBEB' : '#ffffff', borderRadius: '8px',
+      padding: '10px 12px', background: isNew ? 'rgba(232, 200, 120, 0.06)' : '#ffffff', borderRadius: '8px',
       border: isNew ? '1px solid #FDE68A' : 'none',
       boxShadow: isNew ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
     }}>
@@ -357,7 +357,7 @@ function DocumentRow({ doc, isNew }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.fileName}</span>
           {isNew && (
-            <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: 'rgba(232, 200, 120, 0.1)', border: '1px solid #FDE68A', padding: '1px 6px', borderRadius: '4px', flexShrink: 0 }}>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: '#E8A878', background: 'rgba(232, 200, 120, 0.1)', border: '1px solid #FDE68A', padding: '1px 6px', borderRadius: '4px', flexShrink: 0 }}>
               New
             </span>
           )}
@@ -369,7 +369,7 @@ function DocumentRow({ doc, isNew }) {
           <span style={{ fontSize: '11px', color: '#7DD3A4' }}>Text extracted</span>
         )}
         {!doc.hasExtractedText && doc.analysisStatus === 'Pending' && (
-          <span style={{ fontSize: '11px', color: '#f59e0b' }}>Pending extraction</span>
+          <span style={{ fontSize: '11px', color: '#E8C878' }}>Pending extraction</span>
         )}
         <span style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)' }}>{doc.uploadDate || '—'}</span>
       </div>
@@ -468,7 +468,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
                       padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
                       background: fileType === t ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
                       color: fileType === t ? '#fff' : 'var(--foreground-muted)',
-                      border: fileType === t ? '1px solid #E88FAC' : '1px solid transparent',
+                      border: fileType === t ? '1px solid var(--palm-pink)' : '1px solid transparent',
                     }}>
                     {t}
                   </button>
@@ -882,7 +882,7 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
         </div>
         <span style={{ color: 'rgba(240, 236, 232, 0.75)', fontSize: '11px' }}>{w.peakStart} → {w.peakEnd}</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: 'var(--foreground)' }}>{fmtMoney(w.peak30)}</span>
-        <span style={{ textAlign: 'right', color: w.last30 === 0 ? '#E87878' : '#f59e0b', fontWeight: 600 }}>{fmtMoney(w.last30)}</span>
+        <span style={{ textAlign: 'right', color: w.last30 === 0 ? '#E87878' : '#E8C878', fontWeight: 600 }}>{fmtMoney(w.last30)}</span>
         <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{fmtMoney(w.lifetime)}</span>
         <span style={{ textAlign: 'right', color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.lastTxnDate}</span>
         <span style={{ textAlign: 'center' }}>
@@ -988,7 +988,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState(null) // { success: true } or { error: '...' }
   const chatFileRef = useRef(null)
-  const urgColors = { critical: { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' }, high: { bg: '#FFF3CD', text: '#E8A878' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
+  const urgColors = { critical: { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' }, high: { bg: 'rgba(232, 168, 120, 0.12)', text: '#E8A878' }, warning: { bg: 'rgba(232, 200, 120, 0.12)', text: '#E8C878' } }
 
   // Load existing analysis from Airtable when expanded
   useEffect(() => {
@@ -1100,13 +1100,13 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
   const uc = urgColors[a.urgency] || urgColors.warning
 
   return (
-    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+    <div style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{
-          display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px',
+          display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '10px 16px',
           fontSize: '12px', cursor: 'pointer',
-          background: expanded ? 'rgba(232, 200, 120, 0.05)' : i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)',
+          background: expanded ? 'rgba(232, 200, 120, 0.05)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
         }}
       >
         <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px', lineHeight: '20px' }}>{expanded ? '▼' : '▶'}</span>
@@ -1159,7 +1159,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                     return (
                       <div key={m.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                         <div style={{ fontSize: '9px', color: 'rgba(240, 236, 232, 0.75)', marginBottom: '2px' }}>{m.spend > 0 ? fmtMoney(m.spend) : ''}</div>
-                        <div style={{ width: '100%', maxWidth: '40px', height: h + 'px', background: m.spend === 0 ? 'rgba(255,255,255,0.04)' : m.spend < a.monthlyAvg90 * 0.25 ? '#FECACA' : 'var(--palm-pink)', borderRadius: '3px 3px 0 0', minHeight: '2px' }} />
+                        <div style={{ width: '100%', maxWidth: '40px', height: h + 'px', background: m.spend === 0 ? 'rgba(255,255,255,0.04)' : m.spend < a.monthlyAvg90 * 0.25 ? 'rgba(232, 120, 120, 0.2)' : 'var(--palm-pink)', borderRadius: '3px 3px 0 0', minHeight: '2px' }} />
                         <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginTop: '3px' }}>{moNames[moNum]}</div>
                       </div>
                     )
@@ -1182,7 +1182,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
               <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
             </button>
             {sendResult?.success && !sendResult.trackerError && <span style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
-            {sendResult?.success && sendResult.trackerError && <span style={{ fontSize: '11px', color: '#d97706', fontWeight: 500 }} title={sendResult.trackerError}>&#10003; Sent \u2014 tracker failed (hover)</span>}
+            {sendResult?.success && sendResult.trackerError && <span style={{ fontSize: '11px', color: '#E8A878', fontWeight: 500 }} title={sendResult.trackerError}>&#10003; Sent \u2014 tracker failed (hover)</span>}
             {sendResult?.error && <span style={{ fontSize: '11px', color: '#E87878' }}>{sendResult.error}</span>}
           </div>
 
@@ -1274,7 +1274,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                 }}>
                   {(() => {
                     const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
-                    const accentColor = showBrief ? '#334155' : '#E88C5C'
+                    const accentColor = showBrief ? 'var(--foreground-muted)' : '#E88C5C'
                     return text.split('\n').map((line, idx) => {
                       const trimmed = line.trim()
                       if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
@@ -1688,10 +1688,10 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setPeriod('custom')
             setSlideDir('right'); setSlideKey(k => k + 1)
             setTimeout(() => setSlideDir(null), 350)
-          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground-muted)', lineHeight: 1 }}>‹</button>
+          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground-muted)', lineHeight: 1 }}>‹</button>
           <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null); setShowAllFans(false) }}
             style={{
-              background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px',
+              background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px',
               color: 'var(--foreground)', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
             }}>
             {PERIOD_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -1708,14 +1708,14 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setPeriod('custom')
             setSlideDir('left'); setSlideKey(k => k + 1)
             setTimeout(() => setSlideDir(null), 350)
-          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground-muted)', lineHeight: 1 }}>›</button>
+          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground-muted)', lineHeight: 1 }}>›</button>
           {period === 'custom' && (
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
               <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-                style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: 'var(--foreground)', outline: 'none' }} />
+                style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: 'var(--foreground)', outline: 'none' }} />
               <span style={{ color: 'var(--foreground-subtle)', fontSize: '11px' }}>→</span>
               <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-                style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: 'var(--foreground)', outline: 'none' }} />
+                style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: 'var(--foreground)', outline: 'none' }} />
             </div>
           )}
         </div>
@@ -1724,17 +1724,17 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             <button onClick={() => setAccountFilter('all')}
               style={{
-                background: accountFilter === 'all' ? 'var(--foreground)' : 'transparent',
-                color: accountFilter === 'all' ? '#fff' : 'var(--foreground-subtle)',
-                border: accountFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
+                background: accountFilter === 'all' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                color: accountFilter === 'all' ? 'var(--foreground)' : 'var(--foreground-subtle)',
+                border: accountFilter === 'all' ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent',
                 borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
               }}>All Accounts</button>
             {availableAccounts.map(a => (
               <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
                 style={{
-                  background: accountFilter === a ? '#E88FAC18' : 'transparent',
+                  background: accountFilter === a ? 'rgba(232,160,160,0.08)' : 'transparent',
                   color: accountFilter === a ? 'var(--palm-pink)' : 'var(--foreground-subtle)',
-                  border: accountFilter === a ? '1px solid #E88FAC' : '1px solid transparent',
+                  border: accountFilter === a ? '1px solid var(--palm-pink)' : '1px solid transparent',
                   borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
                 }}>
                 {`${creator?.aka || ''} - ${a}`}
@@ -1749,7 +1749,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             style={{
               background: typeFilter === 'all' ? 'var(--foreground)' : 'transparent',
               color: typeFilter === 'all' ? '#fff' : 'var(--foreground-subtle)',
-              border: typeFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
+              border: typeFilter === 'all' ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent',
               borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
             }}>All</button>
           {allTypes.map(t => (
@@ -1768,16 +1768,16 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
             <span key={type} style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
               {typeLabel(type)}: <strong style={{ color: 'rgba(240, 236, 232, 0.75)' }}>{fmtMoney(net)}</strong>
-              <span style={{ color: '#ddd' }}> ({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
+              <span style={{ color: 'rgba(255,255,255,0.08)' }}> ({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
             </span>
           ))}
-          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: 'var(--foreground-subtle)', marginLeft: '4px' }}>↺</button>
+          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: 'var(--foreground-subtle)', marginLeft: '4px' }}>↺</button>
           <button
             onClick={() => { setShowUploadPanel(!showUploadPanel); setUploadResult(null); setUploadError(null) }}
             style={{
               background: showUploadPanel ? 'var(--foreground)' : 'none',
               color: showUploadPanel ? '#fff' : 'var(--foreground-muted)',
-              border: showUploadPanel ? 'none' : '1px solid #e5e7eb',
+              border: showUploadPanel ? 'none' : '1px solid rgba(255,255,255,0.08)',
               borderRadius: '5px', padding: '3px 10px', cursor: 'pointer',
               fontSize: '11px', fontWeight: 600, marginLeft: '4px',
               transition: 'all 0.15s',
@@ -1991,7 +1991,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                       background: 'linear-gradient(90deg, #86efac, #22c55e)', opacity: 0.85,
                     }} />
                   ) : (
-                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                    <div style={{ height: '100%', background: 'rgba(255,255,255,0.04)', borderRadius: '3px', opacity: 0.5 }} />
                   )}
                 </div>
 
@@ -2009,7 +2009,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                       background: 'linear-gradient(90deg, #fca5a5, #ef4444)', opacity: 0.85,
                     }} />
                   ) : (
-                    <div style={{ height: '100%', background: '#f3f4f6', borderRadius: '3px', opacity: 0.5 }} />
+                    <div style={{ height: '100%', background: 'rgba(255,255,255,0.04)', borderRadius: '3px', opacity: 0.5 }} />
                   )}
                 </div>
               </div>
@@ -2106,9 +2106,9 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           </div>
           {(showAllFans ? topFans : topFans.slice(0, 5)).map((fan, i) => (
             <div key={fan.displayName} style={{
-              display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '8px 16px',
-              fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)',
-              background: i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)',
+              display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px',
+              fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)',
+              background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
             }}>
               <span style={{ color: 'var(--foreground-subtle)', fontWeight: 600 }}>{fan.rank}</span>
               <span style={{ color: 'var(--foreground)', fontWeight: 500 }}>{fan.displayName}</span>
@@ -2122,7 +2122,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                 <span style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                   {(fan.accounts || []).map(a => (
                     <span key={a} style={{
-                      background: '#f3f4f6', borderRadius: '8px', padding: '1px 6px',
+                      background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '1px 6px',
                       fontSize: '9px', color: 'rgba(240, 236, 232, 0.75)', fontWeight: 500, whiteSpace: 'nowrap',
                     }}>{a}</span>
                   ))}
@@ -2743,7 +2743,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '11px',
                 display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column',
                 background: f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.04)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.08)' : '#FFF7ED',
-                border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? '#FECACA' : 'rgba(232, 168, 120, 0.15)'}`,
+                border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.2)' : 'rgba(232, 168, 120, 0.15)'}`,
                 color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#991B1B' : '#E8A878',
               }}>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -2793,7 +2793,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid #CBD5E1', borderRadius: '3px' }}
                     />
                     <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#16A34A', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
+                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
                       {savingLifetime ? '…' : 'Save'}
                     </button>
                     <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
@@ -3280,7 +3280,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 }}>
                   {(() => {
                     const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
-                    const accentColor = showBrief ? '#334155' : '#E88C5C'
+                    const accentColor = showBrief ? 'var(--foreground-muted)' : '#E88C5C'
                     return text.split('\n').map((line, idx) => {
                       const trimmed = line.trim()
                       if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
@@ -3424,7 +3424,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                     style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
                     {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
                   </button>
-                  <span style={{ color: '#ddd' }}>|</span>
+                  <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
                   <input ref={saveFileRef} type="file" accept=".html,.htm"
                     onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
                     style={{ display: 'none' }} />
@@ -3501,7 +3501,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         const fullText = analysis?.analysis || rec.fullAnalysis || null
         const briefText = analysis?.managerBrief || rec.brief || null
         const displayText = showBrief ? (briefText || fullText || 'No analysis text available.') : (fullText || briefText || 'No analysis text available.')
-        const accentColor = showBrief ? '#334155' : '#E88C5C'
+        const accentColor = showBrief ? 'var(--foreground-muted)' : '#E88C5C'
         const hasFullText = !!(fullText || briefText)
         const sentAlert = f.alertHistory?.find(h => h.date && rec.date && h.date >= rec.date)
 
@@ -3665,7 +3665,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 onClick={handleSendToTelegram}
                 disabled={sending || previewLoading || !previewImage || sendResult?.success}
                 style={{
-                  background: sendResult?.success ? '#16A34A' : 'var(--foreground)',
+                  background: sendResult?.success ? '#7DD3A4' : 'var(--foreground)',
                   border: 'none', borderRadius: '6px',
                   padding: '8px 16px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                   cursor: (sending || previewLoading || !previewImage || sendResult?.success) ? 'not-allowed' : 'pointer',
@@ -3685,7 +3685,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               </div>
             )}
             {sendResult?.success && sendResult.trackerError && (
-              <div style={{ marginTop: '12px', padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', color: '#E8A878' }}>
+              <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', color: '#E8A878' }}>
                 <div style={{ fontWeight: 600, marginBottom: '4px' }}>&#10003; Sent to Telegram &mdash; but Fan Tracker log failed</div>
                 <div style={{ fontSize: '11px', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word' }}>{sendResult.trackerError}</div>
                 <div style={{ fontSize: '11px', marginTop: '6px' }}>The fan's Alert column won't update. Please share this error so we can fix it.</div>
@@ -3865,9 +3865,9 @@ const ALERT_STATUS_COLORS = {
 
 // Urgency colors for Alert Triggered — so Critical visually pops in lists.
 const URGENCY_COLORS = {
-  critical: { bg: '#FECACA', text: '#7F1D1D' },
-  high: { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
-  warning: { bg: 'rgba(232, 200, 120, 0.1)', text: '#E8A878' },
+  critical: { bg: 'rgba(232, 120, 120, 0.18)', text: '#E87878' },
+  high: { bg: 'rgba(232, 168, 120, 0.12)', text: '#E8A878' },
+  warning: { bg: 'rgba(232, 200, 120, 0.12)', text: '#E8C878' },
 }
 
 function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
@@ -4624,7 +4624,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
                     {cur || <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>empty</span>}
                   </div>
                   <div style={{ background: 'rgba(125, 211, 164, 0.06)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#7DD3A4', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#16A34A', marginBottom: '6px' }}>PROPOSED</div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#7DD3A4', marginBottom: '6px' }}>PROPOSED</div>
                     {proposed || <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>empty</span>}
                   </div>
                 </div>
@@ -4664,7 +4664,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
                         {/* Diverging bar */}
                         <div style={{ flex: 1, height: '20px', position: 'relative', margin: '0 8px' }}>
                           {/* Center line */}
-                          <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: '#ddd' }} />
+                          <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.08)' }} />
                           {/* Bar */}
                           {diff > 0 ? (
                             <div style={{
@@ -4758,7 +4758,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             </div>
           )}
           {documents.some(doc => c.profileLastAnalyzed && doc.uploadDate > c.profileLastAnalyzed) && (
-            <div style={{ fontSize: '11px', color: '#d97706', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', padding: '6px 10px' }}>
+            <div style={{ fontSize: '11px', color: '#E8A878', background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #FDE68A', borderRadius: '6px', padding: '6px 10px' }}>
               Yellow docs were uploaded after the last analysis and are not yet included. Hit Reanalyze to pick them up.
             </div>
           )}
@@ -4928,9 +4928,10 @@ export default function CreatorsPage() {
             updateUrl(e.target.value, activeSection)
           }}
           style={{
-            background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '8px',
-            color: 'var(--foreground)', fontSize: '14px', padding: '8px 14px', outline: 'none',
-            minWidth: '220px', cursor: 'pointer',
+            background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
+            color: 'var(--foreground)', fontSize: '14px', padding: '10px 14px', outline: 'none',
+            minWidth: '240px', cursor: 'pointer',
+            fontFamily: 'var(--font-body)',
           }}>
           {!selected && <option value="">Select a creator...</option>}
           {creators.map(c => (
