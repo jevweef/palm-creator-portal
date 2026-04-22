@@ -88,7 +88,7 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
           </button>
           <button onClick={onConfirm} disabled={sending || !data.email} style={{
             background: data.email ? '#78B4E8' : 'rgba(232, 160, 160, 0.06)',
-            border: 'none', borderRadius: '7px', color: 'rgba(255,255,255,0.08)',
+            border: 'none', borderRadius: '7px', color: 'var(--foreground)',
             padding: '8px 20px', fontSize: '13px', fontWeight: 600,
             cursor: data.email ? 'pointer' : 'not-allowed', opacity: sending ? 0.6 : 1,
           }}>
@@ -141,7 +141,7 @@ function EarningsCell({ record, onSave, disabled }) {
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         style={{
           background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', borderRadius: '4px',
-          color: 'rgba(255,255,255,0.08)', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
+          color: 'var(--foreground)', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
         }}
       />
     )

@@ -178,7 +178,7 @@ export default function AdminImport() {
               style={{
                 flex: 1, padding: '10px',
                 background: importing ? 'transparent' : 'var(--palm-pink)',
-                color: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '6px',
+                color: 'var(--foreground)', border: 'none', borderRadius: '6px',
                 fontSize: '13px', fontWeight: 600,
                 cursor: importing ? 'not-allowed' : 'pointer',
                 opacity: importing || preview.uniqueReels === 0 ? 0.6 : 1,

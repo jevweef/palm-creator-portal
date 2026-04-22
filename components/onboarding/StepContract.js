@@ -177,7 +177,7 @@ export default function StepContract({ hqId, onComplete }) {
               style={{
                 padding: '10px 32px',
                 background: 'var(--palm-pink)',
-                color: 'rgba(255,255,255,0.08)',
+                color: 'var(--foreground)',
                 border: 'none',
                 borderRadius: '8px',
                 fontSize: '14px',
@@ -341,7 +341,7 @@ export default function StepContract({ hqId, onComplete }) {
               marginTop: '16px',
               padding: '10px 32px',
               background: !canSign || signing ? 'transparent' : 'var(--palm-pink)',
-              color: 'rgba(255,255,255,0.08)',
+              color: 'var(--foreground)',
               border: 'none',
               borderRadius: '8px',
               fontSize: '14px',

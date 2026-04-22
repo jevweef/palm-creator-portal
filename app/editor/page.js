@@ -30,7 +30,7 @@ export default function EditorDashboardPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'rgba(255,255,255,0.08)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
       {/* Mobile-only overrides — desktop untouched */}
       <style>{`
         @media (max-width: 768px) {

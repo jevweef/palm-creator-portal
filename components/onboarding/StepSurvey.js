@@ -231,7 +231,7 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
           style={{
             padding: '10px 32px',
             background: 'var(--palm-pink)',
-            color: 'rgba(255,255,255,0.08)',
+            color: 'var(--foreground)',
             border: 'none',
             borderRadius: '8px',
             fontSize: '14px',

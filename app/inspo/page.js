@@ -718,7 +718,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   <div style={{
                     position: 'absolute', top: '4px', left: '4px', right: '4px',
                     background: 'rgba(0,0,0,0.75)', borderRadius: '6px',
-                    padding: '5px 7px', fontSize: '10px', color: 'rgba(255,255,255,0.08)',
+                    padding: '5px 7px', fontSize: '10px', color: 'var(--foreground)',
                     lineHeight: '1.5', pointerEvents: 'none', zIndex: 5,
                   }}>
                     <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>

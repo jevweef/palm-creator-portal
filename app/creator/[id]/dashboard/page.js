@@ -217,7 +217,7 @@ function InvoiceModal({ group, onClose }) {
                         <span style={{ color: 'rgba(240, 236, 232, 0.85)', fontWeight: 500 }}>Chase</span>
                       </div>
                       <div style={{
-                        marginTop: '12px', padding: '10px 20px', background: '#6d28d9', color: 'rgba(255,255,255,0.08)',
+                        marginTop: '12px', padding: '10px 20px', background: 'var(--palm-pink)', color: '#060606',
                         borderRadius: '10px', fontSize: '13px', fontWeight: 600, display: 'inline-block',
                       }}>
                         {fmt$(group.totalCommission)} due
@@ -344,7 +344,7 @@ export default function CreatorDashboard() {
   const igHref = p.igAccount?.startsWith('http') ? p.igAccount : `https://${p.igAccount}`
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'rgba(255,255,255,0.08)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-4 md:py-8">
 
         {/* ── Header + Earnings ── */}
@@ -661,7 +661,7 @@ export default function CreatorDashboard() {
                         {reel.thumbnail ? (
                           <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.08)', fontSize: '20px' }}>🎬</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontSize: '20px' }}>🎬</div>
                         )}
                       </div>
                       <div style={{ padding: '4px 6px' }}>
@@ -688,7 +688,7 @@ export default function CreatorDashboard() {
                         {item.inspoThumbnail ? (
                           <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.08)', fontSize: '20px' }}>✂️</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontSize: '20px' }}>✂️</div>
                         )}
                       </div>
                       <div style={{ padding: '4px 6px' }}>

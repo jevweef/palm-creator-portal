@@ -405,7 +405,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
                         width: '100%',
                         padding: '22px 8px 10px',
                         background: 'var(--palm-pink)',
-                        color: 'rgba(255,255,255,0.08)',
+                        color: 'var(--foreground)',
                         border: 'none',
                         borderRadius: '0 0 12px 12px',
                         fontSize: '12px',

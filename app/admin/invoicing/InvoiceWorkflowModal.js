@@ -303,7 +303,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                       Needs Fix → Re-generate
                     </button>
                     <button onClick={() => { setPdfApproved(true); setActiveStep(2); handleLoadPreview() }} style={{
-                      background: '#7DD3A4', color: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '10px',
+                      background: '#7DD3A4', color: 'var(--foreground)', border: 'none', borderRadius: '10px',
                       padding: '9px 22px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                     }}>
                       Approve PDF →
@@ -486,7 +486,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           ) : (
             <div style={{ padding: '20px 0' }}>
               <button onClick={handleLoadPreview} disabled={loadingPreview} style={{
-                background: '#78B4E8', color: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '10px',
+                background: '#78B4E8', color: 'var(--foreground)', border: 'none', borderRadius: '10px',
                 padding: '10px 24px', fontSize: '14px', fontWeight: 600,
                 cursor: loadingPreview ? 'not-allowed' : 'pointer',
                 opacity: loadingPreview ? 0.6 : 1,
@@ -522,7 +522,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 </div>
               </div>
               <button onClick={handleSend} disabled={sending} style={{
-                background: '#78B4E8', color: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '10px',
+                background: '#78B4E8', color: 'var(--foreground)', border: 'none', borderRadius: '10px',
                 padding: '12px 28px', fontSize: '14px', fontWeight: 600,
                 cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.6 : 1,
               }}>
@@ -561,7 +561,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
             {!allPaid && (
               <button onClick={handleMarkAllPaid} style={{
-                background: '#7DD3A4', color: 'rgba(255,255,255,0.08)', border: 'none',
+                background: '#7DD3A4', color: 'var(--foreground)', border: 'none',
                 borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
               }}>Mark All Paid</button>
             )}

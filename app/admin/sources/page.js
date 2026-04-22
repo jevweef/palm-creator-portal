@@ -638,7 +638,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
 }
 
 const labelStyle = { display: 'block', fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 600, marginBottom: '4px', marginTop: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }
-const inputStyle = { width: '100%', padding: '8px 12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', color: 'rgba(255,255,255,0.08)', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
+const inputStyle = { width: '100%', padding: '8px 12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', color: 'var(--foreground)', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
 const btnStyle = { padding: '8px 16px', border: 'none', borderRadius: '6px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
 
 export default function AdminSources() {

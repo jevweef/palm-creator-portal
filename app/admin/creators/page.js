@@ -448,7 +448,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
             <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>{result.fileName}</div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => { setResult(null); setFile(null); setNotes('') }}
-                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: 'rgba(255,255,255,0.08)', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 Upload Another
               </button>
               <button onClick={() => { onUploaded(); onClose() }}
@@ -492,7 +492,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '12px', color: 'var(--foreground-muted)', display: 'block', marginBottom: '6px' }}>Notes (optional)</label>
               <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Onboarding call Jan 2026"
-                style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', color: 'rgba(255,255,255,0.08)', fontSize: '13px', boxSizing: 'border-box' }} />
+                style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', color: 'var(--foreground)', fontSize: '13px', boxSizing: 'border-box' }} />
             </div>
 
             {error && <div style={{ color: '#E87878', fontSize: '12px', marginBottom: '12px' }}>{error}</div>}
@@ -1217,7 +1217,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                     disabled={analyzing}
                     style={{
                       background: '#E88C5C', border: 'none', borderRadius: '6px',
-                      padding: '6px 14px', fontSize: '12px', color: 'rgba(255,255,255,0.08)', fontWeight: 600,
+                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                       cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                     }}
                   >
@@ -1607,7 +1607,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   if (error) return (
     <div style={{ padding: '16px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#E87878' }}>
       {error}
-      <button onClick={onRefresh} style={{ marginLeft: '12px', background: '#E87878', color: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '5px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>Retry</button>
+      <button onClick={onRefresh} style={{ marginLeft: '12px', background: '#E87878', color: 'var(--foreground)', border: 'none', borderRadius: '5px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>Retry</button>
     </div>
   )
   if (!data || data.empty) return (
@@ -1693,7 +1693,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null); setShowAllFans(false) }}
             style={{
               background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px',
-              color: 'rgba(255,255,255,0.08)', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
+              color: 'var(--foreground)', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
             }}>
             {PERIOD_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
             <option value="custom">Custom Range</option>
@@ -1765,11 +1765,11 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               {typeLabel(t)}
             </button>
           ))}
-          <span style={{ color: 'rgba(255,255,255,0.08)', margin: '0 2px' }}>|</span>
+          <span style={{ color: 'var(--foreground)', margin: '0 2px' }}>|</span>
           {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
             <span key={type} style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
               {typeLabel(type)}: <strong style={{ color: 'rgba(240, 236, 232, 0.75)' }}>{fmtMoney(net)}</strong>
-              <span style={{ color: 'rgba(255,255,255,0.08)' }}> ({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
+              <span style={{ color: 'var(--foreground)' }}> ({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
             </span>
           ))}
           <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: 'var(--foreground-subtle)', marginLeft: '4px' }}>↺</button>
@@ -2794,7 +2794,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid #CBD5E1', borderRadius: '3px' }}
                     />
                     <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'rgba(255,255,255,0.08)', borderRadius: '3px', cursor: 'pointer' }}>
+                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
                       {savingLifetime ? '…' : 'Save'}
                     </button>
                     <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
@@ -3400,7 +3400,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 <button onClick={() => handleAnalyze(true)} disabled={analyzing}
                   style={{
                     background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'rgba(255,255,255,0.08)', fontWeight: 600,
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                     cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                   }}>
                   {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
@@ -3411,7 +3411,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 <button onClick={handleAnalyze} disabled={analyzing}
                   style={{
                     background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'rgba(255,255,255,0.08)', fontWeight: 600,
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                     cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                   }}>
                   {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
@@ -3425,7 +3425,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                     style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
                     {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
                   </button>
-                  <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
+                  <span style={{ color: 'var(--foreground)' }}>|</span>
                   <input ref={saveFileRef} type="file" accept=".html,.htm"
                     onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
                     style={{ display: 'none' }} />
@@ -4506,7 +4506,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => setShowUpload(true)}
-            style={{ background: 'rgba(232, 160, 160, 0.04)', color: 'rgba(255,255,255,0.08)', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+            style={{ background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
             + Upload
           </button>
           {(status === 'Analyzed' || status === 'Reanalyze' || status === 'Analyzing') && (
@@ -4561,7 +4561,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             rows={2}
             style={{
               flex: 1, background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px',
-              padding: '10px 12px', color: 'rgba(255,255,255,0.08)', fontSize: '13px', lineHeight: '1.5',
+              padding: '10px 12px', color: 'var(--foreground)', fontSize: '13px', lineHeight: '1.5',
               resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit',
             }}
           />
@@ -4569,7 +4569,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             onClick={runRefine}
             disabled={refining || !feedback.trim()}
             style={{
-              background: refining ? 'transparent' : 'var(--palm-pink)', color: 'rgba(255,255,255,0.08)', border: 'none',
+              background: refining ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)', border: 'none',
               borderRadius: '8px', padding: '10px 16px', fontSize: '12px', fontWeight: 600,
               cursor: refining || !feedback.trim() ? 'not-allowed' : 'pointer',
               opacity: !feedback.trim() ? 0.5 : 1, flexShrink: 0, alignSelf: 'stretch',
@@ -4597,7 +4597,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
               </button>
               <button onClick={commitRefine} disabled={committing}
                 style={{
-                  background: committing ? 'rgba(125, 211, 164, 0.2)' : '#7DD3A4', color: 'rgba(255,255,255,0.08)', border: 'none',
+                  background: committing ? 'rgba(125, 211, 164, 0.2)' : '#7DD3A4', color: 'var(--foreground)', border: 'none',
                   borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
                   cursor: committing ? 'not-allowed' : 'pointer',
                 }}>
@@ -4930,7 +4930,7 @@ export default function CreatorsPage() {
           }}
           style={{
             background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
-            color: 'rgba(255,255,255,0.08)', fontSize: '14px', padding: '10px 14px', outline: 'none',
+            color: 'var(--foreground)', fontSize: '14px', padding: '10px 14px', outline: 'none',
             minWidth: '240px', cursor: 'pointer',
             fontFamily: 'var(--font-body)',
           }}>

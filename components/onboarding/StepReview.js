@@ -247,7 +247,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
         style={{
           padding: '12px 40px',
           background: (!allComplete || submitting) ? 'transparent' : 'var(--palm-pink)',
-          color: 'rgba(255,255,255,0.08)',
+          color: 'var(--foreground)',
           border: 'none',
           borderRadius: '8px',
           fontSize: '15px',

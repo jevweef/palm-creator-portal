@@ -257,7 +257,7 @@ export default function AdminOnboarding() {
           style={{
             padding: '10px 20px',
             background: 'var(--palm-pink)',
-            color: 'rgba(255,255,255,0.08)',
+            color: 'var(--foreground)',
             border: 'none',
             borderRadius: '8px',
             fontSize: '13px',
@@ -696,7 +696,7 @@ export default function AdminOnboarding() {
                   style={{
                     padding: '9px 18px',
                     background: (submitting || !hasSigDrawn) ? 'transparent' : 'var(--palm-pink)',
-                    color: 'rgba(255,255,255,0.08)',
+                    color: 'var(--foreground)',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
@@ -895,7 +895,7 @@ export default function AdminOnboarding() {
                   style={{
                     padding: '9px 18px',
                     background: (submitting || !hasSigDrawn) ? 'transparent' : 'var(--palm-pink)',
-                    color: 'rgba(255,255,255,0.08)',
+                    color: 'var(--foreground)',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',

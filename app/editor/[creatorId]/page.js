@@ -422,7 +422,7 @@ export default function CreatorDetailPage() {
   const hasApprovedOrHistory = tasks.approved.length > 0 || tasks.history.length > 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'rgba(255,255,255,0.08)', fontFamily: 'var(--font-body)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)', fontFamily: 'var(--font-body)' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
 
         {/* Header */}

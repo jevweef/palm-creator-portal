@@ -1012,7 +1012,7 @@ function UnreviewedLibrary({ showToast }) {
             onChange={e => setSelectedCreator(e.target.value)}
             style={{
               padding: '6px 12px', fontSize: '13px', fontWeight: 500,
-              background: 'var(--background)', color: 'rgba(255,255,255,0.08)', border: '1px solid transparent',
+              background: 'var(--background)', color: 'var(--foreground)', border: '1px solid transparent',
               borderRadius: '6px', cursor: 'pointer', outline: 'none',
             }}
           >
@@ -1702,7 +1702,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
                   <img src={url.replace(/([?&])dl=[01]/, '$1raw=1')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid transparent' }} />
                   <button
                     onClick={() => setScreenshots(prev => prev.filter((_, j) => j !== i))}
-                    style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E87878', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', color: 'rgba(255,255,255,0.08)', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                    style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E87878', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', color: 'var(--foreground)', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                     ×
                   </button>
                 </div>
@@ -1897,7 +1897,7 @@ function ForReview({ showToast }) {
                           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                           onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
                         <button onClick={() => setVideoModal(task.asset.dropboxLink.split('\n').filter(Boolean)[0])}
-                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'rgba(255,255,255,0.08)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
                           ⛶
                         </button>
                       </>
@@ -1915,7 +1915,7 @@ function ForReview({ showToast }) {
                           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                           onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
                         <button onClick={() => setVideoModal(task.asset.editedFileLink)}
-                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'rgba(255,255,255,0.08)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
                           ⛶
                         </button>
                       </>

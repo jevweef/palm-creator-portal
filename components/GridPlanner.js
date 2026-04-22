@@ -303,7 +303,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       <div style={{
         position: 'absolute', top: 3, left: 3,
         padding: '1px 5px', borderRadius: '3px',
-        background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.08)',
+        background: 'rgba(0,0,0,0.55)', color: 'var(--foreground)',
         fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
       }}>
         {status}
@@ -313,7 +313,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
         <div style={{
           position: 'absolute', bottom: 3, right: 3,
           padding: '1px 4px', borderRadius: '3px',
-          background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.08)',
+          background: 'rgba(0,0,0,0.55)', color: 'var(--foreground)',
           fontSize: '8px', fontWeight: 600,
         }}>
           {new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })}
@@ -366,7 +366,7 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
               )}
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
-                background: 'rgba(0,0,0,0.65)', color: 'rgba(255,255,255,0.08)',
+                background: 'rgba(0,0,0,0.65)', color: 'var(--foreground)',
                 fontSize: '9px', padding: '2px 5px',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>

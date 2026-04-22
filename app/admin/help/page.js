@@ -894,7 +894,7 @@ export default function HelpPage() {
             borderRadius: '12px',
             background: 'var(--background)',
             outline: 'none',
-            color: 'rgba(255,255,255,0.08)',
+            color: 'var(--foreground)',
             boxSizing: 'border-box',
           }}
         />

@@ -423,7 +423,7 @@ export default function RawDataUpload() {
         <select value={creator} onChange={e => setCreator(e.target.value)}
           style={{
             width: '100%', maxWidth: '300px', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
-            color: 'rgba(255,255,255,0.08)', fontSize: '14px', padding: '10px 12px', outline: 'none',
+            color: 'var(--foreground)', fontSize: '14px', padding: '10px 12px', outline: 'none',
           }}>
           {CREATORS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>

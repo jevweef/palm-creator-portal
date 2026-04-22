@@ -474,7 +474,7 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
           marginTop: '28px',
           padding: '10px 32px',
           background: saving ? 'transparent' : 'var(--palm-pink)',
-          color: 'rgba(255,255,255,0.08)',
+          color: 'var(--foreground)',
           border: 'none',
           borderRadius: '8px',
           fontSize: '14px',

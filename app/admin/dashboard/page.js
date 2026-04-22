@@ -826,7 +826,7 @@ export default function AdminDashboard() {
                         {rwy.inReview > 0 && <span style={{ color: '#78B4E8' }}>{rwy.inReview}rv</span>}
                       </>
                     ) : <span style={{ color: 'var(--foreground-subtle)' }}>—</span>
-                  ) : <span style={{ color: 'rgba(255,255,255,0.08)' }}>—</span>}
+                  ) : <span style={{ color: 'var(--foreground)' }}>—</span>}
                 </div>
                 <span style={{
                   fontSize: '11px', fontWeight: 600,
