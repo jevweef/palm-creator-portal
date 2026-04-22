@@ -799,7 +799,7 @@ export default function AdminDashboard() {
                 display: 'grid',
                 gridTemplateColumns: '80px 72px 36px 68px 44px 90px 60px 1fr',
                 gap: '4px', padding: '5px 0',
-                borderBottom: '1px solid #fafafa',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
                 alignItems: 'center',
               }}>
                 <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{c.name}</span>
@@ -1021,7 +1021,7 @@ export default function AdminDashboard() {
             {posting.map(c => (
               <div key={c.name} style={{
                 display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0',
-                borderBottom: '1px solid #fafafa',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
               }}>
                 <div style={{ width: '60px', fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{c.name}</div>
                 <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: 'rgba(240, 236, 232, 0.75)' }}>
@@ -1064,7 +1064,7 @@ export default function AdminDashboard() {
               return (
                 <div key={i} style={{
                   display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
-                  gap: '6px', padding: '4px 0', borderBottom: '1px solid #fafafa',
+                  gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
                   opacity: i === 0 ? 1 : 0.7,
                 }}>
                   <span style={{ fontSize: '12px', color: 'var(--foreground)', fontWeight: i === 0 ? 600 : 400 }}>

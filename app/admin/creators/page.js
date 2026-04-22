@@ -1593,7 +1593,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       <div style={{ marginBottom: '16px' }}>
         <div style={{ width: 120, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', marginBottom: '10px', animation: 'pulse 1.5s ease-in-out infinite' }} />
         {[1, 2, 3].map(i => (
-          <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
+          <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
             <div style={{ width: 120, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
             <div style={{ width: 60, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
             <div style={{ width: 50, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />

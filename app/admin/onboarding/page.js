@@ -361,7 +361,7 @@ export default function AdminOnboarding() {
                 </tr>
               ) : (
                 filtered.map(c => (
-                  <tr key={c.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                  <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                     <td style={tdStyle}>
                       <div style={{ fontWeight: 500 }}>{c.name || '—'}</div>
                       {c.aka && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{c.aka}</div>}
@@ -964,7 +964,7 @@ export default function AdminOnboarding() {
                   <div key={section} style={{ marginBottom: '20px' }}>
                     <div style={{
                       fontSize: '13px', fontWeight: 600, color: 'var(--palm-pink)',
-                      marginBottom: '10px', paddingBottom: '4px', borderBottom: '1px solid #f5f5f5',
+                      marginBottom: '10px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.04)',
                     }}>
                       {section}
                     </div>
