@@ -10,7 +10,7 @@ const inputStyle = {
   borderRadius: '8px',
   outline: 'none',
   transition: 'border-color 0.15s',
-  background: '#fff',
+  background: 'var(--card-bg-solid)',
 }
 
 const labelStyle = {
@@ -233,7 +233,7 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
         style={{
           marginTop: '28px',
           padding: '10px 32px',
-          background: saving ? '#F0D0D8' : '#E88FAC',
+          background: saving ? 'transparent' : '#E88FAC',
           color: '#fff',
           border: 'none',
           borderRadius: '8px',

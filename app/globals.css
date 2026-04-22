@@ -12,14 +12,17 @@
   --palm-pink-light: #F5C6C6;
   --palm-pink-dark: #C47A7A;
 
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --card-bg-solid: #0e0e0e;
-  --card-border: rgba(255, 255, 255, 0.06);
-  --card-border-hover: rgba(232, 160, 160, 0.15);
+  --card-bg: rgba(255, 255, 255, 0.025);
+  --card-bg-solid: #131313;
+  --card-bg-elevated: #171717;
+  --card-border: transparent;
+  --card-border-hover: rgba(232, 160, 160, 0.12);
+  --card-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.3);
+  --card-shadow-hover: 0 2px 4px rgba(0,0,0,0.5), 0 10px 40px rgba(0,0,0,0.4);
 
-  --input-bg: rgba(255, 255, 255, 0.04);
-  --input-border: rgba(255, 255, 255, 0.08);
-  --input-focus: rgba(232, 160, 160, 0.4);
+  --input-bg: rgba(255, 255, 255, 0.03);
+  --input-border: rgba(255, 255, 255, 0.05);
+  --input-focus: rgba(232, 160, 160, 0.3);
 
   --success: #7DD3A4;
   --warning: #E8C878;
@@ -82,27 +85,32 @@ html.lenis, html.lenis body {
   background: var(--card-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--card-border);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+  border: none;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
+    var(--card-shadow);
   border-radius: 16px;
   transition: all 0.5s var(--ease-stripe);
 }
 .glass-card:hover {
-  border-color: var(--card-border-hover);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+    var(--card-shadow-hover),
     0 0 40px rgba(232, 160, 160, 0.04);
 }
 
 /* Dense variant for data tables and slot grids */
 .glass-card-dense {
   background: var(--card-bg-solid);
-  border: 1px solid var(--card-border);
+  border: none;
   border-radius: 12px;
-  transition: border-color 0.3s var(--ease-stripe);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.02),
+    0 1px 2px rgba(0,0,0,0.3);
+  transition: all 0.3s var(--ease-stripe);
 }
 .glass-card-dense:hover {
-  border-color: var(--card-border-hover);
+  background: var(--card-bg-elevated);
 }
 
 /* ─── Aurora hero background ─── */

@@ -369,7 +369,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                       : 'Email will go to Evan + Josh only.'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '4px', background: '#fff', padding: '3px', borderRadius: '7px' }}>
+                <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', padding: '3px', borderRadius: '7px' }}>
                   {[
                     { key: 'test', label: 'Test' },
                     { key: 'production', label: 'Production' },
@@ -474,7 +474,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 })()}
               </div>
               {/* Email body preview — fills remaining space */}
-              <div style={{ border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+              <div style={{ border: '1px solid transparent', borderRadius: '10px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
                 <iframe
                   srcDoc={emailPreview.html || emailPreview.manual?.html || '<p>No preview available</p>'}
                   style={{ width: '100%', height: '100%', border: 'none' }}
@@ -586,13 +586,13 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '1100px',
+        background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '1100px',
         height: '95vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         display: 'flex', flexDirection: 'row',
       }}>
         {/* Left sidebar: header info + stats + stepper */}
         <div style={{
-          width: '260px', borderRight: '1px solid rgba(0,0,0,0.06)', flexShrink: 0,
+          width: '260px', borderRight: '1px solid transparent', flexShrink: 0,
           display: 'flex', flexDirection: 'column', overflow: 'auto',
         }}>
           {/* Close button */}
@@ -629,7 +629,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           </div>
 
           {/* Divider */}
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', margin: '0 20px' }} />
+          <div style={{ borderTop: '1px solid transparent', margin: '0 20px' }} />
 
           {/* Stepper */}
           <div style={{ padding: '14px 0' }}>

@@ -145,7 +145,7 @@ export default function EarningsGrowth() {
       maxWidth: 860,
       margin: '0 auto',
       boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-      border: '1px solid #F0D0D8',
+      border: '1px solid transparent',
       fontFamily: font,
       position: 'relative',
     }}>

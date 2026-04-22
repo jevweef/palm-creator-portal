@@ -151,7 +151,7 @@ function ChatTeamTab() {
 function SectionCard({ title, description }) {
   return (
     <div style={{
-      padding: '20px 24px', background: '#fff', borderRadius: '12px',
+      padding: '20px 24px', background: 'var(--card-bg-solid)', borderRadius: '12px',
       boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid #F3F4F6',
     }}>
       <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>{title}</div>

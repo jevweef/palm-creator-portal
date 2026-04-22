@@ -154,7 +154,7 @@ export default function AdminImport() {
 
       {/* Preview */}
       {preview && !result && (
-        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px' }}>
+        <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px' }}>
           <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
             📄 {preview.fileName}
           </div>
@@ -177,7 +177,7 @@ export default function AdminImport() {
               disabled={importing || preview.uniqueReels === 0}
               style={{
                 flex: 1, padding: '10px',
-                background: importing ? '#E8C4CC' : '#E88FAC',
+                background: importing ? 'transparent' : '#E88FAC',
                 color: '#1a1a1a', border: 'none', borderRadius: '6px',
                 fontSize: '13px', fontWeight: 600,
                 cursor: importing ? 'not-allowed' : 'pointer',
@@ -188,7 +188,7 @@ export default function AdminImport() {
             </button>
             <button
               onClick={reset}
-              style={{ padding: '10px 16px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#888', fontSize: '13px', cursor: 'pointer' }}
+              style={{ padding: '10px 16px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', color: '#888', fontSize: '13px', cursor: 'pointer' }}
             >
               Cancel
             </button>
@@ -198,31 +198,31 @@ export default function AdminImport() {
 
       {/* Result */}
       {result && (
-        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px' }}>
+        <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700, color: '#22c55e', marginBottom: '16px' }}>
             ✓ Import Complete
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-            <div style={{ background: '#FFF5F7', borderRadius: '8px', padding: '12px' }}>
+            <div style={{ background: 'var(--background)', borderRadius: '8px', padding: '12px' }}>
               <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Added to Queue</div>
               <div style={{ fontSize: '24px', fontWeight: 700, color: '#E88FAC' }}>{result.created}</div>
             </div>
-            <div style={{ background: '#FFF5F7', borderRadius: '8px', padding: '12px' }}>
+            <div style={{ background: 'var(--background)', borderRadius: '8px', padding: '12px' }}>
               <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Already on Board</div>
               <div style={{ fontSize: '24px', fontWeight: 700, color: '#999' }}>{result.skippedAlreadyOnBoard}</div>
             </div>
-            <div style={{ background: '#FFF5F7', borderRadius: '8px', padding: '12px' }}>
+            <div style={{ background: 'var(--background)', borderRadius: '8px', padding: '12px' }}>
               <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Already in Source Reels</div>
               <div style={{ fontSize: '24px', fontWeight: 700, color: '#999' }}>{result.skippedAlreadyInSourceReels}</div>
             </div>
-            <div style={{ background: '#FFF5F7', borderRadius: '8px', padding: '12px' }}>
+            <div style={{ background: 'var(--background)', borderRadius: '8px', padding: '12px' }}>
               <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Parsed</div>
               <div style={{ fontSize: '24px', fontWeight: 700, color: '#4a4a4a' }}>{result.totalParsed}</div>
             </div>
           </div>
           <button
             onClick={reset}
-            style={{ width: '100%', padding: '10px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#888', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            style={{ width: '100%', padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', color: '#888', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
           >
             Import Another File
           </button>

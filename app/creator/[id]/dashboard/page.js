@@ -17,7 +17,7 @@ function Card({ children, style, className, hoverable }) {
     <div
       className={`${className || ''} ${hoverable ? 'card-hover' : ''}`}
       style={{
-        background: '#ffffff',
+        background: 'var(--card-bg-solid)',
         borderRadius: '18px',
         padding: '20px',
         boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
@@ -40,7 +40,7 @@ function Row({ label, value, href, mono }) {
     ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...valStyle, color: '#E88FAC', textDecoration: 'none' }}>{value}</a>
     : <span style={valStyle}>{value || '—'}</span>
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid transparent' }}>
       <span style={{ color: '#999', fontSize: '12px', flexShrink: 0, marginRight: '16px' }}>{label}</span>
       {content}
     </div>
@@ -110,12 +110,12 @@ function InvoiceModal({ group, onClose }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: pdfUrl ? '1000px' : '640px',
+        background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: pdfUrl ? '1000px' : '640px',
         maxHeight: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         display: 'flex', flexDirection: 'column', transition: 'max-width 0.3s ease',
       }}>
         {/* Header */}
-        <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+        <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid transparent' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
@@ -131,7 +131,7 @@ function InvoiceModal({ group, onClose }) {
             }}>✕</button>
           </div>
           {/* Combined totals */}
-          <div style={{ display: 'flex', marginTop: '16px', padding: '18px 24px', background: '#FFF8FA', borderRadius: '14px' }}>
+          <div style={{ display: 'flex', marginTop: '16px', padding: '18px 24px', background: 'rgba(232, 160, 160, 0.03)', borderRadius: '14px' }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(group.totalEarnings)}</div>
               <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Total Revenue</div>
@@ -151,7 +151,7 @@ function InvoiceModal({ group, onClose }) {
         <div style={{ flex: 1, overflow: 'auto' }}>
           {pdfUrl ? (
             <div style={{ display: 'flex', flexDirection: 'column', height: '75vh' }}>
-              <div style={{ padding: '12px 28px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ padding: '12px 28px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button onClick={() => setPdfUrl(null)} style={{
                   background: '#f5f5f5', border: 'none', borderRadius: '8px', padding: '5px 12px',
                   cursor: 'pointer', fontSize: '12px', color: '#666', fontWeight: 500,
@@ -171,7 +171,7 @@ function InvoiceModal({ group, onClose }) {
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 16px', marginBottom: '6px',
                     background: '#FAFAFA', borderRadius: '12px',
-                    border: '1px solid rgba(0,0,0,0.04)',
+                    border: '1px solid transparent',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', minWidth: '70px' }}>{acctLabel}</div>
@@ -188,7 +188,7 @@ function InvoiceModal({ group, onClose }) {
                     </div>
                     {pdfLink && (
                       <button onClick={() => setPdfUrl(pdfLink)} style={{
-                        fontSize: '11px', color: '#E88FAC', background: '#FFF0F3', border: 'none',
+                        fontSize: '11px', color: '#E88FAC', background: 'rgba(232, 160, 160, 0.04)', border: 'none',
                         padding: '5px 12px', borderRadius: '8px', fontWeight: 500, cursor: 'pointer',
                         flexShrink: 0,
                       }}>View PDF</button>
@@ -201,7 +201,7 @@ function InvoiceModal({ group, onClose }) {
               {!allPaid && (
                 <div style={{
                   marginTop: '20px', padding: '20px', background: '#FAFAFA', borderRadius: '14px',
-                  border: '1px solid rgba(0,0,0,0.04)', textAlign: 'center',
+                  border: '1px solid transparent', textAlign: 'center',
                 }}>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Pay via Zelle</div>
                   <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '14px' }}>Scan the QR code or send to the info below</div>
@@ -331,7 +331,7 @@ export default function CreatorDashboard() {
 
   if (!isLoaded || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: '#aaa', fontSize: '14px' }}>Loading...</div>
       </div>
     )
@@ -344,7 +344,7 @@ export default function CreatorDashboard() {
   const igHref = p.igAccount?.startsWith('http') ? p.igAccount : `https://${p.igAccount}`
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-4 md:py-8">
 
         {/* ── Header + Earnings ── */}
@@ -402,7 +402,7 @@ export default function CreatorDashboard() {
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
                       padding: '12px 8px', borderRadius: '14px',
                       background: s.key === 'foryou' ? '#FFF0F3' : '#FAFAFA',
-                      border: s.key === 'foryou' ? '1px solid #E88FAC' : '1px solid rgba(0,0,0,0.04)',
+                      border: s.key === 'foryou' ? '1px solid #E88FAC' : '1px solid transparent',
                       transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
                     }}
                   >
@@ -418,14 +418,14 @@ export default function CreatorDashboard() {
               const stripLabel = isForYou ? 'Picked For You' : 'Viral Right Now'
               const stripSort = isForYou ? 'foryou' : 'viral'
               return (
-                <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', padding: '12px 20px' }}>
+                <div style={{ borderTop: '1px solid transparent', padding: '12px 20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{stripLabel}</span>
                     <a href={`${inspoPath}?sort=${stripSort}`} style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: `repeat(${topReels.length}, 1fr)`, gap: '6px' }}>
                     {topReels.map(r => (
-                      <a key={r.id} href={`${inspoPath}?sort=${stripSort}`} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: '#FFF0F3', display: 'block' }}>
+                      <a key={r.id} href={`${inspoPath}?sort=${stripSort}`} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: 'rgba(232, 160, 160, 0.04)', display: 'block' }}>
                         {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </a>
                     ))}
@@ -482,7 +482,7 @@ export default function CreatorDashboard() {
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '12px 14px', marginBottom: '6px', cursor: 'pointer',
                         borderRadius: '12px', background: '#FAFAFA',
-                        border: '1px solid rgba(0,0,0,0.04)',
+                        border: '1px solid transparent',
                         transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
                       }}
                     >
@@ -512,7 +512,7 @@ export default function CreatorDashboard() {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       padding: '12px 14px', cursor: 'pointer',
-                      borderRadius: '12px', background: '#FFF0F3',
+                      borderRadius: '12px', background: 'rgba(232, 160, 160, 0.04)',
                       border: '1px solid rgba(232,143,172,0.15)',
                       transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
                       gap: '6px',
@@ -542,11 +542,11 @@ export default function CreatorDashboard() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px',
           }}>
             <div onClick={e => e.stopPropagation()} style={{
-              background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '640px',
+              background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '640px',
               maxHeight: '85vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
               display: 'flex', flexDirection: 'column',
             }}>
-              <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>All Invoices</div>
                   <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>{groupInvoicesByPeriod(invoices).length} billing periods</div>
@@ -583,7 +583,7 @@ export default function CreatorDashboard() {
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '14px 16px', marginBottom: '8px', cursor: 'pointer',
                         borderRadius: '12px', background: '#FAFAFA',
-                        border: '1px solid rgba(0,0,0,0.04)',
+                        border: '1px solid transparent',
                         transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
                       }}
                     >
@@ -641,7 +641,7 @@ export default function CreatorDashboard() {
               ].map(stage => (
                 <div key={stage.label} style={{
                   textAlign: 'center', padding: '8px',
-                  background: '#FFF8FA', borderRadius: '12px',
+                  background: 'rgba(232, 160, 160, 0.03)', borderRadius: '12px',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                 }}>
                   <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : '#ddd' }}>{stage.count}</div>
@@ -656,8 +656,8 @@ export default function CreatorDashboard() {
                 <div style={{ fontSize: '10px', color: '#aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {savedOnly.slice(0, 8).map((reel) => (
-                    <a key={reel.id} href="/my-content?tab=saved" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
-                      <div style={{ aspectRatio: '9/16', background: '#FFF0F3', overflow: 'hidden' }}>
+                    <a key={reel.id} href="/my-content?tab=saved" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
+                      <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)', overflow: 'hidden' }}>
                         {reel.thumbnail ? (
                           <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
@@ -683,8 +683,8 @@ export default function CreatorDashboard() {
                 <div style={{ fontSize: '10px', color: '#aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {pipeline.editing.slice(0, 4).map((item) => (
-                    <a key={item.assetId} href="/my-content?tab=editing" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
-                      <div style={{ aspectRatio: '9/16', background: '#FFF0F3', overflow: 'hidden' }}>
+                    <a key={item.assetId} href="/my-content?tab=editing" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
+                      <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)', overflow: 'hidden' }}>
                         {item.inspoThumbnail ? (
                           <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
@@ -717,7 +717,7 @@ export default function CreatorDashboard() {
                     setTimeout(() => profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
                   }}
                   style={{
-                    background: '#FFF0F3', border: 'none', borderRadius: '9999px',
+                    background: 'rgba(232, 160, 160, 0.04)', border: 'none', borderRadius: '9999px',
                     padding: '4px 12px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, color: '#E88FAC',
                   }}
                 >
@@ -747,7 +747,7 @@ export default function CreatorDashboard() {
                       {topTags.map(([tag, weight]) => (
                         <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <span style={{ fontSize: '12px', color: '#4a4a4a', fontWeight: 500, width: '110px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
-                          <div style={{ flex: 1, height: '6px', background: '#FFF0F3', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ flex: 1, height: '6px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '3px', overflow: 'hidden' }}>
                             <div style={{ width: `${Math.round((weight / maxWeight) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, #E88FAC, #D4A0B0)', borderRadius: '3px' }} />
                           </div>
                         </div>
@@ -786,7 +786,7 @@ export default function CreatorDashboard() {
                 }}
                 className="card-hover"
                 style={{
-                  width: '100%', background: '#ffffff', borderRadius: profileOpen ? '18px 18px 0 0' : '18px', border: 'none',
+                  width: '100%', background: 'var(--card-bg-solid)', borderRadius: profileOpen ? '18px 18px 0 0' : '18px', border: 'none',
                   padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
                 }}
@@ -805,7 +805,7 @@ export default function CreatorDashboard() {
                 </div>
               </button>
               {profileOpen && (
-                <div style={{ background: '#ffffff', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+                <div style={{ background: 'var(--card-bg-solid)', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '1px solid transparent' }}>
                   <div style={{ display: 'grid', gap: '0' }} className="grid-cols-1 md:grid-cols-2">
                     <div style={{ padding: '20px 24px' }}>
                       {creatorProfile.profileSummary && (
@@ -824,7 +824,7 @@ export default function CreatorDashboard() {
                         </>
                       )}
                     </div>
-                    <div style={{ padding: '20px 24px', borderLeft: '1px solid rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ padding: '20px 24px', borderLeft: '1px solid transparent', display: 'flex', flexDirection: 'column' }}>
                       <Label>All Tags</Label>
                       {(() => {
                         const TAG_CATEGORIES = ['Setting / Location', 'Persona / Niche', 'Tone / Energy', 'Visual / Body', 'Viewer Experience', 'Film Format']
@@ -888,7 +888,7 @@ export default function CreatorDashboard() {
               onClick={() => setShowProfile(!showProfile)}
               className="card-hover"
               style={{
-                width: '100%', background: '#ffffff', borderRadius: showProfile ? '18px 18px 0 0' : '18px', border: 'none',
+                width: '100%', background: 'var(--card-bg-solid)', borderRadius: showProfile ? '18px 18px 0 0' : '18px', border: 'none',
                 padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)',
               }}
@@ -907,7 +907,7 @@ export default function CreatorDashboard() {
               </div>
             </button>
             {showProfile && (
-              <div style={{ background: '#ffffff', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '4px 20px 20px', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+              <div style={{ background: 'var(--card-bg-solid)', borderRadius: '0 0 18px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '4px 20px 20px', borderTop: '1px solid transparent' }}>
                 <Row label="Name" value={p.name} />
                 <Row label="Stage Name" value={p.aka} />
                 <Row label="Your Rate" value={fmtPct(1 - (p.commission || 0))} />

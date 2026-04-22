@@ -88,7 +88,7 @@ export default function ContentRequestPage() {
     return (
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '60px 20px' }}>
         <div style={{
-          background: '#ffffff',
+          background: 'var(--card-bg-solid)',
           borderRadius: 18,
           padding: '32px',
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
@@ -113,8 +113,8 @@ export default function ContentRequestPage() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '12px 20px',
-                    background: '#FFF5F7',
-                    border: '1px solid #F0D0D8',
+                    background: 'var(--background)',
+                    border: '1px solid transparent',
                     borderRadius: 10,
                     cursor: 'pointer',
                     transition: 'all 0.15s',
@@ -124,7 +124,7 @@ export default function ContentRequestPage() {
                     textAlign: 'left',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = '#E88FAC'; e.currentTarget.style.background = '#FFF0F3' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#F0D0D8'; e.currentTarget.style.background = '#FFF5F7' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = '#FFF5F7' }}
                 >
                   <span>{c.aka || c.name}</span>
                   <span style={{ color: '#E88FAC', fontSize: 13 }}>View &rarr;</span>
@@ -156,7 +156,7 @@ export default function ContentRequestPage() {
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 20px 80px' }}>
       {/* Header */}
       <div style={{
-        background: '#ffffff',
+        background: 'var(--card-bg-solid)',
         borderRadius: 18,
         padding: '24px 32px',
         marginBottom: 24,

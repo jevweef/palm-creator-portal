@@ -26,7 +26,7 @@ const TAG_COLORS = [
 ]
 
 function StatusBadge({ status }) {
-  const c = STATUS_COLORS[status] || { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' }
+  const c = STATUS_COLORS[status] || { bg: '#FFF0F3', text: '#999', border: 'transparent' }
   return (
     <span style={{
       padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
@@ -121,7 +121,7 @@ function SubmitModal({ task, onClose, onSubmit }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '440px', maxWidth: '95vw' }}
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '440px', maxWidth: '95vw' }}
         onClick={e => e.stopPropagation()}>
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
           Submit Edit for Review
@@ -163,7 +163,7 @@ function SubmitModal({ task, onClose, onSubmit }) {
           disabled={uploading}
           style={{
             width: '100%', marginTop: '12px', padding: '10px 12px',
-            background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '8px',
+            background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px',
             color: '#4a4a4a', fontSize: '13px', resize: 'vertical', minHeight: '60px',
             fontFamily: 'inherit', boxSizing: 'border-box',
           }}
@@ -174,14 +174,14 @@ function SubmitModal({ task, onClose, onSubmit }) {
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} disabled={uploading}
-            style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#E8C4CC' }}>
+            style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: 'transparent' }}>
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={!file || uploading}
             style={{
               padding: '8px 20px', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600,
               cursor: !file || uploading ? 'not-allowed' : 'pointer',
-              background: !file || uploading ? '#E8C4CC' : '#E88FAC', opacity: uploading ? 0.6 : 1,
+              background: !file || uploading ? 'transparent' : '#E88FAC', opacity: uploading ? 0.6 : 1,
             }}>
             {uploading ? 'Uploading...' : 'Submit for Review'}
           </button>
@@ -300,13 +300,13 @@ function MusicPanel({ task }) {
   }
 
   return (
-    <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '8px' }}>
+    <div style={{ borderTop: '1px solid transparent', paddingTop: '8px' }}>
       <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Music</div>
 
       {/* Audio type + identified song */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
         {audioType && (
-          <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: '#FFF0F3', color: '#888', border: '1px solid #E8C4CC' }}>
+          <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: 'rgba(232, 160, 160, 0.04)', color: '#888', border: '1px solid transparent' }}>
             {audioType}
           </span>
         )}
@@ -495,7 +495,7 @@ function InspoTasks({ showToast }) {
                 padding: '6px 14px', fontSize: '12px', fontWeight: 600,
                 background: filter === tab.key ? '#FFF0F3' : 'transparent',
                 color: filter === tab.key ? '#E88FAC' : '#999',
-                border: `1px solid ${filter === tab.key ? '#E88FAC' : '#E8C4CC'}`,
+                border: `1px solid ${filter === tab.key ? '#E88FAC' : 'transparent'}`,
                 borderRadius: '6px', cursor: 'pointer',
               }}
             >
@@ -507,7 +507,7 @@ function InspoTasks({ showToast }) {
           onClick={fetchTasks}
           style={{
             padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-            background: '#ffffff', color: '#888', border: '1px solid #E8C4CC',
+            background: 'var(--card-bg-solid)', color: '#888', border: '1px solid transparent',
             borderRadius: '6px', cursor: 'pointer',
           }}
         >
@@ -516,7 +516,7 @@ function InspoTasks({ showToast }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           {tasks.length === 0 ? 'No editing tasks in queue.' : 'No tasks match this filter.'}
         </div>
       ) : (
@@ -559,17 +559,17 @@ function InspoTasks({ showToast }) {
 function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, updating }) {
   return (
     <div style={{
-      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
+      background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
     }}>
       {/* Visual header */}
-      <div style={{ display: 'flex', height: '200px', background: '#FFF5F7' }}>
+      <div style={{ display: 'flex', height: '200px', background: 'var(--background)' }}>
         {/* Inspo thumbnail */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {task.inspo.thumbnail ? (
             <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '12px' }}>No thumbnail</div>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '12px' }}>No thumbnail</div>
           )}
           <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.4)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#E88FAC', fontWeight: 600 }}>
             INSPO
@@ -577,8 +577,8 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
         </div>
 
         {/* Arrow */}
-        <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF5F7', flexShrink: 0 }}>
-          <span style={{ color: '#E8C4CC', fontSize: '18px' }}>→</span>
+        <div style={{ width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', flexShrink: 0 }}>
+          <span style={{ color: 'transparent', fontSize: '18px' }}>→</span>
         </div>
 
         {/* Creator clip */}
@@ -600,7 +600,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
               <span style={{ color: '#E88FAC', fontSize: '12px', fontWeight: 600 }}>Download Clips</span>
             </a>
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF5F7', color: '#E8C4CC', fontSize: '12px' }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'transparent', fontSize: '12px' }}>
               No clip yet
             </div>
           )}
@@ -628,13 +628,13 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {task.inspo.contentLink && (
             <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: '#FFF0F3', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '4px', border: '1px solid transparent' }}>
               Original Reel ↗
             </a>
           )}
           {task.inspo.dbShareLink && (
             <a href={task.inspo.dbShareLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: '#FFF0F3', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '4px', border: '1px solid transparent' }}>
               Analyzed Video ↗
             </a>
           )}
@@ -648,7 +648,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
 
         {/* Creator notes */}
         {(task.creatorNotes || task.asset.creatorNotes) && (
-          <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '10px' }}>
+          <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '10px' }}>
             <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
               Creator Notes
             </div>
@@ -669,7 +669,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
             </button>
 
             {expanded && (
-              <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {task.inspo.notes && (
                   <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                     {task.inspo.notes}
@@ -712,13 +712,13 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
         <div style={{ marginTop: 'auto', paddingTop: '4px' }}>
           {task.status === 'To Do' && (
             <button onClick={onStartEditing} disabled={updating}
-              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating ? '#E8C4CC' : '#dcfce7', color: updating ? '#555' : '#22c55e', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', opacity: updating ? 0.6 : 1 }}>
+              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating ? 'transparent' : '#dcfce7', color: updating ? '#555' : '#22c55e', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', opacity: updating ? 0.6 : 1 }}>
               {updating ? 'Updating...' : 'Start Editing'}
             </button>
           )}
           {task.status === 'In Progress' && (
             <button onClick={onSubmit}
-              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
               Submit for Review
             </button>
           )}
@@ -910,7 +910,7 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
   }
 
   return (
-    <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '8px' }}>
+    <div style={{ borderTop: '1px solid transparent', paddingTop: '8px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
         <div style={{ display: 'flex', gap: '0', flex: 1 }}>
           {[
@@ -1012,7 +1012,7 @@ function UnreviewedLibrary({ showToast }) {
             onChange={e => setSelectedCreator(e.target.value)}
             style={{
               padding: '6px 12px', fontSize: '13px', fontWeight: 500,
-              background: '#FFF5F7', color: '#1a1a1a', border: '1px solid #E8C4CC',
+              background: 'var(--background)', color: '#1a1a1a', border: '1px solid transparent',
               borderRadius: '6px', cursor: 'pointer', outline: 'none',
             }}
           >
@@ -1030,7 +1030,7 @@ function UnreviewedLibrary({ showToast }) {
           onClick={fetchAssets}
           style={{
             padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-            background: '#ffffff', color: '#888', border: '1px solid #E8C4CC',
+            background: 'var(--card-bg-solid)', color: '#888', border: '1px solid transparent',
             borderRadius: '6px', cursor: 'pointer',
           }}
         >
@@ -1039,7 +1039,7 @@ function UnreviewedLibrary({ showToast }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           {selectedCreator === 'all' ? 'No unreviewed clips in library.' : 'No clips for this creator.'}
         </div>
       ) : (
@@ -1064,16 +1064,16 @@ function UnreviewedCard({ asset }) {
 
   return (
     <div style={{
-      background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
+      background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
     }}>
       {/* Thumbnail */}
-      <div style={{ height: '180px', background: '#FFF5F7', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: '180px', background: 'var(--background)', position: 'relative', overflow: 'hidden' }}>
         {asset.thumbnail ? (
           <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <svg style={{ width: '36px', height: '36px', color: '#E8C4CC' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg style={{ width: '36px', height: '36px', color: 'transparent' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
             </svg>
             <span style={{ fontSize: '11px', color: '#444' }}>No thumbnail</span>
@@ -1100,7 +1100,7 @@ function UnreviewedCard({ asset }) {
             )}
           </div>
           {asset.sourceType && (
-            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: '#999', border: '1px solid transparent', whiteSpace: 'nowrap', flexShrink: 0 }}>
               {asset.sourceType}
             </span>
           )}
@@ -1108,14 +1108,14 @@ function UnreviewedCard({ asset }) {
 
         {/* Folder path hint */}
         {folderLabel && (
-          <div style={{ fontSize: '11px', color: '#555', fontFamily: 'monospace', background: '#FFF5F7', padding: '4px 8px', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '11px', color: '#555', fontFamily: 'monospace', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             📁 {folderLabel}
           </div>
         )}
 
         {/* Creator notes */}
         {asset.creatorNotes && (
-          <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '8px 10px' }}>
+          <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px' }}>
             <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Notes</div>
             <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.4 }}>{asset.creatorNotes}</div>
           </div>
@@ -1133,7 +1133,7 @@ function UnreviewedCard({ asset }) {
               style={{
                 flex: 1, minWidth: '80px', textAlign: 'center',
                 padding: '8px', fontSize: '12px', fontWeight: 600,
-                background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC',
+                background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid transparent',
                 borderRadius: '6px', textDecoration: 'none',
               }}>
               {arr.length > 1 ? `Clip ${i + 1} ↗` : 'View Clip ↗'}
@@ -1352,7 +1352,7 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1418,7 +1418,7 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
               {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#1a0a0a', border: '1px solid #3d1515', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={handleUseFullFrame} disabled={uploading}
-                  style={{ flex: 1, padding: '9px', background: '#FFF0F3', border: '1px solid #E8C4CC', color: '#999', borderRadius: '8px', cursor: uploading ? 'default' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: uploading ? 0.5 : 1 }}>
+                  style={{ flex: 1, padding: '9px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: '#999', borderRadius: '8px', cursor: uploading ? 'default' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: uploading ? 0.5 : 1 }}>
                   Use full frame
                 </button>
                 <button onClick={handleCropAndAdd} disabled={!canCrop || uploading}
@@ -1547,7 +1547,7 @@ function CropperModal({ file, onCrop, onSkip }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '16px', padding: '20px', maxWidth: '95vw', display: 'flex', flexDirection: 'column', gap: '12px' }}
+      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', padding: '20px', maxWidth: '95vw', display: 'flex', flexDirection: 'column', gap: '12px' }}
         onClick={e => e.stopPropagation()}>
         <div>
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>Crop Screenshot</div>
@@ -1560,15 +1560,15 @@ function CropperModal({ file, onCrop, onSkip }) {
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseUp}
-          style={{ display: ready ? 'block' : 'none', cursor: 'crosshair', maxWidth: '100%', borderRadius: '8px', border: '1px solid #E8C4CC', userSelect: 'none' }}
+          style={{ display: ready ? 'block' : 'none', cursor: 'crosshair', maxWidth: '100%', borderRadius: '8px', border: '1px solid transparent', userSelect: 'none' }}
         />
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={() => onSkip(file)}
-            style={{ padding: '8px 16px', border: '1px solid #E8C4CC', borderRadius: '8px', color: '#888', fontSize: '12px', fontWeight: 600, cursor: 'pointer', background: 'transparent' }}>
+            style={{ padding: '8px 16px', border: '1px solid transparent', borderRadius: '8px', color: '#888', fontSize: '12px', fontWeight: 600, cursor: 'pointer', background: 'transparent' }}>
             Use Full Image
           </button>
           <button onClick={handleCrop} disabled={!canCrop}
-            style={{ padding: '8px 18px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '12px', fontWeight: 700, cursor: canCrop ? 'pointer' : 'not-allowed', background: canCrop ? '#E88FAC' : '#E8C4CC', opacity: canCrop ? 1 : 0.5 }}>
+            style={{ padding: '8px 18px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '12px', fontWeight: 700, cursor: canCrop ? 'pointer' : 'not-allowed', background: canCrop ? '#E88FAC' : 'transparent', opacity: canCrop ? 1 : 0.5 }}>
             Crop & Add
           </button>
         </div>
@@ -1668,7 +1668,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}>
-      <div style={{ background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '16px', padding: '28px', width: '500px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto' }}
+      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', padding: '28px', width: '500px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
         <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 4px' }}>Request Revision</h3>
         <p style={{ fontSize: '12px', color: '#999', marginBottom: '20px' }}>
@@ -1683,8 +1683,8 @@ function RevisionModal({ task, onClose, onSubmit }) {
             placeholder="Describe what needs to change..."
             autoFocus
             style={{
-              width: '100%', padding: '10px 12px', background: '#FFF5F7',
-              border: '1px solid #E8C4CC', borderRadius: '8px', color: '#4a4a4a',
+              width: '100%', padding: '10px 12px', background: 'var(--background)',
+              border: '1px solid transparent', borderRadius: '8px', color: '#4a4a4a',
               fontSize: '13px', resize: 'vertical', minHeight: '100px',
               fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5,
             }}
@@ -1699,7 +1699,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
               {screenshots.map((url, i) => (
                 <div key={i} style={{ position: 'relative', width: '72px', height: '72px' }}>
-                  <img src={url.replace(/([?&])dl=[01]/, '$1raw=1')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E8C4CC' }} />
+                  <img src={url.replace(/([?&])dl=[01]/, '$1raw=1')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid transparent' }} />
                   <button
                     onClick={() => setScreenshots(prev => prev.filter((_, j) => j !== i))}
                     style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', color: '#1a1a1a', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
@@ -1713,7 +1713,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading || cropQueue.length > 0}
-              style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer', opacity: (uploading || cropQueue.length > 0) ? 0.6 : 1 }}>
+              style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: '#888', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer', opacity: (uploading || cropQueue.length > 0) ? 0.6 : 1 }}>
               {uploading ? progress || 'Uploading...' : '+ Add Screenshot'}
             </button>
             {hasVideo && (
@@ -1732,14 +1732,14 @@ function RevisionModal({ task, onClose, onSubmit }) {
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} disabled={uploading}
-            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: '#E8C4CC' }}>
+            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: 'transparent' }}>
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={uploading || !feedback.trim()}
             style={{
               padding: '9px 22px', border: 'none', borderRadius: '8px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600,
               cursor: uploading || !feedback.trim() ? 'not-allowed' : 'pointer',
-              background: uploading || !feedback.trim() ? '#E8C4CC' : '#ef4444', opacity: uploading ? 0.6 : 1,
+              background: uploading || !feedback.trim() ? 'transparent' : '#ef4444', opacity: uploading ? 0.6 : 1,
             }}>
             Send Revision Request
           </button>
@@ -1779,7 +1779,7 @@ function VideoModal({ url, onClose }) {
         <video src={rawUrl} controls autoPlay playsInline
           style={{ width: '100%', maxHeight: '90vh', borderRadius: '10px', display: 'block', background: '#000' }} />
         <button onClick={onClose}
-          style={{ position: 'absolute', top: '-14px', right: '-14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '50%', width: '32px', height: '32px', color: '#1a1a1a', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          style={{ position: 'absolute', top: '-14px', right: '-14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '50%', width: '32px', height: '32px', color: '#1a1a1a', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           ×
         </button>
       </div>
@@ -1861,13 +1861,13 @@ function ForReview({ showToast }) {
           {tasks.length} edit{tasks.length !== 1 ? 's' : ''} waiting for your review
         </p>
         <button onClick={fetchTasks}
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: '#ffffff', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}>
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: '#888', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
 
       {tasks.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: '#ffffff', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: '#555', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           No edits waiting for review.
         </div>
       ) : (
@@ -1885,9 +1885,9 @@ function ForReview({ showToast }) {
             const hasInspo = !!(inspoVideoUrl || task.inspo.thumbnail)
 
             return (
-              <div key={task.id} style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden' }}>
+              <div key={task.id} style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden' }}>
                 {/* Video strip — RAW | EDIT | INSPO */}
-                <div style={{ display: 'flex', background: '#FFF5F7', gap: '2px' }}>
+                <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
 
                   {/* RAW clip */}
                   <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a0a14' }}>
@@ -1902,7 +1902,7 @@ function ForReview({ showToast }) {
                         </button>
                       </>
                     ) : (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '11px' }}>No raw clip</div>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No raw clip</div>
                     )}
                     <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#3b82f6', fontWeight: 600 }}>RAW</div>
                   </div>
@@ -1920,7 +1920,7 @@ function ForReview({ showToast }) {
                         </button>
                       </>
                     ) : (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '11px' }}>No edit yet</div>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No edit yet</div>
                     )}
                     <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#22c55e', fontWeight: 600 }}>EDIT</div>
                   </div>
@@ -1960,7 +1960,7 @@ function ForReview({ showToast }) {
                     )}
                     {task.inspo.contentLink && (
                       <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: '#FFF0F3', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+                        style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '3px 8px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '4px', border: '1px solid transparent' }}>
                         Original Reel ↗
                       </a>
                     )}
@@ -1968,7 +1968,7 @@ function ForReview({ showToast }) {
 
                   {/* Editor notes */}
                   {task.editorNotes && (
-                    <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '10px' }}>
+                    <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '10px' }}>
                       <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Editor Notes</div>
                       <div style={{ fontSize: '12px', color: '#888', lineHeight: 1.4 }}>{task.editorNotes}</div>
                     </div>
@@ -1982,7 +1982,7 @@ function ForReview({ showToast }) {
                         {isExpanded ? '▾ Hide inspo' : '▸ View inspo direction'}
                       </button>
                       {isExpanded && (
-                        <div style={{ background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '12px' }}>
                           <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
                           {task.inspo.onScreenText && (
                             <div style={{ marginTop: '8px', fontSize: '12px', color: '#f59e0b', background: '#1a1500', border: '1px solid #fef3c7', borderRadius: '6px', padding: '8px 10px' }}>
@@ -2146,7 +2146,7 @@ export default function EditorQueue() {
           <div className="admin-editor-notif" style={{ flexShrink: 0 }}>
             {notifStatus === 'idle' && (
               <button onClick={handleEnableNotifications}
-                style={{ fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '8px', border: '1px solid #E8C4CC', background: 'transparent', color: '#999', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                style={{ fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '8px', border: '1px solid transparent', background: 'transparent', color: '#999', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 🔔 Notifications
               </button>
             )}

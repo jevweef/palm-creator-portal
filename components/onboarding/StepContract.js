@@ -129,7 +129,7 @@ export default function StepContract({ hqId, onComplete }) {
         {/* Show the signed PDF */}
         {pdfBlobUrl && (
           <div style={{
-            background: '#fff',
+            background: 'var(--card-bg-solid)',
             border: '1px solid #e0e0e0',
             borderRadius: '12px',
             overflow: 'hidden',
@@ -158,7 +158,7 @@ export default function StepContract({ hqId, onComplete }) {
                 download={pdfFilename}
                 style={{
                   padding: '10px 24px',
-                  background: '#fff',
+                  background: 'var(--card-bg-solid)',
                   color: '#E88FAC',
                   border: '1px solid #E88FAC',
                   borderRadius: '8px',
@@ -204,7 +204,7 @@ export default function StepContract({ hqId, onComplete }) {
 
       {/* Contract preview */}
       <div style={{
-        background: '#fff',
+        background: 'var(--card-bg-solid)',
         border: '1px solid #e0e0e0',
         borderRadius: '12px',
         maxHeight: '500px',
@@ -226,7 +226,7 @@ export default function StepContract({ hqId, onComplete }) {
 
       {/* Signature section */}
       <div style={{
-        background: '#fff',
+        background: 'var(--card-bg-solid)',
         border: '1px solid #e0e0e0',
         borderRadius: '12px',
         padding: '20px',
@@ -340,7 +340,7 @@ export default function StepContract({ hqId, onComplete }) {
             style={{
               marginTop: '16px',
               padding: '10px 32px',
-              background: !canSign || signing ? '#F0D0D8' : '#E88FAC',
+              background: !canSign || signing ? 'transparent' : '#E88FAC',
               color: '#fff',
               border: 'none',
               borderRadius: '8px',

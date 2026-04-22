@@ -160,7 +160,7 @@ export default function ContentRequestSectionCard({
 
   return (
     <div style={{
-      background: '#ffffff',
+      background: 'var(--card-bg-solid)',
       borderRadius: 18,
       padding: '28px 32px',
       marginBottom: 24,
@@ -232,7 +232,7 @@ export default function ContentRequestSectionCard({
             <div style={{
               marginTop: 10,
               padding: '14px 18px',
-              background: '#FFF5F7',
+              background: 'var(--background)',
               borderRadius: 10,
               fontSize: 13,
               lineHeight: 1.7,
@@ -252,7 +252,7 @@ export default function ContentRequestSectionCard({
             Scripts to record:
           </div>
           <div style={{
-            background: '#FFF5F7',
+            background: 'var(--background)',
             borderRadius: 10,
             padding: '12px 18px',
             maxHeight: 200,
@@ -263,7 +263,7 @@ export default function ContentRequestSectionCard({
                 fontSize: 13,
                 color: '#444',
                 padding: '6px 0',
-                borderBottom: idx < scripts.length - 1 ? '1px solid #F0D0D8' : 'none',
+                borderBottom: idx < scripts.length - 1 ? '1px solid transparent' : 'none',
                 display: 'flex',
                 gap: 8,
               }}>
@@ -287,7 +287,7 @@ export default function ContentRequestSectionCard({
           }}
           onClick={() => fileInputRef.current?.click()}
           style={{
-            border: `2px dashed ${dragOver ? '#E88FAC' : '#E8C4CC'}`,
+            border: `2px dashed ${dragOver ? '#E88FAC' : 'transparent'}`,
             borderRadius: 12,
             padding: '28px 20px',
             textAlign: 'center',
@@ -321,7 +321,7 @@ export default function ContentRequestSectionCard({
           textAlign: 'center',
           border: '2px solid #E8C4CC',
           borderRadius: 12,
-          background: '#FFF5F7',
+          background: 'var(--background)',
           marginBottom: files.length > 0 ? 16 : 0,
         }}>
           <div style={{
@@ -346,7 +346,7 @@ export default function ContentRequestSectionCard({
               alignItems: 'center',
               gap: 6,
               padding: '6px 12px',
-              background: '#FFF5F7',
+              background: 'var(--background)',
               borderRadius: 8,
               fontSize: 12,
               color: '#666',

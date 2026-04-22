@@ -663,7 +663,7 @@ function SampleMessageBlock({ message }) {
 function SectionCard({ section, isOpen, onToggle }) {
   return (
     <div style={{
-      background: '#ffffff',
+      background: 'var(--card-bg-solid)',
       borderRadius: '16px',
       boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
       overflow: 'hidden',
@@ -721,7 +721,7 @@ function SectionCard({ section, isOpen, onToggle }) {
               fontSize: '11px',
               fontWeight: 600,
               color: '#E88FAC',
-              background: '#FFF0F3',
+              background: 'rgba(232, 160, 160, 0.04)',
               border: '1px solid #F5D5DD',
               borderRadius: '6px',
               textDecoration: 'none',
@@ -746,7 +746,7 @@ function SectionCard({ section, isOpen, onToggle }) {
                   width: '26px',
                   height: '26px',
                   borderRadius: '50%',
-                  background: '#FFF0F3',
+                  background: 'rgba(232, 160, 160, 0.04)',
                   color: '#E88FAC',
                   fontSize: '13px',
                   fontWeight: 700,
@@ -890,9 +890,9 @@ export default function HelpPage() {
             width: '100%',
             padding: '12px 14px 12px 40px',
             fontSize: '14px',
-            border: '1px solid #E8C4CC',
+            border: '1px solid transparent',
             borderRadius: '12px',
-            background: '#FFF5F7',
+            background: 'var(--background)',
             outline: 'none',
             color: '#1a1a1a',
             boxSizing: 'border-box',
@@ -910,7 +910,7 @@ export default function HelpPage() {
             fontWeight: 500,
             color: '#999',
             background: 'none',
-            border: '1px solid #eee',
+            border: '1px solid transparent',
             borderRadius: '6px',
             cursor: 'pointer',
           }}
@@ -925,7 +925,7 @@ export default function HelpPage() {
             fontWeight: 500,
             color: '#999',
             background: 'none',
-            border: '1px solid #eee',
+            border: '1px solid transparent',
             borderRadius: '6px',
             cursor: 'pointer',
           }}

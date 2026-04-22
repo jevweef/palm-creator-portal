@@ -112,7 +112,7 @@ export default function LongFormUpload({ showToast }) {
         <div>
           <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Creator</div>
           <select value={selectedCreator} onChange={e => setSelectedCreator(e.target.value)}
-            style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', background: 'var(--card-bg-solid)', minWidth: '180px' }}>
+            style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid transparent', background: 'var(--card-bg-solid)', minWidth: '180px' }}>
             <option value="">Select creator...</option>
             {creators.map(c => (
               <option key={c.id} value={c.id}>{c.aka || c.name}</option>
@@ -123,7 +123,7 @@ export default function LongFormUpload({ showToast }) {
         {/* Mode toggle */}
         <div>
           <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Source</div>
-          <div style={{ display: 'flex', gap: '0', border: '1px solid #E8C4CC', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', gap: '0', border: '1px solid transparent', borderRadius: '8px', overflow: 'hidden' }}>
             {[{ key: 'file', label: 'File' }, { key: 'url', label: 'URL' }].map(m => (
               <button key={m.key} onClick={() => setUploadMode(m.key)}
                 style={{ padding: '7px 14px', fontSize: '11px', fontWeight: 600, background: uploadMode === m.key ? 'rgba(232, 160, 160, 0.05)' : '#fff', color: uploadMode === m.key ? 'var(--palm-pink)' : '#999', border: 'none', cursor: 'pointer' }}>
@@ -161,7 +161,7 @@ export default function LongFormUpload({ showToast }) {
       {uploadMode === 'url' && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           <input value={urlInput} onChange={e => setUrlInput(e.target.value)} placeholder="Paste Google Drive link..."
-            style={{ flex: 1, padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', outline: 'none' }} />
+            style={{ flex: 1, padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid transparent', outline: 'none' }} />
           <button onClick={handleUrlUpload} disabled={!selectedCreator || !urlInput.trim() || uploading}
             style={{
               padding: '8px 20px', fontSize: '13px', fontWeight: 700, flexShrink: 0,
@@ -176,7 +176,7 @@ export default function LongFormUpload({ showToast }) {
       )}
 
       {uploadMode === 'file' && files.length > 0 && (
-        <div style={{ marginBottom: '16px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '10px', border: '1px solid #E8C4CC' }}>
+        <div style={{ marginBottom: '16px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '10px', border: '1px solid transparent' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Ready to upload</div>
           {files.map((f, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px' }}>

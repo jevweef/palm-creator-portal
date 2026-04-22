@@ -33,7 +33,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
   if (coverageLoading) {
     return (
       <div style={{
-        background: '#fff', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.06)',
+        background: 'var(--card-bg-solid)', borderRadius: '14px', border: '1px solid transparent',
         padding: '20px 24px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
       }}>
         <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
@@ -126,7 +126,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 
   return (
     <div style={{
-      background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.06)',
+      background: 'var(--card-bg-solid)', borderBottom: '1px solid transparent',
       padding: '20px 24px', marginBottom: '20px',
     }}>
       <style>{`
@@ -408,7 +408,7 @@ export default function RawDataUpload() {
           <a href={spreadsheetUrl} target="_blank" rel="noopener noreferrer"
             style={{
               fontSize: '12px', color: '#E88FAC', textDecoration: 'none',
-              border: '1px solid #E8C4CC', borderRadius: '6px', padding: '6px 12px',
+              border: '1px solid transparent', borderRadius: '6px', padding: '6px 12px',
             }}>
             View Spreadsheet ↗
           </a>
@@ -422,7 +422,7 @@ export default function RawDataUpload() {
         </label>
         <select value={creator} onChange={e => setCreator(e.target.value)}
           style={{
-            width: '100%', maxWidth: '300px', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
+            width: '100%', maxWidth: '300px', background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '8px',
             color: '#1a1a1a', fontSize: '14px', padding: '10px 12px', outline: 'none',
           }}>
           {CREATORS.map(c => <option key={c} value={c}>{c}</option>)}

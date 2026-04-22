@@ -234,7 +234,7 @@ export default function TextTrainingPage() {
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <span style={{ fontSize: '12px', color: '#22c55e' }}>{stats.approved} approved</span>
           <span style={{ fontSize: '12px', color: '#ef4444' }}>{stats.denied} denied</span>
-          <span style={{ fontSize: '13px', color: '#666', background: '#fff', border: '1px solid #eee', padding: '4px 12px', borderRadius: '8px' }}>
+          <span style={{ fontSize: '13px', color: '#666', background: 'var(--card-bg-solid)', border: '1px solid transparent', padding: '4px 12px', borderRadius: '8px' }}>
             {index + 1} / {queue.length}
           </span>
         </div>
@@ -245,7 +245,7 @@ export default function TextTrainingPage() {
         display: 'grid',
         gridTemplateColumns: '280px 1fr',
         gap: '0',
-        background: '#fff',
+        background: 'var(--card-bg-solid)',
         borderRadius: '16px',
         border: '1px solid #e8dfe2',
         overflow: 'hidden',
@@ -297,7 +297,7 @@ export default function TextTrainingPage() {
         <div style={{ padding: '0', display: 'flex', flexDirection: 'column', overflowY: 'auto', maxHeight: '600px' }}>
 
           {/* Action zone — always visible at top */}
-          <div style={{ padding: '20px 28px', borderBottom: '1px solid #eee' }}>
+          <div style={{ padding: '20px 28px', borderBottom: '1px solid transparent' }}>
             {/* Title + username + stats */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div>
@@ -315,7 +315,7 @@ export default function TextTrainingPage() {
 
             {/* On-Screen Text */}
             <div style={{
-              background: '#FFF0F3',
+              background: 'rgba(232, 160, 160, 0.04)',
               border: '1px solid #f0d5dc',
               borderRadius: '12px',
               padding: '14px 18px',
@@ -362,7 +362,7 @@ export default function TextTrainingPage() {
                         gap: '6px',
                         padding: '6px 12px',
                         borderRadius: '8px',
-                        border: isSelected ? `1px solid ${mode.color}` : '1px solid #ddd',
+                        border: isSelected ? `1px solid ${mode.color}` : '1px solid transparent',
                         background: isSelected ? `${mode.color}15` : '#f8f8f8',
                         cursor: 'pointer',
                         transition: 'all 0.15s',
@@ -447,7 +447,7 @@ export default function TextTrainingPage() {
                   padding: '10px',
                   borderRadius: '10px',
                   border: '1px solid #e8dfe2',
-                  background: '#fff',
+                  background: 'var(--card-bg-solid)',
                   color: '#ef4444',
                   fontSize: '14px',
                   fontWeight: 600,

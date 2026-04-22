@@ -22,7 +22,7 @@ function StatusPill({ status }) {
     Complete: { bg: '#dcfce7', text: '#22c55e', border: '#bbf7d0' },
     Error: { bg: '#FEF2F2', text: '#ef4444', border: '#FECACA' },
   }
-  const c = colors[status] || { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' }
+  const c = colors[status] || { bg: '#FFF0F3', text: '#999', border: 'transparent' }
   return (
     <span style={{
       padding: '2px 8px',
@@ -129,7 +129,7 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
+        style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '1100px', maxWidth: '95vw', padding: '24px' }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -146,25 +146,25 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
               <button
                 onClick={() => currentIdx > 0 && onNavigate(sources[currentIdx - 1])}
                 disabled={currentIdx <= 0}
-                style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: currentIdx <= 0 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
+                style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: currentIdx <= 0 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx <= 0 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
               >{currentIdx > 0 ? `‹ @${sources[currentIdx - 1].handle}` : '‹'}</button>
               <button
                 onClick={() => currentIdx < sources.length - 1 && onNavigate(sources[currentIdx + 1])}
                 disabled={currentIdx >= sources.length - 1}
-                style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
+                style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: currentIdx >= sources.length - 1 ? '#3f3f46' : '#999', fontSize: '12px', cursor: currentIdx >= sources.length - 1 ? 'default' : 'pointer', padding: '4px 10px', lineHeight: 1.5, whiteSpace: 'nowrap' }}
               >{currentIdx < sources.length - 1 ? `@${sources[currentIdx + 1].handle} ›` : '›'}</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               onClick={() => setEditMode(m => !m)}
-              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: editMode ? '#450a0a' : 'none', color: editMode ? '#fca5a5' : '#999', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}
+              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: editMode ? '#450a0a' : 'none', color: editMode ? '#fca5a5' : '#999', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}
             >{editMode ? '✕ Done removing' : 'Remove reels'}</button>
             <a
               href={`https://instagram.com/${source.handle}`}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}
+              style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}
             >
               Open Profile ↗
             </a>
@@ -174,7 +174,7 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
 
         {/* Creator Assignment */}
         {allCreators.length > 0 && (
-          <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#FFF5F7', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
+          <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'var(--background)', borderRadius: '8px', border: '1px solid transparent' }}>
             <div style={{ fontSize: '11px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
               Assigned to creators {savingCreators && <span style={{ color: '#3f3f46' }}>saving...</span>}
             </div>
@@ -191,7 +191,7 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
                       borderRadius: '20px', cursor: 'pointer', border: 'none',
                       background: assigned ? '#FFF0F3' : '#ffffff',
                       color: assigned ? '#E88FAC' : '#666',
-                      outline: assigned ? '1px solid #E88FAC' : '1px solid #E8C4CC',
+                      outline: assigned ? '1px solid #E88FAC' : '1px solid transparent',
                       transition: 'all 0.15s',
                     }}
                   >
@@ -277,7 +277,7 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
+        background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '24px', width: '380px',
       }}>
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
@@ -294,7 +294,7 @@ function RescrapeModal({ source, newLimit, onClose, onConfirm }) {
         </div>
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+          <button onClick={onClose} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
           <button onClick={confirm} disabled={saving} style={{ ...btnStyle, background: '#E88FAC', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Scraping...' : 'Update & Scrape'}
           </button>
@@ -366,7 +366,7 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
+          background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
           padding: '24px', width: '400px',
         }}
       >
@@ -389,11 +389,11 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+          <button type="button" onClick={onClose} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
           <button
             onClick={addToBatch}
             disabled={saving}
-            style={{ ...btnStyle, background: '#FFF0F3', border: '1px solid #E88FAC', color: '#E88FAC', opacity: saving ? 0.6 : 1 }}
+            style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', color: '#E88FAC', opacity: saving ? 0.6 : 1 }}
           >
             {saving ? '...' : `Add to Batch${batchCount > 0 ? ` (${batchCount})` : ''}`}
           </button>
@@ -496,7 +496,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#ffffff', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
+        background: 'var(--card-bg-solid)', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '24px', width: '460px', maxHeight: '85vh', overflow: 'auto',
       }}>
         {step === 1 && (<>
@@ -524,7 +524,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
             )
           })()}
           <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-            <button onClick={onClose} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+            <button onClick={onClose} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
             <button onClick={goToTag} disabled={!rawText.trim()} style={{ ...btnStyle, background: '#E88FAC', opacity: !rawText.trim() ? 0.5 : 1 }}>
               Next — Tag Creators
             </button>
@@ -543,7 +543,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
                 rel="noopener noreferrer"
                 style={{
                   padding: '3px 10px', fontSize: '11px', fontWeight: 600,
-                  background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E8C4CC',
+                  background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid transparent',
                   borderRadius: '6px', textDecoration: 'none', whiteSpace: 'nowrap',
                 }}
               >
@@ -571,7 +571,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
                         borderRadius: '20px', cursor: 'pointer', border: 'none',
                         background: selected ? '#FFF0F3' : '#ffffff',
                         color: selected ? '#E88FAC' : '#666',
-                        outline: selected ? '1px solid #E88FAC' : '1px solid #E8C4CC',
+                        outline: selected ? '1px solid #E88FAC' : '1px solid transparent',
                       }}
                     >
                       {c.aka || c.name}
@@ -587,7 +587,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
               Dead Account
             </button>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={nextHandle} style={{ ...btnStyle, background: '#E8C4CC' }}>Skip</button>
+              <button onClick={nextHandle} style={{ ...btnStyle, background: 'transparent' }}>Skip</button>
               <button onClick={nextHandle} style={{ ...btnStyle, background: '#E88FAC' }}>
                 {parsed.filter((p, i) => i > currentIdx && !p.exists && !p.dead && !p.markedDead).length > 0 ? 'Next' : 'Review'}
               </button>
@@ -626,7 +626,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
             ))}
           </div>
           <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-            <button onClick={() => setStep(1)} style={{ ...btnStyle, background: '#E8C4CC' }}>Back</button>
+            <button onClick={() => setStep(1)} style={{ ...btnStyle, background: 'transparent' }}>Back</button>
             <button onClick={submit} disabled={saving || newCount === 0} style={{ ...btnStyle, background: '#E88FAC', opacity: saving || newCount === 0 ? 0.5 : 1 }}>
               {saving ? 'Adding...' : `Add All ${newCount} Sources`}
             </button>
@@ -638,7 +638,7 @@ function BulkAddSourcesModal({ onClose, onAdd, allCreators, existingHandles, dea
 }
 
 const labelStyle = { display: 'block', fontSize: '11px', color: '#999', fontWeight: 600, marginBottom: '4px', marginTop: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }
-const inputStyle = { width: '100%', padding: '8px 12px', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
+const inputStyle = { width: '100%', padding: '8px 12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
 const btnStyle = { padding: '8px 16px', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
 
 export default function AdminSources() {
@@ -836,7 +836,7 @@ export default function AdminSources() {
         <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>Inspo Sources</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
           {!activeFilters.has('all') && filteredSources.length > 0 && (
-            <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
+            <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid #E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
               {batchScraping ? 'Scraping...' : `Scrape All Visible (${filteredSources.filter(s => s.enabled).length})`}
             </button>
           )}
@@ -859,7 +859,7 @@ export default function AdminSources() {
                 borderRadius: '20px', cursor: 'pointer', border: 'none',
                 background: active ? '#FFF0F3' : '#ffffff',
                 color: active ? '#E88FAC' : '#999',
-                outline: active ? '1.5px solid #E88FAC' : '1px solid #E8C4CC',
+                outline: active ? '1.5px solid #E88FAC' : '1px solid transparent',
                 transition: 'all 0.15s',
               }}
             >
@@ -871,7 +871,7 @@ export default function AdminSources() {
       </div>
 
       <div style={{
-        background: '#ffffff',
+        background: 'var(--card-bg-solid)',
         border: 'none',
         boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         borderRadius: '18px',
@@ -882,7 +882,7 @@ export default function AdminSources() {
           display: 'grid',
           gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 90px',
           padding: '10px 16px',
-          borderBottom: '1px solid rgba(0,0,0,0.04)',
+          borderBottom: '1px solid transparent',
           fontSize: '11px',
           fontWeight: 600,
           color: '#999',
@@ -911,7 +911,7 @@ export default function AdminSources() {
               display: 'grid',
               gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 90px',
               padding: '10px 16px',
-              borderBottom: '1px solid rgba(0,0,0,0.04)',
+              borderBottom: '1px solid transparent',
               alignItems: 'center',
               fontSize: '13px',
               gap: '8px',
@@ -924,14 +924,14 @@ export default function AdminSources() {
                 onClick={() => toggleEnabled(source)}
                 style={{
                   width: '32px', height: '18px', borderRadius: '9px',
-                  background: source.enabled ? '#E88FAC' : '#E8C4CC',
+                  background: source.enabled ? '#E88FAC' : 'transparent',
                   border: 'none', cursor: 'pointer', position: 'relative',
                   transition: 'background 0.2s',
                 }}
               >
                 <div style={{
                   width: '14px', height: '14px', borderRadius: '50%',
-                  background: '#fff', position: 'absolute', top: '2px',
+                  background: 'var(--card-bg-solid)', position: 'absolute', top: '2px',
                   left: source.enabled ? '16px' : '2px',
                   transition: 'left 0.2s',
                 }} />
@@ -983,7 +983,7 @@ export default function AdminSources() {
                   })
                 }}
                 style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#999', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
-                onFocus={e => e.target.style.borderColor = '#E8C4CC'}
+                onFocus={e => e.target.style.borderColor = 'transparent'}
                 onBlurCapture={e => e.target.style.borderColor = 'transparent'}
               />
             </div>
@@ -1013,7 +1013,7 @@ export default function AdminSources() {
                   if (e.key === 'Enter') e.target.blur()
                 }}
                 style={{ width: '100%', padding: '2px 4px', background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#999', fontSize: '12px', textAlign: 'right', outline: 'none', transition: 'border-color 0.15s' }}
-                onFocus={e => e.target.style.borderColor = '#E8C4CC'}
+                onFocus={e => e.target.style.borderColor = 'transparent'}
                 onBlurCapture={e => e.target.style.borderColor = 'transparent'}
               />
             </div>
@@ -1040,9 +1040,9 @@ export default function AdminSources() {
                 disabled={scraping[source.id] || !source.enabled}
                 style={{
                   padding: '4px 10px', fontSize: '11px', fontWeight: 600,
-                  background: scraping[source.id] ? '#E8C4CC' : '#FFF0F3',
+                  background: scraping[source.id] ? 'transparent' : '#FFF0F3',
                   color: scraping[source.id] ? '#555' : '#E88FAC',
-                  border: '1px solid #E8C4CC', borderRadius: '4px',
+                  border: '1px solid transparent', borderRadius: '4px',
                   cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -1065,14 +1065,14 @@ export default function AdminSources() {
       {/* Scrape All Visible confirmation */}
       {showScrapeAll && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowScrapeAll(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#ffffff', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '420px', maxHeight: '80vh', overflow: 'auto' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg-solid)', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '420px', maxHeight: '80vh', overflow: 'auto' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Scrape All Visible?</h3>
             <p style={{ fontSize: '12px', color: '#999', marginBottom: '16px' }}>
               {filteredSources.filter(s => s.enabled).length} enabled source{filteredSources.filter(s => s.enabled).length !== 1 ? 's' : ''} will be scraped
             </p>
             <div style={{ maxHeight: '200px', overflow: 'auto', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {filteredSources.filter(s => s.enabled).map(s => (
-                <div key={s.id} style={{ fontSize: '12px', color: '#4a4a4a', padding: '4px 8px', background: '#FFF5F7', borderRadius: '6px' }}>
+                <div key={s.id} style={{ fontSize: '12px', color: '#4a4a4a', padding: '4px 8px', background: 'var(--background)', borderRadius: '6px' }}>
                   @{s.handle} <span style={{ color: '#999' }}>({s.apifyLimit || 100} reels)</span>
                 </div>
               ))}
@@ -1085,7 +1085,7 @@ export default function AdminSources() {
               <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '6px' }}>Duplicates auto-skipped (free)</div>
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowScrapeAll(false)} style={{ ...btnStyle, background: '#E8C4CC' }}>Cancel</button>
+              <button onClick={() => setShowScrapeAll(false)} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
               <button onClick={scrapeAllVisible} disabled={batchScraping} style={{ ...btnStyle, background: '#E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
                 {batchScraping ? 'Scraping...' : 'Scrape All'}
               </button>
@@ -1117,7 +1117,7 @@ export default function AdminSources() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
         }}>
           <div style={{
-            background: '#FFF0F3', border: '1px solid #E88FAC', borderRadius: '12px',
+            background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', borderRadius: '12px',
             padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '16px',
             boxShadow: '0 -4px 20px rgba(167, 139, 250, 0.15)',
           }}>
@@ -1130,13 +1130,13 @@ export default function AdminSources() {
                 ({batch.map(s => `@${s.handle}`).join(', ')})
               </span>
             </div>
-            <div style={{ width: '1px', height: '20px', background: '#E8C4CC' }} />
+            <div style={{ width: '1px', height: '20px', background: 'transparent' }} />
             <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600 }}>
               ~${batch.reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
             </div>
             <button
               onClick={() => setBatch([])}
-              style={{ ...btnStyle, background: '#E8C4CC', fontSize: '12px', padding: '6px 12px' }}
+              style={{ ...btnStyle, background: 'transparent', fontSize: '12px', padding: '6px 12px' }}
             >
               Clear
             </button>

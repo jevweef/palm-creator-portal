@@ -275,7 +275,7 @@ export default function AdminReview() {
         </div>
         <button
           onClick={fetchAll}
-          style={{ padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#888', fontSize: '12px', cursor: 'pointer' }}
+          style={{ padding: '6px 14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', color: '#888', fontSize: '12px', cursor: 'pointer' }}
         >
           ↺ Refresh
         </button>
@@ -287,7 +287,7 @@ export default function AdminReview() {
       </div>
 
       {/* Record card */}
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px', marginBottom: '16px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '20px', marginBottom: '16px' }}>
         {/* Identity row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div>
@@ -302,7 +302,7 @@ export default function AdminReview() {
           </div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
             {record.grade && (
-              <span style={{ fontSize: '12px', fontWeight: 700, color: GRADE_COLORS[record.grade] || '#fff', background: '#FFF0F3', padding: '2px 8px', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: GRADE_COLORS[record.grade] || '#fff', background: 'rgba(232, 160, 160, 0.04)', padding: '2px 8px', borderRadius: '4px', border: '1px solid transparent' }}>
                 {record.grade}
               </span>
             )}
@@ -353,14 +353,14 @@ export default function AdminReview() {
       {handleNotInSources && (
         <button
           onClick={() => addToSources(record.username)}
-          style={{ marginBottom: '16px', padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#E88FAC', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'block' }}
+          style={{ marginBottom: '16px', padding: '6px 14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', color: '#E88FAC', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'block' }}
         >
           + Add @{record.username} to Inspo Sources
         </button>
       )}
 
       {/* Voice note */}
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px', marginBottom: '16px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px', marginBottom: '16px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Reviewer Notes
         </div>
@@ -370,7 +370,7 @@ export default function AdminReview() {
             width: '100%',
             padding: '10px',
             background: isRecording ? '#FEF2F2' : '#FFF0F3',
-            border: `1px solid ${isRecording ? '#FECACA' : '#E8C4CC'}`,
+            border: `1px solid ${isRecording ? '#FECACA' : 'transparent'}`,
             borderRadius: '6px',
             color: isRecording ? '#ef4444' : '#888',
             fontSize: '13px',
@@ -385,7 +385,7 @@ export default function AdminReview() {
         <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.6 } }`}</style>
 
         {transcript && !reviewerNotes && (
-          <div style={{ fontSize: '13px', color: '#999', fontStyle: 'italic', marginBottom: '8px', padding: '8px', background: '#FFF5F7', borderRadius: '6px' }}>
+          <div style={{ fontSize: '13px', color: '#999', fontStyle: 'italic', marginBottom: '8px', padding: '8px', background: 'var(--background)', borderRadius: '6px' }}>
             {transcript}
           </div>
         )}
@@ -395,12 +395,12 @@ export default function AdminReview() {
           onChange={e => setReviewerNotes(e.target.value)}
           placeholder="Notes will appear here after recording, or type directly..."
           rows={3}
-          style={{ width: '100%', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#4a4a4a', fontSize: '13px', padding: '8px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+          style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', color: '#4a4a4a', fontSize: '13px', padding: '8px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
         />
       </div>
 
       {/* Creator pills */}
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px', marginBottom: '16px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px', marginBottom: '16px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Assign to Creators
         </div>
@@ -417,7 +417,7 @@ export default function AdminReview() {
                   fontWeight: 600,
                   background: selected ? '#E88FAC' : '#FFF0F3',
                   color: selected ? '#fff' : '#888',
-                  border: `1px solid ${selected ? '#E88FAC' : '#E8C4CC'}`,
+                  border: `1px solid ${selected ? '#E88FAC' : 'transparent'}`,
                   borderRadius: '20px',
                   cursor: 'pointer',
                   transition: 'all 0.1s',
@@ -431,7 +431,7 @@ export default function AdminReview() {
       </div>
 
       {/* Rating + approve */}
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '16px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Rate & Approve → sets Ready for Analysis
         </div>
@@ -445,7 +445,7 @@ export default function AdminReview() {
                 width: '44px', height: '44px',
                 background: n >= 8 ? '#F0FDF4' : n >= 5 ? '#FFF0F3' : '#FFF0F3',
                 color: n >= 8 ? '#16a34a' : n >= 5 ? '#E88FAC' : '#999',
-                border: `1px solid ${n >= 8 ? '#BBF7D0' : n >= 5 ? '#E88FAC44' : '#E8C4CC'}`,
+                border: `1px solid ${n >= 8 ? '#BBF7D0' : n >= 5 ? '#E88FAC44' : 'transparent'}`,
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 700,
@@ -480,14 +480,14 @@ export default function AdminReview() {
           <button
             onClick={() => setIndex(i => Math.max(0, i - 1))}
             disabled={index === 0}
-            style={{ padding: '6px 14px', background: '#FFF0F3', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.4 : 1, transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}
+            style={{ padding: '6px 14px', background: 'rgba(232, 160, 160, 0.04)', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.4 : 1, transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}
           >
             ← Prev
           </button>
           <button
             onClick={() => setIndex(i => Math.min(queue.length - 1, i + 1))}
             disabled={index >= queue.length - 1}
-            style={{ padding: '6px 14px', background: '#FFF0F3', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index >= queue.length - 1 ? 'not-allowed' : 'pointer', opacity: index >= queue.length - 1 ? 0.4 : 1, transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}
+            style={{ padding: '6px 14px', background: 'rgba(232, 160, 160, 0.04)', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: '6px', color: '#999', fontSize: '12px', cursor: index >= queue.length - 1 ? 'not-allowed' : 'pointer', opacity: index >= queue.length - 1 ? 0.4 : 1, transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}
           >
             Skip →
           </button>

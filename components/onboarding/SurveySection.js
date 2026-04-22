@@ -25,7 +25,7 @@ export default function SurveySection({ title, questions, answers, onAnswerChang
   return (
     <div style={{
       marginBottom: '20px',
-      background: '#fff',
+      background: 'var(--card-bg-solid)',
       borderRadius: '12px',
       border: locked ? '1px solid #f0f0f0' : '1px solid #f0f0f0',
       overflow: 'hidden',

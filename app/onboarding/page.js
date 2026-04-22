@@ -42,7 +42,7 @@ export default function OnboardingLanding() {
 
   if (status === 'loading') {
     return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: '#999', fontSize: '14px' }}>Validating your link...</div>
       </div>
     )
@@ -50,9 +50,9 @@ export default function OnboardingLanding() {
 
   if (status === 'invalid') {
     return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{
-          background: '#fff',
+          background: 'var(--card-bg-solid)',
           borderRadius: '20px',
           padding: '40px',
           maxWidth: '440px',
@@ -72,9 +72,9 @@ export default function OnboardingLanding() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{
-        background: '#fff',
+        background: 'var(--card-bg-solid)',
         borderRadius: '20px',
         padding: '40px',
         maxWidth: '440px',

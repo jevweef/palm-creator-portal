@@ -115,7 +115,7 @@ function TelegramModal({ post, onClose, onSent }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '100%', maxWidth: '560px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '100%', maxWidth: '560px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -135,12 +135,12 @@ function TelegramModal({ post, onClose, onSent }) {
         {/* Video + Thumbnail side by side */}
         {editedFileLink && (
           <div style={{ display: 'grid', gridTemplateColumns: thumbRawUrl ? '1fr 1fr' : '1fr', gap: '8px' }}>
-            <div style={{ background: '#FFF0F3', borderRadius: '8px', overflow: 'hidden', aspectRatio: '9/16', border: '1px solid #E8C4CC' }}>
+            <div style={{ background: 'rgba(232, 160, 160, 0.04)', borderRadius: '8px', overflow: 'hidden', aspectRatio: '9/16', border: '1px solid transparent' }}>
               <video src={videoRawUrl} muted loop autoPlay playsInline
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             </div>
             {thumbRawUrl && (
-              <div style={{ background: '#FFF0F3', borderRadius: '8px', overflow: 'hidden', aspectRatio: '9/16', border: '1px solid #E8C4CC' }}>
+              <div style={{ background: 'rgba(232, 160, 160, 0.04)', borderRadius: '8px', overflow: 'hidden', aspectRatio: '9/16', border: '1px solid transparent' }}>
                 <img src={thumbRawUrl} alt="thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               </div>
             )}
@@ -148,7 +148,7 @@ function TelegramModal({ post, onClose, onSent }) {
         )}
 
         {/* Caption / hashtags / date */}
-        <div style={{ background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', overflow: 'hidden' }}>
           {fullCaption ? (
             <div style={{ padding: '10px 14px' }}>
               <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fullCaption}</div>
@@ -163,7 +163,7 @@ function TelegramModal({ post, onClose, onSent }) {
         {error && <div style={{ fontSize: '12px', color: '#ef4444', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '6px', padding: '8px 12px' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '10px', background: '#FFF0F3', border: '1px solid #E8C4CC', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
             Cancel
           </button>
           <button onClick={handleSend} disabled={sending || !editedFileLink}
@@ -212,20 +212,20 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
     return (
       <div onClick={e => e.target === e.currentTarget && onClose()}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #E8C4CC', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button onClick={() => setPreview(null)}
               style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
               ← Back
             </button>
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
           </div>
-          <div style={{ background: '#FFF0F3', aspectRatio: '4/3', overflow: 'hidden' }}>
+          <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '4/3', overflow: 'hidden' }}>
             <img src={rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
             <button onClick={() => setPreview(null)}
-              style={{ flex: 1, padding: '10px', background: '#FFF0F3', border: '1px solid #E8C4CC', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+              style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
               Choose different
             </button>
             <button onClick={() => handleUse(preview)}
@@ -242,24 +242,24 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '640px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E8C4CC', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '640px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#4a4a4a' }}>Choose Thumbnail</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
             <button onClick={() => { setSortNewest(true); setPage(0) }}
-              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid #E8C4CC', background: sortNewest ? '#E88FAC' : '#FFF0F3', color: sortNewest ? '#fff' : '#888' }}>
+              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: sortNewest ? '#E88FAC' : '#FFF0F3', color: sortNewest ? '#fff' : '#888' }}>
               Newest
             </button>
             <button onClick={() => { setSortNewest(false); setPage(0) }}
-              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid #E8C4CC', background: !sortNewest ? '#E88FAC' : '#FFF0F3', color: !sortNewest ? '#fff' : '#888' }}>
+              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: !sortNewest ? '#E88FAC' : '#FFF0F3', color: !sortNewest ? '#fff' : '#888' }}>
               Oldest
             </button>
           </div>
           {isReel && (
-            <div style={{ fontSize: '11px', color: '#999', marginBottom: '12px', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '6px 10px' }}>
+            <div style={{ fontSize: '11px', color: '#999', marginBottom: '12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '6px 10px' }}>
               Showing unused photos only — photos already used as reel thumbnails are hidden.
             </div>
           )}
@@ -291,12 +291,12 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
                 {totalPages > 1 && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '16px' }}>
                     <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                      style={{ padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: page === 0 ? '#3f3f46' : '#888', cursor: page === 0 ? 'default' : 'pointer', fontSize: '13px' }}>
+                      style={{ padding: '6px 14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', color: page === 0 ? '#3f3f46' : '#888', cursor: page === 0 ? 'default' : 'pointer', fontSize: '13px' }}>
                       ← Prev
                     </button>
                     <span style={{ fontSize: '12px', color: '#999' }}>{page + 1} / {totalPages}</span>
                     <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
-                      style={{ padding: '6px 14px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', color: page === totalPages - 1 ? '#3f3f46' : '#888', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: '13px' }}>
+                      style={{ padding: '6px 14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', color: page === totalPages - 1 ? '#3f3f46' : '#888', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: '13px' }}>
                       Next →
                     </button>
                   </div>
@@ -368,17 +368,17 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
         onClick={e => e.target === e.currentTarget && onClose()}>
-        <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #E8C4CC', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: '14px', fontWeight: 700, color: '#4a4a4a' }}>Frame captured</div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
           </div>
-          <div style={{ background: '#FFF0F3', aspectRatio: '9/16', overflow: 'hidden' }}>
+          <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '9/16', overflow: 'hidden' }}>
             <img src={rawDropboxUrl(capturedUrl)} alt="captured frame" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
             <button onClick={() => setCapturedUrl(null)}
-              style={{ flex: 1, padding: '10px', background: '#FFF0F3', border: '1px solid #E8C4CC', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+              style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
               Try another
             </button>
             <button onClick={() => { onCapture(capturedUrl); onClose() }}
@@ -395,8 +395,8 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #E8C4CC', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: 700, color: '#4a4a4a' }}>Pick a frame</div>
             <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>Scrub to position — original file, no text overlays</div>
@@ -405,7 +405,7 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
         </div>
 
         {/* Video preview */}
-        <div style={{ background: '#FFF0F3', aspectRatio: '9/16', overflow: 'hidden' }}>
+        <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '9/16', overflow: 'hidden' }}>
           <video
             ref={videoRef}
             src={rawUrl}
@@ -439,7 +439,7 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
           <button
             onClick={handleCapture}
             disabled={capturing || !duration}
-            style={{ padding: '10px', background: capturing || !duration ? '#FFF0F3' : '#E88FAC', border: `1px solid ${capturing || !duration ? '#E8C4CC' : '#d4789a'}`, color: capturing || !duration ? '#E8C4CC' : '#ffffff', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
+            style={{ padding: '10px', background: capturing || !duration ? '#FFF0F3' : '#E88FAC', border: `1px solid ${capturing || !duration ? 'transparent' : '#d4789a'}`, color: capturing || !duration ? 'transparent' : '#ffffff', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
             {capturing ? 'Capturing...' : '📸 Capture this frame'}
           </button>
         </div>
@@ -502,10 +502,10 @@ function PostCard({ post, onRefresh, onSend }) {
   }
 
   return (
-    <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
+    <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
       {/* Left — video at 9:16 */}
-      <div style={{ width: '300px', flexShrink: 0, background: '#FFF0F3', position: 'relative', aspectRatio: '9/16' }}>
+      <div style={{ width: '300px', flexShrink: 0, background: 'rgba(232, 160, 160, 0.04)', position: 'relative', aspectRatio: '9/16' }}>
         {hasFile ? (
           isVideo(post.asset.editedFileLink) ? (
             <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
@@ -515,11 +515,11 @@ function PostCard({ post, onRefresh, onSend }) {
             <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           )
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '11px' }}>No file</div>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>
         )}
         <div style={{ position: 'absolute', bottom: '6px', left: '6px' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, color: STATUS_COLORS[post.status] || '#999',
-            background: 'rgba(0,0,0,0.4)', border: `1px solid ${STATUS_COLORS[post.status] || '#E8C4CC'}40`,
+            background: 'rgba(0,0,0,0.4)', border: `1px solid ${STATUS_COLORS[post.status] || 'transparent'}40`,
             padding: '2px 7px', borderRadius: '20px' }}>
             {post.status}
           </div>
@@ -543,7 +543,7 @@ function PostCard({ post, onRefresh, onSend }) {
                 style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600, border: '1px solid', cursor: 'pointer',
                   background: platforms.includes(p) ? '#FFF0F3' : 'transparent',
                   color: platforms.includes(p) ? '#E88FAC' : '#3f3f46',
-                  borderColor: platforms.includes(p) ? '#E88FAC' : '#E8C4CC' }}>
+                  borderColor: platforms.includes(p) ? '#E88FAC' : 'transparent' }}>
                 {p}
               </button>
             ))}
@@ -555,7 +555,7 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
           <textarea value={caption} onChange={e => { setCaption(e.target.value); setEditing(true) }}
             placeholder="Add caption..." rows={3}
-            style={{ width: '100%', background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#4a4a4a', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: '#4a4a4a', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
 
         {/* Hashtags */}
@@ -563,7 +563,7 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Hashtags</div>
           <textarea value={hashtags} onChange={e => { setHashtags(e.target.value); setEditing(true) }}
             placeholder="#hashtag1 #hashtag2..." rows={2}
-            style={{ width: '100%', background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '6px', color: '#E88FAC', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: '#E88FAC', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
 
         {/* Thumbnail */}
@@ -572,17 +572,17 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
             {thumbnailUrl ? (
               <img src={rawDropboxUrl(thumbnailUrl)} alt="thumbnail"
-                style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #E8C4CC', flexShrink: 0, cursor: 'pointer' }}
+                style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
                 onClick={() => setShowPhotoPicker(true)} />
             ) : null}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <button onClick={() => setShowPhotoPicker(true)}
-                style={{ width: '100%', padding: '5px 10px', background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer', textAlign: 'center' }}>
+                style={{ width: '100%', padding: '5px 10px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer', textAlign: 'center' }}>
                 {thumbnailUrl ? 'Change — from library' : '+ Choose from library'}
               </button>
               {canPickFrame && (
                 <button onClick={() => setShowFramePicker(true)}
-                  style={{ width: '100%', padding: '5px 10px', background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '6px', fontSize: '11px', color: '#E88FAC', cursor: 'pointer', textAlign: 'center' }}>
+                  style={{ width: '100%', padding: '5px 10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#E88FAC', cursor: 'pointer', textAlign: 'center' }}>
                   🎞 Pick from video
                 </button>
               )}
@@ -671,14 +671,14 @@ function PostCard({ post, onRefresh, onSend }) {
           {post.status === 'Prepping' && (
             <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms, thumbnailUrl, scheduledDate })} disabled={!hasFile}
               style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700,
-                background: hasFile ? '#eff6ff' : '#ffffff', color: hasFile ? '#3b82f6' : '#E8C4CC',
+                background: hasFile ? '#eff6ff' : '#ffffff', color: hasFile ? '#3b82f6' : 'transparent',
                 border: `1px solid ${hasFile ? '#bfdbfe' : '#FFF0F3'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>
               ✈ Telegram
             </button>
           )}
           {post.asset?.editedFileLink && (
             <a href={post.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
-              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}>
+              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: '#999', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}>
               View ↗
             </a>
           )}
@@ -715,13 +715,13 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
     }
   }
 
-  const inputStyle = { width: '100%', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: '#4a4a4a', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
+  const inputStyle = { width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: '#4a4a4a', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
   const labelStyle = { fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', display: 'block' }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#4a4a4a' }}>Log Historical Post</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
@@ -753,7 +753,7 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
                 style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: 700, borderRadius: '7px', cursor: 'pointer', textTransform: 'capitalize',
                   background: slot === s ? '#FFF0F3' : '#FFF5F7',
                   color: slot === s ? '#E88FAC' : '#999',
-                  border: `1px solid ${slot === s ? '#E88FAC' : '#E8C4CC'}` }}>
+                  border: `1px solid ${slot === s ? '#E88FAC' : 'transparent'}` }}>
                 {s === 'morning' ? '☀ Morning (~10am)' : '🌙 Evening (~7pm)'}
               </button>
             ))}
@@ -763,7 +763,7 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
         {error && <div style={{ fontSize: '12px', color: '#ef4444' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600, background: '#ffffff', color: '#999', border: '1px solid #E8C4CC', borderRadius: '8px', cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600, background: 'var(--card-bg-solid)', color: '#999', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={saving || !date}
@@ -819,14 +819,14 @@ export default function PostsPage() {
           <button onClick={() => setLogModal(true)} style={{ background: '#dcfce7', border: '1px solid #bbf7d0', color: '#22c55e', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
             + Log Historical Post
           </button>
-          <button onClick={fetchData} style={{ background: 'none', border: '1px solid #E8C4CC', color: '#999', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+          <button onClick={fetchData} style={{ background: 'none', border: '1px solid transparent', color: '#999', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
             Refresh
           </button>
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: '4px', background: '#ffffff', border: '1px solid #E8C4CC', borderRadius: '8px', padding: '3px', marginBottom: '24px', width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '3px', marginBottom: '24px', width: 'fit-content' }}>
         {STATUS_FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: '5px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',

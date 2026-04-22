@@ -36,7 +36,7 @@ function PipelineCard({ item, onClick }) {
     <div
       onClick={onClick}
       style={{
-        background: '#ffffff',
+        background: 'var(--card-bg-solid)',
         border: 'none',
         boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         borderRadius: '18px',
@@ -47,7 +47,7 @@ function PipelineCard({ item, onClick }) {
       onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' } }}
       onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' } }}
     >
-      <div style={{ aspectRatio: '9/16', background: '#FFF0F3' }}>
+      <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)' }}>
         {item.assetThumbnail ? (
           <img
             src={item.assetThumbnail}
@@ -141,12 +141,12 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div style={{
-        background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '720px',
+        background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '720px',
         maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         margin: '24px',
       }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid transparent' }}>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
               {item.inspoTitle || item.assetName}
@@ -161,7 +161,7 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
                 onClick={handleReplace}
                 style={{
                   padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-                  background: '#FFF0F3', color: '#E88FAC', border: '1px solid #E88FAC',
+                  background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid #E88FAC',
                   borderRadius: '9999px', cursor: 'pointer', transition: 'all 0.15s',
                 }}
               >
@@ -336,7 +336,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
       <div style={{
         display: 'flex',
         gap: '4px',
-        borderBottom: '1px solid rgba(0,0,0,0.04)',
+        borderBottom: '1px solid transparent',
         marginBottom: '24px',
         overflowX: 'auto',
       }}>
@@ -362,7 +362,7 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
               <span style={{
                 marginLeft: '6px',
                 fontSize: '11px',
-                background: activeTab === tab.key ? '#E88FAC' : '#F0D0D8',
+                background: activeTab === tab.key ? '#E88FAC' : 'transparent',
                 color: activeTab === tab.key ? '#fff' : '#999',
                 padding: '1px 7px',
                 borderRadius: '9999px',

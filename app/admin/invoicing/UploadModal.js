@@ -111,7 +111,7 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#fff', borderRadius: '16px', width: '480px', maxWidth: '90vw',
+          background: 'var(--card-bg-solid)', borderRadius: '16px', width: '480px', maxWidth: '90vw',
           boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden',
         }}
       >
@@ -140,7 +140,7 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
               value={accountName}
               onChange={e => { setAccountName(e.target.value); setResult(null); setError(null) }}
               style={{
-                width: '100%', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
+                width: '100%', background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '8px',
                 color: '#1a1a1a', fontSize: '14px', padding: '10px 12px', outline: 'none',
               }}
             >

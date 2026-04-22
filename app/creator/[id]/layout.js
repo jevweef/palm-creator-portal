@@ -28,7 +28,7 @@ export default function CreatorLayout({ children }) {
 
   if (!isLoaded) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: '#999', fontSize: '14px' }}>Loading...</div>
       </div>
     )

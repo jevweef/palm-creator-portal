@@ -225,7 +225,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
         {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '16px 22px', borderBottom: '1px solid rgba(0,0,0,0.04)',
+          padding: '16px 22px', borderBottom: '1px solid transparent',
         }}>
           <div>
             <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
@@ -301,7 +301,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 onMouseEnter={(e) => e.currentTarget.style.border = '2px dashed #E88FAC'}
                 onMouseLeave={(e) => e.currentTarget.style.border = '2px dashed rgba(0,0,0,0.08)'}
               >
-                <svg style={{ width: '32px', height: '32px', margin: '0 auto 12px', color: '#D4A0B0' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg style={{ width: '32px', height: '32px', margin: '0 auto 12px', color: 'rgba(212, 160, 176, 0.3)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
                 <p style={{ fontSize: '13px', color: '#888', marginBottom: '4px' }}>
@@ -326,7 +326,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                   {files.map((file, i) => (
                     <div key={i} style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '8px 12px', background: '#FFF5F7', borderRadius: '8px', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                      padding: '8px 12px', background: 'var(--background)', borderRadius: '8px', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                     }}>
                       <div style={{ minWidth: 0 }}>
                         <p style={{ fontSize: '12px', color: '#4a4a4a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -356,7 +356,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 disabled={uploading}
                 style={{
                   width: '100%', marginTop: '16px', padding: '10px 12px',
-                  background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '8px',
+                  background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px',
                   color: '#333', fontSize: '13px', resize: 'vertical', minHeight: '60px',
                   fontFamily: 'inherit',
                 }}
@@ -378,7 +378,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 disabled={files.length === 0 || uploading}
                 style={{
                   marginTop: '16px', width: '100%', padding: '12px',
-                  background: files.length === 0 || uploading ? '#F0D0D8' : '#E88FAC',
+                  background: files.length === 0 || uploading ? 'transparent' : '#E88FAC',
                   color: files.length === 0 || uploading ? '#C88FA0' : '#fff',
                   border: 'none', borderRadius: '10px',
                   fontSize: '14px', fontWeight: 600, cursor: files.length === 0 || uploading ? 'not-allowed' : 'pointer',

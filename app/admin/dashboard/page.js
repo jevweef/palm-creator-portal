@@ -15,7 +15,7 @@ const deltaPct = n => {
 }
 
 const CARD = {
-  background: '#ffffff',
+  background: 'var(--card-bg-solid)',
   borderRadius: '18px',
   padding: '20px',
   boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
@@ -400,8 +400,8 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
             value={period}
             onChange={e => setPeriod(e.target.value)}
             style={{
-              padding: '4px 8px', borderRadius: '6px', border: '1px solid #e5e5e5',
-              fontSize: '11px', color: '#666', background: '#fff', cursor: 'pointer',
+              padding: '4px 8px', borderRadius: '6px', border: '1px solid transparent',
+              fontSize: '11px', color: '#666', background: 'var(--card-bg-solid)', cursor: 'pointer',
             }}
           >
             {PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -412,8 +412,8 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               style={{
-                padding: '4px 10px', borderRadius: '6px', border: '1px solid #e5e5e5',
-                fontSize: '11px', color: '#666', background: '#fff', cursor: 'pointer',
+                padding: '4px 10px', borderRadius: '6px', border: '1px solid transparent',
+                fontSize: '11px', color: '#666', background: 'var(--card-bg-solid)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '4px',
               }}
             >
@@ -423,7 +423,7 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
             {showDropdown && (
               <div style={{
                 position: 'absolute', right: 0, top: '100%', marginTop: '4px',
-                background: '#fff', borderRadius: '8px', border: '1px solid #e5e5e5',
+                background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.1)', padding: '8px 0', zIndex: 50,
                 minWidth: '160px',
               }}>
@@ -531,8 +531,8 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
                   position: 'absolute',
                   left: `clamp(10px, calc(${dotLeft} - 85px), calc(100% - 190px))`,
                   top: ttAbove ? `calc(${dotTop} - ${36 + breakdown.length * 20}px)` : `calc(${dotTop} + 16px)`,
-                  background: '#fff', borderRadius: '8px', padding: '8px 14px',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)',
+                  background: 'var(--card-bg-solid)', borderRadius: '8px', padding: '8px 14px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.1)', border: '1px solid transparent',
                   transition: 'left 0.08s ease, top 0.08s ease',
                   whiteSpace: 'nowrap', minWidth: '140px',
                 }}>

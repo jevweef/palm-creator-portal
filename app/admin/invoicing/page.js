@@ -41,7 +41,7 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
-        background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
+        background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '28px 32px', width: '440px', maxWidth: '90vw',
       }}>
         <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>
@@ -59,7 +59,7 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
         ].map(row => (
           <div key={row.label} style={{
             display: 'flex', gap: '16px', padding: '8px 0',
-            borderBottom: '1px solid rgba(0,0,0,0.04)', alignItems: 'center',
+            borderBottom: '1px solid transparent', alignItems: 'center',
           }}>
             <span style={{ fontSize: '12px', color: '#999', width: '56px', flexShrink: 0 }}>{row.label}</span>
             <span style={{ fontSize: '13px', color: '#4a4a4a' }}>{row.value}</span>
@@ -81,7 +81,7 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '24px', justifyContent: 'flex-end' }}>
           <button onClick={onCancel} style={{
-            background: 'transparent', border: '1px solid #E8C4CC', borderRadius: '7px',
+            background: 'transparent', border: '1px solid transparent', borderRadius: '7px',
             color: '#888', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
           }}>
             Cancel
@@ -140,7 +140,7 @@ function EarningsCell({ record, onSave, disabled }) {
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         style={{
-          background: '#FFF0F3', border: '1px solid #E88FAC', borderRadius: '4px',
+          background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', borderRadius: '4px',
           color: '#1a1a1a', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
         }}
       />
@@ -156,7 +156,7 @@ function EarningsCell({ record, onSave, disabled }) {
         fontSize: '13px', cursor: disabled ? 'default' : 'pointer',
         padding: '4px 8px', fontFamily: 'inherit', transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = '#E8C4CC'; e.currentTarget.style.background = '#FFF0F3' }}}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = '#FFF0F3' }}}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
     >
       {record.earnings > 0 ? fmt(record.earnings) : <span style={{ color: '#444' }}>—</span>}
@@ -185,7 +185,7 @@ function SummaryBar({ records }) {
         { label: 'Net Profit', value: fmt(total.net), color: '#22c55e' },
       ].map(s => (
         <div key={s.label} style={{
-          background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
+          background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
           padding: '14px 18px', minWidth: '130px', flex: '1 1 0',
         }}>
           <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>
@@ -194,7 +194,7 @@ function SummaryBar({ records }) {
           <div style={{ fontSize: '20px', fontWeight: 700, color: s.color }}>{s.value}</div>
         </div>
       ))}
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '14px 18px', minWidth: '110px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '14px 18px', minWidth: '110px' }}>
         <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Status</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {Object.entries(STATUS_CONFIG).map(([s, cfg]) => (
@@ -246,7 +246,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
 
   return (
     <div style={{
-      background: '#ffffff', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
+      background: 'var(--card-bg-solid)', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
       marginBottom: '14px', overflow: 'hidden',
     }}>
       {/* ─── Top: name + period + stage + primary action ───────────────── */}
@@ -335,7 +335,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
             <div key={record.id} style={{
               display: 'grid', gridTemplateColumns: '140px 1fr 120px 120px 120px 90px',
               alignItems: 'center', gap: '12px', padding: '8px 0',
-              borderBottom: '1px solid rgba(0,0,0,0.04)',
+              borderBottom: '1px solid transparent',
             }}>
               <div style={{ fontSize: '13px', color: '#4a4a4a', fontWeight: 500 }}>
                 {record.accountName.replace(aka + ' - ', '')}

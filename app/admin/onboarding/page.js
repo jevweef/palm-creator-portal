@@ -336,7 +336,7 @@ export default function AdminOnboarding() {
         <div style={{ color: '#999', fontSize: '14px', padding: '40px', textAlign: 'center' }}>Loading...</div>
       ) : (
         <div style={{
-          background: '#fff',
+          background: 'var(--card-bg-solid)',
           borderRadius: '16px',
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
           overflow: 'hidden',
@@ -462,7 +462,7 @@ export default function AdminOnboarding() {
         >
           <div
             style={{
-              background: '#fff',
+              background: 'var(--card-bg-solid)',
               borderRadius: '16px',
               padding: '28px',
               width: '420px',
@@ -695,7 +695,7 @@ export default function AdminOnboarding() {
                   disabled={submitting || !hasSigDrawn}
                   style={{
                     padding: '9px 18px',
-                    background: (submitting || !hasSigDrawn) ? '#F0D0D8' : '#E88FAC',
+                    background: (submitting || !hasSigDrawn) ? 'transparent' : '#E88FAC',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '8px',
@@ -726,7 +726,7 @@ export default function AdminOnboarding() {
         >
           <div
             style={{
-              background: '#fff',
+              background: 'var(--card-bg-solid)',
               borderRadius: '16px',
               padding: '28px',
               width: '420px',
@@ -894,7 +894,7 @@ export default function AdminOnboarding() {
                   disabled={submitting || !hasSigDrawn}
                   style={{
                     padding: '9px 18px',
-                    background: (submitting || !hasSigDrawn) ? '#F0D0D8' : '#E88FAC',
+                    background: (submitting || !hasSigDrawn) ? 'transparent' : '#E88FAC',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '8px',
@@ -919,7 +919,7 @@ export default function AdminOnboarding() {
         }} onClick={() => setSurveyModal(null)}>
           <div
             style={{
-              background: '#fff', borderRadius: '16px', padding: '28px',
+              background: 'var(--card-bg-solid)', borderRadius: '16px', padding: '28px',
               width: '700px', maxWidth: '90vw', maxHeight: '85vh', overflow: 'auto',
               boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
             }}
@@ -1017,7 +1017,7 @@ const tdStyle = {
 
 const actionBtnStyle = {
   padding: '5px 12px',
-  background: '#FFF0F3',
+  background: 'rgba(232, 160, 160, 0.04)',
   color: '#E88FAC',
   border: 'none',
   borderRadius: '6px',

@@ -102,7 +102,7 @@ function parseChatHtmlClient(html) {
 }
 
 const STATUS_STYLES = {
-  'Not Started':       { bg: '#FFF0F3', text: '#999', border: '#E8C4CC' },
+  'Not Started':       { bg: '#FFF0F3', text: '#999', border: 'transparent' },
   'Ready to Analyze':  { bg: '#dbeafe', text: '#60a5fa', border: '#bfdbfe' },
   'Analyzing':         { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
   'Analyzed':          { bg: '#dcfce7', text: '#22c55e', border: '#bbf7d0' },
@@ -196,7 +196,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Input section */}
-      <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)', padding: '16px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent', padding: '16px' }}>
         <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Music DNA Input</div>
         <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
           {typeOptions.map(([value, label]) => (
@@ -205,7 +205,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
                 padding: '5px 12px', fontSize: '12px', fontWeight: inputType === value ? 600 : 400,
                 background: inputType === value ? '#FFF0F3' : '#fafafa',
                 color: inputType === value ? '#E88FAC' : '#999',
-                border: inputType === value ? '1px solid #E88FAC' : '1px solid rgba(0,0,0,0.06)',
+                border: inputType === value ? '1px solid #E88FAC' : '1px solid transparent',
                 borderRadius: '6px', cursor: 'pointer',
               }}>
               {label}
@@ -218,7 +218,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
           placeholder={inputType === 'spotify_playlist' ? 'Paste Spotify playlist URL...' : inputType === 'text_list' ? 'One song per line: Artist - Song Title' : 'Paste Apple Music playlist URL...'}
           style={{
             width: '100%', minHeight: '80px', padding: '10px', fontSize: '13px',
-            border: '1px solid rgba(0,0,0,0.08)', borderRadius: '6px', resize: 'vertical',
+            border: '1px solid transparent', borderRadius: '6px', resize: 'vertical',
             fontFamily: 'inherit', background: '#fafafa', boxSizing: 'border-box',
           }}
         />
@@ -226,7 +226,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
           <button onClick={handleProcess} disabled={processing || !rawInput.trim()}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: 600,
-              background: processing ? '#E8C4CC' : '#E88FAC', color: '#fff',
+              background: processing ? 'transparent' : '#E88FAC', color: '#fff',
               border: 'none', borderRadius: '6px', cursor: processing ? 'default' : 'pointer',
               opacity: (!rawInput.trim() || processing) ? 0.5 : 1,
             }}>
@@ -238,7 +238,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
 
       {/* Processed DNA display */}
       {dna && (
-        <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)', padding: '16px' }}>
+        <div style={{ background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent', padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Processed DNA
@@ -252,7 +252,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
                   style={{
                     padding: '3px 10px', fontSize: '11px', fontWeight: 600,
                     background: processing ? '#f5f5f5' : '#fafafa', color: processing ? '#bbb' : '#666',
-                    border: '1px solid rgba(0,0,0,0.08)', borderRadius: '4px',
+                    border: '1px solid transparent', borderRadius: '4px',
                     cursor: processing ? 'default' : 'pointer',
                   }}>
                   {processing ? 'Refreshing...' : 'Refresh'}
@@ -299,7 +299,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
       )}
 
       {!dna && (
-        <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
+        <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
           No music DNA yet. Paste a playlist URL or song list above and hit Process.
         </div>
       )}
@@ -350,7 +350,7 @@ function DocumentRow({ doc, isNew }) {
       border: isNew ? '1px solid #FDE68A' : 'none',
       boxShadow: isNew ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
     }}>
-      <span style={{ fontSize: '11px', fontWeight: 600, color, background: '#FFF0F3', border: `1px solid ${color}30`, padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
+      <span style={{ fontSize: '11px', fontWeight: 600, color, background: 'rgba(232, 160, 160, 0.04)', border: `1px solid ${color}30`, padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
         {doc.fileType}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -435,7 +435,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#ffffff', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '28px', width: '480px', maxWidth: '95vw' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '28px', width: '480px', maxWidth: '95vw' }}>
         <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '20px' }}>
           Upload Document — {creator.name || creator.aka}
         </div>
@@ -448,7 +448,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
             <div style={{ fontSize: '12px', color: '#999', marginBottom: '20px' }}>{result.fileName}</div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => { setResult(null); setFile(null); setNotes('') }}
-                style={{ flex: 1, background: '#FFF0F3', color: '#1a1a1a', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: '#1a1a1a', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 Upload Another
               </button>
               <button onClick={() => { onUploaded(); onClose() }}
@@ -468,7 +468,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
                       padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
                       background: fileType === t ? '#E88FAC' : '#FFF0F3',
                       color: fileType === t ? '#fff' : '#888',
-                      border: fileType === t ? '1px solid #E88FAC' : '1px solid #E8C4CC',
+                      border: fileType === t ? '1px solid #E88FAC' : '1px solid transparent',
                     }}>
                     {t}
                   </button>
@@ -492,25 +492,25 @@ function UploadModal({ creator, onClose, onUploaded }) {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '6px' }}>Notes (optional)</label>
               <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Onboarding call Jan 2026"
-                style={{ width: '100%', background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '8px 10px', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' }} />
+                style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' }} />
             </div>
 
             {error && <div style={{ color: '#ef4444', fontSize: '12px', marginBottom: '12px' }}>{error}</div>}
 
             {fileType === 'Audio' && (
-              <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px', padding: '8px 10px', background: '#FFF5F7', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '6px' }}>
+              <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px', padding: '8px 10px', background: 'var(--background)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '6px' }}>
                 Audio uploads directly to Dropbox. Whisper transcription runs when you hit "Run Analysis."
               </div>
             )}
 
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={onClose}
-                style={{ flex: 1, background: '#FFF0F3', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: '#888', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 Cancel
               </button>
               <button onClick={submit} disabled={uploading || !file}
                 style={{
-                  flex: 2, background: uploading ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
+                  flex: 2, background: uploading ? 'transparent' : '#E88FAC', color: '#1a1a1a', border: 'none',
                   borderRadius: '6px', padding: '8px', cursor: uploading || !file ? 'not-allowed' : 'pointer',
                   fontSize: '13px', fontWeight: 600, opacity: !file ? 0.5 : 1,
                 }}>
@@ -779,8 +779,8 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
               position: 'absolute',
               left: `clamp(10px, calc(${dotLeft} - 70px), calc(100% - 150px))`,
               top: ttAbove ? `calc(${dotTop} - 56px)` : `calc(${dotTop} + 16px)`,
-              background: '#fff', borderRadius: '8px', padding: '8px 14px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)',
+              background: 'var(--card-bg-solid)', borderRadius: '8px', padding: '8px 14px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)', border: '1px solid transparent',
               transition: 'left 0.08s ease, top 0.08s ease, opacity 0.12s ease',
               whiteSpace: 'nowrap',
             }}>
@@ -1187,7 +1187,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
           </div>
 
           {/* Chat analysis section */}
-          <div style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
+          <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
             <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
               Chat Analysis {a.lifetime >= 1000 ? '(Deep Dive)' : '(Quick Snapshot)'}
             </div>
@@ -1353,7 +1353,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              background: '#fff', borderRadius: '12px', padding: '24px', width: '480px',
+              background: 'var(--card-bg-solid)', borderRadius: '12px', padding: '24px', width: '480px',
               maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
             }}
           >
@@ -1688,10 +1688,10 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setPeriod('custom')
             setSlideDir('right'); setSlideKey(k => k + 1)
             setTimeout(() => setSlideDir(null), 350)
-          }} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>‹</button>
+          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>‹</button>
           <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null); setShowAllFans(false) }}
             style={{
-              background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px',
+              background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px',
               color: '#1a1a1a', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
             }}>
             {PERIOD_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -1708,14 +1708,14 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setPeriod('custom')
             setSlideDir('left'); setSlideKey(k => k + 1)
             setTimeout(() => setSlideDir(null), 350)
-          }} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>›</button>
+          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>›</button>
           {period === 'custom' && (
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
               <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-                style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: '#1a1a1a', outline: 'none' }} />
+                style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: '#1a1a1a', outline: 'none' }} />
               <span style={{ color: '#ccc', fontSize: '11px' }}>→</span>
               <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-                style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: '#1a1a1a', outline: 'none' }} />
+                style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: '#1a1a1a', outline: 'none' }} />
             </div>
           )}
         </div>
@@ -1790,7 +1790,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       {/* Inline upload panel */}
       {showUploadPanel && (
         <div style={{
-          background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
           padding: '16px', marginBottom: '12px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -1946,7 +1946,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
         return (
           <div style={{
-            background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+            background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
             padding: '12px 16px', marginBottom: '12px',
           }}>
             <style>{`
@@ -2031,7 +2031,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       })()}
 
       {/* Revenue chart — immediately visible */}
-      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
         {/* Chart header — stays static during slide */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
           <span style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmtMoney(periodNet)}</span>
@@ -2078,8 +2078,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               <span style={{ fontSize: '11px', color: '#999', marginLeft: '6px' }}>Spending below their normal cadence</span>
             </div>
           </div>
-          <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+          <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
               <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
             </div>
             {(showAllCold ? goingColdAlerts : goingColdAlerts.slice(0, 10)).map((a, i) => (
@@ -2087,7 +2087,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             ))}
             {goingColdAlerts.length > 10 && !showAllCold && (
               <button onClick={() => setShowAllCold(true)}
-                style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer', fontSize: '12px', color: '#EA580C', fontWeight: 600 }}>
+                style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: '#EA580C', fontWeight: 600 }}>
                 Show all {goingColdCount} fans
               </button>
             )}
@@ -2100,8 +2100,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Top Fans — {PERIOD_PRESETS.find(p => p.key === period)?.label || (period === 'custom' ? 'Custom Range' : 'All Time')}
         </div>
-        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+        <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid transparent' }}>
             <span>#</span><span>Name</span><span>Username</span>{availableAccounts?.length > 1 && <span>Account</span>}<span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
           </div>
           {(showAllFans ? topFans : topFans.slice(0, 5)).map((fan, i) => (
@@ -2135,7 +2135,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           ))}
           {topFans.length > 5 && !showAllFans && (
             <button onClick={() => setShowAllFans(true)}
-              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
+              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
               Show all {topFans.length} fans
             </button>
           )}
@@ -2797,7 +2797,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       {savingLifetime ? '…' : 'Save'}
                     </button>
                     <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid #CBD5E1', background: '#fff', borderRadius: '3px', cursor: 'pointer', color: '#64748B' }}>
+                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid #CBD5E1', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: '#64748B' }}>
                       Cancel
                     </button>
                   </div>
@@ -3146,7 +3146,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           {/* (chart code above this block) */}
 
           {/* ═══ SECTION 3: Analysis History ═══ */}
-          <div style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '14px' }}>
+          <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
             <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
               Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
             </div>
@@ -3169,7 +3169,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
                   return (
                     <div key={rec.id || idx} style={{
-                      background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px',
+                      background: 'var(--card-bg-solid)', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px',
                       transition: 'box-shadow 0.15s', cursor: 'default',
                     }}>
                       {/* Card header row */}
@@ -3309,7 +3309,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           </div>
 
           {/* ═══ SECTION 4: Upload New Chat ═══ */}
-          <div style={{ marginTop: '4px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '14px' }}>
+          <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
             <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
               Upload Chat for {f.fanName}
             </div>
@@ -3445,14 +3445,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
           {/* Notes */}
           {f.notes && (
-            <div style={{ marginTop: '14px', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
+            <div style={{ marginTop: '14px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
               <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
               <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
             </div>
           )}
 
           {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
-          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid transparent', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={async () => {
                 const isBanned = f.banned
@@ -3517,7 +3517,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             <div
               onClick={e => e.stopPropagation()}
               style={{
-                background: '#fff', borderRadius: '12px', padding: '24px',
+                background: 'var(--card-bg-solid)', borderRadius: '12px', padding: '24px',
                 maxWidth: '750px', width: '90vw', maxHeight: '85vh', overflowY: 'auto',
                 boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
               }}
@@ -3622,7 +3622,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              background: '#fff', borderRadius: '12px', padding: '24px',
+              background: 'var(--card-bg-solid)', borderRadius: '12px', padding: '24px',
               maxWidth: '700px', width: '90vw', maxHeight: '85vh', overflowY: 'auto',
               boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
             }}
@@ -4265,9 +4265,9 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           No fans match this filter.
         </div>
       ) : (
-        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
             <span></span><span>Fan</span><span title="Heat Status">🌡️</span><span>Alert</span>
             {[['lifetime', 'Lifetime'], ['last30', 'Last 30d'], ['txns', 'Txns'], ['lastDate', 'Last Active']].map(([key, label]) => (
               <span key={key} onClick={() => toggleSort(key)} style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
@@ -4285,7 +4285,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           ))}
           {filtered.length > 25 && !showAllFans && (
             <button onClick={() => setShowAllFans(true)}
-              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
+              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
               Show all {filtered.length} fans
             </button>
           )}
@@ -4505,13 +4505,13 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => setShowUpload(true)}
-            style={{ background: '#FFF0F3', color: '#1a1a1a', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+            style={{ background: 'rgba(232, 160, 160, 0.04)', color: '#1a1a1a', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
             + Upload
           </button>
           {(status === 'Analyzed' || status === 'Reanalyze' || status === 'Analyzing') && (
             <button onClick={resetAnalysis} disabled={resetting}
               style={{
-                background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC',
+                background: 'rgba(232, 160, 160, 0.04)', color: '#999', border: '1px solid transparent',
                 borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500,
                 cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.5 : 1,
               }}>
@@ -4520,7 +4520,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
           )}
           <button onClick={runAnalysis} disabled={analyzing}
             style={{
-              background: analyzing ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
+              background: analyzing ? 'transparent' : '#E88FAC', color: '#1a1a1a', border: 'none',
               borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
               cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.7 : 1,
             }}>
@@ -4545,7 +4545,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       )}
 
       {analyzeError && (
-        <div style={{ background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#ef4444' }}>
+        <div style={{ background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#ef4444' }}>
           {analyzeError}
         </div>
       )}
@@ -4559,7 +4559,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             placeholder="e.g. she's more bratty than sweet, tone down Girl Next Door, bump up Soft Tease"
             rows={2}
             style={{
-              flex: 1, background: '#FFF5F7', border: '1px solid #E8C4CC', borderRadius: '8px',
+              flex: 1, background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px',
               padding: '10px 12px', color: '#1a1a1a', fontSize: '13px', lineHeight: '1.5',
               resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit',
             }}
@@ -4568,7 +4568,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             onClick={runRefine}
             disabled={refining || !feedback.trim()}
             style={{
-              background: refining ? '#E8C4CC' : '#E88FAC', color: '#1a1a1a', border: 'none',
+              background: refining ? 'transparent' : '#E88FAC', color: '#1a1a1a', border: 'none',
               borderRadius: '8px', padding: '10px 16px', fontSize: '12px', fontWeight: 600,
               cursor: refining || !feedback.trim() ? 'not-allowed' : 'pointer',
               opacity: !feedback.trim() ? 0.5 : 1, flexShrink: 0, alignSelf: 'stretch',
@@ -4591,7 +4591,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             </div>
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
               <button onClick={discardRefine}
-                style={{ background: '#FFF0F3', color: '#999', border: '1px solid #E8C4CC', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
+                style={{ background: 'rgba(232, 160, 160, 0.04)', color: '#999', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
                 Discard
               </button>
               <button onClick={commitRefine} disabled={committing}
@@ -4697,7 +4697,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       )}
 
       {/* Tabs — hidden during refine preview */}
-      {!refinePreview && <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
+      {!refinePreview && <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid transparent', marginBottom: '20px' }}>
         {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ['music', 'Music DNA'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
@@ -4715,7 +4715,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       {!refinePreview && activeTab === 'profile' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {!c.profileSummary && status !== 'Analyzed' && status !== 'Reanalyze' && (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
+            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
               No profile yet. Upload documents and run analysis to generate.
             </div>
           )}
@@ -4738,7 +4738,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
               <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Tags</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {topTags.map(tw => (
-                  <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: '#FFF0F3', color: '#E88FAC', border: '1px solid rgba(0,0,0,0.04)' }}>
+                  <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid transparent' }}>
                     {tw.tag} · {tw.weight}
                   </span>
                 ))}
@@ -4753,7 +4753,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       {!refinePreview && activeTab === 'documents' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {documents.length === 0 && (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
+            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
               No documents yet. Click "+ Upload" to add voice memos, transcripts, or notes.
             </div>
           )}
@@ -4766,7 +4766,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             <DocumentRow key={doc.id} doc={doc} isNew={!!(c.profileLastAnalyzed && doc.uploadDate > c.profileLastAnalyzed)} />
           ))}
           <button onClick={() => setShowUpload(true)}
-            style={{ marginTop: '4px', background: '#FFF5F7', color: '#999', border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '10px', fontSize: '13px', cursor: 'pointer' }}>
+            style={{ marginTop: '4px', background: 'var(--background)', color: '#999', border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '10px', fontSize: '13px', cursor: 'pointer' }}>
             + Upload another document
           </button>
         </div>
@@ -4788,14 +4788,14 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       {!refinePreview && activeTab === 'adjustments' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(c.refinementHistory || []).length === 0 ? (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.04)' }}>
+            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
               No adjustments yet. Use the Refine field above to make targeted changes.
             </div>
           ) : (
             [...c.refinementHistory].reverse().map((entry, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'flex-start', gap: '12px',
-                padding: '10px 14px', background: '#ffffff', borderRadius: '8px',
+                padding: '10px 14px', background: 'var(--card-bg-solid)', borderRadius: '8px',
                 boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
               }}>
                 <span style={{ fontSize: '11px', color: '#999', flexShrink: 0, paddingTop: '1px' }}>{entry.date}</span>
@@ -4845,7 +4845,7 @@ function ProfileSection({ label, text, mono }) {
       <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{label}</div>
       <div style={{
         fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', whiteSpace: 'pre-wrap',
-        fontFamily: mono ? 'monospace' : 'inherit', background: '#ffffff',
+        fontFamily: mono ? 'monospace' : 'inherit', background: 'var(--card-bg-solid)',
         borderRadius: '8px', padding: '12px 14px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
       }}>
         {text}
@@ -4928,7 +4928,7 @@ export default function CreatorsPage() {
             updateUrl(e.target.value, activeSection)
           }}
           style={{
-            background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
+            background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '8px',
             color: '#1a1a1a', fontSize: '14px', padding: '8px 14px', outline: 'none',
             minWidth: '220px', cursor: 'pointer',
           }}>

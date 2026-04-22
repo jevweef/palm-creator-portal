@@ -31,7 +31,7 @@ export default function InspoBoard() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '0' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid transparent', paddingBottom: '0' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}

@@ -25,7 +25,7 @@ function isPhoto(url) {
 const STATUS_META = {
   needsRevision: { dot: '#ef4444', label: 'Needs Revision',       bg: '#fef2f2', border: '#fecaca' },
   inProgress:    { dot: '#3b82f6', label: 'In Editing',           bg: '#dbeafe', border: '#bfdbfe' },
-  queue:         { dot: '#E88FAC', label: 'Queue',                bg: '#fdf4ff', border: '#E8C4CC' },
+  queue:         { dot: '#E88FAC', label: 'Queue',                bg: '#fdf4ff', border: 'transparent' },
   inReview:      { dot: '#22c55e', label: 'Submitted for Review', bg: '#f0fdf4', border: '#bbf7d0' },
   approved:      { dot: '#f59e0b', label: 'Approved',             bg: '#fffbeb', border: '#fde68a' },
   history:       { dot: '#aaa', label: 'History',              bg: '#f5f5f5', border: 'rgba(0,0,0,0.04)' },
@@ -70,7 +70,7 @@ function TaskRow({ task, type }) {
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
           {task.inspo?.contentLink && (
             <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '2px 8px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+              style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '2px 8px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid transparent' }}>
               Inspo ↗
             </a>
           )}
@@ -102,7 +102,7 @@ function TaskRow({ task, type }) {
             {expanded ? '▾ Hide direction' : '▸ View direction'}
           </button>
           {expanded && (
-            <div style={{ fontSize: '11px', color: '#4a4a4a', background: '#FFF5F7', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+            <div style={{ fontSize: '11px', color: '#4a4a4a', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
               {task.inspo.notes}
               {task.inspo.onScreenText && (
                 <div style={{ marginTop: '6px', color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '4px 6px' }}>
@@ -145,7 +145,7 @@ function CompactThumbCard({ task, type }) {
         )}
         {task.inspo?.contentLink && (
           <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '10px', color: '#E88FAC', textDecoration: 'none', padding: '2px 6px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+            style={{ fontSize: '10px', color: '#E88FAC', textDecoration: 'none', padding: '2px 6px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid transparent' }}>
             Inspo ↗
           </a>
         )}
@@ -163,7 +163,7 @@ function CollapsibleColumn({ sectionKey, items }) {
   const hasMore = items.length > COLLAPSED_LIMIT
 
   return (
-    <div style={{ background: '#FFF5F7', border: `1px solid ${m.border}`, borderRadius: '12px', padding: '14px 16px' }}>
+    <div style={{ background: 'var(--background)', border: `1px solid ${m.border}`, borderRadius: '12px', padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: m.dot }} />
         <span style={{ fontSize: '11px', fontWeight: 700, color: m.dot, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}</span>
@@ -205,7 +205,7 @@ function InspoClipRow({ clip }) {
         )}
         {clip.inspo?.contentLink && (
           <a href={clip.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '2px 8px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+            style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', padding: '2px 8px', background: '#fdf4ff', borderRadius: '4px', border: '1px solid transparent' }}>
             Inspo ↗
           </a>
         )}
@@ -242,8 +242,8 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
   }
 
   return (
-    <div style={{ background: '#FFF5F7', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ background: '#FFF5F7', position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '260px', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--background)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: 'var(--background)', position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '260px', overflow: 'hidden' }}>
         {videoFile && rawUrl ? (
           <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
@@ -253,7 +253,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
         ) : asset.thumbnail ? (
           <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E8C4CC', fontSize: '28px' }}>&#127916;</div>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '28px' }}>&#127916;</div>
         )}
         {asset.uploadWeek && (
           <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: '#999', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
@@ -271,13 +271,13 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
         <div style={{ display: 'flex', gap: '4px', marginTop: 'auto' }}>
           {link && (
             <a href={link} target="_blank" rel="noopener noreferrer"
-              style={{ flex: 1, textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: '#999', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}>
+              style={{ flex: 1, textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: '#999', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}>
               View ↗
             </a>
           )}
         </div>
         <button onClick={handleStart} disabled={starting}
-          style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: starting ? '#fdf4ff' : '#fdf4ff', color: starting ? '#D4A0B0' : '#E88FAC', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: starting ? 'default' : 'pointer' }}>
+          style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: starting ? '#fdf4ff' : '#fdf4ff', color: starting ? 'rgba(212, 160, 176, 0.3)' : '#E88FAC', border: '1px solid transparent', borderRadius: '6px', cursor: starting ? 'default' : 'pointer' }}>
           {starting ? 'Starting...' : 'Start Edit'}
         </button>
         {error && <div style={{ fontSize: '10px', color: '#ef4444' }}>{error}</div>}
@@ -293,10 +293,10 @@ function Paginator({ page, totalPages, onChange }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <button onClick={() => onChange(page - 1)} disabled={page <= 1}
-        style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: page <= 1 ? '#E8C4CC' : '#999', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
+        style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: page <= 1 ? 'transparent' : '#999', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
       <span style={{ fontSize: '12px', color: '#999' }}>{page} / {totalPages}</span>
       <button onClick={() => onChange(page + 1)} disabled={page >= totalPages}
-        style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: page >= totalPages ? '#E8C4CC' : '#999', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
+        style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: page >= totalPages ? 'transparent' : '#999', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
     </div>
   )
 }
@@ -336,22 +336,22 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
           <span style={{ fontSize: '11px', color: '#aaa' }}>({assets.length})</span>
         </div>
         {tabs.length > 1 && (
-          <div style={{ display: 'flex', gap: '4px', background: '#ffffff', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '3px' }}>
+          <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
             {tabs.map(t => (
               <button key={t.key} onClick={() => switchTab(t.key)}
                 style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                  background: activeTab === t.key ? '#F0D0D8' : 'transparent',
+                  background: activeTab === t.key ? 'transparent' : 'transparent',
                   color: activeTab === t.key ? '#4a4a4a' : '#999' }}>
                 {t.label} <span style={{ color: activeTab === t.key ? '#999' : '#aaa', fontWeight: 400 }}>{t.count}</span>
               </button>
             ))}
           </div>
         )}
-        <div style={{ display: 'flex', gap: '4px', background: '#ffffff', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '8px', padding: '3px' }}>
+        <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
           {[{ key: 'newest', label: 'Newest' }, { key: 'oldest', label: 'Oldest' }].map(s => (
             <button key={s.key} onClick={() => { setSortOrder(s.key); setPage(1) }}
               style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                background: sortOrder === s.key ? '#F0D0D8' : 'transparent',
+                background: sortOrder === s.key ? 'transparent' : 'transparent',
                 color: sortOrder === s.key ? '#4a4a4a' : '#999' }}>
               {s.label}
             </button>
@@ -399,13 +399,13 @@ export default function CreatorDetailPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
       Loading...
     </div>
   )
 
   if (error) return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
       {error}
     </div>
   )
@@ -422,13 +422,13 @@ export default function CreatorDetailPage() {
   const hasApprovedOrHistory = tasks.approved.length > 0 || tasks.history.length > 0
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px' }}>
           <Link href="/editor"
-            style={{ fontSize: '12px', color: '#999', textDecoration: 'none', padding: '5px 10px', border: '1px solid #E8C4CC', borderRadius: '6px' }}>
+            style={{ fontSize: '12px', color: '#999', textDecoration: 'none', padding: '5px 10px', border: '1px solid transparent', borderRadius: '6px' }}>
             ← Back
           </Link>
           <div style={{ flex: 1 }}>
@@ -439,7 +439,7 @@ export default function CreatorDetailPage() {
             <span style={{ fontSize: '12px', color: bufferColor, fontWeight: 600 }}>d runway</span>
           </div>
           <button onClick={fetchData}
-            style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: '#ffffff', color: '#888', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}>
+            style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: '#888', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
             Refresh
           </button>
         </div>
@@ -478,14 +478,14 @@ export default function CreatorDetailPage() {
 
         {/* Unreviewed library */}
         {library.length > 0 && (
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '32px', marginBottom: '28px' }}>
+          <div style={{ borderTop: '1px solid transparent', paddingTop: '32px', marginBottom: '28px' }}>
             <LibrarySection title="Unreviewed Library" dot="#E88FAC" assets={library} creatorId={id} onRefresh={fetchData} />
           </div>
         )}
 
         {/* Empty state */}
         {taskSections.every(s => s.items.length === 0) && !hasApprovedOrHistory && inspoClips.length === 0 && library.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px', color: '#aaa', fontSize: '14px', background: '#FFF5F7', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+          <div style={{ textAlign: 'center', padding: '60px', color: '#aaa', fontSize: '14px', background: 'var(--background)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
             No editing activity yet for {creator.name}.
           </div>
         )}

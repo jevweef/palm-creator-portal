@@ -109,7 +109,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
 
       {/* Step checklist */}
       <div style={{
-        background: '#fff',
+        background: 'var(--card-bg-solid)',
         border: '1px solid #e0e0e0',
         borderRadius: '12px',
         overflow: 'hidden',
@@ -162,7 +162,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
                   onClick={() => onGoToStep(step.key)}
                   style={{
                     padding: '4px 12px',
-                    background: '#FFF0F3',
+                    background: 'rgba(232, 160, 160, 0.04)',
                     color: '#E88FAC',
                     border: 'none',
                     borderRadius: '6px',
@@ -246,7 +246,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
         disabled={!allComplete || submitting}
         style={{
           padding: '12px 40px',
-          background: (!allComplete || submitting) ? '#F0D0D8' : '#E88FAC',
+          background: (!allComplete || submitting) ? 'transparent' : '#E88FAC',
           color: '#fff',
           border: 'none',
           borderRadius: '8px',

@@ -47,7 +47,7 @@ export default function QuestionField({ question, value, onChange, saving }) {
     border: '1px solid #e0e0e0',
     borderRadius: '8px',
     outline: 'none',
-    background: '#fff',
+    background: 'var(--card-bg-solid)',
     transition: 'border-color 0.15s',
     fontFamily: 'inherit',
   }

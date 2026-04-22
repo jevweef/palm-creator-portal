@@ -105,7 +105,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       </div>
 
       {/* IG header */}
-      <div style={{ padding: '6px 12px 10px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <div style={{ padding: '6px 12px 10px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '6px' }}>
         <span style={{ fontSize: '11px' }}>‹</span>
         <span style={{ fontSize: '14px', fontWeight: 700, flex: 1, display: 'flex', alignItems: 'center', gap: '3px' }}>
           {handle}
@@ -202,7 +202,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderTop: '1px solid #eee', borderBottom: '1px solid #eee' }}>
+      <div style={{ display: 'flex', borderTop: '1px solid transparent', borderBottom: '1px solid transparent' }}>
         <div style={{ flex: 1, padding: '8px', textAlign: 'center', borderBottom: '1px solid #1a1a1a' }}>▦</div>
         <div style={{ flex: 1, padding: '8px', textAlign: 'center', color: 'var(--foreground-muted)' }}>▷</div>
         <div style={{ flex: 1, padding: '8px', textAlign: 'center', color: 'var(--foreground-muted)' }}>◯</div>
@@ -356,7 +356,7 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
                 background: '#000', borderRadius: '8px', overflow: 'hidden',
                 cursor: 'grab', position: 'relative',
                 opacity: draggingId === p.id ? 0.4 : 1,
-                border: '1px solid #E8C4CC',
+                border: '1px solid transparent',
               }}
             >
               {p.thumbnail ? (
@@ -380,7 +380,7 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
                   marginTop: '4px', width: '96px',
                   padding: '3px 6px', fontSize: '9px', fontWeight: 700,
                   background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)',
-                  border: '1px solid #E8C4CC', borderRadius: '5px',
+                  border: '1px solid transparent', borderRadius: '5px',
                   cursor: 'pointer',
                   textTransform: 'uppercase', letterSpacing: '0.04em',
                 }}
@@ -603,7 +603,7 @@ export default function GridPlanner() {
           <select
             value={selectedCreatorId || ''}
             onChange={e => setSelectedCreatorId(e.target.value)}
-            style={{ padding: '7px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #E8C4CC', background: 'var(--card-bg-solid)', minWidth: '180px' }}
+            style={{ padding: '7px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid transparent', background: 'var(--card-bg-solid)', minWidth: '180px' }}
           >
             <option value="">Select creator…</option>
             {creators.map(c => (
@@ -618,14 +618,14 @@ export default function GridPlanner() {
           onClick={handleRefreshFeed}
           disabled={refreshing || !selectedCreatorId}
           title="Pull the latest posts + profile from each IG account. Skips anything scraped < 6h ago. Shift-click to force re-scrape."
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? '#f0f0f0' : 'rgba(232, 160, 160, 0.05)', color: refreshing ? '#bbb' : 'var(--palm-pink)', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? '#f0f0f0' : 'rgba(232, 160, 160, 0.05)', color: refreshing ? '#bbb' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
         >
           {refreshing ? 'Scraping…' : '⟳ Refresh IG Feed'}
         </button>
         <button
           onClick={() => selectedCreatorId && loadCreator(selectedCreatorId)}
           disabled={loading || !selectedCreatorId}
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}
         >
           Reload
         </button>

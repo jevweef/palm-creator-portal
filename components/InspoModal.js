@@ -90,7 +90,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-white overflow-hidden flex flex-col" style={{boxShadow: '0 8px 40px rgba(0,0,0,0.15)', border: 'none'}}>
 
         {/* Header */}
-        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid rgba(0,0,0,0.06)', gap:'16px'}}>
+        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid transparent', gap:'16px'}}>
           <div style={{minWidth:0}}>
             <h2 style={{fontSize:'18px', fontWeight:600, color:'#1a1a1a', lineHeight:1.4, margin:0}}>{record.title}</h2>
             {record.username && (
@@ -325,7 +325,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         </div>
 
         {/* Prev / Next */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 22px', borderTop:'1px solid rgba(0,0,0,0.04)'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 22px', borderTop:'1px solid transparent'}}>
           <button
             onClick={onPrev}
             disabled={!hasPrev}

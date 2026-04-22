@@ -571,7 +571,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
-                  width:'200px', background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:'8px',
+                  width:'200px', background:'#fff', border:'1px solid transparent', borderRadius:'8px',
                   paddingLeft:'30px', paddingRight:'12px', paddingTop:'6px', paddingBottom:'6px',
                   fontSize:'13px', color:'#1a1a1a', outline:'none',
                 }}
@@ -581,7 +581,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
 
           {/* Advanced panel */}
           {showAdvanced && (
-            <div style={{marginTop:'10px', paddingTop:'10px', borderTop:'1px solid rgba(0,0,0,0.04)'}}>
+            <div style={{marginTop:'10px', paddingTop:'10px', borderTop:'1px solid transparent'}}>
               {tagGroups.map((group, gi) => (
                 <div key={group.label} style={{display:'flex', alignItems:'center', gap:'8px', marginBottom: gi < tagGroups.length - 1 ? '6px' : '0'}}>
                   <span style={{fontSize:'9px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#999', whiteSpace:'nowrap', width:'80px', flexShrink:0, textAlign:'right'}}>
@@ -646,8 +646,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 if (e.target.value) setSort('foryou')
               }}
               style={{
-                padding: '5px 10px', borderRadius: '6px', border: '1px solid #ddd',
-                fontSize: '13px', background: '#fff', cursor: 'pointer',
+                padding: '5px 10px', borderRadius: '6px', border: '1px solid transparent',
+                fontSize: '13px', background: 'var(--card-bg-solid)', cursor: 'pointer',
               }}
             >
               <option value="">— Select Creator —</option>
@@ -733,7 +733,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
           {visibleCount < filtered.length && (
             <div style={{ textAlign: 'center', padding: '32px 0' }}>
               <button onClick={() => setVisibleCount(v => v + PAGE_SIZE)} style={{
-                background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
+                background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '12px',
                 padding: '12px 32px', fontSize: '14px', fontWeight: 600, color: '#666',
                 cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                 transition: '0.2s',
@@ -760,7 +760,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
           >
             {/* Handle bar */}
             <div style={{display:'flex', justifyContent:'center', padding:'10px 0 6px'}}>
-              <div style={{width:'36px', height:'4px', borderRadius:'2px', background:'#D4A0B0'}} />
+              <div style={{width:'36px', height:'4px', borderRadius:'2px', background:'rgba(212, 160, 176, 0.3)'}} />
             </div>
 
             <div style={{padding:'0 20px 24px'}}>
@@ -789,7 +789,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
-                  width:'100%', background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:'10px',
+                  width:'100%', background:'#fff', border:'1px solid transparent', borderRadius:'10px',
                   padding:'10px 14px', fontSize:'14px', color:'#1a1a1a', outline:'none', marginBottom:'20px',
                   boxSizing:'border-box',
                 }}

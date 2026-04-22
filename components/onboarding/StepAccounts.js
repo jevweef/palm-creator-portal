@@ -9,7 +9,7 @@ const inputStyle = {
   border: '1px solid #e0e0e0',
   borderRadius: '8px',
   outline: 'none',
-  background: '#fff',
+  background: 'var(--card-bg-solid)',
 }
 
 const labelStyle = {
@@ -46,7 +46,7 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
 
   return (
     <div style={{
-      background: '#fff',
+      background: 'var(--card-bg-solid)',
       border: '1px solid #e0e0e0',
       borderRadius: '12px',
       padding: '16px',
@@ -473,7 +473,7 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
         style={{
           marginTop: '28px',
           padding: '10px 32px',
-          background: saving ? '#F0D0D8' : '#E88FAC',
+          background: saving ? 'transparent' : '#E88FAC',
           color: '#fff',
           border: 'none',
           borderRadius: '8px',

@@ -26,7 +26,7 @@ function CreatorDnaModal({ creatorId, creatorName, onClose }) {
         background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '560px',
         maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
       }}>
-        <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)' }}>{creatorName}</div>
             <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>Creator DNA</div>
@@ -66,7 +66,7 @@ function CreatorDnaModal({ creatorId, creatorName, onClose }) {
                   <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Top Tags</div>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {data.topTags.map(tw => (
-                      <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid rgba(0,0,0,0.04)' }}>
+                      <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent' }}>
                         {tw.tag} · {tw.weight}
                       </span>
                     ))}
@@ -100,7 +100,7 @@ function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
   const photoFile = forcePhoto || isPhoto(link)
 
   return (
-    <div style={{ background: 'var(--background)', border: '1px solid #FFF0F3', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '3/4', maxHeight: '320px', overflow: 'hidden', background: 'var(--background)' }}>
         {videoFile && rawUrl ? (
           <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
@@ -129,12 +129,12 @@ function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {link && (
             <a href={link} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-              style={{ textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--foreground-muted)', border: '1px solid #E8C4CC', borderRadius: '6px', textDecoration: 'none' }}>
+              style={{ textAlign: 'center', padding: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}>
               View ↗
             </a>
           )}
           <button onClick={() => onAssign(asset)} disabled={!!assigning}
-            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: assigning === asset.id ? 'rgba(232, 160, 160, 0.05)' : 'rgba(232, 160, 160, 0.05)', color: assigning === asset.id ? '#D4A0B0' : 'var(--palm-pink)', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: assigning ? 'default' : 'pointer', opacity: assigning && assigning !== asset.id ? 0.5 : 1 }}>
+            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: assigning === asset.id ? 'rgba(232, 160, 160, 0.05)' : 'rgba(232, 160, 160, 0.05)', color: assigning === asset.id ? 'rgba(212, 160, 176, 0.3)' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: assigning ? 'default' : 'pointer', opacity: assigning && assigning !== asset.id ? 0.5 : 1 }}>
             {assigning === asset.id ? 'Starting…' : 'Start Edit'}
           </button>
         </div>
@@ -148,10 +148,10 @@ function LibPickerPaginator({ page, totalPages, onChange }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <button onClick={() => onChange(page - 1)} disabled={page <= 1}
-        style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: page <= 1 ? 'var(--card-border)' : '#999', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
+        style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: page <= 1 ? 'var(--card-border)' : '#999', fontSize: '13px', cursor: page <= 1 ? 'default' : 'pointer', padding: '3px 10px' }}>‹</button>
       <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{page} / {totalPages}</span>
       <button onClick={() => onChange(page + 1)} disabled={page >= totalPages}
-        style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: page >= totalPages ? 'var(--card-border)' : '#999', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
+        style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: page >= totalPages ? 'var(--card-border)' : '#999', fontSize: '13px', cursor: page >= totalPages ? 'default' : 'pointer', padding: '3px 10px' }}>›</button>
     </div>
   )
 }
@@ -316,7 +316,7 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
       onClick={e => e.target === e.currentTarget && !uploading && onClose()}
     >
       <div
-        style={{ background: 'var(--card-bg-solid)', border: '1px solid #E8C4CC', borderRadius: '16px', padding: '28px', width: '460px', maxWidth: '95vw' }}
+        style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', padding: '28px', width: '460px', maxWidth: '95vw' }}
         onClick={e => e.stopPropagation()}
       >
         <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--foreground)', margin: '0 0 4px' }}>
@@ -359,7 +359,7 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
           disabled={uploading}
           style={{
             width: '100%', marginTop: '12px', padding: '10px 12px',
-            background: 'var(--background)', border: '1px solid #E8C4CC', borderRadius: '8px',
+            background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px',
             color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', resize: 'vertical', minHeight: '60px',
             fontFamily: 'inherit', boxSizing: 'border-box',
           }}
@@ -462,7 +462,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {task.inspo.contentLink && (
             <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '2px 8px', background: 'rgba(232, 160, 160, 0.05)', borderRadius: '4px', border: '1px solid #E8C4CC' }}>
+              style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '2px 8px', background: 'rgba(232, 160, 160, 0.05)', borderRadius: '4px', border: '1px solid transparent' }}>
               Original ↗
             </a>
           )}
@@ -504,7 +504,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
         )}
 
         {(task.creatorNotes || task.asset.creatorNotes) && (
-          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.4 }}>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', lineHeight: 1.4 }}>
             <span style={{ fontWeight: 600, color: 'var(--foreground-subtle)' }}>Creator: </span>
             {task.creatorNotes || task.asset.creatorNotes}
           </div>
@@ -518,7 +518,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
         )}
 
         {expanded && (
-          <div style={{ background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
             {task.inspo.onScreenText && (
               <div style={{ fontSize: '11px', color: '#f59e0b', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', padding: '6px 8px' }}>
@@ -618,16 +618,16 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '20px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid #F0D0D8', borderRadius: '16px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid #F0D0D8', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+        <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>Unreviewed Library</div>
             <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{creator.name}</div>
           </div>
           {tabs.length > 1 && !loading && (
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
               {tabs.map(t => (
                 <button key={t.key} onClick={() => switchTab(t.key)}
                   style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
@@ -639,7 +639,7 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
             </div>
           )}
           {!loading && (
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
               {[{ key: 'newest', label: 'Newest' }, { key: 'oldest', label: 'Oldest' }].map(s => (
                 <button key={s.key} onClick={() => { setSortOrder(s.key); setPage(1) }}
                   style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
@@ -1280,15 +1280,15 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
           .editor-task-modal-header > div:first-child > div:first-child > div:first-child { font-size: 14px !important; }
         }
       `}</style>
-      <div className="editor-task-modal-shell" style={{ background: 'var(--card-bg-solid)', border: '1px solid #F0D0D8', borderRadius: '16px', width: '100%', maxWidth: '1050px', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="editor-task-modal-shell" style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', width: '100%', maxWidth: '1050px', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header bar */}
-        <div className="editor-task-modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid #F0D0D8', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+        <div className="editor-task-modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
               {creator?.name && (
-                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.05)', border: '1px solid #E8C4CC', borderRadius: '4px', padding: '2px 8px', flexShrink: 0 }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.05)', border: '1px solid transparent', borderRadius: '4px', padding: '2px 8px', flexShrink: 0 }}>
                   {creator.name}
                 </span>
               )}
@@ -1305,7 +1305,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
         <div className="editor-task-modal-body" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
           {/* LEFT — media panels */}
-          <div className="editor-task-modal-left" style={{ width: '50%', padding: '20px', borderRight: '1px solid #F0D0D8', display: 'flex', gap: '12px', overflow: 'hidden' }}>
+          <div className="editor-task-modal-left" style={{ width: '50%', padding: '20px', borderRight: '1px solid transparent', display: 'flex', gap: '12px', overflow: 'hidden' }}>
             {editedLink ? (
               <>
                 <MediaPanel
@@ -1361,7 +1361,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {task.adminScreenshots.map((url, i) => (
                     <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', flexShrink: 0 }}>
-                      <img src={url} alt={`Screenshot ${i + 1}`} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E8C4CC', cursor: 'pointer' }} />
+                      <img src={url} alt={`Screenshot ${i + 1}`} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid transparent', cursor: 'pointer' }} />
                     </a>
                   ))}
                 </div>
@@ -1372,7 +1372,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {inspo.notes && (
               <div>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Direction</div>
-                <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.6, background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px', whiteSpace: 'pre-wrap' }}>
+                <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.6, background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '10px 12px', whiteSpace: 'pre-wrap' }}>
                   {inspo.notes}
                 </div>
               </div>
@@ -1390,7 +1390,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {creatorNotes && (
               <div>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Creator Notes</div>
-                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.5, background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.5, background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '10px 12px' }}>
                   {creatorNotes}
                 </div>
               </div>
@@ -1400,7 +1400,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {inspo.tags?.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {inspo.tags.map(tag => (
-                  <span key={tag} style={{ fontSize: '11px', color: 'var(--foreground-muted)', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '4px', padding: '2px 8px' }}>{tag}</span>
+                  <span key={tag} style={{ fontSize: '11px', color: 'var(--foreground-muted)', background: 'var(--background)', border: '1px solid transparent', borderRadius: '4px', padding: '2px 8px' }}>{tag}</span>
                 ))}
               </div>
             )}
@@ -1429,7 +1429,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {slot.type === 'inProgress' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {/* Tab switcher */}
-                <div style={{ display: 'flex', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '3px', gap: '3px' }}>
+                <div style={{ display: 'flex', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px', gap: '3px' }}>
                   {['create', 'upload', 'asis'].map(tab => (
                     <button key={tab} onClick={() => setEditorTab(tab)}
                       style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: editorTab === tab ? 'rgba(232, 160, 160, 0.05)' : 'transparent', color: editorTab === tab ? 'var(--foreground)' : '#999' }}>
@@ -1448,7 +1448,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                         onChange={e => setCaption(e.target.value)}
                         placeholder="Type the on-screen text..."
                         rows={2}
-                        style={{ width: '100%', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: 'var(--foreground)', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                        style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: 'var(--foreground)', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                       />
                     </div>
 
@@ -1459,7 +1459,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         {/* Frame preview */}
-                        <div style={{ position: 'relative', width: '54px', height: '96px', background: '#000', borderRadius: '5px', overflow: 'hidden', flexShrink: 0, border: '1px solid #E8C4CC' }}>
+                        <div style={{ position: 'relative', width: '54px', height: '96px', background: '#000', borderRadius: '5px', overflow: 'hidden', flexShrink: 0, border: '1px solid transparent' }}>
                           {task?.asset?.thumbnail && (
                             <img src={task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.35 }} />
                           )}
@@ -1484,7 +1484,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
                     {/* Render result */}
                     {renderUrl && (
-                      <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #F0D0D8' }}>
+                      <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid transparent' }}>
                         <video src={renderUrl} controls muted loop playsInline style={{ width: '100%', display: 'block', maxHeight: '180px', objectFit: 'contain', background: '#000' }} />
                       </div>
                     )}
@@ -1497,13 +1497,13 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
                     {!renderUrl ? (
                       <button onClick={handleRender} disabled={rendering || renderStatus === 'rendering' || !caption.trim()}
-                        style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #D4A0B0', borderRadius: '8px', cursor: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 'not-allowed' : 'pointer', opacity: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 0.5 : 1 }}>
+                        style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '8px', cursor: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 'not-allowed' : 'pointer', opacity: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 0.5 : 1 }}>
                         {rendering ? 'Starting...' : renderStatus === 'rendering' ? 'Rendering...' : 'Render ↗'}
                       </button>
                     ) : (
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => { setRenderUrl(null); setRenderId(null); setRenderStatus('idle') }}
-                          style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid #F0D0D8', borderRadius: '8px', cursor: 'pointer' }}>
+                          style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
                           Re-render
                         </button>
                         <button onClick={() => handleSave(renderUrl)} disabled={saving || saved}
@@ -1545,7 +1545,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                     <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', textAlign: 'center' }}>— or paste a Dropbox link —</div>
                     <input type="url" value={uploadUrl} onChange={e => setUploadUrl(e.target.value)}
                       placeholder="https://www.dropbox.com/..."
-                      style={{ width: '100%', background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '7px', padding: '8px 10px', fontSize: '12px', color: 'var(--foreground)', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                      style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '7px', padding: '8px 10px', fontSize: '12px', color: 'var(--foreground)', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
 
                     {uploadProgress && <div style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>{uploadProgress}</div>}
                     {uploadError && <div style={{ fontSize: '12px', color: '#ef4444' }}>{uploadError}</div>}
@@ -1563,7 +1563,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 {/* POST AS IS tab */}
                 {editorTab === 'asis' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.5, background: 'var(--background)', border: '1px solid #F0D0D8', borderRadius: '8px', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.5, background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '10px 12px' }}>
                       Sends the raw clip for review with no edits. Use this when the clip doesn't need a caption or any changes.
                     </div>
                     {saveErr && <div style={{ fontSize: '12px', color: '#ef4444' }}>{saveErr}</div>}
@@ -1591,7 +1591,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
             {/* Remove from queue — for active tasks only */}
             {(slot.type === 'toDo' || slot.type === 'inProgress') && task?.id && (
-              <div style={{ borderTop: '1px solid #F0D0D8', paddingTop: '12px', marginTop: '4px' }}>
+              <div style={{ borderTop: '1px solid transparent', paddingTop: '12px', marginTop: '4px' }}>
                 {!confirmCancel ? (
                   <button onClick={() => setConfirmCancel(true)}
                     style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '11px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
@@ -1718,13 +1718,13 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
   const firstDay = new Date(calYear, calMonth, 1).getDay()
   const cells = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
 
-  const navBtn = { background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '14px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }
+  const navBtn = { background: 'none', border: '1px solid transparent', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '14px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }
   const dotColors = { green: '#22c55e', yellow: '#facc15', red: '#ef4444' }
 
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
-      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: '6px', background: 'var(--card-bg-solid)', border: '1px solid #E8C4CC', borderRadius: '12px', padding: '14px', width: '228px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: '6px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '12px', padding: '14px', width: '228px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <button onClick={() => shiftMonth(-1)} style={navBtn}>‹</button>
           <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)' }}>{monthNames[calMonth]} {calYear}</span>
@@ -1744,14 +1744,14 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
             const color = dateColors[ds]
             return (
               <button key={i} onClick={() => { onSelect(ds); onClose() }}
-                style={{ background: isSel ? 'var(--palm-pink)' : isToday ? 'rgba(232, 160, 160, 0.05)' : 'transparent', border: isToday && !isSel ? '1px solid #E8C4CC' : '1px solid transparent', borderRadius: '6px', color: isSel ? '#fff' : isToday ? 'var(--palm-pink)' : '#888', fontSize: '12px', fontWeight: isSel || isToday ? 700 : 400, padding: '4px 0 2px', cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                style={{ background: isSel ? 'var(--palm-pink)' : isToday ? 'rgba(232, 160, 160, 0.05)' : 'transparent', border: isToday && !isSel ? '1px solid transparent' : '1px solid transparent', borderRadius: '6px', color: isSel ? '#fff' : isToday ? 'var(--palm-pink)' : '#888', fontSize: '12px', fontWeight: isSel || isToday ? 700 : 400, padding: '4px 0 2px', cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                 <span>{day}</span>
                 <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: color ? dotColors[color] : 'transparent', flexShrink: 0 }} />
               </button>
             )
           })}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #F0D0D8' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid transparent' }}>
           <button onClick={() => { onSelect(todayStr); onClose() }}
             style={{ fontSize: '11px', fontWeight: 700, color: 'var(--palm-pink)', background: 'none', border: 'none', cursor: 'pointer' }}>Today</button>
         </div>
@@ -2047,15 +2047,15 @@ function CreatorSection({ creator, onRefresh }) {
   const allDone = selectedDoneList.length >= dailyQuota
 
   return (
-    <div style={{ background: 'var(--card-bg-solid)', border: '1px solid #F0D0D8', borderRadius: '16px', height: '100%' }}>
+    <div style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', height: '100%' }}>
       {/* Header */}
-      <div className="editor-creator-header" style={{ padding: '18px 24px 14px', borderBottom: '1px solid #F0D0D8' }}>
+      <div className="editor-creator-header" style={{ padding: '18px 24px 14px', borderBottom: '1px solid transparent' }}>
         {/* Row 1: name + See More inline left, Weekly label top right */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{creator.name}</h2>
             <Link href={`/editor/${creator.id}`}
-              style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid #E8C4CC', textDecoration: 'none', flexShrink: 0 }}>
+              style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid transparent', textDecoration: 'none', flexShrink: 0 }}>
               See More →
             </Link>
             {creator.hasProfile && (
@@ -2075,7 +2075,7 @@ function CreatorSection({ creator, onRefresh }) {
             </span>
           )}
           {creator.queue.length > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #E8C4CC' }}>
+            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent' }}>
               {creator.queue.length} queued
             </span>
           )}
@@ -2097,7 +2097,7 @@ function CreatorSection({ creator, onRefresh }) {
           {(() => {
             const needed = Math.max(0, creator.quota - creator.doneToday)
             return needed > 0 ? (
-              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'var(--card-bg-solid)', color: 'var(--foreground-subtle)', border: '1px solid #E8C4CC' }}>
+              <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, background: 'var(--card-bg-solid)', color: 'var(--foreground-subtle)', border: '1px solid transparent' }}>
                 {needed} open
               </span>
             ) : null
@@ -2112,7 +2112,7 @@ function CreatorSection({ creator, onRefresh }) {
         {/* Date navigation */}
         <div className="editor-date-nav" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <button onClick={() => shiftDate(-1)}
-            style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
+            style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>‹</button>
           <div style={{ position: 'relative', minWidth: '180px' }}>
             <button onClick={() => setShowDatePicker(p => !p)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2132,7 +2132,7 @@ function CreatorSection({ creator, onRefresh }) {
             )}
           </div>
           <button onClick={() => shiftDate(1)}
-            style={{ background: 'none', border: '1px solid #E8C4CC', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>›</button>
+            style={{ background: 'none', border: '1px solid transparent', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '13px', cursor: 'pointer', padding: '2px 8px', lineHeight: 1.4 }}>›</button>
           {!isToday && (
             <button onClick={() => setSelectedDate(todayDateStr)}
               style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}>Today</button>
@@ -2428,7 +2428,7 @@ export function EditorDashboardContent() {
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)' }}>{firstName}</span>
         </div>
         <button onClick={fetchData}
-          style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid #E8C4CC', borderRadius: '6px', cursor: 'pointer' }}>
+          style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
@@ -2436,7 +2436,7 @@ export function EditorDashboardContent() {
       <BufferOverview creators={creators} />
 
       {creators.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--foreground-subtle)', fontSize: '14px', background: 'var(--background)', borderRadius: '12px', border: '1px solid #F0D0D8' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--foreground-subtle)', fontSize: '14px', background: 'var(--background)', borderRadius: '12px', border: '1px solid transparent' }}>
           No creators assigned — toggle Social Media Editing on a creator to assign them.
         </div>
       ) : (

@@ -217,7 +217,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
       {/* File upload */}
       <div
         style={{
-          background: '#fff',
+          background: 'var(--card-bg-solid)',
           border: '2px dashed #e0e0e0',
           borderRadius: '12px',
           padding: '28px',

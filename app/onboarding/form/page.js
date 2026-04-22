@@ -33,9 +33,9 @@ function AccountLinkingScreen() {
   }, [hasAutoRefreshed])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{
-        background: '#fff',
+        background: 'var(--card-bg-solid)',
         borderRadius: '20px',
         padding: '40px',
         maxWidth: '440px',
@@ -240,7 +240,7 @@ export default function OnboardingForm() {
 
   if (!isLoaded || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: '#999', fontSize: '14px' }}>Loading your onboarding...</div>
       </div>
     )
@@ -282,7 +282,7 @@ export default function OnboardingForm() {
 
   const renderComingSoon = (label) => (
     <div style={{
-      background: '#fff',
+      background: 'var(--card-bg-solid)',
       borderRadius: '16px',
       padding: '40px',
       textAlign: 'center',
@@ -299,7 +299,7 @@ export default function OnboardingForm() {
   )
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
+    <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '32px 20px' }}>
         <div style={{ marginBottom: '8px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
@@ -393,7 +393,7 @@ export default function OnboardingForm() {
 
 const navBtnStyle = {
   padding: '6px 14px',
-  background: '#fff',
+  background: 'var(--card-bg-solid)',
   border: '1px solid #e0e0e0',
   borderRadius: '6px',
   fontSize: '12px',
