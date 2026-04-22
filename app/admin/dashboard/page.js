@@ -766,9 +766,9 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* ─── ROW: Creators + Whale Alerts ─── */}
+      {/* ─── ROW: Creators (left) + stacked Whale/Pipeline/Posting (right) ─── */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
-      {/* ─── CREATORS TABLE ─── */}
+      {/* ─── LEFT: CREATORS TABLE ─── */}
       <div style={{ ...CARD, flex: '2 1 0', padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Creators</div>
           <div style={{
@@ -844,8 +844,11 @@ export default function AdminDashboard() {
           })}
       </div>
 
+      {/* ─── RIGHT COLUMN: Whale + Pipeline + Posting stacked ─── */}
+      <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
+
       {/* ─── WHALE ALERTS ─── */}
-      <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
+      <div style={{ ...CARD, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px' }}>&#x1F433;</span>
@@ -968,13 +971,8 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      </div>{/* close Creators + Whale row */}
-
-      {/* ─── ROW: Pipeline + Posting ─── */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
-
         {/* Pipeline Health */}
-        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
+        <div style={{ ...CARD, padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Pipeline</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
@@ -1016,7 +1014,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Posting Activity */}
-        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
+        <div style={{ ...CARD, padding: '14px 16px' }}>
           <div style={SECTION_TITLE}>Posting (7 Days)</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {posting.map(c => (
@@ -1039,7 +1037,8 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-      </div>{/* close Pipeline + Posting row */}
+      </div>{/* close right column */}
+      </div>{/* close Creators + right-column row */}
 
       {/* ─── Period History ─── */}
       {revenue.periods.length > 1 && (
