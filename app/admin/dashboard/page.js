@@ -749,19 +749,30 @@ export default function AdminDashboard() {
 
       {/* ─── KPI STRIP ─── */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-        <StatCard label="Creators" value={revenue.activeCreators} />
-        <StatCard label="Period Revenue" value={fmtK(revenue.currentPeriodTR)} delta={revenue.trDelta} />
-        <StatCard label="Palm's Cut" value={fmtK(revenue.netProfit)} color="#22c55e" delta={revenue.profitDelta} />
+        <StatCard label="Creators" value={revenue.activeCreators} sub="active" />
+        <StatCard
+          label={`Period Revenue · ${formatPeriodLabel(revenue.currentPeriodLabel)}`}
+          value={fmtK(revenue.currentPeriodTR)}
+          delta={revenue.trDelta}
+          sub={revenue.periods[1] ? `vs ${formatPeriodLabel(revenue.periods[1].label)}` : null}
+        />
+        <StatCard
+          label={`Palm's Cut · ${formatPeriodLabel(revenue.currentPeriodLabel)}`}
+          value={fmtK(revenue.netProfit)}
+          color="#22c55e"
+          delta={revenue.profitDelta}
+          sub={revenue.periods[1] ? `vs ${formatPeriodLabel(revenue.periods[1].label)}` : null}
+        />
         <StatCard
           label="Projected Monthly"
           value={fmtK(revenue.projectedMonthlyRevenue)}
-          sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net`}
+          sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net · 30d extrap.`}
           color="#E88FAC"
         />
         <StatCard
           label="Outstanding"
           value={revenue.outstandingInvoices.count}
-          sub={revenue.outstandingInvoices.count > 0 ? fmtK(revenue.outstandingInvoices.total) : 'all clear'}
+          sub={revenue.outstandingInvoices.count > 0 ? `${fmtK(revenue.outstandingInvoices.total)} unpaid` : 'all clear'}
           color={revenue.outstandingInvoices.count > 0 ? '#E8C878' : '#7DD3A4'}
         />
       </div>
