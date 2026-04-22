@@ -42,7 +42,7 @@ export async function POST(req) {
         x_alignment: '50%',
         font_size: '6.5 vw',
         font_weight: '700',
-        color: '#ffffff',
+        color: 'var(--foreground)',
         background_color: 'rgba(0,0,0,0.68)',
         x_padding: '4%',
         y_padding: '2.5%',

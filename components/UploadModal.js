@@ -228,17 +228,17 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
           padding: '16px 22px', borderBottom: '1px solid transparent',
         }}>
           <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>
               {replaceAssetId ? 'Replace Clip' : 'Upload Clips'}
             </h2>
-            <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+            <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
               {record.title}
             </p>
           </div>
           <button
             onClick={onClose}
             disabled={uploading}
-            style={{ color: '#999', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+            style={{ color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -249,22 +249,22 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
         <div style={{ padding: '22px' }}>
           {success ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(125, 211, 164, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                 <svg style={{ width: '24px', height: '24px', color: '#4ade80' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <p style={{ fontSize: '16px', fontWeight: 600, color: '#16a34a', marginBottom: '8px' }}>
+              <p style={{ fontSize: '16px', fontWeight: 600, color: '#7DD3A4', marginBottom: '8px' }}>
                 {replaceAssetId ? 'Clip replaced!' : 'Clips uploaded!'}
               </p>
-              <p style={{ fontSize: '13px', color: '#999' }}>
+              <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
                 {replaceAssetId ? 'Your new clip has replaced the original.' : 'Your clips are now in the editing queue.'}
               </p>
               <button
                 onClick={onClose}
                 style={{
                   marginTop: '20px', padding: '10px 28px',
-                  background: '#E88FAC', color: '#fff', border: 'none',
+                  background: 'var(--palm-pink)', color: '#060606', border: 'none',
                   borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
                 }}
               >
@@ -278,7 +278,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
                   padding: '10px 14px', marginBottom: '16px',
-                  background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '10px',
+                  background: 'rgba(232, 200, 120, 0.08)', border: '1px solid #fde68a', borderRadius: '10px',
                   fontSize: '12px', color: '#92400e', lineHeight: 1.4,
                 }}>
                   <span style={{ fontSize: '16px', flexShrink: 0 }}>⚠️</span>
@@ -304,10 +304,10 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 <svg style={{ width: '32px', height: '32px', margin: '0 auto 12px', color: 'rgba(212, 160, 176, 0.3)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-                <p style={{ fontSize: '13px', color: '#888', marginBottom: '4px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '4px' }}>
                   Drop video files here or click to browse
                 </p>
-                <p style={{ fontSize: '11px', color: '#bbb' }}>
+                <p style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>
                   MP4, MOV accepted
                 </p>
                 <input
@@ -329,15 +329,15 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                       padding: '8px 12px', background: 'var(--background)', borderRadius: '8px', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                     }}>
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: '12px', color: '#4a4a4a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <p style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {file.name}
                         </p>
-                        <p style={{ fontSize: '10px', color: '#999' }}>{formatSize(file.size)}</p>
+                        <p style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{formatSize(file.size)}</p>
                       </div>
                       <button
                         onClick={() => removeFile(i)}
                         disabled={uploading}
-                        style={{ color: '#999', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
+                        style={{ color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -364,12 +364,12 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
 
               {/* Error */}
               {error && (
-                <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '12px' }}>{error}</p>
+                <p style={{ fontSize: '12px', color: '#E87878', marginTop: '12px' }}>{error}</p>
               )}
 
               {/* Progress */}
               {progress && (
-                <p style={{ fontSize: '12px', color: '#E88FAC', marginTop: '12px' }}>{progress}</p>
+                <p style={{ fontSize: '12px', color: 'var(--palm-pink)', marginTop: '12px' }}>{progress}</p>
               )}
 
               {/* Upload button */}
@@ -378,8 +378,8 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
                 disabled={files.length === 0 || uploading}
                 style={{
                   marginTop: '16px', width: '100%', padding: '12px',
-                  background: files.length === 0 || uploading ? 'transparent' : '#E88FAC',
-                  color: files.length === 0 || uploading ? '#C88FA0' : '#fff',
+                  background: files.length === 0 || uploading ? 'transparent' : 'var(--palm-pink)',
+                  color: files.length === 0 || uploading ? 'var(--palm-pink)' : 'var(--foreground)',
                   border: 'none', borderRadius: '10px',
                   fontSize: '14px', fontWeight: 600, cursor: files.length === 0 || uploading ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',

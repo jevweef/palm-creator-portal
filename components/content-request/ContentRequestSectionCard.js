@@ -168,24 +168,24 @@ export default function ContentRequestSectionCard({
     }}>
       {/* Section header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1a1a1a', margin: 0, textTransform: 'uppercase' }}>
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--foreground)', margin: 0, textTransform: 'uppercase' }}>
           {name}
         </h2>
         <div style={{
           fontSize: 13,
           fontWeight: 600,
-          color: metMin ? '#16a34a' : uploadedCount > 0 ? '#f59e0b' : '#999',
+          color: metMin ? '#7DD3A4' : uploadedCount > 0 ? '#E8C878' : '#999',
         }}>
           {uploadedCount} / {minCount}
         </div>
       </div>
 
       {/* Progress bar */}
-      <div style={{ height: 6, background: '#f0f0f0', borderRadius: 3, overflow: 'hidden', marginBottom: 16 }}>
+      <div style={{ height: 6, background: 'rgba(255,255,255,0.04)', borderRadius: 3, overflow: 'hidden', marginBottom: 16 }}>
         <div style={{
           height: '100%',
           width: `${progressPercent}%`,
-          background: metMin ? '#16a34a' : '#E88FAC',
+          background: metMin ? '#7DD3A4' : 'var(--palm-pink)',
           borderRadius: 3,
           transition: 'width 0.3s ease',
         }} />
@@ -195,7 +195,7 @@ export default function ContentRequestSectionCard({
       {!metMin && (
         <div style={{
           fontSize: 12,
-          color: uploadedCount > 0 ? '#f59e0b' : '#ef4444',
+          color: uploadedCount > 0 ? '#E8C878' : '#E87878',
           marginBottom: 12,
           fontWeight: 500,
         }}>
@@ -206,7 +206,7 @@ export default function ContentRequestSectionCard({
         </div>
       )}
       {metMin && uploadedCount > 0 && (
-        <div style={{ fontSize: 12, color: '#16a34a', marginBottom: 12, fontWeight: 500 }}>
+        <div style={{ fontSize: 12, color: '#7DD3A4', marginBottom: 12, fontWeight: 500 }}>
           Minimum met
         </div>
       )}
@@ -219,7 +219,7 @@ export default function ContentRequestSectionCard({
             style={{
               background: 'none',
               border: 'none',
-              color: '#E88FAC',
+              color: 'var(--palm-pink)',
               fontSize: 13,
               cursor: 'pointer',
               padding: 0,
@@ -248,7 +248,7 @@ export default function ContentRequestSectionCard({
       {/* Scripts (voice messages / sexting) */}
       {scripts && scripts.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#666', marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(240, 236, 232, 0.75)', marginBottom: 8 }}>
             Scripts to record:
           </div>
           <div style={{
@@ -267,7 +267,7 @@ export default function ContentRequestSectionCard({
                 display: 'flex',
                 gap: 8,
               }}>
-                <span style={{ color: '#E88FAC', fontWeight: 600, minWidth: 20 }}>{idx + 1}.</span>
+                <span style={{ color: 'var(--palm-pink)', fontWeight: 600, minWidth: 20 }}>{idx + 1}.</span>
                 <span style={{ fontStyle: 'italic' }}>{script}</span>
               </div>
             ))}
@@ -287,20 +287,20 @@ export default function ContentRequestSectionCard({
           }}
           onClick={() => fileInputRef.current?.click()}
           style={{
-            border: `2px dashed ${dragOver ? '#E88FAC' : 'transparent'}`,
+            border: `2px dashed ${dragOver ? 'var(--palm-pink)' : 'transparent'}`,
             borderRadius: 12,
             padding: '28px 20px',
             textAlign: 'center',
             cursor: 'pointer',
-            background: dragOver ? '#FFF5F7' : '#fafafa',
+            background: dragOver ? 'var(--background)' : 'var(--card-bg-solid)',
             transition: 'all 0.15s',
             marginBottom: files.length > 0 ? 16 : 0,
           }}
         >
-          <div style={{ fontSize: 13, color: '#666', fontWeight: 500 }}>
+          <div style={{ fontSize: 13, color: 'rgba(240, 236, 232, 0.75)', fontWeight: 500 }}>
             Drop {typeLabel.toLowerCase()} here or click to browse
           </div>
-          <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--foreground-subtle)', marginTop: 4 }}>
             You can select multiple files at once
           </div>
           <input
@@ -328,12 +328,12 @@ export default function ContentRequestSectionCard({
             width: 24,
             height: 24,
             border: '3px solid #F0D0D8',
-            borderTopColor: '#E88FAC',
+            borderTopColor: 'var(--palm-pink)',
             borderRadius: '50%',
             animation: 'spin 0.8s linear infinite',
             margin: '0 auto 8px',
           }} />
-          <div style={{ fontSize: 13, color: '#E88FAC', fontWeight: 500 }}>{uploadProgress}</div>
+          <div style={{ fontSize: 13, color: 'var(--palm-pink)', fontWeight: 500 }}>{uploadProgress}</div>
         </div>
       )}
 
@@ -349,13 +349,13 @@ export default function ContentRequestSectionCard({
               background: 'var(--background)',
               borderRadius: 8,
               fontSize: 12,
-              color: '#666',
+              color: 'rgba(240, 236, 232, 0.75)',
               maxWidth: 220,
             }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                 {file.fileName}
               </span>
-              <span style={{ color: '#aaa', flexShrink: 0 }}>{formatFileSize(file.fileSize)}</span>
+              <span style={{ color: 'var(--foreground-subtle)', flexShrink: 0 }}>{formatFileSize(file.fileSize)}</span>
             </div>
           ))}
         </div>

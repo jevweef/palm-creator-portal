@@ -31,17 +31,17 @@ function Card({ children, style, className, hoverable }) {
 }
 
 function Label({ children }) {
-  return <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>{children}</div>
+  return <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>{children}</div>
 }
 
 function Row({ label, value, href, mono }) {
-  const valStyle = { color: '#4a4a4a', fontSize: '13px', ...(mono ? { fontFamily: 'monospace' } : {}) }
+  const valStyle = { color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', ...(mono ? { fontFamily: 'monospace' } : {}) }
   const content = href
-    ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...valStyle, color: '#E88FAC', textDecoration: 'none' }}>{value}</a>
+    ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...valStyle, color: 'var(--palm-pink)', textDecoration: 'none' }}>{value}</a>
     : <span style={valStyle}>{value || '—'}</span>
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid transparent' }}>
-      <span style={{ color: '#999', fontSize: '12px', flexShrink: 0, marginRight: '16px' }}>{label}</span>
+      <span style={{ color: 'var(--foreground-muted)', fontSize: '12px', flexShrink: 0, marginRight: '16px' }}>{label}</span>
       {content}
     </div>
   )
@@ -50,11 +50,11 @@ function Row({ label, value, href, mono }) {
 function StatBox({ value, label, color, gradient }) {
   const textStyle = gradient
     ? { fontSize: '22px', fontWeight: 700, background: gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
-    : { fontSize: '22px', fontWeight: 700, color: color || '#1a1a1a' }
+    : { fontSize: '22px', fontWeight: 700, color: color || 'var(--foreground)' }
   return (
     <div style={{ flex: 1, minWidth: '120px' }}>
       <div style={textStyle}>{value}</div>
-      <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>{label}</div>
+      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '2px' }}>{label}</div>
     </div>
   )
 }
@@ -118,31 +118,31 @@ function InvoiceModal({ group, onClose }) {
         <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid transparent' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>
                 {formatPeriod(group.periodStart, group.periodEnd)}
               </div>
-              <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>
                 {group.invoices.length} account{group.invoices.length !== 1 ? 's' : ''} · Due {fmtDate(group.dueDate)}
               </div>
             </div>
             <button onClick={onClose} style={{
-              background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
-              cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+              cursor: 'pointer', fontSize: '14px', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>✕</button>
           </div>
           {/* Combined totals */}
           <div style={{ display: 'flex', marginTop: '16px', padding: '18px 24px', background: 'rgba(232, 160, 160, 0.03)', borderRadius: '14px' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(group.totalEarnings)}</div>
-              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Total Revenue</div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--foreground)' }}>{fmt$(group.totalEarnings)}</div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Total Revenue</div>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(group.totalEarnings - group.totalCommission)}</div>
-              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Your Take Home</div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Your Take Home</div>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '28px', fontWeight: 700, color: '#E88FAC' }}>{fmt$(group.totalCommission)}</div>
-              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Management Fee</div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--palm-pink)' }}>{fmt$(group.totalCommission)}</div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>Management Fee</div>
             </div>
           </div>
         </div>
@@ -153,10 +153,10 @@ function InvoiceModal({ group, onClose }) {
             <div style={{ display: 'flex', flexDirection: 'column', height: '75vh' }}>
               <div style={{ padding: '12px 28px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button onClick={() => setPdfUrl(null)} style={{
-                  background: '#f5f5f5', border: 'none', borderRadius: '8px', padding: '5px 12px',
-                  cursor: 'pointer', fontSize: '12px', color: '#666', fontWeight: 500,
+                  background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '8px', padding: '5px 12px',
+                  cursor: 'pointer', fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)', fontWeight: 500,
                 }}>← Back</button>
-                <span style={{ fontSize: '11px', color: '#aaa' }}>Invoice PDF</span>
+                <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>Invoice PDF</span>
               </div>
               <iframe src={pdfUrl} style={{ flex: 1, border: 'none', width: '100%' }} title="Invoice PDF" />
             </div>
@@ -170,25 +170,25 @@ function InvoiceModal({ group, onClose }) {
                   <div key={inv.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 16px', marginBottom: '6px',
-                    background: '#FAFAFA', borderRadius: '12px',
+                    background: 'var(--card-bg-solid)', borderRadius: '12px',
                     border: '1px solid transparent',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', minWidth: '70px' }}>{acctLabel}</div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', minWidth: '70px' }}>{acctLabel}</div>
                       {inv.invoiceStatus && (
                         <span style={{
                           fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '5px',
-                          background: inv.invoiceStatus === 'Paid' ? '#dcfce7' : inv.invoiceStatus === 'Sent' ? '#fef3c7' : '#f3f4f6',
-                          color: inv.invoiceStatus === 'Paid' ? '#16a34a' : inv.invoiceStatus === 'Sent' ? '#d97706' : '#6b7280',
+                          background: inv.invoiceStatus === 'Paid' ? 'rgba(125, 211, 164, 0.08)' : inv.invoiceStatus === 'Sent' ? 'rgba(232, 200, 120, 0.08)' : 'rgba(255,255,255,0.04)',
+                          color: inv.invoiceStatus === 'Paid' ? '#7DD3A4' : inv.invoiceStatus === 'Sent' ? '#E8A878' : '#6b7280',
                         }}>{inv.invoiceStatus}</span>
                       )}
-                      <span style={{ fontSize: '12px', color: '#666' }}>{fmt$(inv.earnings)}</span>
-                      <span style={{ fontSize: '12px', color: '#ccc' }}>·</span>
-                      <span style={{ fontSize: '12px', color: '#999' }}>{fmtPct(inv.commissionPct)} fee</span>
+                      <span style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)' }}>{fmt$(inv.earnings)}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--foreground-subtle)' }}>·</span>
+                      <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{fmtPct(inv.commissionPct)} fee</span>
                     </div>
                     {pdfLink && (
                       <button onClick={() => setPdfUrl(pdfLink)} style={{
-                        fontSize: '11px', color: '#E88FAC', background: 'rgba(232, 160, 160, 0.04)', border: 'none',
+                        fontSize: '11px', color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.04)', border: 'none',
                         padding: '5px 12px', borderRadius: '8px', fontWeight: 500, cursor: 'pointer',
                         flexShrink: 0,
                       }}>View PDF</button>
@@ -200,24 +200,24 @@ function InvoiceModal({ group, onClose }) {
               {/* Zelle payment section */}
               {!allPaid && (
                 <div style={{
-                  marginTop: '20px', padding: '20px', background: '#FAFAFA', borderRadius: '14px',
+                  marginTop: '20px', padding: '20px', background: 'var(--card-bg-solid)', borderRadius: '14px',
                   border: '1px solid transparent', textAlign: 'center',
                 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>Pay via Zelle</div>
-                  <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '14px' }}>Scan the QR code or send to the info below</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>Pay via Zelle</div>
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '14px' }}>Scan the QR code or send to the info below</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
                     <img src="/zelle-qr.png" alt="Zelle QR Code" style={{ width: '120px', height: '120px', borderRadius: '10px', objectFit: 'contain' }} />
                     <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginBottom: '6px' }}>
                         <span style={{ display: 'inline-block', width: '50px' }}>To</span>
-                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>Palm Digital Management LLC</span>
+                        <span style={{ color: 'rgba(240, 236, 232, 0.85)', fontWeight: 500 }}>Palm Digital Management LLC</span>
                       </div>
-                      <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginBottom: '6px' }}>
                         <span style={{ display: 'inline-block', width: '50px' }}>Bank</span>
-                        <span style={{ color: '#4a4a4a', fontWeight: 500 }}>Chase</span>
+                        <span style={{ color: 'rgba(240, 236, 232, 0.85)', fontWeight: 500 }}>Chase</span>
                       </div>
                       <div style={{
-                        marginTop: '12px', padding: '10px 20px', background: '#6d28d9', color: '#fff',
+                        marginTop: '12px', padding: '10px 20px', background: '#6d28d9', color: 'rgba(255,255,255,0.08)',
                         borderRadius: '10px', fontSize: '13px', fontWeight: 600, display: 'inline-block',
                       }}>
                         {fmt$(group.totalCommission)} due
@@ -239,8 +239,8 @@ function ActionCard({ href, icon, title, subtitle }) {
     <a href={href} target={href.startsWith('/') ? undefined : '_blank'} rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
       <Card hoverable style={{ textAlign: 'center', cursor: 'pointer', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
         <div style={{ fontSize: '22px', marginBottom: '6px' }}>{icon}</div>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{title}</div>
-        <div style={{ fontSize: '10px', color: '#aaa', marginTop: '3px' }}>{subtitle}</div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>{title}</div>
+        <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '3px' }}>{subtitle}</div>
       </Card>
     </a>
   )
@@ -332,7 +332,7 @@ export default function CreatorDashboard() {
   if (!isLoaded || loading) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#aaa', fontSize: '14px' }}>Loading...</div>
+        <div style={{ color: 'var(--foreground-subtle)', fontSize: '14px' }}>Loading...</div>
       </div>
     )
   }
@@ -344,14 +344,14 @@ export default function CreatorDashboard() {
   const igHref = p.igAccount?.startsWith('http') ? p.igAccount : `https://${p.igAccount}`
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'rgba(255,255,255,0.08)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-4 md:py-8">
 
         {/* ── Header + Earnings ── */}
         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '12px', marginBottom: '12px' }}>
           <div className="md:pl-5" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <h1 className="text-[22px] md:text-[28px]" style={{ fontWeight: 700, margin: 0 }}>Hey, {displayName}</h1>
-            <p style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Palm Management Dashboard</p>
+            <p style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginTop: '2px' }}>Palm Management Dashboard</p>
           </div>
           <Card>
             {(() => {
@@ -366,11 +366,11 @@ export default function CreatorDashboard() {
                   <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', padding: '4px 0', justifyContent: 'center', textAlign: 'center' }}>
                     <div style={{ flex: 1, minWidth: '120px' }}>
                       <div style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(135deg, #86efac 0%, #22c55e 35%, #15803d 70%, #0f5132 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{fmt$(revenue)}</div>
-                      <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Total Revenue</div>
+                      <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginTop: '2px' }}>Total Revenue</div>
                     </div>
                     <div style={{ flex: 1, minWidth: '120px' }}>
-                      <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmt$(takeHome)}</div>
-                      <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>Your Take Home</div>
+                      <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--foreground)' }}>{fmt$(takeHome)}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginTop: '2px' }}>Your Take Home</div>
                     </div>
                   </div>
                 </>
@@ -385,7 +385,7 @@ export default function CreatorDashboard() {
           <Card style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '20px 20px 16px' }}>
               <Label>Browse Inspo</Label>
-              <p style={{ fontSize: '13px', color: '#888', margin: '4px 0 14px' }}>Find reels to recreate for your audience</p>
+              <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 14px' }}>Find reels to recreate for your audience</p>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {[
                   ...(creatorProfile ? [{ key: 'foryou', label: 'For You', icon: '✨' }] : []),
@@ -401,13 +401,13 @@ export default function CreatorDashboard() {
                       flex: 1, minWidth: '70px', textDecoration: 'none',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
                       padding: '12px 8px', borderRadius: '14px',
-                      background: s.key === 'foryou' ? '#FFF0F3' : '#FAFAFA',
+                      background: s.key === 'foryou' ? 'rgba(232, 160, 160, 0.06)' : 'var(--card-bg-solid)',
                       border: s.key === 'foryou' ? '1px solid #E88FAC' : '1px solid transparent',
                       transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
                     }}
                   >
                     <span style={{ fontSize: '18px' }}>{s.icon}</span>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: s.key === 'foryou' ? '#E88FAC' : '#666' }}>{s.label}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: s.key === 'foryou' ? 'var(--palm-pink)' : 'rgba(240, 236, 232, 0.75)' }}>{s.label}</span>
                   </a>
                 ))}
               </div>
@@ -420,8 +420,8 @@ export default function CreatorDashboard() {
               return (
                 <div style={{ borderTop: '1px solid transparent', padding: '12px 20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{stripLabel}</span>
-                    <a href={`${inspoPath}?sort=${stripSort}`} style={{ fontSize: '11px', color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{stripLabel}</span>
+                    <a href={`${inspoPath}?sort=${stripSort}`} style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: `repeat(${topReels.length}, 1fr)`, gap: '6px' }}>
                     {topReels.map(r => (
@@ -467,11 +467,11 @@ export default function CreatorDashboard() {
                   const isActive = periodEnd && now <= periodEnd
 
                   let statusLabel, statusColor, statusBg
-                  if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
-                  else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
-                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
-                  else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
-                  else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+                  if (allPaid) { statusLabel = 'Paid'; statusColor = '#7DD3A4'; statusBg = 'rgba(125, 211, 164, 0.08)' }
+                  else if (allSent) { statusLabel = 'Sent'; statusColor = '#E8A878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
+                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#E8A878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
+                  else if (isActive) { statusLabel = 'Active'; statusColor = '#78B4E8'; statusBg = 'rgba(120, 180, 232, 0.08)' }
+                  else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = 'rgba(255,255,255,0.04)' }
 
                   return (
                     <div
@@ -481,26 +481,26 @@ export default function CreatorDashboard() {
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '12px 14px', marginBottom: '6px', cursor: 'pointer',
-                        borderRadius: '12px', background: '#FAFAFA',
+                        borderRadius: '12px', background: 'var(--card-bg-solid)',
                         border: '1px solid transparent',
                         transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
                       }}
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>
                           {formatPeriod(group.periodStart, group.periodEnd)}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>
                           {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
-                          {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                          {group.invoices.length > 1 && <span style={{ color: 'var(--foreground-subtle)' }}> · {group.invoices.length} accounts</span>}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                         <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
                         {group.dueDate && !allPaid && (
-                          <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
+                          <span style={{ fontSize: '10px', color: 'var(--foreground-subtle)' }}>Due {fmtDate(group.dueDate)}</span>
                         )}
-                        <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
+                        <span style={{ color: 'var(--foreground-subtle)', fontSize: '14px' }}>›</span>
                       </div>
                     </div>
                   )
@@ -518,15 +518,15 @@ export default function CreatorDashboard() {
                       gap: '6px',
                     }}
                   >
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#E88FAC' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--palm-pink)' }}>
                       View All {allGroups.length} Periods
                     </span>
-                    <span style={{ color: '#E88FAC', fontSize: '14px' }}>›</span>
+                    <span style={{ color: 'var(--palm-pink)', fontSize: '14px' }}>›</span>
                   </div>
                 )}
               </>)
             })() : (
-              <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No invoices yet</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>No invoices yet</div>
             )}
             </Card>
           </div>
@@ -548,12 +548,12 @@ export default function CreatorDashboard() {
             }}>
               <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>All Invoices</div>
-                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>{groupInvoicesByPeriod(invoices).length} billing periods</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>All Invoices</div>
+                  <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginTop: '2px' }}>{groupInvoicesByPeriod(invoices).length} billing periods</div>
                 </div>
                 <button onClick={() => setShowAllInvoices(false)} style={{
-                  background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
-                  cursor: 'pointer', fontSize: '14px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+                  cursor: 'pointer', fontSize: '14px', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>✕</button>
               </div>
               <div style={{ flex: 1, overflow: 'auto', padding: '16px 28px 28px' }}>
@@ -568,11 +568,11 @@ export default function CreatorDashboard() {
                   const isActive = periodEnd && now <= periodEnd
 
                   let statusLabel, statusColor, statusBg
-                  if (allPaid) { statusLabel = 'Paid'; statusColor = '#16a34a'; statusBg = '#dcfce7' }
-                  else if (allSent) { statusLabel = 'Sent'; statusColor = '#d97706'; statusBg = '#fef3c7' }
-                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#d97706'; statusBg = '#fef3c7' }
-                  else if (isActive) { statusLabel = 'Active'; statusColor = '#3b82f6'; statusBg = '#dbeafe' }
-                  else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = '#f3f4f6' }
+                  if (allPaid) { statusLabel = 'Paid'; statusColor = '#7DD3A4'; statusBg = 'rgba(125, 211, 164, 0.08)' }
+                  else if (allSent) { statusLabel = 'Sent'; statusColor = '#E8A878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
+                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#E8A878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
+                  else if (isActive) { statusLabel = 'Active'; statusColor = '#78B4E8'; statusBg = 'rgba(120, 180, 232, 0.08)' }
+                  else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = 'rgba(255,255,255,0.04)' }
 
                   return (
                     <div
@@ -582,26 +582,26 @@ export default function CreatorDashboard() {
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '14px 16px', marginBottom: '8px', cursor: 'pointer',
-                        borderRadius: '12px', background: '#FAFAFA',
+                        borderRadius: '12px', background: 'var(--card-bg-solid)',
                         border: '1px solid transparent',
                         transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
                       }}
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)' }}>
                           {formatPeriod(group.periodStart, group.periodEnd)}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
                           {fmt$(group.totalEarnings)} earned · {fmt$(group.totalCommission)} management fee
-                          {group.invoices.length > 1 && <span style={{ color: '#bbb' }}> · {group.invoices.length} accounts</span>}
+                          {group.invoices.length > 1 && <span style={{ color: 'var(--foreground-subtle)' }}> · {group.invoices.length} accounts</span>}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                         <span style={{ fontSize: '10px', fontWeight: 500, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '6px' }}>{statusLabel}</span>
                         {group.dueDate && !allPaid && (
-                          <span style={{ fontSize: '10px', color: '#aaa' }}>Due {fmtDate(group.dueDate)}</span>
+                          <span style={{ fontSize: '10px', color: 'var(--foreground-subtle)' }}>Due {fmtDate(group.dueDate)}</span>
                         )}
-                        <span style={{ color: '#ccc', fontSize: '14px' }}>›</span>
+                        <span style={{ color: 'var(--foreground-subtle)', fontSize: '14px' }}>›</span>
                       </div>
                     </div>
                   )
@@ -616,7 +616,7 @@ export default function CreatorDashboard() {
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <Label>My Content</Label>
-              <a href="/my-content" style={{ color: '#E88FAC', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
+              <a href="/my-content" style={{ color: 'var(--palm-pink)', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
                 View All →
               </a>
             </div>
@@ -634,18 +634,18 @@ export default function CreatorDashboard() {
               return (<>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: savedOnly.length > 0 || (pipeline?.editing?.length > 0) ? '14px' : 0 }}>
               {[
-                { label: 'Saved', count: savedOnly.length, color: '#E88FAC' },
-                { label: 'Uploaded', count: pipeline?.uploaded?.length || 0, color: '#f59e0b' },
-                { label: 'Editing', count: pipeline?.editing?.length || 0, color: '#3b82f6' },
-                { label: 'Posted', count: pipeline?.posted?.length || 0, color: '#22c55e' },
+                { label: 'Saved', count: savedOnly.length, color: 'var(--palm-pink)' },
+                { label: 'Uploaded', count: pipeline?.uploaded?.length || 0, color: '#E8C878' },
+                { label: 'Editing', count: pipeline?.editing?.length || 0, color: '#78B4E8' },
+                { label: 'Posted', count: pipeline?.posted?.length || 0, color: '#7DD3A4' },
               ].map(stage => (
                 <div key={stage.label} style={{
                   textAlign: 'center', padding: '8px',
                   background: 'rgba(232, 160, 160, 0.03)', borderRadius: '12px',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                 }}>
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : '#ddd' }}>{stage.count}</div>
-                  <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stage.label}</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : 'rgba(255,255,255,0.08)' }}>{stage.count}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stage.label}</div>
                 </div>
               ))}
             </div>
@@ -653,7 +653,7 @@ export default function CreatorDashboard() {
             {/* Saved inspo thumbnails */}
             {savedOnly.length > 0 ? (
               <div>
-                <div style={{ fontSize: '10px', color: '#aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
+                <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {savedOnly.slice(0, 8).map((reel) => (
                     <a key={reel.id} href="/my-content?tab=saved" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
@@ -661,18 +661,18 @@ export default function CreatorDashboard() {
                         {reel.thumbnail ? (
                           <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ddd', fontSize: '20px' }}>🎬</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.08)', fontSize: '20px' }}>🎬</div>
                         )}
                       </div>
                       <div style={{ padding: '4px 6px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#4a4a4a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(240, 236, 232, 0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</div>
                       </div>
                     </a>
                   ))}
                 </div>
               </div>
             ) : (pipeline?.editing?.length > 0 || pipeline?.uploaded?.length > 0) ? null : (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: '#aaa', fontSize: '13px' }}>
+              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--foreground-subtle)', fontSize: '13px' }}>
                 Save reels from the Inspo Board to start creating content
               </div>
             )}
@@ -680,7 +680,7 @@ export default function CreatorDashboard() {
             {/* In progress content thumbnails */}
             {pipeline?.editing?.length > 0 && (
               <div style={{ marginTop: savedReels.length > 0 ? '12px' : 0 }}>
-                <div style={{ fontSize: '10px', color: '#aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
+                <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {pipeline.editing.slice(0, 4).map((item) => (
                     <a key={item.assetId} href="/my-content?tab=editing" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
@@ -688,11 +688,11 @@ export default function CreatorDashboard() {
                         {item.inspoThumbnail ? (
                           <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ddd', fontSize: '20px' }}>✂️</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.08)', fontSize: '20px' }}>✂️</div>
                         )}
                       </div>
                       <div style={{ padding: '4px 6px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#3b82f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.inspoTitle || item.assetName}</div>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#78B4E8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.inspoTitle || item.assetName}</div>
                       </div>
                     </a>
                   ))}
@@ -718,7 +718,7 @@ export default function CreatorDashboard() {
                   }}
                   style={{
                     background: 'rgba(232, 160, 160, 0.04)', border: 'none', borderRadius: '9999px',
-                    padding: '4px 12px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, color: '#E88FAC',
+                    padding: '4px 12px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, color: 'var(--palm-pink)',
                   }}
                 >
                   Full Profile →
@@ -728,7 +728,7 @@ export default function CreatorDashboard() {
               {/* Profile summary snippet */}
               {creatorProfile.profileSummary && (
                 <div style={{
-                  fontSize: '12px', color: '#666', lineHeight: '1.6', marginBottom: '14px',
+                  fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.6', marginBottom: '14px',
                   display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}>
                   {creatorProfile.profileSummary}
@@ -742,11 +742,11 @@ export default function CreatorDashboard() {
                 const maxWeight = topTags[0]?.[1] || 1
                 return (
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>Top Tags</div>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>Top Tags</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {topTags.map(([tag, weight]) => (
                         <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '12px', color: '#4a4a4a', fontWeight: 500, width: '110px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
+                          <span style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', fontWeight: 500, width: '110px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
                           <div style={{ flex: 1, height: '6px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '3px', overflow: 'hidden' }}>
                             <div style={{ width: `${Math.round((weight / maxWeight) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, #E88FAC, #D4A0B0)', borderRadius: '3px' }} />
                           </div>
@@ -766,7 +766,7 @@ export default function CreatorDashboard() {
                 <StatBox value="—" label="OF Subscribers" />
                 <StatBox value="—" label="Week-over-Week" />
               </div>
-              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '8px', fontStyle: 'italic' }}>Stats tracking coming soon</div>
             </Card>
           )}
         </div>
@@ -793,15 +793,15 @@ export default function CreatorDashboard() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '16px' }}>&#x1F9EC;</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Your Content DNA</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Your Content DNA</span>
                 </div>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '6px',
-                  background: profileOpen ? '#E88FAC' : '#FFF0F3',
+                  background: profileOpen ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
                   padding: '4px 12px', borderRadius: '9999px', transition: 'all 0.2s',
                 }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: profileOpen ? '#fff' : '#E88FAC' }}>{profileOpen ? 'Hide' : 'View'}</span>
-                  <span style={{ fontSize: '12px', color: profileOpen ? '#fff' : '#E88FAC', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#x25BE;</span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: profileOpen ? 'var(--foreground)' : 'var(--palm-pink)' }}>{profileOpen ? 'Hide' : 'View'}</span>
+                  <span style={{ fontSize: '12px', color: profileOpen ? 'var(--foreground)' : 'var(--palm-pink)', transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#x25BE;</span>
                 </div>
               </button>
               {profileOpen && (
@@ -809,18 +809,18 @@ export default function CreatorDashboard() {
                   <div style={{ display: 'grid', gap: '0' }} className="grid-cols-1 md:grid-cols-2">
                     <div style={{ padding: '20px 24px' }}>
                       {creatorProfile.profileSummary && (
-                        <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', marginBottom: '16px' }}>{creatorProfile.profileSummary}</div>
+                        <div style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: '1.6', marginBottom: '16px' }}>{creatorProfile.profileSummary}</div>
                       )}
                       {creatorProfile.contentDirectionNotes && (
                         <>
-                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
-                          <div style={{ fontSize: '12px', color: '#888', lineHeight: '1.6' }}>{creatorProfile.contentDirectionNotes}</div>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Content Direction</div>
+                          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: '1.6' }}>{creatorProfile.contentDirectionNotes}</div>
                         </>
                       )}
                       {creatorProfile.dosDonts && (
                         <>
-                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
-                          <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#FAFAFA', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{creatorProfile.dosDonts}</div>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '16px' }}>Do / Don't</div>
+                          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: 'var(--card-bg-solid)', borderRadius: '10px', padding: '10px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.04)' }}>{creatorProfile.dosDonts}</div>
                         </>
                       )}
                     </div>
@@ -830,14 +830,14 @@ export default function CreatorDashboard() {
                         const TAG_CATEGORIES = ['Setting / Location', 'Persona / Niche', 'Tone / Energy', 'Visual / Body', 'Viewer Experience', 'Film Format']
                         const CAT_COLORS = {
                           'Setting / Location': '#06b6d4',
-                          'Persona / Niche': '#E88FAC',
+                          'Persona / Niche': 'var(--palm-pink)',
                           'Tone / Energy': '#f472b6',
-                          'Visual / Body': '#fb923c',
-                          'Viewer Experience': '#60a5fa',
+                          'Visual / Body': '#E8A878',
+                          'Viewer Experience': '#78B4E8',
                           'Film Format': '#34d399',
                         }
                         const tags = (creatorProfile.allTags || []).filter(t => t.weight > 0)
-                        if (tags.length === 0) return <div style={{ fontSize: '12px', color: '#aaa', fontStyle: 'italic' }}>No tags yet</div>
+                        if (tags.length === 0) return <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>No tags yet</div>
 
                         const byCategory = {}
                         tags.forEach(t => {
@@ -854,17 +854,17 @@ export default function CreatorDashboard() {
                             {TAG_CATEGORIES.map(cat => {
                               const catTags = (byCategory[cat] || []).sort((a, b) => b.weight - a.weight)
                               if (!catTags.length) return null
-                              const color = CAT_COLORS[cat] || '#E88FAC'
+                              const color = CAT_COLORS[cat] || 'var(--palm-pink)'
                               return (
                                 <div key={cat}>
-                                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{cat}</div>
+                                  <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{cat}</div>
                                   {catTags.map(t => (
                                     <div key={t.tag} style={{ marginBottom: '5px' }}>
                                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                                        <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{t.tag}</span>
+                                        <span style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)' }}>{t.tag}</span>
                                         <span style={{ fontSize: '12px', fontWeight: 600, color, minWidth: '28px', textAlign: 'right' }}>{t.weight}</span>
                                       </div>
-                                      <div style={{ height: '4px', background: 'rgba(0,0,0,0.04)', borderRadius: '2px', overflow: 'hidden' }}>
+                                      <div style={{ height: '4px', background: 'rgba(255,255,255,0.04)', borderRadius: '2px', overflow: 'hidden' }}>
                                         <div style={{ height: '100%', width: `${t.weight}%`, background: color, borderRadius: '2px' }} />
                                       </div>
                                     </div>
@@ -895,15 +895,15 @@ export default function CreatorDashboard() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '16px' }}>&#x1F464;</span>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Account Details</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Account Details</span>
               </div>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
-                background: showProfile ? '#E88FAC' : '#FFF0F3',
+                background: showProfile ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
                 padding: '4px 12px', borderRadius: '9999px', transition: 'all 0.2s',
               }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: showProfile ? '#fff' : '#E88FAC' }}>{showProfile ? 'Hide' : 'View'}</span>
-                <span style={{ fontSize: '12px', color: showProfile ? '#fff' : '#E88FAC', transition: 'transform 0.2s', transform: showProfile ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#x25BE;</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: showProfile ? 'var(--foreground)' : 'var(--palm-pink)' }}>{showProfile ? 'Hide' : 'View'}</span>
+                <span style={{ fontSize: '12px', color: showProfile ? 'var(--foreground)' : 'var(--palm-pink)', transition: 'transform 0.2s', transform: showProfile ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#x25BE;</span>
               </div>
             </button>
             {showProfile && (

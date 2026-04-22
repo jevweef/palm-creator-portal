@@ -10,15 +10,15 @@ const PALM_DAY = 91, TOTAL_DAYS = 182
 
 /* ─── Palm colors (converted from the blue) ─── */
 const C = {
-  line: '#E88FAC',
+  line: 'var(--palm-pink)',
   fillTop: 'rgba(232,143,172,0.25)',
   fillBot: 'rgba(232,143,172,0.02)',
   divider: 'rgba(232,143,172,0.45)',
-  text: '#1a1a1a',
+  text: 'var(--foreground)',
   muted: '#999',
-  grid: 'rgba(0,0,0,0.06)',
+  grid: 'rgba(255,255,255,0.06)',
   green: '#34C759',
-  white: '#ffffff',
+  white: 'var(--foreground)',
 }
 
 /* ─── Seeded RNG (same chart every render) ─── */

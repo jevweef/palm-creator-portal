@@ -103,10 +103,10 @@ function parseChatHtmlClient(html) {
 
 const STATUS_STYLES = {
   'Not Started':       { bg: 'rgba(232, 160, 160, 0.06)', text: 'var(--foreground-muted)', border: 'transparent' },
-  'Ready to Analyze':  { bg: '#dbeafe', text: '#78B4E8', border: '#bfdbfe' },
-  'Analyzing':         { bg: '#fef3c7', text: '#E8C878', border: '#fde68a' },
-  'Analyzed':          { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4', border: '#bbf7d0' },
-  'Reanalyze':         { bg: '#ffedd5', text: '#E8A878', border: '#fed7aa' },
+  'Ready to Analyze':  { bg: 'rgba(120, 180, 232, 0.08)', text: '#78B4E8', border: 'rgba(120, 180, 232, 0.2)' },
+  'Analyzing':         { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8C878', border: 'rgba(232, 200, 120, 0.2)' },
+  'Analyzed':          { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4', border: 'rgba(125, 211, 164, 0.2)' },
+  'Reanalyze':         { bg: '#ffedd5', text: '#E8A878', border: 'rgba(232, 168, 120, 0.2)' },
 }
 
 // Derive display status from analysis status + documents + dates
@@ -153,7 +153,7 @@ function WeightBar({ tag, weight, category }) {
         <span style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)' }}>{tag}</span>
         <span style={{ fontSize: '12px', fontWeight: 600, color, minWidth: '28px', textAlign: 'right' }}>{weight}</span>
       </div>
-      <div style={{ height: '4px', background: 'rgba(0,0,0,0.04)', borderRadius: '2px', overflow: 'hidden' }}>
+      <div style={{ height: '4px', background: 'rgba(255,255,255,0.04)', borderRadius: '2px', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${weight}%`, background: color, borderRadius: '2px', transition: 'width 0.4s ease' }} />
       </div>
     </div>
@@ -226,7 +226,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
           <button onClick={handleProcess} disabled={processing || !rawInput.trim()}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: 600,
-              background: processing ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)',
+              background: processing ? 'transparent' : 'var(--palm-pink)', color: '#060606',
               border: 'none', borderRadius: '6px', cursor: processing ? 'default' : 'pointer',
               opacity: (!rawInput.trim() || processing) ? 0.5 : 1,
             }}>
@@ -251,7 +251,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
                 <button onClick={handleProcess} disabled={processing}
                   style={{
                     padding: '3px 10px', fontSize: '11px', fontWeight: 600,
-                    background: processing ? '#f5f5f5' : 'var(--card-bg-solid)', color: processing ? 'var(--foreground-subtle)' : 'rgba(240, 236, 232, 0.75)',
+                    background: processing ? 'rgba(255,255,255,0.03)' : 'var(--card-bg-solid)', color: processing ? 'var(--foreground-subtle)' : 'rgba(240, 236, 232, 0.75)',
                     border: '1px solid transparent', borderRadius: '4px',
                     cursor: processing ? 'default' : 'pointer',
                   }}>
@@ -346,7 +346,7 @@ function DocumentRow({ doc, isNew }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '10px 12px', background: isNew ? 'rgba(232, 200, 120, 0.06)' : '#ffffff', borderRadius: '8px',
+      padding: '10px 12px', background: isNew ? 'rgba(232, 200, 120, 0.06)' : 'var(--card-bg-solid)', borderRadius: '8px',
       border: isNew ? '1px solid #FDE68A' : 'none',
       boxShadow: isNew ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
     }}>
@@ -448,11 +448,11 @@ function UploadModal({ creator, onClose, onUploaded }) {
             <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>{result.fileName}</div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => { setResult(null); setFile(null); setNotes('') }}
-                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: 'rgba(255,255,255,0.08)', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 Upload Another
               </button>
               <button onClick={() => { onUploaded(); onClose() }}
-                style={{ flex: 1, background: 'var(--palm-pink)', color: 'var(--foreground)', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                style={{ flex: 1, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                 Done
               </button>
             </div>
@@ -467,7 +467,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
                     style={{
                       padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
                       background: fileType === t ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
-                      color: fileType === t ? '#fff' : 'var(--foreground-muted)',
+                      color: fileType === t ? 'rgba(255,255,255,0.08)' : 'var(--foreground-muted)',
                       border: fileType === t ? '1px solid var(--palm-pink)' : '1px solid transparent',
                     }}>
                     {t}
@@ -482,7 +482,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
                 onClick={() => fileRef.current?.click()}
                 style={{
                   border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '20px', textAlign: 'center',
-                  cursor: 'pointer', background: file ? 'rgba(125, 211, 164, 0.08)' : '#FFF5F7', color: file ? '#7DD3A4' : 'var(--foreground-muted)', fontSize: '13px', fontWeight: file ? 600 : 400,
+                  cursor: 'pointer', background: file ? 'rgba(125, 211, 164, 0.08)' : 'var(--background)', color: file ? '#7DD3A4' : 'var(--foreground-muted)', fontSize: '13px', fontWeight: file ? 600 : 400,
                 }}>
                 {file ? file.name : 'Click to select a file'}
               </div>
@@ -492,7 +492,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '12px', color: 'var(--foreground-muted)', display: 'block', marginBottom: '6px' }}>Notes (optional)</label>
               <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Onboarding call Jan 2026"
-                style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', color: 'var(--foreground)', fontSize: '13px', boxSizing: 'border-box' }} />
+                style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', color: 'rgba(255,255,255,0.08)', fontSize: '13px', boxSizing: 'border-box' }} />
             </div>
 
             {error && <div style={{ color: '#E87878', fontSize: '12px', marginBottom: '12px' }}>{error}</div>}
@@ -510,7 +510,7 @@ function UploadModal({ creator, onClose, onUploaded }) {
               </button>
               <button onClick={submit} disabled={uploading || !file}
                 style={{
-                  flex: 2, background: uploading ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)', border: 'none',
+                  flex: 2, background: uploading ? 'transparent' : 'var(--palm-pink)', color: '#060606', border: 'none',
                   borderRadius: '6px', padding: '8px', cursor: uploading || !file ? 'not-allowed' : 'pointer',
                   fontSize: '13px', fontWeight: 600, opacity: !file ? 0.5 : 1,
                 }}>
@@ -869,11 +869,11 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
         style={{
           display: 'grid', gridTemplateColumns: '24px 1fr 140px 100px 100px 100px 90px 70px', padding: '8px 16px',
           fontSize: '12px', cursor: 'pointer',
-          background: expanded ? '#FFF8F8' : i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)',
+          background: expanded ? '#FFF8F8' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
           transition: 'background 0.1s',
         }}
         onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = 'var(--card-bg-solid)' }}
-        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)' }}
+        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}
       >
         <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px', lineHeight: '20px' }}>{expanded ? '▼' : '▶'}</span>
         <div>
@@ -1217,7 +1217,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                     disabled={analyzing}
                     style={{
                       background: '#E88C5C', border: 'none', borderRadius: '6px',
-                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                      padding: '6px 14px', fontSize: '12px', color: 'rgba(255,255,255,0.08)', fontWeight: 600,
                       cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                     }}
                   >
@@ -1243,8 +1243,8 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                     <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
                     {analysis.managerBrief && (
                       <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Full</button>
-                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
                       </div>
                     )}
                     {analysis.saved && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>✓ Saved</span>}
@@ -1377,7 +1377,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                 <div><span style={{ color: 'var(--foreground-muted)' }}>Lifetime:</span> <strong>{fmtMoney(a.lifetime)}</strong></div>
               </div>
               {analysis?.managerBrief && (
-                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #E5E7EB', fontSize: '12px', color: '#333', lineHeight: '1.5' }}>
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '12px', color: '#333', lineHeight: '1.5' }}>
                   <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Manager Brief</div>
                   {analysis.managerBrief.split('\n').filter(l => l.trim()).slice(0, 4).map((line, i) => (
                     <div key={i} style={{ marginBottom: '2px' }}>{line.replace(/\*\*([^*]+)\*\*/g, '$1')}</div>
@@ -1607,7 +1607,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
   if (error) return (
     <div style={{ padding: '16px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#E87878' }}>
       {error}
-      <button onClick={onRefresh} style={{ marginLeft: '12px', background: '#E87878', color: 'var(--foreground)', border: 'none', borderRadius: '5px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>Retry</button>
+      <button onClick={onRefresh} style={{ marginLeft: '12px', background: '#E87878', color: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '5px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>Retry</button>
     </div>
   )
   if (!data || data.empty) return (
@@ -1693,7 +1693,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null); setShowAllFans(false) }}
             style={{
               background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px',
-              color: 'var(--foreground)', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
+              color: 'rgba(255,255,255,0.08)', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
             }}>
             {PERIOD_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
             <option value="custom">Custom Range</option>
@@ -1726,7 +1726,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             <button onClick={() => setAccountFilter('all')}
               style={{
                 background: accountFilter === 'all' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                color: accountFilter === 'all' ? 'var(--foreground)' : 'var(--foreground-subtle)',
+                color: accountFilter === 'all' ? 'rgba(255,255,255,0.08)' : 'var(--foreground-subtle)',
                 border: accountFilter === 'all' ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent',
                 borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
               }}>All Accounts</button>
@@ -1748,8 +1748,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
           <button onClick={() => setTypeFilter('all')}
             style={{
-              background: typeFilter === 'all' ? 'var(--foreground)' : 'transparent',
-              color: typeFilter === 'all' ? '#fff' : 'var(--foreground-subtle)',
+              background: typeFilter === 'all' ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color: typeFilter === 'all' ? 'var(--foreground)' : 'var(--foreground-subtle)',
               border: typeFilter === 'all' ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent',
               borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
             }}>All</button>
@@ -1765,7 +1765,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               {typeLabel(t)}
             </button>
           ))}
-          <span style={{ color: '#e5e7eb', margin: '0 2px' }}>|</span>
+          <span style={{ color: 'rgba(255,255,255,0.08)', margin: '0 2px' }}>|</span>
           {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
             <span key={type} style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
               {typeLabel(type)}: <strong style={{ color: 'rgba(240, 236, 232, 0.75)' }}>{fmtMoney(net)}</strong>
@@ -1776,8 +1776,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           <button
             onClick={() => { setShowUploadPanel(!showUploadPanel); setUploadResult(null); setUploadError(null) }}
             style={{
-              background: showUploadPanel ? 'var(--foreground)' : 'none',
-              color: showUploadPanel ? '#fff' : 'var(--foreground-muted)',
+              background: showUploadPanel ? 'rgba(255,255,255,0.08)' : 'none',
+              color: showUploadPanel ? 'var(--foreground)' : 'var(--foreground-muted)',
               border: showUploadPanel ? 'none' : '1px solid rgba(255,255,255,0.08)',
               borderRadius: '5px', padding: '3px 10px', cursor: 'pointer',
               fontSize: '11px', fontWeight: 600, marginLeft: '4px',
@@ -1849,8 +1849,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                   }
                 }}
                 style={{
-                  background: uploading ? '#E5E7EB' : 'var(--foreground)', border: 'none', borderRadius: '6px',
-                  padding: '8px 16px', fontSize: '12px', color: uploading ? 'var(--foreground-muted)' : '#fff', fontWeight: 600,
+                  background: uploading ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: uploading ? 'var(--foreground-muted)' : 'var(--foreground)', fontWeight: 600,
                   cursor: uploading ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -1956,7 +1956,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               .coverage-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
               .coverage-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
             `}</style>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
               Data Coverage
             </div>
             <div ref={coverageScrollRef} className="coverage-scroll" style={{ overflowX: 'auto' }}>
@@ -1970,7 +1970,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                     return (
                       <span key={i} style={{
                         position: 'absolute', left: `${centerPx}px`, transform: 'translateX(-50%)',
-                        fontSize: '9px', color: '#aaa', whiteSpace: 'nowrap', fontWeight: 500,
+                        fontSize: '9px', color: 'var(--foreground-subtle)', whiteSpace: 'nowrap', fontWeight: 500,
                       }}>
                         {p.label}
                       </span>
@@ -2696,7 +2696,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         style={{
           display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px',
           padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
-          background: isExpanded ? 'rgba(232, 200, 120, 0.05)' : i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)',
+          background: isExpanded ? 'rgba(232, 200, 120, 0.05)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
         }}
       >
         <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px', lineHeight: '20px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
@@ -2745,7 +2745,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column',
                 background: f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.04)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.08)' : '#FFF7ED',
                 border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.2)' : 'rgba(232, 168, 120, 0.15)'}`,
-                color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#991B1B' : '#E8A878',
+                color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#E87878' : '#E8A878',
               }}>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <span style={{ fontSize: '14px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
@@ -2794,7 +2794,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid #CBD5E1', borderRadius: '3px' }}
                     />
                     <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
+                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'rgba(255,255,255,0.08)', borderRadius: '3px', cursor: 'pointer' }}>
                       {savingLifetime ? '…' : 'Save'}
                     </button>
                     <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
@@ -2905,14 +2905,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   )}
                 </div>
                 <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#A78BFA' : 'transparent', color: chartMode === 'monthly' ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Monthly</button>
-                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#A78BFA' : 'transparent', color: chartMode === 'daily' ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Daily</button>
+                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#A78BFA' : 'transparent', color: chartMode === 'monthly' ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Monthly</button>
+                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#A78BFA' : 'transparent', color: chartMode === 'daily' ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Daily</button>
                 </div>
                 {accountNames.length > 1 && (
                   <button onClick={() => setSplitByAccount(!splitByAccount)}
                     style={{
                       padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                      borderRadius: '4px', background: splitByAccount ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: splitByAccount ? '#fff' : 'rgba(240, 236, 232, 0.75)',
+                      borderRadius: '4px', background: splitByAccount ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: splitByAccount ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)',
                     }}>
                     Split by account
                   </button>
@@ -3262,8 +3262,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     {analysis.managerBrief && (
                       <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Full</button>
-                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
                       </div>
                     )}
                     {chatFile && (
@@ -3275,7 +3275,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   </div>
                 </div>
                 <div style={{
-                  background: showBrief ? 'var(--card-bg-solid)' : '#fff',
+                  background: showBrief ? 'var(--card-bg-solid)' : 'rgba(255,255,255,0.08)',
                   border: `1px solid ${showBrief ? 'rgba(255,255,255,0.06)' : 'rgba(232, 168, 120, 0.15)'}`,
                   borderRadius: '6px', padding: '14px 16px', fontSize: '12px', color: 'var(--foreground)', lineHeight: '1.7',
                 }}>
@@ -3358,7 +3358,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                     const isFree = /free/i.test(acct)
                     const isVip = /vip/i.test(acct)
                     const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
-                    const baseBg = isFree ? '#EFF6FF' : isVip ? '#F5F3FF' : 'var(--card-bg-solid)'
+                    const baseBg = isFree ? '#EFF6FF' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
                     const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
                     const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
                     const displayText = state === 'saving' ? `Saving ${label}\u2026`
@@ -3400,7 +3400,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 <button onClick={() => handleAnalyze(true)} disabled={analyzing}
                   style={{
                     background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    padding: '6px 14px', fontSize: '12px', color: 'rgba(255,255,255,0.08)', fontWeight: 600,
                     cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                   }}>
                   {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
@@ -3411,7 +3411,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 <button onClick={handleAnalyze} disabled={analyzing}
                   style={{
                     background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    padding: '6px 14px', fontSize: '12px', color: 'rgba(255,255,255,0.08)', fontWeight: 600,
                     cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                   }}>
                   {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
@@ -3544,8 +3544,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   {hasFullText && fullText && briefText && (
                     <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <button onClick={() => setShowBrief(false)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Full Analysis</button>
-                      <button onClick={() => setShowBrief(true)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
+                      <button onClick={() => setShowBrief(false)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Full Analysis</button>
+                      <button onClick={() => setShowBrief(true)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
                     </div>
                   )}
                   <button onClick={() => { setViewingAnalysisIdx(null); setShowBrief(false) }} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>&times;</button>
@@ -3666,7 +3666,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 onClick={handleSendToTelegram}
                 disabled={sending || previewLoading || !previewImage || sendResult?.success}
                 style={{
-                  background: sendResult?.success ? '#7DD3A4' : 'var(--foreground)',
+                  background: sendResult?.success ? '#7DD3A4' : 'rgba(255,255,255,0.08)',
                   border: 'none', borderRadius: '6px',
                   padding: '8px 16px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                   cursor: (sending || previewLoading || !previewImage || sendResult?.success) ? 'not-allowed' : 'pointer',
@@ -3858,10 +3858,10 @@ const ALERT_STATUS_COLORS = {
   'None': { bg: 'rgba(255,255,255,0.04)', text: '#9CA3AF' },
   'Alert Triggered': { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
   'Fan Analyzed': { bg: 'rgba(167, 139, 250, 0.1)', text: '#A78BFA' },
-  'Sent to Manager': { bg: '#FFF3CD', text: '#E8A878' },
+  'Sent to Manager': { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8A878' },
   'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
   'Action Taken': { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4' },
-  'Banned': { bg: '#1F2937', text: '#fff' },
+  'Banned': { bg: '#1F2937', text: 'var(--foreground)' },
 }
 
 // Urgency colors for Alert Triggered — so Critical visually pops in lists.
@@ -4091,7 +4091,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const effectColors = {
     'Worked': { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4' },
     'Didn\'t Work': { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
-    'Too Early': { bg: '#FEF9C3', text: '#A16207' },
+    'Too Early': { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8C878' },
     'Pending': { bg: 'rgba(255,255,255,0.04)', text: '#6B7280' },
   }
 
@@ -4209,7 +4209,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
             <button key={key} onClick={() => { setFilter(filter === key ? 'all' : key); setShowTop20(false) }}
               style={{
                 padding: '3px 8px', fontSize: '10px', fontWeight: filter === key ? 600 : 400,
-                background: filter === key ? 'var(--foreground)' : 'rgba(255,255,255,0.04)', color: filter === key ? '#fff' : 'rgba(240, 236, 232, 0.75)',
+                background: filter === key ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)', color: filter === key ? 'var(--foreground)' : 'rgba(240, 236, 232, 0.75)',
                 border: 'none', borderRadius: '4px', cursor: 'pointer',
               }}>
               {label}{count != null ? ` (${count})` : ''}
@@ -4218,7 +4218,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           <button onClick={() => { setShowTop20(!showTop20); if (!showTop20) setFilter('all') }}
             style={{
               padding: '3px 8px', fontSize: '10px', fontWeight: showTop20 ? 600 : 400,
-              background: showTop20 ? '#F59E0B' : 'rgba(255,255,255,0.04)', color: showTop20 ? '#fff' : 'rgba(240, 236, 232, 0.75)',
+              background: showTop20 ? '#F59E0B' : 'rgba(255,255,255,0.04)', color: showTop20 ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)',
               border: 'none', borderRadius: '4px', cursor: 'pointer',
             }}>
             💎 Top 20%
@@ -4227,7 +4227,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
             <button onClick={() => setShowDeleted(!showDeleted)}
               style={{
                 padding: '3px 8px', fontSize: '10px', fontWeight: showDeleted ? 600 : 400,
-                background: showDeleted ? '#6B7280' : 'transparent', color: showDeleted ? '#fff' : 'var(--foreground-muted)',
+                background: showDeleted ? '#6B7280' : 'transparent', color: showDeleted ? 'rgba(255,255,255,0.08)' : 'var(--foreground-muted)',
                 border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
               }}>
               {showDeleted ? `Hide deleted (${deletedCount})` : `Show deleted (${deletedCount})`}
@@ -4237,7 +4237,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
             <button onClick={() => setShowBanned(!showBanned)}
               style={{
                 padding: '3px 8px', fontSize: '10px', fontWeight: showBanned ? 600 : 400,
-                background: showBanned ? '#1F2937' : 'transparent', color: showBanned ? '#fff' : 'var(--foreground-muted)',
+                background: showBanned ? '#1F2937' : 'transparent', color: showBanned ? 'rgba(255,255,255,0.08)' : 'var(--foreground-muted)',
                 border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
               }}>
               {showBanned ? `Hide banned (${bannedCount})` : `Show banned (${bannedCount})`}
@@ -4245,12 +4245,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           )}
           {availableAccounts && availableAccounts.length > 1 && (
             <>
-              <span style={{ width: '1px', height: '16px', background: '#E5E7EB', margin: '0 4px', alignSelf: 'center' }} />
+              <span style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.08)', margin: '0 4px', alignSelf: 'center' }} />
               {['all', ...availableAccounts, 'both'].map(a => (
                 <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
                   style={{
                     padding: '3px 8px', fontSize: '10px', fontWeight: accountFilter === a ? 600 : 400,
-                    background: accountFilter === a ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: accountFilter === a ? '#fff' : 'rgba(240, 236, 232, 0.75)',
+                    background: accountFilter === a ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: accountFilter === a ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)',
                     border: 'none', borderRadius: '4px', cursor: 'pointer',
                   }}>
                   {a === 'all' ? 'All Accts' : a === 'both' ? 'Both' : a}
@@ -4506,7 +4506,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => setShowUpload(true)}
-            style={{ background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+            style={{ background: 'rgba(232, 160, 160, 0.04)', color: 'rgba(255,255,255,0.08)', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
             + Upload
           </button>
           {(status === 'Analyzed' || status === 'Reanalyze' || status === 'Analyzing') && (
@@ -4521,7 +4521,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
           )}
           <button onClick={runAnalysis} disabled={analyzing}
             style={{
-              background: analyzing ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)', border: 'none',
+              background: analyzing ? 'transparent' : 'var(--palm-pink)', color: '#060606', border: 'none',
               borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
               cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.7 : 1,
             }}>
@@ -4561,7 +4561,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             rows={2}
             style={{
               flex: 1, background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px',
-              padding: '10px 12px', color: 'var(--foreground)', fontSize: '13px', lineHeight: '1.5',
+              padding: '10px 12px', color: 'rgba(255,255,255,0.08)', fontSize: '13px', lineHeight: '1.5',
               resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit',
             }}
           />
@@ -4569,7 +4569,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             onClick={runRefine}
             disabled={refining || !feedback.trim()}
             style={{
-              background: refining ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)', border: 'none',
+              background: refining ? 'transparent' : 'var(--palm-pink)', color: 'rgba(255,255,255,0.08)', border: 'none',
               borderRadius: '8px', padding: '10px 16px', fontSize: '12px', fontWeight: 600,
               cursor: refining || !feedback.trim() ? 'not-allowed' : 'pointer',
               opacity: !feedback.trim() ? 0.5 : 1, flexShrink: 0, alignSelf: 'stretch',
@@ -4597,7 +4597,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
               </button>
               <button onClick={commitRefine} disabled={committing}
                 style={{
-                  background: committing ? '#bbf7d0' : '#7DD3A4', color: 'var(--foreground)', border: 'none',
+                  background: committing ? 'rgba(125, 211, 164, 0.2)' : '#7DD3A4', color: 'rgba(255,255,255,0.08)', border: 'none',
                   borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
                   cursor: committing ? 'not-allowed' : 'pointer',
                 }}>
@@ -4620,7 +4620,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
               <div key={label} style={{ marginBottom: '16px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{label}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <div style={{ background: 'rgba(232, 120, 120, 0.08)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#991B1B', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                  <div style={{ background: 'rgba(232, 120, 120, 0.08)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#E87878', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
                     <div style={{ fontSize: '10px', fontWeight: 600, color: '#E87878', marginBottom: '6px' }}>CURRENT</div>
                     {cur || <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>empty</span>}
                   </div>
@@ -4930,7 +4930,7 @@ export default function CreatorsPage() {
           }}
           style={{
             background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
-            color: 'var(--foreground)', fontSize: '14px', padding: '10px 14px', outline: 'none',
+            color: 'rgba(255,255,255,0.08)', fontSize: '14px', padding: '10px 14px', outline: 'none',
             minWidth: '240px', cursor: 'pointer',
             fontFamily: 'var(--font-body)',
           }}>
@@ -4965,7 +4965,7 @@ export default function CreatorsPage() {
           Select a creator above to get started.
         </div>
       ) : (
-        <div style={{ background: (activeSection === 'earnings' || activeSection === 'fans') ? 'transparent' : '#ffffff', border: 'none', boxShadow: (activeSection === 'earnings' || activeSection === 'fans') ? 'none' : '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: (activeSection === 'earnings' || activeSection === 'fans') ? '0' : '24px' }}>
+        <div style={{ background: (activeSection === 'earnings' || activeSection === 'fans') ? 'transparent' : 'rgba(255,255,255,0.08)', border: 'none', boxShadow: (activeSection === 'earnings' || activeSection === 'fans') ? 'none' : '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: (activeSection === 'earnings' || activeSection === 'fans') ? '0' : '24px' }}>
           <CreatorDetail
             key={selected.id}
             creator={selected}

@@ -8,8 +8,8 @@ function gradeColor(grade) {
   if (!grade) return '#ccc'
   if (grade === 'A+') return '#ffd700'
   if (grade.startsWith('A')) return '#4ade80'
-  if (grade.startsWith('B')) return '#60a5fa'
-  if (grade.startsWith('C')) return '#fb923c'
+  if (grade.startsWith('B')) return '#78B4E8'
+  if (grade.startsWith('C')) return '#E8A878'
   return '#999'
 }
 
@@ -92,7 +92,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         {/* Header */}
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid transparent', gap:'16px'}}>
           <div style={{minWidth:0}}>
-            <h2 style={{fontSize:'18px', fontWeight:600, color:'#1a1a1a', lineHeight:1.4, margin:0}}>{record.title}</h2>
+            <h2 style={{fontSize:'18px', fontWeight:600, color:'var(--foreground)', lineHeight:1.4, margin:0}}>{record.title}</h2>
             {record.username && (
               <p style={{fontSize:'12px', color:'#999', marginTop:'6px'}}>@{record.username}</p>
             )}
@@ -102,7 +102,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               <button
                 onClick={onUpload}
                 style={{
-                  background: '#E88FAC',
+                  background: 'var(--palm-pink)',
                   border: '1px solid #E88FAC',
                   borderRadius: '9999px',
                   padding: '6px 14px',
@@ -110,7 +110,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: '#fff',
+                  color: 'var(--foreground)',
                   fontSize: '12px',
                   fontWeight: 500,
                   transition: 'all 0.2s',
@@ -126,7 +126,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               <button
                 onClick={() => onSave(record.id)}
                 style={{
-                  background: isSaved ? '#E88FAC' : '#FFF0F3',
+                  background: isSaved ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
                   border: isSaved ? '1px solid #E88FAC' : 'none',
                   boxShadow: isSaved ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
                   borderRadius: '9999px',
@@ -135,13 +135,13 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: isSaved ? '#fff' : '#888',
+                  color: isSaved ? 'var(--foreground)' : '#888',
                   fontSize: '12px',
                   fontWeight: 500,
                   transition: 'all 0.2s',
                 }}
               >
-                <svg className="w-3.5 h-3.5" fill={isSaved ? '#fff' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3.5 h-3.5" fill={isSaved ? 'var(--foreground)' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
                 {isSaved ? 'Saved' : 'Save'}
@@ -283,7 +283,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {record.onScreenText && (
               <div>
                 <p style={{fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.08em', color:'#999', marginBottom:'8px'}}>On-Screen Text</p>
-                <p style={{fontSize:'14px', color:'#4a4a4a', fontStyle:'italic'}}>"{record.onScreenText}"</p>
+                <p style={{fontSize:'14px', color:'rgba(240, 236, 232, 0.85)', fontStyle:'italic'}}>"{record.onScreenText}"</p>
               </div>
             )}
 
@@ -311,7 +311,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs transition-colors"
-                  style={{color:'#E88FAC'}}
+                  style={{color:'var(--palm-pink)'}}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -330,7 +330,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             onClick={onPrev}
             disabled={!hasPrev}
             className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{background:'#FFF0F3', color:'#666', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'8px 18px'}}
+            style={{background:'rgba(232, 160, 160, 0.06)', color:'rgba(240, 236, 232, 0.75)', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'8px 18px'}}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -341,7 +341,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             onClick={onNext}
             disabled={!hasNext}
             className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{background:'#FFF0F3', color:'#666', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'8px 18px'}}
+            style={{background:'rgba(232, 160, 160, 0.06)', color:'rgba(240, 236, 232, 0.75)', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'8px 18px'}}
           >
             Next
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

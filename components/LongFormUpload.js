@@ -126,7 +126,7 @@ export default function LongFormUpload({ showToast }) {
           <div style={{ display: 'flex', gap: '0', border: '1px solid transparent', borderRadius: '8px', overflow: 'hidden' }}>
             {[{ key: 'file', label: 'File' }, { key: 'url', label: 'URL' }].map(m => (
               <button key={m.key} onClick={() => setUploadMode(m.key)}
-                style={{ padding: '7px 14px', fontSize: '11px', fontWeight: 600, background: uploadMode === m.key ? 'rgba(232, 160, 160, 0.05)' : '#fff', color: uploadMode === m.key ? 'var(--palm-pink)' : '#999', border: 'none', cursor: 'pointer' }}>
+                style={{ padding: '7px 14px', fontSize: '11px', fontWeight: 600, background: uploadMode === m.key ? 'rgba(232, 160, 160, 0.05)' : 'rgba(255,255,255,0.08)', color: uploadMode === m.key ? 'var(--palm-pink)' : '#999', border: 'none', cursor: 'pointer' }}>
                 {m.label}
               </button>
             ))}
@@ -147,9 +147,9 @@ export default function LongFormUpload({ showToast }) {
             <button onClick={handleUpload} disabled={!selectedCreator || files.length === 0 || uploading}
               style={{
                 padding: '8px 20px', fontSize: '13px', fontWeight: 700,
-                background: uploading || !selectedCreator || files.length === 0 ? '#f0f0f0' : '#dcfce7',
-                color: uploading || !selectedCreator || files.length === 0 ? '#999' : '#22c55e',
-                border: `1px solid ${uploading ? '#e0e0e0' : '#bbf7d0'}`,
+                background: uploading || !selectedCreator || files.length === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(125, 211, 164, 0.08)',
+                color: uploading || !selectedCreator || files.length === 0 ? '#999' : '#7DD3A4',
+                border: `1px solid ${uploading ? 'rgba(255,255,255,0.08)' : 'rgba(125, 211, 164, 0.2)'}`,
                 borderRadius: '8px', cursor: uploading ? 'default' : 'pointer',
               }}>
               {uploading ? progress || 'Uploading...' : 'Upload'}
@@ -165,9 +165,9 @@ export default function LongFormUpload({ showToast }) {
           <button onClick={handleUrlUpload} disabled={!selectedCreator || !urlInput.trim() || uploading}
             style={{
               padding: '8px 20px', fontSize: '13px', fontWeight: 700, flexShrink: 0,
-              background: uploading || !selectedCreator || !urlInput.trim() ? '#f0f0f0' : '#dcfce7',
-              color: uploading || !selectedCreator || !urlInput.trim() ? '#999' : '#22c55e',
-              border: `1px solid ${uploading ? '#e0e0e0' : '#bbf7d0'}`,
+              background: uploading || !selectedCreator || !urlInput.trim() ? 'rgba(255,255,255,0.04)' : 'rgba(125, 211, 164, 0.08)',
+              color: uploading || !selectedCreator || !urlInput.trim() ? '#999' : '#7DD3A4',
+              border: `1px solid ${uploading ? 'rgba(255,255,255,0.08)' : 'rgba(125, 211, 164, 0.2)'}`,
               borderRadius: '8px', cursor: uploading ? 'default' : 'pointer',
             }}>
             {uploading ? progress || 'Downloading...' : 'Upload from URL'}
@@ -196,8 +196,8 @@ export default function LongFormUpload({ showToast }) {
       )}
 
       {uploads.length > 0 && (
-        <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+        <div style={{ padding: '12px', background: 'rgba(125, 211, 164, 0.06)', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
             Uploaded this session ({uploads.length})
           </div>
           {uploads.map((u, i) => (

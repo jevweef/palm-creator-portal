@@ -70,8 +70,8 @@ export default function ContentRequestPage() {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div style={{ textAlign: 'center', color: '#999' }}>
-          <div style={{ width: 32, height: 32, border: '3px solid #F0D0D8', borderTopColor: '#E88FAC', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+        <div style={{ textAlign: 'center', color: 'var(--foreground-muted)' }}>
+          <div style={{ width: 32, height: 32, border: '3px solid #F0D0D8', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
           Loading content request...
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -80,7 +80,7 @@ export default function ContentRequestPage() {
   }
 
   if (error) {
-    return <div style={{ padding: 40, textAlign: 'center', color: '#ef4444' }}>Error: {error}</div>
+    return <div style={{ padding: 40, textAlign: 'center', color: '#E87878' }}>Error: {error}</div>
   }
 
   // Admin with no creator selected — show picker
@@ -94,14 +94,14 @@ export default function ContentRequestPage() {
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
           textAlign: 'center',
         }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: '0 0 8px 0' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--foreground)', margin: '0 0 8px 0' }}>
             Content Requests
           </h2>
-          <p style={{ color: '#888', fontSize: 14, margin: '0 0 24px 0' }}>
+          <p style={{ color: 'var(--foreground-muted)', fontSize: 14, margin: '0 0 24px 0' }}>
             Select a creator to view their content request
           </p>
           {loadingCreators ? (
-            <div style={{ color: '#999', fontSize: 13 }}>Loading creators...</div>
+            <div style={{ color: 'var(--foreground-muted)', fontSize: 13 }}>Loading creators...</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {creators.map(c => (
@@ -120,14 +120,14 @@ export default function ContentRequestPage() {
                     transition: 'all 0.15s',
                     fontSize: 14,
                     fontWeight: 500,
-                    color: '#1a1a1a',
+                    color: 'var(--foreground)',
                     textAlign: 'left',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#E88FAC'; e.currentTarget.style.background = '#FFF0F3' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = '#FFF5F7' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--palm-pink)'; e.currentTarget.style.background = 'rgba(232, 160, 160, 0.06)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'var(--background)' }}
                 >
                   <span>{c.aka || c.name}</span>
-                  <span style={{ color: '#E88FAC', fontSize: 13 }}>View &rarr;</span>
+                  <span style={{ color: 'var(--palm-pink)', fontSize: 13 }}>View &rarr;</span>
                 </button>
               ))}
             </div>
@@ -140,8 +140,8 @@ export default function ContentRequestPage() {
   if (!data?.sections?.length) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8, color: '#1a1a1a' }}>No Active Content Request</h2>
-        <p style={{ color: '#999' }}>You don&apos;t have an active content request right now. Check back later!</p>
+        <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8, color: 'var(--foreground)' }}>No Active Content Request</h2>
+        <p style={{ color: 'var(--foreground-muted)' }}>You don&apos;t have an active content request right now. Check back later!</p>
       </div>
     )
   }
@@ -164,18 +164,18 @@ export default function ContentRequestPage() {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a', margin: '0 0 6px 0' }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', margin: '0 0 6px 0' }}>
               {data.request?.title || 'Content Request'}
             </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: '#888' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: 'var(--foreground-muted)' }}>
               {data.request?.dueDate && <span>Due: {formatDate(data.request.dueDate)}</span>}
               <span style={{
                 fontSize: 11,
                 fontWeight: 600,
                 padding: '2px 10px',
                 borderRadius: 4,
-                background: '#dcfce7',
-                color: '#16a34a',
+                background: 'rgba(125, 211, 164, 0.08)',
+                color: '#7DD3A4',
                 textTransform: 'uppercase',
               }}>
                 {data.request?.status || 'Active'}
@@ -183,21 +183,21 @@ export default function ContentRequestPage() {
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: progressPercent >= 100 ? '#16a34a' : '#1a1a1a' }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: progressPercent >= 100 ? '#7DD3A4' : 'var(--foreground)' }}>
               {progressPercent}%
             </div>
-            <div style={{ fontSize: 11, color: '#999' }}>
+            <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
               {totalUploaded} of {totalMin} files
             </div>
           </div>
         </div>
 
         {/* Overall progress bar */}
-        <div style={{ height: 8, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden', marginTop: 16 }}>
+        <div style={{ height: 8, background: 'rgba(255,255,255,0.04)', borderRadius: 4, overflow: 'hidden', marginTop: 16 }}>
           <div style={{
             height: '100%',
             width: `${progressPercent}%`,
-            background: progressPercent >= 100 ? '#16a34a' : 'linear-gradient(90deg, #E88FAC, #d4789a)',
+            background: progressPercent >= 100 ? '#7DD3A4' : 'linear-gradient(90deg, #E88FAC, #d4789a)',
             borderRadius: 4,
             transition: 'width 0.3s ease',
           }} />

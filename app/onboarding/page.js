@@ -43,7 +43,7 @@ export default function OnboardingLanding() {
   if (status === 'loading') {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#999', fontSize: '14px' }}>Validating your link...</div>
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Validating your link...</div>
       </div>
     )
   }
@@ -60,10 +60,10 @@ export default function OnboardingLanding() {
           boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
         }}>
           <div style={{ fontSize: '32px', marginBottom: '16px' }}>🔗</div>
-          <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
             Invalid Link
           </h1>
-          <p style={{ fontSize: '14px', color: '#666' }}>
+          <p style={{ fontSize: '14px', color: 'rgba(240, 236, 232, 0.75)' }}>
             This onboarding link is invalid or has expired. Please contact your manager for a new link.
           </p>
         </div>
@@ -86,10 +86,10 @@ export default function OnboardingLanding() {
           alt="Palm Management"
           style={{ height: '32px', marginBottom: '24px' }}
         />
-        <h1 style={{ fontSize: '22px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
           Welcome{creatorInfo?.name ? `, ${creatorInfo.name}` : ''}!
         </h1>
-        <p style={{ fontSize: '14px', color: '#666', marginBottom: '28px', lineHeight: '1.5' }}>
+        <p style={{ fontSize: '14px', color: 'rgba(240, 236, 232, 0.75)', marginBottom: '28px', lineHeight: '1.5' }}>
           Let&apos;s get you set up. This onboarding takes about an hour and covers everything we need —
           your info, a quick survey, your contract, and a voice memo about your brand.
         </p>
@@ -102,8 +102,8 @@ export default function OnboardingLanding() {
           <button style={{
             width: '100%',
             padding: '12px',
-            background: '#E88FAC',
-            color: '#fff',
+            background: 'var(--palm-pink)',
+            color: 'rgba(255,255,255,0.08)',
             border: 'none',
             borderRadius: '10px',
             fontSize: '15px',
@@ -115,9 +115,9 @@ export default function OnboardingLanding() {
           </button>
         </SignUpButton>
 
-        <p style={{ fontSize: '12px', color: '#999', marginTop: '16px' }}>
+        <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '16px' }}>
           Already have an account?{' '}
-          <a href="/sign-in?redirect_url=/onboarding/form" style={{ color: '#E88FAC', textDecoration: 'none', fontWeight: 500 }}>
+          <a href="/sign-in?redirect_url=/onboarding/form" style={{ color: 'var(--palm-pink)', textDecoration: 'none', fontWeight: 500 }}>
             Sign in
           </a>
         </p>

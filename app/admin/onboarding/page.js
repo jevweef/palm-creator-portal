@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 
 const STATUS_COLORS = {
-  'Not Started': { bg: '#f5f5f5', color: '#999' },
-  'Link Sent': { bg: '#FFF8E1', color: '#F9A825' },
+  'Not Started': { bg: 'rgba(255,255,255,0.03)', color: 'var(--foreground-muted)' },
+  'Link Sent': { bg: 'rgba(232, 200, 120, 0.06)', color: '#F9A825' },
   'In Progress': { bg: '#E3F2FD', color: '#1E88E5' },
-  'Completed': { bg: '#E8F5E9', color: '#43A047' },
+  'Completed': { bg: 'rgba(125, 211, 164, 0.08)', color: '#43A047' },
 }
 
 export default function AdminOnboarding() {
@@ -245,10 +245,10 @@ export default function AdminOnboarding() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>
             Onboarding
           </h1>
-          <p style={{ fontSize: '13px', color: '#999' }}>
+          <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
             Start onboarding for new creators and track their progress.
           </p>
         </div>
@@ -256,8 +256,8 @@ export default function AdminOnboarding() {
           onClick={() => setShowModal(true)}
           style={{
             padding: '10px 20px',
-            background: '#E88FAC',
-            color: '#fff',
+            background: 'var(--palm-pink)',
+            color: 'rgba(255,255,255,0.08)',
             border: 'none',
             borderRadius: '8px',
             fontSize: '13px',
@@ -271,7 +271,7 @@ export default function AdminOnboarding() {
 
       {copied === 'new' && (
         <div style={{
-          background: '#E8F5E9',
+          background: 'rgba(125, 211, 164, 0.08)',
           color: '#2E7D32',
           padding: '10px 16px',
           borderRadius: '8px',
@@ -285,7 +285,7 @@ export default function AdminOnboarding() {
       {/* Filter pills */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
           {['all', 'Lead', 'Onboarding', 'Active', 'Offboarded'].map(f => (
             <button
               key={f}
@@ -296,8 +296,8 @@ export default function AdminOnboarding() {
                 border: 'none',
                 fontSize: '12px',
                 fontWeight: statusFilter === f ? 600 : 400,
-                background: statusFilter === f ? '#E88FAC' : '#fff',
-                color: statusFilter === f ? '#fff' : '#666',
+                background: statusFilter === f ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)',
+                color: statusFilter === f ? 'var(--foreground)' : 'rgba(240, 236, 232, 0.75)',
                 cursor: 'pointer',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
               }}
@@ -306,9 +306,9 @@ export default function AdminOnboarding() {
             </button>
           ))}
         </div>
-        <div style={{ width: '1px', height: '20px', background: '#e0e0e0' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.08)' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Onboarding</span>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Onboarding</span>
           {['all', 'Not Started', 'Link Sent', 'In Progress', 'Completed'].map(f => (
             <button
               key={f}
@@ -319,8 +319,8 @@ export default function AdminOnboarding() {
                 border: 'none',
                 fontSize: '12px',
                 fontWeight: filter === f ? 600 : 400,
-                background: filter === f ? '#E88FAC' : '#fff',
-                color: filter === f ? '#fff' : '#666',
+                background: filter === f ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)',
+                color: filter === f ? 'var(--foreground)' : 'rgba(240, 236, 232, 0.75)',
                 cursor: 'pointer',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
               }}
@@ -333,7 +333,7 @@ export default function AdminOnboarding() {
 
       {/* Creators table */}
       {loading ? (
-        <div style={{ color: '#999', fontSize: '14px', padding: '40px', textAlign: 'center' }}>Loading...</div>
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px', padding: '40px', textAlign: 'center' }}>Loading...</div>
       ) : (
         <div style={{
           background: 'var(--card-bg-solid)',
@@ -343,7 +343,7 @@ export default function AdminOnboarding() {
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <tr style={{ borderBottom: '1px solid transparent' }}>
                 <th style={thStyle}>Creator</th>
                 <th style={thStyle}>Communication Email</th>
                 <th style={thStyle}>Status</th>
@@ -355,7 +355,7 @@ export default function AdminOnboarding() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                  <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px' }}>
                     No creators found.
                   </td>
                 </tr>
@@ -364,10 +364,10 @@ export default function AdminOnboarding() {
                   <tr key={c.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
                     <td style={tdStyle}>
                       <div style={{ fontWeight: 500 }}>{c.name || '—'}</div>
-                      {c.aka && <div style={{ fontSize: '11px', color: '#999' }}>{c.aka}</div>}
+                      {c.aka && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{c.aka}</div>}
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: '13px', color: '#666' }}>{c.email || '—'}</span>
+                      <span style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)' }}>{c.email || '—'}</span>
                     </td>
                     <td style={tdStyle}>
                       {c.status ? (
@@ -378,16 +378,16 @@ export default function AdminOnboarding() {
                           fontSize: '11px',
                           fontWeight: 600,
                           ...({
-                            'Lead': { bg: '#FCE4EC', color: '#E88FAC' },
-                            'Onboarding': { bg: '#FFF8E1', color: '#F9A825' },
-                            'Active': { bg: '#E8F5E9', color: '#43A047' },
+                            'Lead': { bg: '#FCE4EC', color: 'var(--palm-pink)' },
+                            'Onboarding': { bg: 'rgba(232, 200, 120, 0.06)', color: '#F9A825' },
+                            'Active': { bg: 'rgba(125, 211, 164, 0.08)', color: '#43A047' },
                             'Offboarded': { bg: '#FFF3E0', color: '#EF6C00' },
-                          }[c.status] || { bg: '#f5f5f5', color: '#999' }),
+                          }[c.status] || { bg: 'rgba(255,255,255,0.03)', color: 'var(--foreground-muted)' }),
                         }}>
                           {c.status}
                         </span>
                       ) : (
-                        <span style={{ fontSize: '12px', color: '#ccc' }}>—</span>
+                        <span style={{ fontSize: '12px', color: 'var(--foreground-subtle)' }}>—</span>
                       )}
                     </td>
                     <td style={tdStyle}>
@@ -403,11 +403,11 @@ export default function AdminOnboarding() {
                           {c.onboardingStatus}
                         </span>
                       ) : (
-                        <span style={{ fontSize: '12px', color: '#ccc' }}>—</span>
+                        <span style={{ fontSize: '12px', color: 'var(--foreground-subtle)' }}>—</span>
                       )}
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: '12px', color: '#999' }}>
+                      <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
                         {c.tokenCreatedAt ? new Date(c.tokenCreatedAt).toLocaleDateString() : '—'}
                       </span>
                     </td>
@@ -416,7 +416,7 @@ export default function AdminOnboarding() {
                         {(!c.onboardingStatus || c.onboardingStatus === 'Not Started') && (
                           <button
                             onClick={() => openEditModal(c)}
-                            style={{ ...actionBtnStyle, background: '#E88FAC', color: '#fff' }}
+                            style={{ ...actionBtnStyle, background: 'var(--palm-pink)', color: '#060606' }}
                           >
                             Start Onboarding
                           </button>
@@ -471,10 +471,10 @@ export default function AdminOnboarding() {
             }}
             onClick={e => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
               Start Onboarding
             </h2>
-            <p style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>
               Enter the creator&apos;s name and communication email. This email will be their portal login.
             </p>
 
@@ -493,7 +493,7 @@ export default function AdminOnboarding() {
                     width: '100%',
                     padding: '10px 12px',
                     fontSize: '14px',
-                    border: '1px solid #e0e0e0',
+                    border: '1px solid rgba(255,255,255,0.08)',
                     borderRadius: '8px',
                     outline: 'none',
                   }}
@@ -501,7 +501,7 @@ export default function AdminOnboarding() {
               </div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Communication Email <span style={{ color: '#999', fontWeight: 400 }}>(used to log into their portal)</span>
+                  Communication Email <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}>(used to log into their portal)</span>
                 </label>
                 <input
                   type="email"
@@ -513,7 +513,7 @@ export default function AdminOnboarding() {
                     width: '100%',
                     padding: '10px 12px',
                     fontSize: '14px',
-                    border: '1px solid #e0e0e0',
+                    border: '1px solid rgba(255,255,255,0.08)',
                     borderRadius: '8px',
                     outline: 'none',
                   }}
@@ -532,7 +532,7 @@ export default function AdminOnboarding() {
                     width: '100%',
                     padding: '10px 12px',
                     fontSize: '14px',
-                    border: '1px solid #e0e0e0',
+                    border: '1px solid rgba(255,255,255,0.08)',
                     borderRadius: '8px',
                     outline: 'none',
                   }}
@@ -561,13 +561,13 @@ export default function AdminOnboarding() {
                         width: '70px',
                         padding: '10px 12px',
                         fontSize: '14px',
-                        border: '1px solid #e0e0e0',
+                        border: '1px solid rgba(255,255,255,0.08)',
                         borderRadius: '8px',
                         outline: 'none',
                         textAlign: 'center',
                       }}
                     />
-                    <span style={{ fontSize: '13px', color: '#666', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', whiteSpace: 'nowrap' }}>
                       {i === 0 ? 'up to' : 'above'}
                     </span>
                     {i < commissionTiers.length - 1 ? (
@@ -585,22 +585,22 @@ export default function AdminOnboarding() {
                           width: '120px',
                           padding: '10px 12px',
                           fontSize: '14px',
-                          border: '1px solid #e0e0e0',
+                          border: '1px solid rgba(255,255,255,0.08)',
                           borderRadius: '8px',
                           outline: 'none',
                         }}
                       />
                     ) : (
-                      <span style={{ fontSize: '13px', color: '#666' }}>
+                      <span style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)' }}>
                         {commissionTiers.length > 1 ? `$${Number(commissionTiers[i - 1]?.upTo || 0).toLocaleString()}/month` : '—'}
                       </span>
                     )}
-                    <span style={{ fontSize: '13px', color: '#999' }}>/month</span>
+                    <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>/month</span>
                     {commissionTiers.length > 1 && (
                       <button
                         type="button"
                         onClick={() => setCommissionTiers(commissionTiers.filter((_, j) => j !== i))}
-                        style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
+                        style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
                       >
                         x
                       </button>
@@ -616,7 +616,7 @@ export default function AdminOnboarding() {
                     borderRadius: '6px',
                     padding: '6px 12px',
                     fontSize: '12px',
-                    color: '#999',
+                    color: 'var(--foreground-muted)',
                     cursor: 'pointer',
                     width: '100%',
                   }}
@@ -642,7 +642,7 @@ export default function AdminOnboarding() {
                   onTouchMove={sigDraw}
                   onTouchEnd={endSigDraw}
                   style={{
-                    border: `1px solid ${hasSigDrawn ? '#E88FAC' : '#e0e0e0'}`,
+                    border: `1px solid ${hasSigDrawn ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
                     borderRadius: '8px',
                     cursor: 'crosshair',
                     width: '100%',
@@ -655,7 +655,7 @@ export default function AdminOnboarding() {
                   <button
                     type="button"
                     onClick={() => clearSigCanvas(false)}
-                    style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                    style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
                   >
                     Redraw
                   </button>
@@ -663,13 +663,13 @@ export default function AdminOnboarding() {
                     <button
                       type="button"
                       onClick={() => clearSigCanvas(true)}
-                      style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                      style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
                     >
                       Clear Saved
                     </button>
                   )}
                   {!hasSigDrawn && (
-                    <span style={{ fontSize: '11px', color: '#E88FAC' }}>Signature required</span>
+                    <span style={{ fontSize: '11px', color: 'var(--palm-pink)' }}>Signature required</span>
                   )}
                 </div>
               </div>
@@ -680,8 +680,8 @@ export default function AdminOnboarding() {
                   onClick={() => { setShowModal(false); setHasSigDrawn(false) }}
                   style={{
                     padding: '9px 18px',
-                    background: '#f5f5f5',
-                    color: '#666',
+                    background: 'rgba(255,255,255,0.03)',
+                    color: 'rgba(240, 236, 232, 0.75)',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
@@ -695,8 +695,8 @@ export default function AdminOnboarding() {
                   disabled={submitting || !hasSigDrawn}
                   style={{
                     padding: '9px 18px',
-                    background: (submitting || !hasSigDrawn) ? 'transparent' : '#E88FAC',
-                    color: '#fff',
+                    background: (submitting || !hasSigDrawn) ? 'transparent' : 'var(--palm-pink)',
+                    color: 'rgba(255,255,255,0.08)',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
@@ -735,10 +735,10 @@ export default function AdminOnboarding() {
             }}
             onClick={e => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
               Start Onboarding — {editCreator.name}
             </h2>
-            <p style={{ fontSize: '13px', color: '#999', marginBottom: '20px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>
               Set commission and state, then send the onboarding link. Status will be set to Onboarding.
             </p>
 
@@ -752,7 +752,7 @@ export default function AdminOnboarding() {
                   value={formState}
                   onChange={e => setFormState(e.target.value)}
                   placeholder="e.g. Idaho"
-                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', outline: 'none' }}
                 />
               </div>
 
@@ -774,9 +774,9 @@ export default function AdminOnboarding() {
                         setCommissionTiers(updated)
                       }}
                       placeholder="%"
-                      style={{ width: '70px', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none', textAlign: 'center' }}
+                      style={{ width: '70px', padding: '10px 12px', fontSize: '14px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', outline: 'none', textAlign: 'center' }}
                     />
-                    <span style={{ fontSize: '13px', color: '#666', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', whiteSpace: 'nowrap' }}>
                       {i === 0 ? 'up to' : 'above'}
                     </span>
                     {i < commissionTiers.length - 1 ? (
@@ -790,19 +790,19 @@ export default function AdminOnboarding() {
                           setCommissionTiers(updated)
                         }}
                         placeholder="$/month"
-                        style={{ width: '120px', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                        style={{ width: '120px', padding: '10px 12px', fontSize: '14px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', outline: 'none' }}
                       />
                     ) : (
-                      <span style={{ fontSize: '13px', color: '#666' }}>
+                      <span style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)' }}>
                         {commissionTiers.length > 1 ? `$${Number(commissionTiers[i - 1]?.upTo || 0).toLocaleString()}/month` : '—'}
                       </span>
                     )}
-                    <span style={{ fontSize: '13px', color: '#999' }}>/month</span>
+                    <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>/month</span>
                     {commissionTiers.length > 1 && (
                       <button
                         type="button"
                         onClick={() => setCommissionTiers(commissionTiers.filter((_, j) => j !== i))}
-                        style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
+                        style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
                       >
                         x
                       </button>
@@ -812,7 +812,7 @@ export default function AdminOnboarding() {
                 <button
                   type="button"
                   onClick={() => setCommissionTiers([...commissionTiers, { pct: '', upTo: '' }])}
-                  style={{ background: 'none', border: '1px dashed #ddd', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', color: '#999', cursor: 'pointer', width: '100%' }}
+                  style={{ background: 'none', border: '1px dashed #ddd', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', color: 'var(--foreground-muted)', cursor: 'pointer', width: '100%' }}
                 >
                   + Add Tier
                 </button>
@@ -820,7 +820,7 @@ export default function AdminOnboarding() {
 
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Communication Email <span style={{ color: '#999', fontWeight: 400 }}>(used to log into their portal)</span>
+                  Communication Email <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}>(used to log into their portal)</span>
                 </label>
                 <input
                   type="email"
@@ -828,7 +828,7 @@ export default function AdminOnboarding() {
                   onChange={e => setFormEmail(e.target.value)}
                   placeholder="The email they'll use to log in"
                   required
-                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', outline: 'none' }}
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', outline: 'none' }}
                 />
               </div>
 
@@ -849,7 +849,7 @@ export default function AdminOnboarding() {
                   onTouchMove={sigDraw}
                   onTouchEnd={endSigDraw}
                   style={{
-                    border: `1px solid ${hasSigDrawn ? '#E88FAC' : '#e0e0e0'}`,
+                    border: `1px solid ${hasSigDrawn ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
                     borderRadius: '8px',
                     cursor: 'crosshair',
                     width: '100%',
@@ -862,7 +862,7 @@ export default function AdminOnboarding() {
                   <button
                     type="button"
                     onClick={() => clearSigCanvas(false)}
-                    style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                    style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
                   >
                     Redraw
                   </button>
@@ -870,13 +870,13 @@ export default function AdminOnboarding() {
                     <button
                       type="button"
                       onClick={() => clearSigCanvas(true)}
-                      style={{ padding: '3px 10px', background: '#f5f5f5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer' }}
+                      style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
                     >
                       Clear Saved
                     </button>
                   )}
                   {!hasSigDrawn && (
-                    <span style={{ fontSize: '11px', color: '#E88FAC' }}>Signature required</span>
+                    <span style={{ fontSize: '11px', color: 'var(--palm-pink)' }}>Signature required</span>
                   )}
                 </div>
               </div>
@@ -885,7 +885,7 @@ export default function AdminOnboarding() {
                 <button
                   type="button"
                   onClick={() => { setEditCreator(null); setHasSigDrawn(false) }}
-                  style={{ padding: '9px 18px', background: '#f5f5f5', color: '#666', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
+                  style={{ padding: '9px 18px', background: 'rgba(255,255,255,0.03)', color: 'rgba(240, 236, 232, 0.75)', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
@@ -894,8 +894,8 @@ export default function AdminOnboarding() {
                   disabled={submitting || !hasSigDrawn}
                   style={{
                     padding: '9px 18px',
-                    background: (submitting || !hasSigDrawn) ? 'transparent' : '#E88FAC',
-                    color: '#fff',
+                    background: (submitting || !hasSigDrawn) ? 'transparent' : 'var(--palm-pink)',
+                    color: 'rgba(255,255,255,0.08)',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
@@ -927,16 +927,16 @@ export default function AdminOnboarding() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', marginBottom: '2px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '2px' }}>
                   Survey Answers — {surveyModal.creatorName}
                 </h2>
-                <p style={{ fontSize: '12px', color: '#999' }}>Onboarding questionnaire responses</p>
+                <p style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>Onboarding questionnaire responses</p>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   onClick={() => downloadSurveyCsv(surveyModal.hqId)}
                   style={{
-                    padding: '7px 14px', background: '#E8F5E9', color: '#43A047',
+                    padding: '7px 14px', background: 'rgba(125, 211, 164, 0.08)', color: '#43A047',
                     border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
                   }}
                 >
@@ -945,7 +945,7 @@ export default function AdminOnboarding() {
                 <button
                   onClick={() => setSurveyModal(null)}
                   style={{
-                    padding: '7px 14px', background: '#f5f5f5', color: '#666',
+                    padding: '7px 14px', background: 'rgba(255,255,255,0.03)', color: 'rgba(240, 236, 232, 0.75)',
                     border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer',
                   }}
                 >
@@ -955,7 +955,7 @@ export default function AdminOnboarding() {
             </div>
 
             {surveyModal.loading ? (
-              <p style={{ fontSize: '13px', color: '#999', textAlign: 'center', padding: '40px 0' }}>Loading answers...</p>
+              <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', textAlign: 'center', padding: '40px 0' }}>Loading answers...</p>
             ) : (
               Object.entries(surveyModal.sections || {}).map(([section, entries]) => {
                 const answered = entries.filter(e => e.answer)
@@ -963,7 +963,7 @@ export default function AdminOnboarding() {
                 return (
                   <div key={section} style={{ marginBottom: '20px' }}>
                     <div style={{
-                      fontSize: '13px', fontWeight: 600, color: '#E88FAC',
+                      fontSize: '13px', fontWeight: 600, color: 'var(--palm-pink)',
                       marginBottom: '10px', paddingBottom: '4px', borderBottom: '1px solid #f5f5f5',
                     }}>
                       {section}
@@ -983,7 +983,7 @@ export default function AdminOnboarding() {
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#555', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
                           {entry.answer}
                         </div>
                       </div>
@@ -1004,7 +1004,7 @@ const thStyle = {
   padding: '12px 16px',
   fontSize: '11px',
   fontWeight: 600,
-  color: '#999',
+  color: 'var(--foreground-muted)',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
@@ -1012,13 +1012,13 @@ const thStyle = {
 const tdStyle = {
   padding: '12px 16px',
   fontSize: '13px',
-  color: '#1a1a1a',
+  color: 'var(--foreground)',
 }
 
 const actionBtnStyle = {
   padding: '5px 12px',
   background: 'rgba(232, 160, 160, 0.04)',
-  color: '#E88FAC',
+  color: 'var(--palm-pink)',
   border: 'none',
   borderRadius: '6px',
   fontSize: '12px',

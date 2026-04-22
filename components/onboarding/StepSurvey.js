@@ -117,26 +117,26 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
   const answeredQuestions = Object.values(answers).filter(a => a.answer).length
 
   if (loading) {
-    return <div style={{ color: '#999', fontSize: '14px', padding: '20px' }}>Loading survey...</div>
+    return <div style={{ color: 'var(--foreground-muted)', fontSize: '14px', padding: '20px' }}>Loading survey...</div>
   }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
             Creator Survey
           </h2>
-          <p style={{ fontSize: '13px', color: '#999' }}>
+          <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
             Answer these questions so our chat team can represent you authentically.
             Your answers auto-save as you type.
           </p>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontSize: '22px', fontWeight: 700, color: '#E88FAC' }}>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--palm-pink)' }}>
             {answeredQuestions}/{totalQuestions}
           </div>
-          <div style={{ fontSize: '11px', color: '#999' }}>answered</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>answered</div>
           <div style={{
             fontSize: '11px',
             marginTop: '4px',
@@ -212,7 +212,7 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
           style={{
             padding: '10px 24px',
             background: 'var(--card-bg-solid)',
-            color: '#E88FAC',
+            color: 'var(--palm-pink)',
             border: '1px solid var(--palm-pink)',
             borderRadius: '8px',
             fontSize: '14px',
@@ -230,8 +230,8 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
           }}
           style={{
             padding: '10px 32px',
-            background: '#E88FAC',
-            color: '#fff',
+            background: 'var(--palm-pink)',
+            color: 'rgba(255,255,255,0.08)',
             border: 'none',
             borderRadius: '8px',
             fontSize: '14px',

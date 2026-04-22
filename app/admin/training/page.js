@@ -24,7 +24,7 @@ const MODES = [
   {
     value: 'Scenario / Fantasy',
     label: 'Scenario / Fantasy',
-    color: '#a78bfa',
+    color: '#A78BFA',
     desc: 'Text places the viewer into a specific situation or fantasy. The visual alone is generic — the text creates the whole concept.',
     examples: [
       '"POV: your wife canceled dinner so you call the girl next door"',
@@ -57,7 +57,7 @@ const MODES = [
   {
     value: 'Visual Callout',
     label: 'Visual Callout',
-    color: '#60a5fa',
+    color: '#78B4E8',
     desc: 'Text directly references or amplifies what\'s happening on screen. The visual works alone, but the text adds a flirty or provocative spin to it.',
     examples: [
       '"I need a big boy" (girl on leg press)',
@@ -189,7 +189,7 @@ export default function TextTrainingPage() {
 
   if (loading) {
     return (
-      <div style={{ color: '#999', padding: '60px', textAlign: 'center', fontSize: '14px' }}>
+      <div style={{ color: 'var(--foreground-muted)', padding: '60px', textAlign: 'center', fontSize: '14px' }}>
         Loading text training queue...
       </div>
     )
@@ -201,7 +201,7 @@ export default function TextTrainingPage() {
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>
           {stats.approved + stats.denied > 0 ? '🎉' : '📭'}
         </div>
-        <p style={{ color: '#666', fontSize: '16px', fontWeight: 500 }}>
+        <p style={{ color: 'rgba(240, 236, 232, 0.75)', fontSize: '16px', fontWeight: 500 }}>
           {stats.approved + stats.denied > 0
             ? `All done! ${stats.approved} approved, ${stats.denied} denied this session.`
             : 'No reels with on-screen text to review.'}
@@ -226,15 +226,15 @@ export default function TextTrainingPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Text Training</h1>
-          <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Text Training</h1>
+          <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
             Review on-screen text for AI training examples
           </p>
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <span style={{ fontSize: '12px', color: '#22c55e' }}>{stats.approved} approved</span>
-          <span style={{ fontSize: '12px', color: '#ef4444' }}>{stats.denied} denied</span>
-          <span style={{ fontSize: '13px', color: '#666', background: 'var(--card-bg-solid)', border: '1px solid transparent', padding: '4px 12px', borderRadius: '8px' }}>
+          <span style={{ fontSize: '12px', color: '#7DD3A4' }}>{stats.approved} approved</span>
+          <span style={{ fontSize: '12px', color: '#E87878' }}>{stats.denied} denied</span>
+          <span style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', background: 'var(--card-bg-solid)', border: '1px solid transparent', padding: '4px 12px', borderRadius: '8px' }}>
             {index + 1} / {queue.length}
           </span>
         </div>
@@ -258,7 +258,7 @@ export default function TextTrainingPage() {
             {record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(240, 236, 232, 0.85)' }}>
                 No thumbnail
               </div>
             )}
@@ -301,14 +301,14 @@ export default function TextTrainingPage() {
             {/* Title + username + stats */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div>
-                <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', margin: 0, lineHeight: 1.4 }}>{record.title}</h2>
+                <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0, lineHeight: 1.4 }}>{record.title}</h2>
                 {record.username && (
-                  <p style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>@{record.username}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>@{record.username}</p>
                 )}
               </div>
               <div style={{ display: 'flex', gap: '12px', fontSize: '12px', flexShrink: 0, marginTop: '2px' }}>
-                {views && <span style={{ color: '#888' }}>👁 {views}</span>}
-                {likes && <span style={{ color: '#E88FAC' }}>❤ {likes}</span>}
+                {views && <span style={{ color: 'var(--foreground-muted)' }}>👁 {views}</span>}
+                {likes && <span style={{ color: 'var(--palm-pink)' }}>❤ {likes}</span>}
                 {comments && <span style={{ color: '#6b9bd2' }}>💬 {comments}</span>}
               </div>
             </div>
@@ -321,7 +321,7 @@ export default function TextTrainingPage() {
               padding: '14px 18px',
               marginBottom: '16px',
             }}>
-              <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+              <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--palm-pink)', marginBottom: '6px', fontWeight: 600 }}>
                 On-Screen Text
               </p>
               <p style={{ fontSize: '15px', color: '#333', lineHeight: 1.6, fontStyle: 'italic', margin: 0 }}>
@@ -340,14 +340,14 @@ export default function TextTrainingPage() {
               color: '#777',
               lineHeight: 1.5,
             }}>
-              <span style={{ color: '#22c55e', fontWeight: 600 }}>Approve</span> if an editor would need to come up with text like this for a raw clip.{' '}
-              <span style={{ color: '#ef4444', fontWeight: 600 }}>Deny</span> if the text is inseparable from the full concept (creator recreates the whole package).
+              <span style={{ color: '#7DD3A4', fontWeight: 600 }}>Approve</span> if an editor would need to come up with text like this for a raw clip.{' '}
+              <span style={{ color: '#E87878', fontWeight: 600 }}>Deny</span> if the text is inseparable from the full concept (creator recreates the whole package).
             </div>
 
             {/* Mode selector */}
             <div style={{ marginBottom: '14px' }}>
-              <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#999', marginBottom: '8px' }}>
-                Text Mode <span style={{ color: '#bbb', fontWeight: 400 }}>(1-5)</span>
+              <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--foreground-muted)', marginBottom: '8px' }}>
+                Text Mode <span style={{ color: 'var(--foreground-subtle)', fontWeight: 400 }}>(1-5)</span>
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {MODES.map((mode, i) => {
@@ -372,8 +372,8 @@ export default function TextTrainingPage() {
                         width: '16px',
                         height: '16px',
                         borderRadius: '4px',
-                        background: isSelected ? mode.color : '#ddd',
-                        color: isSelected ? '#fff' : '#999',
+                        background: isSelected ? mode.color : 'rgba(255,255,255,0.08)',
+                        color: isSelected ? 'rgba(255,255,255,0.08)' : '#999',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -383,7 +383,7 @@ export default function TextTrainingPage() {
                       }}>
                         {i + 1}
                       </span>
-                      <span style={{ fontSize: '12px', fontWeight: 500, color: isSelected ? mode.color : '#555', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 500, color: isSelected ? mode.color : 'rgba(240, 236, 232, 0.85)', whiteSpace: 'nowrap' }}>
                         {mode.label}
                       </span>
                     </button>
@@ -408,7 +408,7 @@ export default function TextTrainingPage() {
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {mode.examples.map((ex, j) => (
-                        <p key={j} style={{ fontSize: '11px', color: '#888', margin: 0, fontStyle: 'italic' }}>
+                        <p key={j} style={{ fontSize: '11px', color: 'var(--foreground-muted)', margin: 0, fontStyle: 'italic' }}>
                           {ex}
                         </p>
                       ))}
@@ -428,8 +428,8 @@ export default function TextTrainingPage() {
                   padding: '10px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: selectedMode ? '#22c55e' : '#e8e8e8',
-                  color: selectedMode ? '#fff' : '#aaa',
+                  background: selectedMode ? '#7DD3A4' : '#e8e8e8',
+                  color: selectedMode ? 'rgba(255,255,255,0.08)' : '#aaa',
                   fontSize: '14px',
                   fontWeight: 600,
                   cursor: selectedMode ? 'pointer' : 'not-allowed',
@@ -448,7 +448,7 @@ export default function TextTrainingPage() {
                   borderRadius: '10px',
                   border: '1px solid #e8dfe2',
                   background: 'var(--card-bg-solid)',
-                  color: '#ef4444',
+                  color: '#E87878',
                   fontSize: '14px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -456,12 +456,12 @@ export default function TextTrainingPage() {
                   transition: 'all 0.15s',
                 }}
               >
-                Deny <span style={{ fontSize: '11px', color: '#ccc', fontWeight: 400 }}>(D)</span>
+                Deny <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)', fontWeight: 400 }}>(D)</span>
               </button>
             </div>
 
             {/* Keyboard hint */}
-            <p style={{ fontSize: '10px', color: '#bbb', margin: '8px 0 0', textAlign: 'center' }}>
+            <p style={{ fontSize: '10px', color: 'var(--foreground-subtle)', margin: '8px 0 0', textAlign: 'center' }}>
               ← → navigate &nbsp;|&nbsp; 1-5 select mode &nbsp;|&nbsp; D deny
             </p>
           </div>
@@ -471,7 +471,7 @@ export default function TextTrainingPage() {
             {/* Tags */}
             {record.tags.length > 0 && (
               <div>
-                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#999', marginBottom: '8px' }}>Tags</p>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--foreground-muted)', marginBottom: '8px' }}>Tags</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {record.tags.map(tag => (
                     <span key={tag} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '9999px', ...tagStyle(tag) }}>
@@ -485,7 +485,7 @@ export default function TextTrainingPage() {
             {/* Inspo Direction */}
             {inspoDirection && (
               <div>
-                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#999', marginBottom: '6px' }}>Inspo Direction</p>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--foreground-muted)', marginBottom: '6px' }}>Inspo Direction</p>
                 <p style={{ fontSize: '13px', color: '#444', lineHeight: 1.5, margin: 0 }}>{inspoDirection}</p>
               </div>
             )}
@@ -493,7 +493,7 @@ export default function TextTrainingPage() {
             {/* What Matters Most */}
             {whatMattersMost && (
               <div>
-                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#999', marginBottom: '6px' }}>What Matters Most</p>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--foreground-muted)', marginBottom: '6px' }}>What Matters Most</p>
                 <p style={{ fontSize: '13px', color: '#444', lineHeight: 1.5, margin: 0 }}>{whatMattersMost}</p>
               </div>
             )}
@@ -508,7 +508,7 @@ export default function TextTrainingPage() {
           bottom: '24px',
           right: '24px',
           background: toast.error ? '#7f1d1d' : '#14532d',
-          color: toast.error ? '#fca5a5' : '#86efac',
+          color: toast.error ? '#E87878' : '#7DD3A4',
           padding: '10px 20px',
           borderRadius: '10px',
           fontSize: '13px',

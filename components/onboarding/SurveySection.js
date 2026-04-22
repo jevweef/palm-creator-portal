@@ -27,7 +27,7 @@ export default function SurveySection({ title, questions, answers, onAnswerChang
       marginBottom: '20px',
       background: 'var(--card-bg-solid)',
       borderRadius: '12px',
-      border: locked ? '1px solid #f0f0f0' : '1px solid #f0f0f0',
+      border: locked ? '1px solid transparent' : '1px solid transparent',
       overflow: 'hidden',
       opacity: locked ? 0.5 : 1,
       transition: 'opacity 0.2s',
@@ -47,7 +47,7 @@ export default function SurveySection({ title, questions, answers, onAnswerChang
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>
+          <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)' }}>
             {title}
           </span>
           <span style={{
@@ -55,18 +55,18 @@ export default function SurveySection({ title, questions, answers, onAnswerChang
             fontWeight: 600,
             padding: '2px 8px',
             borderRadius: '10px',
-            background: allAnswered ? '#E8F5E9' : locked ? '#f5f5f5' : '#FFF8E1',
+            background: allAnswered ? 'rgba(125, 211, 164, 0.08)' : locked ? 'rgba(255,255,255,0.03)' : 'rgba(232, 200, 120, 0.06)',
             color: allAnswered ? '#43A047' : locked ? '#ccc' : '#F9A825',
           }}>
             {answeredCount}/{totalCount}
           </span>
           {locked && (
-            <span style={{ fontSize: '11px', color: '#ccc' }}>
+            <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>
               Complete the section above first
             </span>
           )}
         </div>
-        <span style={{ fontSize: '12px', color: '#999', transition: 'transform 0.2s', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
+        <span style={{ fontSize: '12px', color: 'var(--foreground-muted)', transition: 'transform 0.2s', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
           ▼
         </span>
       </button>
@@ -76,7 +76,7 @@ export default function SurveySection({ title, questions, answers, onAnswerChang
           {/* Show unanswered count when section is partially complete */}
           {answeredCount > 0 && !allAnswered && (
             <div style={{
-              background: '#FFF8E1',
+              background: 'rgba(232, 200, 120, 0.06)',
               border: '1px solid #FFE082',
               borderRadius: '8px',
               padding: '8px 12px',

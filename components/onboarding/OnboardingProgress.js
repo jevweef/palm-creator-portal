@@ -35,8 +35,8 @@ export default function OnboardingProgress({ currentStep, completedSteps = [], o
                 justifyContent: 'center',
                 fontSize: '13px',
                 fontWeight: 600,
-                background: isCompleted ? '#E88FAC' : isActive ? '#FFF0F3' : '#f5f5f5',
-                color: isCompleted ? '#fff' : isActive ? '#E88FAC' : '#999',
+                background: isCompleted ? 'var(--palm-pink)' : isActive ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.03)',
+                color: isCompleted ? 'var(--foreground)' : isActive ? 'var(--palm-pink)' : '#999',
                 border: isActive ? '1px solid var(--palm-pink)' : '2px solid transparent',
                 transition: 'all 0.2s',
               }}>
@@ -45,7 +45,7 @@ export default function OnboardingProgress({ currentStep, completedSteps = [], o
               <span style={{
                 fontSize: '11px',
                 fontWeight: isActive ? 600 : 400,
-                color: isActive ? '#1a1a1a' : isCompleted ? '#E88FAC' : '#999',
+                color: isActive ? 'var(--foreground)' : isCompleted ? 'var(--palm-pink)' : '#999',
                 textAlign: 'center',
                 whiteSpace: 'nowrap',
               }}>
@@ -56,7 +56,7 @@ export default function OnboardingProgress({ currentStep, completedSteps = [], o
               <div style={{
                 flex: 1,
                 height: '2px',
-                background: isCompleted ? '#E88FAC' : '#eee',
+                background: isCompleted ? 'var(--palm-pink)' : '#eee',
                 marginTop: '-18px',
                 minWidth: '20px',
               }} />

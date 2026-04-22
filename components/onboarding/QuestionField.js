@@ -44,7 +44,7 @@ export default function QuestionField({ question, value, onChange, saving }) {
     width: '100%',
     padding: '9px 12px',
     fontSize: '14px',
-    border: '1px solid #e0e0e0',
+    border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '8px',
     outline: 'none',
     background: 'var(--card-bg-solid)',
@@ -59,7 +59,7 @@ export default function QuestionField({ question, value, onChange, saving }) {
           {question.text}
         </label>
         {question.required && (
-          <span style={{ color: '#E88FAC', fontSize: '13px', fontWeight: 600 }}>*</span>
+          <span style={{ color: 'var(--palm-pink)', fontSize: '13px', fontWeight: 600 }}>*</span>
         )}
       </div>
       {question.inputType === 'textarea' ? (
@@ -89,9 +89,9 @@ export default function QuestionField({ question, value, onChange, saving }) {
           gap: '4px',
           marginTop: '8px',
           padding: '8px',
-          background: '#fafafa',
+          background: 'var(--card-bg-solid)',
           borderRadius: '8px',
-          border: '1px solid #f0f0f0',
+          border: '1px solid transparent',
         }}>
           {COMMON_EMOJIS.map(emoji => (
             <button
@@ -105,7 +105,7 @@ export default function QuestionField({ question, value, onChange, saving }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '18px',
-                background: localValue.includes(emoji) ? '#FFF0F3' : 'transparent',
+                background: localValue.includes(emoji) ? 'rgba(232, 160, 160, 0.06)' : 'transparent',
                 border: localValue.includes(emoji) ? '1px solid #E88FAC' : '1px solid transparent',
                 borderRadius: '6px',
                 cursor: 'pointer',

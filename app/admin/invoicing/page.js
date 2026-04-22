@@ -7,9 +7,9 @@ import InvoiceWorkflowModal from './InvoiceWorkflowModal'
 import RawDataUpload from './RawDataUpload'
 
 const STATUS_CONFIG = {
-  Draft: { color: '#9ca3af', bg: '#f3f4f6', next: 'Sent' },
-  Sent:  { color: '#3b82f6', bg: '#dbeafe', next: 'Paid' },
-  Paid:  { color: '#22c55e', bg: '#dcfce7', next: 'Draft' },
+  Draft: { color: '#9ca3af', bg: 'rgba(255,255,255,0.04)', next: 'Sent' },
+  Sent:  { color: '#78B4E8', bg: 'rgba(120, 180, 232, 0.08)', next: 'Paid' },
+  Paid:  { color: '#7DD3A4', bg: 'rgba(125, 211, 164, 0.08)', next: 'Draft' },
 }
 
 const COLS = '160px 150px 130px 130px 130px 88px'
@@ -44,10 +44,10 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
         background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px',
         padding: '28px 32px', width: '440px', maxWidth: '90vw',
       }}>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '6px' }}>
           Send invoice to {data.aka}?
         </div>
-        <div style={{ fontSize: '13px', color: '#999', marginBottom: '24px' }}>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '24px' }}>
           This will email the PDF link and mark the invoice as Sent.
         </div>
 
@@ -61,14 +61,14 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
             display: 'flex', gap: '16px', padding: '8px 0',
             borderBottom: '1px solid transparent', alignItems: 'center',
           }}>
-            <span style={{ fontSize: '12px', color: '#999', width: '56px', flexShrink: 0 }}>{row.label}</span>
-            <span style={{ fontSize: '13px', color: '#4a4a4a' }}>{row.value}</span>
+            <span style={{ fontSize: '12px', color: 'var(--foreground-muted)', width: '56px', flexShrink: 0 }}>{row.label}</span>
+            <span style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)' }}>{row.value}</span>
           </div>
         ))}
 
         {data.dropboxLink && (
           <a href={data.dropboxLink} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '12px', color: '#E88FAC', display: 'inline-block', marginTop: '12px' }}>
+            style={{ fontSize: '12px', color: 'var(--palm-pink)', display: 'inline-block', marginTop: '12px' }}>
             Preview PDF ↗
           </a>
         )}
@@ -82,13 +82,13 @@ function SendModal({ data, onConfirm, onCancel, sending }) {
         <div style={{ display: 'flex', gap: '10px', marginTop: '24px', justifyContent: 'flex-end' }}>
           <button onClick={onCancel} style={{
             background: 'transparent', border: '1px solid transparent', borderRadius: '7px',
-            color: '#888', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
+            color: 'var(--foreground-muted)', padding: '8px 18px', fontSize: '13px', cursor: 'pointer',
           }}>
             Cancel
           </button>
           <button onClick={onConfirm} disabled={sending || !data.email} style={{
-            background: data.email ? '#3b82f6' : '#FFF0F3',
-            border: 'none', borderRadius: '7px', color: '#1a1a1a',
+            background: data.email ? '#78B4E8' : 'rgba(232, 160, 160, 0.06)',
+            border: 'none', borderRadius: '7px', color: 'rgba(255,255,255,0.08)',
             padding: '8px 20px', fontSize: '13px', fontWeight: 600,
             cursor: data.email ? 'pointer' : 'not-allowed', opacity: sending ? 0.6 : 1,
           }}>
@@ -141,7 +141,7 @@ function EarningsCell({ record, onSave, disabled }) {
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         style={{
           background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', borderRadius: '4px',
-          color: '#1a1a1a', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
+          color: 'rgba(255,255,255,0.08)', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
         }}
       />
     )
@@ -152,11 +152,11 @@ function EarningsCell({ record, onSave, disabled }) {
       style={{
         display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent',
         border: '1px solid transparent', borderRadius: '4px',
-        color: record.earnings > 0 ? '#e4e4e7' : '#555',
+        color: record.earnings > 0 ? '#e4e4e7' : 'rgba(240, 236, 232, 0.85)',
         fontSize: '13px', cursor: disabled ? 'default' : 'pointer',
         padding: '4px 8px', fontFamily: 'inherit', transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = '#FFF0F3' }}}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'rgba(232, 160, 160, 0.06)' }}}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
     >
       {record.earnings > 0 ? fmt(record.earnings) : <span style={{ color: '#444' }}>—</span>}
@@ -179,23 +179,23 @@ function SummaryBar({ records }) {
   return (
     <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
       {[
-        { label: 'Total Revenue', value: fmt(total.tr), color: '#1a1a1a' },
-        { label: 'Total Commission', value: fmt(total.commission), color: '#E88FAC' },
-        { label: 'Chat Team Cost', value: fmt(total.chat), color: '#f59e0b' },
-        { label: 'Net Profit', value: fmt(total.net), color: '#22c55e' },
+        { label: 'Total Revenue', value: fmt(total.tr), color: 'var(--foreground)' },
+        { label: 'Total Commission', value: fmt(total.commission), color: 'var(--palm-pink)' },
+        { label: 'Chat Team Cost', value: fmt(total.chat), color: '#E8C878' },
+        { label: 'Net Profit', value: fmt(total.net), color: '#7DD3A4' },
       ].map(s => (
         <div key={s.label} style={{
           background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
           padding: '14px 18px', minWidth: '130px', flex: '1 1 0',
         }}>
-          <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>
             {s.label}
           </div>
           <div style={{ fontSize: '20px', fontWeight: 700, color: s.color }}>{s.value}</div>
         </div>
       ))}
       <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', padding: '14px 18px', minWidth: '110px' }}>
-        <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Status</div>
+        <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Status</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {Object.entries(STATUS_CONFIG).map(([s, cfg]) => (
             <span key={s} style={{ fontSize: '12px', color: cfg.color, fontWeight: 600 }}>
@@ -210,11 +210,11 @@ function SummaryBar({ records }) {
 
 // ── Creator group card ───────────────────────────────────────────────────────
 const STAGE_CONFIG = {
-  generate: { label: 'Generate',  dot: '#9ca3af', bg: '#f3f4f6', fg: '#6b7280' },
-  review:   { label: 'Review',    dot: '#E88FAC', bg: '#FFF0F3', fg: '#b4586f' },
-  send:     { label: 'Ready',     dot: '#3b82f6', bg: '#dbeafe', fg: '#1d4ed8' },
-  sent:     { label: 'Sent',      dot: '#3b82f6', bg: '#dbeafe', fg: '#1d4ed8' },
-  paid:     { label: 'Paid',      dot: '#22c55e', bg: '#dcfce7', fg: '#15803d' },
+  generate: { label: 'Generate',  dot: '#9ca3af', bg: 'rgba(255,255,255,0.04)', fg: '#6b7280' },
+  review:   { label: 'Review',    dot: 'var(--palm-pink)', bg: 'rgba(232, 160, 160, 0.06)', fg: '#b4586f' },
+  send:     { label: 'Ready',     dot: '#78B4E8', bg: 'rgba(120, 180, 232, 0.08)', fg: '#1d4ed8' },
+  sent:     { label: 'Sent',      dot: '#78B4E8', bg: 'rgba(120, 180, 232, 0.08)', fg: '#1d4ed8' },
+  paid:     { label: 'Paid',      dot: '#7DD3A4', bg: 'rgba(125, 211, 164, 0.08)', fg: '#15803d' },
 }
 
 function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingId }) {
@@ -256,7 +256,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
       }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-            <span style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', letterSpacing: '-0.01em' }}>
+            <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.01em' }}>
               {aka}
             </span>
             <span style={{
@@ -284,15 +284,15 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
               color: '#9ca3af', fontSize: '12px', fontWeight: 500, padding: '6px 8px',
               cursor: 'pointer', whiteSpace: 'nowrap',
             }}
-              onMouseEnter={e => e.currentTarget.style.color = '#E88FAC'}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--palm-pink)'}
               onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
             >
               Mark All {nextStatus}
             </button>
           ) : null}
           <button onClick={() => onOpenWorkflow(aka, rows)} style={{
-            background: '#1a1a1a', border: 'none', borderRadius: '8px',
-            color: '#fff', fontSize: '12px', fontWeight: 600, padding: '8px 16px',
+            background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '8px',
+            color: 'var(--foreground)', fontSize: '12px', fontWeight: 600, padding: '8px 16px',
             cursor: 'pointer', whiteSpace: 'nowrap',
           }}>
             Manage →
@@ -303,15 +303,15 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
       {/* ─── KPI blocks: Revenue · Mgmt Fee · Net Profit ─────────────── */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px',
-        background: 'rgba(0,0,0,0.05)', margin: '0 22px',
+        background: 'rgba(255,255,255,0.05)', margin: '0 22px',
         borderRadius: '10px', overflow: 'hidden',
       }}>
         {[
-          { label: 'Revenue',    value: totalTr,  color: '#1a1a1a' },
-          { label: 'Mgmt Fee',   value: totalFee, color: '#E88FAC' },
-          { label: 'Net Profit', value: totalNet, color: '#22c55e' },
+          { label: 'Revenue',    value: totalTr,  color: 'var(--foreground)' },
+          { label: 'Mgmt Fee',   value: totalFee, color: 'var(--palm-pink)' },
+          { label: 'Net Profit', value: totalNet, color: '#7DD3A4' },
         ].map(k => (
-          <div key={k.label} style={{ background: '#fafafa', padding: '12px 14px' }}>
+          <div key={k.label} style={{ background: 'var(--card-bg-solid)', padding: '12px 14px' }}>
             <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
               {k.label}
             </div>
@@ -337,22 +337,22 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
               alignItems: 'center', gap: '12px', padding: '8px 0',
               borderBottom: '1px solid transparent',
             }}>
-              <div style={{ fontSize: '13px', color: '#4a4a4a', fontWeight: 500 }}>
+              <div style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', fontWeight: 500 }}>
                 {record.accountName.replace(aka + ' - ', '')}
               </div>
               <EarningsCell record={record} onSave={onSave} disabled={savingId === record.id} />
-              <div style={{ fontSize: '12px', color: record.totalCommission > 0 ? '#E88FAC' : '#bbb', textAlign: 'right' }}>
+              <div style={{ fontSize: '12px', color: record.totalCommission > 0 ? 'var(--palm-pink)' : '#bbb', textAlign: 'right' }}>
                 {fmt(record.totalCommission)}
               </div>
-              <div style={{ fontSize: '12px', color: record.chatTeamCost > 0 ? '#f59e0b' : '#bbb', textAlign: 'right' }}>
+              <div style={{ fontSize: '12px', color: record.chatTeamCost > 0 ? '#E8C878' : '#bbb', textAlign: 'right' }}>
                 {record.chatTeamCost > 0 ? '− ' + fmt(record.chatTeamCost) : '—'}
               </div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: record.netProfit > 0 ? '#22c55e' : '#bbb', textAlign: 'right' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: record.netProfit > 0 ? '#7DD3A4' : '#bbb', textAlign: 'right' }}>
                 {fmt(record.netProfit)}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <span style={{
-                  background: STATUS_CONFIG[record.status]?.bg || '#f3f4f6',
+                  background: STATUS_CONFIG[record.status]?.bg || 'rgba(255,255,255,0.04)',
                   color: STATUS_CONFIG[record.status]?.color || '#999',
                   borderRadius: '20px', padding: '2px 10px', fontSize: '10px', fontWeight: 600,
                   letterSpacing: '0.03em',
@@ -375,11 +375,11 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
               <span>Editable revenue:</span>
               <EarningsCell record={record} onSave={onSave} disabled={savingId === record.id} />
               {record.chatTeamCost > 0 && (
-                <span>Chat fee: <span style={{ color: '#f59e0b' }}>−{fmt(record.chatTeamCost)}</span></span>
+                <span>Chat fee: <span style={{ color: '#E8C878' }}>−{fmt(record.chatTeamCost)}</span></span>
               )}
             </div>
             <span style={{
-              background: STATUS_CONFIG[record.status]?.bg || '#f3f4f6',
+              background: STATUS_CONFIG[record.status]?.bg || 'rgba(255,255,255,0.04)',
               color: STATUS_CONFIG[record.status]?.color || '#999',
               borderRadius: '20px', padding: '3px 12px', fontSize: '11px', fontWeight: 600,
               letterSpacing: '0.03em',
@@ -480,7 +480,7 @@ export default function InvoicingPage() {
   if (!isLoaded || !isAdmin) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
-        <div style={{ color: '#555', fontSize: '14px' }}>Loading...</div>
+        <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px' }}>Loading...</div>
       </div>
     )
   }
@@ -514,7 +514,7 @@ export default function InvoicingPage() {
 
       {/* Title + Tab switcher */}
       <div style={{ marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Invoicing</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Invoicing</h1>
         <div style={{ display: 'flex', gap: '4px', marginTop: '12px' }}>
           {[
             { key: 'invoices', label: 'Invoices' },
@@ -522,9 +522,9 @@ export default function InvoicingPage() {
           ].map(tab => (
             <button key={tab.key} onClick={() => { setActiveTab(tab.key); router.replace(`${pathname}?tab=${tab.key}`, { scroll: false }) }}
               style={{
-                background: activeTab === tab.key ? '#FFF0F3' : 'transparent',
+                background: activeTab === tab.key ? 'rgba(232, 160, 160, 0.06)' : 'transparent',
                 border: activeTab === tab.key ? '1px solid #E88FAC' : '1px solid transparent',
-                borderRadius: '6px', color: activeTab === tab.key ? '#E88FAC' : '#999',
+                borderRadius: '6px', color: activeTab === tab.key ? 'var(--palm-pink)' : '#999',
                 padding: '6px 14px', fontSize: '13px', fontWeight: activeTab === tab.key ? 600 : 400,
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>
@@ -541,7 +541,7 @@ export default function InvoicingPage() {
       {activeTab === 'invoices' && (<div>
       <div style={{ marginBottom: '20px' }}>
         {currentPeriod && (
-          <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
             {fmtDate(currentPeriod.start)} – {fmtDate(currentPeriod.end)}, {new Date(currentPeriod.start + 'T12:00:00').getFullYear()}
             &nbsp;·&nbsp;{periodRecords.length} accounts
           </div>
@@ -555,9 +555,9 @@ export default function InvoicingPage() {
             const active = selectedPeriod === p.key
             return (
               <button key={p.key} onClick={() => setSelectedPeriod(p.key)} style={{
-                background: active ? '#FFF0F3' : '#ffffff',
+                background: active ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
                 border: active ? '1px solid #E88FAC' : 'none', boxShadow: active ? 'none' : '0 1px 4px rgba(0,0,0,0.04)',
-                borderRadius: '6px', color: active ? '#E88FAC' : '#999',
+                borderRadius: '6px', color: active ? 'var(--palm-pink)' : '#999',
                 padding: '6px 14px', fontSize: '12px', fontWeight: active ? 600 : 400,
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>
@@ -586,7 +586,7 @@ export default function InvoicingPage() {
         </div>
       )}
 
-      {loading && <div style={{ color: '#555', fontSize: '14px', padding: '40px 0' }}>Loading invoices...</div>}
+      {loading && <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px 0' }}>Loading invoices...</div>}
       {error && (
         <div style={{ color: '#ff8888', fontSize: '14px', padding: '20px', background: '#2d1515', border: '1px solid #5c2020', borderRadius: '8px', marginBottom: '20px' }}>
           {error}
@@ -609,7 +609,7 @@ export default function InvoicingPage() {
       )}
 
       {!loading && !error && periodRecords.length === 0 && periods.length > 0 && (
-        <div style={{ color: '#555', fontSize: '14px', padding: '60px 0', textAlign: 'center' }}>
+        <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '60px 0', textAlign: 'center' }}>
           No invoice records for this period.
         </div>
       )}

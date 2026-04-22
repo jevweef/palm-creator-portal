@@ -66,7 +66,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
   }
 
   if (loading) {
-    return <div style={{ color: '#999', fontSize: '14px', padding: '20px' }}>Loading...</div>
+    return <div style={{ color: 'var(--foreground-muted)', fontSize: '14px', padding: '20px' }}>Loading...</div>
   }
 
   // Already uploaded/skipped/confirmed
@@ -74,10 +74,10 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
   if (recState === 'done') {
     return (
       <div>
-        <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
           Voice Memo
         </h2>
-        <p style={{ fontSize: '13px', color: '#999', marginBottom: '24px' }}>
+        <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '24px' }}>
           {isSkipped
             ? 'You skipped this step. Your manager will follow up if needed.'
             : confirmed
@@ -86,7 +86,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
         </p>
 
         <div style={{
-          background: isSkipped ? '#FFF8E1' : '#E8F5E9',
+          background: isSkipped ? 'rgba(232, 200, 120, 0.06)' : 'rgba(125, 211, 164, 0.08)',
           borderRadius: '12px',
           padding: '24px',
           textAlign: 'center',
@@ -113,8 +113,8 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
           onClick={onComplete}
           style={{
             padding: '10px 32px',
-            background: '#E88FAC',
-            color: '#fff',
+            background: 'var(--palm-pink)',
+            color: 'rgba(255,255,255,0.08)',
             border: 'none',
             borderRadius: '8px',
             fontSize: '14px',
@@ -130,30 +130,30 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+      <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
         Palm Creator Profile & Content Strategy Intake
       </h2>
-      <p style={{ fontSize: '13px', color: '#666', marginBottom: '6px', lineHeight: '1.5' }}>
+      <p style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', marginBottom: '6px', lineHeight: '1.5' }}>
         This voice memo is used to build your personalized content strategy and creator DNA profile — it helps us understand your style, personality, and what kind of content fits you best.
       </p>
-      <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px', lineHeight: '1.5' }}>
+      <p style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', marginBottom: '16px', lineHeight: '1.5' }}>
         Just ramble for like 10–15 minutes. Don&apos;t overthink it at all.
       </p>
 
-      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+      <div style={{ fontSize: '13px', color: 'var(--palm-pink)', marginBottom: '6px', fontWeight: 600 }}>
         Your Day-to-Day
       </div>
-      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
+      <ul style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
         <li>What your normal week looks like (what you actually do day-to-day)</li>
         <li>What places you regularly go to (gym, coffee shops, nightlife, work, etc.)</li>
         <li>How often you go out, travel, or do anything social</li>
         <li>What you feel like you already have easy access to that could be used for content (locations, routines, hobbies, etc.)</li>
       </ul>
 
-      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+      <div style={{ fontSize: '13px', color: 'var(--palm-pink)', marginBottom: '6px', fontWeight: 600 }}>
         Your Filming Setup
       </div>
-      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
+      <ul style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
         <li>How you currently film content (random clips throughout the day vs batching vs full shoot days)</li>
         <li>How much time you realistically have each week to film</li>
         <li>What your living setup is like (apartment/house, lighting, space, etc.)</li>
@@ -161,10 +161,10 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
         <li>Whether you prefer filming alone or with someone else</li>
       </ul>
 
-      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+      <div style={{ fontSize: '13px', color: 'var(--palm-pink)', marginBottom: '6px', fontWeight: 600 }}>
         Your Persona & Vibe
       </div>
-      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
+      <ul style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
         <li>If you had to describe yourself as a &quot;type&quot; &mdash; girl next door, intimidating hot girl, cute and approachable, mysterious, chaotic, chill tomboy &mdash; what fits you?</li>
         <li>What do you want someone scrolling past your video to feel? (curiosity, attraction, jealousy, &quot;I need to follow her,&quot; intimidated, etc.)</li>
         <li>Do you lean more playful/teasing or more serious/seductive when you&apos;re on camera?</li>
@@ -172,10 +172,10 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
         <li>What kind of overall vibe you want your content to have (chill, outgoing, flirty, lifestyle, etc.)</li>
       </ul>
 
-      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+      <div style={{ fontSize: '13px', color: 'var(--palm-pink)', marginBottom: '6px', fontWeight: 600 }}>
         Content You Like
       </div>
-      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
+      <ul style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.7', marginBottom: '16px', paddingLeft: '18px' }}>
         <li>What creators you like watching and what stands out about them</li>
         <li>When you see a reel and think &quot;that&apos;s so me&quot; &mdash; what is it about it? Can you describe a few you&apos;ve seen recently?</li>
         <li>What types of clips you&apos;ve already filmed before (even if they&apos;re random)</li>
@@ -183,10 +183,10 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
         <li>Anything you think could turn into a repeatable series</li>
       </ul>
 
-      <div style={{ fontSize: '13px', color: '#E88FAC', marginBottom: '6px', fontWeight: 600 }}>
+      <div style={{ fontSize: '13px', color: 'var(--palm-pink)', marginBottom: '6px', fontWeight: 600 }}>
         Comfort & Boundaries
       </div>
-      <ul style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '20px', paddingLeft: '18px' }}>
+      <ul style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.7', marginBottom: '20px', paddingLeft: '18px' }}>
         <li>What scenarios would you be comfortable acting out? (e.g. &quot;POV: your neighbor comes over,&quot; roommate situations, gym crush, etc.)</li>
         <li>What would you absolutely NOT portray?</li>
         <li>Are you comfortable with opinion-bait captions that might get hate comments? (e.g. &quot;anything more than a handful is a waste&quot;)</li>
@@ -197,7 +197,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
         <li>Are you okay with us handling captions/creative without needing to approve each one, as long as we stay within your boundaries?</li>
       </ul>
 
-      <p style={{ fontSize: '13px', color: '#999', marginBottom: '24px', lineHeight: '1.5' }}>
+      <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '24px', lineHeight: '1.5' }}>
         Doesn&apos;t need to be structured. Just talk through it casually.
       </p>
 
@@ -226,11 +226,11 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
           marginBottom: '20px',
         }}
         onClick={() => fileInputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#E88FAC' }}
-        onDragLeave={e => { e.currentTarget.style.borderColor = '#e0e0e0' }}
+        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--palm-pink)' }}
+        onDragLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
         onDrop={e => {
           e.preventDefault()
-          e.currentTarget.style.borderColor = '#e0e0e0'
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
           if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0])
         }}
       >
@@ -241,13 +241,13 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
           style={{ display: 'none' }}
           onChange={e => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0]) }}
         />
-        <div style={{ fontSize: '14px', color: '#999', marginBottom: '6px' }}>
+        <div style={{ fontSize: '14px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="#999"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
         </div>
-        <div style={{ fontSize: '13px', color: '#666' }}>
-          Drop an audio file or <span style={{ color: '#E88FAC', fontWeight: 500 }}>browse</span>
+        <div style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)' }}>
+          Drop an audio file or <span style={{ color: 'var(--palm-pink)', fontWeight: 500 }}>browse</span>
         </div>
-        <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
           MP3 or WAV
         </div>
       </div>
@@ -264,7 +264,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
             animation: 'spin 0.8s linear infinite',
             margin: '0 auto 12px',
           }} />
-          <div style={{ fontSize: '14px', color: '#666' }}>
+          <div style={{ fontSize: '14px', color: 'rgba(240, 236, 232, 0.75)' }}>
             {uploadProgress || 'Uploading...'}
           </div>
         </div>
@@ -272,13 +272,13 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
 
       {/* Already sent */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-        <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
-        <span style={{ fontSize: '12px', color: '#999', fontWeight: 500 }}>OR</span>
-        <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
+        <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+        <span style={{ fontSize: '12px', color: 'var(--foreground-muted)', fontWeight: 500 }}>OR</span>
+        <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
       </div>
 
       <div style={{
-        background: confirmed ? '#E8F5E9' : '#FFF8E1',
+        background: confirmed ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 200, 120, 0.06)',
         border: '1px solid',
         borderColor: confirmed ? '#A5D6A7' : '#FFE082',
         borderRadius: '12px',
@@ -290,13 +290,13 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
             type="checkbox"
             checked={confirmed}
             onChange={e => setConfirmed(e.target.checked)}
-            style={{ marginTop: '3px', accentColor: '#E88FAC' }}
+            style={{ marginTop: '3px', accentColor: 'var(--palm-pink)' }}
           />
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '4px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
               I already sent my voice memo to my manager
             </div>
-            <div style={{ fontSize: '12px', color: '#666', lineHeight: '1.4' }}>
+            <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.4' }}>
               Only check this if you have <strong>already sent</strong> the recording via text, email, or
               another channel.
             </div>
@@ -322,8 +322,8 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
           }}
           style={{
             padding: '10px 32px',
-            background: '#E88FAC',
-            color: '#fff',
+            background: 'var(--palm-pink)',
+            color: 'rgba(255,255,255,0.08)',
             border: 'none',
             borderRadius: '8px',
             fontSize: '14px',
@@ -350,7 +350,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
             style={{
               padding: '8px 20px',
               background: 'transparent',
-              color: '#999',
+              color: 'var(--foreground-muted)',
               border: 'none',
               fontSize: '13px',
               cursor: 'pointer',

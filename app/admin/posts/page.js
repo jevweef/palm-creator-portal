@@ -5,9 +5,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 const PLATFORMS = ['Instagram Reel', 'Instagram Story', 'TikTok', 'YouTube Shorts', 'X', 'OFTV']
 const STATUS_COLORS = {
   'Prepping': '#ca8a04',
-  'Sent to Telegram': '#3b82f6',
-  'Ready to Post': '#22c55e',
-  'Posted': '#E88FAC',
+  'Sent to Telegram': '#78B4E8',
+  'Ready to Post': '#7DD3A4',
+  'Posted': 'var(--palm-pink)',
   'Archived': '#999',
 }
 
@@ -120,14 +120,14 @@ function TelegramModal({ post, onClose, onSent }) {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#4a4a4a' }}>Send to Telegram?</div>
-            <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>{post.creator?.name}</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)' }}>Send to Telegram?</div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{post.creator?.name}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
 
         {!editedFileLink && (
-          <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#ef4444' }}>
+          <div style={{ background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#E87878' }}>
             No edited file link on this post.
           </div>
         )}
@@ -151,7 +151,7 @@ function TelegramModal({ post, onClose, onSent }) {
         <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', overflow: 'hidden' }}>
           {fullCaption ? (
             <div style={{ padding: '10px 14px' }}>
-              <div style={{ fontSize: '13px', color: '#4a4a4a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fullCaption}</div>
+              <div style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fullCaption}</div>
             </div>
           ) : (
             <div style={{ padding: '10px 14px' }}>
@@ -160,14 +160,14 @@ function TelegramModal({ post, onClose, onSent }) {
           )}
         </div>
 
-        {error && <div style={{ fontSize: '12px', color: '#ef4444', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '6px', padding: '8px 12px' }}>{error}</div>}
+        {error && <div style={{ fontSize: '12px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '8px 12px' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: 'var(--foreground-muted)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
             Cancel
           </button>
           <button onClick={handleSend} disabled={sending || !editedFileLink}
-            style={{ flex: 2, padding: '10px', background: sending || !editedFileLink ? '#f0fdf4' : '#dcfce7', border: `1px solid ${sending || !editedFileLink ? '#d1fae5' : '#bbf7d0'}`, color: sending || !editedFileLink ? '#86efac' : '#22c55e', borderRadius: '8px', cursor: sending || !editedFileLink ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
+            style={{ flex: 2, padding: '10px', background: sending || !editedFileLink ? 'rgba(125, 211, 164, 0.06)' : 'rgba(125, 211, 164, 0.08)', border: `1px solid ${sending || !editedFileLink ? '#d1fae5' : 'rgba(125, 211, 164, 0.2)'}`, color: sending || !editedFileLink ? '#7DD3A4' : '#7DD3A4', borderRadius: '8px', cursor: sending || !editedFileLink ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
             {sending ? 'Sending...' : '✈ Confirm & Send'}
           </button>
         </div>
@@ -215,21 +215,21 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
         <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button onClick={() => setPreview(null)}
-              style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
+              style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
               ← Back
             </button>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
           </div>
           <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '4/3', overflow: 'hidden' }}>
             <img src={rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
             <button onClick={() => setPreview(null)}
-              style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+              style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: 'var(--foreground-muted)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
               Choose different
             </button>
             <button onClick={() => handleUse(preview)}
-              style={{ flex: 2, padding: '10px', background: '#E88FAC', border: '1px solid #d4789a', color: '#ffffff', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+              style={{ flex: 2, padding: '10px', background: 'var(--palm-pink)', border: '1px solid var(--palm-pink-dark)', color: '#060606', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
               Use this photo
             </button>
           </div>
@@ -244,22 +244,22 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
       <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '640px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#4a4a4a' }}>Choose Thumbnail</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)' }}>Choose Thumbnail</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
             <button onClick={() => { setSortNewest(true); setPage(0) }}
-              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: sortNewest ? '#E88FAC' : '#FFF0F3', color: sortNewest ? '#fff' : '#888' }}>
+              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: sortNewest ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)', color: sortNewest ? '#060606' : 'var(--foreground-muted)' }}>
               Newest
             </button>
             <button onClick={() => { setSortNewest(false); setPage(0) }}
-              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: !sortNewest ? '#E88FAC' : '#FFF0F3', color: !sortNewest ? '#fff' : '#888' }}>
+              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: !sortNewest ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)', color: !sortNewest ? '#060606' : 'var(--foreground-muted)' }}>
               Oldest
             </button>
           </div>
           {isReel && (
-            <div style={{ fontSize: '11px', color: '#999', marginBottom: '12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '6px 10px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '6px 10px' }}>
               Showing unused photos only — photos already used as reel thumbnails are hidden.
             </div>
           )}
@@ -281,7 +281,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
                     return (
                       <div key={photo.id} onClick={() => setPreview(photo)}
                         style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s' }}
-                        onMouseEnter={e => e.currentTarget.style.borderColor = '#E88FAC'}
+                        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--palm-pink)'}
                         onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
                         <img src={rawUrl} alt={photo.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       </div>
@@ -294,7 +294,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
                       style={{ padding: '6px 14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', color: page === 0 ? '#3f3f46' : '#888', cursor: page === 0 ? 'default' : 'pointer', fontSize: '13px' }}>
                       ← Prev
                     </button>
-                    <span style={{ fontSize: '12px', color: '#999' }}>{page + 1} / {totalPages}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{page + 1} / {totalPages}</span>
                     <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
                       style={{ padding: '6px 14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', color: page === totalPages - 1 ? '#3f3f46' : '#888', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: '13px' }}>
                       Next →
@@ -370,19 +370,19 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
         onClick={e => e.target === e.currentTarget && onClose()}>
         <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#4a4a4a' }}>Frame captured</div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)' }}>Frame captured</div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
           </div>
           <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '9/16', overflow: 'hidden' }}>
             <img src={rawDropboxUrl(capturedUrl)} alt="captured frame" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
             <button onClick={() => setCapturedUrl(null)}
-              style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: '#999', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+              style={{ flex: 1, padding: '10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: 'var(--foreground-muted)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
               Try another
             </button>
             <button onClick={() => { onCapture(capturedUrl); onClose() }}
-              style={{ flex: 2, padding: '10px', background: '#E88FAC', border: '1px solid #d4789a', color: '#ffffff', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+              style={{ flex: 2, padding: '10px', background: 'var(--palm-pink)', border: '1px solid var(--palm-pink-dark)', color: '#060606', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
               Use this frame
             </button>
           </div>
@@ -398,10 +398,10 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
       <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', width: '100%', maxWidth: '380px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#4a4a4a' }}>Pick a frame</div>
-            <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>Scrub to position — original file, no text overlays</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)' }}>Pick a frame</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>Scrub to position — original file, no text overlays</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
 
         {/* Video preview */}
@@ -421,7 +421,7 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
         {/* Scrubber + capture */}
         <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '11px', color: '#999', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
+            <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
             <input
               type="range"
               min={0}
@@ -429,17 +429,17 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
               step={0.05}
               value={currentTime}
               onChange={handleScrub}
-              style={{ flex: 1, accentColor: '#E88FAC', cursor: 'pointer' }}
+              style={{ flex: 1, accentColor: 'var(--palm-pink)', cursor: 'pointer' }}
             />
-            <span style={{ fontSize: '11px', color: '#999', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
+            <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
           </div>
 
-          {error && <div style={{ fontSize: '11px', color: '#ef4444', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
+          {error && <div style={{ fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>{error}</div>}
 
           <button
             onClick={handleCapture}
             disabled={capturing || !duration}
-            style={{ padding: '10px', background: capturing || !duration ? '#FFF0F3' : '#E88FAC', border: `1px solid ${capturing || !duration ? 'transparent' : '#d4789a'}`, color: capturing || !duration ? 'transparent' : '#ffffff', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
+            style={{ padding: '10px', background: capturing || !duration ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)', border: `1px solid ${capturing || !duration ? 'transparent' : 'var(--palm-pink-dark)'}`, color: capturing || !duration ? 'var(--foreground-subtle)' : '#060606', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
             {capturing ? 'Capturing...' : '📸 Capture this frame'}
           </button>
         </div>
@@ -530,8 +530,8 @@ function PostCard({ post, onRefresh, onSend }) {
       <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
         {/* Header */}
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#4a4a4a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.name}</div>
-          <div style={{ fontSize: '11px', color: '#999', marginTop: '1px' }}>{post.creator?.name}</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.name}</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '1px' }}>{post.creator?.name}</div>
         </div>
 
         {/* Platforms */}
@@ -541,9 +541,9 @@ function PostCard({ post, onRefresh, onSend }) {
             {PLATFORMS.map(p => (
               <button key={p} onClick={() => togglePlatform(p)}
                 style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600, border: '1px solid', cursor: 'pointer',
-                  background: platforms.includes(p) ? '#FFF0F3' : 'transparent',
-                  color: platforms.includes(p) ? '#E88FAC' : '#3f3f46',
-                  borderColor: platforms.includes(p) ? '#E88FAC' : 'transparent' }}>
+                  background: platforms.includes(p) ? 'rgba(232, 160, 160, 0.06)' : 'transparent',
+                  color: platforms.includes(p) ? 'var(--palm-pink)' : '#3f3f46',
+                  borderColor: platforms.includes(p) ? 'var(--palm-pink)' : 'transparent' }}>
                 {p}
               </button>
             ))}
@@ -555,7 +555,7 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
           <textarea value={caption} onChange={e => { setCaption(e.target.value); setEditing(true) }}
             placeholder="Add caption..." rows={3}
-            style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: '#4a4a4a', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
 
         {/* Hashtags */}
@@ -563,7 +563,7 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Hashtags</div>
           <textarea value={hashtags} onChange={e => { setHashtags(e.target.value); setEditing(true) }}
             placeholder="#hashtag1 #hashtag2..." rows={2}
-            style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: '#E88FAC', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'var(--palm-pink)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
 
         {/* Thumbnail */}
@@ -577,12 +577,12 @@ function PostCard({ post, onRefresh, onSend }) {
             ) : null}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <button onClick={() => setShowPhotoPicker(true)}
-                style={{ width: '100%', padding: '5px 10px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#999', cursor: 'pointer', textAlign: 'center' }}>
+                style={{ width: '100%', padding: '5px 10px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer', textAlign: 'center' }}>
                 {thumbnailUrl ? 'Change — from library' : '+ Choose from library'}
               </button>
               {canPickFrame && (
                 <button onClick={() => setShowFramePicker(true)}
-                  style={{ width: '100%', padding: '5px 10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#E88FAC', cursor: 'pointer', textAlign: 'center' }}>
+                  style={{ width: '100%', padding: '5px 10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: 'var(--palm-pink)', cursor: 'pointer', textAlign: 'center' }}>
                   🎞 Pick from video
                 </button>
               )}
@@ -607,7 +607,7 @@ function PostCard({ post, onRefresh, onSend }) {
                 }}
               />
               <button onClick={() => thumbFileRef.current?.click()} disabled={thumbUploading}
-                style={{ width: '100%', padding: '5px 10px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '11px', color: '#22c55e', cursor: 'pointer', textAlign: 'center', opacity: thumbUploading ? 0.6 : 1 }}>
+                style={{ width: '100%', padding: '5px 10px', background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '11px', color: '#7DD3A4', cursor: 'pointer', textAlign: 'center', opacity: thumbUploading ? 0.6 : 1 }}>
                 {thumbUploading ? 'Uploading…' : '📁 Upload from device'}
               </button>
             </div>
@@ -649,13 +649,13 @@ function PostCard({ post, onRefresh, onSend }) {
           return label ? (
             <div>
               <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Scheduled</div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#888' }}>{label}</div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground-muted)' }}>{label}</div>
             </div>
           ) : null
         })()}
 
         {post.telegramSentAt && (
-          <div style={{ fontSize: '11px', color: '#3b82f6', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '5px 10px' }}>
+          <div style={{ fontSize: '11px', color: '#78B4E8', background: 'rgba(120, 180, 232, 0.06)', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '5px 10px' }}>
             ✈ Sent {new Date(post.telegramSentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
           </div>
         )}
@@ -664,21 +664,21 @@ function PostCard({ post, onRefresh, onSend }) {
         <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }}>
           {editing && (
             <button onClick={handleSave} disabled={saving}
-              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, background: saving ? '#f0fdf4' : '#dcfce7', color: saving ? '#86efac' : '#22c55e', border: '1px solid #bbf7d0', borderRadius: '6px', cursor: saving ? 'default' : 'pointer' }}>
+              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, background: saving ? 'rgba(125, 211, 164, 0.06)' : 'rgba(125, 211, 164, 0.08)', color: saving ? '#7DD3A4' : '#7DD3A4', border: '1px solid #bbf7d0', borderRadius: '6px', cursor: saving ? 'default' : 'pointer' }}>
               {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save'}
             </button>
           )}
           {post.status === 'Prepping' && (
             <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms, thumbnailUrl, scheduledDate })} disabled={!hasFile}
               style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700,
-                background: hasFile ? '#eff6ff' : '#ffffff', color: hasFile ? '#3b82f6' : 'transparent',
-                border: `1px solid ${hasFile ? '#bfdbfe' : '#FFF0F3'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>
+                background: hasFile ? 'rgba(120, 180, 232, 0.06)' : 'var(--card-bg-solid)', color: hasFile ? '#78B4E8' : 'transparent',
+                border: `1px solid ${hasFile ? 'rgba(120, 180, 232, 0.2)' : 'rgba(232, 160, 160, 0.06)'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>
               ✈ Telegram
             </button>
           )}
           {post.asset?.editedFileLink && (
             <a href={post.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
-              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: '#999', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}>
+              style={{ padding: '7px 10px', fontSize: '11px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', textDecoration: 'none' }}>
               View ↗
             </a>
           )}
@@ -715,16 +715,16 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
     }
   }
 
-  const inputStyle = { width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: '#4a4a4a', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
-  const labelStyle = { fontSize: '10px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', display: 'block' }
+  const inputStyle = { width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
+  const labelStyle = { fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', display: 'block' }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#4a4a4a' }}>Log Historical Post</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)' }}>Log Historical Post</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
 
         <div>
@@ -751,23 +751,23 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
             {['morning', 'evening'].map(s => (
               <button key={s} onClick={() => setSlot(s)}
                 style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: 700, borderRadius: '7px', cursor: 'pointer', textTransform: 'capitalize',
-                  background: slot === s ? '#FFF0F3' : '#FFF5F7',
-                  color: slot === s ? '#E88FAC' : '#999',
-                  border: `1px solid ${slot === s ? '#E88FAC' : 'transparent'}` }}>
+                  background: slot === s ? 'rgba(232, 160, 160, 0.06)' : 'var(--background)',
+                  color: slot === s ? 'var(--palm-pink)' : '#999',
+                  border: `1px solid ${slot === s ? 'var(--palm-pink)' : 'transparent'}` }}>
                 {s === 'morning' ? '☀ Morning (~10am)' : '🌙 Evening (~7pm)'}
               </button>
             ))}
           </div>
         </div>
 
-        {error && <div style={{ fontSize: '12px', color: '#ef4444' }}>{error}</div>}
+        {error && <div style={{ fontSize: '12px', color: '#E87878' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600, background: 'var(--card-bg-solid)', color: '#999', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={saving || !date}
-            style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saving || !date ? '#ffffff' : '#dcfce7', color: saving || !date ? '#3f3f46' : '#22c55e', border: `1px solid ${saving || !date ? 'rgba(0,0,0,0.04)' : '#bbf7d0'}`, borderRadius: '8px', cursor: saving || !date ? 'default' : 'pointer' }}>
+            style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saving || !date ? 'rgba(255,255,255,0.08)' : 'rgba(125, 211, 164, 0.08)', color: saving || !date ? '#3f3f46' : '#7DD3A4', border: `1px solid ${saving || !date ? 'rgba(255,255,255,0.04)' : 'rgba(125, 211, 164, 0.2)'}`, borderRadius: '8px', cursor: saving || !date ? 'default' : 'pointer' }}>
             {saving ? 'Saving...' : 'Log Post'}
           </button>
         </div>
@@ -812,14 +812,14 @@ export default function PostsPage() {
   const filtered = filter === 'All' ? posts : posts.filter(p => p.status === filter)
 
   return (
-    <div style={{ color: '#1a1a1a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ color: 'var(--foreground)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => setLogModal(true)} style={{ background: '#dcfce7', border: '1px solid #bbf7d0', color: '#22c55e', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+          <button onClick={() => setLogModal(true)} style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', color: '#7DD3A4', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
             + Log Historical Post
           </button>
-          <button onClick={fetchData} style={{ background: 'none', border: '1px solid transparent', color: '#999', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+          <button onClick={fetchData} style={{ background: 'none', border: '1px solid transparent', color: 'var(--foreground-muted)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
             Refresh
           </button>
         </div>
@@ -830,8 +830,8 @@ export default function PostsPage() {
         {STATUS_FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: '5px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: filter === f ? '#E88FAC' : 'transparent',
-              color: filter === f ? '#ffffff' : '#999' }}>
+              background: filter === f ? 'var(--palm-pink)' : 'transparent',
+              color: filter === f ? 'rgba(255,255,255,0.08)' : '#999' }}>
             {f}
             {f !== 'All' && (
               <span style={{ marginLeft: '6px', color: filter === f ? '#999' : '#3f3f46', fontWeight: 400 }}>
@@ -843,7 +843,7 @@ export default function PostsPage() {
       </div>
 
       {loading && <div style={{ color: '#3f3f46', textAlign: 'center', padding: '60px' }}>Loading...</div>}
-      {error && <div style={{ color: '#ef4444', padding: '20px' }}>{error}</div>}
+      {error && <div style={{ color: '#E87878', padding: '20px' }}>{error}</div>}
 
       {!loading && !error && filtered.length === 0 && (
         <div style={{ color: '#3f3f46', textAlign: 'center', padding: '60px', fontSize: '14px' }}>
@@ -859,8 +859,8 @@ export default function PostsPage() {
 
       {toast && (
         <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 300, padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-          background: toast.isError ? '#fff1f2' : '#dcfce7', color: toast.isError ? '#ef4444' : '#22c55e',
-          border: `1px solid ${toast.isError ? '#fecdd3' : '#bbf7d0'}`, boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}>
+          background: toast.isError ? 'rgba(232, 120, 120, 0.06)' : 'rgba(125, 211, 164, 0.08)', color: toast.isError ? '#E87878' : '#7DD3A4',
+          border: `1px solid ${toast.isError ? '#fecdd3' : 'rgba(125, 211, 164, 0.2)'}`, boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}>
           {toast.msg}
         </div>
       )}

@@ -18,11 +18,11 @@ const TABS = [
 ]
 
 const STATUS_COLORS = {
-  Uploaded: { bg: '#dbeafe', color: '#60a5fa' },
-  'In Editing': { bg: '#fef3c7', color: '#facc15' },
-  'In Review': { bg: '#ffedd5', color: '#fb923c' },
-  Scheduled: { bg: '#ede9fe', color: '#E88FAC' },
-  Posted: { bg: '#dcfce7', color: '#4ade80' },
+  Uploaded: { bg: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8' },
+  'In Editing': { bg: 'rgba(232, 200, 120, 0.08)', color: '#E8C878' },
+  'In Review': { bg: '#ffedd5', color: '#E8A878' },
+  Scheduled: { bg: '#ede9fe', color: 'var(--palm-pink)' },
+  Posted: { bg: 'rgba(125, 211, 164, 0.08)', color: '#4ade80' },
 }
 
 function PipelineCard({ item, onClick }) {
@@ -72,7 +72,7 @@ function PipelineCard({ item, onClick }) {
       </div>
       <div style={{ padding: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', margin: 0, lineHeight: 1.3, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', margin: 0, lineHeight: 1.3, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.inspoTitle || item.assetName}
           </h3>
           <span style={{
@@ -89,10 +89,10 @@ function PipelineCard({ item, onClick }) {
           </span>
         </div>
         {item.inspoUsername && (
-          <p style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>@{item.inspoUsername}</p>
+          <p style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>@{item.inspoUsername}</p>
         )}
         {item.creatorNotes && (
-          <p style={{ fontSize: '12px', color: '#888', marginTop: '8px', lineHeight: 1.4, fontStyle: 'italic' }}>
+          <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '8px', lineHeight: 1.4, fontStyle: 'italic' }}>
             &quot;{item.creatorNotes}&quot;
           </p>
         )}
@@ -148,11 +148,11 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid transparent' }}>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>
               {item.inspoTitle || item.assetName}
             </h2>
             {item.inspoUsername && (
-              <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>@{item.inspoUsername}</p>
+              <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '4px' }}>@{item.inspoUsername}</p>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -161,38 +161,38 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
                 onClick={handleReplace}
                 style={{
                   padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-                  background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid #E88FAC',
+                  background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid #E88FAC',
                   borderRadius: '9999px', cursor: 'pointer', transition: 'all 0.15s',
                 }}
               >
                 Replace Clip
               </button>
             )}
-            <button onClick={onClose} style={{ color: '#999', background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', lineHeight: 1 }}>×</button>
+            <button onClick={onClose} style={{ color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', lineHeight: 1 }}>×</button>
           </div>
         </div>
 
         {/* Two videos side by side */}
         <div style={{ display: 'flex', gap: '16px', padding: '20px 24px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#E88FAC', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>My Clip</div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--palm-pink)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>My Clip</div>
             <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
               {clipUrl ? (
                 <video src={clipUrl} controls playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '13px' }}>No clip</div>
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px' }}>No clip</div>
               )}
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Inspo</div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Inspo</div>
             <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
               {inspoUrl ? (
                 <video src={inspoUrl} controls playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : item.inspoThumbnail ? (
                 <img src={item.inspoThumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '13px' }}>No inspo</div>
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px' }}>No inspo</div>
               )}
             </div>
           </div>
@@ -212,7 +212,7 @@ function EmptyState({ tab }) {
   }
 
   return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+    <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--foreground-muted)' }}>
       <p style={{ fontSize: '14px' }}>{messages[tab]}</p>
     </div>
   )
@@ -320,14 +320,14 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
     <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 md:px-8 py-4 md:py-6">
       {/* Page header + quota */}
       <div className="mb-4 md:mb-7">
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 16px 0' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: '0 0 16px 0' }}>
           My Content
         </h1>
         <div style={{ minHeight: '24px' }}>
           {data?.quota ? (
             <QuotaBar used={data.quota.used} target={data.quota.target} />
           ) : (
-            <div style={{ height: '12px', borderRadius: '6px', background: 'rgba(0,0,0,0.04)' }} />
+            <div style={{ height: '12px', borderRadius: '6px', background: 'rgba(255,255,255,0.04)' }} />
           )}
         </div>
       </div>
@@ -362,8 +362,8 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
               <span style={{
                 marginLeft: '6px',
                 fontSize: '11px',
-                background: activeTab === tab.key ? '#E88FAC' : 'transparent',
-                color: activeTab === tab.key ? '#fff' : '#999',
+                background: activeTab === tab.key ? 'var(--palm-pink)' : 'transparent',
+                color: activeTab === tab.key ? 'rgba(255,255,255,0.08)' : '#999',
                 padding: '1px 7px',
                 borderRadius: '9999px',
               }}>
@@ -376,11 +376,11 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
 
       {/* Content */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#999' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--foreground-muted)' }}>
           Loading...
         </div>
       ) : !data ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#ef4444' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: '#E87878' }}>
           Failed to load content pipeline
         </div>
       ) : (
@@ -404,8 +404,8 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
                         marginTop: '-12px',
                         width: '100%',
                         padding: '22px 8px 10px',
-                        background: '#E88FAC',
-                        color: '#fff',
+                        background: 'var(--palm-pink)',
+                        color: 'rgba(255,255,255,0.08)',
                         border: 'none',
                         borderRadius: '0 0 12px 12px',
                         fontSize: '12px',

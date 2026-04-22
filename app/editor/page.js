@@ -30,7 +30,7 @@ export default function EditorDashboardPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'rgba(255,255,255,0.08)' }}>
       {/* Mobile-only overrides — desktop untouched */}
       <style>{`
         @media (max-width: 768px) {
@@ -71,9 +71,9 @@ export default function EditorDashboardPage() {
           <div style={{
             position: 'fixed', bottom: '24px', right: '24px', zIndex: 100,
             padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-            background: toast.error ? '#fef2f2' : '#dcfce7',
-            color: toast.error ? '#ef4444' : '#22c55e',
-            border: `1px solid ${toast.error ? '#fecaca' : '#bbf7d0'}`,
+            background: toast.error ? 'rgba(232, 120, 120, 0.06)' : 'rgba(125, 211, 164, 0.08)',
+            color: toast.error ? '#E87878' : '#7DD3A4',
+            border: `1px solid ${toast.error ? 'rgba(232, 120, 120, 0.2)' : 'rgba(125, 211, 164, 0.2)'}`,
             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           }}>
             {toast.msg}

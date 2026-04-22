@@ -263,7 +263,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
       </div>
       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
         {asset.name && (
-          <div style={{ fontSize: '11px', color: '#888', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
         )}
         {asset.creatorNotes && (
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', lineHeight: 1.3 }}>{asset.creatorNotes}</div>
@@ -277,7 +277,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
           )}
         </div>
         <button onClick={handleStart} disabled={starting}
-          style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: starting ? '#fdf4ff' : '#fdf4ff', color: starting ? 'rgba(212, 160, 176, 0.3)' : '#E88FAC', border: '1px solid transparent', borderRadius: '6px', cursor: starting ? 'default' : 'pointer' }}>
+          style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: starting ? 'rgba(167, 139, 250, 0.08)' : 'rgba(167, 139, 250, 0.08)', color: starting ? 'rgba(212, 160, 176, 0.3)' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: starting ? 'default' : 'pointer' }}>
           {starting ? 'Starting...' : 'Start Edit'}
         </button>
         {error && <div style={{ fontSize: '10px', color: '#E87878' }}>{error}</div>}
@@ -341,7 +341,7 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
               <button key={t.key} onClick={() => switchTab(t.key)}
                 style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                   background: activeTab === t.key ? 'transparent' : 'transparent',
-                  color: activeTab === t.key ? '#4a4a4a' : '#999' }}>
+                  color: activeTab === t.key ? 'rgba(240, 236, 232, 0.85)' : '#999' }}>
                 {t.label} <span style={{ color: activeTab === t.key ? '#999' : '#aaa', fontWeight: 400 }}>{t.count}</span>
               </button>
             ))}
@@ -352,7 +352,7 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
             <button key={s.key} onClick={() => { setSortOrder(s.key); setPage(1) }}
               style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                 background: sortOrder === s.key ? 'transparent' : 'transparent',
-                color: sortOrder === s.key ? '#4a4a4a' : '#999' }}>
+                color: sortOrder === s.key ? 'rgba(240, 236, 232, 0.85)' : '#999' }}>
               {s.label}
             </button>
           ))}
@@ -411,7 +411,7 @@ export default function CreatorDetailPage() {
   )
 
   const { creator, tasks, inspoClips, library } = data
-  const bufferColor = creator.bufferDays >= 2 ? '#22c55e' : creator.bufferDays >= 1 ? '#f59e0b' : '#ef4444'
+  const bufferColor = creator.bufferDays >= 2 ? '#7DD3A4' : creator.bufferDays >= 1 ? '#E8C878' : '#E87878'
 
   const taskSections = [
     { key: 'needsRevision', items: tasks.needsRevision },
@@ -422,7 +422,7 @@ export default function CreatorDetailPage() {
   const hasApprovedOrHistory = tasks.approved.length > 0 || tasks.history.length > 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)', fontFamily: 'var(--font-body)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'rgba(255,255,255,0.08)', fontFamily: 'var(--font-body)' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 32px' }}>
 
         {/* Header */}
@@ -439,7 +439,7 @@ export default function CreatorDetailPage() {
             <span style={{ fontSize: '12px', color: bufferColor, fontWeight: 600 }}>d runway</span>
           </div>
           <button onClick={fetchData}
-            style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: '#888', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
+            style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
             Refresh
           </button>
         </div>

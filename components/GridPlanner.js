@@ -93,7 +93,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
       {/* Notch */}
-      <div style={{ background: '#1a1a1a', height: '18px', position: 'relative' }}>
+      <div style={{ background: 'rgba(255,255,255,0.08)', height: '18px', position: 'relative' }}>
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: '4px',
           width: '100px', height: '14px', background: '#000', borderRadius: '8px' }} />
       </div>
@@ -139,7 +139,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
             background: avatarGradient(handle),
             display: profile?.profilePicUrl ? 'none' : 'flex',
             alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontSize: '24px', fontWeight: 700,
+            color: 'var(--foreground)', fontSize: '24px', fontWeight: 700,
             border: '2px solid #fff',
             boxShadow: '0 0 0 2px #E88FAC',
             flexShrink: 0,
@@ -187,7 +187,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
             {account?.scrapedError && (
               <span
                 title={account.scrapedError}
-                style={{ color: '#ef4444', fontWeight: 600, background: '#fef2f2', padding: '1px 6px', borderRadius: '3px', border: '1px solid #fecaca' }}
+                style={{ color: '#E87878', fontWeight: 600, background: 'rgba(232, 120, 120, 0.06)', padding: '1px 6px', borderRadius: '3px', border: '1px solid #fecaca' }}
               >
                 ⚠ last refresh failed
               </span>
@@ -220,7 +220,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           <div style={{ gridColumn: '1 / -1', padding: '30px 20px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '12px' }}>
             {account?.scrapedError && !account?.scrapedFeedUpdated ? (
               <>
-                <div style={{ color: '#ef4444', fontWeight: 600 }}>Handle not found on IG</div>
+                <div style={{ color: '#E87878', fontWeight: 600 }}>Handle not found on IG</div>
                 <div style={{ fontSize: '11px', marginTop: '6px', color: 'var(--foreground-muted)' }}>@{account.handle}</div>
                 <div style={{ fontSize: '10px', marginTop: '8px', color: 'var(--foreground-subtle)', padding: '0 8px' }}>Update the handle in Creator Platform Directory, then Refresh.</div>
               </>
@@ -266,8 +266,8 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
   const borderByStatus = {
     scheduled: { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
     draft:     { bg: 'var(--background)', ring: 'var(--card-border)', badge: '#999' },
-    sent:      { bg: '#f0fdf4', ring: '#bbf7d0', badge: '#22c55e' },
-    posted:    { bg: '#fff', ring: 'transparent', badge: '#666' },
+    sent:      { bg: 'rgba(125, 211, 164, 0.06)', ring: 'rgba(125, 211, 164, 0.2)', badge: '#7DD3A4' },
+    posted:    { bg: 'var(--foreground)', ring: 'transparent', badge: 'rgba(240, 236, 232, 0.75)' },
   }
   const style = borderByStatus[status] || borderByStatus.posted
 
@@ -303,7 +303,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       <div style={{
         position: 'absolute', top: 3, left: 3,
         padding: '1px 5px', borderRadius: '3px',
-        background: 'rgba(0,0,0,0.55)', color: '#fff',
+        background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.08)',
         fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
       }}>
         {status}
@@ -313,7 +313,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
         <div style={{
           position: 'absolute', bottom: 3, right: 3,
           padding: '1px 4px', borderRadius: '3px',
-          background: 'rgba(0,0,0,0.55)', color: '#fff',
+          background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.08)',
           fontSize: '8px', fontWeight: 600,
         }}>
           {new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })}
@@ -366,7 +366,7 @@ function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, o
               )}
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
-                background: 'rgba(0,0,0,0.65)', color: '#fff',
+                background: 'rgba(0,0,0,0.65)', color: 'rgba(255,255,255,0.08)',
                 fontSize: '9px', padding: '2px 5px',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
@@ -618,7 +618,7 @@ export default function GridPlanner() {
           onClick={handleRefreshFeed}
           disabled={refreshing || !selectedCreatorId}
           title="Pull the latest posts + profile from each IG account. Skips anything scraped < 6h ago. Shift-click to force re-scrape."
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? '#f0f0f0' : 'rgba(232, 160, 160, 0.05)', color: refreshing ? '#bbb' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? 'rgba(255,255,255,0.04)' : 'rgba(232, 160, 160, 0.05)', color: refreshing ? '#bbb' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
         >
           {refreshing ? 'Scraping…' : '⟳ Refresh IG Feed'}
         </button>
@@ -640,7 +640,7 @@ export default function GridPlanner() {
       )}
 
       {loading && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading…</div>}
-      {error && <div style={{ padding: '20px', background: '#fef2f2', color: '#ef4444', borderRadius: '8px', fontSize: '13px' }}>{error}</div>}
+      {error && <div style={{ padding: '20px', background: 'rgba(232, 120, 120, 0.06)', color: '#E87878', borderRadius: '8px', fontSize: '13px' }}>{error}</div>}
 
       {!loading && !error && selectedCreatorId && (
         <>
@@ -697,9 +697,9 @@ export default function GridPlanner() {
         <div style={{
           position: 'fixed', bottom: '24px', right: '24px', zIndex: 300,
           padding: '10px 18px', borderRadius: '10px', fontSize: '12px', fontWeight: 600,
-          background: toast.isError ? '#fef2f2' : '#dcfce7',
-          color: toast.isError ? '#ef4444' : '#22c55e',
-          border: `1px solid ${toast.isError ? '#fecaca' : '#bbf7d0'}`,
+          background: toast.isError ? 'rgba(232, 120, 120, 0.06)' : 'rgba(125, 211, 164, 0.08)',
+          color: toast.isError ? '#E87878' : '#7DD3A4',
+          border: `1px solid ${toast.isError ? 'rgba(232, 120, 120, 0.2)' : 'rgba(125, 211, 164, 0.2)'}`,
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
         }}>
           {toast.msg}
