@@ -8,13 +8,13 @@ import CursorGlow from '@/components/design/CursorGlow'
 import SmoothScroll from '@/components/design/SmoothScroll'
 
 const inter = Inter({
-  variable: '--font-body',
+  variable: '--font-body-inter',
   subsets: ['latin'],
   weight: ['300', '400', '500', '600'],
 })
 
 const sora = Sora({
-  variable: '--font-display',
+  variable: '--font-display-sora',
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700', '800'],
 })
