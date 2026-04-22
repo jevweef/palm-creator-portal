@@ -2791,14 +2791,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       }}
                       placeholder="blank to clear"
                       disabled={savingLifetime}
-                      style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid #CBD5E1', borderRadius: '3px' }}
+                      style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px' }}
                     />
                     <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
                       style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
                       {savingLifetime ? '…' : 'Save'}
                     </button>
                     <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid #CBD5E1', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
+                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
                       Cancel
                     </button>
                   </div>

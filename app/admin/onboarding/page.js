@@ -416,7 +416,7 @@ export default function AdminOnboarding() {
                         {(!c.onboardingStatus || c.onboardingStatus === 'Not Started') && (
                           <button
                             onClick={() => openEditModal(c)}
-                            style={{ ...actionBtnStyle, background: 'var(--palm-pink)', color: '#060606' }}
+                            style={{ ...actionBtnStyle, background: 'rgba(232, 160, 160, 0.12)', color: 'var(--palm-pink)' }}
                           >
                             Start Onboarding
                           </button>

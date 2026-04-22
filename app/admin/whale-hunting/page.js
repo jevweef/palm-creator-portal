@@ -152,7 +152,7 @@ function SectionCard({ title, description }) {
   return (
     <div style={{
       padding: '20px 24px', background: 'var(--card-bg-solid)', borderRadius: '12px',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid #F3F4F6',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: 'none',
     }}>
       <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '6px' }}>{title}</div>
       <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.6' }}>{description}</div>
@@ -164,7 +164,7 @@ function ComingSoonCard({ title, description }) {
   return (
     <div style={{
       padding: '16px 18px', background: 'var(--card-bg-solid)', borderRadius: '10px',
-      border: '1px dashed #D1D5DB', position: 'relative',
+      border: '1px dashed rgba(255,255,255,0.08)', position: 'relative',
     }}>
       <div style={{
         position: 'absolute', top: '10px', right: '12px', fontSize: '9px', fontWeight: 700,
