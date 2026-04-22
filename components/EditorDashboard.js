@@ -178,27 +178,30 @@ export function getSlotLabel(isoDateString) {
 // ─── Quota dots ────────────────────────────────────────────────────────────────
 
 export function QuotaDots({ slotColors, quota, done }) {
+  const unlitColor = 'rgba(255,255,255,0.12)'
+  const dividerColor = 'rgba(255,255,255,0.06)'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
         {Array.from({ length: quota }).map((_, i) => {
-          const color = slotColors?.[i] || 'var(--card-border)'
-          const lit = color !== 'var(--card-border)'
+          const raw = slotColors?.[i]
+          const lit = raw && raw !== 'var(--card-border)'
+          const color = lit ? raw : unlitColor
           const isNewDay = i > 0 && i % 2 === 0
           return (
             <div key={i} style={{ display: 'contents' }}>
-              {isNewDay && <div style={{ width: '1px', height: '8px', background: 'var(--card-border)', flexShrink: 0 }} />}
+              {isNewDay && <div style={{ width: '1px', height: '8px', background: dividerColor, flexShrink: 0 }} />}
               <div style={{
                 width: '11px', height: '11px', borderRadius: '50%', flexShrink: 0,
                 background: color,
-                border: `1.5px solid ${lit ? color : 'var(--card-border)'}`,
+                border: `1.5px solid ${color}`,
                 transition: 'all 0.2s',
               }} />
             </div>
           )
         })}
       </div>
-      <span style={{ fontSize: '12px', color: done >= quota ? '#22c55e' : '#999', fontWeight: 500, flexShrink: 0 }}>
+      <span style={{ fontSize: '12px', color: done >= quota ? '#7DD3A4' : 'var(--foreground-muted)', fontWeight: 500, flexShrink: 0 }}>
         {done}/{quota}
       </span>
     </div>
