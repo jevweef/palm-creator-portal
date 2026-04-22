@@ -102,11 +102,11 @@ function parseChatHtmlClient(html) {
 }
 
 const STATUS_STYLES = {
-  'Not Started':       { bg: '#FFF0F3', text: '#999', border: 'transparent' },
-  'Ready to Analyze':  { bg: '#dbeafe', text: '#60a5fa', border: '#bfdbfe' },
+  'Not Started':       { bg: 'rgba(232, 160, 160, 0.06)', text: 'var(--foreground-muted)', border: 'transparent' },
+  'Ready to Analyze':  { bg: '#dbeafe', text: '#78B4E8', border: '#bfdbfe' },
   'Analyzing':         { bg: '#fef3c7', text: '#f59e0b', border: '#fde68a' },
-  'Analyzed':          { bg: '#dcfce7', text: '#22c55e', border: '#bbf7d0' },
-  'Reanalyze':         { bg: '#ffedd5', text: '#fb923c', border: '#fed7aa' },
+  'Analyzed':          { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4', border: '#bbf7d0' },
+  'Reanalyze':         { bg: '#ffedd5', text: '#E8A878', border: '#fed7aa' },
 }
 
 // Derive display status from analysis status + documents + dates
@@ -140,17 +140,17 @@ function StatusPill({ status }) {
 function WeightBar({ tag, weight, category }) {
   const catColors = {
     'Setting / Location': '#06b6d4',
-    'Persona / Niche':    '#E88FAC',
+    'Persona / Niche':    'var(--palm-pink)',
     'Tone / Energy':      '#f472b6',
-    'Visual / Body':      '#fb923c',
-    'Viewer Experience':  '#60a5fa',
+    'Visual / Body':      '#E8A878',
+    'Viewer Experience':  '#78B4E8',
     'Film Format':        '#34d399',
   }
-  const color = catColors[category] || '#E88FAC'
+  const color = catColors[category] || 'var(--palm-pink)'
   return (
     <div style={{ marginBottom: '6px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-        <span style={{ fontSize: '12px', color: '#4a4a4a' }}>{tag}</span>
+        <span style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)' }}>{tag}</span>
         <span style={{ fontSize: '12px', fontWeight: 600, color, minWidth: '28px', textAlign: 'right' }}>{weight}</span>
       </div>
       <div style={{ height: '4px', background: 'rgba(0,0,0,0.04)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -197,14 +197,14 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Input section */}
       <div style={{ background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent', padding: '16px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Music DNA Input</div>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Music DNA Input</div>
         <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
           {typeOptions.map(([value, label]) => (
             <button key={value} onClick={() => setInputType(value)}
               style={{
                 padding: '5px 12px', fontSize: '12px', fontWeight: inputType === value ? 600 : 400,
-                background: inputType === value ? '#FFF0F3' : '#fafafa',
-                color: inputType === value ? '#E88FAC' : '#999',
+                background: inputType === value ? 'rgba(232, 160, 160, 0.06)' : 'var(--card-bg-solid)',
+                color: inputType === value ? 'var(--palm-pink)' : 'var(--foreground-muted)',
                 border: inputType === value ? '1px solid #E88FAC' : '1px solid transparent',
                 borderRadius: '6px', cursor: 'pointer',
               }}>
@@ -219,20 +219,20 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
           style={{
             width: '100%', minHeight: '80px', padding: '10px', fontSize: '13px',
             border: '1px solid transparent', borderRadius: '6px', resize: 'vertical',
-            fontFamily: 'inherit', background: '#fafafa', boxSizing: 'border-box',
+            fontFamily: 'inherit', background: 'var(--card-bg-solid)', boxSizing: 'border-box',
           }}
         />
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
           <button onClick={handleProcess} disabled={processing || !rawInput.trim()}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: 600,
-              background: processing ? 'transparent' : '#E88FAC', color: '#fff',
+              background: processing ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)',
               border: 'none', borderRadius: '6px', cursor: processing ? 'default' : 'pointer',
               opacity: (!rawInput.trim() || processing) ? 0.5 : 1,
             }}>
             {processing ? 'Processing...' : 'Process Music DNA'}
           </button>
-          {error && <span style={{ fontSize: '12px', color: '#ef4444' }}>{error}</span>}
+          {error && <span style={{ fontSize: '12px', color: '#E87878' }}>{error}</span>}
         </div>
       </div>
 
@@ -240,18 +240,18 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
       {dna && (
         <div style={{ background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent', padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Processed DNA
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '11px', color: '#999' }}>
+              <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
                 {dna.trackCount} tracks · {dna.processedAt ? new Date(dna.processedAt).toLocaleDateString() : ''}
               </span>
               {rawInput.trim() && (
                 <button onClick={handleProcess} disabled={processing}
                   style={{
                     padding: '3px 10px', fontSize: '11px', fontWeight: 600,
-                    background: processing ? '#f5f5f5' : '#fafafa', color: processing ? '#bbb' : '#666',
+                    background: processing ? '#f5f5f5' : 'var(--card-bg-solid)', color: processing ? 'var(--foreground-subtle)' : 'rgba(240, 236, 232, 0.75)',
                     border: '1px solid transparent', borderRadius: '4px',
                     cursor: processing ? 'default' : 'pointer',
                   }}>
@@ -264,7 +264,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
           {/* Top genres */}
           {dna.topGenres?.length > 0 && (
             <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Top Genres</div>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Top Genres</div>
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                 {dna.topGenres.map(g => (
                   <span key={g} style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '11px', background: '#F0F4FF', color: '#6B7FE3', border: '1px solid rgba(107,127,227,0.15)' }}>
@@ -277,13 +277,13 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
 
           {/* Track list */}
           <div>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Tracks</div>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Tracks</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '300px', overflowY: 'auto' }}>
               {(dna.tracks || []).map((t, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: '4px', background: i % 2 === 0 ? '#fafafa' : 'transparent' }}>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: '4px', background: i % 2 === 0 ? 'var(--card-bg-solid)' : 'transparent' }}>
                   <div>
-                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#1a1a1a' }}>{t.track}</span>
-                    {t.artist && <span style={{ fontSize: '12px', color: '#999', marginLeft: '6px' }}>— {t.artist}</span>}
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--foreground)' }}>{t.track}</span>
+                    {t.artist && <span style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginLeft: '6px' }}>— {t.artist}</span>}
                   </div>
                   {t.spotifyUrl && (
                     <a href={t.spotifyUrl} target="_blank" rel="noopener noreferrer"
@@ -299,7 +299,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
       )}
 
       {!dna && (
-        <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
+        <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
           No music DNA yet. Paste a playlist URL or song list above and hit Process.
         </div>
       )}
@@ -309,7 +309,7 @@ function MusicDnaPanel({ creator, creatorId, onUpdate }) {
 
 function TagWeightPanel({ tagWeights }) {
   if (!tagWeights || tagWeights.length === 0) {
-    return <div style={{ color: '#555', fontSize: '13px', padding: '12px 0' }}>No tag weights yet — run analysis first.</div>
+    return <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', padding: '12px 0' }}>No tag weights yet — run analysis first.</div>
   }
 
   const byCategory = {}
@@ -326,7 +326,7 @@ function TagWeightPanel({ tagWeights }) {
         if (!tags.length) return null
         return (
           <div key={cat}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{cat}</div>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{cat}</div>
             {tags.map(tw => (
               <WeightBar key={tw.tag} tag={tw.tag} weight={tw.weight} category={cat} />
             ))}
@@ -339,10 +339,10 @@ function TagWeightPanel({ tagWeights }) {
 
 function DocumentRow({ doc, isNew }) {
   const typeColors = {
-    Audio: '#E88FAC', Transcript: '#60a5fa', PDF: '#fb923c',
-    'Meeting Notes': '#34d399', Other: '#999',
+    Audio: 'var(--palm-pink)', Transcript: '#78B4E8', PDF: '#E8A878',
+    'Meeting Notes': '#34d399', Other: 'var(--foreground-muted)',
   }
-  const color = typeColors[doc.fileType] || '#999'
+  const color = typeColors[doc.fileType] || 'var(--foreground-muted)'
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px',
@@ -355,23 +355,23 @@ function DocumentRow({ doc, isNew }) {
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '13px', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.fileName}</span>
+          <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.fileName}</span>
           {isNew && (
-            <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '1px 6px', borderRadius: '4px', flexShrink: 0 }}>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: 'rgba(232, 200, 120, 0.1)', border: '1px solid #FDE68A', padding: '1px 6px', borderRadius: '4px', flexShrink: 0 }}>
               New
             </span>
           )}
         </div>
-        {doc.notes && <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>{doc.notes}</div>}
+        {doc.notes && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{doc.notes}</div>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         {doc.hasExtractedText && (
-          <span style={{ fontSize: '11px', color: '#22c55e' }}>Text extracted</span>
+          <span style={{ fontSize: '11px', color: '#7DD3A4' }}>Text extracted</span>
         )}
         {!doc.hasExtractedText && doc.analysisStatus === 'Pending' && (
           <span style={{ fontSize: '11px', color: '#f59e0b' }}>Pending extraction</span>
         )}
-        <span style={{ fontSize: '11px', color: '#555' }}>{doc.uploadDate || '—'}</span>
+        <span style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)' }}>{doc.uploadDate || '—'}</span>
       </div>
     </div>
   )
@@ -436,23 +436,23 @@ function UploadModal({ creator, onClose, onUploaded }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '28px', width: '480px', maxWidth: '95vw' }}>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '20px' }}>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '20px' }}>
           Upload Document — {creator.name || creator.aka}
         </div>
 
         {result ? (
           <div>
-            <div style={{ color: '#22c55e', fontSize: '14px', marginBottom: '12px' }}>
+            <div style={{ color: '#7DD3A4', fontSize: '14px', marginBottom: '12px' }}>
               Uploaded successfully.{result.isAudio ? ' Audio will be transcribed when you run analysis.' : ''}
             </div>
-            <div style={{ fontSize: '12px', color: '#999', marginBottom: '20px' }}>{result.fileName}</div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>{result.fileName}</div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => { setResult(null); setFile(null); setNotes('') }}
-                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: '#1a1a1a', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 Upload Another
               </button>
               <button onClick={() => { onUploaded(); onClose() }}
-                style={{ flex: 1, background: '#E88FAC', color: '#1a1a1a', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                style={{ flex: 1, background: 'var(--palm-pink)', color: 'var(--foreground)', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                 Done
               </button>
             </div>
@@ -460,14 +460,14 @@ function UploadModal({ creator, onClose, onUploaded }) {
         ) : (
           <>
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '6px' }}>File Type</label>
+              <label style={{ fontSize: '12px', color: 'var(--foreground-muted)', display: 'block', marginBottom: '6px' }}>File Type</label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {['Audio', 'Transcript', 'PDF', 'Meeting Notes', 'Other'].map(t => (
                   <button key={t} onClick={() => setFileType(t)}
                     style={{
                       padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
-                      background: fileType === t ? '#E88FAC' : '#FFF0F3',
-                      color: fileType === t ? '#fff' : '#888',
+                      background: fileType === t ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
+                      color: fileType === t ? '#fff' : 'var(--foreground-muted)',
                       border: fileType === t ? '1px solid #E88FAC' : '1px solid transparent',
                     }}>
                     {t}
@@ -477,12 +477,12 @@ function UploadModal({ creator, onClose, onUploaded }) {
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '6px' }}>File</label>
+              <label style={{ fontSize: '12px', color: 'var(--foreground-muted)', display: 'block', marginBottom: '6px' }}>File</label>
               <div
                 onClick={() => fileRef.current?.click()}
                 style={{
                   border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '20px', textAlign: 'center',
-                  cursor: 'pointer', background: file ? '#dcfce7' : '#FFF5F7', color: file ? '#16a34a' : '#999', fontSize: '13px', fontWeight: file ? 600 : 400,
+                  cursor: 'pointer', background: file ? 'rgba(125, 211, 164, 0.08)' : '#FFF5F7', color: file ? '#7DD3A4' : 'var(--foreground-muted)', fontSize: '13px', fontWeight: file ? 600 : 400,
                 }}>
                 {file ? file.name : 'Click to select a file'}
               </div>
@@ -490,27 +490,27 @@ function UploadModal({ creator, onClose, onUploaded }) {
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '6px' }}>Notes (optional)</label>
+              <label style={{ fontSize: '12px', color: 'var(--foreground-muted)', display: 'block', marginBottom: '6px' }}>Notes (optional)</label>
               <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Onboarding call Jan 2026"
-                style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' }} />
+                style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px', color: 'var(--foreground)', fontSize: '13px', boxSizing: 'border-box' }} />
             </div>
 
-            {error && <div style={{ color: '#ef4444', fontSize: '12px', marginBottom: '12px' }}>{error}</div>}
+            {error && <div style={{ color: '#E87878', fontSize: '12px', marginBottom: '12px' }}>{error}</div>}
 
             {fileType === 'Audio' && (
-              <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px', padding: '8px 10px', background: 'var(--background)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '6px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '16px', padding: '8px 10px', background: 'var(--background)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '6px' }}>
                 Audio uploads directly to Dropbox. Whisper transcription runs when you hit "Run Analysis."
               </div>
             )}
 
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={onClose}
-                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: '#888', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                style={{ flex: 1, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', padding: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 Cancel
               </button>
               <button onClick={submit} disabled={uploading || !file}
                 style={{
-                  flex: 2, background: uploading ? 'transparent' : '#E88FAC', color: '#1a1a1a', border: 'none',
+                  flex: 2, background: uploading ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)', border: 'none',
                   borderRadius: '6px', padding: '8px', cursor: uploading || !file ? 'not-allowed' : 'pointer',
                   fontSize: '13px', fontWeight: 600, opacity: !file ? 0.5 : 1,
                 }}>
@@ -527,10 +527,10 @@ function UploadModal({ creator, onClose, onUploaded }) {
 // ── Earnings Panel ──────────────────────────────────────────────────────────
 
 const TYPE_COLORS = {
-  'Tip': '#E88FAC',
-  'Subscription': '#60a5fa',
-  'Recurring subscription': '#60a5fa',
-  'Payment for message': '#fb923c',
+  'Tip': 'var(--palm-pink)',
+  'Subscription': '#78B4E8',
+  'Recurring subscription': '#78B4E8',
+  'Payment for message': '#E8A878',
 }
 const TYPE_LABELS = { 'Payment for message': 'Messages', 'Recurring subscription': 'Subscription' }
 const typeLabel = t => TYPE_LABELS[t] || t
@@ -769,7 +769,7 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
             <div style={{
               position: 'absolute', left: dotLeft, top: dotTop,
               width: '10px', height: '10px', marginLeft: '-5px', marginTop: '-5px',
-              borderRadius: '50%', background: '#E88FAC', border: '2px solid #fff',
+              borderRadius: '50%', background: 'var(--palm-pink)', border: '2px solid #fff',
               boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
               transform: 'scale(1)', transition: 'left 0.08s ease, top 0.08s ease',
               animation: 'dotPulse 0.2s ease-out',
@@ -784,11 +784,11 @@ function RevenueChart({ dailyData, allDailyData, typeFilter, pctChange, mileston
               transition: 'left 0.08s ease, top 0.08s ease, opacity 0.12s ease',
               whiteSpace: 'nowrap',
             }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#1a1a1a', marginBottom: '2px' }}>{fmtDate(hover.date)}</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '2px' }}>{fmtDate(hover.date)}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#E88FAC' }} />
-                <span style={{ fontSize: '11px', color: '#999' }}>Earnings</span>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', marginLeft: 'auto' }}>{fmtM(hover.net)}</span>
+                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--palm-pink)' }} />
+                <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Earnings</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginLeft: 'auto' }}>{fmtM(hover.net)}</span>
               </div>
             </div>
           </>)
@@ -869,26 +869,26 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
         style={{
           display: 'grid', gridTemplateColumns: '24px 1fr 140px 100px 100px 100px 90px 70px', padding: '8px 16px',
           fontSize: '12px', cursor: 'pointer',
-          background: expanded ? '#FFF8F8' : i % 2 === 0 ? '#fff' : '#FAFAFA',
+          background: expanded ? '#FFF8F8' : i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)',
           transition: 'background 0.1s',
         }}
-        onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = '#FAFAFA' }}
-        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#FAFAFA' }}
+        onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = 'var(--card-bg-solid)' }}
+        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)' }}
       >
-        <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{expanded ? '▼' : '▶'}</span>
+        <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px', lineHeight: '20px' }}>{expanded ? '▼' : '▶'}</span>
         <div>
-          <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{w.fan}</span>
-          {w.username && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{w.username}</span>}
+          <span style={{ fontWeight: 500, color: 'var(--foreground)' }}>{w.fan}</span>
+          {w.username && <span style={{ color: 'var(--palm-pink)', fontSize: '11px', marginLeft: '6px' }}>@{w.username}</span>}
         </div>
-        <span style={{ color: '#666', fontSize: '11px' }}>{w.peakStart} → {w.peakEnd}</span>
-        <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(w.peak30)}</span>
-        <span style={{ textAlign: 'right', color: w.last30 === 0 ? '#DC2626' : '#f59e0b', fontWeight: 600 }}>{fmtMoney(w.last30)}</span>
-        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(w.lifetime)}</span>
-        <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{w.lastTxnDate}</span>
+        <span style={{ color: 'rgba(240, 236, 232, 0.75)', fontSize: '11px' }}>{w.peakStart} → {w.peakEnd}</span>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: 'var(--foreground)' }}>{fmtMoney(w.peak30)}</span>
+        <span style={{ textAlign: 'right', color: w.last30 === 0 ? '#E87878' : '#f59e0b', fontWeight: 600 }}>{fmtMoney(w.last30)}</span>
+        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{fmtMoney(w.lifetime)}</span>
+        <span style={{ textAlign: 'right', color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.lastTxnDate}</span>
         <span style={{ textAlign: 'center' }}>
           <span style={{
-            background: w.status === 'gone' ? '#FEE2E2' : '#FEF3C7',
-            color: w.status === 'gone' ? '#DC2626' : '#D97706',
+            background: w.status === 'gone' ? 'rgba(232, 120, 120, 0.12)' : 'rgba(232, 200, 120, 0.1)',
+            color: w.status === 'gone' ? '#E87878' : '#E8A878',
             padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
           }}>{w.status === 'gone' ? 'GONE' : 'DROP'}</span>
         </span>
@@ -898,9 +898,9 @@ function WhaleRow({ whale: w, index: i, fmtMoney }) {
       {expanded && timeline.length > 0 && (
         <div style={{ padding: '12px 16px 16px 40px', background: '#FEFBFB' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <div style={{ fontSize: '11px', color: '#999' }}>Weekly spending — <span style={{ color: '#E88FAC', fontWeight: 600 }}>peak period</span> and <span style={{ color: '#DC2626', fontWeight: 600 }}>investigation zone</span></div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Weekly spending — <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>peak period</span> and <span style={{ color: '#E87878', fontWeight: 600 }}>investigation zone</span></div>
             {w.inspectFrom && w.inspectTo && (
-              <div style={{ fontSize: '11px', color: '#DC2626', fontWeight: 500 }}>
+              <div style={{ fontSize: '11px', color: '#E87878', fontWeight: 500 }}>
                 Investigate DMs: {w.inspectFrom} → {w.inspectTo}
               </div>
             )}
@@ -988,7 +988,7 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState(null) // { success: true } or { error: '...' }
   const chatFileRef = useRef(null)
-  const urgColors = { critical: { bg: '#FEE2E2', text: '#DC2626' }, high: { bg: '#FFF3CD', text: '#D97706' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
+  const urgColors = { critical: { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' }, high: { bg: '#FFF3CD', text: '#E8A878' }, warning: { bg: '#FEF9C3', text: '#A16207' } }
 
   // Load existing analysis from Airtable when expanded
   useEffect(() => {
@@ -1106,42 +1106,42 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
         style={{
           display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px',
           fontSize: '12px', cursor: 'pointer',
-          background: expanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
+          background: expanded ? 'rgba(232, 200, 120, 0.05)' : i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)',
         }}
       >
-        <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{expanded ? '▼' : '▶'}</span>
+        <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px', lineHeight: '20px' }}>{expanded ? '▼' : '▶'}</span>
         <div>
-          <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{a.fan}</span>
-          {a.username && <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{a.username}</span>}
+          <span style={{ fontWeight: 500, color: 'var(--foreground)' }}>{a.fan}</span>
+          {a.username && <span style={{ color: 'var(--palm-pink)', fontSize: '11px', marginLeft: '6px' }}>@{a.username}</span>}
         </div>
-        <span style={{ textAlign: 'right', color: '#666' }}>{a.medianGap}d</span>
-        <span style={{ textAlign: 'right', fontWeight: 600, color: a.currentGap > a.medianGap * 3 ? '#DC2626' : '#EA580C' }}>{a.currentGap}d <span style={{ fontSize: '10px', color: '#999', fontWeight: 400 }}>({a.gapRatio}x)</span></span>
-        <span style={{ textAlign: 'right', color: a.rolling30 === 0 ? '#DC2626' : '#666', fontWeight: a.rolling30 === 0 ? 600 : 400 }}>{fmtMoney(a.rolling30)}</span>
-        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(a.monthlyAvg90)}</span>
-        <span style={{ textAlign: 'right', color: '#666' }}>{fmtMoney(a.lifetime)}</span>
+        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{a.medianGap}d</span>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: a.currentGap > a.medianGap * 3 ? '#E87878' : '#E88C5C' }}>{a.currentGap}d <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 400 }}>({a.gapRatio}x)</span></span>
+        <span style={{ textAlign: 'right', color: a.rolling30 === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)', fontWeight: a.rolling30 === 0 ? 600 : 400 }}>{fmtMoney(a.rolling30)}</span>
+        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{fmtMoney(a.monthlyAvg90)}</span>
+        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{fmtMoney(a.lifetime)}</span>
         <span style={{ textAlign: 'center' }}>
           <span style={{ background: uc.bg, color: uc.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase' }}>{a.urgency}</span>
         </span>
       </div>
 
       {expanded && (
-        <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
+        <div style={{ padding: '12px 16px 16px 40px', background: 'rgba(232, 200, 120, 0.05)' }}>
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
             <div>
-              <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Trigger</div>
-              <div style={{ fontSize: '12px', color: '#1a1a1a' }}>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginBottom: '2px' }}>Trigger</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>
                 {a.triggerReason === 'gap' && `Purchase gap ${a.currentGap}d exceeds ${a.medianGap * 2}d threshold (2× median)`}
                 {a.triggerReason === 'spend_drop' && `30-day spend dropped to ${Math.round(a.spendDropRatio * 100)}% of normal`}
                 {a.triggerReason === 'both' && `Gap ${a.gapRatio}× overdue + spending at ${Math.round(a.spendDropRatio * 100)}% of normal`}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Last Purchase</div>
-              <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{a.lastPurchaseDate}</div>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginBottom: '2px' }}>Last Purchase</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{a.lastPurchaseDate}</div>
             </div>
             <div>
-              <div style={{ fontSize: '10px', color: '#999', marginBottom: '2px' }}>Total Purchases</div>
-              <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{a.totalPurchases} sessions</div>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginBottom: '2px' }}>Total Purchases</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{a.totalPurchases} sessions</div>
             </div>
           </div>
 
@@ -1151,16 +1151,16 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
             const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
             return (
               <div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '16px' }}>Monthly Spending (last 6 months)</div>
+                <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>Monthly Spending (last 6 months)</div>
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', height: '60px' }}>
                   {a.monthlyHistory.map(m => {
                     const h = Math.max((m.spend / maxMo) * 50, m.spend > 0 ? 3 : 0)
                     const moNum = parseInt(m.month.slice(5))
                     return (
                       <div key={m.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                        <div style={{ fontSize: '9px', color: '#666', marginBottom: '2px' }}>{m.spend > 0 ? fmtMoney(m.spend) : ''}</div>
-                        <div style={{ width: '100%', maxWidth: '40px', height: h + 'px', background: m.spend === 0 ? '#F3F4F6' : m.spend < a.monthlyAvg90 * 0.25 ? '#FECACA' : '#E88FAC', borderRadius: '3px 3px 0 0', minHeight: '2px' }} />
-                        <div style={{ fontSize: '9px', color: '#999', marginTop: '3px' }}>{moNames[moNum]}</div>
+                        <div style={{ fontSize: '9px', color: 'rgba(240, 236, 232, 0.75)', marginBottom: '2px' }}>{m.spend > 0 ? fmtMoney(m.spend) : ''}</div>
+                        <div style={{ width: '100%', maxWidth: '40px', height: h + 'px', background: m.spend === 0 ? 'rgba(255,255,255,0.04)' : m.spend < a.monthlyAvg90 * 0.25 ? '#FECACA' : 'var(--palm-pink)', borderRadius: '3px 3px 0 0', minHeight: '2px' }} />
+                        <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginTop: '3px' }}>{moNames[moNum]}</div>
                       </div>
                     )
                   })}
@@ -1174,21 +1174,21 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
             <button
               onClick={() => { setSendResult(null); setShowSendModal(true) }}
               style={{
-                background: '#1a1a1a', border: 'none', borderRadius: '6px',
-                padding: '7px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                background: 'var(--foreground)', border: 'none', borderRadius: '6px',
+                padding: '7px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
               }}
             >
               <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
             </button>
-            {sendResult?.success && !sendResult.trackerError && <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
+            {sendResult?.success && !sendResult.trackerError && <span style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 500 }}>&#10003; Sent &amp; tracked</span>}
             {sendResult?.success && sendResult.trackerError && <span style={{ fontSize: '11px', color: '#d97706', fontWeight: 500 }} title={sendResult.trackerError}>&#10003; Sent \u2014 tracker failed (hover)</span>}
-            {sendResult?.error && <span style={{ fontSize: '11px', color: '#DC2626' }}>{sendResult.error}</span>}
+            {sendResult?.error && <span style={{ fontSize: '11px', color: '#E87878' }}>{sendResult.error}</span>}
           </div>
 
           {/* Chat analysis section */}
           <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
-            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
               Chat Analysis {a.lifetime >= 1000 ? '(Deep Dive)' : '(Quick Snapshot)'}
             </div>
 
@@ -1204,9 +1204,9 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                 <button
                   onClick={() => chatFileRef.current?.click()}
                   style={{
-                    background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                    background: chatFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)', border: `1px solid ${chatFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
                     borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                    color: chatFile ? '#166534' : '#64748B',
+                    color: chatFile ? '#7DD3A4' : 'var(--foreground-muted)',
                   }}
                 >
                   {chatFile ? `✓ ${chatFile.name}` : 'Upload OF chat HTML'}
@@ -1216,22 +1216,22 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                     onClick={handleAnalyze}
                     disabled={analyzing}
                     style={{
-                      background: '#EA580C', border: 'none', borderRadius: '6px',
-                      padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                      background: '#E88C5C', border: 'none', borderRadius: '6px',
+                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                       cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                     }}
                   >
                     {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
                   </button>
                 )}
-                <span style={{ fontSize: '11px', color: '#bbb' }}>
+                <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>
                   Save chat page as HTML → upload here
                 </span>
               </div>
             )}
 
             {analysisError && (
-              <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+              <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
                 {analysisError}
               </div>
             )}
@@ -1239,42 +1239,42 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
             {analysis && (
               <div style={{ marginTop: '4px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: 'var(--foreground-muted)' }}>
                     <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
                     {analysis.managerBrief && (
-                      <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
-                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
                       </div>
                     )}
-                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>✓ Saved</span>}
+                    {analysis.saved && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>✓ Saved</span>}
                   </div>
                   {chatFile ? (
                     <button
                       onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }}
                       disabled={analyzing}
-                      style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
+                      style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
                     >
                       {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
                     </button>
                   ) : (
                     <button
                       onClick={() => { setAnalysis(null); setShowBrief(false) }}
-                      style={{ fontSize: '11px', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                      style={{ fontSize: '11px', color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                     >
                       Upload new chat
                     </button>
                   )}
                 </div>
                 <div style={{
-                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
-                  border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
+                  background: showBrief ? 'var(--card-bg-solid)' : 'rgba(232, 200, 120, 0.05)',
+                  border: `1px solid ${showBrief ? 'rgba(255,255,255,0.06)' : 'rgba(232, 168, 120, 0.15)'}`,
                   borderRadius: '8px',
-                  padding: '16px 20px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
+                  padding: '16px 20px', fontSize: '13px', color: 'var(--foreground)', lineHeight: '1.7',
                 }}>
                   {(() => {
                     const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
-                    const accentColor = showBrief ? '#334155' : '#EA580C'
+                    const accentColor = showBrief ? '#334155' : '#E88C5C'
                     return text.split('\n').map((line, idx) => {
                       const trimmed = line.trim()
                       if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
@@ -1313,14 +1313,14 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                         if (labelMatch) {
                           return (
                             <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}>
-                              <span style={{ color: '#ccc', marginTop: '2px' }}>•</span>
+                              <span style={{ color: 'var(--foreground-subtle)', marginTop: '2px' }}>•</span>
                               <span><strong style={{ color: '#333' }}>{labelMatch[1]}:</strong> {labelMatch[2]}</span>
                             </div>
                           )
                         }
                         return (
                           <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}>
-                            <span style={{ color: '#ccc', marginTop: '2px' }}>•</span>
+                            <span style={{ color: 'var(--foreground-subtle)', marginTop: '2px' }}>•</span>
                             <span>{content.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</span>
                           </div>
                         )
@@ -1358,27 +1358,27 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
             }}
           >
             <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>Send Whale Alert</div>
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>
+            <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)', marginBottom: '16px' }}>
               This will generate a PDF and send it to the <strong>{creatorName}</strong> topic in Telegram.
             </div>
 
             {/* Preview card */}
-            <div style={{ background: '#FAFAFA', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+            <div style={{ background: 'var(--card-bg-solid)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div>
                   <span style={{ fontWeight: 600, fontSize: '14px' }}>{a.fan}</span>
-                  {a.username && <span style={{ color: '#E88FAC', fontSize: '12px', marginLeft: '6px' }}>@{a.username}</span>}
+                  {a.username && <span style={{ color: 'var(--palm-pink)', fontSize: '12px', marginLeft: '6px' }}>@{a.username}</span>}
                 </div>
                 <span style={{ background: uc.bg, color: uc.text, padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{a.urgency}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
-                <div><span style={{ color: '#999' }}>Gap:</span> <strong style={{ color: a.currentGap > a.medianGap * 3 ? '#DC2626' : '#EA580C' }}>{a.currentGap}d</strong> <span style={{ color: '#999' }}>({a.gapRatio}x)</span></div>
-                <div><span style={{ color: '#999' }}>Last 30d:</span> <strong>{fmtMoney(a.rolling30)}</strong></div>
-                <div><span style={{ color: '#999' }}>Lifetime:</span> <strong>{fmtMoney(a.lifetime)}</strong></div>
+                <div><span style={{ color: 'var(--foreground-muted)' }}>Gap:</span> <strong style={{ color: a.currentGap > a.medianGap * 3 ? '#E87878' : '#E88C5C' }}>{a.currentGap}d</strong> <span style={{ color: 'var(--foreground-muted)' }}>({a.gapRatio}x)</span></div>
+                <div><span style={{ color: 'var(--foreground-muted)' }}>Last 30d:</span> <strong>{fmtMoney(a.rolling30)}</strong></div>
+                <div><span style={{ color: 'var(--foreground-muted)' }}>Lifetime:</span> <strong>{fmtMoney(a.lifetime)}</strong></div>
               </div>
               {analysis?.managerBrief && (
                 <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #E5E7EB', fontSize: '12px', color: '#333', lineHeight: '1.5' }}>
-                  <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Manager Brief</div>
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Manager Brief</div>
                   {analysis.managerBrief.split('\n').filter(l => l.trim()).slice(0, 4).map((line, i) => (
                     <div key={i} style={{ marginBottom: '2px' }}>{line.replace(/\*\*([^*]+)\*\*/g, '$1')}</div>
                   ))}
@@ -1386,8 +1386,8 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
               )}
             </div>
 
-            <div style={{ fontSize: '11px', color: '#999', marginBottom: '16px' }}>
-              PDF will include: stats, 6-month spend chart{analysis ? ', manager brief, and full analysis' : ''}. {!analysis && <span style={{ color: '#D97706' }}>No chat analysis available — PDF will only contain spending data.</span>}
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>
+              PDF will include: stats, 6-month spend chart{analysis ? ', manager brief, and full analysis' : ''}. {!analysis && <span style={{ color: '#E8A878' }}>No chat analysis available — PDF will only contain spending data.</span>}
             </div>
 
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -1395,8 +1395,8 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                 onClick={() => setShowSendModal(false)}
                 disabled={sending}
                 style={{
-                  background: '#F3F4F6', border: 'none', borderRadius: '6px',
-                  padding: '8px 16px', fontSize: '12px', cursor: 'pointer', color: '#666',
+                  background: 'rgba(255,255,255,0.04)', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', cursor: 'pointer', color: 'rgba(240, 236, 232, 0.75)',
                 }}
               >
                 Cancel
@@ -1429,8 +1429,8 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
                 }}
                 disabled={sending}
                 style={{
-                  background: sending ? '#999' : '#1a1a1a', border: 'none', borderRadius: '6px',
-                  padding: '8px 20px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                  background: sending ? 'var(--foreground-muted)' : 'var(--foreground)', border: 'none', borderRadius: '6px',
+                  padding: '8px 20px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                   cursor: sending ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -1439,12 +1439,12 @@ function GoingColdRow({ alert: a, index: i, fmtMoney, creatorName, creatorAka, c
             </div>
 
             {sendResult?.success && (
-              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(125, 211, 164, 0.06)', border: '1px solid transparent', borderRadius: '6px', fontSize: '12px', color: '#7DD3A4', textAlign: 'center' }}>
                 &#10003; Sent to {creatorName} topic &amp; logged in Fan Tracker
               </div>
             )}
             {sendResult?.error && (
-              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
                 {sendResult.error}
               </div>
             )}
@@ -1583,20 +1583,20 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       {/* Skeleton: period selector */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
         {[80, 60, 50, 40, 60, 50].map((w, i) => (
-          <div key={i} style={{ width: w, height: 28, background: '#F3F4F6', borderRadius: '6px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          <div key={i} style={{ width: w, height: 28, background: 'rgba(255,255,255,0.04)', borderRadius: '6px', animation: 'pulse 1.5s ease-in-out infinite' }} />
         ))}
       </div>
       {/* Skeleton: chart area */}
       <div style={{ height: 200, background: '#F9FAFB', borderRadius: '12px', marginBottom: '20px', animation: 'pulse 1.5s ease-in-out infinite' }} />
       {/* Skeleton: going cold rows */}
       <div style={{ marginBottom: '16px' }}>
-        <div style={{ width: 120, height: 14, background: '#F3F4F6', borderRadius: '4px', marginBottom: '10px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ width: 120, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', marginBottom: '10px', animation: 'pulse 1.5s ease-in-out infinite' }} />
         {[1, 2, 3].map(i => (
           <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
-            <div style={{ width: 120, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
-            <div style={{ width: 60, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
-            <div style={{ width: 50, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
-            <div style={{ width: 70, height: 14, background: '#F3F4F6', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 120, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 60, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 50, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ width: 70, height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
           </div>
         ))}
       </div>
@@ -1604,13 +1604,13 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
     </div>
   )
   if (error) return (
-    <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#DC2626' }}>
+    <div style={{ padding: '16px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '10px', fontSize: '13px', color: '#E87878' }}>
       {error}
-      <button onClick={onRefresh} style={{ marginLeft: '12px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: '5px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>Retry</button>
+      <button onClick={onRefresh} style={{ marginLeft: '12px', background: '#E87878', color: 'var(--foreground)', border: 'none', borderRadius: '5px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>Retry</button>
     </div>
   )
   if (!data || data.empty) return (
-    <div style={{ color: '#999', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>
+    <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>
       No sales data found. Upload transactions from the Invoicing → Raw Data Upload tab.
     </div>
   )
@@ -1688,11 +1688,11 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setPeriod('custom')
             setSlideDir('right'); setSlideKey(k => k + 1)
             setTimeout(() => setSlideDir(null), 350)
-          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>‹</button>
+          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground-muted)', lineHeight: 1 }}>‹</button>
           <select value={period} onChange={e => { setPeriod(e.target.value); setSlideDir(null); setShowAllFans(false) }}
             style={{
               background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px',
-              color: '#1a1a1a', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
+              color: 'var(--foreground)', fontSize: '12px', padding: '5px 10px', outline: 'none', cursor: 'pointer',
             }}>
             {PERIOD_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
             <option value="custom">Custom Range</option>
@@ -1708,14 +1708,14 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             setPeriod('custom')
             setSlideDir('left'); setSlideKey(k => k + 1)
             setTimeout(() => setSlideDir(null), 350)
-          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: '#999', lineHeight: 1 }}>›</button>
+          }} style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground-muted)', lineHeight: 1 }}>›</button>
           {period === 'custom' && (
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
               <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-                style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: '#1a1a1a', outline: 'none' }} />
-              <span style={{ color: '#ccc', fontSize: '11px' }}>→</span>
+                style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: 'var(--foreground)', outline: 'none' }} />
+              <span style={{ color: 'var(--foreground-subtle)', fontSize: '11px' }}>→</span>
               <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-                style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: '#1a1a1a', outline: 'none' }} />
+                style={{ background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '11px', padding: '4px 6px', color: 'var(--foreground)', outline: 'none' }} />
             </div>
           )}
         </div>
@@ -1724,8 +1724,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             <button onClick={() => setAccountFilter('all')}
               style={{
-                background: accountFilter === 'all' ? '#1a1a1a' : 'transparent',
-                color: accountFilter === 'all' ? '#fff' : '#bbb',
+                background: accountFilter === 'all' ? 'var(--foreground)' : 'transparent',
+                color: accountFilter === 'all' ? '#fff' : 'var(--foreground-subtle)',
                 border: accountFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
                 borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
               }}>All Accounts</button>
@@ -1733,7 +1733,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
               <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
                 style={{
                   background: accountFilter === a ? '#E88FAC18' : 'transparent',
-                  color: accountFilter === a ? '#E88FAC' : '#bbb',
+                  color: accountFilter === a ? 'var(--palm-pink)' : 'var(--foreground-subtle)',
                   border: accountFilter === a ? '1px solid #E88FAC' : '1px solid transparent',
                   borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
                 }}>
@@ -1747,36 +1747,36 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
           <button onClick={() => setTypeFilter('all')}
             style={{
-              background: typeFilter === 'all' ? '#1a1a1a' : 'transparent',
-              color: typeFilter === 'all' ? '#fff' : '#bbb',
+              background: typeFilter === 'all' ? 'var(--foreground)' : 'transparent',
+              color: typeFilter === 'all' ? '#fff' : 'var(--foreground-subtle)',
               border: typeFilter === 'all' ? '1px solid #1a1a1a' : '1px solid transparent',
               borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
             }}>All</button>
           {allTypes.map(t => (
             <button key={t} onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
               style={{
-                background: typeFilter === t ? (TYPE_COLORS[t] || '#999') + '18' : 'transparent',
-                color: typeFilter === t ? TYPE_COLORS[t] || '#999' : '#bbb',
-                border: typeFilter === t ? `1px solid ${TYPE_COLORS[t] || '#999'}` : '1px solid transparent',
+                background: typeFilter === t ? (TYPE_COLORS[t] || 'var(--foreground-muted)') + '18' : 'transparent',
+                color: typeFilter === t ? TYPE_COLORS[t] || 'var(--foreground-muted)' : 'var(--foreground-subtle)',
+                border: typeFilter === t ? `1px solid ${TYPE_COLORS[t] || 'var(--foreground-muted)'}` : '1px solid transparent',
                 borderRadius: '14px', padding: '2px 10px', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
               }}>
-              <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: TYPE_COLORS[t] || '#999', marginRight: '4px' }} />
+              <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: TYPE_COLORS[t] || 'var(--foreground-muted)', marginRight: '4px' }} />
               {typeLabel(t)}
             </button>
           ))}
           <span style={{ color: '#e5e7eb', margin: '0 2px' }}>|</span>
           {Object.entries(periodByType).sort((a, b) => b[1] - a[1]).map(([type, net]) => (
-            <span key={type} style={{ fontSize: '10px', color: '#999' }}>
-              {typeLabel(type)}: <strong style={{ color: '#666' }}>{fmtMoney(net)}</strong>
+            <span key={type} style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
+              {typeLabel(type)}: <strong style={{ color: 'rgba(240, 236, 232, 0.75)' }}>{fmtMoney(net)}</strong>
               <span style={{ color: '#ddd' }}> ({periodTypeTotal > 0 ? Math.round((net / periodTypeTotal) * 100) : 0}%)</span>
             </span>
           ))}
-          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ccc', marginLeft: '4px' }}>↺</button>
+          <button onClick={onRefresh} title="Refresh" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: 'var(--foreground-subtle)', marginLeft: '4px' }}>↺</button>
           <button
             onClick={() => { setShowUploadPanel(!showUploadPanel); setUploadResult(null); setUploadError(null) }}
             style={{
-              background: showUploadPanel ? '#1a1a1a' : 'none',
-              color: showUploadPanel ? '#fff' : '#999',
+              background: showUploadPanel ? 'var(--foreground)' : 'none',
+              color: showUploadPanel ? '#fff' : 'var(--foreground-muted)',
               border: showUploadPanel ? 'none' : '1px solid #e5e7eb',
               borderRadius: '5px', padding: '3px 10px', cursor: 'pointer',
               fontSize: '11px', fontWeight: 600, marginLeft: '4px',
@@ -1794,12 +1794,12 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
           padding: '16px', marginBottom: '12px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>
               Upload OF Statements for {creator?.name || 'this creator'}
             </div>
-            <button onClick={() => setShowUploadPanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#999' }}>×</button>
+            <button onClick={() => setShowUploadPanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: 'var(--foreground-muted)' }}>×</button>
           </div>
-          <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', lineHeight: '1.6' }}>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: '1.6' }}>
             Save the OF Statements → Earnings page as HTML. Scroll past existing data — duplicates are automatically skipped.
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1813,10 +1813,10 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             <button
               onClick={() => uploadFileRef.current?.click()}
               style={{
-                background: uploadFile ? '#F0FDF4' : '#F8FAFC',
-                border: `1px solid ${uploadFile ? '#BBF7D0' : '#E2E8F0'}`,
+                background: uploadFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)',
+                border: `1px solid ${uploadFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
                 borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer',
-                color: uploadFile ? '#166534' : '#64748B',
+                color: uploadFile ? '#7DD3A4' : 'var(--foreground-muted)',
               }}
             >
               {uploadFile ? `✓ ${uploadFile.name}` : 'Choose HTML file'}
@@ -1848,8 +1848,8 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
                   }
                 }}
                 style={{
-                  background: uploading ? '#E5E7EB' : '#1a1a1a', border: 'none', borderRadius: '6px',
-                  padding: '8px 16px', fontSize: '12px', color: uploading ? '#999' : '#fff', fontWeight: 600,
+                  background: uploading ? '#E5E7EB' : 'var(--foreground)', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: uploading ? 'var(--foreground-muted)' : '#fff', fontWeight: 600,
                   cursor: uploading ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -1858,20 +1858,20 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             )}
           </div>
           {uploadError && (
-            <div style={{ marginTop: '10px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+            <div style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
               {uploadError}
             </div>
           )}
           {uploadResult && (
-            <div style={{ marginTop: '10px', padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '4px' }}>
+            <div style={{ marginTop: '10px', padding: '10px 14px', background: 'rgba(125, 211, 164, 0.06)', border: '1px solid transparent', borderRadius: '8px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#7DD3A4', marginBottom: '4px' }}>
                 {uploadResult.uploaded > 0 ? `Added ${uploadResult.uploaded} new transactions` : 'No new transactions to add'}
               </div>
               <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#15803D' }}>
                 <span>Parsed: {uploadResult.parsed}</span>
                 <span>Skipped: {uploadResult.skipped}</span>
                 {uploadResult.overlapMethod && (
-                  <span style={{ color: '#999' }}>
+                  <span style={{ color: 'var(--foreground-muted)' }}>
                     ({uploadResult.overlapMethod === 'fingerprint' ? 'matched overlap' : uploadResult.overlapMethod === 'cutoff_fallback' ? 'timestamp cutoff' : 'first upload'})
                   </span>
                 )}
@@ -2019,11 +2019,11 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <div style={{ width: '10px', height: '6px', borderRadius: '2px', background: 'linear-gradient(90deg, #86efac, #22c55e)' }} />
-                <span style={{ fontSize: '10px', color: '#999' }}>Earnings</span>
+                <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>Earnings</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <div style={{ width: '10px', height: '6px', borderRadius: '2px', background: 'linear-gradient(90deg, #fca5a5, #ef4444)' }} />
-                <span style={{ fontSize: '10px', color: '#999' }}>Chargebacks</span>
+                <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>Chargebacks</span>
               </div>
             </div>
           </div>
@@ -2034,13 +2034,13 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '12px 16px', marginBottom: '12px', overflow: 'hidden' }}>
         {/* Chart header — stays static during slide */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-          <span style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a' }}>{fmtMoney(periodNet)}</span>
-          <span style={{ fontSize: '14px', color: '#999' }}>({fmtMoney(periodNet / 0.8)} Gross)</span>
+          <span style={{ fontSize: '28px', fontWeight: 700, color: 'var(--foreground)' }}>{fmtMoney(periodNet)}</span>
+          <span style={{ fontSize: '14px', color: 'var(--foreground-muted)' }}>({fmtMoney(periodNet / 0.8)} Gross)</span>
           {pctChange !== null && (
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: '3px',
               background: pctChange >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-              color: pctChange >= 0 ? '#16a34a' : '#dc2626',
+              color: pctChange >= 0 ? '#7DD3A4' : '#E87878',
               padding: '3px 10px', borderRadius: '14px', fontSize: '13px', fontWeight: 600,
             }}>
               {pctChange >= 0 ? '↗' : '↘'} {Math.abs(pctChange).toFixed(1)}%
@@ -2074,12 +2074,12 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
         <div style={{ marginBottom: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <div>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#EA580C' }}>{goingColdCount} fan{goingColdCount !== 1 ? 's' : ''} going cold</span>
-              <span style={{ fontSize: '11px', color: '#999', marginLeft: '6px' }}>Spending below their normal cadence</span>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#E88C5C' }}>{goingColdCount} fan{goingColdCount !== 1 ? 's' : ''} going cold</span>
+              <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginLeft: '6px' }}>Spending below their normal cadence</span>
             </div>
           </div>
           <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 90px 90px 90px 100px 90px 70px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
               <span></span><span>Fan</span><span style={{ textAlign: 'right' }}>Normal Gap</span><span style={{ textAlign: 'right' }}>Current Gap</span><span style={{ textAlign: 'right' }}>Last 30d</span><span style={{ textAlign: 'right' }}>90d Avg/mo</span><span style={{ textAlign: 'right' }}>Lifetime</span><span style={{ textAlign: 'center' }}>Urgency</span>
             </div>
             {(showAllCold ? goingColdAlerts : goingColdAlerts.slice(0, 10)).map((a, i) => (
@@ -2087,7 +2087,7 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
             ))}
             {goingColdAlerts.length > 10 && !showAllCold && (
               <button onClick={() => setShowAllCold(true)}
-                style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: '#EA580C', fontWeight: 600 }}>
+                style={{ width: '100%', padding: '10px', background: 'var(--card-bg-solid)', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: '#E88C5C', fontWeight: 600 }}>
                 Show all {goingColdCount} fans
               </button>
             )}
@@ -2097,45 +2097,45 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
 
       {/* Top fans */}
       <div>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
           Top Fans — {PERIOD_PRESETS.find(p => p.key === period)?.label || (period === 'custom' ? 'Custom Range' : 'All Time')}
         </div>
         <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid transparent' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid transparent' }}>
             <span>#</span><span>Name</span><span>Username</span>{availableAccounts?.length > 1 && <span>Account</span>}<span style={{ textAlign: 'right' }}>Spent</span><span style={{ textAlign: 'right' }}>Txns</span><span style={{ textAlign: 'right' }}>Last Active</span>
           </div>
           {(showAllFans ? topFans : topFans.slice(0, 5)).map((fan, i) => (
             <div key={fan.displayName} style={{
               display: 'grid', gridTemplateColumns: availableAccounts?.length > 1 ? '36px 1fr 1fr 80px 100px 60px 90px' : '36px 1fr 1fr 100px 60px 90px', padding: '8px 16px',
               fontSize: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)',
-              background: i % 2 === 0 ? '#fff' : '#FAFAFA',
+              background: i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)',
             }}>
-              <span style={{ color: '#ccc', fontWeight: 600 }}>{fan.rank}</span>
-              <span style={{ color: '#1a1a1a', fontWeight: 500 }}>{fan.displayName}</span>
+              <span style={{ color: 'var(--foreground-subtle)', fontWeight: 600 }}>{fan.rank}</span>
+              <span style={{ color: 'var(--foreground)', fontWeight: 500 }}>{fan.displayName}</span>
               <span>{fan.ofUsername ? (
                 <a href={`https://onlyfans.com/${fan.ofUsername}`} target="_blank" rel="noopener noreferrer"
-                  style={{ color: '#E88FAC', textDecoration: 'none', fontSize: '11px' }}>
+                  style={{ color: 'var(--palm-pink)', textDecoration: 'none', fontSize: '11px' }}>
                   @{fan.ofUsername}
                 </a>
-              ) : <span style={{ color: '#ccc' }}>—</span>}</span>
+              ) : <span style={{ color: 'var(--foreground-subtle)' }}>—</span>}</span>
               {availableAccounts?.length > 1 && (
                 <span style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                   {(fan.accounts || []).map(a => (
                     <span key={a} style={{
                       background: '#f3f4f6', borderRadius: '8px', padding: '1px 6px',
-                      fontSize: '9px', color: '#666', fontWeight: 500, whiteSpace: 'nowrap',
+                      fontSize: '9px', color: 'rgba(240, 236, 232, 0.75)', fontWeight: 500, whiteSpace: 'nowrap',
                     }}>{a}</span>
                   ))}
                 </span>
               )}
-              <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(fan.totalNet)}</span>
-              <span style={{ textAlign: 'right', color: '#666' }}>{fan.transactionCount}</span>
-              <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{fan.lastDate}</span>
+              <span style={{ textAlign: 'right', fontWeight: 600, color: 'var(--foreground)' }}>{fmtMoney(fan.totalNet)}</span>
+              <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{fan.transactionCount}</span>
+              <span style={{ textAlign: 'right', color: 'var(--foreground-muted)', fontSize: '11px' }}>{fan.lastDate}</span>
             </div>
           ))}
           {topFans.length > 5 && !showAllFans && (
             <button onClick={() => setShowAllFans(true)}
-              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
+              style={{ width: '100%', padding: '10px', background: 'var(--card-bg-solid)', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--palm-pink)', fontWeight: 600 }}>
               Show all {topFans.length} fans
             </button>
           )}
@@ -2276,12 +2276,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     const m = []
     if (f.alertHistory) {
       for (const h of f.alertHistory) {
-        if (h.date) m.push({ date: h.date.split('T')[0], label: 'Sent to Manager', color: '#DC2626' })
+        if (h.date) m.push({ date: h.date.split('T')[0], label: 'Sent to Manager', color: '#E87878' })
       }
     }
     if (f.analysisRecords) {
       for (const a of f.analysisRecords) {
-        if (a.date) m.push({ date: a.date.split('T')[0], label: 'Analyzed', color: '#7C3AED' })
+        if (a.date) m.push({ date: a.date.split('T')[0], label: 'Analyzed', color: '#A78BFA' })
       }
     }
     return m
@@ -2695,15 +2695,15 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         style={{
           display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px',
           padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
-          background: isExpanded ? '#FFFBF5' : i % 2 === 0 ? '#fff' : '#FAFAFA',
+          background: isExpanded ? 'rgba(232, 200, 120, 0.05)' : i % 2 === 0 ? '#fff' : 'var(--card-bg-solid)',
         }}
       >
-        <span style={{ color: '#ccc', fontSize: '10px', lineHeight: '20px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
+        <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px', lineHeight: '20px' }}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
         <div>
-          <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{f.fanName}</span>
+          <span style={{ fontWeight: 500, color: 'var(--foreground)' }}>{f.fanName}</span>
           {f.ofUsername
-            ? <span style={{ color: '#E88FAC', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>
-            : <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px', background: '#F3F4F6', padding: '1px 4px', borderRadius: '3px' }} title="No username — account likely deleted/deactivated">deleted?</span>
+            ? <span style={{ color: 'var(--palm-pink)', fontSize: '11px', marginLeft: '6px' }}>@{f.ofUsername}</span>
+            : <span style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginLeft: '6px', background: 'rgba(255,255,255,0.04)', padding: '1px 4px', borderRadius: '3px' }} title="No username — account likely deleted/deactivated">deleted?</span>
           }
           {availableAccounts && availableAccounts.length > 1 && f.accounts && f.accounts.length > 0 && (
             f.accounts.map(acct => {
@@ -2711,12 +2711,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               return (
                 <span key={acct} style={{
                   fontSize: '8px', fontWeight: 600, marginLeft: '4px', padding: '1px 5px', borderRadius: '3px',
-                  background: isFree ? '#DBEAFE' : '#EDE9FE', color: isFree ? '#1D4ED8' : '#7C3AED',
+                  background: isFree ? '#DBEAFE' : 'rgba(167, 139, 250, 0.1)', color: isFree ? '#1D4ED8' : '#A78BFA',
                 }}>{acct}</span>
               )
             })
           )}
-          {f.alertCount > 0 && <span style={{ fontSize: '9px', color: '#999', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
+          {f.alertCount > 0 && <span style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
         <span title={heat.label} style={{ fontSize: '14px', lineHeight: '20px', textAlign: 'center' }}>{heat.emoji}</span>
         <span>{f.alertStatus !== 'None' && (
@@ -2726,14 +2726,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               : f.alertStatus}
           </span>
         )}</span>
-        <span style={{ textAlign: 'right', fontWeight: 600, color: '#1a1a1a' }}>{fmtMoney(f.lifetimeSpend)}</span>
-        <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#DC2626' : '#666', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
-        <span style={{ textAlign: 'right', color: '#666' }}>{f.txnCount || 0}</span>
-        <span style={{ textAlign: 'right', color: '#999', fontSize: '11px' }}>{f.lastDate || '—'}</span>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: 'var(--foreground)' }}>{fmtMoney(f.lifetimeSpend)}</span>
+        <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
+        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{f.txnCount || 0}</span>
+        <span style={{ textAlign: 'right', color: 'var(--foreground-muted)', fontSize: '11px' }}>{f.lastDate || '—'}</span>
       </div>
 
       {isExpanded && (
-        <div style={{ padding: '12px 16px 16px 40px', background: '#FFFBF5' }}>
+        <div style={{ padding: '12px 16px 16px 40px', background: 'rgba(232, 200, 120, 0.05)' }}>
 
           {/* ═══ SECTION 1: Fan Info Header ═══ */}
           <div style={{ marginBottom: '16px' }}>
@@ -2742,9 +2742,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               <div style={{
                 marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '11px',
                 display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column',
-                background: f.heatStatus === 'Dead' ? '#F3F4F6' : f.heatStatus === 'Going Cold' ? '#FEF2F2' : '#FFF7ED',
-                border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? '#FECACA' : '#FED7AA'}`,
-                color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#991B1B' : '#92400E',
+                background: f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.04)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.08)' : '#FFF7ED',
+                border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? '#FECACA' : 'rgba(232, 168, 120, 0.15)'}`,
+                color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#991B1B' : '#E8A878',
               }}>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <span style={{ fontSize: '14px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
@@ -2770,15 +2770,15 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
               {/* Lifetime — inline editable. Override used in PDF/Telegram; computed shown as faded secondary when override active. */}
               <div>
-                <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   Lifetime
                   {f.lifetimeOverride > 0 && (
-                    <span title="Manual override in effect — used on the Telegram PDF" style={{ fontSize: '8px', background: '#FEF3C7', color: '#92400E', padding: '0 4px', borderRadius: '3px', fontWeight: 700 }}>OVERRIDE</span>
+                    <span title="Manual override in effect — used on the Telegram PDF" style={{ fontSize: '8px', background: 'rgba(232, 200, 120, 0.1)', color: '#E8A878', padding: '0 4px', borderRadius: '3px', fontWeight: 700 }}>OVERRIDE</span>
                   )}
                 </div>
                 {editingLifetime ? (
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: '#1a1a1a' }}>$</span>
+                    <span style={{ fontSize: '12px', color: 'var(--foreground)' }}>$</span>
                     <input
                       type="text"
                       autoFocus
@@ -2793,11 +2793,11 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid #CBD5E1', borderRadius: '3px' }}
                     />
                     <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#16A34A', color: '#fff', borderRadius: '3px', cursor: 'pointer' }}>
+                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#16A34A', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
                       {savingLifetime ? '…' : 'Save'}
                     </button>
                     <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid #CBD5E1', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: '#64748B' }}>
+                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid #CBD5E1', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
                       Cancel
                     </button>
                   </div>
@@ -2805,7 +2805,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   <div
                     onClick={() => { setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
                     title="Click to set a manual lifetime override (used on the Telegram PDF when the actual OF lifetime is higher than what earnings data shows)"
-                    style={{ fontSize: '12px', color: '#1a1a1a', cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
+                    style={{ fontSize: '12px', color: 'var(--foreground)', cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
                     onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
                     onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}
                   >
@@ -2818,51 +2818,51 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               </div>
               {f.firstDate && (
                 <div>
-                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Purchase</div>
-                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.firstDate}</div>
+                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Purchase</div>
+                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.firstDate}</div>
                 </div>
               )}
               {f.heatDetail && (
                 <>
                   <div>
-                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last Purchase</div>
-                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.heatDetail.lastPurchase}</div>
+                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last Purchase</div>
+                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.heatDetail.lastPurchase}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Gap</div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#DC2626' }}>{f.heatDetail.currentGap}d <span style={{ fontWeight: 400, color: '#999' }}>({f.heatDetail.medianGap}d median)</span></div>
+                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Gap</div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#E87878' }}>{f.heatDetail.currentGap}d <span style={{ fontWeight: 400, color: 'var(--foreground-muted)' }}>({f.heatDetail.medianGap}d median)</span></div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last 30d</div>
-                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.heatDetail.rolling30)}</div>
+                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last 30d</div>
+                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtMoney(f.heatDetail.rolling30)}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>90d Avg/mo</div>
-                    <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtMoney(f.heatDetail.monthlyAvg90)}</div>
+                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>90d Avg/mo</div>
+                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtMoney(f.heatDetail.monthlyAvg90)}</div>
                   </div>
                 </>
               )}
               {f.firstFlagged && (
                 <div>
-                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Flagged</div>
-                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{fmtDate(f.firstFlagged)}</div>
+                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Flagged</div>
+                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtDate(f.firstFlagged)}</div>
                 </div>
               )}
               {f.timesGoneCold > 0 && (
                 <div>
-                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Times Gone Cold</div>
-                  <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.timesGoneCold}</div>
+                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Times Gone Cold</div>
+                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.timesGoneCold}</div>
                 </div>
               )}
               {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
                 <div>
-                  <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Post-Alert 30d</div>
-                  <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#166534' : '#DC2626', fontWeight: 600 }}>{fmtMoney(f.postAlertSpend30d)}</div>
+                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Post-Alert 30d</div>
+                  <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#7DD3A4' : '#E87878', fontWeight: 600 }}>{fmtMoney(f.postAlertSpend30d)}</div>
                 </div>
               )}
               <div>
-                <div style={{ fontSize: '9px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Total Purchases</div>
-                <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{f.txnCount || 0} sessions</div>
+                <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Total Purchases</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.txnCount || 0} sessions</div>
               </div>
             </div>
           </div>
@@ -2895,29 +2895,29 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             const headerRow = (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
                   {canExpandMonthly && (
                     <button onClick={() => setShowAllHistory(!showAllHistory)}
-                      style={{ fontSize: '10px', color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 500 }}>
+                      style={{ fontSize: '10px', color: '#A78BFA', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 500 }}>
                       {showAllHistory ? `Last 7 months` : `Show all (${allMonthly.length} months)`}
                     </button>
                   )}
                 </div>
-                <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
-                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#7C3AED' : 'transparent', color: chartMode === 'monthly' ? '#fff' : '#666' }}>Monthly</button>
-                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#7C3AED' : 'transparent', color: chartMode === 'daily' ? '#fff' : '#666' }}>Daily</button>
+                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#A78BFA' : 'transparent', color: chartMode === 'monthly' ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Monthly</button>
+                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#A78BFA' : 'transparent', color: chartMode === 'daily' ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Daily</button>
                 </div>
                 {accountNames.length > 1 && (
                   <button onClick={() => setSplitByAccount(!splitByAccount)}
                     style={{
                       padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                      borderRadius: '4px', background: splitByAccount ? '#7C3AED' : '#F3F4F6', color: splitByAccount ? '#fff' : '#666',
+                      borderRadius: '4px', background: splitByAccount ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: splitByAccount ? '#fff' : 'rgba(240, 236, 232, 0.75)',
                     }}>
                     Split by account
                   </button>
                 )}
                 {splitByAccount && accountNames.length > 1 && (
-                  <div style={{ display: 'flex', gap: '8px', fontSize: '9px', color: '#666' }}>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '9px', color: 'rgba(240, 236, 232, 0.75)' }}>
                     {accountNames.map(acct => {
                       const isFree = /free/i.test(acct)
                       const color = isFree ? '#60A5FA' : '#A78BFA'
@@ -2980,17 +2980,17 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                               {segments}
                             </>
                           ) : (
-                            <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? '#F3F4F6' : '#E88FAC'} rx="2" />
+                            <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? 'rgba(255,255,255,0.04)' : 'var(--palm-pink)'} rx="2" />
                           )}
                           {d.spend > 0 && <text x={cx} y={spendLabelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
-                          <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#7C3AED' : '#999'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
+                          <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#A78BFA' : 'var(--foreground-muted)'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
                           {hasMilestone && <circle cx={cx} cy={dotY} r="3.5" fill="#7C3AED" />}
                         </g>
                       )
                     })}
                   </svg>
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: '#999', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
-                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#7C3AED', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: 'var(--foreground-muted)', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
+                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#A78BFA', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
                   </div>
                 </div>
               )
@@ -3133,8 +3133,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="7.5" fill="#999">{label}</text>
                     ))}
                   </svg>
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: '#999', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
-                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#7C3AED', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: 'var(--foreground-muted)', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
+                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#A78BFA', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
                   </div>
                 </div>
               )
@@ -3147,7 +3147,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
           {/* ═══ SECTION 3: Analysis History ═══ */}
           <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
-            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
               Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
             </div>
 
@@ -3169,25 +3169,25 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
                   return (
                     <div key={rec.id || idx} style={{
-                      background: 'var(--card-bg-solid)', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px',
+                      background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '12px 14px',
                       transition: 'box-shadow 0.15s', cursor: 'default',
                     }}>
                       {/* Card header row */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: briefSummary ? '8px' : 0, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>{fmtDate(rec.date)}</span>
-                        {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{fmtDate(rec.date)}</span>
+                        {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#A78BFA', background: 'rgba(167, 139, 250, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
 
                         {/* Send status */}
                         {isSent
-                          ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 6px', borderRadius: '3px' }}>
+                          ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.08)', padding: '1px 6px', borderRadius: '3px' }}>
                               Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}
                             </span>
-                          : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
+                          : <span style={{ fontSize: '9px', fontWeight: 600, color: '#E8A878', background: 'rgba(232, 200, 120, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
                         }
 
                         {/* Chat window dates */}
                         {(rec.firstMessageDate || rec.lastMessageDate) && (
-                          <span style={{ fontSize: '10px', color: '#999' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
                             {rec.firstMessageDate || '?'} → {rec.lastMessageDate || '?'}
                           </span>
                         )}
@@ -3196,14 +3196,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
                           <button
                             onClick={(e) => { e.stopPropagation(); setViewingAnalysisIdx(idx); setSelectedAnalysisIdx(idx); setShowBrief(false) }}
-                            style={{ fontSize: '10px', color: '#7C3AED', background: '#EDE9FE', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontWeight: 600 }}>
+                            style={{ fontSize: '10px', color: '#A78BFA', background: 'rgba(167, 139, 250, 0.1)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontWeight: 600 }}>
                             View Full
                           </button>
                           {!isSent && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setSelectedAnalysisIdx(idx); handlePreviewPdf() }}
                               disabled={previewLoading}
-                              style={{ fontSize: '10px', color: '#fff', background: '#1a1a1a', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: previewLoading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: previewLoading ? 0.6 : 1 }}>
+                              style={{ fontSize: '10px', color: 'var(--foreground)', background: 'var(--foreground)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: previewLoading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: previewLoading ? 0.6 : 1 }}>
                               {previewLoading && selectedAnalysisIdx === idx ? 'Generating...' : 'Send to Manager'}
                             </button>
                           )}
@@ -3224,9 +3224,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                                 if (viewingAnalysisIdx === idx) setViewingAnalysisIdx(null)
                               }
                             }}
-                            style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '14px', padding: '0 2px', lineHeight: 1 }}
-                            onMouseEnter={e => e.target.style.color = '#DC2626'}
-                            onMouseLeave={e => e.target.style.color = '#ccc'}
+                            style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', cursor: 'pointer', fontSize: '14px', padding: '0 2px', lineHeight: 1 }}
+                            onMouseEnter={e => e.target.style.color = '#E87878'}
+                            onMouseLeave={e => e.target.style.color = 'var(--foreground-subtle)'}
                             title="Delete this analysis"
                           >&times;</button>
                         </div>
@@ -3234,7 +3234,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
                       {/* Brief summary preview */}
                       {briefSummary && (
-                        <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.5' }}>
+                        <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.5' }}>
                           {briefSummary}
                         </div>
                       )}
@@ -3243,44 +3243,44 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 })}
               </div>
             ) : (
-              <div style={{ fontSize: '12px', color: '#999', marginBottom: '16px', fontStyle: 'italic' }}>No analyses yet. Upload an OF chat to get started.</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px', fontStyle: 'italic' }}>No analyses yet. Upload an OF chat to get started.</div>
             )}
 
             {/* Freshly generated analysis (inline, before it gets saved to records) */}
             {analysis && (
-              <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#FFFBF5', border: '1px solid #FED7AA', borderRadius: '8px' }}>
+              <div style={{ marginBottom: '16px', padding: '12px 14px', background: 'rgba(232, 200, 120, 0.05)', border: '1px solid transparent', borderRadius: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '11px', color: '#999' }}>
-                    <span style={{ fontWeight: 600, color: '#EA580C' }}>New Analysis</span>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                    <span style={{ fontWeight: 600, color: '#E88C5C' }}>New Analysis</span>
                     <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
                     {(analysis.firstMessageDate || analysis.lastMessageDate) && (
                       <span>Chats: {analysis.firstMessageDate || '?'} → {analysis.lastMessageDate || '?'}</span>
                     )}
-                    {analysis.saved && <span style={{ color: '#22c55e', fontSize: '10px' }}>\u2713 Saved</span>}
+                    {analysis.saved && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>\u2713 Saved</span>}
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     {analysis.managerBrief && (
-                      <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full</button>
-                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
                       </div>
                     )}
                     {chatFile && (
                       <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }} disabled={analyzing}
-                        style={{ fontSize: '10px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                        style={{ fontSize: '10px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
                         {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
                       </button>
                     )}
                   </div>
                 </div>
                 <div style={{
-                  background: showBrief ? '#F8FAFC' : '#fff',
-                  border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
-                  borderRadius: '6px', padding: '14px 16px', fontSize: '12px', color: '#1a1a1a', lineHeight: '1.7',
+                  background: showBrief ? 'var(--card-bg-solid)' : '#fff',
+                  border: `1px solid ${showBrief ? 'rgba(255,255,255,0.06)' : 'rgba(232, 168, 120, 0.15)'}`,
+                  borderRadius: '6px', padding: '14px 16px', fontSize: '12px', color: 'var(--foreground)', lineHeight: '1.7',
                 }}>
                   {(() => {
                     const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
-                    const accentColor = showBrief ? '#334155' : '#EA580C'
+                    const accentColor = showBrief ? '#334155' : '#E88C5C'
                     return text.split('\n').map((line, idx) => {
                       const trimmed = line.trim()
                       if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
@@ -3310,7 +3310,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
           {/* ═══ SECTION 4: Upload New Chat ═══ */}
           <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
-            <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
               Upload Chat for {f.fanName}
             </div>
 
@@ -3319,7 +3319,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               const mostRecent = f.analysisRecords?.[0]
               const lastDate = mostRecent?.lastMessageDate
               if (lastDate) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '6px', fontSize: '11px', color: '#92400E' }}>
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
                   Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
                 </div>
               )
@@ -3356,8 +3356,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   {accountNames.map(acct => {
                     const isFree = /free/i.test(acct)
                     const isVip = /vip/i.test(acct)
-                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : '#64748B'
-                    const baseBg = isFree ? '#EFF6FF' : isVip ? '#F5F3FF' : '#F8FAFC'
+                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
+                    const baseBg = isFree ? '#EFF6FF' : isVip ? '#F5F3FF' : 'var(--card-bg-solid)'
                     const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
                     const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
                     const displayText = state === 'saving' ? `Saving ${label}\u2026`
@@ -3370,11 +3370,11 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                         disabled={state === 'saving'}
                         onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
                         style={{
-                          background: isSuccess ? '#F0FDF4' : baseBg,
-                          border: `1px solid ${isSuccess ? '#BBF7D0' : baseColor + '66'}`,
+                          background: isSuccess ? 'rgba(125, 211, 164, 0.06)' : baseBg,
+                          border: `1px solid ${isSuccess ? 'rgba(125, 211, 164, 0.2)' : baseColor + '66'}`,
                           borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
                           cursor: state === 'saving' ? 'wait' : 'pointer',
-                          color: isSuccess ? '#166534' : baseColor, fontWeight: isSuccess ? 600 : 500,
+                          color: isSuccess ? '#7DD3A4' : baseColor, fontWeight: isSuccess ? 600 : 500,
                           opacity: state === 'saving' ? 0.7 : 1,
                         }}>
                         {displayText}
@@ -3385,9 +3385,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               ) : (
                 <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
                   style={{
-                    background: chatFile ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${chatFile ? '#BBF7D0' : '#E2E8F0'}`,
+                    background: chatFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)', border: `1px solid ${chatFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
                     borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                    color: chatFile ? '#166534' : '#64748B',
+                    color: chatFile ? '#7DD3A4' : 'var(--foreground-muted)',
                   }}>
                   {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
                 </button>
@@ -3398,8 +3398,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
                 <button onClick={() => handleAnalyze(true)} disabled={analyzing}
                   style={{
-                    background: '#EA580C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                     cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                   }}>
                   {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
@@ -3409,8 +3409,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               {chatFile && (
                 <button onClick={handleAnalyze} disabled={analyzing}
                   style={{
-                    background: '#EA580C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                     cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
                   }}>
                   {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
@@ -3421,7 +3421,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               {!chatFile && f.analysisRecords?.length > 0 && (
                 <>
                   <button onClick={() => handleAnalyze(true)} disabled={analyzing}
-                    style={{ fontSize: '11px', color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                    style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
                     {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
                   </button>
                   <span style={{ color: '#ddd' }}>|</span>
@@ -3437,7 +3437,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             </div>
 
             {analysisError && (
-              <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+              <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
                 {analysisError}
               </div>
             )}
@@ -3446,8 +3446,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           {/* Notes */}
           {f.notes && (
             <div style={{ marginTop: '14px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
-              <div style={{ fontSize: '10px', color: '#999', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
-              <div style={{ fontSize: '12px', color: '#1a1a1a', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
             </div>
           )}
 
@@ -3501,7 +3501,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         const fullText = analysis?.analysis || rec.fullAnalysis || null
         const briefText = analysis?.managerBrief || rec.brief || null
         const displayText = showBrief ? (briefText || fullText || 'No analysis text available.') : (fullText || briefText || 'No analysis text available.')
-        const accentColor = showBrief ? '#334155' : '#EA580C'
+        const accentColor = showBrief ? '#334155' : '#E88C5C'
         const hasFullText = !!(fullText || briefText)
         const sentAlert = f.alertHistory?.find(h => h.date && rec.date && h.date >= rec.date)
 
@@ -3525,14 +3525,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               {/* Modal header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                 <div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>
                     {f.fanName} — Analysis {fmtDate(rec.date)}
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', fontSize: '11px', color: '#999' }}>
-                    {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                    {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#A78BFA', background: 'rgba(167, 139, 250, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
                     {sentAlert
-                      ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#166534', background: '#DCFCE7', padding: '1px 6px', borderRadius: '3px' }}>Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}</span>
-                      : <span style={{ fontSize: '9px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
+                      ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.08)', padding: '1px 6px', borderRadius: '3px' }}>Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}</span>
+                      : <span style={{ fontSize: '9px', fontWeight: 600, color: '#E8A878', background: 'rgba(232, 200, 120, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
                     }
                     {(rec.firstMessageDate || rec.lastMessageDate) && (
                       <span>Chat window: {rec.firstMessageDate || '?'} → {rec.lastMessageDate || '?'}</span>
@@ -3542,21 +3542,21 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   {hasFullText && fullText && briefText && (
-                    <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: '4px', overflow: 'hidden' }}>
-                      <button onClick={() => setShowBrief(false)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#EA580C' : 'transparent', color: !showBrief ? '#fff' : '#666' }}>Full Analysis</button>
-                      <button onClick={() => setShowBrief(true)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#EA580C' : 'transparent', color: showBrief ? '#fff' : '#666' }}>Manager Brief</button>
+                    <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <button onClick={() => setShowBrief(false)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Full Analysis</button>
+                      <button onClick={() => setShowBrief(true)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? '#fff' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
                     </div>
                   )}
-                  <button onClick={() => { setViewingAnalysisIdx(null); setShowBrief(false) }} style={{ background: 'none', border: 'none', fontSize: '22px', color: '#999', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>&times;</button>
+                  <button onClick={() => { setViewingAnalysisIdx(null); setShowBrief(false) }} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>&times;</button>
                 </div>
               </div>
 
               {/* Analysis body */}
               {hasFullText ? (
                 <div style={{
-                  background: showBrief ? '#F8FAFC' : '#FFFBF5',
-                  border: `1px solid ${showBrief ? '#E2E8F0' : '#FED7AA'}`,
-                  borderRadius: '8px', padding: '18px 22px', fontSize: '13px', color: '#1a1a1a', lineHeight: '1.7',
+                  background: showBrief ? 'var(--card-bg-solid)' : 'rgba(232, 200, 120, 0.05)',
+                  border: `1px solid ${showBrief ? 'rgba(255,255,255,0.06)' : 'rgba(232, 168, 120, 0.15)'}`,
+                  borderRadius: '8px', padding: '18px 22px', fontSize: '13px', color: 'var(--foreground)', lineHeight: '1.7',
                 }}>
                   {displayText.split('\n').map((line, idx) => {
                     const trimmed = line.trim()
@@ -3581,8 +3581,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   })}
                 </div>
               ) : (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                  Full analysis text not available. <button onClick={() => { setViewingAnalysisIdx(null); handleAnalyze(true) }} disabled={analyzing} style={{ color: '#EA580C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600, fontSize: '13px' }}>
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px' }}>
+                  Full analysis text not available. <button onClick={() => { setViewingAnalysisIdx(null); handleAnalyze(true) }} disabled={analyzing} style={{ color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600, fontSize: '13px' }}>
                     {analyzing ? 'Loading...' : 'Load from saved transcript'}
                   </button>
                 </div>
@@ -3595,8 +3595,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                     onClick={() => { setViewingAnalysisIdx(null); handlePreviewPdf() }}
                     disabled={previewLoading}
                     style={{
-                      background: '#1a1a1a', border: 'none', borderRadius: '6px',
-                      padding: '8px 16px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                      background: 'var(--foreground)', border: 'none', borderRadius: '6px',
+                      padding: '8px 16px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                       cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
                       display: 'flex', alignItems: 'center', gap: '5px',
                     }}>
@@ -3630,23 +3630,23 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700 }}>Send Whale Alert</div>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)', marginTop: '2px' }}>
                   PDF will be sent to the <strong>{creatorName}</strong> topic in Telegram
                 </div>
               </div>
-              <button onClick={() => setShowSendModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', color: '#999', cursor: 'pointer', padding: '4px' }}>&times;</button>
+              <button onClick={() => setShowSendModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '4px' }}>&times;</button>
             </div>
 
             {/* PDF Preview */}
             <div style={{ background: '#F9FAFB', borderRadius: '8px', padding: '12px', marginBottom: '16px', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {previewLoading && (
-                <div style={{ fontSize: '13px', color: '#999' }}>Generating PDF preview...</div>
+                <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Generating PDF preview...</div>
               )}
               {previewImage && (
                 <img src={previewImage} alt="Whale Alert PDF Preview" style={{ width: '100%', borderRadius: '6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
               )}
               {!previewLoading && !previewImage && sendResult?.error && (
-                <div style={{ fontSize: '12px', color: '#DC2626' }}>{sendResult.error}</div>
+                <div style={{ fontSize: '12px', color: '#E87878' }}>{sendResult.error}</div>
               )}
             </div>
 
@@ -3656,8 +3656,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 onClick={() => setShowSendModal(false)}
                 disabled={sending}
                 style={{
-                  background: '#F3F4F6', border: 'none', borderRadius: '6px',
-                  padding: '8px 16px', fontSize: '12px', color: '#666', fontWeight: 600,
+                  background: 'rgba(255,255,255,0.04)', border: 'none', borderRadius: '6px',
+                  padding: '8px 16px', fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)', fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >Cancel</button>
@@ -3665,9 +3665,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 onClick={handleSendToTelegram}
                 disabled={sending || previewLoading || !previewImage || sendResult?.success}
                 style={{
-                  background: sendResult?.success ? '#16A34A' : '#1a1a1a',
+                  background: sendResult?.success ? '#16A34A' : 'var(--foreground)',
                   border: 'none', borderRadius: '6px',
-                  padding: '8px 16px', fontSize: '12px', color: '#fff', fontWeight: 600,
+                  padding: '8px 16px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
                   cursor: (sending || previewLoading || !previewImage || sendResult?.success) ? 'not-allowed' : 'pointer',
                   opacity: (sending || previewLoading || !previewImage) && !sendResult?.success ? 0.5 : 1,
                   display: 'flex', alignItems: 'center', gap: '6px',
@@ -3680,19 +3680,19 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             </div>
 
             {sendResult?.success && !sendResult.trackerError && (
-              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', fontSize: '12px', color: '#166534', textAlign: 'center' }}>
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(125, 211, 164, 0.06)', border: '1px solid transparent', borderRadius: '6px', fontSize: '12px', color: '#7DD3A4', textAlign: 'center' }}>
                 &#10003; Sent to manager &amp; logged
               </div>
             )}
             {sendResult?.success && sendResult.trackerError && (
-              <div style={{ marginTop: '12px', padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', color: '#92400E' }}>
+              <div style={{ marginTop: '12px', padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', color: '#E8A878' }}>
                 <div style={{ fontWeight: 600, marginBottom: '4px' }}>&#10003; Sent to Telegram &mdash; but Fan Tracker log failed</div>
                 <div style={{ fontSize: '11px', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word' }}>{sendResult.trackerError}</div>
                 <div style={{ fontSize: '11px', marginTop: '6px' }}>The fan's Alert column won't update. Please share this error so we can fix it.</div>
               </div>
             )}
             {sendResult?.error && (
-              <div style={{ marginTop: '12px', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#DC2626' }}>
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
                 {sendResult.error}
               </div>
             )}
@@ -3854,20 +3854,20 @@ const HEAT_SORT_ORDER = { 'Going Cold': 0, 'Cooling': 1, 'Dead': 2, 'Stable': 3,
 
 // Surfaced at module scope so both FanRow and FansPanel can reference.
 const ALERT_STATUS_COLORS = {
-  'None': { bg: '#F3F4F6', text: '#9CA3AF' },
-  'Alert Triggered': { bg: '#FEE2E2', text: '#DC2626' },
-  'Fan Analyzed': { bg: '#EDE9FE', text: '#7C3AED' },
-  'Sent to Manager': { bg: '#FFF3CD', text: '#D97706' },
+  'None': { bg: 'rgba(255,255,255,0.04)', text: '#9CA3AF' },
+  'Alert Triggered': { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
+  'Fan Analyzed': { bg: 'rgba(167, 139, 250, 0.1)', text: '#A78BFA' },
+  'Sent to Manager': { bg: '#FFF3CD', text: '#E8A878' },
   'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
-  'Action Taken': { bg: '#DCFCE7', text: '#166534' },
+  'Action Taken': { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4' },
   'Banned': { bg: '#1F2937', text: '#fff' },
 }
 
 // Urgency colors for Alert Triggered — so Critical visually pops in lists.
 const URGENCY_COLORS = {
   critical: { bg: '#FECACA', text: '#7F1D1D' },
-  high: { bg: '#FEE2E2', text: '#DC2626' },
-  warning: { bg: '#FEF3C7', text: '#92400E' },
+  high: { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
+  warning: { bg: 'rgba(232, 200, 120, 0.1)', text: '#E8A878' },
 }
 
 function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
@@ -4088,10 +4088,10 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const alertStatusColors = ALERT_STATUS_COLORS
 
   const effectColors = {
-    'Worked': { bg: '#DCFCE7', text: '#166534' },
-    'Didn\'t Work': { bg: '#FEE2E2', text: '#DC2626' },
+    'Worked': { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4' },
+    'Didn\'t Work': { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
     'Too Early': { bg: '#FEF9C3', text: '#A16207' },
-    'Pending': { bg: '#F3F4F6', text: '#6B7280' },
+    'Pending': { bg: 'rgba(255,255,255,0.04)', text: '#6B7280' },
   }
 
   const deletedCount = useMemo(() => allFans.filter(f => !f.ofUsername).length, [allFans])
@@ -4175,7 +4175,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
         <div style={{ width: '24px', height: '24px', border: '1px solid var(--palm-pink)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto 12px' }} />
-        <div style={{ fontSize: '13px', color: '#999' }}>Loading fans...</div>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Loading fans...</div>
       </div>
     )
   }
@@ -4185,11 +4185,11 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <div>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Fan CRM</h3>
-          <p style={{ fontSize: '12px', color: '#999', margin: '2px 0 0' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Fan CRM</h3>
+          <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', margin: '2px 0 0' }}>
             {allFans.length} fan{allFans.length !== 1 ? 's' : ''}
             {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0) > 0 && (
-              <span style={{ color: '#DC2626', fontWeight: 600 }}> &middot; {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0)} need attention</span>
+              <span style={{ color: '#E87878', fontWeight: 600 }}> &middot; {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0)} need attention</span>
             )}
             {(heatCounts['Hot'] || 0) > 0 && <span style={{ color: '#EF4444', fontWeight: 600 }}> &middot; {heatCounts['Hot']} hot</span>}
           </p>
@@ -4208,7 +4208,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
             <button key={key} onClick={() => { setFilter(filter === key ? 'all' : key); setShowTop20(false) }}
               style={{
                 padding: '3px 8px', fontSize: '10px', fontWeight: filter === key ? 600 : 400,
-                background: filter === key ? '#1a1a1a' : '#F3F4F6', color: filter === key ? '#fff' : '#666',
+                background: filter === key ? 'var(--foreground)' : 'rgba(255,255,255,0.04)', color: filter === key ? '#fff' : 'rgba(240, 236, 232, 0.75)',
                 border: 'none', borderRadius: '4px', cursor: 'pointer',
               }}>
               {label}{count != null ? ` (${count})` : ''}
@@ -4217,7 +4217,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           <button onClick={() => { setShowTop20(!showTop20); if (!showTop20) setFilter('all') }}
             style={{
               padding: '3px 8px', fontSize: '10px', fontWeight: showTop20 ? 600 : 400,
-              background: showTop20 ? '#F59E0B' : '#F3F4F6', color: showTop20 ? '#fff' : '#666',
+              background: showTop20 ? '#F59E0B' : 'rgba(255,255,255,0.04)', color: showTop20 ? '#fff' : 'rgba(240, 236, 232, 0.75)',
               border: 'none', borderRadius: '4px', cursor: 'pointer',
             }}>
             💎 Top 20%
@@ -4226,7 +4226,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
             <button onClick={() => setShowDeleted(!showDeleted)}
               style={{
                 padding: '3px 8px', fontSize: '10px', fontWeight: showDeleted ? 600 : 400,
-                background: showDeleted ? '#6B7280' : 'transparent', color: showDeleted ? '#fff' : '#999',
+                background: showDeleted ? '#6B7280' : 'transparent', color: showDeleted ? '#fff' : 'var(--foreground-muted)',
                 border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
               }}>
               {showDeleted ? `Hide deleted (${deletedCount})` : `Show deleted (${deletedCount})`}
@@ -4236,7 +4236,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
             <button onClick={() => setShowBanned(!showBanned)}
               style={{
                 padding: '3px 8px', fontSize: '10px', fontWeight: showBanned ? 600 : 400,
-                background: showBanned ? '#1F2937' : 'transparent', color: showBanned ? '#fff' : '#999',
+                background: showBanned ? '#1F2937' : 'transparent', color: showBanned ? '#fff' : 'var(--foreground-muted)',
                 border: '1px dashed #ccc', borderRadius: '4px', cursor: 'pointer', marginLeft: '4px',
               }}>
               {showBanned ? `Hide banned (${bannedCount})` : `Show banned (${bannedCount})`}
@@ -4249,7 +4249,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
                 <button key={a} onClick={() => setAccountFilter(accountFilter === a ? 'all' : a)}
                   style={{
                     padding: '3px 8px', fontSize: '10px', fontWeight: accountFilter === a ? 600 : 400,
-                    background: accountFilter === a ? '#7C3AED' : '#F3F4F6', color: accountFilter === a ? '#fff' : '#666',
+                    background: accountFilter === a ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: accountFilter === a ? '#fff' : 'rgba(240, 236, 232, 0.75)',
                     border: 'none', borderRadius: '4px', cursor: 'pointer',
                   }}>
                   {a === 'all' ? 'All Accts' : a === 'both' ? 'Both' : a}
@@ -4261,13 +4261,13 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#999', fontSize: '13px', background: '#FAFAFA', borderRadius: '10px' }}>
+        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--card-bg-solid)', borderRadius: '10px' }}>
           No fans match this filter.
         </div>
       ) : (
         <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: '#999', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
             <span></span><span>Fan</span><span title="Heat Status">🌡️</span><span>Alert</span>
             {[['lifetime', 'Lifetime'], ['last30', 'Last 30d'], ['txns', 'Txns'], ['lastDate', 'Last Active']].map(([key, label]) => (
               <span key={key} onClick={() => toggleSort(key)} style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
@@ -4285,7 +4285,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           ))}
           {filtered.length > 25 && !showAllFans && (
             <button onClick={() => setShowAllFans(true)}
-              style={{ width: '100%', padding: '10px', background: '#FAFAFA', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: '#E88FAC', fontWeight: 600 }}>
+              style={{ width: '100%', padding: '10px', background: 'var(--card-bg-solid)', border: 'none', borderTop: '1px solid transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--palm-pink)', fontWeight: 600 }}>
               Show all {filtered.length} fans
             </button>
           )}
@@ -4463,7 +4463,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
   }
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#555', fontSize: '13px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px' }}>
       Loading...
     </div>
   )
@@ -4500,18 +4500,18 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <StatusPill status={status} />
           {c.profileLastAnalyzed && (
-            <span style={{ fontSize: '11px', color: '#555' }}>Last analyzed {c.profileLastAnalyzed}</span>
+            <span style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)' }}>Last analyzed {c.profileLastAnalyzed}</span>
           )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => setShowUpload(true)}
-            style={{ background: 'rgba(232, 160, 160, 0.04)', color: '#1a1a1a', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+            style={{ background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
             + Upload
           </button>
           {(status === 'Analyzed' || status === 'Reanalyze' || status === 'Analyzing') && (
             <button onClick={resetAnalysis} disabled={resetting}
               style={{
-                background: 'rgba(232, 160, 160, 0.04)', color: '#999', border: '1px solid transparent',
+                background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground-muted)', border: '1px solid transparent',
                 borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500,
                 cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.5 : 1,
               }}>
@@ -4520,7 +4520,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
           )}
           <button onClick={runAnalysis} disabled={analyzing}
             style={{
-              background: analyzing ? 'transparent' : '#E88FAC', color: '#1a1a1a', border: 'none',
+              background: analyzing ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)', border: 'none',
               borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
               cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.7 : 1,
             }}>
@@ -4530,22 +4530,22 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       </div>
 
       {analyzeResult && (
-        <div style={{ background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#22c55e' }}>
+        <div style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#7DD3A4' }}>
           Analysis complete. {analyzeResult.documentsAnalyzed} document(s) analyzed.
           {analyzeResult.topTags?.length > 0 && (
-            <span style={{ color: '#888' }}> Top tags: {analyzeResult.topTags.map(t => `${t.tag} (${t.weight})`).join(', ')}</span>
+            <span style={{ color: 'var(--foreground-muted)' }}> Top tags: {analyzeResult.topTags.map(t => `${t.tag} (${t.weight})`).join(', ')}</span>
           )}
         </div>
       )}
 
       {refineResult && (
-        <div style={{ background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#22c55e' }}>
-          Profile refined.{refineResult.changesMade && <span style={{ color: '#888' }}> {refineResult.changesMade}</span>}
+        <div style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#7DD3A4' }}>
+          Profile refined.{refineResult.changesMade && <span style={{ color: 'var(--foreground-muted)' }}> {refineResult.changesMade}</span>}
         </div>
       )}
 
       {analyzeError && (
-        <div style={{ background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#ef4444' }}>
+        <div style={{ background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#E87878' }}>
           {analyzeError}
         </div>
       )}
@@ -4560,7 +4560,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             rows={2}
             style={{
               flex: 1, background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px',
-              padding: '10px 12px', color: '#1a1a1a', fontSize: '13px', lineHeight: '1.5',
+              padding: '10px 12px', color: 'var(--foreground)', fontSize: '13px', lineHeight: '1.5',
               resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit',
             }}
           />
@@ -4568,7 +4568,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             onClick={runRefine}
             disabled={refining || !feedback.trim()}
             style={{
-              background: refining ? 'transparent' : '#E88FAC', color: '#1a1a1a', border: 'none',
+              background: refining ? 'transparent' : 'var(--palm-pink)', color: 'var(--foreground)', border: 'none',
               borderRadius: '8px', padding: '10px 16px', fontSize: '12px', fontWeight: 600,
               cursor: refining || !feedback.trim() ? 'not-allowed' : 'pointer',
               opacity: !feedback.trim() ? 0.5 : 1, flexShrink: 0, alignSelf: 'stretch',
@@ -4584,19 +4584,19 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '16px' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>Review Proposed Changes</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>Review Proposed Changes</div>
               {refinePreview.changesMade && (
-                <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{refinePreview.changesMade}</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '4px' }}>{refinePreview.changesMade}</div>
               )}
             </div>
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
               <button onClick={discardRefine}
-                style={{ background: 'rgba(232, 160, 160, 0.04)', color: '#999', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
+                style={{ background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
                 Discard
               </button>
               <button onClick={commitRefine} disabled={committing}
                 style={{
-                  background: committing ? '#bbf7d0' : '#22c55e', color: '#fff', border: 'none',
+                  background: committing ? '#bbf7d0' : '#7DD3A4', color: 'var(--foreground)', border: 'none',
                   borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 600,
                   cursor: committing ? 'not-allowed' : 'pointer',
                 }}>
@@ -4617,15 +4617,15 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             if (cur === proposed) return null
             return (
               <div key={label} style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{label}</div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{label}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <div style={{ background: '#FEF2F2', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#991B1B', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#DC2626', marginBottom: '6px' }}>CURRENT</div>
-                    {cur || <span style={{ color: '#999', fontStyle: 'italic' }}>empty</span>}
+                  <div style={{ background: 'rgba(232, 120, 120, 0.08)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#991B1B', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#E87878', marginBottom: '6px' }}>CURRENT</div>
+                    {cur || <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>empty</span>}
                   </div>
-                  <div style={{ background: '#F0FDF4', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#166534', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                  <div style={{ background: 'rgba(125, 211, 164, 0.06)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#7DD3A4', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
                     <div style={{ fontSize: '10px', fontWeight: 600, color: '#16A34A', marginBottom: '6px' }}>PROPOSED</div>
-                    {proposed || <span style={{ color: '#999', fontStyle: 'italic' }}>empty</span>}
+                    {proposed || <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>empty</span>}
                   </div>
                 </div>
               </div>
@@ -4641,14 +4641,14 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
               .sort((a, b) => Math.abs((propTags[b] || 0) - (curTags[b] || 0)) - Math.abs((propTags[a] || 0) - (curTags[a] || 0)))
             if (changed.length === 0) return (
               <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Tag Weight Changes</div>
-                <div style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>No tag weight changes — only profile text was adjusted.</div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Tag Weight Changes</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>No tag weight changes — only profile text was adjusted.</div>
               </div>
             )
             const maxDelta = Math.max(...changed.map(t => Math.abs((propTags[t] || 0) - (curTags[t] || 0))), 1)
             return (
               <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Tag Weight Changes</div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Tag Weight Changes</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {changed.map(tag => {
                     const from = curTags[tag] || 0
@@ -4658,9 +4658,9 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
                     return (
                       <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
                         {/* Tag name */}
-                        <span style={{ fontSize: '12px', color: '#4a4a4a', width: '160px', flexShrink: 0, textAlign: 'right', paddingRight: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
+                        <span style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', width: '160px', flexShrink: 0, textAlign: 'right', paddingRight: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
                         {/* From value */}
-                        <span style={{ fontSize: '11px', color: '#999', width: '28px', textAlign: 'right', flexShrink: 0 }}>{from}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', width: '28px', textAlign: 'right', flexShrink: 0 }}>{from}</span>
                         {/* Diverging bar */}
                         <div style={{ flex: 1, height: '20px', position: 'relative', margin: '0 8px' }}>
                           {/* Center line */}
@@ -4669,21 +4669,21 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
                           {diff > 0 ? (
                             <div style={{
                               position: 'absolute', left: '50%', top: '3px', height: '14px',
-                              width: `${barPct}%`, background: '#22c55e', borderRadius: '0 4px 4px 0',
+                              width: `${barPct}%`, background: '#7DD3A4', borderRadius: '0 4px 4px 0',
                               transition: 'width 0.3s ease',
                             }} />
                           ) : (
                             <div style={{
                               position: 'absolute', right: '50%', top: '3px', height: '14px',
-                              width: `${barPct}%`, background: '#ef4444', borderRadius: '4px 0 0 4px',
+                              width: `${barPct}%`, background: '#E87878', borderRadius: '4px 0 0 4px',
                               transition: 'width 0.3s ease',
                             }} />
                           )}
                         </div>
                         {/* To value */}
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: diff > 0 ? '#16a34a' : '#dc2626', width: '28px', textAlign: 'left', flexShrink: 0 }}>{to}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: diff > 0 ? '#7DD3A4' : '#E87878', width: '28px', textAlign: 'left', flexShrink: 0 }}>{to}</span>
                         {/* Delta */}
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: diff > 0 ? '#16a34a' : '#dc2626', width: '36px', textAlign: 'right', flexShrink: 0 }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: diff > 0 ? '#7DD3A4' : '#E87878', width: '36px', textAlign: 'right', flexShrink: 0 }}>
                           {diff > 0 ? '+' : ''}{diff}
                         </span>
                       </div>
@@ -4715,7 +4715,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       {!refinePreview && activeTab === 'profile' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {!c.profileSummary && status !== 'Analyzed' && status !== 'Reanalyze' && (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
+            <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
               No profile yet. Upload documents and run analysis to generate.
             </div>
           )}
@@ -4735,10 +4735,10 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
           {topTags.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Tags</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Top Tags</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {topTags.map(tw => (
-                  <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: 'rgba(232, 160, 160, 0.04)', color: '#E88FAC', border: '1px solid transparent' }}>
+                  <span key={tw.tag} style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 500, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent' }}>
                     {tw.tag} · {tw.weight}
                   </span>
                 ))}
@@ -4753,7 +4753,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       {!refinePreview && activeTab === 'documents' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {documents.length === 0 && (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
+            <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
               No documents yet. Click "+ Upload" to add voice memos, transcripts, or notes.
             </div>
           )}
@@ -4766,7 +4766,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
             <DocumentRow key={doc.id} doc={doc} isNew={!!(c.profileLastAnalyzed && doc.uploadDate > c.profileLastAnalyzed)} />
           ))}
           <button onClick={() => setShowUpload(true)}
-            style={{ marginTop: '4px', background: 'var(--background)', color: '#999', border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '10px', fontSize: '13px', cursor: 'pointer' }}>
+            style={{ marginTop: '4px', background: 'var(--background)', color: 'var(--foreground-muted)', border: '1px dashed #E8C4CC', borderRadius: '8px', padding: '10px', fontSize: '13px', cursor: 'pointer' }}>
             + Upload another document
           </button>
         </div>
@@ -4788,7 +4788,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       {!refinePreview && activeTab === 'adjustments' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(c.refinementHistory || []).length === 0 ? (
-            <div style={{ color: '#555', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
+            <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', padding: '12px', background: 'var(--card-bg-solid)', borderRadius: '8px', border: '1px solid transparent' }}>
               No adjustments yet. Use the Refine field above to make targeted changes.
             </div>
           ) : (
@@ -4798,9 +4798,9 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
                 padding: '10px 14px', background: 'var(--card-bg-solid)', borderRadius: '8px',
                 boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
               }}>
-                <span style={{ fontSize: '11px', color: '#999', flexShrink: 0, paddingTop: '1px' }}>{entry.date}</span>
+                <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', flexShrink: 0, paddingTop: '1px' }}>{entry.date}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', color: '#4a4a4a', lineHeight: '1.5' }}>{entry.summary}</div>
+                  <div style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: '1.5' }}>{entry.summary}</div>
                   {entry.tagChanges?.length > 0 ? (
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                       {entry.tagChanges.slice(0, 5).map(tc => {
@@ -4808,8 +4808,8 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
                         return (
                           <span key={tc.tag} style={{
                             fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px',
-                            background: diff > 0 ? '#F0FDF4' : '#FEF2F2',
-                            color: diff > 0 ? '#16a34a' : '#dc2626',
+                            background: diff > 0 ? 'rgba(125, 211, 164, 0.06)' : 'rgba(232, 120, 120, 0.08)',
+                            color: diff > 0 ? '#7DD3A4' : '#E87878',
                           }}>
                             {tc.tag} {diff > 0 ? '+' : ''}{diff}
                           </span>
@@ -4817,7 +4817,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
                       })}
                     </div>
                   ) : (
-                    <div style={{ fontSize: '10px', color: '#999', marginTop: '4px', fontStyle: 'italic' }}>Text only — no tag changes</div>
+                    <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '4px', fontStyle: 'italic' }}>Text only — no tag changes</div>
                   )}
                 </div>
               </div>
@@ -4842,9 +4842,9 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 function ProfileSection({ label, text, mono }) {
   return (
     <div>
-      <div style={{ fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{label}</div>
+      <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{label}</div>
       <div style={{
-        fontSize: '13px', color: '#4a4a4a', lineHeight: '1.6', whiteSpace: 'pre-wrap',
+        fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: '1.6', whiteSpace: 'pre-wrap',
         fontFamily: mono ? 'monospace' : 'inherit', background: 'var(--card-bg-solid)',
         borderRadius: '8px', padding: '12px 14px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
       }}>
@@ -4929,7 +4929,7 @@ export default function CreatorsPage() {
           }}
           style={{
             background: 'var(--card-bg-solid)', border: '1px solid #e5e7eb', borderRadius: '8px',
-            color: '#1a1a1a', fontSize: '14px', padding: '8px 14px', outline: 'none',
+            color: 'var(--foreground)', fontSize: '14px', padding: '8px 14px', outline: 'none',
             minWidth: '220px', cursor: 'pointer',
           }}>
           {!selected && <option value="">Select a creator...</option>}
@@ -4945,7 +4945,7 @@ export default function CreatorsPage() {
               <button key={key} onClick={() => { setActiveSection(key); updateUrl(selected?.id, key) }}
                 style={{
                   padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,
-                  color: activeSection === key ? '#1a1a1a' : '#bbb', background: 'none', border: 'none',
+                  color: activeSection === key ? 'var(--foreground)' : 'var(--foreground-subtle)', background: 'none', border: 'none',
                   borderBottom: activeSection === key ? '1px solid var(--palm-pink)' : '2px solid transparent',
                   cursor: 'pointer', marginBottom: '-2px',
                 }}>
@@ -4954,12 +4954,12 @@ export default function CreatorsPage() {
             ))}
           </div>
         )}
-        {loading && <span style={{ color: '#999', fontSize: '13px' }}>Loading...</span>}
+        {loading && <span style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>Loading...</span>}
       </div>
 
       {/* Detail panel */}
       {!selected ? (
-        <div style={{ color: '#555', fontSize: '13px', textAlign: 'center', padding: '60px 0' }}>
+        <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', textAlign: 'center', padding: '60px 0' }}>
           Select a creator above to get started.
         </div>
       ) : (
