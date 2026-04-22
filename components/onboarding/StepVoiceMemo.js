@@ -114,7 +114,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
           style={{
             padding: '10px 32px',
             background: 'var(--palm-pink)',
-            color: 'var(--foreground)',
+            color: '#060606',
             border: 'none',
             borderRadius: '8px',
             fontSize: '14px',
@@ -323,7 +323,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
           style={{
             padding: '10px 32px',
             background: 'var(--palm-pink)',
-            color: 'var(--foreground)',
+            color: '#060606',
             border: 'none',
             borderRadius: '8px',
             fontSize: '14px',

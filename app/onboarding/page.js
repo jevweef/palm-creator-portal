@@ -103,7 +103,7 @@ export default function OnboardingLanding() {
             width: '100%',
             padding: '12px',
             background: 'var(--palm-pink)',
-            color: 'var(--foreground)',
+            color: '#060606',
             border: 'none',
             borderRadius: '10px',
             fontSize: '15px',

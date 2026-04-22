@@ -723,7 +723,7 @@ export default function AdminDashboard() {
         <div style={{
           ...CARD, marginBottom: '12px', padding: '8px 14px',
           display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center',
-          border: '1px solid #fde8e8',
+          border: 'none',
         }}>
           <span style={{ fontSize: '11px', fontWeight: 600, color: '#E87878', marginRight: '4px' }}>
             {sortedAlerts.length}
@@ -950,7 +950,7 @@ export default function AdminDashboard() {
                               }}
                               style={{
                                 background: isSending ? 'rgba(255,255,255,0.08)' : 'var(--palm-pink)', border: 'none', borderRadius: '4px',
-                                padding: '4px 8px', fontSize: '10px', color: isSending ? '#999' : 'var(--foreground)', fontWeight: 600,
+                                padding: '4px 10px', fontSize: '10px', color: isSending ? 'var(--foreground-muted)' : '#060606', fontWeight: 700,
                                 cursor: isSending ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
                               }}
                             >

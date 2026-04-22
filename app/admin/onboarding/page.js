@@ -257,7 +257,7 @@ export default function AdminOnboarding() {
           style={{
             padding: '10px 20px',
             background: 'var(--palm-pink)',
-            color: 'var(--foreground)',
+            color: '#060606',
             border: 'none',
             borderRadius: '8px',
             fontSize: '13px',
