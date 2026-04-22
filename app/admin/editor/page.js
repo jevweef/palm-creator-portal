@@ -1426,7 +1426,7 @@ function RevisionFramePicker({ videoUrl, taskId, onCapture, onClose }) {
                   {uploading ? 'Uploading...' : 'Crop & Add'}
                 </button>
               </div>
-              {!canCrop && <div style={{ fontSize: '10px', color: '#3f3f46', textAlign: 'center' }}>Drag on the image to select an area</div>}
+              {!canCrop && <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', textAlign: 'center' }}>Drag on the image to select an area</div>}
             </div>
           </div>
         )}
@@ -1693,7 +1693,7 @@ function RevisionModal({ task, onClose, onSubmit }) {
 
         <div style={{ marginBottom: '16px' }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
-            Screenshots <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#3f3f46' }}>— drag to crop after selecting</span>
+            Screenshots <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--foreground-muted)' }}>— drag to crop after selecting</span>
           </div>
           {screenshots.length > 0 && (
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>

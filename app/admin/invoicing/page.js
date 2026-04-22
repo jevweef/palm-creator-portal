@@ -567,7 +567,7 @@ export default function InvoicingPage() {
           })}
           <button onClick={load} style={{
             marginLeft: 'auto', background: 'transparent', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-            borderRadius: '6px', color: '#3f3f46', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+            borderRadius: '6px', color: 'var(--foreground-muted)', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
           }}>
             ↺
           </button>

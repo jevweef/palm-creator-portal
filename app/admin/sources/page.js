@@ -138,7 +138,7 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)' }}>@{source.handle}</div>
               <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
                 {loading ? 'Loading...' : `${reels?.length || 0} reels on inspo board`}
-                {sources.length > 1 && <span style={{ color: '#3f3f46', marginLeft: '8px' }}>{currentIdx + 1} / {sources.length}</span>}
+                {sources.length > 1 && <span style={{ color: 'var(--foreground-muted)', marginLeft: '8px' }}>{currentIdx + 1} / {sources.length}</span>}
               </div>
             </div>
             {/* Prev / Next with handle labels */}
@@ -176,7 +176,7 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
         {allCreators.length > 0 && (
           <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'var(--background)', borderRadius: '8px', border: '1px solid transparent' }}>
             <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-              Assigned to creators {savingCreators && <span style={{ color: '#3f3f46' }}>saving...</span>}
+              Assigned to creators {savingCreators && <span style={{ color: 'var(--foreground-muted)' }}>saving...</span>}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {allCreators.map(c => {

@@ -155,7 +155,7 @@ function TelegramModal({ post, onClose, onSent }) {
             </div>
           ) : (
             <div style={{ padding: '10px 14px' }}>
-              <div style={{ fontSize: '12px', color: '#3f3f46', fontStyle: 'italic' }}>No caption, hashtags, or date set</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>No caption, hashtags, or date set</div>
             </div>
           )}
         </div>
@@ -263,9 +263,9 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
               Showing unused photos only — photos already used as reel thumbnails are hidden.
             </div>
           )}
-          {loading && <div style={{ color: '#3f3f46', textAlign: 'center', padding: '40px' }}>Loading photos...</div>}
+          {loading && <div style={{ color: 'var(--foreground-muted)', textAlign: 'center', padding: '40px' }}>Loading photos...</div>}
           {!loading && photos.length === 0 && (
-            <div style={{ color: '#3f3f46', textAlign: 'center', padding: '40px', fontSize: '13px' }}>
+            <div style={{ color: 'var(--foreground-muted)', textAlign: 'center', padding: '40px', fontSize: '13px' }}>
               {isReel ? 'No unused photos left — all have been used as reel thumbnails.' : 'No photos in library for this creator.'}
             </div>
           )}
@@ -536,7 +536,7 @@ function PostCard({ post, onRefresh, onSend }) {
 
         {/* Platforms */}
         <div>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Platforms</div>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Platforms</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
             {PLATFORMS.map(p => (
               <button key={p} onClick={() => togglePlatform(p)}
@@ -552,7 +552,7 @@ function PostCard({ post, onRefresh, onSend }) {
 
         {/* Caption */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
           <textarea value={caption} onChange={e => { setCaption(e.target.value); setEditing(true) }}
             placeholder="Add caption..." rows={3}
             style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
@@ -560,7 +560,7 @@ function PostCard({ post, onRefresh, onSend }) {
 
         {/* Hashtags */}
         <div>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Hashtags</div>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Hashtags</div>
           <textarea value={hashtags} onChange={e => { setHashtags(e.target.value); setEditing(true) }}
             placeholder="#hashtag1 #hashtag2..." rows={2}
             style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'var(--palm-pink)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
@@ -568,7 +568,7 @@ function PostCard({ post, onRefresh, onSend }) {
 
         {/* Thumbnail */}
         <div>
-          <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
             {thumbnailUrl ? (
               <img src={rawDropboxUrl(thumbnailUrl)} alt="thumbnail"
@@ -648,7 +648,7 @@ function PostCard({ post, onRefresh, onSend }) {
           const label = formatScheduledLabel(post.scheduledDate || etLocalToUTC(scheduledDate))
           return label ? (
             <div>
-              <div style={{ fontSize: '10px', color: '#3f3f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Scheduled</div>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Scheduled</div>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground-muted)' }}>{label}</div>
             </div>
           ) : null
@@ -831,10 +831,10 @@ export default function PostsPage() {
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: '5px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
               background: filter === f ? 'var(--palm-pink)' : 'transparent',
-              color: filter === f ? 'rgba(255,255,255,0.08)' : '#999' }}>
+              color: filter === f ? '#060606' : 'var(--foreground-muted)' }}>
             {f}
             {f !== 'All' && (
-              <span style={{ marginLeft: '6px', color: filter === f ? '#999' : '#3f3f46', fontWeight: 400 }}>
+              <span style={{ marginLeft: '6px', color: filter === f ? 'rgba(6, 6, 6, 0.6)' : 'var(--foreground-subtle)', fontWeight: 400 }}>
                 {posts.filter(p => p.status === f).length}
               </span>
             )}
@@ -842,11 +842,11 @@ export default function PostsPage() {
         ))}
       </div>
 
-      {loading && <div style={{ color: '#3f3f46', textAlign: 'center', padding: '60px' }}>Loading...</div>}
+      {loading && <div style={{ color: 'var(--foreground-muted)', textAlign: 'center', padding: '60px' }}>Loading...</div>}
       {error && <div style={{ color: '#E87878', padding: '20px' }}>{error}</div>}
 
       {!loading && !error && filtered.length === 0 && (
-        <div style={{ color: '#3f3f46', textAlign: 'center', padding: '60px', fontSize: '14px' }}>
+        <div style={{ color: 'var(--foreground-muted)', textAlign: 'center', padding: '60px', fontSize: '14px' }}>
           No posts in this state yet. Approve an edit to create a post.
         </div>
       )}
