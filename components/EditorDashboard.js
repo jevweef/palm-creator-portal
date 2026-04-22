@@ -1767,13 +1767,13 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
     : slot.type === 'done'
     ? doneSlotStyle(slot.task)
     : (slot.type === 'toDo' && slot.task?.isInspoUpload)
-    ? { borderColor: '#fde68a', bg: '#fefce8', dotColor: '#f59e0b', label: 'Creator clip uploaded' }
+    ? { borderColor: 'transparent', bg: 'rgba(232, 200, 120, 0.06)', hoverBg: 'rgba(232, 200, 120, 0.1)', dotColor: '#E8C878', label: 'Creator clip uploaded' }
     : {
-        inProgress: { borderColor: '#bfdbfe', bg: '#eff6ff', dotColor: '#3b82f6', label: 'In editing' },
-        toDo:       { borderColor: 'var(--card-border)', bg: 'var(--background)', dotColor: 'var(--palm-pink)', label: 'Ready to edit' },
-        inspoClip:  { borderColor: '#fde68a', bg: '#fefce8', dotColor: '#f59e0b', label: 'Creator clip uploaded' },
-        empty:      { borderColor: 'var(--card-border)', bg: 'var(--background)', dotColor: '#aaa', label: 'Open slot' },
-      }[slot.type] || { borderColor: 'var(--card-border)', bg: 'var(--background)', dotColor: '#aaa', label: '' }
+        inProgress: { borderColor: 'transparent', bg: 'rgba(120, 180, 232, 0.06)', hoverBg: 'rgba(120, 180, 232, 0.1)', dotColor: '#78B4E8', label: 'In editing' },
+        toDo:       { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-elevated)', dotColor: 'var(--palm-pink)', label: 'Ready to edit' },
+        inspoClip:  { borderColor: 'transparent', bg: 'rgba(232, 200, 120, 0.06)', hoverBg: 'rgba(232, 200, 120, 0.1)', dotColor: '#E8C878', label: 'Creator clip uploaded' },
+        empty:      { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-elevated)', dotColor: 'var(--foreground-subtle)', label: 'Open slot' },
+      }[slot.type] || { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-elevated)', dotColor: 'var(--foreground-subtle)', label: '' }
 
   const isDone = slot.type === 'done'
   const clickable = true
@@ -1783,9 +1783,9 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
     <div
       className="editor-slot-card"
       onClick={clickable ? () => onSlotClick(slot) : undefined}
-      style={{ border: `1px solid ${typeStyle.borderColor}`, background: typeStyle.bg, borderRadius: '10px', padding: '12px 14px', minHeight: '90px', overflow: 'hidden', display: 'flex', gap: '12px', alignItems: 'center', cursor: clickable ? 'pointer' : 'default', transition: 'border-color 0.15s', opacity }}
-      onMouseEnter={e => { if (clickable) e.currentTarget.style.borderColor = typeStyle.dotColor }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = typeStyle.borderColor }}
+      style={{ border: 'none', background: typeStyle.bg, borderRadius: '12px', padding: '14px 16px', minHeight: '90px', overflow: 'hidden', display: 'flex', gap: '12px', alignItems: 'center', cursor: clickable ? 'pointer' : 'default', transition: 'background 0.3s var(--ease-stripe)', opacity, boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)' }}
+      onMouseEnter={e => { if (clickable) e.currentTarget.style.background = typeStyle.hoverBg }}
+      onMouseLeave={e => { e.currentTarget.style.background = typeStyle.bg }}
     >
       <SlotThumbnail slot={slot} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
