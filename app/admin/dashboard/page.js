@@ -766,10 +766,10 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* ─── ROW: Creators (left) + stacked Whale/Pipeline/Posting (right) ─── */}
+      {/* ─── ROW 1: Creators + Whale Alerts ─── */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
-      {/* ─── LEFT: CREATORS TABLE ─── */}
-      <div style={{ ...CARD, flex: '2 1 0', padding: '14px 16px' }}>
+      {/* ─── CREATORS TABLE ─── */}
+      <div style={{ ...CARD, flex: '3 1 0', padding: '14px 16px', minWidth: 0 }}>
           <div style={SECTION_TITLE}>Creators</div>
           <div style={{
             display: 'grid',
@@ -844,11 +844,8 @@ export default function AdminDashboard() {
           })}
       </div>
 
-      {/* ─── RIGHT COLUMN: Whale + Pipeline + Posting stacked ─── */}
-      <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
-
       {/* ─── WHALE ALERTS ─── */}
-      <div style={{ ...CARD, padding: '14px 16px' }}>
+      <div style={{ ...CARD, flex: '2 1 0', padding: '14px 16px', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px' }}>&#x1F433;</span>
@@ -890,7 +887,7 @@ export default function AdminDashboard() {
                 <div style={{ paddingBottom: '12px' }}>
                   {/* Header */}
                   <div style={{
-                    display: 'grid', gridTemplateColumns: '1fr 60px 70px 70px 70px 70px 70px',
+                    display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 44px 44px 54px 54px 58px 52px',
                     padding: '4px 8px', fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase',
                     borderBottom: '1px solid transparent',
                   }}>
@@ -911,7 +908,7 @@ export default function AdminDashboard() {
                     const uc = urgColors[a.urgency] || urgColors.warning
                     return (
                       <div key={a.fan} style={{
-                        display: 'grid', gridTemplateColumns: '1fr 60px 70px 70px 70px 70px 70px',
+                        display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 44px 44px 54px 54px 58px 52px',
                         padding: '8px 8px', fontSize: '12px', alignItems: 'center',
                         background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
                       }}>
@@ -970,9 +967,13 @@ export default function AdminDashboard() {
           )
         })}
       </div>
+      </div>{/* close Row 1 */}
+
+      {/* ─── ROW 2: Pipeline + Posting + Period History ─── */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
 
         {/* Pipeline Health */}
-        <div style={{ ...CARD, padding: '14px 16px' }}>
+        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px', minWidth: 0 }}>
           <div style={SECTION_TITLE}>Pipeline</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
@@ -1014,7 +1015,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Posting Activity */}
-        <div style={{ ...CARD, padding: '14px 16px' }}>
+        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px', minWidth: 0 }}>
           <div style={SECTION_TITLE}>Posting (7 Days)</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {posting.map(c => (
@@ -1037,49 +1038,48 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-      </div>{/* close right column */}
-      </div>{/* close Creators + right-column row */}
 
-      {/* ─── Period History ─── */}
-      {revenue.periods.length > 1 && (
-        <div style={{ ...CARD, marginBottom: '12px', padding: '14px 16px' }}>
-          <div style={SECTION_TITLE}>Period History</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
-              gap: '6px', padding: '2px 0', borderBottom: '1px solid transparent',
-            }}>
-              <span style={{ ...LABEL, fontSize: '9px' }}>Period</span>
-              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>TR</span>
-              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Cut</span>
-              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Δ</span>
+        {/* Period History (inline in Row 2) */}
+        {revenue.periods.length > 1 && (
+          <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px', minWidth: 0 }}>
+            <div style={SECTION_TITLE}>Period History</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 64px 64px 48px',
+                gap: '6px', padding: '2px 0', borderBottom: '1px solid transparent',
+              }}>
+                <span style={{ ...LABEL, fontSize: '9px' }}>Period</span>
+                <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>TR</span>
+                <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Cut</span>
+                <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Δ</span>
+              </div>
+              {revenue.periods.map((p, i) => {
+                const prevPeriod = revenue.periods[i + 1]
+                const periodDelta = prevPeriod && prevPeriod.totalTR > 0
+                  ? (p.totalTR - prevPeriod.totalTR) / prevPeriod.totalTR : null
+                const deltaStr = deltaPct(periodDelta)
+                const deltaColor = periodDelta > 0 ? '#7DD3A4' : periodDelta < 0 ? '#E87878' : '#999'
+                return (
+                  <div key={i} style={{
+                    display: 'grid', gridTemplateColumns: '1fr 64px 64px 48px',
+                    gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                    opacity: i === 0 ? 1 : 0.7,
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--foreground)', fontWeight: i === 0 ? 600 : 400 }}>
+                      {formatPeriodLabel(p.label) || `${p.start} – ${p.end}`}
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground)', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#7DD3A4', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
+                      {deltaStr || '—'}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
-            {revenue.periods.map((p, i) => {
-              const prevPeriod = revenue.periods[i + 1]
-              const periodDelta = prevPeriod && prevPeriod.totalTR > 0
-                ? (p.totalTR - prevPeriod.totalTR) / prevPeriod.totalTR : null
-              const deltaStr = deltaPct(periodDelta)
-              const deltaColor = periodDelta > 0 ? '#7DD3A4' : periodDelta < 0 ? '#E87878' : '#999'
-              return (
-                <div key={i} style={{
-                  display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
-                  gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
-                  opacity: i === 0 ? 1 : 0.7,
-                }}>
-                  <span style={{ fontSize: '12px', color: 'var(--foreground)', fontWeight: i === 0 ? 600 : 400 }}>
-                    {formatPeriodLabel(p.label) || `${p.start} – ${p.end}`}
-                  </span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#7DD3A4', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
-                    {deltaStr || '—'}
-                  </span>
-                </div>
-              )
-            })}
           </div>
-        </div>
-      )}
+        )}
+      </div>{/* close Row 2 */}
     </div>
   )
 }
