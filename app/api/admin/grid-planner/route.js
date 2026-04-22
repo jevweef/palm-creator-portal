@@ -61,25 +61,25 @@ export async function GET(request) {
     const scrapedRecords = creatorAccounts.length
       ? await fetchAirtableRecords('Creator Platform Directory', {
           filterByFormula: `OR(${creatorAccounts.map(a => `RECORD_ID()='${a.id}'`).join(',')})`,
-          fields: ['Scraped Feed', 'Scraped Feed Updated', 'Scraped Profile'],
+          fields: ['Scraped Feed', 'Scraped Feed Updated', 'Scraped Profile', 'Scraped Error'],
         })
       : []
     const scrapedMap = Object.fromEntries(scrapedRecords.map(r => {
       let feed = []
-      let scrapedError = null
       let profile = null
+      // Scraped Feed is authoritative for cached posts. Legacy: it used to
+      // sometimes hold an error-shaped object — treat that as empty so we
+      // don't leak old error data into the UI.
       try {
         const parsed = JSON.parse(r.fields?.['Scraped Feed'] || '[]')
-        if (Array.isArray(parsed)) {
-          feed = parsed
-        } else if (parsed?.error) {
-          scrapedError = parsed.error
-        }
+        if (Array.isArray(parsed)) feed = parsed
       } catch {}
       try {
         const p = JSON.parse(r.fields?.['Scraped Profile'] || 'null')
         if (p && typeof p === 'object') profile = p
       } catch {}
+      // Error is now a separate field — doesn't destroy cached posts.
+      const scrapedError = (r.fields?.['Scraped Error'] || '').trim() || null
       return [r.id, { feed, updated: r.fields?.['Scraped Feed Updated'] || null, error: scrapedError, profile }]
     }))
 

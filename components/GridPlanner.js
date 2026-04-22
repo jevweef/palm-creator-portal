@@ -182,9 +182,21 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           <div style={{ flex: 1, padding: '5px 0', textAlign: 'center', background: '#efefef', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>Message</div>
           <div style={{ padding: '5px 8px', background: '#efefef', borderRadius: '6px', fontSize: '11px' }}>▼</div>
         </div>
-        {account?.scrapedFeedUpdated && (
-          <div style={{ fontSize: '9px', color: '#aaa', marginTop: '6px', textAlign: 'right' }}>
-            scraped {relativeTime(account.scrapedFeedUpdated)}
+        {(account?.scrapedFeedUpdated || account?.scrapedError) && (
+          <div style={{ fontSize: '9px', marginTop: '6px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+            {account?.scrapedError && (
+              <span
+                title={account.scrapedError}
+                style={{ color: '#ef4444', fontWeight: 600, background: '#fef2f2', padding: '1px 6px', borderRadius: '3px', border: '1px solid #fecaca' }}
+              >
+                ⚠ last refresh failed
+              </span>
+            )}
+            {account?.scrapedFeedUpdated && (
+              <span style={{ color: '#aaa' }}>
+                scraped {relativeTime(account.scrapedFeedUpdated)}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -206,7 +218,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       }}>
         {allCells.length === 0 && (
           <div style={{ gridColumn: '1 / -1', padding: '30px 20px', textAlign: 'center', color: '#999', fontSize: '12px' }}>
-            {account?.scrapedError ? (
+            {account?.scrapedError && !account?.scrapedFeedUpdated ? (
               <>
                 <div style={{ color: '#ef4444', fontWeight: 600 }}>Handle not found on IG</div>
                 <div style={{ fontSize: '11px', marginTop: '6px', color: '#888' }}>@{account.handle}</div>
@@ -551,6 +563,7 @@ export default function GridPlanner() {
       if (data.refreshed) parts.push(`${data.refreshed} scraped`)
       if (data.skipped) parts.push(`${data.skipped} cached (< 6h)`)
       if (data.failed) parts.push(`${data.failed} failed`)
+      if (data.totalLinked) parts.push(`🔗 ${data.totalLinked} planned → posted`)
       showToast(parts.join(' · ') || 'Nothing to do')
       await loadCreator(selectedCreatorId)
     } catch (e) {

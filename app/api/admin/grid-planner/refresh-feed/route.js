@@ -7,8 +7,10 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/a
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api.p.rapidapi.com'
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 hours
+const AUTO_LINK_WINDOW_MS = 24 * 60 * 60 * 1000 // ±24h to match planned↔posted
 
-// Pull profile info (bio, counts, avatar) for an IG handle.
+// ─── Scrapers ──────────────────────────────────────────────────────────────────
+
 async function scrapeIgProfile(handle) {
   if (!RAPIDAPI_KEY) return null
   const cleanHandle = handle.replace(/^@/, '').trim()
@@ -36,8 +38,6 @@ async function scrapeIgProfile(handle) {
   }
 }
 
-// Pull the last ~30 reels from an IG handle, extract thumbnails + dates + URLs.
-// RapidAPI is synchronous (unlike Apify batch jobs) so this finishes in a few seconds.
 async function scrapeIgFeed(handle) {
   if (!RAPIDAPI_KEY) throw new Error('RAPIDAPI_KEY not set')
   const cleanHandle = handle.replace(/^@/, '').trim()
@@ -45,7 +45,6 @@ async function scrapeIgFeed(handle) {
 
   const items = []
   let paginationToken = null
-  // 3 pages ~ 36 posts — plenty for grid planning
   for (let page = 0; page < 3; page++) {
     let body = `username_or_url=${encodeURIComponent(cleanHandle)}&amount=50`
     if (paginationToken) body += `&pagination_token=${paginationToken}`
@@ -70,7 +69,6 @@ async function scrapeIgFeed(handle) {
       const takenAt = media.taken_at
       const caption = media?.caption?.text || ''
       const likes = media?.like_count || media?.edge_media_preview_like?.count || 0
-      // Thumbnail: try multiple paths
       const thumbnail =
         media?.image_versions2?.candidates?.[0]?.url ||
         media?.display_uri ||
@@ -78,6 +76,7 @@ async function scrapeIgFeed(handle) {
         ''
       items.push({
         url: `https://www.instagram.com/reel/${code}/`,
+        code,
         thumbnail,
         postedAt: takenAt ? new Date(takenAt * 1000).toISOString() : null,
         likes,
@@ -87,23 +86,122 @@ async function scrapeIgFeed(handle) {
     paginationToken = data.pagination_token
     if (!paginationToken || reels.length === 0 || items.length >= 30) break
   }
-
-  // Dedupe by url, sort newest first
   const byUrl = {}
   for (const it of items) byUrl[it.url] = it
   return Object.values(byUrl)
-    .sort((a, b) => new Date(b.postedAt || 0) - new Date(a.postedAt || 0))
-    .slice(0, 30)
 }
 
-// POST /api/admin/grid-planner/refresh-feed
-//   body: { accountId: 'rec...' } → refresh ONE account
-//   body: { creatorId: 'rec...' } → refresh ALL IG accounts for a creator (in parallel)
-//   body: { force: true } → bypass the 6h cache, re-scrape everything
+// ─── Accumulate helpers ────────────────────────────────────────────────────────
+
+// Merge newly-scraped posts into the existing cached array. Dedup by URL.
+// New posts win on the merge so updated likes/captions flow in; existing posts
+// the scraper didn't return are preserved (IG API pagination may drop older ones).
+function mergeFeeds(existing, fresh) {
+  const byUrl = new Map()
+  for (const p of existing || []) if (p?.url) byUrl.set(p.url, p)
+  for (const p of fresh || []) if (p?.url) byUrl.set(p.url, p)
+  return Array.from(byUrl.values()).sort((a, b) =>
+    new Date(b.postedAt || 0) - new Date(a.postedAt || 0)
+  )
+}
+
+// Parse old Scraped Feed safely. Returns [] if the field held an error shape
+// (our older code used to overwrite posts with error JSON — we tolerate it).
+function parseExistingFeed(raw) {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed
+    return [] // error-shaped object from older versions — we now store errors separately
+  } catch {
+    return []
+  }
+}
+
+// ─── Planned → Posted auto-matching ────────────────────────────────────────────
+
+// When a newly-scraped IG post lands, see if it corresponds to one of our
+// "Prepping" or "Scheduled" Post records. If so, flip that Post record to Posted
+// and link the IG URL. This closes the loop between our planner and reality.
 //
-// Cache behavior (to avoid burning RapidAPI quota):
-//   If an account's Scraped Feed Updated is within CACHE_TTL_MS (6h), skip it.
-//   Returns { skipped: N } for those.
+// Match rules (first one that matches wins):
+//   1. Caption prefix (≥30 chars) matches a scheduled post's Caption → strong link
+//   2. Scheduled Date within ±AUTO_LINK_WINDOW_MS of postedAt, and the planned
+//      Post is linked to the same Account → time-proximity link (only if there
+//      is exactly one such candidate; ambiguous matches are skipped)
+async function autoLinkScrapedToPlanned(accountId, scrapedPosts) {
+  if (!accountId || !scrapedPosts?.length) return { linked: 0, skipped: 0 }
+
+  // Load not-yet-posted Post records linked to this Account
+  const plannedRecs = await fetchAirtableRecords('Posts', {
+    filterByFormula: `AND(FIND('${accountId}', ARRAYJOIN({Account}))>0, {Posted At}='', {Post Link}='')`,
+    fields: ['Post Name', 'Caption', 'Scheduled Date', 'Status', 'Account', 'Posted At', 'Post Link'],
+  })
+  // Filter in JS: ARRAYJOIN returns account NAMES not IDs on 'Account', so the
+  // formula above is a coarse filter. Narrow down here.
+  const accountMatched = plannedRecs.filter(r => (r.fields?.Account || []).includes(accountId))
+  if (!accountMatched.length) return { linked: 0, skipped: 0 }
+
+  let linked = 0
+  let skipped = 0
+  const used = new Set() // track planned post IDs already linked this pass
+
+  // Only consider recently-posted scraped items (last 7 days) to avoid linking
+  // ancient history to upcoming scheduled posts.
+  const now = Date.now()
+  const candidates = scrapedPosts.filter(sp => {
+    if (!sp.postedAt) return false
+    const age = now - new Date(sp.postedAt).getTime()
+    return age >= 0 && age < 7 * 24 * 60 * 60 * 1000
+  })
+
+  for (const sp of candidates) {
+    const spPostedAt = new Date(sp.postedAt).getTime()
+
+    // Rule 1: caption prefix match
+    let match = null
+    if (sp.caption && sp.caption.length >= 30) {
+      const scrapedPrefix = sp.caption.slice(0, 30).toLowerCase().replace(/\s+/g, ' ').trim()
+      match = accountMatched.find(p => {
+        if (used.has(p.id)) return false
+        const cap = (p.fields?.Caption || '').slice(0, 30).toLowerCase().replace(/\s+/g, ' ').trim()
+        return cap.length >= 30 && cap === scrapedPrefix
+      })
+    }
+
+    // Rule 2: unambiguous time-proximity match
+    if (!match) {
+      const inWindow = accountMatched.filter(p => {
+        if (used.has(p.id)) return false
+        const sd = p.fields?.['Scheduled Date']
+        if (!sd) return false
+        return Math.abs(new Date(sd).getTime() - spPostedAt) <= AUTO_LINK_WINDOW_MS
+      })
+      if (inWindow.length === 1) match = inWindow[0]
+      else if (inWindow.length > 1) { skipped++; continue }
+    }
+
+    if (!match) continue
+
+    try {
+      await patchAirtableRecord('Posts', match.id, {
+        'Status': 'Posted',
+        'Posted At': sp.postedAt,
+        'Post Link': sp.url,
+      })
+      used.add(match.id)
+      linked++
+      console.log(`[Auto-link] Planned post ${match.id} → ${sp.url}`)
+    } catch (err) {
+      console.warn(`[Auto-link] Failed to update ${match.id}:`, err.message)
+    }
+  }
+
+  return { linked, skipped }
+}
+
+// ─── Endpoint ──────────────────────────────────────────────────────────────────
+
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
@@ -113,8 +211,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'accountId or creatorId required' }, { status: 400 })
     }
 
-    // Resolve target accounts — include Scraped Feed Updated for cache check
-    const commonFields = ['Account Name', 'Handle/ Username', 'Handle Override', 'Platform', 'Scraped Feed Updated']
+    const commonFields = [
+      'Account Name', 'Handle/ Username', 'Handle Override', 'Platform',
+      'Scraped Feed', 'Scraped Feed Updated',
+    ]
     let accounts
     if (accountId) {
       accounts = await fetchAirtableRecords('Creator Platform Directory', {
@@ -126,7 +226,6 @@ export async function POST(request) {
         filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist',FIND('${creatorId}', ARRAYJOIN({Creator}))>0)`,
         fields: [...commonFields, 'Creator'],
       })
-      // Fallback: ARRAYJOIN returns names, not IDs — if the filter missed, widen and filter in JS
       if (!accounts.length) {
         const all = await fetchAirtableRecords('Creator Platform Directory', {
           filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
@@ -140,54 +239,62 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No accounts found' }, { status: 404 })
     }
 
-    // Scrape in parallel, isolate per-account failures. Write a timestamp either
-    // way so the UI can distinguish "never attempted" vs "tried and failed"
-    // (failed writes store an error message in the JSON so the grid cell can
-    // show the reason).
     const now = Date.now()
     const results = await Promise.all(accounts.map(async (a) => {
       const name = a.fields?.['Account Name'] || ''
-      // Prefer Handle Override (manually set) over the synced Handle/Username field.
-      // CPD's Handle/Username syncs from HQ and can be stale.
       const handle = ((a.fields?.['Handle Override'] || '').trim() || (a.fields?.['Handle/ Username'] || '').trim())
       if (!handle) return { id: a.id, name, ok: false, error: 'No handle' }
 
-      // Cache: skip if scraped recently, unless force=true
+      // Cache: skip if scraped recently (unless force)
       const lastUpdated = a.fields?.['Scraped Feed Updated']
       if (!force && lastUpdated) {
         const ageMs = now - new Date(lastUpdated).getTime()
         if (ageMs < CACHE_TTL_MS) {
-          const ageHours = (ageMs / (60 * 60 * 1000)).toFixed(1)
-          return { id: a.id, name, ok: true, skipped: true, ageHours: Number(ageHours) }
+          return { id: a.id, name, ok: true, skipped: true, ageHours: Number((ageMs / 3600000).toFixed(1)) }
         }
       }
 
-      // Fetch profile + posts in parallel
+      const existingFeed = parseExistingFeed(a.fields?.['Scraped Feed'])
+
       try {
-        const [profile, feed] = await Promise.all([
+        const [profile, fresh] = await Promise.all([
           scrapeIgProfile(handle).catch(err => { console.warn(`[Refresh] profile ${name}:`, err.message); return null }),
           scrapeIgFeed(handle),
         ])
+
+        // Merge fresh into existing (never destroy known-good posts)
+        const mergedFeed = mergeFeeds(existingFeed, fresh)
+        const newOnes = fresh.filter(f => !existingFeed.some(e => e.url === f.url))
+
+        // Auto-link any newly-seen scraped posts to planned Post records
+        const { linked } = newOnes.length
+          ? await autoLinkScrapedToPlanned(a.id, newOnes)
+          : { linked: 0 }
+
         const update = {
-          'Scraped Feed': JSON.stringify(feed),
+          'Scraped Feed': JSON.stringify(mergedFeed),
           'Scraped Feed Updated': new Date().toISOString(),
+          'Scraped Error': '', // clear any prior error
         }
-        if (profile) {
-          update['Scraped Profile'] = JSON.stringify(profile)
-          // NOTE: Follower Count is a synced field from HQ — can't be written via API.
-          // Live counts live in Scraped Profile JSON instead; the UI reads those directly.
-        }
+        if (profile) update['Scraped Profile'] = JSON.stringify(profile)
         await patchAirtableRecord('Creator Platform Directory', a.id, update)
-        return { id: a.id, name, ok: true, count: feed.length, followers: profile?.followers }
+
+        return {
+          id: a.id, name, ok: true,
+          total: mergedFeed.length,
+          newCount: newOnes.length,
+          linked,
+          followers: profile?.followers,
+        }
       } catch (err) {
-        console.error(`[Grid Planner Refresh] ${name} failed:`, err.message)
+        console.error(`[Refresh] ${name} failed:`, err.message)
+        // Preserve existing Scraped Feed — only write the error field
         try {
           await patchAirtableRecord('Creator Platform Directory', a.id, {
-            'Scraped Feed': JSON.stringify({ error: err.message, attemptedAt: new Date().toISOString() }),
-            'Scraped Feed Updated': new Date().toISOString(),
+            'Scraped Error': err.message.slice(0, 500),
           })
         } catch {}
-        return { id: a.id, name, ok: false, error: err.message }
+        return { id: a.id, name, ok: false, error: err.message, preservedCount: existingFeed.length }
       }
     }))
 
@@ -196,10 +303,11 @@ export async function POST(request) {
       refreshed: results.filter(r => r.ok && !r.skipped).length,
       skipped: results.filter(r => r.skipped).length,
       failed: results.filter(r => !r.ok).length,
+      totalLinked: results.reduce((s, r) => s + (r.linked || 0), 0),
       results,
     })
   } catch (err) {
-    console.error('[Grid Planner Refresh] error:', err)
+    console.error('[Refresh] error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
