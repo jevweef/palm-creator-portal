@@ -297,13 +297,13 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={() => { setPdfApproved(false); setActiveStep(0) }} style={{
-                      background: 'rgba(232, 120, 120, 0.06)', color: '#E87878', border: '1px solid #fecaca', borderRadius: '10px',
+                      background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid transparent', borderRadius: '10px',
                       padding: '9px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                     }}>
                       Needs Fix → Re-generate
                     </button>
                     <button onClick={() => { setPdfApproved(true); setActiveStep(2); handleLoadPreview() }} style={{
-                      background: '#7DD3A4', color: 'var(--foreground)', border: 'none', borderRadius: '10px',
+                      background: 'rgba(125, 211, 164, 0.15)', color: '#7DD3A4', border: '1px solid transparent', borderRadius: '10px',
                       padding: '9px 22px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                     }}>
                       Approve PDF →
@@ -315,7 +315,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                 <div style={{
                   flex: 1, minHeight: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: '#f5f5f7', borderRadius: '12px', padding: '20px', overflow: 'auto',
+                  background: 'rgba(255,255,255,0.02)', borderRadius: '12px', padding: '20px', overflow: 'auto',
                 }}>
                   {thumbnailUrl ? (
                     <img
@@ -486,8 +486,8 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           ) : (
             <div style={{ padding: '20px 0' }}>
               <button onClick={handleLoadPreview} disabled={loadingPreview} style={{
-                background: '#78B4E8', color: 'var(--foreground)', border: 'none', borderRadius: '10px',
-                padding: '10px 24px', fontSize: '14px', fontWeight: 600,
+                background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '10px',
+                padding: '10px 24px', fontSize: '14px', fontWeight: 600, letterSpacing: '0.02em',
                 cursor: loadingPreview ? 'not-allowed' : 'pointer',
                 opacity: loadingPreview ? 0.6 : 1,
               }}>
@@ -561,7 +561,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
             {!allPaid && (
               <button onClick={handleMarkAllPaid} style={{
-                background: '#7DD3A4', color: 'var(--foreground)', border: 'none',
+                background: 'rgba(125, 211, 164, 0.15)', color: '#7DD3A4', border: '1px solid transparent',
                 borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
               }}>Mark All Paid</button>
             )}
@@ -681,7 +681,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
           {error && (
             <div style={{
               marginBottom: '14px', padding: '10px 14px', background: 'rgba(232, 120, 120, 0.06)',
-              border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#E87878',
+              border: '1px solid transparent', borderRadius: '8px', fontSize: '12px', color: '#E87878',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <span>{error}</span>
