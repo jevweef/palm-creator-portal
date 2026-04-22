@@ -21,7 +21,7 @@ export async function GET(request) {
     // Fetch ALL managed creators (anyone with at least one active IG account in CPD)
     const allAccounts = await fetchAirtableRecords('Creator Platform Directory', {
       filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
-      fields: ['Account Name', 'Creator', 'Platform', 'Status', 'Handle/ Username', 'URL', 'Follower Count', 'Account Type'],
+      fields: ['Account Name', 'Creator', 'Platform', 'Status', 'Handle/ Username', 'Handle Override', 'URL', 'Follower Count', 'Account Type'],
     })
 
     // Extract unique creator IDs + fetch their names
@@ -107,7 +107,8 @@ export async function GET(request) {
     const accounts = creatorAccounts.map(a => {
       const f = a.fields || {}
       const rawUrl = (f['URL'] || '').trim()
-      const handle = (f['Handle/ Username'] || '').trim().replace(/^@/, '')
+      // Handle Override wins if set (CPD's synced Handle/Username can be stale)
+      const handle = ((f['Handle Override'] || '').trim() || (f['Handle/ Username'] || '').trim()).replace(/^@/, '')
       const scraped = scrapedMap[a.id] || { feed: [], updated: null }
       return {
         id: a.id,

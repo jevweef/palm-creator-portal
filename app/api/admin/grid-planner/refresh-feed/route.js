@@ -84,18 +84,18 @@ export async function POST(request) {
     if (accountId) {
       accounts = await fetchAirtableRecords('Creator Platform Directory', {
         filterByFormula: `RECORD_ID()='${accountId}'`,
-        fields: ['Account Name', 'Handle/ Username', 'Platform'],
+        fields: ['Account Name', 'Handle/ Username', 'Handle Override', 'Platform'],
       })
     } else {
       accounts = await fetchAirtableRecords('Creator Platform Directory', {
         filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist',FIND('${creatorId}', ARRAYJOIN({Creator}))>0)`,
-        fields: ['Account Name', 'Handle/ Username', 'Platform', 'Creator'],
+        fields: ['Account Name', 'Handle/ Username', 'Handle Override', 'Platform', 'Creator'],
       })
       // Fallback: ARRAYJOIN returns names, not IDs — if the filter missed, widen and filter in JS
       if (!accounts.length) {
         const all = await fetchAirtableRecords('Creator Platform Directory', {
           filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
-          fields: ['Account Name', 'Handle/ Username', 'Platform', 'Creator'],
+          fields: ['Account Name', 'Handle/ Username', 'Handle Override', 'Platform', 'Creator'],
         })
         accounts = all.filter(a => (a.fields?.Creator || []).includes(creatorId))
       }
@@ -111,7 +111,9 @@ export async function POST(request) {
     // show the reason).
     const results = await Promise.all(accounts.map(async (a) => {
       const name = a.fields?.['Account Name'] || ''
-      const handle = (a.fields?.['Handle/ Username'] || '').trim()
+      // Prefer Handle Override (manually set) over the synced Handle/Username field.
+      // CPD's Handle/Username syncs from HQ and can be stale.
+      const handle = ((a.fields?.['Handle Override'] || '').trim() || (a.fields?.['Handle/ Username'] || '').trim())
       if (!handle) return { id: a.id, name, ok: false, error: 'No handle' }
       try {
         const feed = await scrapeIgFeed(handle)
