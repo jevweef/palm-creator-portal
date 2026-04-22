@@ -156,11 +156,16 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       }}>
         {allCells.length === 0 && (
           <div style={{ gridColumn: '1 / -1', padding: '30px 20px', textAlign: 'center', color: '#999', fontSize: '12px' }}>
-            {account?.scrapedFeedUpdated ? (
+            {account?.scrapedError ? (
               <>
-                <div style={{ color: '#ef4444', fontWeight: 600 }}>Couldn't find this handle on IG.</div>
-                <div style={{ fontSize: '11px', marginTop: '6px', color: '#888' }}>@{account.handle} returned "user does not exist"</div>
-                <div style={{ fontSize: '10px', marginTop: '8px', color: '#bbb' }}>Check Creator Platform Directory for the correct handle.</div>
+                <div style={{ color: '#ef4444', fontWeight: 600 }}>Handle not found on IG</div>
+                <div style={{ fontSize: '11px', marginTop: '6px', color: '#888' }}>@{account.handle}</div>
+                <div style={{ fontSize: '10px', marginTop: '8px', color: '#bbb', padding: '0 8px' }}>Update the handle in Creator Platform Directory, then Refresh.</div>
+              </>
+            ) : account?.scrapedFeedUpdated ? (
+              <>
+                <div style={{ color: '#E88FAC', fontWeight: 600 }}>Feed scraped, 0 posts.</div>
+                <div style={{ fontSize: '11px', marginTop: '4px' }}>This account may have no public posts.</div>
               </>
             ) : (
               <>

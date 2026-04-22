@@ -105,7 +105,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No accounts found' }, { status: 404 })
     }
 
-    // Scrape in parallel, isolate per-account failures
+    // Scrape in parallel, isolate per-account failures. Write a timestamp either
+    // way so the UI can distinguish "never attempted" vs "tried and failed"
+    // (failed writes store an error message in the JSON so the grid cell can
+    // show the reason).
     const results = await Promise.all(accounts.map(async (a) => {
       const name = a.fields?.['Account Name'] || ''
       const handle = (a.fields?.['Handle/ Username'] || '').trim()
@@ -119,6 +122,13 @@ export async function POST(request) {
         return { id: a.id, name, ok: true, count: feed.length }
       } catch (err) {
         console.error(`[Grid Planner Refresh] ${name} failed:`, err.message)
+        // Mark as attempted so the UI knows to show the error state
+        try {
+          await patchAirtableRecord('Creator Platform Directory', a.id, {
+            'Scraped Feed': JSON.stringify({ error: err.message, attemptedAt: new Date().toISOString() }),
+            'Scraped Feed Updated': new Date().toISOString(),
+          })
+        } catch {}
         return { id: a.id, name, ok: false, error: err.message }
       }
     }))

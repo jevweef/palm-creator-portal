@@ -66,8 +66,17 @@ export async function GET(request) {
       : []
     const scrapedMap = Object.fromEntries(scrapedRecords.map(r => {
       let feed = []
-      try { feed = JSON.parse(r.fields?.['Scraped Feed'] || '[]') } catch {}
-      return [r.id, { feed, updated: r.fields?.['Scraped Feed Updated'] || null }]
+      let scrapedError = null
+      try {
+        const parsed = JSON.parse(r.fields?.['Scraped Feed'] || '[]')
+        if (Array.isArray(parsed)) {
+          feed = parsed
+        } else if (parsed?.error) {
+          // Failed scrape — store the error message for UI display
+          scrapedError = parsed.error
+        }
+      } catch {}
+      return [r.id, { feed, updated: r.fields?.['Scraped Feed Updated'] || null, error: scrapedError }]
     }))
 
     // Pull posts in window (last 60 days + future), filter to this creator in memory.
@@ -110,6 +119,7 @@ export async function GET(request) {
         status: f['Status'] || '',
         scrapedFeed: scraped.feed,
         scrapedFeedUpdated: scraped.updated,
+        scrapedError: scraped.error,
       }
     }).sort((a, b) => {
       // Main first, then numbered Palm IGs in order
