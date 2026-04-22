@@ -174,8 +174,8 @@ export async function POST(request) {
         }
         if (profile) {
           update['Scraped Profile'] = JSON.stringify(profile)
-          // Also write to the canonical Follower Count field (number, sortable in Airtable)
-          if (profile.followers != null) update['Follower Count'] = profile.followers
+          // NOTE: Follower Count is a synced field from HQ — can't be written via API.
+          // Live counts live in Scraped Profile JSON instead; the UI reads those directly.
         }
         await patchAirtableRecord('Creator Platform Directory', a.id, update)
         return { id: a.id, name, ok: true, count: feed.length, followers: profile?.followers }
