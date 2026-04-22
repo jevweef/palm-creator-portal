@@ -3,12 +3,14 @@ import { requireAdmin, fetchAirtableRecords, airtableHeaders, OPS_BASE } from '@
 import { embedText, cosineSimilarity, buildCreatorEmbeddingText } from '@/lib/embeddings'
 import { patchAirtableRecord, batchUpdateRecords } from '@/lib/adminAuth'
 import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 
 export const maxDuration = 60
 
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 const TAG_WEIGHTS_TABLE = 'tbljiwFQBknbUCpc6'
-const ANALYSIS_MODEL = 'gpt-4o-mini'
+const ANALYSIS_MODEL = 'claude-sonnet-4-6'
+const TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe'
 
 const CANONICAL_TAGS = {
   'Setting / Location': [
@@ -158,12 +160,22 @@ Film Format tags — score based on how she films and what formats she can produ
 Note: Film format tags that are purely about editing (Multi-Clip, Single-Clip, Reveal, Transition, Viral Cut-In, Meme Insert) are NOT scored here — those are editor decisions, not creator attributes.
 
 --- SCORING RULES ---
-Tag weight scoring: 0 = irrelevant, 1-30 = low relevance, 31-60 = moderate fit, 61-80 = strong fit, 81-100 = core to her identity.
+Tag weight scoring: 0 = doesn't apply at all, 1-30 = possibly relevant / occasional fit, 31-60 = moderate fit / secondary lane, 61-80 = strong fit / primary lane, 81-100 = core to her identity.
 
-- Score based on what MATCHES this creator's brand, personality, and visual presentation — not just what she's mentioned in passing.
-- Most creators should have 5-10 tags scoring above 50. Not every tag needs a score — use 0 liberally for tags that don't fit.
+--- COVERAGE EXPECTATIONS (IMPORTANT) ---
+These tag weights drive inspo reel matching. A creator with only 5 non-zero tags gets a near-empty inspo feed. Aim for BROAD coverage:
+- **15-25 tags should have non-zero weight** for a typical creator.
+- 3-6 tags in the 70-100 range (core brand pillars).
+- 5-10 tags in the 35-60 range (secondary lanes that genuinely fit).
+- 5-10 tags in the 15-30 range (adjacent or occasional-fit content she could reasonably pull off).
+- Score 0 ONLY for tags that clearly don't apply — not for tags that are "maybe" or "not her main thing." If she could plausibly make content in that lane, give it at least 15-25.
+
+--- SCORING GUIDANCE ---
+- Score based on what MATCHES her brand + what she could PLAUSIBLY do given her visual identity, personality, and lifestyle — not just what she's mentioned explicitly.
+- Infer implicit tags: a gym-girl who films at home should score Body Focus, Lifestyle Casual, Outfit Showcase, and Tripod/Static at moderate-to-strong levels even if she didn't explicitly name them — those are implied by her setup.
+- A creator comfortable with flirty captions should score Soft Tease and Suggestive Movement in the 20-50 range unless her brand explicitly avoids that.
 - A tag scoring 80+ should mean: if you searched the inspo board for reels with this tag, most of them would be relevant to her.
-- Do not inflate scores. A creator who mentions she "likes the beach" once in a voice memo should not score 70 on Beach Girl unless beach content is genuinely part of her brand.
+- Do not inflate to 70+ without clear evidence. But do not leave at 0 just because she didn't name-drop the exact tag — infer what's consistent with her brand.
 
 --- THINK BEFORE SCORING ---
 Before outputting tag weights, ask yourself for each tag:
@@ -434,19 +446,24 @@ export async function POST(request) {
       })
     }
 
-    const response = await openai.chat.completions.create({
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const claudeResponse = await anthropic.messages.create({
       model: ANALYSIS_MODEL,
+      max_tokens: 4000,
+      system: [
+        { type: 'text', text: SYSTEM_PROMPT + '\n\nRespond ONLY with valid JSON. No prose before or after the JSON object.', cache_control: { type: 'ephemeral' } },
+      ],
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: lines.join('\n') },
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
     })
+    const textBlock = claudeResponse.content.find(b => b.type === 'text')
+    if (!textBlock?.text) throw new Error(`Claude returned no text block (stop: ${claudeResponse.stop_reason})`)
+    // Strip any markdown code fences if Claude wrapped the JSON
+    const cleanedJson = textBlock.text.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
+    const profile = JSON.parse(cleanedJson)
 
-    const profile = JSON.parse(response.choices[0].message.content)
-
-    // Normalize do_dont_notes — OpenAI sometimes returns an array instead of a string
+    // Normalize do_dont_notes — sometimes returned as an array instead of a string
     const dosDonts = Array.isArray(profile.do_dont_notes)
       ? profile.do_dont_notes.join('\n')
       : (profile.do_dont_notes || '')
