@@ -82,7 +82,7 @@ export default function SurveySection({ title, questions, answers, onAnswerChang
               padding: '8px 12px',
               marginBottom: '12px',
               fontSize: '12px',
-              color: '#F57F17',
+              color: '#E8A878',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',

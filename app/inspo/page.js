@@ -427,9 +427,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   )
 
   return (
-    <div className="min-h-screen bg-[#FFF5F7]">
+    <div className="min-h-screen bg-[#060606]">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-[#FFF5F7]/95 backdrop-blur" style={{boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+      <div className="sticky top-0 z-40 bg-[#060606]/95 backdrop-blur" style={{boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
         <div className="px-4 md:px-8" style={{maxWidth:'1400px', margin:'0 auto', paddingTop:'12px', paddingBottom:'12px'}}>
 
           {/* Mobile: title + filter button */}
@@ -492,7 +492,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   border: textOnly ? '1px solid #f59e0b' : 'none',
                   boxShadow: textOnly ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
                   cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
-                  background: textOnly ? '#fffbe6' : 'transparent',
+                  background: textOnly ? 'rgba(232, 200, 120, 0.06)' : 'transparent',
                   color: textOnly ? '#E8C878' : '#999',
                   fontWeight: textOnly ? 700 : 400,
                 }}
@@ -638,7 +638,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
             background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #FFE082', borderRadius: '10px',
             padding: '10px 16px', fontSize: '13px',
           }}>
-            <span style={{ fontWeight: 600, color: '#F57F17', flexShrink: 0 }}>Admin Preview</span>
+            <span style={{ fontWeight: 600, color: '#E8A878', flexShrink: 0 }}>Admin Preview</span>
             <select
               value={adminSelectedCreator}
               onChange={e => {
@@ -682,11 +682,11 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
             {Array.from({ length: 24 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl overflow-hidden animate-pulse">
-                <div className="aspect-[9/16] bg-[#FFF0F3]" />
+              <div key={i} className="bg-[#0f0f0f] rounded-xl overflow-hidden animate-pulse">
+                <div className="aspect-[9/16] bg-[rgba(232,160,160,0.06)]" />
                 <div className="p-3 space-y-2">
-                  <div className="h-3 bg-[#FFF0F3] rounded w-3/4" />
-                  <div className="h-2.5 bg-[#FFF0F3] rounded w-1/2" />
+                  <div className="h-3 bg-[rgba(232,160,160,0.06)] rounded w-3/4" />
+                  <div className="h-2.5 bg-[rgba(232,160,160,0.06)] rounded w-1/2" />
                 </div>
               </div>
             ))}
@@ -754,7 +754,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setShowMobileFilters(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto"
+            className="absolute bottom-0 left-0 right-0 bg-[#0f0f0f] rounded-t-2xl max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             style={{boxShadow:'0 -4px 20px rgba(0,0,0,0.08)', WebkitOverflowScrolling:'touch'}}
           >

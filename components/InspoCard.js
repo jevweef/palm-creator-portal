@@ -32,13 +32,13 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
   return (
     <div
       onClick={onClick}
-      className="group relative bg-white overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.01]"
+      className="group relative bg-[#0f0f0f] overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.01]"
       style={{display:'flex', flexDirection:'column', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', border: 'none', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)'}}
       onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-[9/16] bg-[#FFF0F3] overflow-hidden">
+      <div className="relative aspect-[9/16] bg-[rgba(232,160,160,0.06)] overflow-hidden">
         {record.thumbnail && !imgError ? (
           <img
             src={record.thumbnail}

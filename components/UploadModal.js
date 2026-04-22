@@ -221,7 +221,7 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && !uploading && onClose()}
     >
-      <div className="relative w-full max-w-lg mx-4 md:mx-0 bg-white overflow-hidden" style={{boxShadow:'0 8px 40px rgba(0,0,0,0.15)', borderRadius:'18px', border:'none'}}>
+      <div className="relative w-full max-w-lg mx-4 md:mx-0 bg-[#0f0f0f] overflow-hidden" style={{boxShadow:'0 8px 40px rgba(0,0,0,0.15)', borderRadius:'18px', border:'none'}}>
         {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',

@@ -87,7 +87,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-white overflow-hidden flex flex-col" style={{boxShadow: '0 8px 40px rgba(0,0,0,0.15)', border: 'none'}}>
+      <div className="relative w-full h-full md:h-auto md:max-h-[85vh] md:max-w-5xl md:mx-6 md:rounded-2xl bg-[#0f0f0f] overflow-hidden flex flex-col" style={{boxShadow: '0 8px 40px rgba(0,0,0,0.15)', border: 'none'}}>
 
         {/* Header */}
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid transparent', gap:'16px'}}>
@@ -183,7 +183,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
           </div>
 
           {/* Details — absolute on desktop, pinned to right of video, scrolls within video height */}
-          <div className="flex flex-col gap-5 p-[22px_28px] bg-white md:absolute md:top-0 md:bottom-0 md:left-[280px] md:right-0 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[rgba(0,0,0,0.06)]">
+          <div className="flex flex-col gap-5 p-[22px_28px] bg-[#0f0f0f] md:absolute md:top-0 md:bottom-0 md:left-[280px] md:right-0 md:overflow-y-auto border-t md:border-t-0 md:border-l border-[rgba(0,0,0,0.06)]">
 
             {/* Stats */}
             <div className="flex items-center gap-5 text-sm" style={{flexWrap:'wrap'}}>

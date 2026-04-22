@@ -218,7 +218,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
             </div>
             <div>
               <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '2px' }}>Voice Memo</div>
-              <div style={{ fontSize: '13px', color: profileData.voiceMemoComplete ? (profileData.voiceMemoStatus === 'Skipped' ? '#F57F17' : '#43A047') : '#999' }}>
+              <div style={{ fontSize: '13px', color: profileData.voiceMemoComplete ? (profileData.voiceMemoStatus === 'Skipped' ? '#E8A878' : '#43A047') : '#999' }}>
                 {profileData.hasVoiceMemo ? 'Uploaded' : profileData.voiceMemoStatus === 'Skipped' ? 'Skipped' : profileData.voiceMemoStatus === 'Confirmed Sent' ? 'Confirmed sent' : 'Not uploaded'}
               </div>
             </div>
@@ -235,7 +235,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
           padding: '12px 16px',
           marginBottom: '16px',
           fontSize: '13px',
-          color: '#F57F17',
+          color: '#E8A878',
         }}>
           Please complete all steps before submitting.
         </div>

@@ -99,7 +99,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
               <svg width="32" height="32" viewBox="0 0 24 24" fill="#2E7D32"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             )}
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: isSkipped ? '#F57F17' : '#2E7D32' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: isSkipped ? '#E8A878' : '#2E7D32' }}>
             {isSkipped ? 'Skipped — manager will follow up' : confirmed ? 'Voice memo confirmed' : 'Voice memo uploaded'}
           </div>
           {existingMemo?.voiceMemoFilename && (
@@ -280,7 +280,7 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
       <div style={{
         background: confirmed ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 200, 120, 0.06)',
         border: '1px solid',
-        borderColor: confirmed ? '#A5D6A7' : '#FFE082',
+        borderColor: confirmed ? '#A5D6A7' : 'rgba(232, 200, 120, 0.2)',
         borderRadius: '12px',
         padding: '16px',
         marginBottom: '24px',
