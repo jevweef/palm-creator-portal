@@ -1696,9 +1696,27 @@ function SlotText({ slot }) {
 
 function doneSlotStyle(task) {
   const s = task?.adminReviewStatus || ''
-  if (task?.telegramSentAt) return { borderColor: '#bbf7d0', bg: '#f0fdf4', dotColor: '#4ade80', label: 'Sent ✈' }
-  if (s === 'Approved') return { borderColor: '#bbf7d0', bg: '#f0fdf4', dotColor: '#22c55e', label: 'Approved ✓' }
-  return { borderColor: '#d9f99d', bg: '#fefce8', dotColor: '#a3e635', label: 'In Review' }
+  if (task?.telegramSentAt) return {
+    borderColor: 'transparent',
+    bg: 'rgba(125, 211, 164, 0.06)',
+    hoverBg: 'rgba(125, 211, 164, 0.1)',
+    dotColor: '#7DD3A4',
+    label: 'Sent ✈'
+  }
+  if (s === 'Approved') return {
+    borderColor: 'transparent',
+    bg: 'rgba(125, 211, 164, 0.06)',
+    hoverBg: 'rgba(125, 211, 164, 0.1)',
+    dotColor: '#7DD3A4',
+    label: 'Approved ✓'
+  }
+  return {
+    borderColor: 'transparent',
+    bg: 'rgba(232, 200, 120, 0.06)',
+    hoverBg: 'rgba(232, 200, 120, 0.1)',
+    dotColor: '#E8C878',
+    label: 'In Review'
+  }
 }
 
 function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors = {} }) {
@@ -1763,7 +1781,7 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
 function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updating, onRefresh, onSlotClick }) {
   const isNeedsRevision = slot.type === 'inProgress' && slot.task?.adminReviewStatus === 'Needs Revision'
   const typeStyle = isNeedsRevision
-    ? { borderColor: '#fecaca', bg: '#fef2f2', dotColor: '#ef4444', label: 'Needs Revision' }
+    ? { borderColor: 'transparent', bg: 'rgba(232, 120, 120, 0.08)', hoverBg: 'rgba(232, 120, 120, 0.12)', dotColor: '#E87878', label: 'Needs Revision' }
     : slot.type === 'done'
     ? doneSlotStyle(slot.task)
     : (slot.type === 'toDo' && slot.task?.isInspoUpload)
