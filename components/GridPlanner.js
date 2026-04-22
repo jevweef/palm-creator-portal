@@ -30,13 +30,13 @@ function postStatus(post) {
 
 // ─── Phone frame mimicking IG profile ──────────────────────────────────────────
 
-// Deterministic pastel gradient per handle so each account visually differentiates
+// Deterministic muted gradient per handle — dark-theme friendly
 function avatarGradient(handle) {
   const str = handle || 'x'
   let hash = 0
   for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
   const hue = Math.abs(hash) % 360
-  return `linear-gradient(135deg, hsl(${hue}, 70%, 60%) 0%, hsl(${(hue + 40) % 360}, 70%, 50%) 100%)`
+  return `linear-gradient(135deg, hsl(${hue}, 28%, 38%) 0%, hsl(${(hue + 40) % 360}, 28%, 28%) 100%)`
 }
 
 function relativeTime(iso) {
@@ -93,7 +93,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
       {/* Notch */}
-      <div style={{ background: 'var(--foreground)', height: '18px', position: 'relative' }}>
+      <div style={{ background: '#1a1a1a', height: '18px', position: 'relative' }}>
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: '4px',
           width: '100px', height: '14px', background: '#000', borderRadius: '8px' }} />
       </div>
@@ -110,7 +110,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
         <span style={{ fontSize: '14px', fontWeight: 700, flex: 1, display: 'flex', alignItems: 'center', gap: '3px' }}>
           {handle}
           {profile?.isVerified && (
-            <span title="Verified" style={{ background: '#1e90ff', color: '#fff', width: '12px', height: '12px', borderRadius: '50%', fontSize: '8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
+            <span title="Verified" style={{ background: 'var(--palm-pink)', color: '#060606', width: '12px', height: '12px', borderRadius: '50%', fontSize: '8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
           )}
         </span>
         <span style={{ fontSize: '14px', fontWeight: 700 }}>···</span>
@@ -129,8 +129,8 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
               style={{
                 width: '64px', height: '64px', borderRadius: '50%',
                 objectFit: 'cover',
-                border: '2px solid #fff',
-                boxShadow: '0 0 0 2px #E88FAC',
+                border: '2px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 0 0 2px rgba(232,160,160,0.3)',
               }}
             />
           ) : null}
@@ -170,7 +170,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
         </div>
         <div style={{ fontSize: '12px', fontWeight: 600 }}>{profile?.fullName || creator?.name}</div>
         {profile?.bio ? (
-          <div style={{ fontSize: '11px', color: '#333', marginTop: '2px', marginBottom: '8px', whiteSpace: 'pre-wrap', lineHeight: 1.3 }}>
+          <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', marginTop: '2px', marginBottom: '8px', whiteSpace: 'pre-wrap', lineHeight: 1.3 }}>
             {profile.bio}
           </div>
         ) : (
@@ -178,9 +178,9 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
         )}
         {/* Buttons */}
         <div style={{ display: 'flex', gap: '4px' }}>
-          <div style={{ flex: 1, padding: '5px 0', textAlign: 'center', background: '#0095f6', color: '#fff', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>Follow</div>
-          <div style={{ flex: 1, padding: '5px 0', textAlign: 'center', background: '#efefef', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>Message</div>
-          <div style={{ padding: '5px 8px', background: '#efefef', borderRadius: '6px', fontSize: '11px' }}>▼</div>
+          <div style={{ flex: 1, padding: '5px 0', textAlign: 'center', background: 'rgba(232,160,160,0.15)', color: 'var(--palm-pink)', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>Follow</div>
+          <div style={{ flex: 1, padding: '5px 0', textAlign: 'center', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>Message</div>
+          <div style={{ padding: '5px 8px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', borderRadius: '6px', fontSize: '11px' }}>▼</div>
         </div>
         {(account?.scrapedFeedUpdated || account?.scrapedError) && (
           <div style={{ fontSize: '9px', marginTop: '6px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
