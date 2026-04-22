@@ -73,8 +73,8 @@ export default function AdminLayout({ children }) {
   // Early returns AFTER all hooks
   if (!isLoaded || (!isAdmin && !isEditor)) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FFF5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#999', fontSize: '14px' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading...</div>
       </div>
     )
   }
@@ -82,7 +82,7 @@ export default function AdminLayout({ children }) {
   const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
 
   return (
-    <div className="admin-shell" style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: '#FFF5F7' }}>
+    <div className="admin-shell" style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>
       {/* Mobile-only styles — desktop untouched */}
       <style>{`
         @media (max-width: 768px) {
@@ -121,8 +121,8 @@ export default function AdminLayout({ children }) {
       <div className="admin-mobile-bar" style={{
         display: 'none',
         position: 'sticky', top: 0, zIndex: 220,
-        background: '#ffffff',
-        borderBottom: '1px solid #F0D0D8',
+        background: 'rgba(10, 10, 10, 0.95)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
         padding: '10px 14px',
         alignItems: 'center', gap: '12px',
       }}>
@@ -130,18 +130,18 @@ export default function AdminLayout({ children }) {
           onClick={() => setMobileNavOpen(o => !o)}
           aria-label="Open navigation"
           style={{
-            background: '#FFF0F3', border: '1px solid #E8C4CC', borderRadius: '8px',
+            background: 'rgba(232, 160, 160, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px',
             width: '36px', height: '36px', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
           }}
         >
           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '3px' }}>
-            <span style={{ width: '16px', height: '2px', background: '#E88FAC', borderRadius: '2px' }} />
-            <span style={{ width: '16px', height: '2px', background: '#E88FAC', borderRadius: '2px' }} />
-            <span style={{ width: '16px', height: '2px', background: '#E88FAC', borderRadius: '2px' }} />
+            <span style={{ width: '16px', height: '2px', background: 'var(--palm-pink)', borderRadius: '2px' }} />
+            <span style={{ width: '16px', height: '2px', background: 'var(--palm-pink)', borderRadius: '2px' }} />
+            <span style={{ width: '16px', height: '2px', background: 'var(--palm-pink)', borderRadius: '2px' }} />
           </span>
         </button>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>
           {isAdmin ? 'Admin' : 'Editor'}
         </div>
       </div>
@@ -158,9 +158,9 @@ export default function AdminLayout({ children }) {
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
         padding: '20px 0',
         flexShrink: 0,
-        background: '#ffffff',
+        background: 'rgba(10, 10, 10, 0.95)',
       }}>
-        <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {isAdmin ? 'Admin' : 'Editor'}
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
@@ -181,8 +181,8 @@ export default function AdminLayout({ children }) {
                     padding: '8px 16px',
                     fontSize: '13px',
                     fontWeight: isActive ? 600 : 400,
-                    color: isActive ? '#E88FAC' : '#666',
-                    background: isActive ? '#FFF0F3' : 'transparent',
+                    color: isActive ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+                    background: isActive ? 'rgba(232, 160, 160, 0.08)' : 'transparent',
                     borderLeft: isActive ? '2px solid #E88FAC' : '2px solid transparent',
                     textDecoration: 'none',
                     transition: '0.15s ease',
@@ -204,10 +204,10 @@ export default function AdminLayout({ children }) {
                             padding: '5px 16px 5px 42px',
                             fontSize: '11px',
                             fontWeight: isChildActive ? 600 : 400,
-                            color: isChildActive ? '#E88FAC' : '#999',
+                            color: isChildActive ? 'var(--palm-pink)' : '#999',
                             textDecoration: 'none',
                             transition: '0.15s ease',
-                            background: isChildActive ? '#FFF8FA' : 'transparent',
+                            background: isChildActive ? 'rgba(232, 160, 160, 0.04)' : 'transparent',
                           }}
                         >
                           {child.label}

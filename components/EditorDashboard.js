@@ -2275,10 +2275,10 @@ function BufferCreatorCard({ creator }) {
   const isYellow = bufferDays >= 1 && bufferDays < 2
   const isGreen = bufferDays >= 2
 
-  const color = isGreen ? '#22c55e' : isYellow ? '#f59e0b' : '#ef4444'
-  const bg = isGreen ? '#f0fdf4' : isYellow ? '#fefce8' : '#fef2f2'
-  const border = isGreen ? '#bbf7d0' : isYellow ? '#fde68a' : '#fecaca'
-  const barBg = isGreen ? '#dcfce7' : isYellow ? '#fef3c7' : '#fee2e2'
+  const color = isGreen ? '#7DD3A4' : isYellow ? '#E8C878' : '#E87878'
+  const bg = isGreen ? 'rgba(125, 211, 164, 0.06)' : isYellow ? 'rgba(232, 200, 120, 0.06)' : 'rgba(232, 120, 120, 0.06)'
+  const border = isGreen ? 'rgba(125, 211, 164, 0.2)' : isYellow ? 'rgba(232, 200, 120, 0.2)' : 'rgba(232, 120, 120, 0.2)'
+  const barBg = 'rgba(255, 255, 255, 0.05)'
 
   return (
     <div className="editor-buffer-card" style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '16px 18px' }}>
