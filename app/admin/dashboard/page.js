@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 
 const fmt = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtK = n => {
@@ -567,6 +568,7 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
 /* MAIN DASHBOARD */
 /* ─────────────────────────────────────────────── */
 export default function AdminDashboard() {
+  const router = useRouter()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -602,6 +604,15 @@ export default function AdminDashboard() {
     if (!data?.revenue?.byCreator) return []
     const names = Array.from(new Set(data.revenue.byCreator.map(c => c.name).filter(Boolean)))
     return names.sort()
+  }, [data])
+
+  // name → creator id (from editorRunway — used for deep-links to /admin/creators?creator=<id>)
+  const creatorIdByName = useMemo(() => {
+    const m = {}
+    for (const c of (data?.editorRunway?.byCreator || [])) {
+      if (c.id && c.name) m[c.name] = c.id
+    }
+    return m
   }, [data])
 
   // Fetch all creator earnings for agency chart (lazy, after main dashboard loads)
@@ -869,6 +880,7 @@ export default function AdminDashboard() {
           <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '8px 0' }}>No whale alerts right now.</div>
         )}
 
+        <div style={{ maxHeight: '560px', overflowY: 'auto', overflowX: 'hidden' }}>
         {whaleAlerts && Object.entries(whaleAlerts).map(([creator, { alerts: cAlerts, count }]) => {
           const isExpanded = whaleExpandedCreator === creator
           const urgCount = { critical: 0, high: 0, warning: 0 }
@@ -917,12 +929,24 @@ export default function AdminDashboard() {
                     const result = whaleSent[sendKey]
                     const urgColors = { critical: { bg: 'rgba(232, 120, 120, 0.1)', text: '#E87878' }, high: { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8A878' }, warning: { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8C878' } }
                     const uc = urgColors[a.urgency] || urgColors.warning
+                    const creatorId = creatorIdByName[creator]
                     return (
-                      <div key={a.fan} style={{
-                        display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 44px 44px 54px 54px 58px 52px',
-                        padding: '8px 8px', fontSize: '12px', alignItems: 'center',
-                        background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
-                      }}>
+                      <div
+                        key={a.fan}
+                        onClick={() => {
+                          if (creatorId) router.push(`/admin/creators?tab=fans&creator=${creatorId}&fan=${encodeURIComponent(a.fan)}`)
+                        }}
+                        title={creatorId ? `Open ${creator}'s fan tab` : ''}
+                        style={{
+                          display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 44px 44px 54px 54px 58px 52px',
+                          padding: '8px 8px', fontSize: '12px', alignItems: 'center',
+                          background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
+                          cursor: creatorId ? 'pointer' : 'default',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => { if (creatorId) e.currentTarget.style.background = 'rgba(232, 143, 172, 0.06)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}
+                      >
                         <div style={{ minWidth: 0, overflow: 'hidden' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                             <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{a.fan}</span>
@@ -947,7 +971,8 @@ export default function AdminDashboard() {
                           ) : (
                             <button
                               disabled={isSending}
-                              onClick={async () => {
+                              onClick={async (e) => {
+                                e.stopPropagation()
                                 setWhaleSending(prev => ({ ...prev, [sendKey]: true }))
                                 try {
                                   const res = await fetch('/api/admin/whale-alert/send', {
@@ -983,6 +1008,7 @@ export default function AdminDashboard() {
             </div>
           )
         })}
+        </div>{/* close whale scroll container */}
       </div>
       </div>{/* close Row 1 */}
 
