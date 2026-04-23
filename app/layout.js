@@ -60,11 +60,10 @@ const clerkAppearance = {
     logoBox: { height: '60px' },
     logoImage: { height: '60px' },
     card: {
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-      backdropFilter: 'blur(20px)',
+      backgroundColor: '#0f0f0f',
       border: '1px solid rgba(255, 255, 255, 0.06)',
       borderRadius: '16px',
-      boxShadow: 'inset 0 1px 0 0 rgba(255, 255, 255, 0.04)',
+      boxShadow: 'inset 0 1px 0 0 rgba(255, 255, 255, 0.04), 0 20px 60px rgba(0, 0, 0, 0.5)',
     },
     formButtonPrimary: {
       backgroundColor: '#E8A0A0',
