@@ -761,7 +761,7 @@ function TrackList({ tracks, playingPreview, setPlayingPreview, downloading, han
             </div>
             {track.spotifyId && (
               <button onClick={() => setPlayingPreview(playingPreview === track.spotifyId ? null : track.spotifyId)}
-                style={{ padding: '2px 6px', fontSize: '10px', background: playingPreview === track.spotifyId ? '#8B5CF6' : 'rgba(255,255,255,0.04)', color: playingPreview === track.spotifyId ? 'rgba(255,255,255,0.08)' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
+                style={{ padding: '2px 6px', fontSize: '10px', background: playingPreview === track.spotifyId ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: playingPreview === track.spotifyId ? 'rgba(255,255,255,0.08)' : '#888', border: 'none', borderRadius: '3px', cursor: 'pointer', flexShrink: 0 }}>
                 {playingPreview === track.spotifyId ? '■' : '▶'}
               </button>
             )}
@@ -950,8 +950,8 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
   }
 
   return (
-    <div style={{ background: '#F8F4FF', border: '1px solid #E0D4F0', borderRadius: '8px', padding: '10px 12px' }}>
-      <div style={{ fontSize: '10px', fontWeight: 700, color: '#8B5CF6', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+    <div style={{ background: 'rgba(167, 139, 250, 0.06)', border: '1px solid #E0D4F0', borderRadius: '8px', padding: '10px 12px' }}>
+      <div style={{ fontSize: '10px', fontWeight: 700, color: '#A78BFA', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
         Music
       </div>
 
