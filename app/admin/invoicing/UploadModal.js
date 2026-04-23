@@ -166,8 +166,8 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
                   style={{
                     flex: 1, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
                     cursor: 'pointer', transition: 'all 0.15s', border: 'none',
-                    background: dataType === t.key ? (t.key === 'sales' ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 120, 120, 0.1)') : '#f9fafb',
-                    color: dataType === t.key ? (t.key === 'sales' ? '#7DD3A4' : '#991b1b') : '#999',
+                    background: dataType === t.key ? (t.key === 'sales' ? 'rgba(125, 211, 164, 0.1)' : 'rgba(232, 120, 120, 0.12)') : 'rgba(255,255,255,0.04)',
+                    color: dataType === t.key ? (t.key === 'sales' ? '#7DD3A4' : '#E87878') : 'var(--foreground-muted)',
                   }}
                 >
                   {t.label}
