@@ -4,7 +4,6 @@ import { ClerkProvider } from '@clerk/nextjs'
 import Header from '@/components/Header'
 import SuperAdminBar from '@/components/SuperAdminBar'
 import GrainOverlay from '@/components/design/GrainOverlay'
-import CursorGlow from '@/components/design/CursorGlow'
 import SmoothScroll from '@/components/design/SmoothScroll'
 
 const inter = Inter({
@@ -102,7 +101,6 @@ export default function RootLayout({ children }) {
       <html lang="en" className={`${inter.variable} ${sora.variable}`}>
         <body>
           <GrainOverlay />
-          <CursorGlow />
           <SmoothScroll />
           <SuperAdminBar />
           <Header />
