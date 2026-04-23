@@ -33,7 +33,9 @@ async function getVideoDuration(filePath) {
   return null
 }
 
-// Resize image to fit Telegram limits (max 1280px longest side, JPEG output)
+// Resize image to fit Telegram limits (max 1280px longest side, JPEG output).
+// Uses execFile directly — fluent-ffmpeg was causing 5+ minute hangs on Vercel
+// serverless because stdout/stderr pipes weren't being drained.
 async function resizeImage(inputBuffer, inputName) {
   const id = Date.now()
   const ext = inputName.split('.').pop().toLowerCase()
@@ -41,15 +43,16 @@ async function resizeImage(inputBuffer, inputName) {
   const outputPath = join(tmpdir(), `tg_img_out_${id}.jpg`)
   await writeFile(inputPath, Buffer.from(inputBuffer))
   await new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions([
-        '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease',
-        '-q:v', '2', // high quality JPEG
-      ])
-      .output(outputPath)
-      .on('end', resolve)
-      .on('error', reject)
-      .run()
+    const args = [
+      '-y', '-i', inputPath,
+      '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease',
+      '-q:v', '2',
+      outputPath,
+    ]
+    execFile(ffmpegStatic, args, { timeout: 30000, maxBuffer: 20 * 1024 * 1024 }, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
   })
   const outputBuffer = await readFile(outputPath)
   await unlink(inputPath).catch(() => {})
@@ -57,7 +60,8 @@ async function resizeImage(inputBuffer, inputName) {
   return outputBuffer
 }
 
-// Remux MOV → MP4 using -c copy (zero quality loss, just container change)
+// Remux MOV → MP4 using -c copy (zero quality loss, just container change).
+// Uses execFile — same reasoning as resizeImage (fluent-ffmpeg pipe deadlock).
 async function remuxToMp4(inputBuffer, inputName) {
   const id = Date.now()
   const ext = inputName.split('.').pop().toLowerCase()
@@ -65,12 +69,16 @@ async function remuxToMp4(inputBuffer, inputName) {
   const outputPath = join(tmpdir(), `tg_out_${id}.mp4`)
   await writeFile(inputPath, Buffer.from(inputBuffer))
   await new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions(['-c copy', '-movflags +faststart'])
-      .output(outputPath)
-      .on('end', resolve)
-      .on('error', reject)
-      .run()
+    const args = [
+      '-y', '-i', inputPath,
+      '-c', 'copy',
+      '-movflags', '+faststart',
+      outputPath,
+    ]
+    execFile(ffmpegStatic, args, { timeout: 60000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
   })
   const outputBuffer = await readFile(outputPath)
   await unlink(inputPath).catch(() => {})
@@ -150,13 +158,16 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
     }
   }
 
+  // Use execFile directly instead of fluent-ffmpeg. fluent-ffmpeg can deadlock
+  // on serverless when stdout/stderr pipes aren't drained, which was causing
+  // 5-minute hangs that hit maxDuration. execFile with a hard 120s timeout is
+  // what the frame extractor uses reliably.
   await new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions(videoOpts)
-      .output(outputPath)
-      .on('end', resolve)
-      .on('error', reject)
-      .run()
+    const args = ['-y', '-i', inputPath, ...videoOpts, outputPath]
+    execFile(ffmpegStatic, args, { timeout: 120000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
   })
   const outputBuffer = await readFile(outputPath)
   await unlink(inputPath).catch(() => {})
@@ -333,7 +344,7 @@ export async function POST(request) {
         controller.abort()
       }, 20000)
       try {
-        console.log('[Telegram Send] Trying URL method (35s timeout)...')
+        console.log('[Telegram Send] Trying URL method (20s timeout)...')
         if (thumbnailUrl) {
           // Download + resize thumbnail in parallel with prep, send media group with video URL
           const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl), { signal: controller.signal })
