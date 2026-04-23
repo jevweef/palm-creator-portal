@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 
 const fmt = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtK = n => {
@@ -567,6 +568,7 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
 /* MAIN DASHBOARD */
 /* ─────────────────────────────────────────────── */
 export default function AdminDashboard() {
+  const router = useRouter()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -574,6 +576,8 @@ export default function AdminDashboard() {
   const [earningsData, setEarningsData] = useState(null) // { creatorName: { dailyData, summary } }
   const [earningsLoading, setEarningsLoading] = useState(false)
   const earningsFetched = useRef(false)
+  const creatorsCardRef = useRef(null)
+  const [creatorsHeight, setCreatorsHeight] = useState(null)
   const [whaleAlerts, setWhaleAlerts] = useState(null) // { creatorName: { alerts, count } }
   const [whaleLoading, setWhaleLoading] = useState(false)
   const [whaleSending, setWhaleSending] = useState({}) // { 'creator-fan': true }
@@ -597,11 +601,31 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // Observe Creators card height so Whale Alerts can match it (prevents layout gap)
+  useEffect(() => {
+    if (!creatorsCardRef.current) return
+    const el = creatorsCardRef.current
+    const update = () => setCreatorsHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [data])
+
   // Derive creator list dynamically from revenue data (all AKAs with invoices)
   const creatorList = useMemo(() => {
     if (!data?.revenue?.byCreator) return []
     const names = Array.from(new Set(data.revenue.byCreator.map(c => c.name).filter(Boolean)))
     return names.sort()
+  }, [data])
+
+  // name → creator id (from editorRunway — used for deep-links to /admin/creators?creator=<id>)
+  const creatorIdByName = useMemo(() => {
+    const m = {}
+    for (const c of (data?.editorRunway?.byCreator || [])) {
+      if (c.id && c.name) m[c.name] = c.id
+    }
+    return m
   }, [data])
 
   // Fetch all creator earnings for agency chart (lazy, after main dashboard loads)
@@ -749,25 +773,38 @@ export default function AdminDashboard() {
 
       {/* ─── KPI STRIP ─── */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-        <StatCard label="Creators" value={revenue.activeCreators} />
-        <StatCard label="Period Revenue" value={fmtK(revenue.currentPeriodTR)} delta={revenue.trDelta} />
-        <StatCard label="Palm's Cut" value={fmtK(revenue.netProfit)} color="#22c55e" delta={revenue.profitDelta} />
+        <StatCard label="Creators" value={revenue.activeCreators} sub="active" />
+        <StatCard
+          label={`Period Revenue · ${formatPeriodLabel(revenue.currentPeriodLabel)}`}
+          value={fmtK(revenue.currentPeriodTR)}
+          delta={revenue.trDelta}
+          sub={revenue.periods[1] ? `vs ${formatPeriodLabel(revenue.periods[1].label)}` : null}
+        />
+        <StatCard
+          label={`Palm's Cut · ${formatPeriodLabel(revenue.currentPeriodLabel)}`}
+          value={fmtK(revenue.netProfit)}
+          color="#22c55e"
+          delta={revenue.profitDelta}
+          sub={revenue.periods[1] ? `vs ${formatPeriodLabel(revenue.periods[1].label)}` : null}
+        />
         <StatCard
           label="Projected Monthly"
           value={fmtK(revenue.projectedMonthlyRevenue)}
-          sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net`}
+          sub={`${fmtK(revenue.projectedMonthlyNetProfit)} net · 30d extrap.`}
           color="#E88FAC"
         />
         <StatCard
           label="Outstanding"
           value={revenue.outstandingInvoices.count}
-          sub={revenue.outstandingInvoices.count > 0 ? fmtK(revenue.outstandingInvoices.total) : 'all clear'}
+          sub={revenue.outstandingInvoices.count > 0 ? `${fmtK(revenue.outstandingInvoices.total)} unpaid` : 'all clear'}
           color={revenue.outstandingInvoices.count > 0 ? '#E8C878' : '#7DD3A4'}
         />
       </div>
 
-      {/* ─── CREATORS TABLE — full width ─── */}
-      <div style={{ ...CARD, marginBottom: '12px', padding: '14px 16px' }}>
+      {/* ─── ROW 1: Creators + Whale Alerts ─── */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
+      {/* ─── CREATORS TABLE ─── */}
+      <div ref={creatorsCardRef} style={{ ...CARD, flex: '3 1 0', padding: '14px 16px', minWidth: 0 }}>
           <div style={SECTION_TITLE}>Creators</div>
           <div style={{
             display: 'grid',
@@ -842,11 +879,8 @@ export default function AdminDashboard() {
           })}
       </div>
 
-      {/* ─── TWO COLUMN: Whale Alerts + Pipeline/Posting ─── */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-
       {/* ─── WHALE ALERTS ─── */}
-      <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
+      <div style={{ ...CARD, flex: '2 1 0', padding: '14px 16px', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px' }}>&#x1F433;</span>
@@ -859,6 +893,11 @@ export default function AdminDashboard() {
           <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '8px 0' }}>No whale alerts right now.</div>
         )}
 
+        <div style={{
+          maxHeight: creatorsHeight ? `${Math.max(200, creatorsHeight - 60)}px` : 'none',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}>
         {whaleAlerts && Object.entries(whaleAlerts).map(([creator, { alerts: cAlerts, count }]) => {
           const isExpanded = whaleExpandedCreator === creator
           const urgCount = { critical: 0, high: 0, warning: 0 }
@@ -888,7 +927,7 @@ export default function AdminDashboard() {
                 <div style={{ paddingBottom: '12px' }}>
                   {/* Header */}
                   <div style={{
-                    display: 'grid', gridTemplateColumns: '1fr 60px 70px 70px 70px 70px 70px',
+                    display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 44px 44px 54px 54px 58px 52px',
                     padding: '4px 8px', fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase',
                     borderBottom: '1px solid transparent',
                   }}>
@@ -907,16 +946,34 @@ export default function AdminDashboard() {
                     const result = whaleSent[sendKey]
                     const urgColors = { critical: { bg: 'rgba(232, 120, 120, 0.1)', text: '#E87878' }, high: { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8A878' }, warning: { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8C878' } }
                     const uc = urgColors[a.urgency] || urgColors.warning
+                    const creatorId = creatorIdByName[creator]
                     return (
-                      <div key={a.fan} style={{
-                        display: 'grid', gridTemplateColumns: '1fr 60px 70px 70px 70px 70px 70px',
-                        padding: '8px 8px', fontSize: '12px', alignItems: 'center',
-                        background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
-                      }}>
-                        <div>
-                          <span style={{ fontWeight: 500 }}>{a.fan}</span>
-                          {a.username && <span style={{ color: 'var(--palm-pink)', fontSize: '11px', marginLeft: '4px' }}>@{a.username}</span>}
-                          <span style={{ background: uc.bg, color: uc.text, padding: '1px 5px', borderRadius: '3px', fontSize: '9px', fontWeight: 700, marginLeft: '6px', textTransform: 'uppercase' }}>{a.urgency}</span>
+                      <div
+                        key={a.fan}
+                        onClick={() => {
+                          if (creatorId) router.push(`/admin/creators?tab=fans&creator=${creatorId}&fan=${encodeURIComponent(a.fan)}`)
+                        }}
+                        title={creatorId ? `Open ${creator}'s fan tab` : ''}
+                        style={{
+                          display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 44px 44px 54px 54px 58px 52px',
+                          padding: '8px 8px', fontSize: '12px', alignItems: 'center',
+                          background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
+                          cursor: creatorId ? 'pointer' : 'default',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => { if (creatorId) e.currentTarget.style.background = 'rgba(232, 143, 172, 0.06)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}
+                      >
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                            <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{a.fan}</span>
+                            <span style={{ background: uc.bg, color: uc.text, padding: '1px 5px', borderRadius: '3px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', flexShrink: 0 }}>{a.urgency}</span>
+                          </div>
+                          {a.username && (
+                            <div style={{ color: 'var(--palm-pink)', fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              @{a.username}
+                            </div>
+                          )}
                         </div>
                         <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{a.medianGap}d</span>
                         <span style={{ textAlign: 'right', fontWeight: 600, color: a.currentGap > a.medianGap * 3 ? '#E87878' : '#E88C5C' }}>
@@ -931,7 +988,8 @@ export default function AdminDashboard() {
                           ) : (
                             <button
                               disabled={isSending}
-                              onClick={async () => {
+                              onClick={async (e) => {
+                                e.stopPropagation()
                                 setWhaleSending(prev => ({ ...prev, [sendKey]: true }))
                                 try {
                                   const res = await fetch('/api/admin/whale-alert/send', {
@@ -967,13 +1025,15 @@ export default function AdminDashboard() {
             </div>
           )
         })}
+        </div>{/* close whale scroll container */}
       </div>
+      </div>{/* close Row 1 */}
 
-        {/* Right column: Pipeline + Posting stacked */}
-        <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* ─── ROW 2: Pipeline + Posting + Period History ─── */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
 
         {/* Pipeline Health */}
-        <div style={{ ...CARD, flex: '0 0 auto', padding: '14px 16px' }}>
+        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px', minWidth: 0 }}>
           <div style={SECTION_TITLE}>Pipeline</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
@@ -1015,7 +1075,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Posting Activity */}
-        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px' }}>
+        <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px', minWidth: 0 }}>
           <div style={SECTION_TITLE}>Posting (7 Days)</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {posting.map(c => (
@@ -1038,49 +1098,48 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-        </div>{/* close right column */}
-      </div>{/* close two-column wrapper */}
 
-      {/* ─── Period History ─── */}
-      {revenue.periods.length > 1 && (
-        <div style={{ ...CARD, marginBottom: '12px', padding: '14px 16px' }}>
-          <div style={SECTION_TITLE}>Period History</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
-              gap: '6px', padding: '2px 0', borderBottom: '1px solid transparent',
-            }}>
-              <span style={{ ...LABEL, fontSize: '9px' }}>Period</span>
-              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>TR</span>
-              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Cut</span>
-              <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Δ</span>
+        {/* Period History (inline in Row 2) */}
+        {revenue.periods.length > 1 && (
+          <div style={{ ...CARD, flex: '1 1 0', padding: '14px 16px', minWidth: 0 }}>
+            <div style={SECTION_TITLE}>Period History</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 64px 64px 48px',
+                gap: '6px', padding: '2px 0', borderBottom: '1px solid transparent',
+              }}>
+                <span style={{ ...LABEL, fontSize: '9px' }}>Period</span>
+                <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>TR</span>
+                <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Cut</span>
+                <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Δ</span>
+              </div>
+              {revenue.periods.map((p, i) => {
+                const prevPeriod = revenue.periods[i + 1]
+                const periodDelta = prevPeriod && prevPeriod.totalTR > 0
+                  ? (p.totalTR - prevPeriod.totalTR) / prevPeriod.totalTR : null
+                const deltaStr = deltaPct(periodDelta)
+                const deltaColor = periodDelta > 0 ? '#7DD3A4' : periodDelta < 0 ? '#E87878' : '#999'
+                return (
+                  <div key={i} style={{
+                    display: 'grid', gridTemplateColumns: '1fr 64px 64px 48px',
+                    gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                    opacity: i === 0 ? 1 : 0.7,
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--foreground)', fontWeight: i === 0 ? 600 : 400 }}>
+                      {formatPeriodLabel(p.label) || `${p.start} – ${p.end}`}
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground)', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#7DD3A4', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
+                      {deltaStr || '—'}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
-            {revenue.periods.map((p, i) => {
-              const prevPeriod = revenue.periods[i + 1]
-              const periodDelta = prevPeriod && prevPeriod.totalTR > 0
-                ? (p.totalTR - prevPeriod.totalTR) / prevPeriod.totalTR : null
-              const deltaStr = deltaPct(periodDelta)
-              const deltaColor = periodDelta > 0 ? '#7DD3A4' : periodDelta < 0 ? '#E87878' : '#999'
-              return (
-                <div key={i} style={{
-                  display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px',
-                  gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
-                  opacity: i === 0 ? 1 : 0.7,
-                }}>
-                  <span style={{ fontSize: '12px', color: 'var(--foreground)', fontWeight: i === 0 ? 600 : 400 }}>
-                    {formatPeriodLabel(p.label) || `${p.start} – ${p.end}`}
-                  </span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', textAlign: 'right' }}>{fmtK(p.totalTR)}</span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#7DD3A4', textAlign: 'right' }}>{fmtK(p.netProfit)}</span>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: deltaColor, textAlign: 'right' }}>
-                    {deltaStr || '—'}
-                  </span>
-                </div>
-              )
-            })}
           </div>
-        </div>
-      )}
+        )}
+      </div>{/* close Row 2 */}
     </div>
   )
 }

@@ -294,6 +294,7 @@ export async function GET() {
       ).length
 
       return {
+        id: c.id,
         name: f.AKA || f.Creator || '',
         bufferDays,
         approvedPosts: approvedBuffer,
