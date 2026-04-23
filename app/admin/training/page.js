@@ -210,9 +210,8 @@ export default function TextTrainingPage() {
     )
   }
 
-  const videoUrl = record.dbRawLink || (record.dbShareLink
-    ? record.dbShareLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
-    : null)
+  const toRawUrl = url => url ? url.replace(/([?&])dl=[01]/, '$1raw=1').replace(/^(https:\/\/www\.dropbox\.com\/.+)(?<![?&]raw=1)$/, (m) => m.includes('?') ? m + '&raw=1' : m + '?raw=1') : ''
+  const videoUrl = record.dbRawLink || toRawUrl(record.dbShareLink)
   const embedHtml = record.dbEmbedCode
     ? record.dbEmbedCode.replace('<video ', '<video autoplay muted loop ')
     : null
@@ -252,43 +251,45 @@ export default function TextTrainingPage() {
         minHeight: '500px',
         boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
       }}>
-        {/* Left: Thumbnail + play link */}
+        {/* Left: Video player */}
         <div style={{ background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
           <div style={{ width: '100%', aspectRatio: '9/16', position: 'relative' }}>
-            {record.thumbnail ? (
+            {videoUrl ? (
+              <video
+                key={record.id}
+                src={videoUrl}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                poster={record.thumbnail || undefined}
+                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+              />
+            ) : record.thumbnail ? (
               <img src={record.thumbnail} alt={record.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(240, 236, 232, 0.85)' }}>
                 No thumbnail
               </div>
             )}
-            {/* Play button overlay — opens Dropbox video in new tab */}
-            {(videoUrl || record.dbShareLink) && (
-              <a
-                href={record.dbShareLink || videoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  background: 'rgba(0,0,0,0.6)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                  textDecoration: 'none',
-                }}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </a>
+            {/* Tap to unmute hint */}
+            {videoUrl && (
+              <div style={{
+                position: 'absolute',
+                bottom: '8px',
+                left: '8px',
+                background: 'rgba(0,0,0,0.55)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                color: '#fff',
+                fontWeight: 500,
+                pointerEvents: 'none',
+              }}>
+                🔇 tap to unmute
+              </div>
             )}
           </div>
         </div>
