@@ -576,6 +576,8 @@ export default function AdminDashboard() {
   const [earningsData, setEarningsData] = useState(null) // { creatorName: { dailyData, summary } }
   const [earningsLoading, setEarningsLoading] = useState(false)
   const earningsFetched = useRef(false)
+  const creatorsCardRef = useRef(null)
+  const [creatorsHeight, setCreatorsHeight] = useState(null)
   const [whaleAlerts, setWhaleAlerts] = useState(null) // { creatorName: { alerts, count } }
   const [whaleLoading, setWhaleLoading] = useState(false)
   const [whaleSending, setWhaleSending] = useState({}) // { 'creator-fan': true }
@@ -598,6 +600,17 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Observe Creators card height so Whale Alerts can match it (prevents layout gap)
+  useEffect(() => {
+    if (!creatorsCardRef.current) return
+    const el = creatorsCardRef.current
+    const update = () => setCreatorsHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [data])
 
   // Derive creator list dynamically from revenue data (all AKAs with invoices)
   const creatorList = useMemo(() => {
@@ -791,7 +804,7 @@ export default function AdminDashboard() {
       {/* ─── ROW 1: Creators + Whale Alerts ─── */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
       {/* ─── CREATORS TABLE ─── */}
-      <div style={{ ...CARD, flex: '3 1 0', padding: '14px 16px', minWidth: 0 }}>
+      <div ref={creatorsCardRef} style={{ ...CARD, flex: '3 1 0', padding: '14px 16px', minWidth: 0 }}>
           <div style={SECTION_TITLE}>Creators</div>
           <div style={{
             display: 'grid',
@@ -867,8 +880,12 @@ export default function AdminDashboard() {
       </div>
 
       {/* ─── WHALE ALERTS ─── */}
-      <div style={{ ...CARD, flex: '2 1 0', padding: '14px 16px', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0' }}>
+      <div style={{
+        ...CARD, flex: '2 1 0', padding: '14px 16px', minWidth: 0,
+        display: 'flex', flexDirection: 'column', minHeight: 0,
+        maxHeight: creatorsHeight ? `${creatorsHeight}px` : undefined,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px' }}>&#x1F433;</span>
             <span style={SECTION_TITLE}>Whale Alerts</span>
@@ -880,7 +897,7 @@ export default function AdminDashboard() {
           <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '8px 0' }}>No whale alerts right now.</div>
         )}
 
-        <div style={{ maxHeight: '560px', overflowY: 'auto', overflowX: 'hidden' }}>
+        <div style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
         {whaleAlerts && Object.entries(whaleAlerts).map(([creator, { alerts: cAlerts, count }]) => {
           const isExpanded = whaleExpandedCreator === creator
           const urgCount = { critical: 0, high: 0, warning: 0 }
