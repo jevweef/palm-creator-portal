@@ -102,13 +102,13 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
   if (aggressive) {
     // Last-resort: drop to 720p + CRF 30. Clear quality hit, but fits.
     videoOpts = [
-      '-c:v libx264',
-      '-crf 30',
-      '-preset veryfast',
+      '-c:v', 'libx264',
+      '-crf', '30',
+      '-preset', 'ultrafast',
       '-vf', 'scale=w=-2:h=\'min(1280,ih)\'',
-      '-c:a aac',
-      '-b:a 96k',
-      '-movflags +faststart',
+      '-c:a', 'aac',
+      '-b:a', '96k',
+      '-movflags', '+faststart',
     ]
   } else {
     const duration = await getVideoDuration(inputPath)
@@ -120,25 +120,32 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
       const videoK = Math.max(800, Math.floor(videoBps / 1024))
       console.log(`[Compress] duration=${duration.toFixed(1)}s → video ${videoK}kbps for ${targetMB}MB target`)
       videoOpts = [
-        '-c:v libx264',
-        `-b:v ${videoK}k`,
-        `-maxrate ${Math.floor(videoK * 1.15)}k`,
-        `-bufsize ${videoK * 2}k`,
-        '-preset veryfast',
-        '-c:a aac',
-        '-b:a 128k',
-        '-movflags +faststart',
+        '-c:v', 'libx264',
+        '-b:v', `${videoK}k`,
+        '-maxrate', `${Math.floor(videoK * 1.15)}k`,
+        '-bufsize', `${videoK * 2}k`,
+        // ultrafast preset: ~3x faster than veryfast on shared serverless CPUs.
+        // Since we're targeting a specific bitrate, the file size comes out the
+        // same — we just spend less CPU time on compression-ratio optimizations.
+        // Quality difference is imperceptible for phone-screen IG viewing.
+        '-preset', 'ultrafast',
+        // Cap at 1080p height. No-op for phone video (already 1080p), saves
+        // time if source was exported at 4K by accident.
+        '-vf', 'scale=w=-2:h=\'min(1920,ih)\'',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
       ]
     } else {
-      // Couldn't probe duration — fall back to high-quality CRF pass
+      // Couldn't probe duration — fall back to CRF pass
       console.log(`[Compress] duration probe failed, falling back to CRF 26`)
       videoOpts = [
-        '-c:v libx264',
-        '-crf 26',
-        '-preset veryfast',
-        '-c:a aac',
-        '-b:a 128k',
-        '-movflags +faststart',
+        '-c:v', 'libx264',
+        '-crf', '26',
+        '-preset', 'ultrafast',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
       ]
     }
   }
@@ -414,9 +421,11 @@ export async function POST(request) {
         const origMB = (uploadBuffer.length / 1024 / 1024).toFixed(1)
         console.log(`[Telegram Send] ${origMB}MB exceeds 50MB — compressing to fit...`)
         try {
+          const compressStart = Date.now()
           const compressed = await compressVideo(uploadBuffer, uploadFilename, { targetMB: 47 })
           const compMB = (compressed.length / 1024 / 1024).toFixed(1)
-          console.log(`[Telegram Send] Compressed to ${compMB}MB`)
+          const compressElapsed = ((Date.now() - compressStart) / 1000).toFixed(1)
+          console.log(`[Telegram Send] Compressed to ${compMB}MB in ${compressElapsed}s`)
 
           if (compressed.length > MAX_UPLOAD_BYTES) {
             console.log(`[Telegram Send] Still too big, retrying with aggressive mode...`)
