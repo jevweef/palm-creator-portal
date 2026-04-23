@@ -880,12 +880,8 @@ export default function AdminDashboard() {
       </div>
 
       {/* ─── WHALE ALERTS ─── */}
-      <div style={{
-        ...CARD, flex: '2 1 0', padding: '14px 16px', minWidth: 0,
-        display: 'flex', flexDirection: 'column', minHeight: 0,
-        maxHeight: creatorsHeight ? `${creatorsHeight}px` : undefined,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0', flexShrink: 0 }}>
+      <div style={{ ...CARD, flex: '2 1 0', padding: '14px 16px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px' }}>&#x1F433;</span>
             <span style={SECTION_TITLE}>Whale Alerts</span>
@@ -897,7 +893,11 @@ export default function AdminDashboard() {
           <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '8px 0' }}>No whale alerts right now.</div>
         )}
 
-        <div style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+        <div style={{
+          maxHeight: creatorsHeight ? `${Math.max(200, creatorsHeight - 60)}px` : 'none',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}>
         {whaleAlerts && Object.entries(whaleAlerts).map(([creator, { alerts: cAlerts, count }]) => {
           const isExpanded = whaleExpandedCreator === creator
           const urgCount = { critical: 0, high: 0, warning: 0 }
