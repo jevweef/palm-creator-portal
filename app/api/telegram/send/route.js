@@ -8,8 +8,27 @@ import ffmpeg from 'fluent-ffmpeg'
 import { writeFile, readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 
 ffmpeg.setFfmpegPath(ffmpegStatic)
+const execFilePromise = promisify(execFile)
+
+// Probe video duration in seconds by parsing ffmpeg stderr (ffprobe not in
+// ffmpeg-static). Returns null if parsing fails.
+async function getVideoDuration(filePath) {
+  try {
+    // ffmpeg -i exits with code 1 but writes duration to stderr
+    await execFilePromise(ffmpegStatic, ['-i', filePath], { timeout: 10000 })
+  } catch (err) {
+    const stderr = err.stderr || ''
+    const m = stderr.match(/Duration:\s+(\d+):(\d+):(\d+(?:\.\d+)?)/)
+    if (!m) return null
+    const [, h, mnt, s] = m
+    return parseInt(h) * 3600 + parseInt(mnt) * 60 + parseFloat(s)
+  }
+  return null
+}
 
 // Resize image to fit Telegram limits (max 1280px longest side, JPEG output)
 async function resizeImage(inputBuffer, inputName) {
@@ -45,6 +64,85 @@ async function remuxToMp4(inputBuffer, inputName) {
   await new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions(['-c copy', '-movflags +faststart'])
+      .output(outputPath)
+      .on('end', resolve)
+      .on('error', reject)
+      .run()
+  })
+  const outputBuffer = await readFile(outputPath)
+  await unlink(inputPath).catch(() => {})
+  await unlink(outputPath).catch(() => {})
+  return outputBuffer
+}
+
+// Compress a video to fit under Telegram's 50MB bot upload limit using the
+// MINIMUM bitrate reduction needed. For files barely over (e.g. 51MB → 47MB
+// target) this is an ~8% bitrate shave — visually indistinguishable from
+// source. Only for dramatically oversized files does quality noticeably drop.
+//
+// Approach:
+//   1. Probe duration
+//   2. Compute target video bitrate = (targetSize * 8 / duration) - audioBitrate
+//   3. Single-pass libx264 with that bitrate target + veryfast preset
+//
+// If we can't probe duration, fall back to CRF 26 (still very high quality).
+// If output is STILL too big after targeted encode, aggressive mode kicks in
+// with a 720p cap + CRF 30 (noticeable but acceptable degradation).
+async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive = false } = {}) {
+  const id = Date.now()
+  const ext = (inputName.split('.').pop() || 'mp4').toLowerCase()
+  const inputPath = join(tmpdir(), `tg_comp_in_${id}.${ext}`)
+  const outputPath = join(tmpdir(), `tg_comp_out_${id}.mp4`)
+  await writeFile(inputPath, Buffer.from(inputBuffer))
+
+  let videoOpts
+  if (aggressive) {
+    // Last-resort: drop to 720p + CRF 30. Clear quality hit, but fits.
+    videoOpts = [
+      '-c:v libx264',
+      '-crf 30',
+      '-preset veryfast',
+      '-vf', 'scale=w=-2:h=\'min(1280,ih)\'',
+      '-c:a aac',
+      '-b:a 96k',
+      '-movflags +faststart',
+    ]
+  } else {
+    const duration = await getVideoDuration(inputPath)
+    if (duration && duration > 0) {
+      const AUDIO_BPS = 128 * 1024
+      // 5% safety margin for container overhead so we don't overshoot.
+      const totalBudget = targetMB * 1024 * 1024 * 8 * 0.95
+      const videoBps = Math.floor((totalBudget - AUDIO_BPS * duration) / duration)
+      const videoK = Math.max(800, Math.floor(videoBps / 1024))
+      console.log(`[Compress] duration=${duration.toFixed(1)}s → video ${videoK}kbps for ${targetMB}MB target`)
+      videoOpts = [
+        '-c:v libx264',
+        `-b:v ${videoK}k`,
+        `-maxrate ${Math.floor(videoK * 1.15)}k`,
+        `-bufsize ${videoK * 2}k`,
+        '-preset veryfast',
+        '-c:a aac',
+        '-b:a 128k',
+        '-movflags +faststart',
+      ]
+    } else {
+      // Couldn't probe duration — fall back to high-quality CRF pass
+      console.log(`[Compress] duration probe failed, falling back to CRF 26`)
+      videoOpts = [
+        '-c:v libx264',
+        '-crf 26',
+        '-preset veryfast',
+        '-c:a aac',
+        '-b:a 128k',
+        '-movflags +faststart',
+      ]
+    }
+  }
+
+  await new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions(videoOpts)
       .output(outputPath)
       .on('end', resolve)
       .on('error', reject)
@@ -272,10 +370,6 @@ export async function POST(request) {
       const fileSize = fileBuffer.byteLength
       console.log(`[Telegram Send] Downloaded: ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
 
-      if (fileSize > MAX_UPLOAD_BYTES) {
-        return NextResponse.json({ error: `File too large (${(fileSize / 1024 / 1024).toFixed(0)}MB). Telegram limit is 50MB.` }, { status: 400 })
-      }
-
       // Upload directly to Telegram as multipart
       const form = new FormData()
       form.append('chat_id', String(chatId))
@@ -298,6 +392,47 @@ export async function POST(request) {
         console.log(`[Telegram Send] Remux done, size: ${(uploadBuffer.length / 1024 / 1024).toFixed(1)}MB`)
       } else if (isVideo(editedFileLink)) {
         uploadMime = 'video/mp4'
+      }
+
+      // Compress if file exceeds Telegram's 50MB bot limit.
+      // Uses target-bitrate compression — for files barely over, this is
+      // an ~8% bitrate shave (visually indistinguishable). For files 2x+
+      // over, falls through to aggressive (720p cap + CRF 30).
+      if (uploadBuffer.length > MAX_UPLOAD_BYTES && isVideo(editedFileLink)) {
+        const origMB = (uploadBuffer.length / 1024 / 1024).toFixed(1)
+        console.log(`[Telegram Send] ${origMB}MB exceeds 50MB — compressing to fit...`)
+        try {
+          const compressed = await compressVideo(uploadBuffer, uploadFilename, { targetMB: 47 })
+          const compMB = (compressed.length / 1024 / 1024).toFixed(1)
+          console.log(`[Telegram Send] Compressed to ${compMB}MB`)
+
+          if (compressed.length > MAX_UPLOAD_BYTES) {
+            console.log(`[Telegram Send] Still too big, retrying with aggressive mode...`)
+            const aggressive = await compressVideo(uploadBuffer, uploadFilename, { aggressive: true })
+            const aggMB = (aggressive.length / 1024 / 1024).toFixed(1)
+            console.log(`[Telegram Send] Aggressive compress: ${aggMB}MB`)
+            if (aggressive.length > MAX_UPLOAD_BYTES) {
+              return NextResponse.json({
+                error: `File too large. Source ${origMB}MB, best we could compress was ${aggMB}MB — still over Telegram's 50MB bot limit. Re-export a shorter clip or lower resolution.`,
+              }, { status: 400 })
+            }
+            uploadBuffer = aggressive
+          } else {
+            uploadBuffer = compressed
+          }
+          uploadFilename = uploadFilename.replace(/\.[^.]+$/, '.mp4')
+          uploadMime = 'video/mp4'
+        } catch (compErr) {
+          console.error('[Telegram Send] Compression failed:', compErr.message)
+          return NextResponse.json({
+            error: `File is ${origMB}MB (over 50MB Telegram limit) and auto-compression failed: ${compErr.message}`,
+          }, { status: 500 })
+        }
+      } else if (uploadBuffer.length > MAX_UPLOAD_BYTES) {
+        // Non-video file over 50MB — can't compress, just bail
+        return NextResponse.json({
+          error: `File too large (${(uploadBuffer.length / 1024 / 1024).toFixed(0)}MB). Telegram limit is 50MB for non-video files.`,
+        }, { status: 400 })
       }
 
       if (isVideo(editedFileLink) && thumbnailUrl) {
