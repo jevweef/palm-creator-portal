@@ -24,6 +24,15 @@ function fmtDate(iso) {
   const [, m, d] = iso.split('-')
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1] + ' ' + parseInt(d)
 }
+function groupStageKey(rows) {
+  const allHavePdfs = rows.every(r => r.hasPdf)
+  const allSent = rows.every(r => r.status === 'Sent' || r.status === 'Paid')
+  const allPaid = rows.every(r => r.status === 'Paid')
+  if (allPaid) return 'paid'
+  if (allSent) return 'sent'
+  if (allHavePdfs) return 'review'
+  return 'generate'
+}
 function accountRank(name) {
   if (name.includes('Free OF')) return 1
   if (name.includes('VIP OF')) return 2
@@ -408,6 +417,7 @@ export default function InvoicingPage() {
   const [savingId, setSavingId] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [workflowModal, setWorkflowModal] = useState(null) // { aka, rows }
+  const [statusFilter, setStatusFilter] = useState('all') // all | draft | sent | paid
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'invoices')
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
@@ -494,7 +504,27 @@ export default function InvoicingPage() {
     acc[r.aka].push(r)
     return acc
   }, {})
-  const sortedCreators = Object.keys(grouped).sort((a, b) => a.localeCompare(b))
+
+  // Count groups per status bucket (stage-based)
+  const statusCounts = { all: 0, draft: 0, sent: 0, paid: 0 }
+  for (const aka of Object.keys(grouped)) {
+    statusCounts.all++
+    const stage = groupStageKey(grouped[aka])
+    if (stage === 'generate' || stage === 'review') statusCounts.draft++
+    else if (stage === 'sent') statusCounts.sent++
+    else if (stage === 'paid') statusCounts.paid++
+  }
+
+  const sortedCreators = Object.keys(grouped)
+    .filter(aka => {
+      if (statusFilter === 'all') return true
+      const stage = groupStageKey(grouped[aka])
+      if (statusFilter === 'draft') return stage === 'generate' || stage === 'review'
+      if (statusFilter === 'sent') return stage === 'sent'
+      if (statusFilter === 'paid') return stage === 'paid'
+      return true
+    })
+    .sort((a, b) => a.localeCompare(b))
   const currentPeriod = periods.find(p => p.key === selectedPeriod)
 
   return (
@@ -596,6 +626,35 @@ export default function InvoicingPage() {
       {!loading && periodRecords.length > 0 && (
         <>
           <SummaryBar records={periodRecords} />
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
+            {[
+              { key: 'all', label: 'All', color: '#e4e4e7' },
+              { key: 'draft', label: 'Draft', color: '#9ca3af' },
+              { key: 'sent', label: 'Sent', color: '#78B4E8' },
+              { key: 'paid', label: 'Paid', color: '#7DD3A4' },
+            ].map(f => {
+              const active = statusFilter === f.key
+              const count = statusCounts[f.key]
+              return (
+                <button key={f.key} onClick={() => setStatusFilter(f.key)} style={{
+                  background: active ? `${f.color}14` : 'rgba(255,255,255,0.04)',
+                  border: active ? `1px solid ${f.color}66` : '1px solid transparent',
+                  borderRadius: '6px', color: active ? f.color : '#9ca3af',
+                  padding: '5px 12px', fontSize: '12px', fontWeight: active ? 600 : 500,
+                  cursor: 'pointer', transition: 'all 0.15s', letterSpacing: '0.02em',
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                }}>
+                  {f.label}
+                  <span style={{ fontSize: '11px', opacity: 0.65 }}>{count}</span>
+                </button>
+              )
+            })}
+          </div>
+          {sortedCreators.length === 0 && (
+            <div style={{ color: '#9ca3af', fontSize: '13px', padding: '40px 0', textAlign: 'center' }}>
+              No {statusFilter} invoices in this period.
+            </div>
+          )}
           {sortedCreators.map(aka => (
             <CreatorGroup
               key={aka} aka={aka} rows={grouped[aka]}

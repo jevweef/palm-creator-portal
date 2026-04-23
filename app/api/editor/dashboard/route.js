@@ -252,6 +252,39 @@ export async function GET() {
       const approvedBuffer = futurePostsByCreator[c.id] || 0
       const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
+      // Redistribute in-review tasks so they respect dailyQuota.
+      // Without this, 3 edits submitted on the same day all pin to today and
+      // the dashboard shows a phantom "Slot 3". Approved tasks are LOCKED to
+      // their post's Scheduled Date (editor doesn't control that). In-review
+      // tasks default to their completion date but overflow to next open day.
+      const doneTasksForRedist = ctasks.filter(t =>
+        t.status === 'Done' && t.adminReviewStatus !== 'Needs Revision'
+      )
+      const slotsUsedByDate = {}
+      // Pass 1: lock approved tasks into their assigned slot date
+      for (const t of doneTasksForRedist) {
+        if (t.postScheduledDate) {
+          slotsUsedByDate[t.etSlotDate] = (slotsUsedByDate[t.etSlotDate] || 0) + 1
+        }
+      }
+      // Pass 2: assign in-review tasks in completion order, overflowing forward
+      const nextDay = (ds) => {
+        const dt = new Date(ds + 'T12:00:00')
+        dt.setDate(dt.getDate() + 1)
+        return dt.toISOString().split('T')[0]
+      }
+      const inReviewSorted = doneTasksForRedist
+        .filter(t => !t.postScheduledDate)
+        .sort((a, b) => new Date(a.completedAt || 0) - new Date(b.completedAt || 0))
+      for (const t of inReviewSorted) {
+        let candidate = t.etCompletedDate || todayStr
+        while ((slotsUsedByDate[candidate] || 0) >= dailyQuota) {
+          candidate = nextDay(candidate)
+        }
+        t.etSlotDate = candidate // overwrite default
+        slotsUsedByDate[candidate] = (slotsUsedByDate[candidate] || 0) + 1
+      }
+
       const doneThisWeek = ctasks.filter(t =>
         t.status === 'Done' &&
         t.etCompletedDate >= weekStartStr &&
