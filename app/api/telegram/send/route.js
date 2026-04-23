@@ -1,5 +1,8 @@
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60 // extend Vercel function timeout for file uploads
+// Vercel Pro cap is 300s. Compression of 50MB+ videos on serverless CPUs can
+// legitimately take 30-60s, plus ~10s download + 10s upload + 35s URL method
+// attempt. 60s was too tight once compression joined the flow.
+export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord, fetchAirtableRecords } from '@/lib/adminAuth'
@@ -315,10 +318,13 @@ export async function POST(request) {
     let urlMethodTimedOut = false
     if (isVideo(editedFileLink) && !needsRemux) {
       const controller = new AbortController()
+      // 20s cap. Telegram's URL method normally returns in 5-15s on success.
+      // If it's going longer than 20s it's usually going to fail anyway (URL
+      // file too large → fall through to download + compress + upload).
       const timer = setTimeout(() => {
         urlMethodTimedOut = true
         controller.abort()
-      }, 35000)
+      }, 20000)
       try {
         console.log('[Telegram Send] Trying URL method (35s timeout)...')
         if (thumbnailUrl) {
@@ -348,14 +354,16 @@ export async function POST(request) {
         }
         console.log('[Telegram Send] URL method succeeded')
       } catch (urlErr) {
+        // Whether timeout or real error, fall through to download+compress+upload.
+        // The 300s maxDuration now gives the fallback plenty of room, and URL
+        // timeouts often mean the file is too big for Telegram's URL fetcher —
+        // which is exactly when we want compression to kick in.
         if (urlMethodTimedOut || urlErr.name === 'AbortError') {
-          console.error('[Telegram Send] URL method timed out after 35s — aborting (fallback would not fit)')
-          return NextResponse.json({
-            error: 'Telegram is slow to fetch the video from Dropbox. Try again in a moment, or if it keeps failing, the file may be too large or Dropbox is throttling.',
-          }, { status: 504 })
+          console.warn('[Telegram Send] URL method timed out after 20s — falling back to download+compress+upload')
+        } else {
+          console.warn('[Telegram Send] URL method failed:', urlErr.message, '— falling back to upload')
         }
-        console.warn('[Telegram Send] URL method failed:', urlErr.message, '— falling back to upload')
-        result = null // fall through to download+upload
+        result = null
       } finally {
         clearTimeout(timer)
       }
