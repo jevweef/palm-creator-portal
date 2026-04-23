@@ -809,6 +809,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
   const [billboard, setBillboard] = useState(null)
   const [loadingBillboard, setLoadingBillboard] = useState(false)
   const [usedSongIds, setUsedSongIds] = useState(new Set())
+  const [collapsed, setCollapsed] = useState(false)
 
   // Fetch songs used by this creator in last 14 days
   useEffect(() => {
@@ -951,9 +952,17 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
 
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', borderRadius: '12px', padding: '12px 14px' }}>
-      <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px' }}>
-        Music
+      <div
+        onClick={() => {
+          if (!collapsed && audioRef.current) { audioRef.current.pause(); setPlayingPreview(null) }
+          setCollapsed(!collapsed)
+        }}
+        style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: collapsed ? 0 : '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', userSelect: 'none' }}>
+        <span>Music</span>
+        <span style={{ fontSize: '12px', transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
       </div>
+
+      {!collapsed && (<>
 
       {/* Identify button */}
       {videoUrl && !identifiedSong && (
@@ -1047,6 +1056,8 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
       )}
 
       {error && <div style={{ fontSize: '11px', color: '#E87878', marginTop: '4px' }}>{error}</div>}
+
+      </>)}
     </div>
   )
 }
