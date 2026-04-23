@@ -103,7 +103,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 onClick={onUpload}
                 style={{
                   background: 'var(--palm-pink)',
-                  border: '1px solid #E88FAC',
+                  border: '1px solid transparent',
                   borderRadius: '9999px',
                   padding: '6px 14px',
                   cursor: 'pointer',

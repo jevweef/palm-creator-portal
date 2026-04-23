@@ -533,7 +533,7 @@ export default function RawDataUpload() {
       {/* Success result */}
       {result && (
         <div style={{
-          marginTop: '16px', background: 'rgba(125, 211, 164, 0.06)', border: '1px solid #BBF7D0',
+          marginTop: '16px', background: 'rgba(125, 211, 164, 0.06)', border: '1px solid transparent',
           borderRadius: '12px', padding: '16px 20px',
         }}>
           <div style={{ fontSize: '14px', fontWeight: 600, color: '#7DD3A4', marginBottom: '8px' }}>

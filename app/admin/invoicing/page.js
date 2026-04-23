@@ -140,7 +140,7 @@ function EarningsCell({ record, onSave, disabled }) {
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         style={{
-          background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', borderRadius: '4px',
+          background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '4px',
           color: 'var(--foreground)', fontSize: '13px', padding: '4px 8px', width: '130px', outline: 'none',
         }}
       />

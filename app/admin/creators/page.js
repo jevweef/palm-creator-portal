@@ -4175,7 +4175,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   if (loading && (!allTxns || allTxns.length === 0)) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
-        <div style={{ width: '24px', height: '24px', border: '1px solid var(--palm-pink)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto 12px' }} />
+        <div style={{ width: '24px', height: '24px', border: '1px solid transparent', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto 12px' }} />
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Loading fans...</div>
       </div>
     )
@@ -4531,7 +4531,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       </div>
 
       {analyzeResult && (
-        <div style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#7DD3A4' }}>
+        <div style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid transparent', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#7DD3A4' }}>
           Analysis complete. {analyzeResult.documentsAnalyzed} document(s) analyzed.
           {analyzeResult.topTags?.length > 0 && (
             <span style={{ color: 'var(--foreground-muted)' }}> Top tags: {analyzeResult.topTags.map(t => `${t.tag} (${t.weight})`).join(', ')}</span>
@@ -4540,7 +4540,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
       )}
 
       {refineResult && (
-        <div style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#7DD3A4' }}>
+        <div style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid transparent', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#7DD3A4' }}>
           Profile refined.{refineResult.changesMade && <span style={{ color: 'var(--foreground-muted)' }}> {refineResult.changesMade}</span>}
         </div>
       )}

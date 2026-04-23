@@ -138,7 +138,7 @@ export default function LongFormUpload({ showToast }) {
             <div>
               <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Files</div>
               <button onClick={() => fileRef.current?.click()}
-                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
+                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
                 {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Choose files'}
               </button>
               <input ref={fileRef} type="file" multiple accept="video/*" style={{ display: 'none' }}
@@ -196,7 +196,7 @@ export default function LongFormUpload({ showToast }) {
       )}
 
       {uploads.length > 0 && (
-        <div style={{ padding: '12px', background: 'rgba(125, 211, 164, 0.06)', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+        <div style={{ padding: '12px', background: 'rgba(125, 211, 164, 0.06)', borderRadius: '10px', border: '1px solid transparent' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
             Uploaded this session ({uploads.length})
           </div>

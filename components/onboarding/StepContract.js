@@ -160,7 +160,7 @@ export default function StepContract({ hqId, onComplete }) {
                   padding: '10px 24px',
                   background: 'var(--card-bg-solid)',
                   color: 'var(--palm-pink)',
-                  border: '1px solid #E88FAC',
+                  border: '1px solid transparent',
                   borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: 600,

@@ -375,7 +375,7 @@ function MusicPanel({ task }) {
                     padding: '2px 6px', fontSize: '10px', fontWeight: 500, flexShrink: 0,
                     background: downloading === track.spotifyId ? 'rgba(255,255,255,0.04)' : 'rgba(125, 211, 164, 0.08)',
                     color: downloading === track.spotifyId ? '#999' : '#7DD3A4',
-                    border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
+                    border: '1px solid transparent', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
                   }}>
                   {downloading === track.spotifyId ? '...' : '↓'}
                 </button>
@@ -640,7 +640,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
           )}
           {(task.asset.dropboxLinks?.length > 0 ? task.asset.dropboxLinks : task.asset.dropboxLink ? [task.asset.dropboxLink] : []).map((link, i, arr) => (
             <a key={i} href={link} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '3px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+              style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '3px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid transparent' }}>
               {arr.length > 1 ? `Clip ${i + 1} ↗` : 'Creator Clips ↗'}
             </a>
           ))}
@@ -712,13 +712,13 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
         <div style={{ marginTop: 'auto', paddingTop: '4px' }}>
           {task.status === 'To Do' && (
             <button onClick={onStartEditing} disabled={updating}
-              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating ? 'transparent' : 'rgba(125, 211, 164, 0.08)', color: updating ? 'rgba(240, 236, 232, 0.85)' : '#7DD3A4', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', opacity: updating ? 0.6 : 1 }}>
+              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: updating ? 'transparent' : 'rgba(125, 211, 164, 0.08)', color: updating ? 'rgba(240, 236, 232, 0.85)' : '#7DD3A4', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer', opacity: updating ? 0.6 : 1 }}>
               {updating ? 'Updating...' : 'Start Editing'}
             </button>
           )}
           {task.status === 'In Progress' && (
             <button onClick={onSubmit}
-              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
               Submit for Review
             </button>
           )}
@@ -872,7 +872,7 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
                   padding: '2px 5px', fontSize: '9px', fontWeight: 500, flexShrink: 0,
                   background: downloading === track.spotifyId ? 'rgba(255,255,255,0.04)' : 'rgba(125, 211, 164, 0.08)',
                   color: downloading === track.spotifyId ? '#999' : '#7DD3A4',
-                  border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
+                  border: '1px solid transparent', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
                 }}>
                 {downloading === track.spotifyId ? '...' : '↓'}
               </button>
@@ -1954,7 +1954,7 @@ function ForReview({ showToast }) {
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {task.asset.editedFileLink && (
                       <a href={task.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '3px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                        style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '3px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid transparent' }}>
                         Download Edit ↗
                       </a>
                     )}
@@ -2005,7 +2005,7 @@ function ForReview({ showToast }) {
                     <button
                       onClick={() => handleApprove(task.id)}
                       disabled={updating === task.id}
-                      style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                      style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
                       {updating === task.id ? 'Saving...' : 'Approve ✓'}
                     </button>
                   </div>

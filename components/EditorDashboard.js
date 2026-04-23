@@ -472,13 +472,13 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
           {task.asset.dropboxLinks?.length > 1
             ? task.asset.dropboxLinks.map((link, i) => (
                 <a key={i} href={link} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '2px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                  style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '2px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid transparent' }}>
                   Clip {i + 1} ↗
                 </a>
               ))
             : task.asset.dropboxLink ? (
                 <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '2px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                  style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '2px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid transparent' }}>
                   Creator Clips ↗
                 </a>
               ) : null
@@ -534,13 +534,13 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
         <div style={{ marginTop: 'auto', paddingTop: '4px' }}>
           {type === 'queue' && (
             <button onClick={() => onAction('startEditing', task)} disabled={updating}
-              style={{ width: '100%', padding: '9px', fontSize: '13px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
+              style={{ width: '100%', padding: '9px', fontSize: '13px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid transparent', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
               {updating ? 'Starting...' : 'Start Editing'}
             </button>
           )}
           {type === 'inProgress' && (
             <button onClick={() => onAction('submit', task)}
-              style={{ width: '100%', padding: '9px', fontSize: '13px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', borderRadius: '8px', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '9px', fontSize: '13px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
               Submit for Review
             </button>
           )}
@@ -551,7 +551,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
             </button>
           )}
           {type === 'inReview' && (
-            <div style={{ textAlign: 'center', padding: '9px', fontSize: '12px', color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+            <div style={{ textAlign: 'center', padding: '9px', fontSize: '12px', color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.08)', border: '1px solid transparent', borderRadius: '8px' }}>
               Submitted · Awaiting review
             </div>
           )}
@@ -770,7 +770,7 @@ function TrackList({ tracks, playingPreview, setPlayingPreview, downloading, han
                 padding: '2px 6px', fontSize: '10px', fontWeight: 500, flexShrink: 0,
                 background: downloading === track.spotifyId ? 'rgba(255,255,255,0.04)' : 'rgba(125, 211, 164, 0.08)',
                 color: downloading === track.spotifyId ? '#999' : '#7DD3A4',
-                border: '1px solid #bbf7d0', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
+                border: '1px solid transparent', borderRadius: '3px', cursor: downloading === track.spotifyId ? 'default' : 'pointer',
               }}>
               {downloading === track.spotifyId ? '...' : '↓'}
             </button>
@@ -950,7 +950,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
   }
 
   return (
-    <div style={{ background: 'rgba(167, 139, 250, 0.06)', border: '1px solid #E0D4F0', borderRadius: '8px', padding: '10px 12px' }}>
+    <div style={{ background: 'rgba(167, 139, 250, 0.06)', border: '1px solid transparent', borderRadius: '8px', padding: '10px 12px' }}>
       <div style={{ fontSize: '10px', fontWeight: 700, color: '#A78BFA', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
         Music
       </div>
@@ -959,7 +959,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
       {videoUrl && !identifiedSong && (
         <div style={{ marginBottom: '8px' }}>
           <button onClick={handleIdentify} disabled={identifying}
-            style={{ width: '100%', padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: identifying ? 'rgba(255,255,255,0.04)' : 'rgba(167, 139, 250, 0.1)', color: identifying ? '#999' : '#A78BFA', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: identifying ? 'default' : 'pointer' }}>
+            style={{ width: '100%', padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: identifying ? 'rgba(255,255,255,0.04)' : 'rgba(167, 139, 250, 0.1)', color: identifying ? '#999' : '#A78BFA', border: '1px solid transparent', borderRadius: '6px', cursor: identifying ? 'default' : 'pointer' }}>
             {identifying ? 'Identifying...' : 'Identify Song'}
           </button>
         </div>
@@ -967,7 +967,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
 
       {/* Identified song */}
       {identifiedSong && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '6px 8px', background: 'var(--card-bg-solid)', borderRadius: '6px', border: '1px solid #E0D4F0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '6px 8px', background: 'var(--card-bg-solid)', borderRadius: '6px', border: '1px solid transparent' }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{identifiedSong.title}</div>
             <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{identifiedSong.artist}</div>
@@ -1005,7 +1005,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
             </div>
           ) : !suggestions ? (
             <button onClick={handleGetSuggestions} disabled={loadingSuggestions}
-              style={{ width: '100%', padding: '8px 10px', fontSize: '11px', fontWeight: 600, background: loadingSuggestions ? 'rgba(255,255,255,0.04)' : 'rgba(167, 139, 250, 0.1)', color: loadingSuggestions ? '#999' : '#A78BFA', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: loadingSuggestions ? 'default' : 'pointer' }}>
+              style={{ width: '100%', padding: '8px 10px', fontSize: '11px', fontWeight: 600, background: loadingSuggestions ? 'rgba(255,255,255,0.04)' : 'rgba(167, 139, 250, 0.1)', color: loadingSuggestions ? '#999' : '#A78BFA', border: '1px solid transparent', borderRadius: '6px', cursor: loadingSuggestions ? 'default' : 'pointer' }}>
               {loadingSuggestions ? 'Loading...' : 'Load Music Radio'}
             </button>
           ) : suggestions.length === 0 ? (
@@ -1425,7 +1425,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {/* Action button */}
             {slot.type === 'toDo' && (
               <button onClick={() => onAction('startEditing', task)} disabled={updating}
-                style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
+                style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid transparent', borderRadius: '8px', cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.6 : 1 }}>
                 {updating ? 'Starting...' : 'Start Editing →'}
               </button>
             )}
@@ -2081,7 +2081,7 @@ function CreatorSection({ creator, onRefresh }) {
             </Link>
             {creator.hasProfile && (
               <button onClick={() => setDnaModal(true)}
-                style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', cursor: 'pointer', flexShrink: 0 }}>
+                style={{ padding: '3px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', cursor: 'pointer', flexShrink: 0 }}>
                 DNA
               </button>
             )}
