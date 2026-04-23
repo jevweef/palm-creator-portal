@@ -161,7 +161,7 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
                 onClick={handleReplace}
                 style={{
                   padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-                  background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid #E88FAC',
+                  background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent',
                   borderRadius: '9999px', cursor: 'pointer', transition: 'all 0.15s',
                 }}
               >

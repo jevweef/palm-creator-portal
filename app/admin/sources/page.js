@@ -393,7 +393,7 @@ function EnableModal({ source, onClose, onConfirm, onAddToBatch, batchCount }) {
           <button
             onClick={addToBatch}
             disabled={saving}
-            style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', color: 'var(--palm-pink)', opacity: saving ? 0.6 : 1 }}
+            style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', color: 'var(--palm-pink)', opacity: saving ? 0.6 : 1 }}
           >
             {saving ? '...' : `Add to Batch${batchCount > 0 ? ` (${batchCount})` : ''}`}
           </button>
@@ -836,7 +836,7 @@ export default function AdminSources() {
         <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>Inspo Sources</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
           {!activeFilters.has('all') && filteredSources.length > 0 && (
-            <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid #E88FAC', opacity: batchScraping ? 0.6 : 1 }}>
+            <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent', opacity: batchScraping ? 0.6 : 1 }}>
               {batchScraping ? 'Scraping...' : `Scrape All Visible (${filteredSources.filter(s => s.enabled).length})`}
             </button>
           )}
@@ -1117,7 +1117,7 @@ export default function AdminSources() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
         }}>
           <div style={{
-            background: 'rgba(232, 160, 160, 0.04)', border: '1px solid #E88FAC', borderRadius: '12px',
+            background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '12px',
             padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '16px',
             boxShadow: '0 -4px 20px rgba(167, 139, 250, 0.15)',
           }}>

@@ -282,7 +282,7 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
           {result && (
             <div style={{
               marginTop: '12px', padding: '12px 16px', background: 'rgba(125, 211, 164, 0.06)',
-              border: '1px solid #BBF7D0', borderRadius: '8px',
+              border: '1px solid transparent', borderRadius: '8px',
             }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: '#7DD3A4', marginBottom: '6px' }}>
                 {result.uploaded > 0 ? `Added ${result.uploaded} new transactions` : (result.message || 'No new transactions to add')}

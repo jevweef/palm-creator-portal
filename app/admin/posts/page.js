@@ -607,7 +607,7 @@ function PostCard({ post, onRefresh, onSend }) {
                 }}
               />
               <button onClick={() => thumbFileRef.current?.click()} disabled={thumbUploading}
-                style={{ width: '100%', padding: '5px 10px', background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '11px', color: '#7DD3A4', cursor: 'pointer', textAlign: 'center', opacity: thumbUploading ? 0.6 : 1 }}>
+                style={{ width: '100%', padding: '5px 10px', background: 'rgba(125, 211, 164, 0.08)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#7DD3A4', cursor: 'pointer', textAlign: 'center', opacity: thumbUploading ? 0.6 : 1 }}>
                 {thumbUploading ? 'Uploading…' : '📁 Upload from device'}
               </button>
             </div>
@@ -664,7 +664,7 @@ function PostCard({ post, onRefresh, onSend }) {
         <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }}>
           {editing && (
             <button onClick={handleSave} disabled={saving}
-              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, background: saving ? 'rgba(125, 211, 164, 0.06)' : 'rgba(125, 211, 164, 0.08)', color: saving ? '#7DD3A4' : '#7DD3A4', border: '1px solid #bbf7d0', borderRadius: '6px', cursor: saving ? 'default' : 'pointer' }}>
+              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, background: saving ? 'rgba(125, 211, 164, 0.06)' : 'rgba(125, 211, 164, 0.08)', color: saving ? '#7DD3A4' : '#7DD3A4', border: '1px solid transparent', borderRadius: '6px', cursor: saving ? 'default' : 'pointer' }}>
               {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save'}
             </button>
           )}
@@ -816,7 +816,7 @@ export default function PostsPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => setLogModal(true)} style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #bbf7d0', color: '#7DD3A4', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+          <button onClick={() => setLogModal(true)} style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid transparent', color: '#7DD3A4', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
             + Log Historical Post
           </button>
           <button onClick={fetchData} style={{ background: 'none', border: '1px solid transparent', color: 'var(--foreground-muted)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
