@@ -726,7 +726,7 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
       {link && (
         <div style={{ display: 'flex', gap: '6px' }}>
           <a href={link} target="_blank" rel="noopener noreferrer"
-            style={{ flex: 1, display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: 'var(--background)', color: accentColor, border: `1px solid #E8C4CC`, borderRadius: '7px', textDecoration: 'none' }}>
+            style={{ flex: 1, display: 'block', textAlign: 'center', padding: '7px', fontSize: '12px', fontWeight: 600, background: 'rgba(255,255,255,0.04)', color: accentColor, border: 'none', borderRadius: '7px', textDecoration: 'none' }}>
             Open ↗
           </a>
           {filename && (
@@ -950,8 +950,8 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
   }
 
   return (
-    <div style={{ background: 'rgba(167, 139, 250, 0.06)', border: '1px solid transparent', borderRadius: '8px', padding: '10px 12px' }}>
-      <div style={{ fontSize: '10px', fontWeight: 700, color: '#A78BFA', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+    <div style={{ background: 'var(--card-bg-solid)', border: 'none', borderRadius: '12px', padding: '12px 14px' }}>
+      <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px' }}>
         Music
       </div>
 
@@ -959,7 +959,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
       {videoUrl && !identifiedSong && (
         <div style={{ marginBottom: '8px' }}>
           <button onClick={handleIdentify} disabled={identifying}
-            style={{ width: '100%', padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: identifying ? 'rgba(255,255,255,0.04)' : 'rgba(167, 139, 250, 0.1)', color: identifying ? '#999' : '#A78BFA', border: '1px solid transparent', borderRadius: '6px', cursor: identifying ? 'default' : 'pointer' }}>
+            style={{ width: '100%', padding: '8px 10px', fontSize: '11px', fontWeight: 600, background: identifying ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.04)', color: identifying ? 'var(--foreground-muted)' : 'var(--foreground)', border: 'none', borderRadius: '6px', cursor: identifying ? 'default' : 'pointer' }}>
             {identifying ? 'Identifying...' : 'Identify Song'}
           </button>
         </div>
@@ -982,14 +982,14 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
       )}
 
       {/* Music tabs */}
-      <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid #E0D4F0', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(255,255,255,0.04)', marginBottom: '10px' }}>
         {[
           { key: 'creator', label: `For ${creatorName?.split(' ')[0] || 'Creator'}`, onClick: () => { if (!suggestions && hasPlaylist) handleGetSuggestions() } },
           { key: 'top50', label: 'TikTok', onClick: fetchTop50 },
           { key: 'billboard', label: 'Billboard', onClick: fetchBillboard },
         ].map(tab => (
           <button key={tab.key} onClick={() => { setMusicTab(tab.key); tab.onClick() }}
-            style={{ flex: 1, padding: '5px 6px', fontSize: '9px', fontWeight: musicTab === tab.key ? 700 : 400, color: musicTab === tab.key ? '#A78BFA' : '#aaa', background: 'none', border: 'none', borderBottom: musicTab === tab.key ? '2px solid #7C3AED' : '2px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
+            style={{ flex: 1, padding: '6px 6px', fontSize: '10px', fontWeight: musicTab === tab.key ? 600 : 400, letterSpacing: '0.04em', color: musicTab === tab.key ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: musicTab === tab.key ? '1px solid var(--palm-pink)' : '1px solid transparent', cursor: 'pointer', marginBottom: '-1px' }}>
             {tab.label}
           </button>
         ))}
@@ -1005,7 +1005,7 @@ function MusicSection({ creatorId, creatorName, videoUrl, inspoId, hasPlaylist }
             </div>
           ) : !suggestions ? (
             <button onClick={handleGetSuggestions} disabled={loadingSuggestions}
-              style={{ width: '100%', padding: '8px 10px', fontSize: '11px', fontWeight: 600, background: loadingSuggestions ? 'rgba(255,255,255,0.04)' : 'rgba(167, 139, 250, 0.1)', color: loadingSuggestions ? '#999' : '#A78BFA', border: '1px solid transparent', borderRadius: '6px', cursor: loadingSuggestions ? 'default' : 'pointer' }}>
+              style={{ width: '100%', padding: '8px 10px', fontSize: '11px', fontWeight: 600, background: loadingSuggestions ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.04)', color: loadingSuggestions ? 'var(--foreground-muted)' : 'var(--foreground)', border: 'none', borderRadius: '6px', cursor: loadingSuggestions ? 'default' : 'pointer' }}>
               {loadingSuggestions ? 'Loading...' : 'Load Music Radio'}
             </button>
           ) : suggestions.length === 0 ? (
