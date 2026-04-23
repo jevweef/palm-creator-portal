@@ -380,7 +380,11 @@ export async function POST(request) {
       const mimeType = getMimeType(editedFileLink)
 
       // Remux non-MP4 videos to MP4 with faststart for Telegram inline preview.
-      let uploadBuffer = fileBuffer
+      // Normalize to Node Buffer up front so .length is consistent downstream —
+      // fileBuffer is an ArrayBuffer (has .byteLength not .length), and ArrayBuffer.length
+      // silently returns undefined, which meant our size check below was comparing
+      // undefined > MAX_UPLOAD_BYTES → false → compression never fired.
+      let uploadBuffer = Buffer.from(fileBuffer)
       let uploadFilename = filename
       let uploadMime = mimeType
       const fileExt = (filename.split('.').pop() || '').toLowerCase()
