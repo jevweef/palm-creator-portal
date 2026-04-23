@@ -523,6 +523,28 @@ export async function POST(request) {
       )
     }
 
+    // Mark the thumbnail asset as used (only now that it's genuinely being
+    // sent out). The Post record holds the thumbnail as an attachment URL —
+    // look up the source Asset record by matching its Dropbox Shared Link.
+    // Non-fatal: if lookup fails, the send itself still succeeded.
+    if (thumbnailUrl) {
+      try {
+        // Strip query params (raw=1 etc.) and any trailing quotes for a clean substring match
+        const cleanUrl = thumbnailUrl.split('?')[0].replace(/["']/g, '')
+        const matches = await fetchAirtableRecords('Assets', {
+          filterByFormula: `FIND('${cleanUrl.replace(/'/g, "\\'")}', {Dropbox Shared Link})`,
+          fields: ['Dropbox Shared Link', 'Used As Reel Thumbnail'],
+        })
+        for (const a of matches) {
+          if (a.fields?.['Used As Reel Thumbnail']) continue
+          await patchAirtableRecord('Assets', a.id, { 'Used As Reel Thumbnail': true })
+          console.log(`[Telegram Send] Marked thumbnail asset ${a.id} as used`)
+        }
+      } catch (thumbErr) {
+        console.warn('[Telegram Send] Could not mark thumbnail as used (non-fatal):', thumbErr.message)
+      }
+    }
+
     return NextResponse.json({ ok: true, messageId })
   } catch (err) {
     console.error('[Telegram Send] error:', err)

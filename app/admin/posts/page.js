@@ -196,13 +196,9 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   }, [creatorId, isReel])
 
   const handleUse = async (photo) => {
-    if (isReel) {
-      await fetch('/api/admin/posts/photos', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: photo.id }),
-      })
-    }
+    // Don't mark as "Used As Reel Thumbnail" here — that happens at Send to Telegram.
+    // Picking a photo in prep ≠ committing it. If the post is abandoned or the
+    // thumbnail is swapped, the original photo should remain available in the picker.
     onSelect(photo.dropboxLink)
   }
 
@@ -457,6 +453,11 @@ function PostCard({ post, onRefresh, onSend }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
+  // Track the ORIGINAL URL that came from the saved Post record — so we can
+  // detect whether the user actually changed the thumbnail this session, and
+  // skip rewriting Airtable's own attachment URL back to itself (which corrupts
+  // the attachment and causes the "broken image" after refresh).
+  const [savedThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
   const [showPhotoPicker, setShowPhotoPicker] = useState(false)
   const [showFramePicker, setShowFramePicker] = useState(false)
   const [thumbUploading, setThumbUploading] = useState(false)
@@ -486,7 +487,10 @@ function PostCard({ post, onRefresh, onSend }) {
             'Hashtags': hashtags,
             'Platform': platforms,
             ...(scheduledDate ? { 'Scheduled Date': etLocalToUTC(scheduledDate) } : {}),
-            ...(thumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }] } : {}),
+            // Only write Thumbnail field if the user actually picked a NEW thumbnail
+            // this session. Re-sending an already-ingested Airtable attachment URL
+            // back to Airtable breaks it (shows as a broken "thumb" icon after refresh).
+            ...(thumbnailUrl && thumbnailUrl !== savedThumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }] } : {}),
           },
         }),
       })
@@ -571,9 +575,12 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
             {thumbnailUrl ? (
-              <img src={rawDropboxUrl(thumbnailUrl)} alt="thumbnail"
+              <img
+                src={thumbnailUrl.includes('dropbox.com') ? rawDropboxUrl(thumbnailUrl) : thumbnailUrl}
+                alt="thumbnail"
                 style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
-                onClick={() => setShowPhotoPicker(true)} />
+                onClick={() => setShowPhotoPicker(true)}
+              />
             ) : null}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <button onClick={() => setShowPhotoPicker(true)}
