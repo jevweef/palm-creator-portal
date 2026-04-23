@@ -76,6 +76,17 @@ const MODES = [
       '"Tell me you\'re a gym girl without telling me"',
     ],
   },
+  {
+    value: 'Mood / Reflective',
+    label: 'Mood / Reflective',
+    color: '#22d3ee',
+    desc: 'Text is a reflective, philosophical, or emotional statement paired with a generic pretty-girl visual. The caption gives the reel substance while the visual stops the scroll.',
+    examples: [
+      '"honestly, maybe the chapter you\'re most afraid of will be your favorite one"',
+      '"I\'m not going to explain myself anymore"',
+      '"Soft life is my only language now"',
+    ],
+  },
 ]
 
 export default function TextTrainingPage() {
@@ -123,9 +134,9 @@ export default function TextTrainingPage() {
         e.preventDefault()
         if (index > 0) setIndex(i => i - 1)
       }
-      // Number keys 1-5 for mode selection
+      // Number keys 1-6 for mode selection
       const num = parseInt(e.key)
-      if (num >= 1 && num <= 5) {
+      if (num >= 1 && num <= 6) {
         setSelectedMode(MODES[num - 1].value)
       }
       // D for deny
@@ -348,7 +359,7 @@ export default function TextTrainingPage() {
             {/* Mode selector */}
             <div style={{ marginBottom: '14px' }}>
               <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--foreground-muted)', marginBottom: '8px' }}>
-                Text Mode <span style={{ color: 'var(--foreground-subtle)', fontWeight: 400 }}>(1-5)</span>
+                Text Mode <span style={{ color: 'var(--foreground-subtle)', fontWeight: 400 }}>(1-6)</span>
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {MODES.map((mode, i) => {
@@ -463,7 +474,7 @@ export default function TextTrainingPage() {
 
             {/* Keyboard hint */}
             <p style={{ fontSize: '10px', color: 'var(--foreground-subtle)', margin: '8px 0 0', textAlign: 'center' }}>
-              ← → navigate &nbsp;|&nbsp; 1-5 select mode &nbsp;|&nbsp; D deny
+              ← → navigate &nbsp;|&nbsp; 1-6 select mode &nbsp;|&nbsp; D deny
             </p>
           </div>
 
