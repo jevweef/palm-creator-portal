@@ -91,6 +91,28 @@ const clerkAppearance = {
       color: '#f0ece8',
       '&:focus': { borderColor: 'rgba(232, 160, 160, 0.4)' },
     },
+    // UserButton dropdown popover
+    userButtonPopoverCard: {
+      backgroundColor: '#0f0f0f',
+      border: '1px solid rgba(255, 255, 255, 0.06)',
+      borderRadius: '16px',
+      boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)',
+    },
+    userButtonPopoverMain: { backgroundColor: 'transparent' },
+    userButtonPopoverActions: { backgroundColor: 'transparent' },
+    userButtonPopoverActionButton: {
+      color: '#f0ece8',
+      '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+    },
+    userButtonPopoverActionButtonText: { color: '#f0ece8', fontWeight: 500 },
+    userButtonPopoverActionButtonIcon: { color: 'rgba(240, 236, 232, 0.6)' },
+    userButtonPopoverFooter: {
+      backgroundColor: 'rgba(255, 255, 255, 0.02)',
+      borderTop: '1px solid rgba(255, 255, 255, 0.04)',
+    },
+    userPreview: { color: '#f0ece8' },
+    userPreviewMainIdentifier: { color: '#f0ece8', fontWeight: 600 },
+    userPreviewSecondaryIdentifier: { color: 'rgba(240, 236, 232, 0.6)' },
   },
 }
 
