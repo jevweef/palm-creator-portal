@@ -363,7 +363,7 @@ export default function TextTrainingPage() {
                         padding: '6px 12px',
                         borderRadius: '8px',
                         border: isSelected ? `1px solid ${mode.color}` : '1px solid transparent',
-                        background: isSelected ? `${mode.color}15` : '#f8f8f8',
+                        background: isSelected ? `${mode.color}15` : 'rgba(255,255,255,0.04)',
                         cursor: 'pointer',
                         transition: 'all 0.15s',
                       }}
@@ -373,7 +373,7 @@ export default function TextTrainingPage() {
                         height: '16px',
                         borderRadius: '4px',
                         background: isSelected ? mode.color : 'rgba(255,255,255,0.08)',
-                        color: isSelected ? 'rgba(255,255,255,0.08)' : '#999',
+                        color: isSelected ? '#060606' : 'var(--foreground-muted)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -403,7 +403,7 @@ export default function TextTrainingPage() {
                     borderRadius: '10px',
                     padding: '12px 14px',
                   }}>
-                    <p style={{ fontSize: '12px', color: '#444', lineHeight: 1.5, margin: '0 0 8px' }}>
+                    <p style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.5, margin: '0 0 8px' }}>
                       {mode.desc}
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -428,8 +428,8 @@ export default function TextTrainingPage() {
                   padding: '10px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: selectedMode ? '#7DD3A4' : '#e8e8e8',
-                  color: selectedMode ? 'rgba(255,255,255,0.08)' : '#aaa',
+                  background: selectedMode ? 'rgba(125, 211, 164, 0.18)' : 'rgba(255,255,255,0.04)',
+                  color: selectedMode ? '#7DD3A4' : 'var(--foreground-subtle)',
                   fontSize: '14px',
                   fontWeight: 600,
                   cursor: selectedMode ? 'pointer' : 'not-allowed',
@@ -446,8 +446,8 @@ export default function TextTrainingPage() {
                   flex: 1,
                   padding: '10px',
                   borderRadius: '10px',
-                  border: '1px solid #e8dfe2',
-                  background: 'var(--card-bg-solid)',
+                  border: '1px solid transparent',
+                  background: 'rgba(232, 120, 120, 0.1)',
                   color: '#E87878',
                   fontSize: '14px',
                   fontWeight: 600,
@@ -486,7 +486,7 @@ export default function TextTrainingPage() {
             {inspoDirection && (
               <div>
                 <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--foreground-muted)', marginBottom: '6px' }}>Inspo Direction</p>
-                <p style={{ fontSize: '13px', color: '#444', lineHeight: 1.5, margin: 0 }}>{inspoDirection}</p>
+                <p style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.5, margin: 0 }}>{inspoDirection}</p>
               </div>
             )}
 
@@ -494,7 +494,7 @@ export default function TextTrainingPage() {
             {whatMattersMost && (
               <div>
                 <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--foreground-muted)', marginBottom: '6px' }}>What Matters Most</p>
-                <p style={{ fontSize: '13px', color: '#444', lineHeight: 1.5, margin: 0 }}>{whatMattersMost}</p>
+                <p style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.5, margin: 0 }}>{whatMattersMost}</p>
               </div>
             )}
           </div>
