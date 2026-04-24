@@ -429,7 +429,11 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
                 key={key}
                 draggable
                 onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = 'copy'
+                  // 'all' lets either 'copy' or 'move' dropEffect be accepted
+                  // by the target. Setting 'copy' while the target uses 'move'
+                  // causes the browser to silently cancel the drop (dropEffect
+                  // ends up 'none'), which was the actual bug here.
+                  e.dataTransfer.effectAllowed = 'all'
                   try { e.dataTransfer.setData('text/plain', key) } catch {}
                   onDebug?.(`dragStart ${key.slice(-8)} rem=${g.remaining}`)
                   onDragStart(g)
