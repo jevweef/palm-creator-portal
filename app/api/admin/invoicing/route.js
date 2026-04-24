@@ -96,7 +96,7 @@ export async function GET(request) {
     recordsFilter = null // fetch everything
   } else if (periodParam) {
     const [start, end] = periodParam.split('|')
-    recordsFilter = `AND({Period Start}='${start}', {Period End}='${end}')`
+    recordsFilter = `AND(DATESTR({Period Start})='${start}', DATESTR({Period End})='${end}')`
   }
   // else mode=latest: fetch nothing yet, resolve after period list
 
@@ -119,7 +119,7 @@ export async function GET(request) {
       const end = first.fields['fldZhX5uMZjrAkAeP']
       if (start && end) {
         fullRecords = await fetchInvoiceRecords({
-          filterFormula: `AND({Period Start}='${start}', {Period End}='${end}')`,
+          filterFormula: `AND(DATESTR({Period Start})='${start}', DATESTR({Period End})='${end}')`,
           fieldList: FIELDS,
         })
       }

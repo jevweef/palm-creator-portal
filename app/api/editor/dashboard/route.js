@@ -241,6 +241,13 @@ export async function GET() {
       }
     }
 
+    // Editor may work at a DIFFERENT cadence than posting. Weekly Reel Quota
+    // sets how many edits the editor should produce per day (e.g. 3/day to
+    // build a buffer). Posting cadence is fixed at 2/day — that's what the
+    // Grid Planner schedules into, so runway is measured against 2, not the
+    // editor's production rate.
+    const POSTS_PER_DAY = 2
+
     const result = creators.map(c => {
       const f = c.fields || {}
       const ctasks = tasksByCreator[c.id] || []
@@ -248,12 +255,7 @@ export async function GET() {
       const weeklyQuota = f['Weekly Reel Quota'] || 14
       const dailyQuota = Math.ceil(weeklyQuota / 7)
       const approvedBuffer = futurePostsByCreator[c.id] || 0
-      // Runway = buffered posts ÷ this creator's daily quota. Was previously
-      // hardcoded to /2 assuming everyone does 2/day; now per-creator so a
-      // creator on 3/day gets the correct runway even if another stays on 2.
-      const bufferDays = dailyQuota > 0
-        ? parseFloat((approvedBuffer / dailyQuota).toFixed(1))
-        : 0
+      const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
       // Redistribute in-review tasks so they respect dailyQuota.
       // Without this, 3 edits submitted on the same day all pin to today and

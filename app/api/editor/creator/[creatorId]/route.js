@@ -184,13 +184,13 @@ export async function GET(request, { params }) {
         createdAt: a.createdTime || '',
       }))
 
-    // 8. Buffer — per-creator daily quota, not a hardcoded 2/day
-    const weeklyQuota = f['Weekly Reel Quota'] || 14
-    const dailyQuota = Math.ceil(weeklyQuota / 7)
+    // 8. Buffer — runway divides by POSTING cadence (2/day, fixed), not by
+    // editor production rate (Weekly Reel Quota / 7, which may be higher).
+    const POSTS_PER_DAY = 2
     const approvedBuffer = futurePosts.filter(p => (p.fields?.Creator || []).includes(creatorId)).length
-    const bufferDays = dailyQuota > 0
-      ? parseFloat((approvedBuffer / dailyQuota).toFixed(1))
-      : 0
+    const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
+
+    const weeklyQuota = f['Weekly Reel Quota'] || 14
 
     return NextResponse.json({
       creator: {
