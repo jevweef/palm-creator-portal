@@ -989,6 +989,25 @@ export default function GridPlanner({ smmMode = false } = {}) {
           sending={sendingPostId === detailPost.post.id}
           onClose={() => setDetailPost(null)}
           onSend={() => handleSendToTelegram(detailPost.post)}
+          onUnassign={async () => {
+            const postId = detailPost.post.id
+            // Optimistic: remove account locally, send post back to tray
+            setPosts(ps => ps.map(p => p.id === postId ? { ...p, accountId: null } : p))
+            setDetailPost(null)
+            try {
+              const res = await fetch('/api/admin/grid-planner', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'assign', postId, accountIds: [] }),
+              })
+              if (!res.ok) throw new Error('Unassign failed')
+              showToast('Sent back to tray')
+              setTimeout(() => loadCreator(selectedCreatorId), 400)
+            } catch (e) {
+              showToast(e.message, true)
+              loadCreator(selectedCreatorId)
+            }
+          }}
           smmMode={smmMode}
           onMarkScheduled={async (scheduled) => {
             // Optimistic update on the post in local state
@@ -1055,7 +1074,7 @@ const smmBtn = {
   cursor: 'pointer',
 }
 
-function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, smmMode = false, onMarkScheduled }) {
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, smmMode = false, onMarkScheduled }) {
   const [copiedKey, setCopiedKey] = useState(null)
   async function copyText(text, key) {
     if (!text) return
@@ -1193,6 +1212,18 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           >
             Close
           </button>
+          {/* Unassign: only if placed + editable (not scraped, not sent/posted) */}
+          {!isScraped && onUnassign && post.accountId && !post.telegramSentAt && !post.postedAt && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted' && (
+            <button
+              onClick={() => { if (confirm('Send this reel back to the tray?')) onUnassign() }}
+              title="Remove from this account — the reel goes back to the Ready to Schedule tray"
+              style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
+                background: 'rgba(232, 120, 120, 0.06)', color: '#E87878',
+                border: '1px solid rgba(232, 120, 120, 0.25)', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              ↶ Unassign
+            </button>
+          )}
           {smmMode && !isScraped ? (
             <button
               onClick={() => onMarkScheduled?.(!post.smmScheduled)}
