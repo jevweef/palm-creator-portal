@@ -341,6 +341,34 @@ function ProjectDetail({ project, onClose, onRefresh }) {
   const [refreshing, setRefreshing] = useState(false)
   const [files, setFiles] = useState(null)
   const [previewFile, setPreviewFile] = useState(null)
+  const [deletingPath, setDeletingPath] = useState('')
+
+  const deleteFile = async (file) => {
+    const ok = confirm(
+      `Delete "${file.name}" permanently?\n\nThis will remove the file from the Dropbox folder. The editor will no longer see it. This cannot be undone.\n\nClick OK to delete, or Cancel to keep it.`
+    )
+    if (!ok) return
+    // Second confirm for extra safety
+    const ok2 = confirm(`Really delete "${file.name}"? There is NO undo.`)
+    if (!ok2) return
+
+    setDeletingPath(file.path)
+    try {
+      const res = await fetch(
+        `/api/creator/oftv-projects/${project.id}/file?path=${encodeURIComponent(file.path)}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) {
+        const err = await res.json()
+        alert(`Delete failed: ${err.error || 'Unknown error'}`)
+      } else {
+        setFiles(prev => (prev || []).filter(f => f.path !== file.path))
+        fetch(`/api/creator/oftv-projects/${project.id}/sync`, { method: 'POST' }).then(() => onRefresh())
+      }
+    } finally {
+      setDeletingPath('')
+    }
+  }
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -414,7 +442,10 @@ function ProjectDetail({ project, onClose, onRefresh }) {
 
           {(project.fileRequestUrl || project.folderLink) && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Upload Files</div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Upload Files</div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
+                Keep this link — if you forgot a clip or need to add more later, use this same link to upload them into this project.
+              </div>
               <a
                 href={project.fileRequestUrl || project.folderLink}
                 target="_blank"
@@ -470,18 +501,20 @@ function ProjectDetail({ project, onClose, onRefresh }) {
                     const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
                     const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
                       : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
+                    const isDeleting = deletingPath === f.path
                     return (
                       <div
                         key={i}
-                        onClick={isMedia ? () => setPreviewFile(f) : undefined}
+                        onClick={isMedia && !isDeleting ? () => setPreviewFile(f) : undefined}
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
                           padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
-                          cursor: isMedia ? 'pointer' : 'default',
-                          transition: 'background 0.15s',
+                          cursor: isMedia && !isDeleting ? 'pointer' : 'default',
+                          opacity: isDeleting ? 0.4 : 1,
+                          transition: 'background 0.15s, opacity 0.15s',
                         }}
-                        onMouseEnter={e => { if (isMedia) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-                        onMouseLeave={e => { if (isMedia) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                        onMouseEnter={e => { if (isMedia && !isDeleting) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                        onMouseLeave={e => { if (isMedia && !isDeleting) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                           <span style={{ fontSize: '14px' }}>{icon}</span>
@@ -491,6 +524,21 @@ function ProjectDetail({ project, onClose, onRefresh }) {
                           <span>{fmtSize(f.size)}</span>
                           <span>{fmtDate(f.modified)}</span>
                           {isMedia && <span style={{ color: 'var(--palm-pink)' }}>▶</span>}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteFile(f) }}
+                            disabled={isDeleting}
+                            title="Delete this file from Dropbox"
+                            style={{
+                              marginLeft: '2px', padding: '4px 8px', fontSize: '11px', fontWeight: 600,
+                              background: 'transparent', color: 'var(--foreground-subtle)',
+                              border: '1px solid transparent', borderRadius: '6px',
+                              cursor: isDeleting ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={e => { if (!isDeleting) { e.currentTarget.style.background = 'rgba(232, 120, 120, 0.1)'; e.currentTarget.style.color = '#E87878' } }}
+                            onMouseLeave={e => { if (!isDeleting) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--foreground-subtle)' } }}
+                          >
+                            {isDeleting ? '…' : '✕'}
+                          </button>
                         </div>
                       </div>
                     )
@@ -503,6 +551,13 @@ function ProjectDetail({ project, onClose, onRefresh }) {
                     onClose={() => setPreviewFile(null)}
                   />
                 )}
+                <div style={{
+                  fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '10px',
+                  padding: '10px 14px', background: 'rgba(120, 180, 232, 0.06)', borderRadius: '10px',
+                  border: '1px solid rgba(120, 180, 232, 0.15)',
+                }}>
+                  💡 <strong style={{ color: 'var(--foreground)' }}>Forgot a clip or need to add more?</strong> Use the <strong>Open Dropbox upload link</strong> above — new uploads drop into this same project. Click ✕ on any file to delete it.
+                </div>
               </>
             )}
           </div>
