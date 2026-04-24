@@ -323,78 +323,29 @@ export async function POST(request) {
     const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
     const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
 
-    let result
+    let result = null
 
-    // Strategy: try URL method first (Telegram pulls directly from Dropbox).
-    // Timeout is generous (35s) because Telegram pulling a 30-50MB file can
-    // legitimately take 15-30s. AbortController actually cancels the request
-    // so we don't keep a zombie fetch eating the remaining function budget.
-    // If URL method TIMES OUT, we do NOT fall through — the download+upload
-    // fallback can't fit in the remaining ~25s for big files either.
-    // If URL method returns a real error (e.g. Telegram rejects the URL),
-    // we DO fall through — that fast failure leaves plenty of budget.
-    let urlMethodTimedOut = false
-    if (isVideo(editedFileLink) && !needsRemux) {
-      const controller = new AbortController()
-      // 20s cap. Telegram's URL method normally returns in 5-15s on success.
-      // If it's going longer than 20s it's usually going to fail anyway (URL
-      // file too large → fall through to download + compress + upload).
-      const timer = setTimeout(() => {
-        urlMethodTimedOut = true
-        controller.abort()
-      }, 20000)
-      try {
-        console.log('[Telegram Send] Trying URL method (20s timeout)...')
-        if (thumbnailUrl) {
-          // Download + resize thumbnail in parallel with prep, send media group with video URL
-          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl), { signal: controller.signal })
-          if (!thumbRes.ok) throw new Error('Thumb download failed')
-          const rawThumb = await thumbRes.arrayBuffer()
-          const thumbBuffer = await resizeImage(rawThumb, getFilename(thumbnailUrl))
-          const form = new FormData()
-          form.append('chat_id', String(chatId))
-          form.append('message_thread_id', String(threadId))
-          form.append('media', JSON.stringify([
-            { type: 'video', media: rawUrl, thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
-            { type: 'photo', media: 'attach://photo_file' },
-          ]))
-          form.append('thumb_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
-          form.append('photo_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
-          result = await telegramUpload('sendMediaGroup', form, { signal: controller.signal })
-        } else {
-          result = await telegramJson('sendVideo', {
-            chat_id: chatId,
-            message_thread_id: threadId,
-            video: rawUrl,
-            supports_streaming: true,
-            ...(caption ? { caption } : {}),
-          }, { signal: controller.signal })
-        }
-        console.log('[Telegram Send] URL method succeeded')
-      } catch (urlErr) {
-        // Whether timeout or real error, fall through to download+compress+upload.
-        // The 300s maxDuration now gives the fallback plenty of room, and URL
-        // timeouts often mean the file is too big for Telegram's URL fetcher —
-        // which is exactly when we want compression to kick in.
-        if (urlMethodTimedOut || urlErr.name === 'AbortError') {
-          console.warn('[Telegram Send] URL method timed out after 20s — falling back to download+compress+upload')
-        } else {
-          console.warn('[Telegram Send] URL method failed:', urlErr.message, '— falling back to upload')
-        }
-        result = null
-      } finally {
-        clearTimeout(timer)
-      }
-    }
+    // Skip URL method entirely. Previously we tried to have Telegram fetch the
+    // file directly from Dropbox via URL, which was fast for small files but
+    // hangs unreliably for 50MB+ files (Telegram holds our HTTP connection
+    // open while their internal fetch struggles, and Node's fetch AbortController
+    // doesn't reliably terminate those stalled connections on Vercel). Result:
+    // 5-minute hangs that eat the whole function budget.
+    //
+    // Going straight to download+compress(if needed)+upload is more predictable:
+    // always <90s, always has observable logs, no dependency on Telegram's
+    // URL-fetcher reliability.
 
     if (!result) {
       // Download from Dropbox and upload directly to Telegram
+      const dlStart = Date.now()
       console.log('[Telegram Send] Downloading file from Dropbox...')
       const fileRes = await fetch(rawUrl)
       if (!fileRes.ok) throw new Error(`Failed to download file from Dropbox: ${fileRes.status}`)
       const fileBuffer = await fileRes.arrayBuffer()
       const fileSize = fileBuffer.byteLength
-      console.log(`[Telegram Send] Downloaded: ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
+      const dlSec = ((Date.now() - dlStart) / 1000).toFixed(1)
+      console.log(`[Telegram Send] Downloaded ${(fileSize / 1024 / 1024).toFixed(1)}MB in ${dlSec}s`)
 
       // Upload directly to Telegram as multipart
       const form = new FormData()
