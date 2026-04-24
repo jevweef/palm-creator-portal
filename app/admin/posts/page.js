@@ -446,6 +446,56 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
   )
 }
 
+// Lightweight preview for Post Prep cards. Defaults to the Airtable-hosted
+// asset thumbnail (Airtable's CDN, no Dropbox throttling). Click → swap to
+// a playing <video> only for that one card. Avoids the "all 14 videos go
+// blank because Dropbox rate-limited the shared link bandwidth" failure.
+function PostPrepPreview({ post, hasFile, videoRawUrl }) {
+  const [playing, setPlaying] = useState(false)
+  const thumb = post.asset?.thumbnail || (post.thumbnail?.[0]?.thumbnails?.large?.url || post.thumbnail?.[0]?.url || '')
+  const isImg = hasFile && !isVideo(post.asset?.editedFileLink || '')
+
+  if (!hasFile) {
+    return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>
+  }
+  // Photos: just render the photo directly (no Dropbox throttling concern,
+  // photos load once and don't keep streaming like videos do).
+  if (isImg) {
+    return <img src={videoRawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+  }
+  // Videos: show thumbnail by default, click to play
+  if (playing) {
+    return (
+      <video src={videoRawUrl} autoPlay muted loop playsInline preload="auto"
+        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+        onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+    )
+  }
+  return (
+    <div onClick={() => setPlaying(true)}
+      style={{ width: '100%', height: '100%', position: 'relative', cursor: 'pointer' }}
+      title="Click to play">
+      {thumb ? (
+        <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      ) : (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '11px', background: 'rgba(255,255,255,0.02)' }}>
+          No thumbnail
+        </div>
+      )}
+      {/* Play indicator overlay */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+        <div style={{
+          width: '48px', height: '48px', borderRadius: '50%',
+          background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(2px)',
+        }}>
+          <span style={{ color: '#fff', fontSize: '18px', marginLeft: '3px' }}>▶</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PostCard({ post, onRefresh, onSend }) {
   const [editing, setEditing] = useState(false)
   const [caption, setCaption] = useState(post.caption)
@@ -535,19 +585,12 @@ function PostCard({ post, onRefresh, onSend }) {
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
-      {/* Left — video at 9:16 */}
+      {/* Left — Airtable-hosted thumbnail by default, click to expand into a
+          playable video. Loading 14 Dropbox <video> streams in parallel
+          saturates Dropbox's per-link rate limit and the videos go blank;
+          the Airtable thumbnail (different CDN) is reliable. */}
       <div style={{ width: '300px', flexShrink: 0, background: 'rgba(232, 160, 160, 0.04)', position: 'relative', aspectRatio: '9/16' }}>
-        {hasFile ? (
-          isVideo(post.asset.editedFileLink) ? (
-            <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
-              onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-          ) : (
-            <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          )
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>
-        )}
+        <PostPrepPreview post={post} hasFile={hasFile} videoRawUrl={rawUrl} />
         <div style={{ position: 'absolute', bottom: '6px', left: '6px' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, color: STATUS_COLORS[post.status] || '#999',
             background: 'rgba(0,0,0,0.4)', border: `1px solid ${STATUS_COLORS[post.status] || 'transparent'}40`,
