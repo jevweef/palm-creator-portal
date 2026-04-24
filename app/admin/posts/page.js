@@ -324,20 +324,64 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
     if (videoRef.current) videoRef.current.currentTime = t
   }
 
+  // Capture pipeline:
+  //   1. Try CLIENT-SIDE canvas grab from the live <video> element. The browser
+  //      already does HDR→SDR tonemapping for display, so what user sees while
+  //      scrubbing is exactly what canvas.drawImage captures. This eliminates
+  //      the orange/warm cast that ffmpeg's server-side extraction produces
+  //      when libzimg/zscale isn't available on the runtime.
+  //   2. If that fails (tainted canvas from a CORS-less response, or video
+  //      element not seekable), fall back to the server-side ffmpeg endpoint.
+  const tryClientCapture = () => {
+    const video = videoRef.current
+    if (!video) return null
+    if (!video.videoWidth || !video.videoHeight) return null
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      // toBlob is async; wrap in promise so the outer flow can await it.
+      // Throws SecurityError synchronously on tainted canvas → caller falls back.
+      return new Promise((resolve, reject) => {
+        try {
+          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob returned null')), 'image/jpeg', 0.92)
+        } catch (e) { reject(e) }
+      })
+    } catch {
+      return null
+    }
+  }
+
   const handleCapture = async () => {
     setCapturing(true)
     setError('')
     try {
-      // Extract frame server-side via ffmpeg
-      const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl, timestamp: currentTime }),
-      })
-      const frameData = await frameRes.json()
-      if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
+      let blob = null
 
-      const blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+      // 1. Client-side first
+      const clientPromise = tryClientCapture()
+      if (clientPromise) {
+        try {
+          blob = await clientPromise
+        } catch (e) {
+          // Tainted canvas → CORS missing → fall through to server
+          console.warn('[Frame] Client capture blocked (likely CORS), using server fallback:', e.message)
+        }
+      }
+
+      // 2. Server-side fallback
+      if (!blob) {
+        const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoUrl, timestamp: currentTime }),
+        })
+        const frameData = await frameRes.json()
+        if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
+        blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+      }
 
       // Upload the JPEG to Dropbox via the existing thumbnail endpoint
       const form = new FormData()
@@ -407,6 +451,7 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
           <video
             ref={videoRef}
             src={rawUrl}
+            crossOrigin="anonymous"
             muted
             playsInline
             preload="metadata"
