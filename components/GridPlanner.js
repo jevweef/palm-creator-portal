@@ -657,10 +657,11 @@ export default function GridPlanner({ smmMode = false } = {}) {
           }
         }).filter(g => g.remaining > 0))
 
-        // Authoritative refetch — 400ms delay to give Airtable's eventual
-        // consistency time to propagate before we re-read. Without this the
-        // GET can return the pre-PATCH state and wipe out the optimistic UI.
-        setTimeout(() => { loadCreator(selectedCreatorId) }, 400)
+        // Authoritative refetch — 2500ms delay to give Airtable's eventual
+        // consistency time to propagate. At 400ms the GET often came back
+        // with the pre-PATCH state and wiped out the optimistic placement
+        // (post popped back to the tray). 2.5s reliably sees the write.
+        setTimeout(() => { loadCreator(selectedCreatorId) }, 2500)
       } catch (e) {
         showToast(e.message, true)
       } finally {
@@ -1024,7 +1025,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
               })
               if (!res.ok) throw new Error('Unassign failed')
               showToast('Sent back to tray')
-              setTimeout(() => loadCreator(selectedCreatorId), 400)
+              setTimeout(() => loadCreator(selectedCreatorId), 2500)
             } catch (e) {
               showToast(e.message, true)
               loadCreator(selectedCreatorId)
