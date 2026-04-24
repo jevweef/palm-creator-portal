@@ -786,6 +786,13 @@ export default function AdminDashboard() {
   const [pipelineCreators, setPipelineCreators] = useState(null) // array | null
   const [pipelineSaving, setPipelineSaving] = useState({}) // { creatorId: true }
 
+  // Toast feedback
+  const [toast, setToast] = useState(null) // { msg, error }
+  const showToast = (msg, error = false) => {
+    setToast({ msg, error })
+    setTimeout(() => setToast(null), 3500)
+  }
+
   const fetchPipeline = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/creators/pipeline')
@@ -797,6 +804,7 @@ export default function AdminDashboard() {
   useEffect(() => { fetchPipeline() }, [fetchPipeline])
 
   const togglePipeline = async (creatorId, nextValue) => {
+    const creatorName = pipelineCreators?.find(c => c.id === creatorId)?.name || 'Creator'
     setPipelineSaving(prev => ({ ...prev, [creatorId]: true }))
     setPipelineCreators(prev => prev.map(c =>
       c.id === creatorId ? { ...c, socialMediaEditing: nextValue } : c
@@ -808,11 +816,16 @@ export default function AdminDashboard() {
         body: JSON.stringify({ creatorId, socialMediaEditing: nextValue }),
       })
       if (!res.ok) throw new Error(await res.text())
+      showToast(
+        nextValue
+          ? `${creatorName} added to editor pipeline`
+          : `${creatorName} removed from editor pipeline`
+      )
     } catch (err) {
       setPipelineCreators(prev => prev.map(c =>
         c.id === creatorId ? { ...c, socialMediaEditing: !nextValue } : c
       ))
-      alert(`Failed to toggle: ${err.message}`)
+      showToast(`Toggle failed: ${err.message}`, true)
     } finally {
       setPipelineSaving(prev => {
         const n = { ...prev }
@@ -1486,6 +1499,21 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>{/* close Row 2 */}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 500,
+          padding: '12px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
+          background: toast.error ? 'rgba(232, 120, 120, 0.12)' : 'rgba(125, 211, 164, 0.12)',
+          color: toast.error ? '#E87878' : '#7DD3A4',
+          border: `1px solid ${toast.error ? 'rgba(232, 120, 120, 0.3)' : 'rgba(125, 211, 164, 0.3)'}`,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(8px)',
+        }}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   )
 }
