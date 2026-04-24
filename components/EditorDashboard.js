@@ -1792,14 +1792,18 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
   )
 }
 
-function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updating, onRefresh, onSlotClick }) {
+function VideoSlot({ slotLabel, slot, isNext, isLocked, isPastDay, creator, onAction, updating, onRefresh, onSlotClick }) {
   const isNeedsRevision = slot.type === 'inProgress' && slot.task?.adminReviewStatus === 'Needs Revision'
+  // Past-day open slots are frozen — editor can't start an edit for a day that's already over.
+  const isPastEmpty = isPastDay && slot.type === 'empty'
   const typeStyle = isNeedsRevision
     ? { borderColor: 'transparent', bg: 'rgba(232, 120, 120, 0.08)', hoverBg: 'rgba(232, 120, 120, 0.12)', dotColor: '#E87878', label: 'Needs Revision' }
     : slot.type === 'done'
     ? doneSlotStyle(slot.task)
     : (slot.type === 'toDo' && slot.task?.isInspoUpload)
     ? { borderColor: 'transparent', bg: 'rgba(232, 200, 120, 0.06)', hoverBg: 'rgba(232, 200, 120, 0.1)', dotColor: '#E8C878', label: 'Creator clip uploaded' }
+    : isPastEmpty
+    ? { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-solid)', dotColor: 'var(--foreground-subtle)', label: 'Slot missed' }
     : {
         inProgress: { borderColor: 'transparent', bg: 'rgba(120, 180, 232, 0.06)', hoverBg: 'rgba(120, 180, 232, 0.1)', dotColor: '#78B4E8', label: 'In editing' },
         toDo:       { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-elevated)', dotColor: 'var(--palm-pink)', label: 'Ready to edit' },
@@ -1808,14 +1812,14 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
       }[slot.type] || { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-elevated)', dotColor: 'var(--foreground-subtle)', label: '' }
 
   const isDone = slot.type === 'done'
-  const clickable = true
-  const opacity = 1
+  const clickable = !isPastEmpty
+  const opacity = isPastEmpty ? 0.45 : 1
 
   return (
     <div
       className="editor-slot-card"
       onClick={clickable ? () => onSlotClick(slot) : undefined}
-      style={{ border: 'none', background: typeStyle.bg, borderRadius: '12px', padding: '14px 16px', minHeight: '90px', overflow: 'hidden', display: 'flex', gap: '12px', alignItems: 'center', cursor: clickable ? 'pointer' : 'default', transition: 'background 0.3s var(--ease-stripe)', opacity, boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)' }}
+      style={{ border: 'none', background: typeStyle.bg, borderRadius: '12px', padding: '14px 16px', minHeight: '90px', overflow: 'hidden', display: 'flex', gap: '12px', alignItems: 'center', cursor: clickable ? 'pointer' : 'not-allowed', transition: 'background 0.3s var(--ease-stripe)', opacity, boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)' }}
       onMouseEnter={e => { if (clickable) e.currentTarget.style.background = typeStyle.hoverBg }}
       onMouseLeave={e => { e.currentTarget.style.background = typeStyle.bg }}
     >
@@ -2180,6 +2184,7 @@ function CreatorSection({ creator, onRefresh }) {
             const d = new Date(selectedDate + 'T12:00:00')
             const dateLabel = `${d.getMonth() + 1}/${d.getDate()}`
             const nextActionableIndex = slots.findIndex(s => s.type !== 'done')
+            const isPastDay = selectedDate < todayDateStr
             return slots.map((slot, i) => {
               const isNext = i === nextActionableIndex
               const isLocked = slot.type !== 'done' && !isNext
@@ -2202,6 +2207,7 @@ function CreatorSection({ creator, onRefresh }) {
                   slot={slot}
                   isNext={isNext}
                   isLocked={isLocked}
+                  isPastDay={isPastDay}
                   creator={creator}
                   onAction={handleAction}
                   updating={updating}
