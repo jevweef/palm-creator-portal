@@ -290,7 +290,7 @@ export async function GET(request) {
 //   body: { action: 'setDate', postId: 'rec...', scheduledDate: 'ISO' }
 //     → updates a single post's scheduled time directly
 export async function PATCH(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireAdminOrSocialMedia() } catch (e) { return e }
 
   try {
     const body = await request.json()
@@ -411,7 +411,7 @@ export async function PATCH(request) {
 // posts around in the grid to fine-tune, but the default gets you a
 // not-identical-feed starting point for free.
 export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireAdminOrSocialMedia() } catch (e) { return e }
 
   try {
     const body = await request.json()

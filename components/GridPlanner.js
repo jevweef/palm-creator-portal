@@ -576,7 +576,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
 
   const showToast = (msg, isError = false) => {
     setToast({ msg, isError })
-    setTimeout(() => setToast(null), 2800)
+    // Errors stick for 10s so failures don't get missed; successes fade 2.8s
+    setTimeout(() => setToast(null), isError ? 10000 : 2800)
   }
 
   // Drag handlers
