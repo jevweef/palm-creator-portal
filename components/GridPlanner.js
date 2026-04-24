@@ -344,6 +344,18 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
           {new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })}
         </div>
       )}
+
+      {/* SMM-scheduled checkmark — visible in all modes so admins can see status too */}
+      {post.smmScheduled && !isScraped && (
+        <div style={{
+          position: 'absolute', top: 3, right: 3,
+          width: '16px', height: '16px', borderRadius: '50%',
+          background: 'rgba(34,197,94,0.95)', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '10px', fontWeight: 700,
+          boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
+        }}>✓</div>
+      )}
     </div>
   )
 }
@@ -425,7 +437,7 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
-export default function GridPlanner() {
+export default function GridPlanner({ smmMode = false } = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [creators, setCreators] = useState([])
@@ -965,6 +977,34 @@ export default function GridPlanner() {
           sending={sendingPostId === detailPost.post.id}
           onClose={() => setDetailPost(null)}
           onSend={() => handleSendToTelegram(detailPost.post)}
+          smmMode={smmMode}
+          onMarkScheduled={async (scheduled) => {
+            // Optimistic update on the post in local state
+            setPosts(ps => ps.map(p => p.id === detailPost.post.id
+              ? { ...p, smmScheduled: scheduled, smmScheduledAt: scheduled ? new Date().toISOString() : null }
+              : p
+            ))
+            setDetailPost(d => d && ({
+              ...d,
+              post: { ...d.post, smmScheduled: scheduled, smmScheduledAt: scheduled ? new Date().toISOString() : null },
+            }))
+            try {
+              const res = await fetch('/api/admin/sm-grid/mark-scheduled', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId: detailPost.post.id, scheduled }),
+              })
+              if (!res.ok) throw new Error('Failed')
+              showToast(scheduled ? 'Marked scheduled' : 'Unmarked')
+            } catch (e) {
+              // Revert
+              setPosts(ps => ps.map(p => p.id === detailPost.post.id
+                ? { ...p, smmScheduled: !scheduled }
+                : p
+              ))
+              showToast('Failed to update', true)
+            }
+          }}
         />
       )}
 
@@ -989,7 +1029,28 @@ export default function GridPlanner() {
 // Opens when a cell is clicked in the grid. Shows thumbnail + caption preview
 // and a "Send to Telegram" action. This is where posts actually get sent now
 // (Post Prep only preps — no send action there anymore).
-function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend }) {
+const smmBtn = {
+  display: 'block',
+  padding: '9px 10px',
+  fontSize: '12px',
+  fontWeight: 600,
+  textAlign: 'center',
+  textDecoration: 'none',
+  background: 'rgba(255,255,255,0.04)',
+  color: 'var(--foreground)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '8px',
+  cursor: 'pointer',
+}
+
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, smmMode = false, onMarkScheduled }) {
+  const [copiedKey, setCopiedKey] = useState(null)
+  async function copyText(text, key) {
+    if (!text) return
+    await navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 1500)
+  }
   const isScraped = !!post._scraped
   // Scraped cells are just IG feed items — never sendable, never have an
   // Airtable Status. Show them as "Live on IG" with a link out.
@@ -1080,6 +1141,38 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
           </div>
         )}
 
+        {/* SMM action grid — only in smmMode, only for non-scraped posts with an asset */}
+        {smmMode && !isScraped && (
+          <div style={{ padding: '12px 20px 0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              {post.asset?.editedFileLink ? (
+                <a href={post.asset.editedFileLink} target="_blank" rel="noreferrer" style={smmBtn}>
+                  ↓ Video
+                </a>
+              ) : <span style={{ ...smmBtn, opacity: 0.4 }}>↓ Video</span>}
+              {post.thumbnailUrl ? (
+                <a href={post.thumbnailUrl} target="_blank" rel="noreferrer" style={smmBtn}>
+                  ↓ Thumbnail
+                </a>
+              ) : <span style={{ ...smmBtn, opacity: 0.4 }}>↓ Thumbnail</span>}
+              <button
+                onClick={() => copyText(post.caption, 'c')}
+                disabled={!post.caption}
+                style={{ ...smmBtn, opacity: post.caption ? 1 : 0.4, cursor: post.caption ? 'pointer' : 'default' }}
+              >
+                {copiedKey === 'c' ? '✓ Copied' : '⎘ Caption'}
+              </button>
+              <button
+                onClick={() => copyText(post.hashtags, 'h')}
+                disabled={!post.hashtags}
+                style={{ ...smmBtn, opacity: post.hashtags ? 1 : 0.4, cursor: post.hashtags ? 'pointer' : 'default' }}
+              >
+                {copiedKey === 'h' ? '✓ Copied' : '⎘ Hashtags'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div style={{ padding: '16px 20px', display: 'flex', gap: '8px', marginTop: 'auto' }}>
           <button
@@ -1088,7 +1181,18 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
           >
             Close
           </button>
-          {canSend && (
+          {smmMode && !isScraped ? (
+            <button
+              onClick={() => onMarkScheduled?.(!post.smmScheduled)}
+              style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700,
+                background: post.smmScheduled ? 'rgba(34,197,94,0.15)' : 'rgba(232, 160, 160, 0.12)',
+                color: post.smmScheduled ? '#22c55e' : 'var(--palm-pink)',
+                border: `1px solid ${post.smmScheduled ? 'rgba(34,197,94,0.3)' : 'rgba(232,160,160,0.3)'}`,
+                borderRadius: '8px', cursor: 'pointer' }}
+            >
+              {post.smmScheduled ? '✓ Scheduled on IG' : 'Mark Scheduled on IG'}
+            </button>
+          ) : canSend ? (
             <button
               onClick={onSend}
               disabled={sending || !creatorMeta?.telegramThreadId}
@@ -1100,8 +1204,8 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
             >
               {sending ? 'Sending…' : '✈ Send to Telegram'}
             </button>
-          )}
-          {!canSend && post.postLink && (
+          ) : null}
+          {!smmMode && !canSend && post.postLink && (
             <a href={post.postLink} target="_blank" rel="noopener noreferrer"
               style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, textAlign: 'center', textDecoration: 'none',
                 background: 'rgba(232, 160, 160, 0.06)', color: 'var(--palm-pink)',
