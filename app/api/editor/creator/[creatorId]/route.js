@@ -184,11 +184,13 @@ export async function GET(request, { params }) {
         createdAt: a.createdTime || '',
       }))
 
-    // 8. Buffer
-    const approvedBuffer = futurePosts.filter(p => (p.fields?.Creator || []).includes(creatorId)).length
-    const bufferDays = parseFloat((approvedBuffer / 2).toFixed(1))
-
+    // 8. Buffer — per-creator daily quota, not a hardcoded 2/day
     const weeklyQuota = f['Weekly Reel Quota'] || 14
+    const dailyQuota = Math.ceil(weeklyQuota / 7)
+    const approvedBuffer = futurePosts.filter(p => (p.fields?.Creator || []).includes(creatorId)).length
+    const bufferDays = dailyQuota > 0
+      ? parseFloat((approvedBuffer / dailyQuota).toFixed(1))
+      : 0
 
     return NextResponse.json({
       creator: {

@@ -256,7 +256,6 @@ export async function GET() {
     // 2. EDITOR RUNWAY
     // =============================================
     const creatorIdSet = new Set(creators.map(c => c.id))
-    const POSTS_PER_DAY = 2
 
     // Group posts by creator
     const futurePostsByCreator = {}
@@ -287,8 +286,13 @@ export async function GET() {
       const f = c.fields || {}
       const ctasks = tasksByCreator[c.id] || []
       const weeklyQuota = f['Weekly Reel Quota'] || 14
+      const dailyQuota = Math.ceil(weeklyQuota / 7)
       const approvedBuffer = futurePostsByCreator[c.id] || 0
-      const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
+      // Runway = buffered posts ÷ this creator's daily quota. Was previously
+      // hardcoded to /2 (assumed 2 posts/day for everyone). Now per-creator.
+      const bufferDays = dailyQuota > 0
+        ? parseFloat((approvedBuffer / dailyQuota).toFixed(1))
+        : 0
 
       const doneThisWeek = ctasks.filter(t =>
         t.fields?.Status === 'Done' &&
