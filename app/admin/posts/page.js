@@ -791,13 +791,32 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
   )
 }
 
-const STATUS_FILTERS = ['All', 'Prepping', 'Sent to Telegram', 'Ready to Post']
+// Filter logic:
+//   Needs Prep = Prepping AND missing thumbnail OR caption OR hashtags (default view)
+//   Saved      = Prepping AND has thumbnail + caption + hashtags (ready to send from Grid Planner)
+//   Sent to Telegram / Ready to Post = by Post Status
+//   All        = no filter
+const STATUS_FILTERS = ['Needs Prep', 'Saved', 'Sent to Telegram', 'Ready to Post', 'All']
+
+function isFullyPrepped(p) {
+  const hasThumb = (p.thumbnail?.length > 0) || !!p.thumbnailUrl
+  const hasCaption = !!(p.caption && p.caption.trim())
+  const hasHashtags = !!(p.hashtags && p.hashtags.trim())
+  return hasThumb && hasCaption && hasHashtags
+}
+
+function matchesFilter(p, filter) {
+  if (filter === 'All') return true
+  if (filter === 'Needs Prep') return p.status === 'Prepping' && !isFullyPrepped(p)
+  if (filter === 'Saved') return p.status === 'Prepping' && isFullyPrepped(p)
+  return p.status === filter
+}
 
 export default function PostsPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filter, setFilter] = useState('Prepping')
+  const [filter, setFilter] = useState('Needs Prep')
   const [telegramModal, setTelegramModal] = useState(null)
   const [toast, setToast] = useState(null)
   const [logModal, setLogModal] = useState(false)
@@ -827,7 +846,7 @@ export default function PostsPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const posts = data?.posts || []
-  const filtered = filter === 'All' ? posts : posts.filter(p => p.status === filter)
+  const filtered = posts.filter(p => matchesFilter(p, filter))
 
   return (
     <div style={{ color: 'var(--foreground)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -853,7 +872,7 @@ export default function PostsPage() {
             {f}
             {f !== 'All' && (
               <span style={{ marginLeft: '6px', color: filter === f ? 'rgba(6, 6, 6, 0.6)' : 'var(--foreground-subtle)', fontWeight: 400 }}>
-                {posts.filter(p => p.status === f).length}
+                {posts.filter(p => matchesFilter(p, f)).length}
               </span>
             )}
           </button>

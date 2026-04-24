@@ -262,6 +262,9 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
 
 function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd, onDrop, onClick }) {
   const [isOver, setIsOver] = useState(false)
+  // Scraped-from-IG cells (already posted on the real account) get a darker
+  // overlay so they're visually distinct from our own scheduled/sent cells.
+  const isScraped = !!post._scraped
 
   const borderByStatus = {
     scheduled: { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
@@ -280,13 +283,13 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       onDragLeave={() => setIsOver(false)}
       onDrop={(e) => { e.preventDefault(); setIsOver(false); onDrop() }}
       onClick={onClick}
-      title={`${status}${post.scheduledDate ? ' · ' + formatScheduled(post.scheduledDate) : ''}`}
+      title={isScraped ? `Already on IG · ${formatScheduled(post.postedAt)}` : `${status}${post.scheduledDate ? ' · ' + formatScheduled(post.scheduledDate) : ''}`}
       style={{
         aspectRatio: '1 / 1',
         background: post.thumbnail ? '#000' : style.bg,
         position: 'relative',
         cursor: draggable ? 'grab' : 'pointer',
-        opacity: isDragging ? 0.4 : (status === 'posted' ? 1 : 1),
+        opacity: isDragging ? 0.4 : 1,
         outline: isOver ? '1px solid var(--palm-pink)' : 'none',
         outlineOffset: '-2px',
         overflow: 'hidden',
@@ -299,17 +302,29 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
           {status === 'draft' ? '✏' : '🗓'}
         </div>
       )}
+
+      {/* Darker overlay for scraped (already-live on IG) cells so the admin
+          can immediately tell them apart from our own scheduled/sent cells */}
+      {isScraped && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 100%)',
+          pointerEvents: 'none',
+        }} />
+      )}
+
       {/* Status chip */}
       <div style={{
         position: 'absolute', top: 3, left: 3,
         padding: '1px 5px', borderRadius: '3px',
-        background: 'rgba(0,0,0,0.55)', color: 'var(--foreground)',
+        background: isScraped ? 'rgba(240, 236, 232, 0.85)' : 'rgba(0,0,0,0.55)',
+        color: isScraped ? '#060606' : 'var(--foreground)',
         fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
       }}>
-        {status}
+        {isScraped ? 'live' : status}
       </div>
       {/* Date chip */}
-      {post.scheduledDate && status !== 'posted' && (
+      {post.scheduledDate && status !== 'posted' && !isScraped && (
         <div style={{
           position: 'absolute', bottom: 3, right: 3,
           padding: '1px 4px', borderRadius: '3px',
@@ -591,6 +606,71 @@ export default function GridPlanner() {
     accounts.map(a => [a.id, posts.filter(p => p.accountId === a.id)])
   )
 
+  // Bulk send: fire all scheduled-but-unsent posts for this creator to Telegram
+  // in order of Scheduled Date. Each fetch returns in ~1s (waitUntil-backed
+  // server endpoint), so firing 10 in parallel is fine. Each post flips to
+  // 'Sending' on its own schedule.
+  const [bulkSending, setBulkSending] = useState(false)
+  const sendablePosts = posts
+    .filter(p => p.accountId && p.scheduledDate && p.status !== 'Sent to Telegram' && p.status !== 'Sending' && p.status !== 'Send Failed' && !p.telegramSentAt && !p.postedAt && p.asset?.editedFileLink)
+    .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
+  const handleBulkSend = async () => {
+    if (!sendablePosts.length) return
+    if (!selectedCreatorMeta?.telegramThreadId) {
+      showToast('This creator has no Telegram Thread ID set', true)
+      return
+    }
+    const confirmed = window.confirm(`Send ${sendablePosts.length} scheduled post${sendablePosts.length !== 1 ? 's' : ''} to Telegram? They'll fire in order of Scheduled Date.`)
+    if (!confirmed) return
+    setBulkSending(true)
+    // Optimistic UI update
+    const sendableIds = new Set(sendablePosts.map(p => p.id))
+    setPosts(prev => prev.map(p => sendableIds.has(p.id) ? { ...p, status: 'Sending' } : p))
+    try {
+      // Fire all requests. Each server call returns in ~1s via waitUntil; the
+      // actual sends happen async on Vercel's side. Sequenced-by-date is
+      // already the sort order of sendablePosts; we kick them in that order
+      // 200ms apart so the server-side order lines up with user expectation.
+      let errorCount = 0
+      for (let i = 0; i < sendablePosts.length; i++) {
+        const p = sendablePosts[i]
+        try {
+          const res = await fetch('/api/telegram/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              postId: p.id,
+              editedFileLink: p.asset?.editedFileLink,
+              threadId: selectedCreatorMeta.telegramThreadId,
+              caption: [p.caption, p.hashtags].filter(Boolean).join('\n\n') || undefined,
+              thumbnailUrl: p.thumbnailUrl || undefined,
+              assetId: p.asset?.id || undefined,
+              rawCaption: p.caption || undefined,
+              rawHashtags: p.hashtags || undefined,
+              platform: p.platform?.length ? p.platform : undefined,
+              scheduledDate: p.scheduledDate || undefined,
+            }),
+          })
+          if (!res.ok) errorCount++
+        } catch {
+          errorCount++
+        }
+        // Small delay between queue submissions — keeps server logs readable
+        // and avoids hammering Vercel with 10 concurrent function starts.
+        if (i < sendablePosts.length - 1) await new Promise(r => setTimeout(r, 200))
+      }
+      if (errorCount) {
+        showToast(`Queued ${sendablePosts.length - errorCount}/${sendablePosts.length} · ${errorCount} failed to queue`, errorCount > 0)
+      } else {
+        showToast(`Queued ${sendablePosts.length} post${sendablePosts.length !== 1 ? 's' : ''} — sending in background`)
+      }
+      // Give the server a beat, then reload to pick up 'Sending' status
+      setTimeout(() => loadCreator(selectedCreatorId), 2000)
+    } finally {
+      setBulkSending(false)
+    }
+  }
+
   // Refresh scraped IG feed for all of this creator's accounts.
   // Shift-click forces a re-scrape even if cached within 6h.
   const [refreshing, setRefreshing] = useState(false)
@@ -723,6 +803,22 @@ export default function GridPlanner() {
         <div style={{ flex: 1 }} />
         {saving && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Saving…</span>}
         {refreshing && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Scraping IG…</span>}
+        {sendablePosts.length > 0 && (
+          <button
+            onClick={handleBulkSend}
+            disabled={bulkSending}
+            title={`Fire all ${sendablePosts.length} scheduled-but-unsent posts to Telegram, sequenced by Scheduled Date. They run in the background — each post's card flips to Sending → Sent as it completes.`}
+            style={{
+              padding: '6px 14px', fontSize: '12px', fontWeight: 700,
+              background: bulkSending ? 'rgba(125, 211, 164, 0.04)' : 'rgba(125, 211, 164, 0.10)',
+              color: bulkSending ? '#7DD3A4' : '#7DD3A4',
+              border: '1px solid rgba(125, 211, 164, 0.25)',
+              borderRadius: '6px', cursor: bulkSending ? 'default' : 'pointer',
+            }}
+          >
+            {bulkSending ? 'Queuing…' : `✈ Send ${sendablePosts.length} to Telegram`}
+          </button>
+        )}
         <button
           onClick={handleRefreshFeed}
           disabled={refreshing || !selectedCreatorId}
