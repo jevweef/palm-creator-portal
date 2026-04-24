@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
+import { requireAdmin, requireAdminOrSocialMedia, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 
 // Standard posting slots: 11 AM and 7 PM Eastern, matching the editor's
 // auto-schedule in /api/admin/editor. Grid Planner uses these to pick the
@@ -49,7 +49,7 @@ function getNextOpenSlot(existingISOs) {
 // (Main + Palm IG 1/2/3). Posts with no Account field set show in an "Unassigned"
 // bucket so the admin can drag them into an account grid.
 export async function GET(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireAdminOrSocialMedia() } catch (e) { return e }
 
   try {
     const { searchParams } = new URL(request.url)
@@ -134,6 +134,7 @@ export async function GET(request) {
         'Post Name', 'Creator', 'Account', 'Asset', 'Task',
         'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail',
         'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link',
+        'SMM Scheduled', 'SMM Scheduled At',
       ],
     })
     const posts = allRecentPosts.filter(p => (p.fields?.Creator || []).includes(creatorId))
@@ -210,6 +211,8 @@ export async function GET(request) {
         // Thumbnail URL from the Post's attachment (not the .thumbnails.large
         // preview) — Telegram send expects the full Dropbox/Airtable URL
         thumbnailUrl: f.Thumbnail?.[0]?.url || '',
+        smmScheduled: !!f['SMM Scheduled'],
+        smmScheduledAt: f['SMM Scheduled At'] || null,
       }
     })
 

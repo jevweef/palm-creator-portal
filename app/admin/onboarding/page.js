@@ -437,6 +437,12 @@ export default function AdminOnboarding() {
                             View Answers
                           </button>
                         )}
+                        <a
+                          href={`/admin/onboarding/${c.id}/photos`}
+                          style={{ ...actionBtnStyle, textDecoration: 'none', display: 'inline-block', background: 'rgba(255,255,255,0.05)', color: 'var(--foreground)' }}
+                        >
+                          Photos
+                        </a>
                       </div>
                     </td>
                   </tr>

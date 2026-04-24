@@ -7,9 +7,22 @@ import InvoiceWorkflowModal from './InvoiceWorkflowModal'
 import RawDataUpload from './RawDataUpload'
 
 const STATUS_CONFIG = {
-  Draft: { color: '#9ca3af', bg: 'rgba(255,255,255,0.04)', next: 'Sent' },
-  Sent:  { color: '#78B4E8', bg: 'rgba(120, 180, 232, 0.08)', next: 'Paid' },
-  Paid:  { color: '#7DD3A4', bg: 'rgba(125, 211, 164, 0.08)', next: 'Draft' },
+  Draft:   { color: '#9ca3af', bg: 'rgba(255,255,255,0.04)', next: 'Sent' },
+  Sent:    { color: '#78B4E8', bg: 'rgba(120, 180, 232, 0.08)', next: 'Paid' },
+  Partial: { color: '#E8C878', bg: 'rgba(232, 200, 120, 0.08)', next: 'Paid' },
+  Paid:    { color: '#7DD3A4', bg: 'rgba(125, 211, 164, 0.08)', next: 'Draft' },
+}
+
+// Derive display status from underlying record (stored status + amountPaid)
+// Airtable only stores Draft/Sent/Paid. "Partial" is derived client-side when
+// amountPaid is between 0 and earnings.
+function derivedStatus(record) {
+  const raw = record.status || 'Draft'
+  const paid = record.amountPaid || 0
+  const total = record.earnings || 0
+  if (raw === 'Paid') return 'Paid'
+  if (raw === 'Sent' && paid > 0 && paid < total) return 'Partial'
+  return raw
 }
 
 const COLS = '160px 150px 130px 130px 130px 88px'
@@ -28,7 +41,9 @@ function groupStageKey(rows) {
   const allHavePdfs = rows.every(r => r.hasPdf)
   const allSent = rows.every(r => r.status === 'Sent' || r.status === 'Paid')
   const allPaid = rows.every(r => r.status === 'Paid')
+  const anyPartial = rows.some(r => derivedStatus(r) === 'Partial')
   if (allPaid) return 'paid'
+  if (anyPartial) return 'partial'
   if (allSent) return 'sent'
   if (allHavePdfs) return 'review'
   return 'generate'
@@ -174,6 +189,71 @@ function EarningsCell({ record, onSave, disabled }) {
   )
 }
 
+// ── Inline payment editor ────────────────────────────────────────────────────
+function PaymentCell({ record, onSave, disabled }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const paid = record.amountPaid || 0
+  const total = record.earnings || 0
+  const remaining = Math.max(0, total - paid)
+
+  function startEdit() {
+    if (disabled) return
+    setValue(paid === 0 ? '' : String(paid))
+    setEditing(true)
+  }
+
+  async function commit() {
+    const num = parseFloat(value)
+    if (!isNaN(num) && num !== paid) {
+      // Auto-update status based on amount
+      const fields = { amountPaid: num }
+      if (num >= total && total > 0) fields.status = 'Paid'
+      else if (num > 0) fields.status = 'Sent' // will display as Partial via derivedStatus
+      else fields.status = 'Sent'
+      await onSave(record.id, fields)
+    }
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input autoFocus type="number" step="0.01" value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+        style={{
+          background: 'rgba(232, 200, 120, 0.04)', border: '1px solid #E8C87844', borderRadius: '4px',
+          color: 'var(--foreground)', fontSize: '12px', padding: '3px 8px', width: '100px', outline: 'none',
+        }}
+      />
+    )
+  }
+
+  return (
+    <button onClick={startEdit} disabled={disabled} title="Click to log a payment"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'transparent',
+        border: '1px solid transparent', borderRadius: '4px',
+        color: paid > 0 ? '#E8C878' : '#9ca3af',
+        fontSize: '12px', cursor: disabled ? 'default' : 'pointer',
+        padding: '3px 8px', fontFamily: 'inherit', transition: 'all 0.15s',
+      }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = 'rgba(232, 200, 120, 0.06)' }}}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+    >
+      {paid > 0 ? (
+        <>
+          <span>{fmt(paid)} paid</span>
+          {remaining > 0 && <span style={{ color: '#9ca3af' }}>· {fmt(remaining)} left</span>}
+        </>
+      ) : (
+        <span style={{ fontSize: '11px' }}>+ Log payment</span>
+      )}
+    </button>
+  )
+}
+
 // ── Summary bar ──────────────────────────────────────────────────────────────
 function SummaryBar({ records }) {
   const total = records.reduce((s, r) => ({
@@ -223,6 +303,7 @@ const STAGE_CONFIG = {
   review:   { label: 'Review',    dot: 'var(--palm-pink)', bg: 'rgba(232, 160, 160, 0.06)', fg: '#b4586f' },
   send:     { label: 'Ready',     dot: '#78B4E8', bg: 'rgba(120, 180, 232, 0.08)', fg: '#1d4ed8' },
   sent:     { label: 'Sent',      dot: '#78B4E8', bg: 'rgba(120, 180, 232, 0.08)', fg: '#1d4ed8' },
+  partial:  { label: 'Partial',   dot: '#E8C878', bg: 'rgba(232, 200, 120, 0.08)', fg: '#a16207' },
   paid:     { label: 'Paid',      dot: '#7DD3A4', bg: 'rgba(125, 211, 164, 0.08)', fg: '#15803d' },
 }
 
@@ -359,13 +440,18 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
               <div style={{ fontSize: '12px', fontWeight: 600, color: record.netProfit > 0 ? '#7DD3A4' : '#bbb', textAlign: 'right' }}>
                 {fmt(record.netProfit)}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <span style={{
-                  background: STATUS_CONFIG[record.status]?.bg || 'rgba(255,255,255,0.04)',
-                  color: STATUS_CONFIG[record.status]?.color || '#999',
-                  borderRadius: '20px', padding: '2px 10px', fontSize: '10px', fontWeight: 600,
-                  letterSpacing: '0.03em',
-                }}>{record.status}</span>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+                {(() => { const d = derivedStatus(record); return (
+                  <span style={{
+                    background: STATUS_CONFIG[d]?.bg || 'rgba(255,255,255,0.04)',
+                    color: STATUS_CONFIG[d]?.color || '#999',
+                    borderRadius: '20px', padding: '2px 10px', fontSize: '10px', fontWeight: 600,
+                    letterSpacing: '0.03em',
+                  }}>{d}</span>
+                )})()}
+                {record.status !== 'Draft' && (
+                  <PaymentCell record={record} onSave={onSave} disabled={savingId === record.id} />
+                )}
               </div>
             </div>
           ))}
@@ -380,19 +466,24 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 22px 16px', marginTop: '4px',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: '#9ca3af' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: '#9ca3af', flexWrap: 'wrap' }}>
               <span>Editable revenue:</span>
               <EarningsCell record={record} onSave={onSave} disabled={savingId === record.id} />
               {record.chatTeamCost > 0 && (
                 <span>Chat fee: <span style={{ color: '#E8C878' }}>−{fmt(record.chatTeamCost)}</span></span>
               )}
+              {record.status !== 'Draft' && (
+                <PaymentCell record={record} onSave={onSave} disabled={savingId === record.id} />
+              )}
             </div>
-            <span style={{
-              background: STATUS_CONFIG[record.status]?.bg || 'rgba(255,255,255,0.04)',
-              color: STATUS_CONFIG[record.status]?.color || '#999',
-              borderRadius: '20px', padding: '3px 12px', fontSize: '11px', fontWeight: 600,
-              letterSpacing: '0.03em',
-            }}>{record.status}</span>
+            {(() => { const d = derivedStatus(record); return (
+              <span style={{
+                background: STATUS_CONFIG[d]?.bg || 'rgba(255,255,255,0.04)',
+                color: STATUS_CONFIG[d]?.color || '#999',
+                borderRadius: '20px', padding: '3px 12px', fontSize: '11px', fontWeight: 600,
+                letterSpacing: '0.03em',
+              }}>{d}</span>
+            )})()}
           </div>
         )
       })()}
@@ -418,6 +509,8 @@ export default function InvoicingPage() {
   const [actionError, setActionError] = useState(null)
   const [workflowModal, setWorkflowModal] = useState(null) // { aka, rows }
   const [statusFilter, setStatusFilter] = useState('all') // all | draft | sent | paid
+  const [loadedPeriods, setLoadedPeriods] = useState(new Set()) // period keys whose full records are loaded
+  const [periodLoading, setPeriodLoading] = useState(null) // period key currently loading
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'invoices')
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
@@ -433,17 +526,48 @@ export default function InvoicingPage() {
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
+      // Default: fetches only most recent period's records + full period list
       const res = await fetch('/api/admin/invoicing')
       if (!res.ok) throw new Error('Failed to load')
       const data = await res.json()
       setRecords(data.records)
       setPeriods(data.periods)
-      if (data.periods.length > 0 && !selectedPeriod) setSelectedPeriod(data.periods[0].key)
+      if (data.periods.length > 0 && !selectedPeriod) {
+        setSelectedPeriod(data.periods[0].key)
+        setLoadedPeriods(new Set([data.periods[0].key]))
+      }
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }, [selectedPeriod])
 
   useEffect(() => { load() }, [])
+
+  // Lazy-load a specific period's records when user clicks its tab
+  const loadPeriod = useCallback(async (periodKey) => {
+    if (loadedPeriods.has(periodKey)) return
+    setPeriodLoading(periodKey)
+    try {
+      const res = await fetch(`/api/admin/invoicing?mode=period&period=${encodeURIComponent(periodKey)}`)
+      if (!res.ok) throw new Error('Failed to load period')
+      const data = await res.json()
+      // Merge new records with existing (dedupe by id)
+      setRecords(prev => {
+        const existingIds = new Set(prev.map(r => r.id))
+        const merged = [...prev]
+        for (const r of data.records) if (!existingIds.has(r.id)) merged.push(r)
+        return merged
+      })
+      setLoadedPeriods(prev => new Set(prev).add(periodKey))
+    } catch (e) { setError(e.message) }
+    finally { setPeriodLoading(null) }
+  }, [loadedPeriods])
+
+  // When selected period changes, ensure it's loaded
+  useEffect(() => {
+    if (selectedPeriod && !loadedPeriods.has(selectedPeriod)) {
+      loadPeriod(selectedPeriod)
+    }
+  }, [selectedPeriod, loadedPeriods, loadPeriod])
 
   // Save earnings or status
   const handleSave = useCallback(async (recordId, fields) => {
@@ -464,6 +588,7 @@ export default function InvoicingPage() {
           u.netProfit = u.totalCommission - u.chatTeamCost
         }
         if (fields.status !== undefined) u.status = fields.status
+        if (fields.amountPaid !== undefined) u.amountPaid = fields.amountPaid
         return u
       }))
     } catch (e) { console.error(e) }
@@ -475,17 +600,26 @@ export default function InvoicingPage() {
     for (const id of recordIds) {
       setSavingId(id)
       try {
+        // When marking Paid, also set amountPaid = earnings so remaining goes to $0
+        const rec = records.find(r => r.id === id)
+        const fields = { status }
+        if (status === 'Paid' && rec) fields.amountPaid = rec.earnings || 0
+        if (status === 'Draft') fields.amountPaid = 0
         const res = await fetch('/api/admin/invoicing', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordId: id, fields: { status } }),
+          body: JSON.stringify({ recordId: id, fields }),
         })
         if (res.ok) {
-          setRecords(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+          setRecords(prev => prev.map(r => r.id === id ? {
+            ...r,
+            status,
+            amountPaid: fields.amountPaid !== undefined ? fields.amountPaid : r.amountPaid,
+          } : r))
         }
       } catch (e) { console.error(e) }
     }
     setSavingId(null)
-  }, [])
+  }, [records])
 
   if (!isLoaded || !isAdmin) {
     return (
@@ -506,12 +640,13 @@ export default function InvoicingPage() {
   }, {})
 
   // Count groups per status bucket (stage-based)
-  const statusCounts = { all: 0, draft: 0, sent: 0, paid: 0 }
+  const statusCounts = { all: 0, draft: 0, sent: 0, partial: 0, paid: 0 }
   for (const aka of Object.keys(grouped)) {
     statusCounts.all++
     const stage = groupStageKey(grouped[aka])
     if (stage === 'generate' || stage === 'review') statusCounts.draft++
     else if (stage === 'sent') statusCounts.sent++
+    else if (stage === 'partial') statusCounts.partial++
     else if (stage === 'paid') statusCounts.paid++
   }
 
@@ -521,6 +656,7 @@ export default function InvoicingPage() {
       const stage = groupStageKey(grouped[aka])
       if (statusFilter === 'draft') return stage === 'generate' || stage === 'review'
       if (statusFilter === 'sent') return stage === 'sent'
+      if (statusFilter === 'partial') return stage === 'partial'
       if (statusFilter === 'paid') return stage === 'paid'
       return true
     })
@@ -583,6 +719,8 @@ export default function InvoicingPage() {
         <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
           {periods.map(p => {
             const active = selectedPeriod === p.key
+            const isLoading = periodLoading === p.key
+            const notYetLoaded = !loadedPeriods.has(p.key)
             return (
               <button key={p.key} onClick={() => setSelectedPeriod(p.key)} style={{
                 background: active ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
@@ -590,8 +728,11 @@ export default function InvoicingPage() {
                 borderRadius: '6px', color: active ? 'var(--palm-pink)' : '#999',
                 padding: '6px 14px', fontSize: '12px', fontWeight: active ? 600 : 400,
                 cursor: 'pointer', transition: 'all 0.15s',
+                opacity: notYetLoaded && !active ? 0.7 : 1,
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
               }}>
                 {fmtDate(p.start)} – {fmtDate(p.end)}
+                {isLoading && <span style={{ fontSize: '10px', opacity: 0.6 }}>…</span>}
               </button>
             )
           })}
@@ -623,6 +764,10 @@ export default function InvoicingPage() {
         </div>
       )}
 
+      {!loading && periodLoading === selectedPeriod && periodRecords.length === 0 && (
+        <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px 0' }}>Loading period…</div>
+      )}
+
       {!loading && periodRecords.length > 0 && (
         <>
           <SummaryBar records={periodRecords} />
@@ -631,6 +776,7 @@ export default function InvoicingPage() {
               { key: 'all', label: 'All', color: '#e4e4e7' },
               { key: 'draft', label: 'Draft', color: '#9ca3af' },
               { key: 'sent', label: 'Sent', color: '#78B4E8' },
+              { key: 'partial', label: 'Partial', color: '#E8C878' },
               { key: 'paid', label: 'Paid', color: '#7DD3A4' },
             ].map(f => {
               const active = statusFilter === f.key

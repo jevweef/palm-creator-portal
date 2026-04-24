@@ -181,6 +181,9 @@ export function getSlotLabel(isoDateString) {
 export function QuotaDots({ slotColors, quota, done }) {
   const unlitColor = 'rgba(255,255,255,0.12)'
   const dividerColor = 'rgba(255,255,255,0.06)'
+  // Group dots by the editor's DAILY task quota so dividers fall between days,
+  // not between pairs. 14/wk → groups of 2, 21/wk → groups of 3, etc.
+  const dailyTasks = Math.max(1, Math.ceil((quota || 0) / 7))
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
@@ -188,7 +191,7 @@ export function QuotaDots({ slotColors, quota, done }) {
           const raw = slotColors?.[i]
           const lit = raw && raw !== 'var(--card-border)'
           const color = lit ? raw : unlitColor
-          const isNewDay = i > 0 && i % 2 === 0
+          const isNewDay = i > 0 && i % dailyTasks === 0
           return (
             <div key={i} style={{ display: 'contents' }}>
               {isNewDay && <div style={{ width: '1px', height: '8px', background: dividerColor, flexShrink: 0 }} />}
@@ -1907,11 +1910,11 @@ function CreatorSection({ creator, onRefresh }) {
           if (queueIdx < dotQueueItems.length) {
             const type = dotQueueItems[queueIdx]
             queueIdx++
-            if (type === 'inProgress') colors.push('#78B4E8')       // blue
-            else if (type === 'inspoClip') colors.push('#E8C878')   // yellow/amber
-            else colors.push('var(--palm-pink)')                              // pink (To Do)
+            if (type === 'inProgress') colors.push('#78B4E8')
+            else if (type === 'inspoClip') colors.push('#E8C878')
+            else colors.push('var(--palm-pink)')
           } else {
-            colors.push('var(--card-border)') // empty
+            colors.push('var(--card-border)')
           }
         }
       }
@@ -1935,6 +1938,51 @@ function CreatorSection({ creator, onRefresh }) {
     ...creator.queue.map(t => ({ type: 'toDo', task: t })),
     ...(creator.inspoClips || []).map(c => ({ type: 'inspoClip', clip: c })),
   ]
+
+  // Count how many slots are FILLED (done + queue-forward-fill) on an arbitrary
+  // date. Mirrors the slot-building logic below so "Next open slot" can peek
+  // forward without actually rendering each candidate day. Never touches the
+  // display logic — just a pure counting pass.
+  const countFilledSlotsOnDay = (ds) => {
+    const doneOnDay = ds === todayDateStr
+      ? (creator.doneTodayList || []).length
+      : (creator.recentDone || []).filter(t => (t.etSlotDate || t.etCompletedDate) === ds).length
+
+    // Past days: only done tasks can fill slots (queue floats forward, not back).
+    if (ds < todayDateStr) return Math.min(dailyQuota, doneOnDay)
+
+    // Today/future: add queue forward-fill. Count how many queue items are
+    // consumed by earlier days (today through ds-1) so we know what's left for ds.
+    let skipCount = 0
+    const todayD = new Date(todayDateStr + 'T12:00:00')
+    const dsD = new Date(ds + 'T12:00:00')
+    const daysAhead = Math.round((dsD - todayD) / (1000 * 60 * 60 * 24))
+    for (let d = 0; d < daysAhead; d++) {
+      const iter = new Date(todayD)
+      iter.setDate(iter.getDate() + d)
+      const iterDs = `${iter.getFullYear()}-${String(iter.getMonth()+1).padStart(2,'0')}-${String(iter.getDate()).padStart(2,'0')}`
+      const doneIter = iterDs === todayDateStr
+        ? (creator.doneTodayList || []).length
+        : (creator.recentDone || []).filter(t => (t.etSlotDate || t.etCompletedDate) === iterDs).length
+      skipCount += Math.max(0, dailyQuota - doneIter)
+    }
+    const queueLeft = Math.max(0, queueItems.length - skipCount)
+    const fromQueue = Math.min(queueLeft, Math.max(0, dailyQuota - doneOnDay))
+    return Math.min(dailyQuota, doneOnDay + fromQueue)
+  }
+
+  // Scan forward from the current view up to 14 days to find the first day
+  // with at least one empty slot. Returns null if no open slot within window.
+  const findNextOpenDay = () => {
+    const baseD = new Date(selectedDate + 'T12:00:00')
+    for (let d = 1; d <= 14; d++) {
+      const iter = new Date(baseD)
+      iter.setDate(iter.getDate() + d)
+      const ds = `${iter.getFullYear()}-${String(iter.getMonth()+1).padStart(2,'0')}-${String(iter.getDate()).padStart(2,'0')}`
+      if (countFilledSlotsOnDay(ds) < dailyQuota) return ds
+    }
+    return null
+  }
 
   const slots = []
   selectedDoneList.forEach(t => slots.push({ type: 'done', task: t }))
@@ -2060,6 +2108,20 @@ function CreatorSection({ creator, onRefresh }) {
             <button onClick={() => setSelectedDate(todayDateStr)}
               style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}>Today</button>
           )}
+          {/* Next open slot — only show when the currently-viewed day has NO empty slots.
+              Scans forward up to 14 days and jumps to the first day with an opening.
+              Styled as a quiet text link to match 'Today' — doesn't compete for attention. */}
+          {countFilledSlotsOnDay(selectedDate) >= dailyQuota && (() => {
+            const nextOpen = findNextOpenDay()
+            if (!nextOpen) return null
+            return (
+              <button onClick={() => setSelectedDate(nextOpen)}
+                title={`Jump to ${new Date(nextOpen + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}
+                style={{ background: 'none', border: 'none', color: 'var(--palm-pink)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: '0 4px', whiteSpace: 'nowrap' }}>
+                Next open →
+              </button>
+            )
+          })()}
           <span style={{ marginLeft: 'auto', fontSize: '9px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Daily</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

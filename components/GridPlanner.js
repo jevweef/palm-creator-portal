@@ -306,7 +306,13 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       }}
     >
       {post.thumbnail ? (
-        <img src={post.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <img
+          src={post.thumbnail}
+          alt=""
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+        />
       ) : (
         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style.badge, fontSize: '20px' }}>
           {status === 'draft' ? '✏' : '🗓'}
@@ -344,6 +350,18 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
           {new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })}
         </div>
       )}
+
+      {/* SMM-scheduled checkmark — visible in all modes so admins can see status too */}
+      {post.smmScheduled && !isScraped && (
+        <div style={{
+          position: 'absolute', top: 3, right: 3,
+          width: '16px', height: '16px', borderRadius: '50%',
+          background: 'rgba(34,197,94,0.95)', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '10px', fontWeight: 700,
+          boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
+        }}>✓</div>
+      )}
     </div>
   )
 }
@@ -353,9 +371,14 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // Unassigned tray — groups Post records by Task. Each card represents a reel
 // that still needs to be placed on N accounts. Counter badge shows remaining
 // instances (e.g., "3" initially, drops to "2" after dragging onto one grid).
-function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd }) {
-  if (groups.length === 0) return null
-  const totalSlotsRemaining = groups.reduce((s, g) => s + g.remaining, 0)
+function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd, smmMode = false }) {
+  // SMM is only interested in reels that are actually ready to schedule — hide
+  // unprepped groups (no thumbnail yet) so they don't clutter the tray.
+  const visibleGroups = smmMode
+    ? groups.filter(g => g.samplePost?.thumbnail)
+    : groups
+  if (visibleGroups.length === 0) return null
+  const totalSlotsRemaining = visibleGroups.reduce((s, g) => s + g.remaining, 0)
   return (
     <div style={{
       background: 'var(--card-bg-solid)',
@@ -368,12 +391,12 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
         <div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Ready to schedule</div>
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
-            {groups.length} reel{groups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} to fill across {accounts.length} account{accounts.length !== 1 && 's'}
+            {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} to fill across {accounts.length} account{accounts.length !== 1 && 's'}
           </div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
-        {groups.map(g => {
+        {visibleGroups.map(g => {
           const key = g.taskId || `orphan-${g.samplePost.id}`
           const isDragging = draggingTaskKey === key
           const sample = g.samplePost
@@ -381,7 +404,13 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
             <div key={key} style={{ flexShrink: 0, width: '96px' }}>
               <div
                 draggable
-                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; onDragStart(g) }}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = 'copy'
+                  // setData is REQUIRED on Firefox to actually initiate a drag.
+                  // Chrome tolerates its absence; Firefox silently fails without it.
+                  try { e.dataTransfer.setData('text/plain', key) } catch {}
+                  onDragStart(g)
+                }}
                 onDragEnd={onDragEnd}
                 title={`${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
                 style={{
@@ -393,7 +422,13 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
                 }}
               >
                 {sample.thumbnail ? (
-                  <img src={sample.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img
+                    src={sample.thumbnail}
+                    alt=""
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                  />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px', gap: '2px' }}>
                     <span>✏</span>
@@ -425,7 +460,7 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
-export default function GridPlanner() {
+export default function GridPlanner({ smmMode = false } = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [creators, setCreators] = useState([])
@@ -573,7 +608,59 @@ export default function GridPlanner() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Assign failed')
         showToast(`Scheduled on ${accounts.find(a => a.id === accountId)?.name || 'account'}`)
-        await loadCreator(selectedCreatorId)
+
+        // Optimistically reflect the placement locally so the UI feels instant
+        // and doesn't rely on Airtable's eventual-consistency window for the
+        // re-GET to show the change. The refetch below is authoritative truth,
+        // so if the optimistic patch differs we snap back.
+        if (data.reused && data.postId) {
+          setPosts(prev => prev.map(p =>
+            p.id === data.postId
+              ? { ...p, accountId, scheduledDate: data.scheduledDate || p.scheduledDate }
+              : p
+          ))
+        } else if (data.cloned && data.postId) {
+          // Clone from samplePost so the new cell renders immediately
+          const sample = group.samplePost
+          setPosts(prev => [...prev, {
+            id: data.postId,
+            name: sample?.name || '',
+            status: 'Prepping',
+            accountId,
+            taskId: group.taskId,
+            scheduledDate: data.scheduledDate,
+            telegramSentAt: null,
+            postedAt: null,
+            postLink: '',
+            thumbnail: sample?.thumbnail || '',
+            platform: sample?.platform || [],
+            caption: sample?.caption || '',
+            hashtags: sample?.hashtags || '',
+            asset: sample?.asset || null,
+            thumbnailUrl: sample?.thumbnailUrl || '',
+          }])
+        }
+        // Decrement the tray badge locally so it matches the drop
+        setUnassignedGroups(prev => prev.map(g => {
+          const gKey = g.taskId || `orphan-${g.samplePost?.id}`
+          const dKey = group.taskId || `orphan-${group.samplePost?.id}`
+          if (gKey !== dKey) return g
+          const nextAssigned = Array.from(new Set([...(g.assignedAccountIds || []), accountId]))
+          const nextUnassigned = data.reused
+            ? (g.unassignedPostIds || []).filter(id => id !== data.postId)
+            : (g.unassignedPostIds || [])
+          return {
+            ...g,
+            remaining: Math.max(0, (g.remaining || 0) - 1),
+            assignedAccountIds: nextAssigned,
+            unassignedPostIds: nextUnassigned,
+          }
+        }).filter(g => g.remaining > 0))
+
+        // Authoritative refetch — 400ms delay to give Airtable's eventual
+        // consistency time to propagate before we re-read. Without this the
+        // GET can return the pre-PATCH state and wipe out the optimistic UI.
+        setTimeout(() => { loadCreator(selectedCreatorId) }, 400)
       } catch (e) {
         showToast(e.message, true)
       } finally {
@@ -863,9 +950,16 @@ export default function GridPlanner() {
           <UnassignedTray
             groups={unassignedGroups}
             accounts={accounts}
+            smmMode={smmMode}
             draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
-            onDragStart={(group) => setDraggingTaskGroup(group)}
-            onDragEnd={() => setDraggingTaskGroup(null)}
+            onDragStart={(group) => {
+              console.log('[GridPlanner] tray dragStart', group.taskId, 'remaining:', group.remaining)
+              setDraggingTaskGroup(group)
+            }}
+            onDragEnd={() => {
+              console.log('[GridPlanner] tray dragEnd')
+              setDraggingTaskGroup(null)
+            }}
           />
 
           {/* Phones */}
@@ -885,7 +979,11 @@ export default function GridPlanner() {
                 <div
                   key={acc.id}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-                  onDrop={(e) => { e.preventDefault(); handleDropOnAccount(acc.id) }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    console.log('[GridPlanner] drop on account', acc.id, 'draggingTaskGroup?', !!draggingTaskGroup)
+                    handleDropOnAccount(acc.id)
+                  }}
                 >
                   <PhoneFrame
                     account={acc}
@@ -913,6 +1011,53 @@ export default function GridPlanner() {
           sending={sendingPostId === detailPost.post.id}
           onClose={() => setDetailPost(null)}
           onSend={() => handleSendToTelegram(detailPost.post)}
+          onUnassign={async () => {
+            const postId = detailPost.post.id
+            // Optimistic: remove account locally, send post back to tray
+            setPosts(ps => ps.map(p => p.id === postId ? { ...p, accountId: null } : p))
+            setDetailPost(null)
+            try {
+              const res = await fetch('/api/admin/grid-planner', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'assign', postId, accountIds: [] }),
+              })
+              if (!res.ok) throw new Error('Unassign failed')
+              showToast('Sent back to tray')
+              setTimeout(() => loadCreator(selectedCreatorId), 400)
+            } catch (e) {
+              showToast(e.message, true)
+              loadCreator(selectedCreatorId)
+            }
+          }}
+          smmMode={smmMode}
+          onMarkScheduled={async (scheduled) => {
+            // Optimistic update on the post in local state
+            setPosts(ps => ps.map(p => p.id === detailPost.post.id
+              ? { ...p, smmScheduled: scheduled, smmScheduledAt: scheduled ? new Date().toISOString() : null }
+              : p
+            ))
+            setDetailPost(d => d && ({
+              ...d,
+              post: { ...d.post, smmScheduled: scheduled, smmScheduledAt: scheduled ? new Date().toISOString() : null },
+            }))
+            try {
+              const res = await fetch('/api/admin/sm-grid/mark-scheduled', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId: detailPost.post.id, scheduled }),
+              })
+              if (!res.ok) throw new Error('Failed')
+              showToast(scheduled ? 'Marked scheduled' : 'Unmarked')
+            } catch (e) {
+              // Revert
+              setPosts(ps => ps.map(p => p.id === detailPost.post.id
+                ? { ...p, smmScheduled: !scheduled }
+                : p
+              ))
+              showToast('Failed to update', true)
+            }
+          }}
         />
       )}
 
@@ -937,7 +1082,28 @@ export default function GridPlanner() {
 // Opens when a cell is clicked in the grid. Shows thumbnail + caption preview
 // and a "Send to Telegram" action. This is where posts actually get sent now
 // (Post Prep only preps — no send action there anymore).
-function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend }) {
+const smmBtn = {
+  display: 'block',
+  padding: '9px 10px',
+  fontSize: '12px',
+  fontWeight: 600,
+  textAlign: 'center',
+  textDecoration: 'none',
+  background: 'rgba(255,255,255,0.04)',
+  color: 'var(--foreground)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '8px',
+  cursor: 'pointer',
+}
+
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, smmMode = false, onMarkScheduled }) {
+  const [copiedKey, setCopiedKey] = useState(null)
+  async function copyText(text, key) {
+    if (!text) return
+    await navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 1500)
+  }
   const isScraped = !!post._scraped
   // Scraped cells are just IG feed items — never sendable, never have an
   // Airtable Status. Show them as "Live on IG" with a link out.
@@ -1028,6 +1194,38 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
           </div>
         )}
 
+        {/* SMM action grid — only in smmMode, only for non-scraped posts with an asset */}
+        {smmMode && !isScraped && (
+          <div style={{ padding: '12px 20px 0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              {post.asset?.editedFileLink ? (
+                <a href={post.asset.editedFileLink} target="_blank" rel="noreferrer" style={smmBtn}>
+                  ↓ Video
+                </a>
+              ) : <span style={{ ...smmBtn, opacity: 0.4 }}>↓ Video</span>}
+              {post.thumbnailUrl ? (
+                <a href={post.thumbnailUrl} target="_blank" rel="noreferrer" style={smmBtn}>
+                  ↓ Thumbnail
+                </a>
+              ) : <span style={{ ...smmBtn, opacity: 0.4 }}>↓ Thumbnail</span>}
+              <button
+                onClick={() => copyText(post.caption, 'c')}
+                disabled={!post.caption}
+                style={{ ...smmBtn, opacity: post.caption ? 1 : 0.4, cursor: post.caption ? 'pointer' : 'default' }}
+              >
+                {copiedKey === 'c' ? '✓ Copied' : '⎘ Caption'}
+              </button>
+              <button
+                onClick={() => copyText(post.hashtags, 'h')}
+                disabled={!post.hashtags}
+                style={{ ...smmBtn, opacity: post.hashtags ? 1 : 0.4, cursor: post.hashtags ? 'pointer' : 'default' }}
+              >
+                {copiedKey === 'h' ? '✓ Copied' : '⎘ Hashtags'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div style={{ padding: '16px 20px', display: 'flex', gap: '8px', marginTop: 'auto' }}>
           <button
@@ -1036,7 +1234,30 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
           >
             Close
           </button>
-          {canSend && (
+          {/* Unassign: only if placed + editable (not scraped, not sent/posted) */}
+          {!isScraped && onUnassign && post.accountId && !post.telegramSentAt && !post.postedAt && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted' && (
+            <button
+              onClick={() => { if (confirm('Send this reel back to the tray?')) onUnassign() }}
+              title="Remove from this account — the reel goes back to the Ready to Schedule tray"
+              style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
+                background: 'rgba(232, 120, 120, 0.06)', color: '#E87878',
+                border: '1px solid rgba(232, 120, 120, 0.25)', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              ↶ Unassign
+            </button>
+          )}
+          {smmMode && !isScraped ? (
+            <button
+              onClick={() => onMarkScheduled?.(!post.smmScheduled)}
+              style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700,
+                background: post.smmScheduled ? 'rgba(34,197,94,0.15)' : 'rgba(232, 160, 160, 0.12)',
+                color: post.smmScheduled ? '#22c55e' : 'var(--palm-pink)',
+                border: `1px solid ${post.smmScheduled ? 'rgba(34,197,94,0.3)' : 'rgba(232,160,160,0.3)'}`,
+                borderRadius: '8px', cursor: 'pointer' }}
+            >
+              {post.smmScheduled ? '✓ Scheduled on IG' : 'Mark Scheduled on IG'}
+            </button>
+          ) : canSend ? (
             <button
               onClick={onSend}
               disabled={sending || !creatorMeta?.telegramThreadId}
@@ -1048,8 +1269,8 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
             >
               {sending ? 'Sending…' : '✈ Send to Telegram'}
             </button>
-          )}
-          {!canSend && post.postLink && (
+          ) : null}
+          {!smmMode && !canSend && post.postLink && (
             <a href={post.postLink} target="_blank" rel="noopener noreferrer"
               style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, textAlign: 'center', textDecoration: 'none',
                 background: 'rgba(232, 160, 160, 0.06)', color: 'var(--palm-pink)',

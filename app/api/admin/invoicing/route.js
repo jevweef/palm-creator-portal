@@ -31,22 +31,33 @@ const FIELDS = [
   'fldDrn5gbFp03ngNC', // Creator Invoice (attachment)
   'fldtJxnQil7qFI3v1', // Generated At
   'fldurnksixCkoU7Lh', // Sent At
+  'fldo1wsLtnfpK8wZr', // Amount Paid
 ]
 
-export async function GET() {
-  try { await requireAdmin() } catch (e) { return e }
+// In-memory cache (per server instance)
+const cache = new Map() // key → { data, expiresAt }
+const CACHE_TTL_MS = 60 * 1000
 
+// Lightweight fields for period list (just enough to render period tabs)
+const PERIOD_LIST_FIELDS = [
+  'fldeucG0jEvjem841', // Period Start
+  'fldZhX5uMZjrAkAeP', // Period End
+  'fldFPZrQpTqcN4ywK', // Period Label
+]
+
+async function fetchInvoiceRecords({ filterFormula, fieldList }) {
   const records = []
   let offset = null
-
   do {
     const params = new URLSearchParams()
     params.set('returnFieldsByFieldId', 'true')
-    FIELDS.forEach(f => params.append('fields[]', f))
+    fieldList.forEach(f => params.append('fields[]', f))
     params.set('sort[0][field]', 'fldeucG0jEvjem841')
     params.set('sort[0][direction]', 'desc')
     params.set('sort[1][field]', 'fld37wwgvM0znxDPa')
     params.set('sort[1][direction]', 'asc')
+    params.set('pageSize', '100')
+    if (filterFormula) params.set('filterByFormula', filterFormula)
     if (offset) params.set('offset', offset)
 
     const res = await fetch(
@@ -57,6 +68,66 @@ export async function GET() {
     if (data.records) records.push(...data.records)
     offset = data.offset || null
   } while (offset)
+  return records
+}
+
+export async function GET(request) {
+  try { await requireAdmin() } catch (e) { return e }
+
+  const url = new URL(request.url)
+  const periodParam = url.searchParams.get('period') // "YYYY-MM-DD|YYYY-MM-DD"
+  const mode = url.searchParams.get('mode') // 'latest' | 'period' | 'all'
+
+  const cacheKey = `${mode || 'latest'}:${periodParam || ''}`
+  const cached = cache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return Response.json(cached.data)
+  }
+
+  // Always fetch the full period list (lightweight - only 3 fields)
+  // This gives us tabs to render without loading full records
+  const periodListPromise = fetchInvoiceRecords({
+    filterFormula: null,
+    fieldList: PERIOD_LIST_FIELDS,
+  })
+
+  // Determine which records to fetch in full
+  let recordsFilter = null
+  if (mode === 'all') {
+    recordsFilter = null // fetch everything
+  } else if (periodParam) {
+    const [start, end] = periodParam.split('|')
+    recordsFilter = `AND(DATESTR({Period Start})='${start}', DATESTR({Period End})='${end}')`
+  }
+  // else mode=latest: fetch nothing yet, resolve after period list
+
+  let fullRecords = []
+  if (recordsFilter !== null || mode === 'all') {
+    fullRecords = await fetchInvoiceRecords({
+      filterFormula: recordsFilter,
+      fieldList: FIELDS,
+    })
+  }
+
+  const periodListRecords = await periodListPromise
+
+  // If mode is latest (default), fetch records for most recent period only
+  if (!mode || mode === 'latest') {
+    // Find most recent period from period list (sorted desc)
+    const first = periodListRecords[0]
+    if (first) {
+      const start = first.fields['fldeucG0jEvjem841']
+      const end = first.fields['fldZhX5uMZjrAkAeP']
+      if (start && end) {
+        fullRecords = await fetchInvoiceRecords({
+          filterFormula: `AND(DATESTR({Period Start})='${start}', DATESTR({Period End})='${end}')`,
+          fieldList: FIELDS,
+        })
+      }
+    }
+  }
+
+  const records = fullRecords
 
   const transformed = records.map(r => {
     const f = r.fields
@@ -97,21 +168,28 @@ export async function GET() {
         : null,
       generatedAt: f['fldtJxnQil7qFI3v1'] || null,
       sentAt: f['fldurnksixCkoU7Lh'] || null,
+      amountPaid: f['fldo1wsLtnfpK8wZr'] || 0,
     }
   })
 
-  // Build unique period list (newest first)
+  // Build unique period list from the lightweight period list fetch (newest first)
   const seen = new Set()
   const periods = []
-  transformed.forEach(r => {
-    const key = `${r.periodStart}|${r.periodEnd}`
+  periodListRecords.forEach(r => {
+    const start = r.fields['fldeucG0jEvjem841']
+    const end = r.fields['fldZhX5uMZjrAkAeP']
+    const label = r.fields['fldFPZrQpTqcN4ywK']
+    if (!start || !end) return
+    const key = `${start}|${end}`
     if (!seen.has(key)) {
       seen.add(key)
-      periods.push({ key, start: r.periodStart, end: r.periodEnd, label: r.periodLabel })
+      periods.push({ key, start, end, label: label || '' })
     }
   })
 
-  return Response.json({ records: transformed, periods })
+  const payload = { records: transformed, periods }
+  cache.set(cacheKey, { data: payload, expiresAt: Date.now() + CACHE_TTL_MS })
+  return Response.json(payload)
 }
 
 export async function PATCH(request) {
@@ -125,6 +203,7 @@ export async function PATCH(request) {
     invoiceNumber: 'fldl3FDN3H4pr2nIY',
     generatedAt: 'fldtJxnQil7qFI3v1',
     sentAt: 'fldurnksixCkoU7Lh',
+    amountPaid: 'fldo1wsLtnfpK8wZr',
   }
 
   const airtableFields = {}
@@ -151,6 +230,9 @@ export async function PATCH(request) {
     const err = await res.json()
     return Response.json({ error: err }, { status: res.status })
   }
+
+  // Bust cache so next GET returns fresh data
+  cache.clear()
 
   return Response.json({ ok: true })
 }

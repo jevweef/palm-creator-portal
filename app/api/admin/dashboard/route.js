@@ -256,6 +256,10 @@ export async function GET() {
     // 2. EDITOR RUNWAY
     // =============================================
     const creatorIdSet = new Set(creators.map(c => c.id))
+    // Posting cadence is fixed at 2/day (what the Grid Planner schedules into).
+    // Editor production rate (Weekly Reel Quota) may be higher — e.g. 3/day to
+    // build a buffer — but runway always measures "how many days of POSTS we
+    // have queued", not "how many days of editor output".
     const POSTS_PER_DAY = 2
 
     // Group posts by creator
