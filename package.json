@@ -17,6 +17,7 @@
     "@clerk/nextjs": "^5.7.5",
     "@sparticuz/chromium-min": "^143.0.4",
     "@tailwindcss/postcss": "^4.2.2",
+    "@vercel/functions": "^3.4.4",
     "airtable": "^0.12.2",
     "dompurify": "^3.3.3",
     "ffmpeg-static": "^4.4.1",

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { requireAdmin, patchAirtableRecord, fetchAirtableRecords } from '@/lib/adminAuth'
 import ffmpegStatic from 'ffmpeg-static'
 import ffmpeg from 'fluent-ffmpeg'
@@ -306,17 +307,13 @@ async function telegramJson(method, body, { signal } = {}) {
   return data
 }
 
-export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+// The actual send work: download from Dropbox → remux/compress if needed →
+// upload to Telegram → stamp Post record. Runs entirely in the background
+// via waitUntil() so the admin's click returns in ~1s instead of 60-90s.
+async function doSend(params) {
+  const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
 
   try {
-    const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = await request.json()
-
-    if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
-    if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
-    if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
-    if (!TELEGRAM_CHAT_ID) return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
-
     const rawUrl = rawDropboxUrl(editedFileLink)
     const chatId = parseInt(TELEGRAM_CHAT_ID)
 
@@ -395,9 +392,7 @@ export async function POST(request) {
             const aggMB = (aggressive.length / 1024 / 1024).toFixed(1)
             console.log(`[Telegram Send] Aggressive compress: ${aggMB}MB`)
             if (aggressive.length > MAX_UPLOAD_BYTES) {
-              return NextResponse.json({
-                error: `File too large. Source ${origMB}MB, best we could compress was ${aggMB}MB — still over Telegram's 50MB bot limit. Re-export a shorter clip or lower resolution.`,
-              }, { status: 400 })
+              throw new Error(`File too large. Source ${origMB}MB, best we could compress was ${aggMB}MB — still over Telegram's 50MB bot limit. Re-export a shorter clip or lower resolution.`)
             }
             uploadBuffer = aggressive
           } else {
@@ -407,15 +402,11 @@ export async function POST(request) {
           uploadMime = 'video/mp4'
         } catch (compErr) {
           console.error('[Telegram Send] Compression failed:', compErr.message)
-          return NextResponse.json({
-            error: `File is ${origMB}MB (over 50MB Telegram limit) and auto-compression failed: ${compErr.message}`,
-          }, { status: 500 })
+          throw new Error(`File is ${origMB}MB (over 50MB Telegram limit) and auto-compression failed: ${compErr.message}`)
         }
       } else if (uploadBuffer.length > MAX_UPLOAD_BYTES) {
-        // Non-video file over 50MB — can't compress, just bail
-        return NextResponse.json({
-          error: `File too large (${(uploadBuffer.length / 1024 / 1024).toFixed(0)}MB). Telegram limit is 50MB for non-video files.`,
-        }, { status: 400 })
+        // Non-video file over 50MB — can't compress
+        throw new Error(`File too large (${(uploadBuffer.length / 1024 / 1024).toFixed(0)}MB). Telegram limit is 50MB for non-video files.`)
       }
 
       if (isVideo(editedFileLink) && thumbnailUrl) {
@@ -524,9 +515,59 @@ export async function POST(request) {
       }
     }
 
-    return NextResponse.json({ ok: true, messageId })
+    console.log('[Telegram Send] ✓ Complete for post', postId)
   } catch (err) {
-    console.error('[Telegram Send] error:', err)
+    console.error('[Telegram Send] Background send failed:', err.message)
+    // Surface failure to the UI via a Post status update so the admin sees it
+    if (postId) {
+      await patchAirtableRecord('Posts', postId, {
+        'Status': 'Send Failed',
+        'Admin Notes': `[Telegram Send Error @ ${new Date().toISOString()}] ${err.message}`,
+      }).catch(() => {})
+    }
+  }
+}
+
+// Public endpoint — validates the request, marks the Post as "Sending",
+// kicks off the actual work via waitUntil(), and returns in ~1s.
+// The admin sees the modal close immediately; the Post card flips from
+// "Prepping" → "Sending" → "Sent to Telegram" (or "Send Failed") as the
+// background job progresses. UI polls Post status to know when it's done.
+export async function POST(request) {
+  try { await requireAdmin() } catch (e) { return e }
+
+  try {
+    const params = await request.json()
+    const { editedFileLink, threadId, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
+
+    if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
+    if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
+    if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
+    if (!TELEGRAM_CHAT_ID) return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
+
+    // Stamp the Post immediately so the UI can show "Sending" without waiting
+    // for the actual Telegram upload to finish. Also save any user-edited
+    // caption/hashtags/platform/date now (rather than after send) so a refresh
+    // during the background job shows the correct data.
+    if (postId) {
+      await patchAirtableRecord('Posts', postId, {
+        'Status': 'Sending',
+        ...(rawCaption ? { 'Caption': rawCaption } : {}),
+        ...(rawHashtags ? { 'Hashtags': rawHashtags } : {}),
+        ...(platform?.length ? { 'Platform': platform } : {}),
+        ...(scheduledDate ? { 'Scheduled Date': scheduledDate } : {}),
+      }).catch(err => console.warn('[Telegram Send] Pre-send Post update failed:', err.message))
+    }
+
+    // Fire and forget. Vercel's waitUntil() keeps the function running up to
+    // maxDuration (300s) after the response has been sent, so download + ffmpeg
+    // + upload continue in the background while the client already got a 200.
+    console.log('[Telegram Send] Queued for post', postId)
+    waitUntil(doSend(params))
+
+    return NextResponse.json({ ok: true, status: 'sending', postId })
+  } catch (err) {
+    console.error('[Telegram Send] Queue error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

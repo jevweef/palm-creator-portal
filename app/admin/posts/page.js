@@ -5,7 +5,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 const PLATFORMS = ['Instagram Reel', 'Instagram Story', 'TikTok', 'YouTube Shorts', 'X', 'OFTV']
 const STATUS_COLORS = {
   'Prepping': '#ca8a04',
+  'Sending': '#f59e0b',
   'Sent to Telegram': '#78B4E8',
+  'Send Failed': '#ef4444',
   'Ready to Post': '#7DD3A4',
   'Posted': 'var(--palm-pink)',
   'Archived': '#999',
@@ -805,9 +807,12 @@ export default function PostsPage() {
     try {
       const res = await fetch('/api/admin/posts')
       if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
-      setData(await res.json())
+      const json = await res.json()
+      setData(json)
+      return json
     } catch (err) {
       setError(err.message)
+      return null
     } finally {
       setLoading(false)
     }
@@ -876,7 +881,27 @@ export default function PostsPage() {
         <TelegramModal
           post={telegramModal}
           onClose={() => setTelegramModal(null)}
-          onSent={() => { showToast('Sent to Telegram ✓'); fetchData() }}
+          onSent={() => {
+            showToast('Queued — sending in background ⏳', false)
+            fetchData()
+            // Poll every 4s for up to 3 min to watch the Post flip from
+            // Sending → Sent to Telegram (or Send Failed). No UI lock-up —
+            // the admin can start working on the next post immediately.
+            let attempts = 0
+            const poll = setInterval(async () => {
+              attempts++
+              if (attempts > 45) { clearInterval(poll); return }
+              const latest = await fetchData()
+              const thisPost = latest?.posts?.find(p => p.id === telegramModal.id)
+              if (!thisPost || thisPost.status === 'Sending') return
+              clearInterval(poll)
+              if (thisPost.status === 'Sent to Telegram' || thisPost.status === 'Ready to Post') {
+                showToast('Sent to Telegram ✓', false)
+              } else if (thisPost.status === 'Send Failed') {
+                showToast('Send failed — check Admin Notes on post', true)
+              }
+            }, 4000)
+          }}
         />
       )}
 
