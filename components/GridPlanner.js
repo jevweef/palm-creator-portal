@@ -573,7 +573,59 @@ export default function GridPlanner() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Assign failed')
         showToast(`Scheduled on ${accounts.find(a => a.id === accountId)?.name || 'account'}`)
-        await loadCreator(selectedCreatorId)
+
+        // Optimistically reflect the placement locally so the UI feels instant
+        // and doesn't rely on Airtable's eventual-consistency window for the
+        // re-GET to show the change. The refetch below is authoritative truth,
+        // so if the optimistic patch differs we snap back.
+        if (data.reused && data.postId) {
+          setPosts(prev => prev.map(p =>
+            p.id === data.postId
+              ? { ...p, accountId, scheduledDate: data.scheduledDate || p.scheduledDate }
+              : p
+          ))
+        } else if (data.cloned && data.postId) {
+          // Clone from samplePost so the new cell renders immediately
+          const sample = group.samplePost
+          setPosts(prev => [...prev, {
+            id: data.postId,
+            name: sample?.name || '',
+            status: 'Prepping',
+            accountId,
+            taskId: group.taskId,
+            scheduledDate: data.scheduledDate,
+            telegramSentAt: null,
+            postedAt: null,
+            postLink: '',
+            thumbnail: sample?.thumbnail || '',
+            platform: sample?.platform || [],
+            caption: sample?.caption || '',
+            hashtags: sample?.hashtags || '',
+            asset: sample?.asset || null,
+            thumbnailUrl: sample?.thumbnailUrl || '',
+          }])
+        }
+        // Decrement the tray badge locally so it matches the drop
+        setUnassignedGroups(prev => prev.map(g => {
+          const gKey = g.taskId || `orphan-${g.samplePost?.id}`
+          const dKey = group.taskId || `orphan-${group.samplePost?.id}`
+          if (gKey !== dKey) return g
+          const nextAssigned = Array.from(new Set([...(g.assignedAccountIds || []), accountId]))
+          const nextUnassigned = data.reused
+            ? (g.unassignedPostIds || []).filter(id => id !== data.postId)
+            : (g.unassignedPostIds || [])
+          return {
+            ...g,
+            remaining: Math.max(0, (g.remaining || 0) - 1),
+            assignedAccountIds: nextAssigned,
+            unassignedPostIds: nextUnassigned,
+          }
+        }).filter(g => g.remaining > 0))
+
+        // Authoritative refetch — 400ms delay to give Airtable's eventual
+        // consistency time to propagate before we re-read. Without this the
+        // GET can return the pre-PATCH state and wipe out the optimistic UI.
+        setTimeout(() => { loadCreator(selectedCreatorId) }, 400)
       } catch (e) {
         showToast(e.message, true)
       } finally {
