@@ -1,7 +1,11 @@
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60 // extend Vercel function timeout for file uploads
+// Vercel Pro cap is 300s. Compression of 50MB+ videos on serverless CPUs can
+// legitimately take 30-60s, plus ~10s download + 10s upload + 35s URL method
+// attempt. 60s was too tight once compression joined the flow.
+export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { requireAdmin, patchAirtableRecord, fetchAirtableRecords } from '@/lib/adminAuth'
 import ffmpegStatic from 'ffmpeg-static'
 import ffmpeg from 'fluent-ffmpeg'
@@ -30,7 +34,9 @@ async function getVideoDuration(filePath) {
   return null
 }
 
-// Resize image to fit Telegram limits (max 1280px longest side, JPEG output)
+// Resize image to fit Telegram limits (max 1280px longest side, JPEG output).
+// Uses execFile directly — fluent-ffmpeg was causing 5+ minute hangs on Vercel
+// serverless because stdout/stderr pipes weren't being drained.
 async function resizeImage(inputBuffer, inputName) {
   const id = Date.now()
   const ext = inputName.split('.').pop().toLowerCase()
@@ -38,15 +44,16 @@ async function resizeImage(inputBuffer, inputName) {
   const outputPath = join(tmpdir(), `tg_img_out_${id}.jpg`)
   await writeFile(inputPath, Buffer.from(inputBuffer))
   await new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions([
-        '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease',
-        '-q:v', '2', // high quality JPEG
-      ])
-      .output(outputPath)
-      .on('end', resolve)
-      .on('error', reject)
-      .run()
+    const args = [
+      '-y', '-i', inputPath,
+      '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease',
+      '-q:v', '2',
+      outputPath,
+    ]
+    execFile(ffmpegStatic, args, { timeout: 30000, maxBuffer: 20 * 1024 * 1024 }, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
   })
   const outputBuffer = await readFile(outputPath)
   await unlink(inputPath).catch(() => {})
@@ -54,7 +61,8 @@ async function resizeImage(inputBuffer, inputName) {
   return outputBuffer
 }
 
-// Remux MOV → MP4 using -c copy (zero quality loss, just container change)
+// Remux MOV → MP4 using -c copy (zero quality loss, just container change).
+// Uses execFile — same reasoning as resizeImage (fluent-ffmpeg pipe deadlock).
 async function remuxToMp4(inputBuffer, inputName) {
   const id = Date.now()
   const ext = inputName.split('.').pop().toLowerCase()
@@ -62,12 +70,16 @@ async function remuxToMp4(inputBuffer, inputName) {
   const outputPath = join(tmpdir(), `tg_out_${id}.mp4`)
   await writeFile(inputPath, Buffer.from(inputBuffer))
   await new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions(['-c copy', '-movflags +faststart'])
-      .output(outputPath)
-      .on('end', resolve)
-      .on('error', reject)
-      .run()
+    const args = [
+      '-y', '-i', inputPath,
+      '-c', 'copy',
+      '-movflags', '+faststart',
+      outputPath,
+    ]
+    execFile(ffmpegStatic, args, { timeout: 60000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
   })
   const outputBuffer = await readFile(outputPath)
   await unlink(inputPath).catch(() => {})
@@ -99,13 +111,13 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
   if (aggressive) {
     // Last-resort: drop to 720p + CRF 30. Clear quality hit, but fits.
     videoOpts = [
-      '-c:v libx264',
-      '-crf 30',
-      '-preset veryfast',
+      '-c:v', 'libx264',
+      '-crf', '30',
+      '-preset', 'ultrafast',
       '-vf', 'scale=w=-2:h=\'min(1280,ih)\'',
-      '-c:a aac',
-      '-b:a 96k',
-      '-movflags +faststart',
+      '-c:a', 'aac',
+      '-b:a', '96k',
+      '-movflags', '+faststart',
     ]
   } else {
     const duration = await getVideoDuration(inputPath)
@@ -117,36 +129,46 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
       const videoK = Math.max(800, Math.floor(videoBps / 1024))
       console.log(`[Compress] duration=${duration.toFixed(1)}s → video ${videoK}kbps for ${targetMB}MB target`)
       videoOpts = [
-        '-c:v libx264',
-        `-b:v ${videoK}k`,
-        `-maxrate ${Math.floor(videoK * 1.15)}k`,
-        `-bufsize ${videoK * 2}k`,
-        '-preset veryfast',
-        '-c:a aac',
-        '-b:a 128k',
-        '-movflags +faststart',
+        '-c:v', 'libx264',
+        '-b:v', `${videoK}k`,
+        '-maxrate', `${Math.floor(videoK * 1.15)}k`,
+        '-bufsize', `${videoK * 2}k`,
+        // ultrafast preset: ~3x faster than veryfast on shared serverless CPUs.
+        // Since we're targeting a specific bitrate, the file size comes out the
+        // same — we just spend less CPU time on compression-ratio optimizations.
+        // Quality difference is imperceptible for phone-screen IG viewing.
+        '-preset', 'ultrafast',
+        // Cap at 1080p height. No-op for phone video (already 1080p), saves
+        // time if source was exported at 4K by accident.
+        '-vf', 'scale=w=-2:h=\'min(1920,ih)\'',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
       ]
     } else {
-      // Couldn't probe duration — fall back to high-quality CRF pass
+      // Couldn't probe duration — fall back to CRF pass
       console.log(`[Compress] duration probe failed, falling back to CRF 26`)
       videoOpts = [
-        '-c:v libx264',
-        '-crf 26',
-        '-preset veryfast',
-        '-c:a aac',
-        '-b:a 128k',
-        '-movflags +faststart',
+        '-c:v', 'libx264',
+        '-crf', '26',
+        '-preset', 'ultrafast',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
       ]
     }
   }
 
+  // Use execFile directly instead of fluent-ffmpeg. fluent-ffmpeg can deadlock
+  // on serverless when stdout/stderr pipes aren't drained, which was causing
+  // 5-minute hangs that hit maxDuration. execFile with a hard 120s timeout is
+  // what the frame extractor uses reliably.
   await new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions(videoOpts)
-      .output(outputPath)
-      .on('end', resolve)
-      .on('error', reject)
-      .run()
+    const args = ['-y', '-i', inputPath, ...videoOpts, outputPath]
+    execFile(ffmpegStatic, args, { timeout: 120000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
   })
   const outputBuffer = await readFile(outputPath)
   await unlink(inputPath).catch(() => {})
@@ -285,90 +307,42 @@ async function telegramJson(method, body, { signal } = {}) {
   return data
 }
 
-export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+// The actual send work: download from Dropbox → remux/compress if needed →
+// upload to Telegram → stamp Post record. Runs entirely in the background
+// via waitUntil() so the admin's click returns in ~1s instead of 60-90s.
+async function doSend(params) {
+  const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
 
   try {
-    const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = await request.json()
-
-    if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
-    if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
-    if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
-    if (!TELEGRAM_CHAT_ID) return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
-
     const rawUrl = rawDropboxUrl(editedFileLink)
     const chatId = parseInt(TELEGRAM_CHAT_ID)
 
     const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
     const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
 
-    let result
+    let result = null
 
-    // Strategy: try URL method first (Telegram pulls directly from Dropbox).
-    // Timeout is generous (35s) because Telegram pulling a 30-50MB file can
-    // legitimately take 15-30s. AbortController actually cancels the request
-    // so we don't keep a zombie fetch eating the remaining function budget.
-    // If URL method TIMES OUT, we do NOT fall through — the download+upload
-    // fallback can't fit in the remaining ~25s for big files either.
-    // If URL method returns a real error (e.g. Telegram rejects the URL),
-    // we DO fall through — that fast failure leaves plenty of budget.
-    let urlMethodTimedOut = false
-    if (isVideo(editedFileLink) && !needsRemux) {
-      const controller = new AbortController()
-      const timer = setTimeout(() => {
-        urlMethodTimedOut = true
-        controller.abort()
-      }, 35000)
-      try {
-        console.log('[Telegram Send] Trying URL method (35s timeout)...')
-        if (thumbnailUrl) {
-          // Download + resize thumbnail in parallel with prep, send media group with video URL
-          const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl), { signal: controller.signal })
-          if (!thumbRes.ok) throw new Error('Thumb download failed')
-          const rawThumb = await thumbRes.arrayBuffer()
-          const thumbBuffer = await resizeImage(rawThumb, getFilename(thumbnailUrl))
-          const form = new FormData()
-          form.append('chat_id', String(chatId))
-          form.append('message_thread_id', String(threadId))
-          form.append('media', JSON.stringify([
-            { type: 'video', media: rawUrl, thumbnail: 'attach://thumb_file', supports_streaming: true, ...(caption ? { caption } : {}) },
-            { type: 'photo', media: 'attach://photo_file' },
-          ]))
-          form.append('thumb_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
-          form.append('photo_file', new Blob([thumbBuffer], { type: 'image/jpeg' }), 'thumbnail.jpg')
-          result = await telegramUpload('sendMediaGroup', form, { signal: controller.signal })
-        } else {
-          result = await telegramJson('sendVideo', {
-            chat_id: chatId,
-            message_thread_id: threadId,
-            video: rawUrl,
-            supports_streaming: true,
-            ...(caption ? { caption } : {}),
-          }, { signal: controller.signal })
-        }
-        console.log('[Telegram Send] URL method succeeded')
-      } catch (urlErr) {
-        if (urlMethodTimedOut || urlErr.name === 'AbortError') {
-          console.error('[Telegram Send] URL method timed out after 35s — aborting (fallback would not fit)')
-          return NextResponse.json({
-            error: 'Telegram is slow to fetch the video from Dropbox. Try again in a moment, or if it keeps failing, the file may be too large or Dropbox is throttling.',
-          }, { status: 504 })
-        }
-        console.warn('[Telegram Send] URL method failed:', urlErr.message, '— falling back to upload')
-        result = null // fall through to download+upload
-      } finally {
-        clearTimeout(timer)
-      }
-    }
+    // Skip URL method entirely. Previously we tried to have Telegram fetch the
+    // file directly from Dropbox via URL, which was fast for small files but
+    // hangs unreliably for 50MB+ files (Telegram holds our HTTP connection
+    // open while their internal fetch struggles, and Node's fetch AbortController
+    // doesn't reliably terminate those stalled connections on Vercel). Result:
+    // 5-minute hangs that eat the whole function budget.
+    //
+    // Going straight to download+compress(if needed)+upload is more predictable:
+    // always <90s, always has observable logs, no dependency on Telegram's
+    // URL-fetcher reliability.
 
     if (!result) {
       // Download from Dropbox and upload directly to Telegram
+      const dlStart = Date.now()
       console.log('[Telegram Send] Downloading file from Dropbox...')
       const fileRes = await fetch(rawUrl)
       if (!fileRes.ok) throw new Error(`Failed to download file from Dropbox: ${fileRes.status}`)
       const fileBuffer = await fileRes.arrayBuffer()
       const fileSize = fileBuffer.byteLength
-      console.log(`[Telegram Send] Downloaded: ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
+      const dlSec = ((Date.now() - dlStart) / 1000).toFixed(1)
+      console.log(`[Telegram Send] Downloaded ${(fileSize / 1024 / 1024).toFixed(1)}MB in ${dlSec}s`)
 
       // Upload directly to Telegram as multipart
       const form = new FormData()
@@ -380,7 +354,11 @@ export async function POST(request) {
       const mimeType = getMimeType(editedFileLink)
 
       // Remux non-MP4 videos to MP4 with faststart for Telegram inline preview.
-      let uploadBuffer = fileBuffer
+      // Normalize to Node Buffer up front so .length is consistent downstream —
+      // fileBuffer is an ArrayBuffer (has .byteLength not .length), and ArrayBuffer.length
+      // silently returns undefined, which meant our size check below was comparing
+      // undefined > MAX_UPLOAD_BYTES → false → compression never fired.
+      let uploadBuffer = Buffer.from(fileBuffer)
       let uploadFilename = filename
       let uploadMime = mimeType
       const fileExt = (filename.split('.').pop() || '').toLowerCase()
@@ -402,9 +380,11 @@ export async function POST(request) {
         const origMB = (uploadBuffer.length / 1024 / 1024).toFixed(1)
         console.log(`[Telegram Send] ${origMB}MB exceeds 50MB — compressing to fit...`)
         try {
+          const compressStart = Date.now()
           const compressed = await compressVideo(uploadBuffer, uploadFilename, { targetMB: 47 })
           const compMB = (compressed.length / 1024 / 1024).toFixed(1)
-          console.log(`[Telegram Send] Compressed to ${compMB}MB`)
+          const compressElapsed = ((Date.now() - compressStart) / 1000).toFixed(1)
+          console.log(`[Telegram Send] Compressed to ${compMB}MB in ${compressElapsed}s`)
 
           if (compressed.length > MAX_UPLOAD_BYTES) {
             console.log(`[Telegram Send] Still too big, retrying with aggressive mode...`)
@@ -412,9 +392,7 @@ export async function POST(request) {
             const aggMB = (aggressive.length / 1024 / 1024).toFixed(1)
             console.log(`[Telegram Send] Aggressive compress: ${aggMB}MB`)
             if (aggressive.length > MAX_UPLOAD_BYTES) {
-              return NextResponse.json({
-                error: `File too large. Source ${origMB}MB, best we could compress was ${aggMB}MB — still over Telegram's 50MB bot limit. Re-export a shorter clip or lower resolution.`,
-              }, { status: 400 })
+              throw new Error(`File too large. Source ${origMB}MB, best we could compress was ${aggMB}MB — still over Telegram's 50MB bot limit. Re-export a shorter clip or lower resolution.`)
             }
             uploadBuffer = aggressive
           } else {
@@ -424,15 +402,11 @@ export async function POST(request) {
           uploadMime = 'video/mp4'
         } catch (compErr) {
           console.error('[Telegram Send] Compression failed:', compErr.message)
-          return NextResponse.json({
-            error: `File is ${origMB}MB (over 50MB Telegram limit) and auto-compression failed: ${compErr.message}`,
-          }, { status: 500 })
+          throw new Error(`File is ${origMB}MB (over 50MB Telegram limit) and auto-compression failed: ${compErr.message}`)
         }
       } else if (uploadBuffer.length > MAX_UPLOAD_BYTES) {
-        // Non-video file over 50MB — can't compress, just bail
-        return NextResponse.json({
-          error: `File too large (${(uploadBuffer.length / 1024 / 1024).toFixed(0)}MB). Telegram limit is 50MB for non-video files.`,
-        }, { status: 400 })
+        // Non-video file over 50MB — can't compress
+        throw new Error(`File too large (${(uploadBuffer.length / 1024 / 1024).toFixed(0)}MB). Telegram limit is 50MB for non-video files.`)
       }
 
       if (isVideo(editedFileLink) && thumbnailUrl) {
@@ -519,9 +493,81 @@ export async function POST(request) {
       )
     }
 
-    return NextResponse.json({ ok: true, messageId })
+    // Mark the thumbnail asset as used (only now that it's genuinely being
+    // sent out). The Post record holds the thumbnail as an attachment URL —
+    // look up the source Asset record by matching its Dropbox Shared Link.
+    // Non-fatal: if lookup fails, the send itself still succeeded.
+    if (thumbnailUrl) {
+      try {
+        // Strip query params (raw=1 etc.) and any trailing quotes for a clean substring match
+        const cleanUrl = thumbnailUrl.split('?')[0].replace(/["']/g, '')
+        const matches = await fetchAirtableRecords('Assets', {
+          filterByFormula: `FIND('${cleanUrl.replace(/'/g, "\\'")}', {Dropbox Shared Link})`,
+          fields: ['Dropbox Shared Link', 'Used As Reel Thumbnail'],
+        })
+        for (const a of matches) {
+          if (a.fields?.['Used As Reel Thumbnail']) continue
+          await patchAirtableRecord('Assets', a.id, { 'Used As Reel Thumbnail': true })
+          console.log(`[Telegram Send] Marked thumbnail asset ${a.id} as used`)
+        }
+      } catch (thumbErr) {
+        console.warn('[Telegram Send] Could not mark thumbnail as used (non-fatal):', thumbErr.message)
+      }
+    }
+
+    console.log('[Telegram Send] ✓ Complete for post', postId)
   } catch (err) {
-    console.error('[Telegram Send] error:', err)
+    console.error('[Telegram Send] Background send failed:', err.message)
+    // Surface failure to the UI via a Post status update so the admin sees it
+    if (postId) {
+      await patchAirtableRecord('Posts', postId, {
+        'Status': 'Send Failed',
+        'Admin Notes': `[Telegram Send Error @ ${new Date().toISOString()}] ${err.message}`,
+      }).catch(() => {})
+    }
+  }
+}
+
+// Public endpoint — validates the request, marks the Post as "Sending",
+// kicks off the actual work via waitUntil(), and returns in ~1s.
+// The admin sees the modal close immediately; the Post card flips from
+// "Prepping" → "Sending" → "Sent to Telegram" (or "Send Failed") as the
+// background job progresses. UI polls Post status to know when it's done.
+export async function POST(request) {
+  try { await requireAdmin() } catch (e) { return e }
+
+  try {
+    const params = await request.json()
+    const { editedFileLink, threadId, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
+
+    if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
+    if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
+    if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
+    if (!TELEGRAM_CHAT_ID) return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
+
+    // Stamp the Post immediately so the UI can show "Sending" without waiting
+    // for the actual Telegram upload to finish. Also save any user-edited
+    // caption/hashtags/platform/date now (rather than after send) so a refresh
+    // during the background job shows the correct data.
+    if (postId) {
+      await patchAirtableRecord('Posts', postId, {
+        'Status': 'Sending',
+        ...(rawCaption ? { 'Caption': rawCaption } : {}),
+        ...(rawHashtags ? { 'Hashtags': rawHashtags } : {}),
+        ...(platform?.length ? { 'Platform': platform } : {}),
+        ...(scheduledDate ? { 'Scheduled Date': scheduledDate } : {}),
+      }).catch(err => console.warn('[Telegram Send] Pre-send Post update failed:', err.message))
+    }
+
+    // Fire and forget. Vercel's waitUntil() keeps the function running up to
+    // maxDuration (300s) after the response has been sent, so download + ffmpeg
+    // + upload continue in the background while the client already got a 200.
+    console.log('[Telegram Send] Queued for post', postId)
+    waitUntil(doSend(params))
+
+    return NextResponse.json({ ok: true, status: 'sending', postId })
+  } catch (err) {
+    console.error('[Telegram Send] Queue error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

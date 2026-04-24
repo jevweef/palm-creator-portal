@@ -262,6 +262,9 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
 
 function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd, onDrop, onClick }) {
   const [isOver, setIsOver] = useState(false)
+  // Scraped-from-IG cells (already posted on the real account) get a darker
+  // overlay so they're visually distinct from our own scheduled/sent cells.
+  const isScraped = !!post._scraped
 
   const borderByStatus = {
     scheduled: { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
@@ -280,13 +283,13 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       onDragLeave={() => setIsOver(false)}
       onDrop={(e) => { e.preventDefault(); setIsOver(false); onDrop() }}
       onClick={onClick}
-      title={`${status}${post.scheduledDate ? ' · ' + formatScheduled(post.scheduledDate) : ''}`}
+      title={isScraped ? `Already on IG · ${formatScheduled(post.postedAt)}` : `${status}${post.scheduledDate ? ' · ' + formatScheduled(post.scheduledDate) : ''}`}
       style={{
         aspectRatio: '1 / 1',
         background: post.thumbnail ? '#000' : style.bg,
         position: 'relative',
         cursor: draggable ? 'grab' : 'pointer',
-        opacity: isDragging ? 0.4 : (status === 'posted' ? 1 : 1),
+        opacity: isDragging ? 0.4 : 1,
         outline: isOver ? '1px solid var(--palm-pink)' : 'none',
         outlineOffset: '-2px',
         overflow: 'hidden',
@@ -299,17 +302,29 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
           {status === 'draft' ? '✏' : '🗓'}
         </div>
       )}
+
+      {/* Darker overlay for scraped (already-live on IG) cells so the admin
+          can immediately tell them apart from our own scheduled/sent cells */}
+      {isScraped && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 100%)',
+          pointerEvents: 'none',
+        }} />
+      )}
+
       {/* Status chip */}
       <div style={{
         position: 'absolute', top: 3, left: 3,
         padding: '1px 5px', borderRadius: '3px',
-        background: 'rgba(0,0,0,0.55)', color: 'var(--foreground)',
+        background: isScraped ? 'rgba(240, 236, 232, 0.85)' : 'rgba(0,0,0,0.55)',
+        color: isScraped ? '#060606' : 'var(--foreground)',
         fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
       }}>
-        {status}
+        {isScraped ? 'live' : status}
       </div>
       {/* Date chip */}
-      {post.scheduledDate && status !== 'posted' && (
+      {post.scheduledDate && status !== 'posted' && !isScraped && (
         <div style={{
           position: 'absolute', bottom: 3, right: 3,
           padding: '1px 4px', borderRadius: '3px',
@@ -325,72 +340,74 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
 // ─── Unassigned tray ───────────────────────────────────────────────────────────
 
-function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, onFanOut }) {
-  if (posts.length === 0) return null
+// Unassigned tray — groups Post records by Task. Each card represents a reel
+// that still needs to be placed on N accounts. Counter badge shows remaining
+// instances (e.g., "3" initially, drops to "2" after dragging onto one grid).
+function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd }) {
+  if (groups.length === 0) return null
+  const totalSlotsRemaining = groups.reduce((s, g) => s + g.remaining, 0)
   return (
     <div style={{
       background: 'var(--card-bg-solid)',
-      border: '1px dashed #E8C4CC',
+      border: '1px dashed rgba(232, 160, 160, 0.3)',
       borderRadius: '14px',
       padding: '14px 16px',
       marginBottom: '20px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Unassigned posts</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Ready to schedule</div>
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
-            {posts.length} to assign — drag to one account, or use Fan Out to post across all {accounts.length}
+            {groups.length} reel{groups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} to fill across {accounts.length} account{accounts.length !== 1 && 's'}
           </div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
-        {posts.map(p => (
-          <div key={p.id} style={{ flexShrink: 0, width: '96px' }}>
-            <div
-              draggable
-              onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(p.id, null) }}
-              onDragEnd={onDragEnd}
-              title={`${p.name} · ${formatScheduled(p.scheduledDate)}`}
-              style={{
-                width: '96px', height: '96px',
-                background: '#000', borderRadius: '8px', overflow: 'hidden',
-                cursor: 'grab', position: 'relative',
-                opacity: draggingId === p.id ? 0.4 : 1,
-                border: '1px solid transparent',
-              }}
-            >
-              {p.thumbnail ? (
-                <img src={p.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px' }}>✏</div>
-              )}
-              <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: 0,
-                background: 'rgba(0,0,0,0.65)', color: 'var(--foreground)',
-                fontSize: '9px', padding: '2px 5px',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {p.scheduledDate ? new Date(p.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' }) : 'no date'}
+        {groups.map(g => {
+          const key = g.taskId || `orphan-${g.samplePost.id}`
+          const isDragging = draggingTaskKey === key
+          const sample = g.samplePost
+          return (
+            <div key={key} style={{ flexShrink: 0, width: '96px' }}>
+              <div
+                draggable
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; onDragStart(g) }}
+                onDragEnd={onDragEnd}
+                title={`${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
+                style={{
+                  width: '96px', height: '96px',
+                  background: '#000', borderRadius: '8px', overflow: 'hidden',
+                  cursor: 'grab', position: 'relative',
+                  opacity: isDragging ? 0.4 : 1,
+                  border: sample.thumbnail ? '1px solid transparent' : '1px dashed rgba(232, 160, 160, 0.3)',
+                }}
+              >
+                {sample.thumbnail ? (
+                  <img src={sample.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px', gap: '2px' }}>
+                    <span>✏</span>
+                    <span style={{ fontSize: '8px', fontWeight: 600 }}>UNPREPPED</span>
+                  </div>
+                )}
+                {/* Counter badge — big, top-right, like IG Stories unread count */}
+                <div style={{
+                  position: 'absolute', top: 4, right: 4,
+                  minWidth: '22px', height: '22px', borderRadius: '11px',
+                  background: 'var(--palm-pink)', color: '#060606',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12px', fontWeight: 800, padding: '0 6px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                }}>
+                  {g.remaining}
+                </div>
+              </div>
+              <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '96px' }}>
+                {sample.name || 'Reel'}
               </div>
             </div>
-            {onFanOut && accounts.length > 1 && (
-              <button
-                onClick={() => onFanOut(p)}
-                style={{
-                  marginTop: '4px', width: '96px',
-                  padding: '3px 6px', fontSize: '9px', fontWeight: 700,
-                  background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)',
-                  border: '1px solid transparent', borderRadius: '5px',
-                  cursor: 'pointer',
-                  textTransform: 'uppercase', letterSpacing: '0.04em',
-                }}
-                title={`Duplicate this post to all ${accounts.length} account grids`}
-              >
-                ⇉ Fan Out
-              </button>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -403,11 +420,16 @@ export default function GridPlanner() {
   const [error, setError] = useState('')
   const [creators, setCreators] = useState([])
   const [selectedCreatorId, setSelectedCreatorId] = useState(null)
+  const [selectedCreatorMeta, setSelectedCreatorMeta] = useState(null) // { telegramThreadId, name }
   const [accounts, setAccounts] = useState([])
   const [posts, setPosts] = useState([])
+  const [unassignedGroups, setUnassignedGroups] = useState([])
+  const [draggingTaskGroup, setDraggingTaskGroup] = useState(null) // the group currently being dragged from the tray
   const [dragging, setDragging] = useState({ postId: null, sourceAccountId: null })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
+  const [detailPost, setDetailPost] = useState(null) // { post, accountId, account }
+  const [sendingPostId, setSendingPostId] = useState(null)
 
   // Load creator list on mount
   useEffect(() => {
@@ -435,6 +457,8 @@ export default function GridPlanner() {
       if (!res.ok) throw new Error(d.error || 'Failed to load')
       setAccounts(d.accounts || [])
       setPosts(d.posts || [])
+      setUnassignedGroups(d.unassignedGroups || [])
+      setSelectedCreatorMeta(d.selectedCreator || null)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -512,6 +536,44 @@ export default function GridPlanner() {
 
   // Drop onto the empty space of a phone grid (for unassigned → that account, no target post)
   const handleDropOnAccount = async (accountId) => {
+    // Drop from the Unassigned Tray (task group drag) — this is the primary
+    // drop path now. Triggers assignInstance: picks up an unassigned Post in
+    // the task group or clones a sibling, then schedules it on the next open
+    // slot on this account.
+    if (draggingTaskGroup) {
+      const group = draggingTaskGroup
+      // Guard: already at this account
+      if (group.assignedAccountIds?.includes(accountId)) {
+        showToast('Already on this account', true)
+        setDraggingTaskGroup(null)
+        return
+      }
+      setSaving(true)
+      try {
+        const res = await fetch('/api/admin/grid-planner', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'assignInstance',
+            taskId: group.taskId,
+            accountId,
+            unassignedPostIds: group.unassignedPostIds || [],
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Assign failed')
+        showToast(`Scheduled on ${accounts.find(a => a.id === accountId)?.name || 'account'}`)
+        await loadCreator(selectedCreatorId)
+      } catch (e) {
+        showToast(e.message, true)
+      } finally {
+        setSaving(false)
+        setDraggingTaskGroup(null)
+      }
+      return
+    }
+
+    // Fallback: drag from a different account grid (post already placed)
     const sourcePostId = dragging.postId
     if (!sourcePostId) return
     const src = posts.find(p => p.id === sourcePostId)
@@ -544,6 +606,71 @@ export default function GridPlanner() {
     accounts.map(a => [a.id, posts.filter(p => p.accountId === a.id)])
   )
 
+  // Bulk send: fire all scheduled-but-unsent posts for this creator to Telegram
+  // in order of Scheduled Date. Each fetch returns in ~1s (waitUntil-backed
+  // server endpoint), so firing 10 in parallel is fine. Each post flips to
+  // 'Sending' on its own schedule.
+  const [bulkSending, setBulkSending] = useState(false)
+  const sendablePosts = posts
+    .filter(p => p.accountId && p.scheduledDate && p.status !== 'Sent to Telegram' && p.status !== 'Sending' && p.status !== 'Send Failed' && !p.telegramSentAt && !p.postedAt && p.asset?.editedFileLink)
+    .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
+  const handleBulkSend = async () => {
+    if (!sendablePosts.length) return
+    if (!selectedCreatorMeta?.telegramThreadId) {
+      showToast('This creator has no Telegram Thread ID set', true)
+      return
+    }
+    const confirmed = window.confirm(`Send ${sendablePosts.length} scheduled post${sendablePosts.length !== 1 ? 's' : ''} to Telegram? They'll fire in order of Scheduled Date.`)
+    if (!confirmed) return
+    setBulkSending(true)
+    // Optimistic UI update
+    const sendableIds = new Set(sendablePosts.map(p => p.id))
+    setPosts(prev => prev.map(p => sendableIds.has(p.id) ? { ...p, status: 'Sending' } : p))
+    try {
+      // Fire all requests. Each server call returns in ~1s via waitUntil; the
+      // actual sends happen async on Vercel's side. Sequenced-by-date is
+      // already the sort order of sendablePosts; we kick them in that order
+      // 200ms apart so the server-side order lines up with user expectation.
+      let errorCount = 0
+      for (let i = 0; i < sendablePosts.length; i++) {
+        const p = sendablePosts[i]
+        try {
+          const res = await fetch('/api/telegram/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              postId: p.id,
+              editedFileLink: p.asset?.editedFileLink,
+              threadId: selectedCreatorMeta.telegramThreadId,
+              caption: [p.caption, p.hashtags].filter(Boolean).join('\n\n') || undefined,
+              thumbnailUrl: p.thumbnailUrl || undefined,
+              assetId: p.asset?.id || undefined,
+              rawCaption: p.caption || undefined,
+              rawHashtags: p.hashtags || undefined,
+              platform: p.platform?.length ? p.platform : undefined,
+              scheduledDate: p.scheduledDate || undefined,
+            }),
+          })
+          if (!res.ok) errorCount++
+        } catch {
+          errorCount++
+        }
+        // Small delay between queue submissions — keeps server logs readable
+        // and avoids hammering Vercel with 10 concurrent function starts.
+        if (i < sendablePosts.length - 1) await new Promise(r => setTimeout(r, 200))
+      }
+      if (errorCount) {
+        showToast(`Queued ${sendablePosts.length - errorCount}/${sendablePosts.length} · ${errorCount} failed to queue`, errorCount > 0)
+      } else {
+        showToast(`Queued ${sendablePosts.length} post${sendablePosts.length !== 1 ? 's' : ''} — sending in background`)
+      }
+      // Give the server a beat, then reload to pick up 'Sending' status
+      setTimeout(() => loadCreator(selectedCreatorId), 2000)
+    } finally {
+      setBulkSending(false)
+    }
+  }
+
   // Refresh scraped IG feed for all of this creator's accounts.
   // Shift-click forces a re-scrape even if cached within 6h.
   const [refreshing, setRefreshing] = useState(false)
@@ -570,6 +697,68 @@ export default function GridPlanner() {
       showToast(e.message, true)
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  // Send a single post to Telegram. Uses waitUntil on the server so this
+  // returns in ~1s — the real send happens in the background. We optimistically
+  // flip the post's status to 'Sending' so the cell recolors immediately, then
+  // poll for completion.
+  const handleSendToTelegram = async (post) => {
+    if (sendingPostId) return // prevent double-click
+    if (!selectedCreatorMeta?.telegramThreadId) {
+      showToast('This creator has no Telegram Thread ID set', true)
+      return
+    }
+    setSendingPostId(post.id)
+    // Optimistic UI update
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'Sending' } : p))
+    setDetailPost(null)
+    try {
+      const res = await fetch('/api/telegram/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId: post.id,
+          editedFileLink: post.asset?.editedFileLink || post.assetEditedFileLink,
+          threadId: selectedCreatorMeta.telegramThreadId,
+          caption: [post.caption, post.hashtags].filter(Boolean).join('\n\n') || undefined,
+          thumbnailUrl: post.thumbnailUrl || undefined,
+          assetId: post.asset?.id || undefined,
+          rawCaption: post.caption || undefined,
+          rawHashtags: post.hashtags || undefined,
+          platform: post.platform?.length ? post.platform : undefined,
+          scheduledDate: post.scheduledDate || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Queue failed')
+      showToast('Queued — sending in background ⏳')
+      // Poll for up to 3min
+      let attempts = 0
+      const poll = setInterval(async () => {
+        attempts++
+        if (attempts > 45) { clearInterval(poll); setSendingPostId(null); return }
+        try {
+          const r = await fetch(`/api/admin/grid-planner?creatorId=${selectedCreatorId}`)
+          const d = await r.json()
+          const latest = (d.posts || []).find(p => p.id === post.id)
+          if (!latest || latest.status === 'Sending') return
+          clearInterval(poll)
+          setSendingPostId(null)
+          setPosts(d.posts || [])
+          if (latest.status === 'Sent to Telegram' || latest.status === 'Ready to Post') {
+            showToast('Sent to Telegram ✓')
+          } else if (latest.status === 'Send Failed') {
+            showToast('Send failed — check Admin Notes on post', true)
+          }
+        } catch {}
+      }, 4000)
+    } catch (e) {
+      showToast(e.message, true)
+      setSendingPostId(null)
+      // Revert optimistic update
+      await loadCreator(selectedCreatorId)
     }
   }
 
@@ -614,6 +803,22 @@ export default function GridPlanner() {
         <div style={{ flex: 1 }} />
         {saving && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Saving…</span>}
         {refreshing && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Scraping IG…</span>}
+        {sendablePosts.length > 0 && (
+          <button
+            onClick={handleBulkSend}
+            disabled={bulkSending}
+            title={`Fire all ${sendablePosts.length} scheduled-but-unsent posts to Telegram, sequenced by Scheduled Date. They run in the background — each post's card flips to Sending → Sent as it completes.`}
+            style={{
+              padding: '6px 14px', fontSize: '12px', fontWeight: 700,
+              background: bulkSending ? 'rgba(125, 211, 164, 0.04)' : 'rgba(125, 211, 164, 0.10)',
+              color: bulkSending ? '#7DD3A4' : '#7DD3A4',
+              border: '1px solid rgba(125, 211, 164, 0.25)',
+              borderRadius: '6px', cursor: bulkSending ? 'default' : 'pointer',
+            }}
+          >
+            {bulkSending ? 'Queuing…' : `✈ Send ${sendablePosts.length} to Telegram`}
+          </button>
+        )}
         <button
           onClick={handleRefreshFeed}
           disabled={refreshing || !selectedCreatorId}
@@ -644,14 +849,13 @@ export default function GridPlanner() {
 
       {!loading && !error && selectedCreatorId && (
         <>
-          {/* Unassigned tray */}
+          {/* Unassigned tray — task groups with "3-2-1 badge" counter drag */}
           <UnassignedTray
-            posts={unassignedPosts}
+            groups={unassignedGroups}
             accounts={accounts}
-            draggingId={dragging.postId}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onFanOut={handleFanOut}
+            draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
+            onDragStart={(group) => setDraggingTaskGroup(group)}
+            onDragEnd={() => setDraggingTaskGroup(null)}
           />
 
           {/* Phones */}
@@ -681,15 +885,25 @@ export default function GridPlanner() {
                     onDragStart={(postId) => handleDragStart(postId, acc.id)}
                     onDragEnd={handleDragEnd}
                     onDrop={(targetPostId) => handleDropOnPost(targetPostId, acc.id)}
-                    onCellClick={(post) => {
-                      // future: open post detail
-                    }}
+                    onCellClick={(post) => setDetailPost({ post, account: acc })}
                   />
                 </div>
               ))}
             </div>
           )}
         </>
+      )}
+
+      {/* Post detail + Send modal */}
+      {detailPost && (
+        <PostDetailModal
+          post={detailPost.post}
+          account={detailPost.account}
+          creatorMeta={selectedCreatorMeta}
+          sending={sendingPostId === detailPost.post.id}
+          onClose={() => setDetailPost(null)}
+          onSend={() => handleSendToTelegram(detailPost.post)}
+        />
       )}
 
       {/* Toast */}
@@ -705,6 +919,127 @@ export default function GridPlanner() {
           {toast.msg}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Post detail + Send modal ──────────────────────────────────────────────────
+// Opens when a cell is clicked in the grid. Shows thumbnail + caption preview
+// and a "Send to Telegram" action. This is where posts actually get sent now
+// (Post Prep only preps — no send action there anymore).
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend }) {
+  const canSend = post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
+  const scheduledLabel = post.scheduledDate
+    ? new Date(post.scheduledDate).toLocaleDateString('en-US', {
+        timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+      })
+    : null
+  const statusStyle = {
+    'Sending': { bg: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
+    'Sent to Telegram': { bg: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8', border: 'rgba(120, 180, 232, 0.3)' },
+    'Send Failed': { bg: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' },
+    'Posted': { bg: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
+    'Prepping': { bg: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04', border: 'rgba(202, 138, 4, 0.3)' },
+  }[post.status] || { bg: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: 'rgba(255,255,255,0.08)' }
+
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+      }}
+    >
+      <div style={{
+        background: 'var(--card-bg-solid)', borderRadius: '16px',
+        width: '100%', maxWidth: '440px', maxHeight: '85vh',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {post.name || 'Untitled post'}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+              @{account?.handle || account?.name} {scheduledLabel ? ' · ' + scheduledLabel : ''}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px' }}>×</button>
+        </div>
+
+        {/* Thumbnail */}
+        <div style={{ padding: '0 20px' }}>
+          <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {post.thumbnail ? (
+              <img src={post.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No thumbnail</div>
+            )}
+          </div>
+        </div>
+
+        {/* Status pill */}
+        <div style={{ padding: '12px 20px 0', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+            padding: '3px 10px', borderRadius: '20px',
+            background: statusStyle.bg, color: statusStyle.color,
+            border: `1px solid ${statusStyle.border}`,
+          }}>
+            {post.status || 'Prepping'}
+          </span>
+          {post.platform?.map(p => (
+            <span key={p} style={{
+              fontSize: '10px', fontWeight: 600,
+              padding: '3px 10px', borderRadius: '20px',
+              background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}>{p}</span>
+          ))}
+        </div>
+
+        {/* Caption preview */}
+        {(post.caption || post.hashtags) && (
+          <div style={{ padding: '12px 20px 0', fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
+            {post.caption}
+            {post.hashtags ? '\n\n' + post.hashtags : ''}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ padding: '16px 20px', display: 'flex', gap: '8px', marginTop: 'auto' }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
+          >
+            Close
+          </button>
+          {canSend && (
+            <button
+              onClick={onSend}
+              disabled={sending || !creatorMeta?.telegramThreadId}
+              style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700,
+                background: sending ? 'rgba(245, 158, 11, 0.08)' : 'rgba(125, 211, 164, 0.12)',
+                color: sending ? '#f59e0b' : '#7DD3A4',
+                border: `1px solid ${sending ? 'rgba(245, 158, 11, 0.3)' : 'rgba(125, 211, 164, 0.3)'}`,
+                borderRadius: '8px', cursor: sending ? 'default' : 'pointer' }}
+            >
+              {sending ? 'Sending…' : '✈ Send to Telegram'}
+            </button>
+          )}
+          {!canSend && post.postLink && (
+            <a href={post.postLink} target="_blank" rel="noopener noreferrer"
+              style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, textAlign: 'center', textDecoration: 'none',
+                background: 'rgba(232, 160, 160, 0.06)', color: 'var(--palm-pink)',
+                border: '1px solid rgba(232, 160, 160, 0.2)', borderRadius: '8px' }}>
+              View on IG ↗
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

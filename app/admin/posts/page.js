@@ -5,7 +5,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 const PLATFORMS = ['Instagram Reel', 'Instagram Story', 'TikTok', 'YouTube Shorts', 'X', 'OFTV']
 const STATUS_COLORS = {
   'Prepping': '#ca8a04',
+  'Sending': '#f59e0b',
   'Sent to Telegram': '#78B4E8',
+  'Send Failed': '#ef4444',
   'Ready to Post': '#7DD3A4',
   'Posted': 'var(--palm-pink)',
   'Archived': '#999',
@@ -196,13 +198,9 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   }, [creatorId, isReel])
 
   const handleUse = async (photo) => {
-    if (isReel) {
-      await fetch('/api/admin/posts/photos', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: photo.id }),
-      })
-    }
+    // Don't mark as "Used As Reel Thumbnail" here — that happens at Send to Telegram.
+    // Picking a photo in prep ≠ committing it. If the post is abandoned or the
+    // thumbnail is swapped, the original photo should remain available in the picker.
     onSelect(photo.dropboxLink)
   }
 
@@ -457,6 +455,11 @@ function PostCard({ post, onRefresh, onSend }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
+  // Track the ORIGINAL URL that came from the saved Post record — so we can
+  // detect whether the user actually changed the thumbnail this session, and
+  // skip rewriting Airtable's own attachment URL back to itself (which corrupts
+  // the attachment and causes the "broken image" after refresh).
+  const [savedThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
   const [showPhotoPicker, setShowPhotoPicker] = useState(false)
   const [showFramePicker, setShowFramePicker] = useState(false)
   const [thumbUploading, setThumbUploading] = useState(false)
@@ -486,7 +489,10 @@ function PostCard({ post, onRefresh, onSend }) {
             'Hashtags': hashtags,
             'Platform': platforms,
             ...(scheduledDate ? { 'Scheduled Date': etLocalToUTC(scheduledDate) } : {}),
-            ...(thumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }] } : {}),
+            // Only write Thumbnail field if the user actually picked a NEW thumbnail
+            // this session. Re-sending an already-ingested Airtable attachment URL
+            // back to Airtable breaks it (shows as a broken "thumb" icon after refresh).
+            ...(thumbnailUrl && thumbnailUrl !== savedThumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }] } : {}),
           },
         }),
       })
@@ -571,9 +577,12 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
             {thumbnailUrl ? (
-              <img src={rawDropboxUrl(thumbnailUrl)} alt="thumbnail"
+              <img
+                src={thumbnailUrl.includes('dropbox.com') ? rawDropboxUrl(thumbnailUrl) : thumbnailUrl}
+                alt="thumbnail"
                 style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
-                onClick={() => setShowPhotoPicker(true)} />
+                onClick={() => setShowPhotoPicker(true)}
+              />
             ) : null}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <button onClick={() => setShowPhotoPicker(true)}
@@ -668,13 +677,19 @@ function PostCard({ post, onRefresh, onSend }) {
               {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save'}
             </button>
           )}
-          {post.status === 'Prepping' && (
-            <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms, thumbnailUrl, scheduledDate })} disabled={!hasFile}
-              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700,
-                background: hasFile ? 'rgba(120, 180, 232, 0.06)' : 'var(--card-bg-solid)', color: hasFile ? '#78B4E8' : 'transparent',
-                border: `1px solid ${hasFile ? 'rgba(120, 180, 232, 0.2)' : 'rgba(232, 160, 160, 0.06)'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>
-              ✈ Telegram
-            </button>
+          {/* Send action lives in Grid Planner now — Post Prep just preps
+              (caption, hashtags, thumbnail, schedule). Once you've saved here,
+              head over to Grid Planner to stage + send. */}
+          {post.status === 'Prepping' && hasFile && (
+            <a
+              href={`/admin/editor?tab=grid&creatorId=${post.creator?.id || ''}`}
+              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, textAlign: 'center',
+                background: 'rgba(232, 160, 160, 0.06)', color: 'var(--palm-pink)',
+                border: '1px solid rgba(232, 160, 160, 0.2)', borderRadius: '6px', textDecoration: 'none' }}
+              title="Post is ready — go to Grid Planner to position and send"
+            >
+              ▦ Open in Grid →
+            </a>
           )}
           {post.asset?.editedFileLink && (
             <a href={post.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
@@ -776,13 +791,32 @@ function LogHistoricalPostModal({ creators, onClose, onSaved }) {
   )
 }
 
-const STATUS_FILTERS = ['All', 'Prepping', 'Sent to Telegram', 'Ready to Post']
+// Filter logic:
+//   Needs Prep = Prepping AND missing thumbnail OR caption OR hashtags (default view)
+//   Saved      = Prepping AND has thumbnail + caption + hashtags (ready to send from Grid Planner)
+//   Sent to Telegram / Ready to Post = by Post Status
+//   All        = no filter
+const STATUS_FILTERS = ['Needs Prep', 'Saved', 'Sent to Telegram', 'Ready to Post', 'All']
+
+function isFullyPrepped(p) {
+  const hasThumb = (p.thumbnail?.length > 0) || !!p.thumbnailUrl
+  const hasCaption = !!(p.caption && p.caption.trim())
+  const hasHashtags = !!(p.hashtags && p.hashtags.trim())
+  return hasThumb && hasCaption && hasHashtags
+}
+
+function matchesFilter(p, filter) {
+  if (filter === 'All') return true
+  if (filter === 'Needs Prep') return p.status === 'Prepping' && !isFullyPrepped(p)
+  if (filter === 'Saved') return p.status === 'Prepping' && isFullyPrepped(p)
+  return p.status === filter
+}
 
 export default function PostsPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filter, setFilter] = useState('Prepping')
+  const [filter, setFilter] = useState('Needs Prep')
   const [telegramModal, setTelegramModal] = useState(null)
   const [toast, setToast] = useState(null)
   const [logModal, setLogModal] = useState(false)
@@ -798,9 +832,12 @@ export default function PostsPage() {
     try {
       const res = await fetch('/api/admin/posts')
       if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
-      setData(await res.json())
+      const json = await res.json()
+      setData(json)
+      return json
     } catch (err) {
       setError(err.message)
+      return null
     } finally {
       setLoading(false)
     }
@@ -809,7 +846,7 @@ export default function PostsPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const posts = data?.posts || []
-  const filtered = filter === 'All' ? posts : posts.filter(p => p.status === filter)
+  const filtered = posts.filter(p => matchesFilter(p, filter))
 
   return (
     <div style={{ color: 'var(--foreground)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -835,7 +872,7 @@ export default function PostsPage() {
             {f}
             {f !== 'All' && (
               <span style={{ marginLeft: '6px', color: filter === f ? 'rgba(6, 6, 6, 0.6)' : 'var(--foreground-subtle)', fontWeight: 400 }}>
-                {posts.filter(p => p.status === f).length}
+                {posts.filter(p => matchesFilter(p, f)).length}
               </span>
             )}
           </button>
@@ -869,7 +906,27 @@ export default function PostsPage() {
         <TelegramModal
           post={telegramModal}
           onClose={() => setTelegramModal(null)}
-          onSent={() => { showToast('Sent to Telegram ✓'); fetchData() }}
+          onSent={() => {
+            showToast('Queued — sending in background ⏳', false)
+            fetchData()
+            // Poll every 4s for up to 3 min to watch the Post flip from
+            // Sending → Sent to Telegram (or Send Failed). No UI lock-up —
+            // the admin can start working on the next post immediately.
+            let attempts = 0
+            const poll = setInterval(async () => {
+              attempts++
+              if (attempts > 45) { clearInterval(poll); return }
+              const latest = await fetchData()
+              const thisPost = latest?.posts?.find(p => p.id === telegramModal.id)
+              if (!thisPost || thisPost.status === 'Sending') return
+              clearInterval(poll)
+              if (thisPost.status === 'Sent to Telegram' || thisPost.status === 'Ready to Post') {
+                showToast('Sent to Telegram ✓', false)
+              } else if (thisPost.status === 'Send Failed') {
+                showToast('Send failed — check Admin Notes on post', true)
+              }
+            }, 4000)
+          }}
         />
       )}
 
