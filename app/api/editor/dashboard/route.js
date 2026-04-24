@@ -157,11 +157,14 @@ export async function GET() {
         editorNotes: task.fields?.['Editor Notes'] || '',
         completedAt: task.fields?.['Completed At'] || null,
         etCompletedDate: toETDateStr(task.fields?.['Completed At'] || ''),
-        // Done tasks with a post: show on the post's scheduled date (the slot they were assigned to).
-        // Done tasks without a post (in review): show on completion date.
-        etSlotDate: taskScheduledDateMap[task.id]
-          ? toETDateStr(taskScheduledDateMap[task.id])
-          : toETDateStr(task.fields?.['Completed At'] || ''),
+        // Editor dashboard is the editor's WORK DAY view — tasks pin to the
+        // day the editor actually finished them, not the day the resulting
+        // post is scheduled to go out. (Post scheduled date can drift to
+        // future days via auto-schedule; that's the Grid Planner's concern,
+        // not the editor's daily-slot view.) The redistribute pass below
+        // handles overflow: if 4 tasks complete on Apr 23 but quota is 3,
+        // the 4th rolls forward to Apr 24's first open slot.
+        etSlotDate: toETDateStr(task.fields?.['Completed At'] || ''),
         telegramSentAt: taskTelegramMap[task.id] || null,
         postScheduledDate: taskScheduledDateMap[task.id] || null,
         asset: {
@@ -257,32 +260,24 @@ export async function GET() {
       const approvedBuffer = futurePostsByCreator[c.id] || 0
       const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
-      // Redistribute in-review tasks so they respect dailyQuota. Without
-      // this, the day ends up with more slot rows than the creator's quota,
-      // which reads as "phantom Slot N+1". Approved tasks are LOCKED to
-      // their post's Scheduled Date. In-review tasks default to their
-      // completion date but overflow to the next open day if the completion
-      // day is full.
+      // Redistribute ALL done tasks (approved + in-review) so each day stays
+      // at dailyQuota. Everyone pins to their completion date first; if that
+      // day is full, the task rolls forward to the next day's first open slot.
+      // Sort by completion time so earlier tasks get first pick of same-day
+      // slots — overshoots (the 4th edit of a 3-slot day) roll to tomorrow.
       const doneTasksForRedist = ctasks.filter(t =>
         t.status === 'Done' && t.adminReviewStatus !== 'Needs Revision'
       )
-      const slotsUsedByDate = {}
-      // Pass 1: lock approved tasks into their assigned slot date
-      for (const t of doneTasksForRedist) {
-        if (t.postScheduledDate) {
-          slotsUsedByDate[t.etSlotDate] = (slotsUsedByDate[t.etSlotDate] || 0) + 1
-        }
-      }
-      // Pass 2: in-review tasks pin to completion date, overflow forward
+      const sortedDone = [...doneTasksForRedist].sort(
+        (a, b) => new Date(a.completedAt || 0) - new Date(b.completedAt || 0)
+      )
       const nextDay = (ds) => {
         const dt = new Date(ds + 'T12:00:00')
         dt.setDate(dt.getDate() + 1)
         return dt.toISOString().split('T')[0]
       }
-      const inReviewSorted = doneTasksForRedist
-        .filter(t => !t.postScheduledDate)
-        .sort((a, b) => new Date(a.completedAt || 0) - new Date(b.completedAt || 0))
-      for (const t of inReviewSorted) {
+      const slotsUsedByDate = {}
+      for (const t of sortedDone) {
         let candidate = t.etCompletedDate || todayStr
         while ((slotsUsedByDate[candidate] || 0) >= dailyQuota) {
           candidate = nextDay(candidate)

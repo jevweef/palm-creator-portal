@@ -371,9 +371,14 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // Unassigned tray — groups Post records by Task. Each card represents a reel
 // that still needs to be placed on N accounts. Counter badge shows remaining
 // instances (e.g., "3" initially, drops to "2" after dragging onto one grid).
-function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd }) {
-  if (groups.length === 0) return null
-  const totalSlotsRemaining = groups.reduce((s, g) => s + g.remaining, 0)
+function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd, smmMode = false }) {
+  // SMM is only interested in reels that are actually ready to schedule — hide
+  // unprepped groups (no thumbnail yet) so they don't clutter the tray.
+  const visibleGroups = smmMode
+    ? groups.filter(g => g.samplePost?.thumbnail)
+    : groups
+  if (visibleGroups.length === 0) return null
+  const totalSlotsRemaining = visibleGroups.reduce((s, g) => s + g.remaining, 0)
   return (
     <div style={{
       background: 'var(--card-bg-solid)',
@@ -386,12 +391,12 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
         <div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Ready to schedule</div>
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
-            {groups.length} reel{groups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} to fill across {accounts.length} account{accounts.length !== 1 && 's'}
+            {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} to fill across {accounts.length} account{accounts.length !== 1 && 's'}
           </div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
-        {groups.map(g => {
+        {visibleGroups.map(g => {
           const key = g.taskId || `orphan-${g.samplePost.id}`
           const isDragging = draggingTaskKey === key
           const sample = g.samplePost

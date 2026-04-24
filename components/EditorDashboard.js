@@ -1899,21 +1899,15 @@ function CreatorSection({ creator, onRefresh }) {
       const doneTasks = sortBySlot((creator.recentDone || [])
         .filter(t => (t.etSlotDate || t.etCompletedDate) === ds))
 
-      // Past days: push only the dots for tasks that were actually done —
-      // no empty-slot pads. If Apr 23 had 2 edits but quota is 3, we render
-      // 2 dots for Apr 23, not 2 + 1 gray. This prevents gray dots from
-      // sitting inside the run of colored dots (looks like a gap mid-week).
-      // Today + future: render full dailyQuota, padding empties so queue
-      // forward-fill can still visualize where incoming tasks will land.
-      if (isPast) {
-        for (let s = 0; s < doneTasks.length; s++) {
+      for (let s = 0; s < dailyQuota; s++) {
+        if (s < doneTasks.length) {
           colors.push(statusColor(doneTasks[s].adminReviewStatus))
-        }
-      } else {
-        for (let s = 0; s < dailyQuota; s++) {
-          if (s < doneTasks.length) {
-            colors.push(statusColor(doneTasks[s].adminReviewStatus))
-          } else if (queueIdx < dotQueueItems.length) {
+        } else if (isPast) {
+          // Past day, unfilled slot = locked empty
+          colors.push('var(--card-border)')
+        } else {
+          // Today or future: fill from queue
+          if (queueIdx < dotQueueItems.length) {
             const type = dotQueueItems[queueIdx]
             queueIdx++
             if (type === 'inProgress') colors.push('#78B4E8')
