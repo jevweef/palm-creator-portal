@@ -67,8 +67,12 @@ export async function GET(request) {
       return NextResponse.json({ creators: [], selectedCreator: null, accounts: [], posts: [] })
     }
 
+    // Only include creators we're actively doing social media + editing for.
+    // Filter: Social Media Editing = 1 on Palm Creators. Any creator without
+    // that flag (e.g. onboarding-only, churned, or DNA-only clients) is excluded
+    // from the Grid Planner dropdown even if they still have IG accounts in CPD.
     const creatorRecs = await fetchAirtableRecords('Palm Creators', {
-      filterByFormula: `OR(${creatorIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+      filterByFormula: `AND(OR(${creatorIds.map(id => `RECORD_ID()='${id}'`).join(',')}), {Social Media Editing}=1)`,
       fields: ['Creator', 'AKA', 'Telegram Thread ID'],
     })
     const creatorMap = Object.fromEntries(creatorRecs.map(r => [r.id, r.fields?.AKA || r.fields?.Creator || '(unnamed)']))

@@ -507,6 +507,31 @@ function PostCard({ post, onRefresh, onSend }) {
     }
   }
 
+  // Send to Grid — flip Post Status to 'Staged' so it leaves the Prepping filter
+  // on this page but still shows up in Grid Planner (which doesn't filter by status).
+  // Admin stays on Post Prep; the card just disappears from the list on refresh.
+  const [sendingToGrid, setSendingToGrid] = useState(false)
+  const handleSendToGrid = async () => {
+    if (sendingToGrid) return
+    setSendingToGrid(true)
+    try {
+      const res = await fetch('/api/admin/posts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId: post.id,
+          fields: { 'Status': 'Staged' },
+          typecast: true,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to stage')
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      console.error(err)
+      setSendingToGrid(false)
+    }
+  }
+
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
@@ -677,19 +702,22 @@ function PostCard({ post, onRefresh, onSend }) {
               {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save'}
             </button>
           )}
-          {/* Send action lives in Grid Planner now — Post Prep just preps
-              (caption, hashtags, thumbnail, schedule). Once you've saved here,
-              head over to Grid Planner to stage + send. */}
+          {/* Send action lives in Grid Planner now — Post Prep just preps.
+              Clicking stages the post (status → 'Staged'), which removes it
+              from this list. It remains visible + draggable in Grid Planner. */}
           {post.status === 'Prepping' && hasFile && (
-            <a
-              href={`/admin/editor?tab=grid&creatorId=${post.creator?.id || ''}`}
+            <button
+              onClick={handleSendToGrid}
+              disabled={sendingToGrid}
               style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, textAlign: 'center',
-                background: 'rgba(232, 160, 160, 0.06)', color: 'var(--palm-pink)',
-                border: '1px solid rgba(232, 160, 160, 0.2)', borderRadius: '6px', textDecoration: 'none' }}
-              title="Post is ready — go to Grid Planner to position on an account and send"
+                background: sendingToGrid ? 'rgba(232, 160, 160, 0.04)' : 'rgba(232, 160, 160, 0.06)',
+                color: 'var(--palm-pink)',
+                border: '1px solid rgba(232, 160, 160, 0.2)', borderRadius: '6px',
+                cursor: sendingToGrid ? 'default' : 'pointer' }}
+              title="Post is ready — stage it for Grid Planner and remove from prep list"
             >
-              ▦ Send to Grid →
-            </a>
+              {sendingToGrid ? 'Sending…' : '▦ Send to Grid →'}
+            </button>
           )}
           {post.asset?.editedFileLink && (
             <a href={post.asset.editedFileLink} target="_blank" rel="noopener noreferrer"

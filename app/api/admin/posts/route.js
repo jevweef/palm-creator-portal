@@ -122,7 +122,7 @@ export async function PATCH(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { postId, fields } = await request.json()
+    const { postId, fields, typecast } = await request.json()
     if (!postId) return NextResponse.json({ error: 'postId required' }, { status: 400 })
 
     const allowedFields = ['Post Name', 'Status', 'Platform', 'Caption', 'Hashtags', 'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link', 'Admin Notes', 'Telegram Message ID', 'Thumbnail']
@@ -130,7 +130,7 @@ export async function PATCH(request) {
       Object.entries(fields).filter(([k]) => allowedFields.includes(k))
     )
 
-    await patchAirtableRecord('Posts', postId, update)
+    await patchAirtableRecord('Posts', postId, update, typecast ? { typecast: true } : {})
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[Posts] PATCH error:', err)
