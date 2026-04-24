@@ -252,10 +252,14 @@ export async function PATCH(request) {
 //   body: { action: 'fanOut', postId: 'rec...', accountIds: ['recA', 'recB', 'recC'] }
 //     → First account: assign the existing Post to it.
 //     → Other accounts: clone the Post (same asset, caption, hashtags, platform, thumbnail)
-//       with a staggered Scheduled Date (+2h and +4h from the first).
+//       and schedule each clone on a DIFFERENT DAY at the same time of day.
 //
-// Default times when creating siblings: 9am, 1pm, 6pm ET on the first post's day.
-// Existing Post's scheduledDate is preserved for the first account.
+// Why day-staggering (not hour-staggering): every reel eventually posts to all
+// three accounts, but the whole point of running three accounts is that the
+// feeds don't look identical. So account 2 gets this reel one day after
+// account 1, account 3 gets it two days after account 1. The admin can drag
+// posts around in the grid to fine-tune, but the default gets you a
+// not-identical-feed starting point for free.
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
@@ -280,12 +284,13 @@ export async function POST(request) {
     if (!sourceRecs.length) return NextResponse.json({ error: 'Source post not found' }, { status: 404 })
     const src = sourceRecs[0].fields || {}
 
-    // Stagger times: use the source's scheduled date as first slot, then +2h, +4h
-    // for sibling posts (prevents cross-posting at the same exact minute which IG flags).
+    // Day-stagger: same time of day, +1 day for account 2, +2 days for account 3.
+    // This keeps the feeds distinct across the three accounts — same reel, but
+    // it hits each feed on a different day so the grids don't mirror each other.
     const baseDate = src['Scheduled Date'] ? new Date(src['Scheduled Date']) : new Date()
     const makeStaggered = (i) => {
       const d = new Date(baseDate)
-      d.setHours(d.getHours() + i * 2)
+      d.setDate(d.getDate() + i)
       return d.toISOString()
     }
 
