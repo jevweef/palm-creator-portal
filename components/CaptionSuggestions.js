@@ -205,8 +205,8 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
       {mode && (
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           {[
-            { engine: 'openai', label: 'GPT-4o', cost: '~2¢', color: '#10a37f' },
-            { engine: 'claude', label: 'Sonnet', cost: '~7¢', color: '#c47a4d' },
+            { engine: 'openai', label: 'GPT-4o', cost: suggestions?.length ? '~0.5¢' : '~1.5¢', color: '#10a37f' },
+            { engine: 'claude', label: 'Sonnet', cost: suggestions?.length ? '~1¢' : '~4¢', color: '#c47a4d' },
           ].map(e => {
             const isThisLoading = loadingEngine === e.engine
             const isSelected = generatedWithEngine === e.engine && !settingsChanged

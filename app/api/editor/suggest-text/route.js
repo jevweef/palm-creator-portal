@@ -286,7 +286,7 @@ export async function POST(request) {
     const examples = await fetchAirtableRecords(INSPIRATION_TABLE, {
       filterByFormula: `AND({Text Training Approved}, {Text Training Mode}='${escapedMode}')`,
       fields: ['On-Screen Text', 'Notes', 'Thumbnail', 'Tags', 'Username'],
-      maxRecords: 8,
+      maxRecords: 5,
     })
 
     const trainingExamples = examples
@@ -422,14 +422,18 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
 
     const userContent = []
 
-    // Training examples block
+    // Training examples — include images ONLY on first call (no cached description).
+    // On refreshes we skip the thumbnails; the text of each example is what
+    // teaches voice, and keeping the payload small makes refreshes much cheaper.
     userContent.push({
       type: 'text',
       text: `Here are ${trainingExamples.length} approved training examples for mode "${mode}":`,
     })
 
     trainingExamples.forEach((ex, i) => {
-      userContent.push({ type: 'image_url', image_url: { url: ex.thumbnail, detail: 'low' } })
+      if (!hasCachedDescription) {
+        userContent.push({ type: 'image_url', image_url: { url: ex.thumbnail, detail: 'low' } })
+      }
       userContent.push({
         type: 'text',
         text: `Example ${i + 1} (@${ex.username}):\n  ON-SCREEN TEXT: "${ex.text}"\n  CONCEPT: ${ex.whatMattersMost || ex.inspoDirection || '(no analysis)'}\n  TAGS: ${ex.tags.join(', ')}`,
