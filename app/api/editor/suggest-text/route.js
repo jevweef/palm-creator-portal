@@ -25,12 +25,23 @@ function runFfmpeg(args, outputPath) {
   })
 }
 
-// Download a Dropbox video and extract a representative frame via ffmpeg.
-// Returns a JPEG buffer, or throws.
-async function extractFrameFromVideo(videoUrl) {
+// Probe video duration in seconds using ffmpeg's metadata output
+function probeDuration(inputPath) {
+  return new Promise((resolve) => {
+    execFile(ffmpegStatic, ['-i', inputPath], { timeout: 10000 }, (_err, _stdout, stderr) => {
+      const m = (stderr || '').match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/)
+      if (!m) return resolve(null)
+      const [, h, mm, s] = m
+      resolve(Number(h) * 3600 + Number(mm) * 60 + Number(s))
+    })
+  })
+}
+
+// Download a Dropbox video and extract N frames evenly spaced across the clip.
+// Returns an array of JPEG buffers with their timestamps.
+async function extractFramesFromVideo(videoUrl, frameCount = 5) {
   const id = Date.now()
   const inputPath = join(tmpdir(), `suggest_in_${id}.mp4`)
-  const outputPath = join(tmpdir(), `suggest_out_${id}.jpg`)
   try {
     const rawUrl = rawDropboxUrl(videoUrl)
     const dlRes = await fetch(rawUrl, { redirect: 'follow' })
@@ -43,28 +54,43 @@ async function extractFrameFromVideo(videoUrl) {
     }
     await writeFile(inputPath, videoBuffer)
 
-    // Try extracting a frame around 1s in (avoids black first frames)
-    const mkArgs = (pre, post) => [
-      '-y', ...pre, '-i', inputPath, ...post,
-      '-frames:v', '1', '-update', '1', '-q:v', '2', outputPath,
-    ]
-    const strategies = [
-      mkArgs(['-ss', '1'], []),       // output seek ~1s (fast, keyframe-aligned)
-      mkArgs([], ['-ss', '1']),       // input seek ~1s (slow, precise)
-      mkArgs([], []),                 // first frame
-      mkArgs(['-sseof', '-0.5'], []), // last decodable frame
-    ]
-    for (const args of strategies) {
-      await unlink(outputPath).catch(() => {})
-      const r = await runFfmpeg(args, outputPath)
-      if (r.ok) {
-        return await readFile(outputPath)
+    // Probe duration; fall back to 10s if unknown
+    const duration = (await probeDuration(inputPath)) || 10
+
+    // Evenly spaced timestamps — skip the very first and last 0.3s to avoid black frames
+    const pad = Math.min(0.3, duration * 0.05)
+    const usable = Math.max(0.1, duration - pad * 2)
+    const timestamps = []
+    for (let i = 0; i < frameCount; i++) {
+      const t = pad + (usable * i) / Math.max(1, frameCount - 1)
+      timestamps.push(Math.round(t * 100) / 100)
+    }
+
+    const frames = []
+    for (let i = 0; i < timestamps.length; i++) {
+      const ts = timestamps[i]
+      const outputPath = join(tmpdir(), `suggest_out_${id}_${i}.jpg`)
+      try {
+        // Output-seek is fastest and good enough here
+        const args = ['-y', '-ss', String(ts), '-i', inputPath, '-frames:v', '1', '-update', '1', '-q:v', '2', outputPath]
+        const r = await runFfmpeg(args, outputPath)
+        if (r.ok) {
+          frames.push({ timestamp: ts, buffer: await readFile(outputPath) })
+        } else {
+          // Try input-seek fallback
+          const args2 = ['-y', '-i', inputPath, '-ss', String(ts), '-frames:v', '1', '-update', '1', '-q:v', '2', outputPath]
+          const r2 = await runFfmpeg(args2, outputPath)
+          if (r2.ok) frames.push({ timestamp: ts, buffer: await readFile(outputPath) })
+        }
+      } finally {
+        await unlink(outputPath).catch(() => {})
       }
     }
-    throw new Error('all ffmpeg strategies failed')
+
+    if (frames.length === 0) throw new Error('ffmpeg produced no frames')
+    return { frames, duration }
   } finally {
     await unlink(inputPath).catch(() => {})
-    await unlink(outputPath).catch(() => {})
   }
 }
 
@@ -161,17 +187,31 @@ export async function POST(request) {
     // Resolve the image source to feed OpenAI
     // 1. If caller provided thumbnailUrl (direct image URL or data URL), use it
     // 2. Otherwise extract a frame from the Dropbox video via their thumbnail API
-    let targetImageSource = thumbnailUrl
-    if (!targetImageSource && videoUrl) {
+    // Collect target frames: if a thumbnail was passed, use that single image.
+    // If we have a video URL, extract 5 frames evenly spaced across the clip
+    // so the AI sees the whole thing, not just one still.
+    let targetFrames = [] // [{ timestamp, dataUrl }]
+    let videoDuration = null
+    if (thumbnailUrl) {
+      targetFrames = [{ timestamp: 0, dataUrl: thumbnailUrl }]
+    } else if (videoUrl) {
       try {
-        const frameBuf = await extractFrameFromVideo(videoUrl)
-        targetImageSource = `data:image/jpeg;base64,${frameBuf.toString('base64')}`
+        const { frames, duration } = await extractFramesFromVideo(videoUrl, 5)
+        videoDuration = duration
+        targetFrames = frames.map(f => ({
+          timestamp: f.timestamp,
+          dataUrl: `data:image/jpeg;base64,${f.buffer.toString('base64')}`,
+        }))
       } catch (e) {
         console.warn('[suggest-text] frame extract failed:', e.message)
         return NextResponse.json({
-          error: `Could not extract a frame from the video: ${e.message}`,
+          error: `Could not extract frames from the video: ${e.message}`,
         }, { status: 400 })
       }
+    }
+
+    if (targetFrames.length === 0) {
+      return NextResponse.json({ error: 'no frames available to analyze' }, { status: 400 })
     }
 
     // 1. Fetch approved training examples for this mode
@@ -243,9 +283,24 @@ You will be shown:
 
 Your job: generate ${count} distinct on-screen text suggestions for the target clip. Each should work for this specific visual while following the mode rules.
 
-Output a JSON object with a "suggestions" array. Each suggestion is an object with:
-  - "text": the on-screen text (1-3 short lines, exactly as it should appear)
-  - "reasoning": one sentence on why this works for this clip
+CRITICAL — READ THE CLIP CAREFULLY BEFORE SUGGESTING:
+Before writing any caption, describe the target clip in your head:
+  - SETTING: where is she? (bedroom, bathroom, kitchen, car, outdoors, studio, mirror selfie) — look at walls, furniture, background, NOT just her clothes
+  - OUTFIT: what is she wearing? (bikini, lingerie, activewear, dress, casual)
+  - POSE / ACTION: what is she actually doing? (standing, posing, walking, dancing, sitting, filming herself)
+  - ANGLE: selfie, mirror, tripod, someone else filming?
+  - VIBE: what energy is she putting out? (sultry, cute, confident, candid, playful)
+
+Do NOT assume setting from clothing. Activewear in a bedroom is NOT a gym.
+Do NOT open with "POV:" unless the text genuinely places the viewer into a specific scenario.
+Avoid emoji stacks (💪🎵🔥) unless one emoji meaningfully adds to the text.
+Short and unexpected beats long and safe.
+
+Output a JSON object with:
+  - "observed": one sentence describing what you actually see (setting + outfit + pose)
+  - "suggestions": array of ${count} objects, each with:
+      - "text": the on-screen text (1-3 short lines, exactly as it should appear)
+      - "reasoning": one sentence on why this works for THIS specific clip
 
 Do not copy the training example texts. Generate fresh ideas tailored to the target clip's visual.`
 
@@ -265,16 +320,22 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
       })
     })
 
-    // Target clip
+    // Target clip — multiple frames evenly spaced across the video
     userContent.push({
       type: 'text',
-      text: `\n---\nNow here is the TARGET CLIP that needs ${count} text suggestions:${creatorContext}`,
+      text: `\n---\nNow here is the TARGET CLIP that needs ${count} text suggestions.${videoDuration ? ` Clip is ~${videoDuration.toFixed(1)}s long.` : ''} ${targetFrames.length} frames evenly spaced across the clip:${creatorContext}`,
     })
-    userContent.push({ type: 'image_url', image_url: { url: targetImageSource, detail: 'high' } })
+    targetFrames.forEach((f, i) => {
+      userContent.push({
+        type: 'text',
+        text: `Frame ${i + 1} @ ${f.timestamp.toFixed(2)}s:`,
+      })
+      userContent.push({ type: 'image_url', image_url: { url: f.dataUrl, detail: 'high' } })
+    })
 
     userContent.push({
       type: 'text',
-      text: `\nGenerate ${count} on-screen text suggestions for the target clip. Return JSON only.`,
+      text: `\nRead the full sequence of frames to understand what the clip actually shows (motion, setting, outfit, pose). Generate ${count} on-screen text suggestions for the clip. Return JSON only.`,
     })
 
     // 4. Call OpenAI
@@ -300,8 +361,12 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
 
     return NextResponse.json({
       mode,
+      observed: parsed.observed || null,
       suggestions: parsed.suggestions || [],
       trainingExampleCount: trainingExamples.length,
+      // Return every frame the AI saw, with timestamps, for debugging/transparency
+      analyzedFrames: targetFrames,
+      videoDuration,
       usage: completion.usage,
     })
   } catch (err) {
