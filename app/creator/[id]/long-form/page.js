@@ -65,18 +65,33 @@ function EditingPreferencesCard({ creatorOpsId }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [assetsUrl, setAssetsUrl] = useState('')
+  const [assets, setAssets] = useState([])
+  const [deletingAsset, setDeletingAsset] = useState('')
+  const [previewAsset, setPreviewAsset] = useState(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!creatorOpsId) return
     fetch(`/api/creator/long-form-prefs?creatorOpsId=${creatorOpsId}`)
       .then(r => r.json())
       .then(d => {
         setPrefs(d.longFormPrefs || '')
         setOriginal(d.longFormPrefs || '')
+        setAssetsUrl(d.assetsFileRequestUrl || '')
+        setAssets(d.assets || [])
         setLoading(false)
       })
       .catch(() => setLoading(false))
   }, [creatorOpsId])
+
+  useEffect(() => { load() }, [load])
+
+  // Poll for new asset uploads while expanded
+  useEffect(() => {
+    if (!expanded) return
+    const t = setInterval(load, 10000)
+    return () => clearInterval(t)
+  }, [expanded, load])
 
   const save = async () => {
     setSaving(true)
@@ -89,6 +104,22 @@ function EditingPreferencesCard({ creatorOpsId }) {
       setOriginal(prefs)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const deleteAsset = async (asset) => {
+    if (!confirm(`Delete "${asset.name}" from your brand assets?\n\nThis removes the file from Dropbox permanently. The editor will no longer have it.`)) return
+    if (!confirm(`Really delete "${asset.name}"? There is NO undo.`)) return
+    setDeletingAsset(asset.path)
+    try {
+      const res = await fetch(
+        `/api/creator/long-form-prefs/asset?creatorOpsId=${creatorOpsId}&path=${encodeURIComponent(asset.path)}`,
+        { method: 'DELETE' }
+      )
+      if (res.ok) setAssets(prev => prev.filter(a => a.path !== asset.path))
+      else alert('Delete failed')
+    } finally {
+      setDeletingAsset('')
     }
   }
 
@@ -160,8 +191,143 @@ function EditingPreferencesCard({ creatorOpsId }) {
               }}
             >{saving ? 'Saving…' : dirty ? 'Save preferences' : 'Saved'}</button>
           </div>
+
+          {/* Brand Assets */}
+          <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>
+              📎 Brand assets for editors
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
+              Logos, fonts, reference videos, example edits, intro clips — anything the editor should use across <strong>all</strong> your long-form projects.
+            </div>
+
+            {assetsUrl && (
+              <a
+                href={assetsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', borderRadius: '12px', marginBottom: '12px',
+                  background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.12), rgba(232, 160, 160, 0.04))',
+                  border: '1px solid rgba(232, 160, 160, 0.25)',
+                  textDecoration: 'none', color: 'var(--foreground)',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600 }}>Upload brand assets</div>
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>Drop files — no Dropbox account needed. Upload more anytime.</div>
+                </div>
+                <span style={{ fontSize: '16px' }}>→</span>
+              </a>
+            )}
+
+            {assets.length === 0 ? (
+              <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', padding: '16px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.08)' }}>
+                No assets yet. Anything you upload here the editor will see on every one of your long-form projects.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {assets.map((a, i) => {
+                  const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(a.name)
+                  const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(a.name) ? '🎞️'
+                    : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(a.name) ? '🖼️'
+                    : /\.(ttf|otf|woff|woff2)$/i.test(a.name) ? '🔤'
+                    : /\.(pdf)$/i.test(a.name) ? '📕'
+                    : '📄'
+                  const isDeleting = deletingAsset === a.path
+                  return (
+                    <div
+                      key={i}
+                      onClick={isMedia && !isDeleting ? () => setPreviewAsset(a) : undefined}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                        padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
+                        cursor: isMedia && !isDeleting ? 'pointer' : 'default',
+                        opacity: isDeleting ? 0.4 : 1,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '14px' }}>{icon}</span>
+                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+                        <span>{fmtSize(a.size)}</span>
+                        {isMedia && <span style={{ color: 'var(--palm-pink)' }}>▶</span>}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteAsset(a) }}
+                          disabled={isDeleting}
+                          title="Delete asset"
+                          style={{
+                            padding: '4px 8px', fontSize: '11px', fontWeight: 600,
+                            background: 'transparent', color: 'var(--foreground-subtle)',
+                            border: '1px solid transparent', borderRadius: '6px',
+                            cursor: isDeleting ? 'not-allowed' : 'pointer',
+                          }}
+                          onMouseEnter={e => { if (!isDeleting) { e.currentTarget.style.background = 'rgba(232, 120, 120, 0.1)'; e.currentTarget.style.color = '#E87878' } }}
+                          onMouseLeave={e => { if (!isDeleting) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--foreground-subtle)' } }}
+                        >{isDeleting ? '…' : '✕'}</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {previewAsset && (
+              <AssetPreviewModal
+                creatorOpsId={creatorOpsId}
+                asset={previewAsset}
+                onClose={() => setPreviewAsset(null)}
+              />
+            )}
+          </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function AssetPreviewModal({ creatorOpsId, asset, onClose }) {
+  const [src, setSrc] = useState('')
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
+  }, [onClose])
+  useEffect(() => {
+    fetch(`/api/creator/long-form-prefs/asset?creatorOpsId=${creatorOpsId}&path=${encodeURIComponent(asset.path)}`)
+      .then(r => r.json())
+      .then(d => setSrc(d.link || ''))
+      .catch(() => setSrc(''))
+  }, [creatorOpsId, asset.path])
+
+  const isVideo = /\.(mp4|mov|webm|mkv|m4v)$/i.test(asset.name)
+  const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(asset.name)
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{ width: '100%', maxWidth: '900px', maxHeight: '92vh', margin: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#fff' }}>
+          <div style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '12px' }}>{asset.name}</div>
+          <button onClick={onClose} style={{ color: '#fff', background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ background: '#000', borderRadius: '14px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+          {!src ? (
+            <div style={{ color: 'var(--foreground-muted)', padding: '40px', fontSize: '13px' }}>Loading…</div>
+          ) : isVideo ? (
+            <video src={src} controls autoPlay style={{ maxWidth: '100%', maxHeight: '80vh' }} />
+          ) : isImage ? (
+            <img src={src} alt={asset.name} style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }} />
+          ) : (
+            <a href={src} download={asset.name} style={{ padding: '10px 20px', background: 'var(--palm-pink)', color: '#1a1a1a', borderRadius: '9999px', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>Download</a>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

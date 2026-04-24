@@ -43,8 +43,10 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
   const [assignedEditor, setAssignedEditor] = useState(project.assignedEditor || '')
   const [saving, setSaving] = useState(false)
   const [files, setFiles] = useState(null)
+  const [assets, setAssets] = useState([])
   const [previewFile, setPreviewFile] = useState(null)
   const [previewSrc, setPreviewSrc] = useState('')
+  const [previewKind, setPreviewKind] = useState('project') // 'project' | 'asset'
 
   useEffect(() => {
     fetch(`/api/creator/oftv-projects/${project.id}?includeFiles=1`)
@@ -53,13 +55,25 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
       .catch(() => setFiles([]))
   }, [project.id])
 
+  const creatorId = (project.creatorIds || [])[0]
+  useEffect(() => {
+    if (!creatorId) return
+    fetch(`/api/admin/creator-assets?creatorOpsId=${creatorId}`)
+      .then(r => r.json())
+      .then(d => setAssets(d.assets || []))
+      .catch(() => setAssets([]))
+  }, [creatorId])
+
   useEffect(() => {
     if (!previewFile) { setPreviewSrc(''); return }
-    fetch(`/api/creator/oftv-projects/${project.id}/file-link?path=${encodeURIComponent(previewFile.path)}`)
+    const url = previewKind === 'asset'
+      ? `/api/admin/creator-assets?creatorOpsId=${creatorId}&path=${encodeURIComponent(previewFile.path)}`
+      : `/api/creator/oftv-projects/${project.id}/file-link?path=${encodeURIComponent(previewFile.path)}`
+    fetch(url)
       .then(r => r.json())
       .then(d => setPreviewSrc(d.link || ''))
       .catch(() => setPreviewSrc(''))
-  }, [previewFile, project.id])
+  }, [previewFile, previewKind, project.id, creatorId])
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -124,13 +138,49 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {project.editingPrefs && (
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0A0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>🎨 Creator's Standing Editing Preferences</div>
-              <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', background: 'rgba(232, 160, 160, 0.06)', border: '1px solid rgba(232, 160, 160, 0.15)', padding: '12px 14px', borderRadius: '10px' }}>
-                {project.editingPrefs}
-              </div>
-              <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+          {(project.editingPrefs || assets.length > 0) && (
+            <div style={{ background: 'rgba(232, 160, 160, 0.06)', border: '1px solid rgba(232, 160, 160, 0.15)', borderRadius: '12px', padding: '14px 16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0A0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>🎨 Creator's Standing Editing Preferences</div>
+              {project.editingPrefs && (
+                <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginBottom: assets.length > 0 ? '14px' : 0 }}>
+                  {project.editingPrefs}
+                </div>
+              )}
+              {assets.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#E8A0A0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Brand Assets ({assets.length})</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {assets.map((a, i) => {
+                      const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(a.name)
+                      const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(a.name) ? '🎞️'
+                        : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(a.name) ? '🖼️'
+                        : /\.(ttf|otf|woff|woff2)$/i.test(a.name) ? '🔤'
+                        : /\.(pdf)$/i.test(a.name) ? '📕' : '📄'
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => { setPreviewKind('asset'); setPreviewFile(a) }}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                            padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                            <span style={{ fontSize: '13px' }}>{icon}</span>
+                            <span style={{ fontSize: '12px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                            <span>{fmtSize(a.size)}</span>
+                            {isMedia && <span style={{ color: '#E8A0A0' }}>▶</span>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '10px' }}>
                 Applies to all this creator's long-form projects.
               </div>
             </div>
@@ -158,7 +208,7 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
                   return (
                     <div
                       key={i}
-                      onClick={isMedia ? () => setPreviewFile(f) : undefined}
+                      onClick={isMedia ? () => { setPreviewKind('project'); setPreviewFile(f) } : undefined}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
                         padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',

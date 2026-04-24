@@ -54,26 +54,31 @@ export async function GET(request) {
     }
   })
 
-  // Fetch editing preferences for any creators in the result set
+  // Fetch editing preferences + assets folder for any creators in the result set
   const creatorIdsInResults = [...new Set(projects.flatMap(p => p.creatorIds))]
-  const prefsByCreator = {}
+  const creatorMeta = {}
   if (creatorIdsInResults.length > 0) {
     try {
       const CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
       const creatorRecs = await fetchAirtableRecords(CREATORS_TABLE, {
-        fields: ['AKA', 'Creator', 'Long-Form Editing Preferences'],
+        fields: ['AKA', 'Creator', 'Long-Form Editing Preferences', 'Long-Form Assets Folder Path'],
       })
       for (const c of creatorRecs) {
         if (creatorIdsInResults.includes(c.id)) {
-          prefsByCreator[c.id] = c.fields?.['Long-Form Editing Preferences'] || ''
+          creatorMeta[c.id] = {
+            prefs: c.fields?.['Long-Form Editing Preferences'] || '',
+            assetsFolderPath: c.fields?.['Long-Form Assets Folder Path'] || '',
+          }
         }
       }
     } catch (err) {
-      console.warn('[admin/oftv-projects] Failed to fetch editing prefs:', err.message)
+      console.warn('[admin/oftv-projects] Failed to fetch creator meta:', err.message)
     }
   }
   for (const p of projects) {
-    p.editingPrefs = prefsByCreator[p.creatorIds[0]] || ''
+    const meta = creatorMeta[p.creatorIds[0]] || {}
+    p.editingPrefs = meta.prefs || ''
+    p.assetsFolderPath = meta.assetsFolderPath || ''
   }
 
   return NextResponse.json({ projects })
