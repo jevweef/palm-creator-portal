@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import ffmpegStatic from 'ffmpeg-static'
 import { writeFile, readFile, unlink, stat } from 'fs/promises'
 import { execFile } from 'child_process'
@@ -229,6 +230,7 @@ export async function POST(request) {
       cachedFrames,
       cachedDescription,
       tone = 'flirty',
+      engine = 'openai', // 'openai' | 'claude'
     } = body
 
     if (!mode) {
@@ -460,20 +462,62 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
       text: `\nRead the full sequence of frames to understand what the clip actually shows (motion, setting, outfit, pose). Generate ${count} on-screen text suggestions for the clip. Return JSON only.`,
     })
 
-    // 4. Call OpenAI
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    // 4. Call the chosen engine (OpenAI or Claude)
+    let raw = '{}'
+    let usage = null
+    let modelUsed = ''
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
-      temperature: 1.05,
-    })
+    if (engine === 'claude') {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      modelUsed = 'claude-sonnet-4-6'
+      // Convert OpenAI-shaped userContent to Anthropic-shaped content blocks
+      const claudeContent = userContent.map(block => {
+        if (block.type === 'text') return { type: 'text', text: block.text }
+        if (block.type === 'image_url') {
+          const url = block.image_url.url
+          if (url.startsWith('data:')) {
+            // data:image/jpeg;base64,XXXX
+            const m = url.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/)
+            if (m) {
+              return { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } }
+            }
+          }
+          return { type: 'image', source: { type: 'url', url } }
+        }
+        return block
+      })
 
-    const raw = completion.choices[0]?.message?.content || '{}'
+      const claudeResponse = await anthropic.messages.create({
+        model: modelUsed,
+        max_tokens: 2000,
+        temperature: 1.0,
+        system: systemPrompt + '\n\nIMPORTANT: Respond with ONLY a valid JSON object matching the schema above. No prose before or after.',
+        messages: [{ role: 'user', content: claudeContent }],
+      })
+      const textBlock = claudeResponse.content.find(b => b.type === 'text')
+      raw = textBlock?.text || '{}'
+      // Claude sometimes wraps in ```json ... ``` — strip that
+      raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+      usage = {
+        input_tokens: claudeResponse.usage?.input_tokens,
+        output_tokens: claudeResponse.usage?.output_tokens,
+      }
+    } else {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      modelUsed = 'gpt-4o'
+      const completion = await openai.chat.completions.create({
+        model: modelUsed,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 1.05,
+      })
+      raw = completion.choices[0]?.message?.content || '{}'
+      usage = completion.usage
+    }
+
     let parsed
     try {
       parsed = JSON.parse(raw)
@@ -481,7 +525,6 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
       return NextResponse.json({ error: 'Failed to parse AI response', raw }, { status: 500 })
     }
 
-    // Some responses nest the suggestions or use a different key — try to find them
     const suggestions = parsed.suggestions
       || parsed.captions
       || parsed.output?.suggestions
@@ -491,15 +534,16 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
     return NextResponse.json({
       mode,
       tone,
+      engine,
+      model: modelUsed,
       observed: parsed.observed || null,
       clipDescription: parsed.clipDescription || cachedDescription || null,
       suggestions,
       trainingExampleCount: trainingExamples.length,
-      // Only include frames on the first call (when we extracted them)
       analyzedFrames: hasCachedDescription ? undefined : targetFrames,
       videoDuration,
       usedCache: hasCachedDescription,
-      usage: completion.usage,
+      usage,
       rawResponse: suggestions.length === 0 ? parsed : undefined,
     })
   } catch (err) {

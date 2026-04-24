@@ -44,10 +44,13 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
   // If user changes mode or tone after generating, they need to click Update.
   const [generatedForMode, setGeneratedForMode] = useState(null)
   const [generatedForTone, setGeneratedForTone] = useState(null)
+  const [generatedWithEngine, setGeneratedWithEngine] = useState(null)
+  const [loadingEngine, setLoadingEngine] = useState(null) // which engine is loading
 
-  async function generate(selectedMode, selectedTone = tone) {
+  async function generate(selectedMode, selectedTone = tone, engine = 'openai') {
     setMode(selectedMode)
     setLoading(true)
+    setLoadingEngine(engine)
     setError('')
     setSuggestions(null)
     setObserved(null)
@@ -56,6 +59,7 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
       const payload = {
         mode: selectedMode,
         tone: selectedTone,
+        engine,
         creatorId,
         count: 5,
       }
@@ -85,10 +89,12 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
       if (data.rawResponse) setRawResponse(data.rawResponse)
       setGeneratedForMode(selectedMode)
       setGeneratedForTone(selectedTone)
+      setGeneratedWithEngine(engine)
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
+      setLoadingEngine(null)
     }
   }
 
@@ -195,24 +201,42 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
         </div>
       </div>
 
-      {/* Primary action button — Generate / Update / Refresh depending on state */}
+      {/* Engine buttons — GPT-4o and Sonnet side by side */}
       {mode && (
-        <button
-          onClick={() => generate(mode, tone)}
-          disabled={loading}
-          style={{
-            padding: '7px 14px', fontSize: '12px', fontWeight: 600,
-            background: settingsChanged ? '#a78bfa' : (suggestions?.length > 0 ? 'rgba(167, 139, 250, 0.15)' : '#a78bfa'),
-            color: settingsChanged ? '#fff' : (suggestions?.length > 0 ? '#a78bfa' : '#fff'),
-            border: '1px solid rgba(167, 139, 250, 0.4)',
-            borderRadius: '6px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            alignSelf: 'flex-start',
-          }}
-        >
-          {loading ? 'Analyzing…' : settingsChanged ? '↻ Update with new settings' : suggestions?.length > 0 ? '↻ Refresh' : '✨ Generate'}
-        </button>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {[
+            { engine: 'openai', label: 'GPT-4o', cost: '~2¢', color: '#10a37f' },
+            { engine: 'claude', label: 'Sonnet', cost: '~7¢', color: '#c47a4d' },
+          ].map(e => {
+            const isThisLoading = loadingEngine === e.engine
+            const isSelected = generatedWithEngine === e.engine && !settingsChanged
+            return (
+              <button
+                key={e.engine}
+                onClick={() => generate(mode, tone, e.engine)}
+                disabled={loading}
+                style={{
+                  padding: '7px 12px', fontSize: '12px', fontWeight: 600,
+                  background: isSelected ? e.color : `${e.color}18`,
+                  color: isSelected ? '#fff' : e.color,
+                  border: `1px solid ${e.color}`,
+                  borderRadius: '6px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading && !isThisLoading ? 0.4 : 1,
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                {isThisLoading ? 'Analyzing…' : (
+                  <>
+                    <span>{settingsChanged && generatedWithEngine === e.engine ? '↻ Update' : suggestions?.length > 0 && generatedWithEngine === e.engine ? '↻ Refresh' : '✨'}</span>
+                    <span>{e.label}</span>
+                    <span style={{ fontSize: '10px', opacity: 0.7 }}>{e.cost}</span>
+                  </>
+                )}
+              </button>
+            )
+          })}
+        </div>
       )}
 
 
