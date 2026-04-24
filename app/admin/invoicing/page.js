@@ -19,7 +19,7 @@ const STATUS_CONFIG = {
 function derivedStatus(record) {
   const raw = record.status || 'Draft'
   const paid = record.amountPaid || 0
-  const total = record.earnings || 0
+  const total = record.totalCommission || 0 // what the creator owes Palm
   if (raw === 'Paid') return 'Paid'
   if (raw === 'Sent' && paid > 0 && paid < total) return 'Partial'
   return raw
@@ -194,7 +194,8 @@ function PaymentCell({ record, onSave, disabled }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
   const paid = record.amountPaid || 0
-  const total = record.earnings || 0
+  // Creator owes Palm the management fee (totalCommission), not the revenue
+  const total = record.totalCommission || 0
   const remaining = Math.max(0, total - paid)
 
   function startEdit() {
@@ -206,7 +207,7 @@ function PaymentCell({ record, onSave, disabled }) {
   async function commit() {
     const num = parseFloat(value)
     if (!isNaN(num) && num !== paid) {
-      // Auto-update status based on amount
+      // Auto-update status based on amount vs mgmt fee owed
       const fields = { amountPaid: num }
       if (num >= total && total > 0) fields.status = 'Paid'
       else if (num > 0) fields.status = 'Sent' // will display as Partial via derivedStatus
@@ -603,7 +604,7 @@ export default function InvoicingPage() {
         // When marking Paid, also set amountPaid = earnings so remaining goes to $0
         const rec = records.find(r => r.id === id)
         const fields = { status }
-        if (status === 'Paid' && rec) fields.amountPaid = rec.earnings || 0
+        if (status === 'Paid' && rec) fields.amountPaid = rec.totalCommission || 0
         if (status === 'Draft') fields.amountPaid = 0
         const res = await fetch('/api/admin/invoicing', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
