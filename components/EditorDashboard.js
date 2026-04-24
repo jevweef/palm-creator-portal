@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
+import CaptionSuggestions from '@/components/CaptionSuggestions'
 
 // ─── Lazy-loaded Creator DNA Modal ────────────────────────────────────────────
 
@@ -83,17 +84,17 @@ function CreatorDnaModal({ creatorId, creatorName, onClose }) {
 
 // ─── Library helpers ───────────────────────────────────────────────────────────
 
-function rawDropboxUrl(url) {
+export function rawDropboxUrl(url) {
   if (!url) return ''
   const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
   return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
-function isVideo(url) { return !!url && /\.(mp4|mov|avi|webm|mkv)/i.test(url) }
-function isPhoto(url) { return !!url && /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url) }
+export function isVideo(url) { return !!url && /\.(mp4|mov|avi|webm|mkv)/i.test(url) }
+export function isPhoto(url) { return !!url && /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url) }
 
-const LIB_PAGE_SIZE = 15
+export const LIB_PAGE_SIZE = 15
 
-function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
+export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
   const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
@@ -143,7 +144,7 @@ function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
   )
 }
 
-function LibPickerPaginator({ page, totalPages, onChange }) {
+export function LibPickerPaginator({ page, totalPages, onChange }) {
   if (totalPages <= 1) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -619,12 +620,22 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
   const switchTab = key => { setActiveTab(key); setPage(1) }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '20px' }}
+    <div className="lib-picker-overlay" style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '20px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      {/* Mobile overrides: tighter padding + 2-column grid on narrow viewports.
+          Desktop behavior is unchanged (modal stays padded, grid flows wider). */}
+      <style>{`
+        @media (max-width: 640px) {
+          .lib-picker-overlay { padding: 8px !important; }
+          .lib-picker-header { padding: 12px 14px 10px !important; flex-wrap: wrap !important; gap: 8px !important; }
+          .lib-picker-body { padding: 12px 12px !important; }
+          .lib-picker-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+        }
+      `}</style>
       <div style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+        <div className="lib-picker-header" style={{ padding: '20px 28px 16px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>Unreviewed Library</div>
             <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{creator.name}</div>
@@ -660,14 +671,14 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
         </div>
 
         {/* Body */}
-        <div style={{ overflowY: 'auto', padding: '20px 28px', flex: 1 }}>
+        <div className="lib-picker-body" style={{ overflowY: 'auto', padding: '20px 28px', flex: 1 }}>
           {loading && <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>Loading library…</div>}
           {err && <div style={{ color: '#E87878', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>{err}</div>}
           {!loading && !err && library?.length === 0 && (
             <div style={{ color: 'var(--foreground-subtle)', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>No unreviewed clips found for {creator.name}.</div>
           )}
           {!loading && paged.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+            <div className="lib-picker-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
               {paged.map(asset => (
                 <LibraryCard key={asset.id} asset={asset} onAssign={handleAssign} assigning={assigning} forcePhoto={activeTab === 'photos'} />
               ))}
@@ -1090,14 +1101,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   }
 
   // Editor submit tool state
-  const [editorTab, setEditorTab] = useState('upload') // 'create' | 'upload'
-  const [caption, setCaption] = useState('')
-  const [yPosition, setYPosition] = useState(75)
-  const [rendering, setRendering] = useState(false)
-  const [renderId, setRenderId] = useState(null)
-  const [renderStatus, setRenderStatus] = useState('idle') // idle | rendering | succeeded | failed
-  const [renderUrl, setRenderUrl] = useState(null)
-  const [renderErr, setRenderErr] = useState('')
+  const [editorTab, setEditorTab] = useState('upload') // 'upload' | 'asis'
   const [uploadUrl, setUploadUrl] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
   const [uploadProgress, setUploadProgress] = useState('')
@@ -1136,27 +1140,6 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
       setStarting(false)
     }
   }
-
-  // Poll for render completion
-  useEffect(() => {
-    if (!renderId || renderStatus !== 'rendering') return
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/editor/render/${renderId}`)
-        const data = await res.json()
-        if (data.status === 'succeeded') {
-          setRenderStatus('succeeded')
-          setRenderUrl(data.url)
-          clearInterval(interval)
-        } else if (data.status === 'failed') {
-          setRenderStatus('failed')
-          setRenderErr(data.errorMessage || 'Render failed')
-          clearInterval(interval)
-        }
-      } catch {}
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [renderId, renderStatus])
 
   const handleFileUpload = async (file) => {
     if (!file) return
@@ -1210,31 +1193,6 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
       setUploadError(err.message)
     } finally {
       setUploadProgress('')
-    }
-  }
-
-  const handleRender = async () => {
-    const clipUrl = rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '')
-    if (!clipUrl) { setRenderErr('No clip URL found'); return }
-    if (!caption.trim()) { setRenderErr('Enter a caption first'); return }
-    setRendering(true)
-    setRenderErr('')
-    setRenderUrl(null)
-    setRenderStatus('rendering')
-    try {
-      const res = await fetch('/api/editor/render', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clipUrl, caption: caption.trim(), yPosition, safeZone: true }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Render failed')
-      setRenderId(data.renderId)
-    } catch (err) {
-      setRenderStatus('failed')
-      setRenderErr(err.message)
-    } finally {
-      setRendering(false)
     }
   }
 
@@ -1442,92 +1400,22 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             )}
             {slot.type === 'inProgress' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* AI Caption Suggestions — brainstorm, copy to your editor of choice */}
+                <CaptionSuggestions
+                  thumbnailUrl={task?.asset?.thumbnail}
+                  videoUrl={assetRawUrl}
+                  creatorId={creator?.id}
+                />
+
                 {/* Tab switcher */}
                 <div style={{ display: 'flex', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px', gap: '3px' }}>
-                  {['create', 'upload', 'asis'].map(tab => (
+                  {['upload', 'asis'].map(tab => (
                     <button key={tab} onClick={() => setEditorTab(tab)}
                       style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: editorTab === tab ? 'rgba(232, 160, 160, 0.05)' : 'transparent', color: editorTab === tab ? 'rgba(255,255,255,0.08)' : '#999' }}>
-                      {tab === 'create' ? 'Creatomate' : tab === 'upload' ? 'Upload' : 'Post As Is'}
+                      {tab === 'upload' ? 'Upload' : 'Post As Is'}
                     </button>
                   ))}
                 </div>
-
-                {/* CREATE tab */}
-                {editorTab === 'create' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Caption Text</div>
-                      <textarea
-                        value={caption}
-                        onChange={e => setCaption(e.target.value)}
-                        placeholder="Type the on-screen text..."
-                        rows={2}
-                        style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: 'var(--foreground)', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                      />
-                    </div>
-
-                    {/* Vertical position picker */}
-                    <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                        Position — {yPosition <= 25 ? 'Top' : yPosition <= 55 ? 'Middle' : 'Lower Third'}
-                      </div>
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        {/* Frame preview */}
-                        <div style={{ position: 'relative', width: '54px', height: '96px', background: '#000', borderRadius: '5px', overflow: 'hidden', flexShrink: 0, border: '1px solid transparent' }}>
-                          {task?.asset?.thumbnail && (
-                            <img src={task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.35 }} />
-                          )}
-                          {/* Safe zone guides */}
-                          <div style={{ position: 'absolute', inset: '8% 8%', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '2px', pointerEvents: 'none' }} />
-                          {/* Text bar indicator */}
-                          <div style={{ position: 'absolute', left: '8%', right: '8%', top: `${yPosition}%`, transform: 'translateY(-50%)', background: 'rgba(232,143,172,0.85)', borderRadius: '2px', padding: '2px 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '10px' }}>
-                            <span style={{ fontSize: '5px', fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                              {caption || 'TEXT'}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Vertical slider */}
-                        <input
-                          type="range" min={5} max={95} value={yPosition}
-                          onChange={e => setYPosition(Number(e.target.value))}
-                          style={{ writingMode: 'vertical-lr', height: '96px', width: '20px', accentColor: 'var(--palm-pink)', cursor: 'pointer', flexShrink: 0 }}
-                        />
-                        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{yPosition}%</div>
-                      </div>
-                    </div>
-
-                    {/* Render result */}
-                    {renderUrl && (
-                      <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid transparent' }}>
-                        <video src={renderUrl} controls muted loop playsInline style={{ width: '100%', display: 'block', maxHeight: '180px', objectFit: 'contain', background: '#000' }} />
-                      </div>
-                    )}
-
-                    {renderErr && <div style={{ fontSize: '12px', color: '#E87878' }}>{renderErr}</div>}
-
-                    {renderStatus === 'rendering' && (
-                      <div style={{ fontSize: '12px', color: 'var(--palm-pink)', textAlign: 'center' }}>Rendering... this takes ~30–40s</div>
-                    )}
-
-                    {!renderUrl ? (
-                      <button onClick={handleRender} disabled={rendering || renderStatus === 'rendering' || !caption.trim()}
-                        style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '8px', cursor: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 'not-allowed' : 'pointer', opacity: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 0.5 : 1 }}>
-                        {rendering ? 'Starting...' : renderStatus === 'rendering' ? 'Rendering...' : 'Render ↗'}
-                      </button>
-                    ) : (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => { setRenderUrl(null); setRenderId(null); setRenderStatus('idle') }}
-                          style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
-                          Re-render
-                        </button>
-                        <button onClick={() => handleSave(renderUrl)} disabled={saving || saved}
-                          style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saved ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#7DD3A4' : 'var(--palm-pink)', border: `1px solid ${saved ? 'rgba(125, 211, 164, 0.2)' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved) ? 'not-allowed' : 'pointer' }}>
-                          {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save & Submit ↑'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* UPLOAD tab */}
                 {editorTab === 'upload' && (
@@ -1590,7 +1478,6 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   </div>
                 )}
 
-                {saveErr && editorTab === 'create' && <div style={{ fontSize: '12px', color: '#E87878' }}>{saveErr}</div>}
               </div>
             )}
             {isClip && (
@@ -1792,14 +1679,18 @@ function CustomCalendar({ selectedDate, todayStr, onSelect, onClose, dateColors 
   )
 }
 
-function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updating, onRefresh, onSlotClick }) {
+function VideoSlot({ slotLabel, slot, isNext, isLocked, isPastDay, creator, onAction, updating, onRefresh, onSlotClick }) {
   const isNeedsRevision = slot.type === 'inProgress' && slot.task?.adminReviewStatus === 'Needs Revision'
+  // Past-day open slots are frozen — editor can't start an edit for a day that's already over.
+  const isPastEmpty = isPastDay && slot.type === 'empty'
   const typeStyle = isNeedsRevision
     ? { borderColor: 'transparent', bg: 'rgba(232, 120, 120, 0.08)', hoverBg: 'rgba(232, 120, 120, 0.12)', dotColor: '#E87878', label: 'Needs Revision' }
     : slot.type === 'done'
     ? doneSlotStyle(slot.task)
     : (slot.type === 'toDo' && slot.task?.isInspoUpload)
     ? { borderColor: 'transparent', bg: 'rgba(232, 200, 120, 0.06)', hoverBg: 'rgba(232, 200, 120, 0.1)', dotColor: '#E8C878', label: 'Creator clip uploaded' }
+    : isPastEmpty
+    ? { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-solid)', dotColor: 'var(--foreground-subtle)', label: 'Slot missed' }
     : {
         inProgress: { borderColor: 'transparent', bg: 'rgba(120, 180, 232, 0.06)', hoverBg: 'rgba(120, 180, 232, 0.1)', dotColor: '#78B4E8', label: 'In editing' },
         toDo:       { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-elevated)', dotColor: 'var(--palm-pink)', label: 'Ready to edit' },
@@ -1808,14 +1699,14 @@ function VideoSlot({ slotLabel, slot, isNext, isLocked, creator, onAction, updat
       }[slot.type] || { borderColor: 'transparent', bg: 'var(--card-bg-solid)', hoverBg: 'var(--card-bg-elevated)', dotColor: 'var(--foreground-subtle)', label: '' }
 
   const isDone = slot.type === 'done'
-  const clickable = true
-  const opacity = 1
+  const clickable = !isPastEmpty
+  const opacity = isPastEmpty ? 0.45 : 1
 
   return (
     <div
       className="editor-slot-card"
       onClick={clickable ? () => onSlotClick(slot) : undefined}
-      style={{ border: 'none', background: typeStyle.bg, borderRadius: '12px', padding: '14px 16px', minHeight: '90px', overflow: 'hidden', display: 'flex', gap: '12px', alignItems: 'center', cursor: clickable ? 'pointer' : 'default', transition: 'background 0.3s var(--ease-stripe)', opacity, boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)' }}
+      style={{ border: 'none', background: typeStyle.bg, borderRadius: '12px', padding: '14px 16px', minHeight: '90px', overflow: 'hidden', display: 'flex', gap: '12px', alignItems: 'center', cursor: clickable ? 'pointer' : 'not-allowed', transition: 'background 0.3s var(--ease-stripe)', opacity, boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)' }}
       onMouseEnter={e => { if (clickable) e.currentTarget.style.background = typeStyle.hoverBg }}
       onMouseLeave={e => { e.currentTarget.style.background = typeStyle.bg }}
     >
@@ -2180,6 +2071,7 @@ function CreatorSection({ creator, onRefresh }) {
             const d = new Date(selectedDate + 'T12:00:00')
             const dateLabel = `${d.getMonth() + 1}/${d.getDate()}`
             const nextActionableIndex = slots.findIndex(s => s.type !== 'done')
+            const isPastDay = selectedDate < todayDateStr
             return slots.map((slot, i) => {
               const isNext = i === nextActionableIndex
               const isLocked = slot.type !== 'done' && !isNext
@@ -2202,6 +2094,7 @@ function CreatorSection({ creator, onRefresh }) {
                   slot={slot}
                   isNext={isNext}
                   isLocked={isLocked}
+                  isPastDay={isPastDay}
                   creator={creator}
                   onAction={handleAction}
                   updating={updating}

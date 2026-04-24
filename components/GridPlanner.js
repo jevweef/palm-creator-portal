@@ -70,9 +70,12 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   // These are the real IG feed thumbnails so the grid reads like the account's actual page.
   const scrapedCells = (account?.scrapedFeed || []).map(s => ({
     id: `scraped-${s.url}`,
+    name: s.caption ? s.caption.slice(0, 60) : 'Live IG post',
     thumbnail: s.thumbnail,
     postLink: s.url,
     postedAt: s.postedAt,
+    caption: s.caption || '',
+    likes: s.likes,
     _scraped: true,
   }))
 
@@ -183,19 +186,26 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           <div style={{ padding: '5px 8px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', borderRadius: '6px', fontSize: '11px' }}>▼</div>
         </div>
         {(account?.scrapedFeedUpdated || account?.scrapedError) && (
-          <div style={{ fontSize: '9px', marginTop: '6px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: '6px' }}>
+            <div style={{ fontSize: '9px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+              {account?.scrapedError && (
+                <span
+                  title={account.scrapedError}
+                  style={{ color: '#E87878', fontWeight: 600, background: 'rgba(232, 120, 120, 0.06)', padding: '1px 6px', borderRadius: '3px', border: '1px solid #fecaca' }}
+                >
+                  ⚠ last refresh failed
+                </span>
+              )}
+              {account?.scrapedFeedUpdated && (
+                <span style={{ color: 'var(--foreground-subtle)' }}>
+                  scraped {relativeTime(account.scrapedFeedUpdated)}
+                </span>
+              )}
+            </div>
             {account?.scrapedError && (
-              <span
-                title={account.scrapedError}
-                style={{ color: '#E87878', fontWeight: 600, background: 'rgba(232, 120, 120, 0.06)', padding: '1px 6px', borderRadius: '3px', border: '1px solid #fecaca' }}
-              >
-                ⚠ last refresh failed
-              </span>
-            )}
-            {account?.scrapedFeedUpdated && (
-              <span style={{ color: 'var(--foreground-subtle)' }}>
-                scraped {relativeTime(account.scrapedFeedUpdated)}
-              </span>
+              <div style={{ fontSize: '9px', marginTop: '4px', color: '#E87878', textAlign: 'right', fontFamily: 'monospace', wordBreak: 'break-word', opacity: 0.8 }}>
+                {account.scrapedError}
+              </div>
             )}
           </div>
         )}
@@ -672,23 +682,23 @@ export default function GridPlanner() {
   }
 
   // Refresh scraped IG feed for all of this creator's accounts.
-  // Shift-click forces a re-scrape even if cached within 6h.
+  // Clicking this button always forces a fresh scrape — the whole point is
+  // "I want the latest NOW". The 6h cache on the API is for programmatic
+  // callers; user clicks always bypass it.
   const [refreshing, setRefreshing] = useState(false)
-  const handleRefreshFeed = async (e) => {
+  const handleRefreshFeed = async () => {
     if (!selectedCreatorId) return
-    const force = e?.shiftKey === true
     setRefreshing(true)
     try {
       const res = await fetch('/api/admin/grid-planner/refresh-feed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId: selectedCreatorId, force }),
+        body: JSON.stringify({ creatorId: selectedCreatorId, force: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Refresh failed')
       const parts = []
       if (data.refreshed) parts.push(`${data.refreshed} scraped`)
-      if (data.skipped) parts.push(`${data.skipped} cached (< 6h)`)
       if (data.failed) parts.push(`${data.failed} failed`)
       if (data.totalLinked) parts.push(`🔗 ${data.totalLinked} planned → posted`)
       showToast(parts.join(' · ') || 'Nothing to do')
@@ -822,7 +832,7 @@ export default function GridPlanner() {
         <button
           onClick={handleRefreshFeed}
           disabled={refreshing || !selectedCreatorId}
-          title="Pull the latest posts + profile from each IG account. Skips anything scraped < 6h ago. Shift-click to force re-scrape."
+          title="Pull the latest posts + profile from each IG account (always forces a fresh scrape)."
           style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? 'rgba(255,255,255,0.04)' : 'rgba(232, 160, 160, 0.05)', color: refreshing ? '#bbb' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
         >
           {refreshing ? 'Scraping…' : '⟳ Refresh IG Feed'}
@@ -928,9 +938,17 @@ export default function GridPlanner() {
 // and a "Send to Telegram" action. This is where posts actually get sent now
 // (Post Prep only preps — no send action there anymore).
 function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend }) {
-  const canSend = post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
+  const isScraped = !!post._scraped
+  // Scraped cells are just IG feed items — never sendable, never have an
+  // Airtable Status. Show them as "Live on IG" with a link out.
+  const effectiveStatus = isScraped ? 'Live on IG' : (post.status || 'Prepping')
+  const canSend = !isScraped && post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
   const scheduledLabel = post.scheduledDate
     ? new Date(post.scheduledDate).toLocaleDateString('en-US', {
+        timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+      })
+    : post.postedAt
+    ? new Date(post.postedAt).toLocaleDateString('en-US', {
         timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
       })
     : null
@@ -940,7 +958,8 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
     'Send Failed': { bg: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' },
     'Posted': { bg: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
     'Prepping': { bg: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04', border: 'rgba(202, 138, 4, 0.3)' },
-  }[post.status] || { bg: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: 'rgba(255,255,255,0.08)' }
+    'Live on IG': { bg: 'rgba(240, 236, 232, 0.08)', color: 'rgba(240, 236, 232, 0.85)', border: 'rgba(240, 236, 232, 0.2)' },
+  }[effectiveStatus] || { bg: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: 'rgba(255,255,255,0.08)' }
 
   return (
     <div
@@ -989,7 +1008,7 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
             background: statusStyle.bg, color: statusStyle.color,
             border: `1px solid ${statusStyle.border}`,
           }}>
-            {post.status || 'Prepping'}
+            {effectiveStatus}
           </span>
           {post.platform?.map(p => (
             <span key={p} style={{

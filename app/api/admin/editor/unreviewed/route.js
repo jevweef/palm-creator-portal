@@ -16,7 +16,7 @@ export async function GET() {
     const assets = await fetchAirtableRecords('Assets', {
       filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK()), {Source Type}!='Inspo Upload')",
       fields: [
-        'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
+        'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
         'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators',
         'Upload Week', 'Created Time',
       ],
@@ -52,6 +52,7 @@ export async function GET() {
         name: f['Asset Name'] || '',
         pipelineStatus: f['Pipeline Status'] || '',
         sourceType: f['Source Type'] || '',
+        assetType: f['Asset Type'] || '',
         dropboxLink: dropboxLinks[0] || '',
         dropboxLinks,
         dropboxPath: f['Dropbox Path (Current)'] || '',

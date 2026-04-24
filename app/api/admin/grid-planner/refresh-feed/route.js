@@ -38,69 +38,143 @@ async function scrapeIgProfile(handle) {
   }
 }
 
-async function scrapeIgFeed(handle) {
-  if (!RAPIDAPI_KEY) throw new Error('RAPIDAPI_KEY not set')
-  const cleanHandle = handle.replace(/^@/, '').trim()
-  if (!cleanHandle) return []
+// Normalize a RapidAPI media node into our cell shape.
+// /p/{code}/ works for both reels AND photo posts (IG redirects /reel/ → /p/).
+// Using /p/ universally avoids 404s when the scraper classifies a post as a
+// reel but IG deleted the reel or it was actually a regular post.
+function normalizeMediaNode(node) {
+  const media = node?.node?.media || node?.media || node || {}
+  const code = media.code || media.shortcode || media.shortcode_media?.shortcode
+  if (!code) return null
+  const takenAt = media.taken_at || media.taken_at_timestamp
+  const caption =
+    media?.caption?.text ||
+    media?.edge_media_to_caption?.edges?.[0]?.node?.text ||
+    ''
+  const likes =
+    media?.like_count ||
+    media?.edge_media_preview_like?.count ||
+    media?.edge_liked_by?.count ||
+    0
+  const thumbnail =
+    media?.image_versions2?.candidates?.[0]?.url ||
+    media?.display_uri ||
+    media?.display_url ||
+    media?.thumbnail_url ||
+    ''
+  const mediaType = media.media_type // 1 photo, 2 video, 8 carousel
+  const isVideo = mediaType === 2 || !!media.video_versions || !!media.is_video
+  return {
+    url: `https://www.instagram.com/p/${code}/`,
+    code,
+    thumbnail,
+    postedAt: takenAt
+      ? new Date((typeof takenAt === 'number' ? takenAt * 1000 : Date.parse(takenAt))).toISOString()
+      : null,
+    likes,
+    caption: caption.slice(0, 200),
+    isVideo,
+  }
+}
 
+async function rapidPost(endpoint, body) {
+  const res = await fetch(`https://${RAPIDAPI_HOST}/${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'x-rapidapi-host': RAPIDAPI_HOST,
+      'x-rapidapi-key': RAPIDAPI_KEY,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
+  })
+  if (!res.ok) throw new Error(`${endpoint} ${res.status}`)
+  const data = await res.json()
+  if (data.error) throw new Error(`${endpoint}: ${data.error}`)
+  return data
+}
+
+// Scrape REELS (vertical short videos). Paginated.
+async function scrapeReels(cleanHandle) {
   const items = []
   let paginationToken = null
   for (let page = 0; page < 3; page++) {
     let body = `username_or_url=${encodeURIComponent(cleanHandle)}&amount=50`
     if (paginationToken) body += `&pagination_token=${paginationToken}`
-    const res = await fetch(`https://${RAPIDAPI_HOST}/get_ig_user_reels.php`, {
-      method: 'POST',
-      headers: {
-        'x-rapidapi-host': RAPIDAPI_HOST,
-        'x-rapidapi-key': RAPIDAPI_KEY,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body,
-    })
-    if (!res.ok) throw new Error(`RapidAPI ${res.status} for @${cleanHandle}`)
-    const data = await res.json()
-    if (data.error) throw new Error(`RapidAPI: ${data.error}`)
-
-    const reels = data.reels || []
+    const data = await rapidPost('get_ig_user_reels.php', body)
+    const reels = data.reels || data.items || []
     for (const node of reels) {
-      const media = node?.node?.media || node?.media || {}
-      const code = media.code
-      if (!code) continue
-      const takenAt = media.taken_at
-      const caption = media?.caption?.text || ''
-      const likes = media?.like_count || media?.edge_media_preview_like?.count || 0
-      const thumbnail =
-        media?.image_versions2?.candidates?.[0]?.url ||
-        media?.display_uri ||
-        media?.display_url ||
-        ''
-      items.push({
-        url: `https://www.instagram.com/reel/${code}/`,
-        code,
-        thumbnail,
-        postedAt: takenAt ? new Date(takenAt * 1000).toISOString() : null,
-        likes,
-        caption: caption.slice(0, 200),
-      })
+      const item = normalizeMediaNode(node)
+      if (item) items.push(item)
     }
     paginationToken = data.pagination_token
     if (!paginationToken || reels.length === 0 || items.length >= 30) break
   }
-  const byUrl = {}
-  for (const it of items) byUrl[it.url] = it
-  return Object.values(byUrl)
+  return items
+}
+
+// Scrape regular FEED POSTS (photos, carousels, videos in the grid tab).
+// Reels live in a separate endpoint on IG. We need both to match what the
+// admin actually sees on the profile page.
+async function scrapePosts(cleanHandle) {
+  const items = []
+  let paginationToken = null
+  for (let page = 0; page < 3; page++) {
+    let body = `username_or_url=${encodeURIComponent(cleanHandle)}&amount=50`
+    if (paginationToken) body += `&pagination_token=${paginationToken}`
+    // Endpoint naming varies across RapidAPI scrapers; try the common one first.
+    const data = await rapidPost('get_ig_user_posts.php', body)
+    const posts = data.posts || data.items || data.data || []
+    for (const node of posts) {
+      const item = normalizeMediaNode(node)
+      if (item) items.push(item)
+    }
+    paginationToken = data.pagination_token
+    if (!paginationToken || posts.length === 0 || items.length >= 30) break
+  }
+  return items
+}
+
+async function scrapeIgFeed(handle) {
+  if (!RAPIDAPI_KEY) throw new Error('RAPIDAPI_KEY not set')
+  const cleanHandle = handle.replace(/^@/, '').trim()
+  if (!cleanHandle) return []
+
+  // Fetch reels + posts in parallel. If either fails, we still return what we
+  // got from the other so the grid at least shows something.
+  const [reelResult, postsResult] = await Promise.allSettled([
+    scrapeReels(cleanHandle),
+    scrapePosts(cleanHandle),
+  ])
+
+  const reels = reelResult.status === 'fulfilled' ? reelResult.value : []
+  const posts = postsResult.status === 'fulfilled' ? postsResult.value : []
+
+  // If BOTH failed, throw so the caller records the error.
+  if (reelResult.status === 'rejected' && postsResult.status === 'rejected') {
+    throw new Error(reelResult.reason?.message || postsResult.reason?.message || 'scrape failed')
+  }
+
+  // Combine and dedupe by shortcode (some items appear in both feeds).
+  const byCode = new Map()
+  for (const it of [...posts, ...reels]) {
+    if (!byCode.has(it.code)) byCode.set(it.code, it)
+  }
+  return Array.from(byCode.values()).sort((a, b) =>
+    new Date(b.postedAt || 0) - new Date(a.postedAt || 0)
+  )
 }
 
 // ─── Accumulate helpers ────────────────────────────────────────────────────────
 
-// Merge newly-scraped posts into the existing cached array. Dedup by URL.
-// New posts win on the merge so updated likes/captions flow in; existing posts
-// the scraper didn't return are preserved (IG API pagination may drop older ones).
+// When the scraper returns a non-empty result, REPLACE the cached feed with it.
+// Previously we merged, which meant deleted IG posts lingered in the grid
+// forever (and produced broken /reel/ links). Fresh wins: if IG says these
+// are the current top 30 posts, those are what we show.
+// If fresh is empty (API blip) we keep existing so we don't wipe data on a
+// transient failure.
 function mergeFeeds(existing, fresh) {
-  const byUrl = new Map()
-  for (const p of existing || []) if (p?.url) byUrl.set(p.url, p)
-  for (const p of fresh || []) if (p?.url) byUrl.set(p.url, p)
-  return Array.from(byUrl.values()).sort((a, b) =>
+  if (!fresh || fresh.length === 0) return existing || []
+  return [...fresh].sort((a, b) =>
     new Date(b.postedAt || 0) - new Date(a.postedAt || 0)
   )
 }
@@ -262,9 +336,15 @@ export async function POST(request) {
           scrapeIgFeed(handle),
         ])
 
-        // Merge fresh into existing (never destroy known-good posts)
+        // Merge fresh into existing (fresh replaces when non-empty)
         const mergedFeed = mergeFeeds(existingFeed, fresh)
-        const newOnes = fresh.filter(f => !existingFeed.some(e => e.url === f.url))
+        // Compare by code, not URL — we recently changed URL format from
+        // /reel/{code}/ to /p/{code}/ so full-URL comparison would flag
+        // everything as "new" on the first post-format migration.
+        const existingCodes = new Set(
+          (existingFeed || []).map(e => e.code || (e.url || '').split('/').filter(Boolean).pop())
+        )
+        const newOnes = fresh.filter(f => !existingCodes.has(f.code))
 
         // Auto-link any newly-seen scraped posts to planned Post records
         const { linked } = newOnes.length

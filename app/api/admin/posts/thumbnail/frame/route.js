@@ -66,35 +66,56 @@ export async function POST(request) {
     // Clamp timestamp — hard cap just in case
     const safeTs = Math.max(0, Math.min(Number(timestamp) || 0, 9999))
 
+    // HDR → SDR tonemap chain. iPhone/Android videos are shot in HDR
+    // (BT.2020 / HLG / PQ); the browser tonemaps on display so videos look
+    // correct in <video>, but ffmpeg extracting a raw frame without tonemapping
+    // produces washed-out / warm / oversaturated frames that don't match what
+    // the user saw when picking the timestamp.
+    //
+    // Chain: convert to linear light (auto-detects input transfer from stream
+    // metadata) → tonemap into SDR range → convert back to BT.709 → output
+    // yuv420p for JPEG. For genuinely SDR BT.709 inputs this is near-no-op
+    // (tonemap=mobius with desat=0 passes in-range values through).
+    const colorFix = 'zscale=t=linear:npl=100,tonemap=tonemap=mobius:desat=0:param=0.6,zscale=t=bt709:m=bt709:p=bt709:r=tv,format=yuv420p'
+    const simpleFormat = 'format=yuv420p'
+
     // Cascade of strategies. First one to produce a non-empty JPEG wins.
     // Strategy matters because MOV/MP4 files from phones often report a longer
     // duration than they actually have decodable frames for, and seeking near
     // the end can land past the last keyframe → no output.
-    const mkArgs = (extraPreInput, extraPostInput) => [
+    //
+    // Each seek strategy is tried first with the HDR-aware colorFix filter.
+    // If it fails (some inputs/builds choke on zscale+tonemap), we retry the
+    // same seek with the simple format filter as fallback so we don't lose
+    // the capture feature when tonemap isn't applicable.
+    const mkArgs = (extraPreInput, extraPostInput, vfilter) => [
       '-y',
       ...extraPreInput,
       '-i', inputPath,
       ...extraPostInput,
       '-frames:v', '1',
       '-update', '1',
+      '-vf', vfilter,
+      '-pix_fmt', 'yuvj420p', // full-range JPEG — matches what <video> displays
       '-q:v', '2',
       outputPath,
     ]
 
-    const strategies = [
-      // 1. Input seek at exact timestamp (slow but precise)
-      { name: 'input-seek', args: mkArgs([], ['-ss', String(safeTs)]) },
-      // 2. Output seek at exact timestamp (fast, uses nearest keyframe)
-      { name: 'output-seek', args: mkArgs(['-ss', String(safeTs)], []) },
-      // 3. Back off 1 second
-      { name: 'back-1s', args: mkArgs([], ['-ss', String(Math.max(0, safeTs - 1))]) },
-      // 4. Back off 3 seconds
-      { name: 'back-3s', args: mkArgs([], ['-ss', String(Math.max(0, safeTs - 3))]) },
-      // 5. Grab the LAST decodable frame (from-end seek)
-      { name: 'sseof', args: mkArgs(['-sseof', '-0.5'], []) },
-      // 6. First frame (absolute fallback — always produces something if the file is valid)
-      { name: 'first-frame', args: mkArgs([], []) },
+    const seekPairs = [
+      { name: 'input-seek', pre: [], post: ['-ss', String(safeTs)] },
+      { name: 'output-seek', pre: ['-ss', String(safeTs)], post: [] },
+      { name: 'back-1s', pre: [], post: ['-ss', String(Math.max(0, safeTs - 1))] },
+      { name: 'back-3s', pre: [], post: ['-ss', String(Math.max(0, safeTs - 3))] },
+      { name: 'sseof', pre: ['-sseof', '-0.5'], post: [] },
+      { name: 'first-frame', pre: [], post: [] },
     ]
+
+    // For each seek, try HDR-safe chain first, then simple format fallback.
+    const strategies = []
+    for (const s of seekPairs) {
+      strategies.push({ name: `${s.name}+tonemap`, args: mkArgs(s.pre, s.post, colorFix) })
+      strategies.push({ name: `${s.name}+simple`, args: mkArgs(s.pre, s.post, simpleFormat) })
+    }
 
     let finalResult = null
     let usedStrategy = null

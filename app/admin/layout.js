@@ -21,6 +21,7 @@ const ADMIN_NAV = [
     { key: 'postprep', label: 'Post Prep' },
     { key: 'grid', label: 'Grid Planner' },
     { key: 'library', label: 'Creator Library' },
+    { key: 'oftv', label: 'OFTV Projects' },
     { key: 'longform', label: 'Long Form' },
   ]},
   { href: '/admin/creators', label: 'Creators', icon: '🎭', children: [
