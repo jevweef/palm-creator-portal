@@ -373,31 +373,33 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
 // Unassigned column — phone-shaped container that sits in the same horizontal
 // row as the account phones. Renders each task group as a tile in a 3-wide IG-
-// style grid, stacking down. Counter badge shows remaining instances (e.g.,
-// "3" initially, drops to "2" after dragging onto one grid).
-function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd, smmMode = false }) {
+// style grid. Click a tile to "pick up" a reel; then click any account phone
+// to place it. Counter badge shows remaining instances.
+function UnassignedTray({ groups, accounts, selectedTaskKey, onSelectTask, smmMode = false }) {
   const visibleGroups = smmMode
     ? groups.filter(g => g.samplePost?.thumbnail)
     : groups
   const totalSlotsRemaining = visibleGroups.reduce((s, g) => s + g.remaining, 0)
+  const hasSelection = !!selectedTaskKey
 
   return (
     <div style={{
       width: '320px', flexShrink: 0,
       background: 'var(--card-bg-solid)',
       borderRadius: '32px',
-      border: '10px solid #1a1a1a',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+      border: hasSelection ? '10px solid var(--palm-pink)' : '10px solid #1a1a1a',
+      boxShadow: hasSelection ? '0 0 30px rgba(232,160,160,0.35)' : '0 20px 40px rgba(0,0,0,0.15)',
       overflow: 'hidden',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
     }}>
-      {/* Notch — matches phone frames */}
+      {/* Notch */}
       <div style={{ background: 'rgba(255,255,255,0.08)', height: '18px', position: 'relative' }}>
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: '4px',
           width: '100px', height: '14px', background: '#000', borderRadius: '8px' }} />
       </div>
 
-      {/* Header block */}
+      {/* Header */}
       <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
         <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--palm-pink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span>🗂️</span> Ready to schedule
@@ -405,12 +407,11 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
         <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>
           {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} left
         </div>
-        <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
-          Drag a thumbnail onto an account →
+        <div style={{ fontSize: '10px', color: hasSelection ? 'var(--palm-pink)' : 'var(--foreground-subtle)', marginTop: '6px', fontWeight: hasSelection ? 600 : 400 }}>
+          {hasSelection ? '→ Now click an account to place it' : 'Click a reel, then click an account →'}
         </div>
       </div>
 
-      {/* 3-column grid of reel tiles */}
       {visibleGroups.length === 0 ? (
         <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '12px' }}>
           Nothing waiting to be scheduled.
@@ -425,43 +426,51 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
         }}>
           {visibleGroups.map(g => {
             const key = g.taskId || `orphan-${g.samplePost.id}`
-            const isDragging = draggingTaskKey === key
+            const isSelected = selectedTaskKey === key
             const sample = g.samplePost
             return (
-              <div
+              <button
                 key={key}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = 'copy'
-                  try { e.dataTransfer.setData('text/plain', key) } catch {}
-                  onDragStart(g)
-                }}
-                onDragEnd={onDragEnd}
-                title={`${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
+                type="button"
+                onClick={() => onSelectTask(isSelected ? null : g)}
+                title={isSelected
+                  ? 'Selected — click an account to place, or click again to cancel'
+                  : `${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
                 style={{
                   aspectRatio: '1 / 1',
                   background: '#000',
                   position: 'relative',
-                  cursor: 'grab',
-                  opacity: isDragging ? 0.4 : 1,
+                  cursor: 'pointer',
                   overflow: 'hidden',
+                  padding: 0,
+                  border: 'none',
+                  outline: isSelected ? '3px solid var(--palm-pink)' : 'none',
+                  outlineOffset: '-3px',
+                  transition: 'outline 0.1s ease',
                 }}
               >
                 {sample.thumbnail ? (
                   <img
                     src={sample.thumbnail}
                     alt=""
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
                   />
                 ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '20px', gap: '2px' }}>
+                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '20px', gap: '2px', pointerEvents: 'none' }}>
                     <span>✏</span>
                     <span style={{ fontSize: '8px', fontWeight: 600 }}>UNPREPPED</span>
                   </div>
                 )}
-                {/* Counter badge */}
+                {isSelected && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'rgba(232, 160, 160, 0.25)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontSize: '24px', fontWeight: 800,
+                    textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                    pointerEvents: 'none',
+                  }}>✓</div>
+                )}
                 <div style={{
                   position: 'absolute', top: 4, right: 4,
                   minWidth: '20px', height: '20px', borderRadius: '10px',
@@ -469,10 +478,11 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '11px', fontWeight: 800, padding: '0 5px',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                  pointerEvents: 'none',
                 }}>
                   {g.remaining}
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -496,7 +506,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const [accounts, setAccounts] = useState([])
   const [posts, setPosts] = useState([])
   const [unassignedGroups, setUnassignedGroups] = useState([])
-  const [draggingTaskGroup, setDraggingTaskGroup] = useState(null) // the group currently being dragged from the tray
+  const [draggingTaskGroup, setDraggingTaskGroup] = useState(null) // picked-up group (via click) — name kept so downstream code unchanged
   const [dragging, setDragging] = useState({ postId: null, sourceAccountId: null })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
@@ -1020,45 +1030,56 @@ export default function GridPlanner({ smmMode = false } = {}) {
                 alignItems: 'flex-start',
               }}
             >
-              {/* Leftmost column — unassigned reels, phone-shaped */}
+              {/* Leftmost column — unassigned reels, phone-shaped. Click a tile to
+                  pick it up, then click an account phone to place it there. */}
               <UnassignedTray
                 groups={unassignedGroups}
                 accounts={accounts}
                 smmMode={smmMode}
-                draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
-                onDragStart={(group) => {
-                  console.log('[GridPlanner] tray dragStart', group.taskId, 'remaining:', group.remaining)
-                  setDraggingTaskGroup(group)
-                }}
-                onDragEnd={() => {
-                  console.log('[GridPlanner] tray dragEnd')
-                  setDraggingTaskGroup(null)
-                }}
+                selectedTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
+                onSelectTask={(group) => setDraggingTaskGroup(group)}
               />
 
-              {/* Account phones — drop targets */}
-              {accounts.map(acc => (
-                <div
-                  key={acc.id}
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    console.log('[GridPlanner] drop on account', acc.id, 'draggingTaskGroup?', !!draggingTaskGroup)
-                    handleDropOnAccount(acc.id)
-                  }}
-                >
-                  <PhoneFrame
-                    account={acc}
-                    creator={creators.find(c => c.id === selectedCreatorId)}
-                    posts={postsByAccount[acc.id] || []}
-                    draggingId={dragging.postId}
-                    onDragStart={(postId) => handleDragStart(postId, acc.id)}
-                    onDragEnd={handleDragEnd}
-                    onDrop={(targetPostId) => handleDropOnPost(targetPostId, acc.id)}
-                    onCellClick={(post) => setDetailPost({ post, account: acc })}
-                  />
-                </div>
-              ))}
+              {/* Account phones — click while a reel is selected to place it */}
+              {accounts.map(acc => {
+                const selectionActive = !!draggingTaskGroup
+                const alreadyAssigned = selectionActive && (draggingTaskGroup.assignedAccountIds || []).includes(acc.id)
+                return (
+                  <div
+                    key={acc.id}
+                    onClick={() => {
+                      if (!selectionActive) return
+                      if (alreadyAssigned) {
+                        showToast('Already on this account', true)
+                        return
+                      }
+                      handleDropOnAccount(acc.id)
+                    }}
+                    style={{
+                      cursor: selectionActive ? (alreadyAssigned ? 'not-allowed' : 'pointer') : 'default',
+                      outline: selectionActive && !alreadyAssigned ? '2px dashed rgba(232,160,160,0.6)' : 'none',
+                      outlineOffset: '8px',
+                      borderRadius: '40px',
+                      transition: 'outline 0.15s ease',
+                      opacity: selectionActive && alreadyAssigned ? 0.5 : 1,
+                    }}
+                  >
+                    <PhoneFrame
+                      account={acc}
+                      creator={creators.find(c => c.id === selectedCreatorId)}
+                      posts={postsByAccount[acc.id] || []}
+                      draggingId={null}
+                      onDragStart={() => {}}
+                      onDragEnd={() => {}}
+                      onDrop={() => {}}
+                      onCellClick={(post) => {
+                        // Don't open detail modal mid-selection — the whole phone is the place target
+                        if (!selectionActive) setDetailPost({ post, account: acc })
+                      }}
+                    />
+                  </div>
+                )
+              })}
             </div>
           )}
         </>
