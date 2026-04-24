@@ -220,13 +220,22 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const { thumbnailUrl, videoUrl, mode, creatorId, count = 5, cachedFrames, tone = 'flirty' } = body
+    const {
+      thumbnailUrl,
+      videoUrl,
+      mode,
+      creatorId,
+      count = 5,
+      cachedFrames,
+      cachedDescription,
+      tone = 'flirty',
+    } = body
 
     if (!mode) {
       return NextResponse.json({ error: 'mode required' }, { status: 400 })
     }
-    if (!thumbnailUrl && !videoUrl && !(cachedFrames && cachedFrames.length)) {
-      return NextResponse.json({ error: 'thumbnailUrl, videoUrl, or cachedFrames required' }, { status: 400 })
+    if (!thumbnailUrl && !videoUrl && !(cachedFrames && cachedFrames.length) && !cachedDescription) {
+      return NextResponse.json({ error: 'thumbnailUrl, videoUrl, cachedFrames, or cachedDescription required' }, { status: 400 })
     }
 
     const brief = MODE_BRIEFS[mode]
@@ -235,38 +244,39 @@ export async function POST(request) {
     }
 
     const toneBrief = TONE_LEVELS[tone] || TONE_LEVELS.flirty
+    const hasCachedDescription = !!cachedDescription
 
     // Resolve the image source to feed OpenAI
     // 1. If caller provided thumbnailUrl (direct image URL or data URL), use it
     // 2. Otherwise extract a frame from the Dropbox video via their thumbnail API
-    // Collect target frames — three sources:
-    // 1. cachedFrames passed back from a prior call (fastest, skips ffmpeg)
-    // 2. thumbnailUrl (single image, fast)
-    // 3. videoUrl (extract 5 frames via ffmpeg)
+    // Collect target frames (only when we don't already have a text description).
+    // Priority: cachedDescription > cachedFrames > thumbnailUrl > videoUrl
     let targetFrames = [] // [{ timestamp, dataUrl }]
     let videoDuration = body.videoDuration || null
-    if (cachedFrames && cachedFrames.length) {
-      targetFrames = cachedFrames
-    } else if (thumbnailUrl) {
-      targetFrames = [{ timestamp: 0, dataUrl: thumbnailUrl }]
-    } else if (videoUrl) {
-      try {
-        const { frames, duration } = await extractFramesFromVideo(videoUrl, 5)
-        videoDuration = duration
-        targetFrames = frames.map(f => ({
-          timestamp: f.timestamp,
-          dataUrl: `data:image/jpeg;base64,${f.buffer.toString('base64')}`,
-        }))
-      } catch (e) {
-        console.warn('[suggest-text] frame extract failed:', e.message)
-        return NextResponse.json({
-          error: `Could not extract frames from the video: ${e.message}`,
-        }, { status: 400 })
+    if (!hasCachedDescription) {
+      if (cachedFrames && cachedFrames.length) {
+        targetFrames = cachedFrames
+      } else if (thumbnailUrl) {
+        targetFrames = [{ timestamp: 0, dataUrl: thumbnailUrl }]
+      } else if (videoUrl) {
+        try {
+          const { frames, duration } = await extractFramesFromVideo(videoUrl, 5)
+          videoDuration = duration
+          targetFrames = frames.map(f => ({
+            timestamp: f.timestamp,
+            dataUrl: `data:image/jpeg;base64,${f.buffer.toString('base64')}`,
+          }))
+        } catch (e) {
+          console.warn('[suggest-text] frame extract failed:', e.message)
+          return NextResponse.json({
+            error: `Could not extract frames from the video: ${e.message}`,
+          }, { status: 400 })
+        }
       }
-    }
 
-    if (targetFrames.length === 0) {
-      return NextResponse.json({ error: 'no frames available to analyze' }, { status: 400 })
+      if (targetFrames.length === 0) {
+        return NextResponse.json({ error: 'no frames available to analyze' }, { status: 400 })
+      }
     }
 
     // 1. Fetch approved training examples for this mode
@@ -400,7 +410,8 @@ Avoid emoji stacks (💪🎵🔥) unless one emoji meaningfully adds to the text
 Short and unexpected beats long and safe.
 
 Output a JSON object with:
-  - "observed": one sentence describing what you actually see (setting + outfit + pose)
+  - "observed": SHORT one-sentence summary of what the clip shows (shown to the user as "Saw: ...")
+  - "clipDescription": DETAILED 3-5 sentence description of the clip covering setting/room details, outfit, pose and motion across frames, camera angle, expression/vibe, and any notable specific visual details. This will be cached and used to generate more captions without re-analyzing the video — be thorough enough that a writer could generate good captions from this description alone.
   - "suggestions": array of ${count} objects, each with:
       - "text": the on-screen text (1-3 short lines, exactly as it should appear)
       - "reasoning": one sentence on why this works for THIS specific clip
@@ -423,18 +434,26 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
       })
     })
 
-    // Target clip — multiple frames evenly spaced across the video
-    userContent.push({
-      type: 'text',
-      text: `\n---\nNow here is the TARGET CLIP that needs ${count} text suggestions.${videoDuration ? ` Clip is ~${videoDuration.toFixed(1)}s long.` : ''} ${targetFrames.length} frames evenly spaced across the clip:${creatorContext}`,
-    })
-    targetFrames.forEach((f, i) => {
+    // Target clip — use cached description (text-only, cheap) when available,
+    // otherwise send multiple frames for OpenAI to actually analyze
+    if (hasCachedDescription) {
       userContent.push({
         type: 'text',
-        text: `Frame ${i + 1} @ ${f.timestamp.toFixed(2)}s:`,
+        text: `\n---\nTARGET CLIP DESCRIPTION (from prior analysis):\n${cachedDescription}\n${videoDuration ? `Clip duration: ~${videoDuration.toFixed(1)}s.\n` : ''}${creatorContext}\n\nGenerate captions based on this description. The visuals have already been analyzed — trust the description above.`,
       })
-      userContent.push({ type: 'image_url', image_url: { url: f.dataUrl, detail: 'high' } })
-    })
+    } else {
+      userContent.push({
+        type: 'text',
+        text: `\n---\nNow here is the TARGET CLIP that needs ${count} text suggestions.${videoDuration ? ` Clip is ~${videoDuration.toFixed(1)}s long.` : ''} ${targetFrames.length} frames evenly spaced across the clip:${creatorContext}`,
+      })
+      targetFrames.forEach((f, i) => {
+        userContent.push({
+          type: 'text',
+          text: `Frame ${i + 1} @ ${f.timestamp.toFixed(2)}s:`,
+        })
+        userContent.push({ type: 'image_url', image_url: { url: f.dataUrl, detail: 'high' } })
+      })
+    }
 
     userContent.push({
       type: 'text',
@@ -473,12 +492,14 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
       mode,
       tone,
       observed: parsed.observed || null,
+      clipDescription: parsed.clipDescription || cachedDescription || null,
       suggestions,
       trainingExampleCount: trainingExamples.length,
-      analyzedFrames: targetFrames,
+      // Only include frames on the first call (when we extracted them)
+      analyzedFrames: hasCachedDescription ? undefined : targetFrames,
       videoDuration,
+      usedCache: hasCachedDescription,
       usage: completion.usage,
-      // Debug: return the raw AI response if no suggestions parsed out
       rawResponse: suggestions.length === 0 ? parsed : undefined,
     })
   } catch (err) {

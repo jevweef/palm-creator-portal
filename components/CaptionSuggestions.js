@@ -37,6 +37,7 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
   const [analyzedFrames, setAnalyzedFrames] = useState(null)
   const [videoDuration, setVideoDuration] = useState(null)
   const [observed, setObserved] = useState(null)
+  const [clipDescription, setClipDescription] = useState(null)
   const [tone, setTone] = useState('flirty')
   const [rawResponse, setRawResponse] = useState(null)
   // Track the mode/tone that produced the CURRENT suggestions.
@@ -58,7 +59,11 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
         creatorId,
         count: 5,
       }
-      if (analyzedFrames?.length) {
+      // Priority: cached description (cheapest) > cached frames > fresh extraction
+      if (clipDescription) {
+        payload.cachedDescription = clipDescription
+        payload.videoDuration = videoDuration
+      } else if (analyzedFrames?.length) {
         payload.cachedFrames = analyzedFrames
         payload.videoDuration = videoDuration
       } else {
@@ -76,6 +81,7 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
       if (data.analyzedFrames) setAnalyzedFrames(data.analyzedFrames)
       if (data.videoDuration) setVideoDuration(data.videoDuration)
       if (data.observed) setObserved(data.observed)
+      if (data.clipDescription) setClipDescription(data.clipDescription)
       if (data.rawResponse) setRawResponse(data.rawResponse)
       setGeneratedForMode(selectedMode)
       setGeneratedForTone(selectedTone)
