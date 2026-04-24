@@ -345,7 +345,13 @@ function ProjectDetail({ project, onClose, onRefresh }) {
   )
 }
 
-function ProjectRow({ project, onClick }) {
+function ProjectRow({ project, onClick, onDelete }) {
+  const handleDelete = (e) => {
+    e.stopPropagation()
+    if (confirm(`Delete project "${project.projectName}"? The Dropbox folder and its files will stay in Dropbox, but the project record and upload link will be removed.`)) {
+      onDelete(project.id)
+    }
+  }
   return (
     <Card onClick={onClick}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
@@ -363,7 +369,23 @@ function ProjectRow({ project, onClick }) {
             {' · '}Created {fmtDate(project.createdAt)}
           </div>
         </div>
-        <span style={{ color: 'var(--foreground-subtle)', fontSize: '18px' }}>→</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={handleDelete}
+            title="Delete project"
+            style={{
+              padding: '6px 10px', fontSize: '11px', fontWeight: 600,
+              background: 'transparent', color: 'var(--foreground-subtle)',
+              border: '1px solid transparent', borderRadius: '9999px', cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232, 120, 120, 0.08)'; e.currentTarget.style.color = '#E87878' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--foreground-subtle)' }}
+          >
+            Delete
+          </button>
+          <span style={{ color: 'var(--foreground-subtle)', fontSize: '18px' }}>→</span>
+        </div>
       </div>
     </Card>
   )
@@ -446,7 +468,20 @@ export default function LongFormPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {projects.map(p => (
-            <ProjectRow key={p.id} project={p} onClick={() => setDetail(p)} />
+            <ProjectRow
+              key={p.id}
+              project={p}
+              onClick={() => setDetail(p)}
+              onDelete={async (id) => {
+                const res = await fetch(`/api/creator/oftv-projects/${id}`, { method: 'DELETE' })
+                if (res.ok) {
+                  setProjects(prev => prev.filter(x => x.id !== id))
+                  if (detail?.id === id) setDetail(null)
+                } else {
+                  alert((await res.json()).error || 'Delete failed')
+                }
+              }}
+            />
           ))}
         </div>
       )}

@@ -116,6 +116,28 @@ export async function POST(request) {
   if (!creator) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
   const aka = creator.fields?.['AKA'] || creator.fields?.['Creator'] || 'Unknown'
 
+  // Dedupe: if an active project with same name exists for this creator, return it
+  const existingRes = await fetch(
+    `https://api.airtable.com/v0/${OPS_BASE}/${PROJECTS_TABLE}?pageSize=100`,
+    { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
+  )
+  if (existingRes.ok) {
+    const existingData = await existingRes.json()
+    const normalize = s => String(s || '').trim().toLowerCase()
+    const match = (existingData.records || []).find(r => {
+      const f = r.fields || {}
+      const linked = f['Creator'] || []
+      const status = f['Status'] || 'Awaiting Upload'
+      return linked.includes(creatorOpsId)
+        && normalize(f['Project Name']) === normalize(projectName)
+        && status !== 'Delivered'
+        && status !== 'Archived'
+    })
+    if (match) {
+      return NextResponse.json({ project: mapRecord(match), deduped: true })
+    }
+  }
+
   const safeCreator = sanitizeForPath(aka)
   const safeName = sanitizeForPath(projectName) || 'Untitled'
   const folderName = `${safeName} - ${todayStamp()}`

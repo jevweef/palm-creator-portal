@@ -5,6 +5,10 @@ import {
   getDropboxRootNamespaceId,
   listDropboxFolder,
 } from '@/lib/dropbox'
+import {
+  closeDropboxFileRequest,
+  deleteDropboxFileRequests,
+} from '@/lib/dropboxFileRequests'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -149,4 +153,49 @@ export async function PATCH(request, { params }) {
   }
   const data = await res.json()
   return NextResponse.json({ project: mapRecord(data) })
+}
+
+export async function DELETE(_request, { params }) {
+  const { userId } = auth()
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const user = await currentUser()
+  const { id } = params
+  if (!/^rec[A-Za-z0-9]{14}$/.test(id)) {
+    return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  }
+
+  const record = await fetchProject(id)
+  if (!record) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const role = user?.publicMetadata?.role
+  const isAdmin = role === 'admin' || role === 'super_admin'
+  const isOwner = (record.fields?.['Creator'] || []).includes(user?.publicMetadata?.airtableOpsId)
+  if (!isAdmin && !isOwner) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // Close + delete the Dropbox file request so it stops accepting uploads
+  const fileRequestId = record.fields?.['Dropbox File Request ID']
+  if (fileRequestId) {
+    try {
+      const token = await getDropboxAccessToken()
+      const rootNs = await getDropboxRootNamespaceId(token)
+      try { await closeDropboxFileRequest(token, rootNs, fileRequestId) } catch {}
+      await deleteDropboxFileRequests(token, rootNs, [fileRequestId])
+    } catch (err) {
+      console.warn('[oftv-projects] Failed to clean up file request on delete:', err.message)
+    }
+  }
+
+  // Delete Airtable record. Folder is left intact — uploaded files stay in Dropbox.
+  const delRes = await fetch(
+    `https://api.airtable.com/v0/${OPS_BASE}/${PROJECTS_TABLE}/${id}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${AIRTABLE_PAT}` } }
+  )
+  if (!delRes.ok) {
+    return NextResponse.json({ error: 'Airtable delete failed', detail: await delRes.text() }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true })
 }
