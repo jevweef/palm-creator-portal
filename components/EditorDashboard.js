@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
+import CaptionSuggestions from '@/components/CaptionSuggestions'
 
 // ─── Lazy-loaded Creator DNA Modal ────────────────────────────────────────────
 
@@ -1455,6 +1456,14 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 {/* CREATE tab */}
                 {editorTab === 'create' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* AI Caption Suggestions */}
+                    {task?.asset?.thumbnail && (
+                      <CaptionSuggestions
+                        thumbnailUrl={task.asset.thumbnail}
+                        creatorId={creator?.id}
+                        onPick={text => setCaption(text)}
+                      />
+                    )}
                     <div>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Caption Text</div>
                       <textarea
