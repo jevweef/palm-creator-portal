@@ -306,7 +306,13 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       }}
     >
       {post.thumbnail ? (
-        <img src={post.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <img
+          src={post.thumbnail}
+          alt=""
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+        />
       ) : (
         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style.badge, fontSize: '20px' }}>
           {status === 'draft' ? '✏' : '🗓'}
@@ -405,7 +411,13 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
                 }}
               >
                 {sample.thumbnail ? (
-                  <img src={sample.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img
+                    src={sample.thumbnail}
+                    alt=""
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                  />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px', gap: '2px' }}>
                     <span>✏</span>
