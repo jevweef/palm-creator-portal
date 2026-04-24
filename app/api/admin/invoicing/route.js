@@ -228,5 +228,8 @@ export async function PATCH(request) {
     return Response.json({ error: err }, { status: res.status })
   }
 
+  // Bust cache so next GET returns fresh data
+  cache.clear()
+
   return Response.json({ ok: true })
 }

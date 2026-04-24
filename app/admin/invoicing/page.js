@@ -418,6 +418,8 @@ export default function InvoicingPage() {
   const [actionError, setActionError] = useState(null)
   const [workflowModal, setWorkflowModal] = useState(null) // { aka, rows }
   const [statusFilter, setStatusFilter] = useState('all') // all | draft | sent | paid
+  const [loadedPeriods, setLoadedPeriods] = useState(new Set()) // period keys whose full records are loaded
+  const [periodLoading, setPeriodLoading] = useState(null) // period key currently loading
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'invoices')
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
@@ -433,17 +435,48 @@ export default function InvoicingPage() {
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
+      // Default: fetches only most recent period's records + full period list
       const res = await fetch('/api/admin/invoicing')
       if (!res.ok) throw new Error('Failed to load')
       const data = await res.json()
       setRecords(data.records)
       setPeriods(data.periods)
-      if (data.periods.length > 0 && !selectedPeriod) setSelectedPeriod(data.periods[0].key)
+      if (data.periods.length > 0 && !selectedPeriod) {
+        setSelectedPeriod(data.periods[0].key)
+        setLoadedPeriods(new Set([data.periods[0].key]))
+      }
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }, [selectedPeriod])
 
   useEffect(() => { load() }, [])
+
+  // Lazy-load a specific period's records when user clicks its tab
+  const loadPeriod = useCallback(async (periodKey) => {
+    if (loadedPeriods.has(periodKey)) return
+    setPeriodLoading(periodKey)
+    try {
+      const res = await fetch(`/api/admin/invoicing?mode=period&period=${encodeURIComponent(periodKey)}`)
+      if (!res.ok) throw new Error('Failed to load period')
+      const data = await res.json()
+      // Merge new records with existing (dedupe by id)
+      setRecords(prev => {
+        const existingIds = new Set(prev.map(r => r.id))
+        const merged = [...prev]
+        for (const r of data.records) if (!existingIds.has(r.id)) merged.push(r)
+        return merged
+      })
+      setLoadedPeriods(prev => new Set(prev).add(periodKey))
+    } catch (e) { setError(e.message) }
+    finally { setPeriodLoading(null) }
+  }, [loadedPeriods])
+
+  // When selected period changes, ensure it's loaded
+  useEffect(() => {
+    if (selectedPeriod && !loadedPeriods.has(selectedPeriod)) {
+      loadPeriod(selectedPeriod)
+    }
+  }, [selectedPeriod, loadedPeriods, loadPeriod])
 
   // Save earnings or status
   const handleSave = useCallback(async (recordId, fields) => {
@@ -583,6 +616,8 @@ export default function InvoicingPage() {
         <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
           {periods.map(p => {
             const active = selectedPeriod === p.key
+            const isLoading = periodLoading === p.key
+            const notYetLoaded = !loadedPeriods.has(p.key)
             return (
               <button key={p.key} onClick={() => setSelectedPeriod(p.key)} style={{
                 background: active ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
@@ -590,8 +625,11 @@ export default function InvoicingPage() {
                 borderRadius: '6px', color: active ? 'var(--palm-pink)' : '#999',
                 padding: '6px 14px', fontSize: '12px', fontWeight: active ? 600 : 400,
                 cursor: 'pointer', transition: 'all 0.15s',
+                opacity: notYetLoaded && !active ? 0.7 : 1,
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
               }}>
                 {fmtDate(p.start)} – {fmtDate(p.end)}
+                {isLoading && <span style={{ fontSize: '10px', opacity: 0.6 }}>…</span>}
               </button>
             )
           })}
@@ -621,6 +659,10 @@ export default function InvoicingPage() {
         <div style={{ color: '#ff8888', fontSize: '14px', padding: '20px', background: '#2d1515', border: '1px solid #5c2020', borderRadius: '8px', marginBottom: '20px' }}>
           {error}
         </div>
+      )}
+
+      {!loading && periodLoading === selectedPeriod && periodRecords.length === 0 && (
+        <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px 0' }}>Loading period…</div>
       )}
 
       {!loading && periodRecords.length > 0 && (
