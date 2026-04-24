@@ -42,6 +42,24 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
   const [status, setStatus] = useState(project.status || 'Awaiting Upload')
   const [assignedEditor, setAssignedEditor] = useState(project.assignedEditor || '')
   const [saving, setSaving] = useState(false)
+  const [files, setFiles] = useState(null)
+  const [previewFile, setPreviewFile] = useState(null)
+  const [previewSrc, setPreviewSrc] = useState('')
+
+  useEffect(() => {
+    fetch(`/api/creator/oftv-projects/${project.id}?includeFiles=1`)
+      .then(r => r.json())
+      .then(d => setFiles(d.project?.files || []))
+      .catch(() => setFiles([]))
+  }, [project.id])
+
+  useEffect(() => {
+    if (!previewFile) { setPreviewSrc(''); return }
+    fetch(`/api/creator/oftv-projects/${project.id}/file-link?path=${encodeURIComponent(previewFile.path)}`)
+      .then(r => r.json())
+      .then(d => setPreviewSrc(d.link || ''))
+      .catch(() => setPreviewSrc(''))
+  }, [previewFile, project.id])
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -106,11 +124,58 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {project.editingPrefs && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0A0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>🎨 Creator's Standing Editing Preferences</div>
+              <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', background: 'rgba(232, 160, 160, 0.06)', border: '1px solid rgba(232, 160, 160, 0.15)', padding: '12px 14px', borderRadius: '10px' }}>
+                {project.editingPrefs}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+                Applies to all this creator's long-form projects.
+              </div>
+            </div>
+          )}
+
           {project.instructions && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Creator's Brief</div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>This Project's Brief</div>
               <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', background: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '10px' }}>
                 {project.instructions}
+              </div>
+            </div>
+          )}
+
+          {files && files.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                Uploaded Files ({files.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {files.map((f, i) => {
+                  const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
+                  const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
+                    : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
+                  return (
+                    <div
+                      key={i}
+                      onClick={isMedia ? () => setPreviewFile(f) : undefined}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                        padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
+                        cursor: isMedia ? 'pointer' : 'default',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '14px' }}>{icon}</span>
+                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+                        <span>{fmtSize(f.size)}</span>
+                        {isMedia && <span style={{ color: '#E8A0A0' }}>▶</span>}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -179,6 +244,29 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
           </div>
         </div>
       </div>
+
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={e => e.target === e.currentTarget && setPreviewFile(null)}
+        >
+          <div style={{ width: '100%', maxWidth: '900px', maxHeight: '92vh', margin: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#fff' }}>
+              <div style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '12px' }}>{previewFile.name}</div>
+              <button onClick={() => setPreviewFile(null)} style={{ color: '#fff', background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ background: '#000', borderRadius: '14px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+              {!previewSrc ? (
+                <div style={{ color: 'var(--foreground-muted)', padding: '40px', fontSize: '13px' }}>Loading…</div>
+              ) : /\.(mp4|mov|webm|mkv|m4v)$/i.test(previewFile.name) ? (
+                <video src={previewSrc} controls autoPlay style={{ maxWidth: '100%', maxHeight: '80vh' }} />
+              ) : (
+                <img src={previewSrc} alt={previewFile.name} style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

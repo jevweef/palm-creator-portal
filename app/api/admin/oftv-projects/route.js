@@ -54,5 +54,27 @@ export async function GET(request) {
     }
   })
 
+  // Fetch editing preferences for any creators in the result set
+  const creatorIdsInResults = [...new Set(projects.flatMap(p => p.creatorIds))]
+  const prefsByCreator = {}
+  if (creatorIdsInResults.length > 0) {
+    try {
+      const CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
+      const creatorRecs = await fetchAirtableRecords(CREATORS_TABLE, {
+        fields: ['AKA', 'Creator', 'Long-Form Editing Preferences'],
+      })
+      for (const c of creatorRecs) {
+        if (creatorIdsInResults.includes(c.id)) {
+          prefsByCreator[c.id] = c.fields?.['Long-Form Editing Preferences'] || ''
+        }
+      }
+    } catch (err) {
+      console.warn('[admin/oftv-projects] Failed to fetch editing prefs:', err.message)
+    }
+  }
+  for (const p of projects) {
+    p.editingPrefs = prefsByCreator[p.creatorIds[0]] || ''
+  }
+
   return NextResponse.json({ projects })
 }

@@ -1,0 +1,82 @@
+export const dynamic = 'force-dynamic'
+
+import { NextResponse } from 'next/server'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+
+// GET — list ALL Palm Creators with their pipeline flag + readiness indicators.
+// Used by the Admin Dashboard "Pipeline Status" panel to add/remove creators
+// from the editor pipeline without going into Airtable.
+export async function GET() {
+  try { await requireAdmin() } catch (e) { return e }
+
+  try {
+    // Pull all creators — no Social Media Editing filter, we want the whole roster
+    // so the admin can flip anyone on from the dashboard.
+    const [creators, igAccounts] = await Promise.all([
+      fetchAirtableRecords('Palm Creators', {
+        fields: [
+          'Creator', 'AKA', 'Social Media Editing',
+          'Weekly Reel Quota', 'Telegram Thread ID',
+          'Profile Summary', 'Music DNA Processed',
+        ],
+      }),
+      fetchAirtableRecords('Creator Platform Directory', {
+        filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
+        fields: ['Creator', 'Platform', 'Account Name'],
+      }),
+    ])
+
+    // Count IG accounts per creator
+    const igCountByCreator = {}
+    for (const a of igAccounts) {
+      for (const cid of a.fields?.Creator || []) {
+        igCountByCreator[cid] = (igCountByCreator[cid] || 0) + 1
+      }
+    }
+
+    const result = creators.map(c => {
+      const f = c.fields || {}
+      return {
+        id: c.id,
+        name: f.AKA || f.Creator || '(unnamed)',
+        socialMediaEditing: !!f['Social Media Editing'],
+        hasProfile: !!(f['Profile Summary'] && f['Profile Summary'].trim()),
+        hasMusicDna: !!f['Music DNA Processed'],
+        telegramThreadId: f['Telegram Thread ID'] || '',
+        weeklyQuota: f['Weekly Reel Quota'] || null,
+        igAccountCount: igCountByCreator[c.id] || 0,
+      }
+    }).sort((a, b) => {
+      // Active first, then alphabetical
+      if (a.socialMediaEditing !== b.socialMediaEditing) return a.socialMediaEditing ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+
+    return NextResponse.json({ creators: result })
+  } catch (err) {
+    console.error('[Pipeline] GET error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// PATCH — flip Social Media Editing on/off for a creator
+export async function PATCH(request) {
+  try { await requireAdmin() } catch (e) { return e }
+
+  try {
+    const { creatorId, socialMediaEditing } = await request.json()
+    if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
+    if (typeof socialMediaEditing !== 'boolean') {
+      return NextResponse.json({ error: 'socialMediaEditing must be boolean' }, { status: 400 })
+    }
+
+    await patchAirtableRecord('Palm Creators', creatorId, {
+      'Social Media Editing': socialMediaEditing,
+    })
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('[Pipeline] PATCH error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}

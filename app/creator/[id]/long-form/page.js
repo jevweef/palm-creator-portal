@@ -59,6 +59,167 @@ function StatusPill({ status }) {
   )
 }
 
+function EditingPreferencesCard({ creatorOpsId }) {
+  const [prefs, setPrefs] = useState('')
+  const [original, setOriginal] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    if (!creatorOpsId) return
+    fetch(`/api/creator/long-form-prefs?creatorOpsId=${creatorOpsId}`)
+      .then(r => r.json())
+      .then(d => {
+        setPrefs(d.longFormPrefs || '')
+        setOriginal(d.longFormPrefs || '')
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [creatorOpsId])
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await fetch(`/api/creator/long-form-prefs?creatorOpsId=${creatorOpsId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ longFormPrefs: prefs }),
+      })
+      setOriginal(prefs)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const dirty = prefs !== original
+  const isEmpty = !original.trim()
+
+  return (
+    <div style={{
+      background: 'var(--card-bg-solid)', borderRadius: '18px', padding: expanded ? '20px' : '14px 20px',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '20px',
+      transition: '0.2s cubic-bezier(0, 0, 0.5, 1)',
+    }}>
+      <div
+        onClick={() => setExpanded(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', gap: '12px' }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>
+            🎨 Your editing preferences
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>
+            {loading ? 'Loading…' : isEmpty
+              ? 'Add style notes that apply to ALL your long-form videos — intro, fonts, vibe, inspiration'
+              : expanded ? 'Editing — click save when done' : 'Click to view or edit'}
+          </div>
+        </div>
+        <span style={{ fontSize: '16px', color: 'var(--foreground-subtle)', transform: expanded ? 'rotate(180deg)' : '', transition: 'transform 0.2s' }}>▾</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: '14px' }}>
+          <textarea
+            value={prefs}
+            onChange={e => setPrefs(e.target.value)}
+            placeholder={`Example:
+- Always open with the same intro style (my talking head, no music)
+- Use Helvetica for all text, pink (#E8A0A0) accent color
+- Reference vibe: my "Summer Vlog 2025" video — clean cuts, airy pacing
+- Keep captions minimal, only for key moments
+- No transitions between clips, just hard cuts`}
+            rows={8}
+            style={{
+              width: '100%', padding: '12px 14px', fontSize: '13px',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '10px', color: 'var(--foreground)', outline: 'none', resize: 'vertical', fontFamily: 'inherit',
+            }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+            {dirty && (
+              <button
+                onClick={() => setPrefs(original)}
+                disabled={saving}
+                style={{
+                  padding: '8px 16px', fontSize: '12px', fontWeight: 600,
+                  background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '9999px', cursor: saving ? 'not-allowed' : 'pointer',
+                }}
+              >Discard</button>
+            )}
+            <button
+              onClick={save}
+              disabled={!dirty || saving}
+              style={{
+                padding: '8px 20px', fontSize: '12px', fontWeight: 600,
+                background: dirty ? 'var(--palm-pink)' : 'rgba(255,255,255,0.04)',
+                color: dirty ? '#1a1a1a' : 'var(--foreground-subtle)',
+                border: 'none', borderRadius: '9999px',
+                cursor: (!dirty || saving) ? 'not-allowed' : 'pointer', opacity: (!dirty || saving) ? 0.6 : 1,
+              }}
+            >{saving ? 'Saving…' : dirty ? 'Save preferences' : 'Saved'}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function VideoPreviewModal({ projectId, file, onClose }) {
+  const [src, setSrc] = useState('')
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
+  }, [onClose])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/creator/oftv-projects/${projectId}/file-link?path=${encodeURIComponent(file.path)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) { if (d.link) setSrc(d.link); else setErr(d.error || 'Could not load file') } })
+      .catch(e => { if (!cancelled) setErr(e.message) })
+    return () => { cancelled = true }
+  }, [projectId, file.path])
+
+  const isVideo = /\.(mp4|mov|webm|mkv|m4v)$/i.test(file.name)
+  const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(file.name)
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{ width: '100%', maxWidth: '900px', maxHeight: '92vh', margin: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--foreground)' }}>
+          <div style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '12px' }}>{file.name}</div>
+          <button onClick={onClose} style={{ color: 'var(--foreground)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ background: '#000', borderRadius: '14px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+          {err ? (
+            <div style={{ color: 'var(--foreground-muted)', padding: '40px', textAlign: 'center', fontSize: '13px' }}>{err}</div>
+          ) : !src ? (
+            <div style={{ color: 'var(--foreground-muted)', padding: '40px', fontSize: '13px' }}>Loading…</div>
+          ) : isVideo ? (
+            <video src={src} controls autoPlay style={{ maxWidth: '100%', maxHeight: '80vh' }} />
+          ) : isImage ? (
+            <img src={src} alt={file.name} style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }} />
+          ) : (
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', marginBottom: '12px' }}>Preview not available for this file type</div>
+              <a href={src} download={file.name} style={{ padding: '8px 18px', background: 'var(--palm-pink)', color: '#1a1a1a', borderRadius: '9999px', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>Download</a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function NewProjectModal({ creatorOpsId, onClose, onCreated }) {
   const [name, setName] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -179,6 +340,7 @@ function NewProjectModal({ creatorOpsId, onClose, onCreated }) {
 function ProjectDetail({ project, onClose, onRefresh }) {
   const [refreshing, setRefreshing] = useState(false)
   const [files, setFiles] = useState(null)
+  const [previewFile, setPreviewFile] = useState(null)
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -303,22 +465,43 @@ function ProjectDetail({ project, onClose, onRefresh }) {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {files.map((f, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                    padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                      <span style={{ fontSize: '14px' }}>📄</span>
-                      <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                {files.map((f, i) => {
+                  const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
+                  const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
+                    : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
+                  return (
+                    <div
+                      key={i}
+                      onClick={isMedia ? () => setPreviewFile(f) : undefined}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                        padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
+                        cursor: isMedia ? 'pointer' : 'default',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { if (isMedia) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                      onMouseLeave={e => { if (isMedia) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '14px' }}>{icon}</span>
+                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+                        <span>{fmtSize(f.size)}</span>
+                        <span>{fmtDate(f.modified)}</span>
+                        {isMedia && <span style={{ color: 'var(--palm-pink)' }}>▶</span>}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0 }}>
-                      <span>{fmtSize(f.size)}</span>
-                      <span>{fmtDate(f.modified)}</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+              {previewFile && (
+                <VideoPreviewModal
+                  projectId={project.id}
+                  file={previewFile}
+                  onClose={() => setPreviewFile(null)}
+                />
+              )}
             )}
           </div>
 
@@ -452,6 +635,8 @@ export default function LongFormPage() {
           + New Project
         </button>
       </div>
+
+      <EditingPreferencesCard creatorOpsId={creatorOpsId} />
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--foreground-muted)' }}>
