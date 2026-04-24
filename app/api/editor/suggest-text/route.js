@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
+import { getDropboxAccessToken, getDropboxThumbnailFromLink } from '@/lib/dropbox'
 import OpenAI from 'openai'
 
 export const maxDuration = 60
@@ -80,15 +81,39 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const { thumbnailUrl, mode, creatorId, count = 5 } = body
+    const { thumbnailUrl, videoUrl, mode, creatorId, count = 5 } = body
 
-    if (!thumbnailUrl || !mode) {
-      return NextResponse.json({ error: 'thumbnailUrl and mode required' }, { status: 400 })
+    if (!mode) {
+      return NextResponse.json({ error: 'mode required' }, { status: 400 })
+    }
+    if (!thumbnailUrl && !videoUrl) {
+      return NextResponse.json({ error: 'thumbnailUrl or videoUrl required' }, { status: 400 })
     }
 
     const brief = MODE_BRIEFS[mode]
     if (!brief) {
       return NextResponse.json({ error: `Unknown mode: ${mode}` }, { status: 400 })
+    }
+
+    // Resolve the image source to feed OpenAI
+    // 1. If caller provided thumbnailUrl (direct image URL or data URL), use it
+    // 2. Otherwise extract a frame from the Dropbox video via their thumbnail API
+    let targetImageSource = thumbnailUrl
+    if (!targetImageSource && videoUrl) {
+      if (/dropbox\.com/i.test(videoUrl)) {
+        try {
+          const token = await getDropboxAccessToken()
+          const thumbBuf = await getDropboxThumbnailFromLink(token, videoUrl)
+          if (thumbBuf) {
+            targetImageSource = `data:image/jpeg;base64,${thumbBuf.toString('base64')}`
+          }
+        } catch (e) {
+          console.warn('[suggest-text] Dropbox thumbnail failed:', e.message)
+        }
+      }
+      if (!targetImageSource) {
+        return NextResponse.json({ error: 'Could not extract a frame from the video. Make sure the link is a Dropbox share URL.' }, { status: 400 })
+      }
     }
 
     // 1. Fetch approved training examples for this mode
@@ -187,7 +212,7 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
       type: 'text',
       text: `\n---\nNow here is the TARGET CLIP that needs ${count} text suggestions:${creatorContext}`,
     })
-    userContent.push({ type: 'image_url', image_url: { url: thumbnailUrl, detail: 'high' } })
+    userContent.push({ type: 'image_url', image_url: { url: targetImageSource, detail: 'high' } })
 
     userContent.push({
       type: 'text',
