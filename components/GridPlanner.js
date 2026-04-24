@@ -672,23 +672,23 @@ export default function GridPlanner() {
   }
 
   // Refresh scraped IG feed for all of this creator's accounts.
-  // Shift-click forces a re-scrape even if cached within 6h.
+  // Clicking this button always forces a fresh scrape — the whole point is
+  // "I want the latest NOW". The 6h cache on the API is for programmatic
+  // callers; user clicks always bypass it.
   const [refreshing, setRefreshing] = useState(false)
-  const handleRefreshFeed = async (e) => {
+  const handleRefreshFeed = async () => {
     if (!selectedCreatorId) return
-    const force = e?.shiftKey === true
     setRefreshing(true)
     try {
       const res = await fetch('/api/admin/grid-planner/refresh-feed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId: selectedCreatorId, force }),
+        body: JSON.stringify({ creatorId: selectedCreatorId, force: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Refresh failed')
       const parts = []
       if (data.refreshed) parts.push(`${data.refreshed} scraped`)
-      if (data.skipped) parts.push(`${data.skipped} cached (< 6h)`)
       if (data.failed) parts.push(`${data.failed} failed`)
       if (data.totalLinked) parts.push(`🔗 ${data.totalLinked} planned → posted`)
       showToast(parts.join(' · ') || 'Nothing to do')
@@ -822,7 +822,7 @@ export default function GridPlanner() {
         <button
           onClick={handleRefreshFeed}
           disabled={refreshing || !selectedCreatorId}
-          title="Pull the latest posts + profile from each IG account. Skips anything scraped < 6h ago. Shift-click to force re-scrape."
+          title="Pull the latest posts + profile from each IG account (always forces a fresh scrape)."
           style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: refreshing ? 'rgba(255,255,255,0.04)' : 'rgba(232, 160, 160, 0.05)', color: refreshing ? '#bbb' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: refreshing ? 'default' : 'pointer' }}
         >
           {refreshing ? 'Scraping…' : '⟳ Refresh IG Feed'}
