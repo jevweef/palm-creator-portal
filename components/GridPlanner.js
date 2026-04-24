@@ -404,7 +404,13 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
             <div key={key} style={{ flexShrink: 0, width: '96px' }}>
               <div
                 draggable
-                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; onDragStart(g) }}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = 'copy'
+                  // setData is REQUIRED on Firefox to actually initiate a drag.
+                  // Chrome tolerates its absence; Firefox silently fails without it.
+                  try { e.dataTransfer.setData('text/plain', key) } catch {}
+                  onDragStart(g)
+                }}
                 onDragEnd={onDragEnd}
                 title={`${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
                 style={{
@@ -944,9 +950,16 @@ export default function GridPlanner({ smmMode = false } = {}) {
           <UnassignedTray
             groups={unassignedGroups}
             accounts={accounts}
+            smmMode={smmMode}
             draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
-            onDragStart={(group) => setDraggingTaskGroup(group)}
-            onDragEnd={() => setDraggingTaskGroup(null)}
+            onDragStart={(group) => {
+              console.log('[GridPlanner] tray dragStart', group.taskId, 'remaining:', group.remaining)
+              setDraggingTaskGroup(group)
+            }}
+            onDragEnd={() => {
+              console.log('[GridPlanner] tray dragEnd')
+              setDraggingTaskGroup(null)
+            }}
           />
 
           {/* Phones */}
@@ -966,7 +979,11 @@ export default function GridPlanner({ smmMode = false } = {}) {
                 <div
                   key={acc.id}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-                  onDrop={(e) => { e.preventDefault(); handleDropOnAccount(acc.id) }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    console.log('[GridPlanner] drop on account', acc.id, 'draggingTaskGroup?', !!draggingTaskGroup)
+                    handleDropOnAccount(acc.id)
+                  }}
                 >
                   <PhoneFrame
                     account={acc}
