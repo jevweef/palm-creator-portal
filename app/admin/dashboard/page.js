@@ -1051,19 +1051,19 @@ export default function AdminDashboard() {
           </div>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '46px 110px 82px 42px 78px 48px 90px 56px 110px 1fr',
+            gridTemplateColumns: '110px 82px 42px 78px 110px 46px 48px 90px 56px 1fr',
             gap: '8px', padding: '2px 4px 6px', borderBottom: '1px solid transparent',
             alignItems: 'center',
           }}>
-            <span style={{ ...LABEL, fontSize: '9px', textAlign: 'center' }}>Editor</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Creator</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Revenue</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Rate</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Cut</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Trend</span>
+            <span style={{ ...LABEL, fontSize: '9px', textAlign: 'center' }}>Editor</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Rwy</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Queue</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Library</span>
-            <span style={{ ...LABEL, fontSize: '9px' }}>Trend</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Readiness</span>
           </div>
 
@@ -1082,23 +1082,11 @@ export default function AdminDashboard() {
             return (
               <div key={c.name} style={{
                 display: 'grid',
-                gridTemplateColumns: '46px 110px 82px 42px 78px 48px 90px 56px 110px 1fr',
+                gridTemplateColumns: '110px 82px 42px 78px 110px 46px 48px 90px 56px 1fr',
                 gap: '8px', padding: '6px 4px',
                 borderBottom: '1px solid rgba(255,255,255,0.04)',
                 alignItems: 'center',
               }}>
-                {/* Toggle */}
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  {pipe ? (
-                    <ToggleSwitch
-                      on={pipe.socialMediaEditing}
-                      onChange={v => togglePipeline(pipe.id, v)}
-                      disabled={isSaving}
-                    />
-                  ) : (
-                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.08)' }}>—</span>
-                  )}
-                </div>
                 {/* Creator */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                   <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1124,6 +1112,22 @@ export default function AdminDashboard() {
                 <span style={{ fontSize: '12px', fontWeight: 600, color: rev ? '#7DD3A4' : 'rgba(255,255,255,0.08)' }}>
                   {rev ? fmtK(rev.palmCut) : '—'}
                 </span>
+                {/* Trend */}
+                <div>
+                  {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
+                </div>
+                {/* Editor toggle — grouped with editor columns (Rwy/Queue/Library/Readiness) */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  {pipe ? (
+                    <ToggleSwitch
+                      on={pipe.socialMediaEditing}
+                      onChange={v => togglePipeline(pipe.id, v)}
+                      disabled={isSaving}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.08)' }}>—</span>
+                  )}
+                </div>
                 {/* Runway */}
                 <span style={{
                   fontSize: '10px', fontWeight: 700, color: runwayColor, background: runwayBg,
@@ -1151,10 +1155,6 @@ export default function AdminDashboard() {
                 }}>
                   {lib ? lib.total : '—'}
                 </span>
-                {/* Trend */}
-                <div>
-                  {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
-                </div>
                 {/* Readiness */}
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                   {pipe ? (
