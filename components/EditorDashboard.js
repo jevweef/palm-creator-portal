@@ -2106,15 +2106,16 @@ function CreatorSection({ creator, onRefresh }) {
               style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}>Today</button>
           )}
           {/* Next open slot — only show when the currently-viewed day has NO empty slots.
-              Scans forward up to 14 days and jumps to the first day with an opening. */}
+              Scans forward up to 14 days and jumps to the first day with an opening.
+              Styled as a quiet text link to match 'Today' — doesn't compete for attention. */}
           {countFilledSlotsOnDay(selectedDate) >= dailyQuota && (() => {
             const nextOpen = findNextOpenDay()
             if (!nextOpen) return null
             return (
               <button onClick={() => setSelectedDate(nextOpen)}
                 title={`Jump to ${new Date(nextOpen + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}
-                style={{ background: 'rgba(232, 160, 160, 0.06)', border: '1px solid rgba(232, 160, 160, 0.2)', borderRadius: '6px', color: 'var(--palm-pink)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: '3px 10px', letterSpacing: '0.02em' }}>
-                Next open slot →
+                style={{ background: 'none', border: 'none', color: 'var(--palm-pink)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: '0 4px', whiteSpace: 'nowrap' }}>
+                Next open →
               </button>
             )
           })()}
