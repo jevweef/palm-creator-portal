@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { createPortal } from 'react-dom'
-import { EditorDashboardContent, getSlotLabel } from '@/components/EditorDashboard'
+import { EditorDashboardContent, getSlotLabel, LibraryCard, LibPickerPaginator, isVideo, isPhoto, LIB_PAGE_SIZE } from '@/components/EditorDashboard'
 import PostsPage from '@/app/admin/posts/page'
 import LongFormUpload from '@/components/LongFormUpload'
 import GridPlanner from '@/components/GridPlanner'
@@ -1123,6 +1123,10 @@ function UnreviewedLibrary({ showToast }) {
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedCreator, setSelectedCreator] = useState('all')
+  const [activeTab, setActiveTab] = useState('videos')
+  const [page, setPage] = useState(1)
+  const [sortOrder, setSortOrder] = useState('newest')
+  const [assigning, setAssigning] = useState(null)
 
   const fetchAssets = useCallback(async () => {
     setLoading(true)
@@ -1140,6 +1144,9 @@ function UnreviewedLibrary({ showToast }) {
 
   useEffect(() => { fetchAssets() }, [fetchAssets])
 
+  // Reset page when creator/tab/sort changes
+  useEffect(() => { setPage(1) }, [selectedCreator, activeTab, sortOrder])
+
   // Build creator list from assets
   const creators = [...new Map(
     assets.filter(a => a.creator?.id).map(a => [a.creator.id, a.creator.name])
@@ -1149,15 +1156,63 @@ function UnreviewedLibrary({ showToast }) {
     ? assets
     : assets.filter(a => a.creator?.id === selectedCreator)
 
+  // Sort
+  const sorted = [...filtered].sort((a, b) => {
+    const da = new Date(a.createdTime || 0)
+    const db = new Date(b.createdTime || 0)
+    return sortOrder === 'newest' ? db - da : da - db
+  })
+
+  // Split by asset type — fall back to URL sniffing when Asset Type missing
+  const videos = sorted.filter(a => {
+    const link = a.dropboxLinks?.[0] || a.dropboxLink || ''
+    return a.assetType === 'Video' || (!a.assetType && isVideo(link))
+  })
+  const photos = sorted.filter(a => {
+    const link = a.dropboxLinks?.[0] || a.dropboxLink || ''
+    return a.assetType === 'Photo' || a.assetType === 'Image' || (!a.assetType && isPhoto(link))
+  })
+
+  const shown = activeTab === 'videos' ? videos : photos
+  const totalPages = Math.max(1, Math.ceil(shown.length / LIB_PAGE_SIZE))
+  const paged = shown.slice((page - 1) * LIB_PAGE_SIZE, page * LIB_PAGE_SIZE)
+
+  const handleAssign = async (asset) => {
+    const creatorId = asset.creator?.id
+    if (!creatorId) {
+      showToast('Asset has no creator linked', true)
+      return
+    }
+    setAssigning(asset.id)
+    try {
+      const res = await fetch('/api/editor/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: asset.id, creatorId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to start edit')
+      showToast('Edit started — moved to editor queue')
+      // Remove from local list so the grid updates immediately
+      setAssets(prev => prev.filter(a => a.id !== asset.id))
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setAssigning(null)
+    }
+  }
+
   if (loading) {
     return <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px 0' }}>Loading library...</div>
   }
 
+  const tabCounts = { videos: videos.length, photos: photos.length }
+
   return (
     <div>
       {/* Controls row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <select
             value={selectedCreator}
             onChange={e => setSelectedCreator(e.target.value)}
@@ -1173,131 +1228,100 @@ function UnreviewedLibrary({ showToast }) {
               return <option key={id} value={id}>{name} ({count})</option>
             })}
           </select>
+
+          {/* Videos / Photos tabs */}
+          <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
+            {[{ key: 'videos', label: 'Videos' }, { key: 'photos', label: 'Photos' }].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                style={{
+                  padding: '4px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                  border: 'none', cursor: 'pointer',
+                  background: activeTab === t.key ? 'rgba(232, 160, 160, 0.05)' : 'transparent',
+                  color: activeTab === t.key ? 'rgba(240, 236, 232, 0.85)' : '#999',
+                }}
+              >
+                {t.label} <span style={{ color: activeTab === t.key ? '#999' : '#aaa', fontWeight: 400 }}>{tabCounts[t.key]}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Sort */}
+          <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
+            {[{ key: 'newest', label: 'Newest' }, { key: 'oldest', label: 'Oldest' }].map(s => (
+              <button
+                key={s.key}
+                onClick={() => setSortOrder(s.key)}
+                style={{
+                  padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                  border: 'none', cursor: 'pointer',
+                  background: sortOrder === s.key ? 'rgba(232, 160, 160, 0.05)' : 'transparent',
+                  color: sortOrder === s.key ? 'rgba(240, 236, 232, 0.85)' : '#999',
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
           <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
-            {filtered.length} {filtered.length === 1 ? 'clip' : 'clips'}
+            {shown.length} {shown.length === 1 ? 'clip' : 'clips'}
           </span>
         </div>
-        <button
-          onClick={fetchAssets}
-          style={{
-            padding: '6px 14px', fontSize: '12px', fontWeight: 600,
-            background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent',
-            borderRadius: '6px', cursor: 'pointer',
-          }}
-        >
-          Refresh
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {totalPages > 1 && (
+            <LibPickerPaginator page={page} totalPages={totalPages} onChange={setPage} />
+          )}
+          <button
+            onClick={fetchAssets}
+            style={{
+              padding: '6px 14px', fontSize: '12px', fontWeight: 600,
+              background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent',
+              borderRadius: '6px', cursor: 'pointer',
+            }}
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {shown.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          {selectedCreator === 'all' ? 'No unreviewed clips in library.' : 'No clips for this creator.'}
+          {selectedCreator === 'all'
+            ? `No unreviewed ${activeTab} in library.`
+            : `No ${activeTab} for this creator.`}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 380px))', gap: '16px' }}>
-          {filtered.map(asset => (
-            <UnreviewedCard key={asset.id} asset={asset} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function UnreviewedCard({ asset }) {
-  const formattedDate = asset.createdTime
-    ? new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    : null
-
-  // Derive a short folder label from the path
-  const pathParts = (asset.dropboxPath || '').split('/')
-  const folderLabel = pathParts.length > 2 ? pathParts[pathParts.length - 2] : null
-
-  return (
-    <div style={{
-      background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px',
-      overflow: 'hidden', display: 'flex', flexDirection: 'column',
-    }}>
-      {/* Thumbnail */}
-      <div style={{ height: '180px', background: 'var(--background)', position: 'relative', overflow: 'hidden' }}>
-        {asset.thumbnail ? (
-          <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <svg style={{ width: '36px', height: '36px', color: 'transparent' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
-            </svg>
-            <span style={{ fontSize: '11px', color: '#444' }}>No thumbnail</span>
-          </div>
-        )}
-        {/* Unreviewed badge */}
-        <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#E8C878', fontWeight: 600 }}>
-          UNREVIEWED
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-        {/* Creator + date */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>
-              {asset.creator.name || 'Unknown Creator'}
-            </div>
-            {formattedDate && (
-              <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', marginTop: '2px' }}>
-                Added {formattedDate}
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+            {paged.map(asset => (
+              <div key={asset.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <LibraryCard
+                  asset={asset}
+                  onAssign={handleAssign}
+                  assigning={assigning}
+                  forcePhoto={activeTab === 'photos'}
+                />
+                {selectedCreator === 'all' && asset.creator?.name && (
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', paddingLeft: '2px' }}>
+                    {asset.creator.name}
+                  </div>
+                )}
+                {asset.thumbnail && (
+                  <CaptionSuggestions thumbnailUrl={asset.thumbnail} creatorId={asset.creator?.id} />
+                )}
               </div>
-            )}
+            ))}
           </div>
-          {asset.sourceType && (
-            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--foreground-muted)', border: '1px solid transparent', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {asset.sourceType}
-            </span>
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+              <LibPickerPaginator page={page} totalPages={totalPages} onChange={setPage} />
+            </div>
           )}
-        </div>
-
-        {/* Folder path hint */}
-        {folderLabel && (
-          <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', fontFamily: 'monospace', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            📁 {folderLabel}
-          </div>
-        )}
-
-        {/* Creator notes */}
-        {asset.creatorNotes && (
-          <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', padding: '8px 10px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Notes</div>
-            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.4 }}>{asset.creatorNotes}</div>
-          </div>
-        )}
-
-        {/* Music Radio — DNA-based suggestions */}
-        {asset.creator?.id && (
-          <CreatorMusicRadio creatorId={asset.creator.id} creatorName={asset.creator.name} hasPlaylist={true} />
-        )}
-
-        {/* Caption Suggestions — AI-generated on-screen text */}
-        <CaptionSuggestions thumbnailUrl={asset.thumbnail} creatorId={asset.creator?.id} />
-
-        {/* Download links */}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: 'auto' }}>
-          {(asset.dropboxLinks?.length > 0 ? asset.dropboxLinks : asset.dropboxLink ? [asset.dropboxLink] : []).map((link, i, arr) => (
-            <a key={i} href={link} target="_blank" rel="noopener noreferrer"
-              style={{
-                flex: 1, minWidth: '80px', textAlign: 'center',
-                padding: '8px', fontSize: '12px', fontWeight: 600,
-                background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent',
-                borderRadius: '6px', textDecoration: 'none',
-              }}>
-              {arr.length > 1 ? `Clip ${i + 1} ↗` : 'View Clip ↗'}
-            </a>
-          ))}
-          {!asset.dropboxLink && asset.dropboxLinks?.length === 0 && (
-            <span style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.85)', fontStyle: 'italic' }}>No link available</span>
-          )}
-        </div>
-      </div>
+        </>
+      )}
     </div>
   )
 }

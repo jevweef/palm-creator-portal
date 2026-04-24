@@ -83,17 +83,17 @@ function CreatorDnaModal({ creatorId, creatorName, onClose }) {
 
 // ─── Library helpers ───────────────────────────────────────────────────────────
 
-function rawDropboxUrl(url) {
+export function rawDropboxUrl(url) {
   if (!url) return ''
   const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
   return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
-function isVideo(url) { return !!url && /\.(mp4|mov|avi|webm|mkv)/i.test(url) }
-function isPhoto(url) { return !!url && /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url) }
+export function isVideo(url) { return !!url && /\.(mp4|mov|avi|webm|mkv)/i.test(url) }
+export function isPhoto(url) { return !!url && /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i.test(url) }
 
-const LIB_PAGE_SIZE = 15
+export const LIB_PAGE_SIZE = 15
 
-function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
+export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
   const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
@@ -143,7 +143,7 @@ function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
   )
 }
 
-function LibPickerPaginator({ page, totalPages, onChange }) {
+export function LibPickerPaginator({ page, totalPages, onChange }) {
   if (totalPages <= 1) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
