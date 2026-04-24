@@ -99,6 +99,7 @@ export async function POST(request) {
     // 1. If caller provided thumbnailUrl (direct image URL or data URL), use it
     // 2. Otherwise extract a frame from the Dropbox video via their thumbnail API
     let targetImageSource = thumbnailUrl
+    let thumbErr = null
     if (!targetImageSource && videoUrl) {
       if (/dropbox\.com/i.test(videoUrl)) {
         try {
@@ -108,11 +109,16 @@ export async function POST(request) {
             targetImageSource = `data:image/jpeg;base64,${thumbBuf.toString('base64')}`
           }
         } catch (e) {
+          thumbErr = e.message
           console.warn('[suggest-text] Dropbox thumbnail failed:', e.message)
         }
+      } else {
+        thumbErr = 'videoUrl is not a Dropbox share URL'
       }
       if (!targetImageSource) {
-        return NextResponse.json({ error: 'Could not extract a frame from the video. Make sure the link is a Dropbox share URL.' }, { status: 400 })
+        return NextResponse.json({
+          error: `Could not extract a frame from the video. ${thumbErr || ''}`,
+        }, { status: 400 })
       }
     }
 
