@@ -170,13 +170,13 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const { thumbnailUrl, videoUrl, mode, creatorId, count = 5 } = body
+    const { thumbnailUrl, videoUrl, mode, creatorId, count = 5, cachedFrames } = body
 
     if (!mode) {
       return NextResponse.json({ error: 'mode required' }, { status: 400 })
     }
-    if (!thumbnailUrl && !videoUrl) {
-      return NextResponse.json({ error: 'thumbnailUrl or videoUrl required' }, { status: 400 })
+    if (!thumbnailUrl && !videoUrl && !(cachedFrames && cachedFrames.length)) {
+      return NextResponse.json({ error: 'thumbnailUrl, videoUrl, or cachedFrames required' }, { status: 400 })
     }
 
     const brief = MODE_BRIEFS[mode]
@@ -187,12 +187,15 @@ export async function POST(request) {
     // Resolve the image source to feed OpenAI
     // 1. If caller provided thumbnailUrl (direct image URL or data URL), use it
     // 2. Otherwise extract a frame from the Dropbox video via their thumbnail API
-    // Collect target frames: if a thumbnail was passed, use that single image.
-    // If we have a video URL, extract 5 frames evenly spaced across the clip
-    // so the AI sees the whole thing, not just one still.
+    // Collect target frames — three sources:
+    // 1. cachedFrames passed back from a prior call (fastest, skips ffmpeg)
+    // 2. thumbnailUrl (single image, fast)
+    // 3. videoUrl (extract 5 frames via ffmpeg)
     let targetFrames = [] // [{ timestamp, dataUrl }]
-    let videoDuration = null
-    if (thumbnailUrl) {
+    let videoDuration = body.videoDuration || null
+    if (cachedFrames && cachedFrames.length) {
+      targetFrames = cachedFrames
+    } else if (thumbnailUrl) {
       targetFrames = [{ timestamp: 0, dataUrl: thumbnailUrl }]
     } else if (videoUrl) {
       try {
@@ -266,7 +269,7 @@ export async function POST(request) {
     }
 
     // 3. Build the OpenAI prompt
-    const systemPrompt = `You are a viral caption writer for OnlyFans creators' Instagram and TikTok reels. Your job is to generate on-screen text overlay suggestions for a raw creator clip.
+    const systemPrompt = `You are writing on-screen text captions for OnlyFans creators' Instagram/TikTok reels. Top-of-funnel public content: stop the scroll, create curiosity or attraction, funnel to follow/subscribe.
 
 MODE: ${mode}
 ${brief.summary}
@@ -274,14 +277,33 @@ ${brief.summary}
 RULES FOR THIS MODE:
 ${brief.rules.map(r => `- ${r}`).join('\n')}
 
-CORE PRINCIPLE (always):
-These reels are top-of-funnel public content. The goal is to stop the scroll of a man on his For You page and make him want to follow or subscribe — not to deliver explicit content. The text should create attraction, curiosity, or engagement.
+VOICE — THIS IS THE HARDEST PART. READ CAREFULLY.
+The text must sound like a real 20-something internet girl actually wrote it — NOT like a marketing copywriter. Read it out loud: if it sounds like something a brand account would post, throw it out.
+
+Real girls sound:
+- Confident and a little bratty — "Me toxic? I'm only ragebaiting you bc you look hot when you're mad"
+- Casual with lowercase and abbreviations — "ik what he wants.. I just act clueless bc I love when he puts me in my place"
+- Specific and cheeky — "Getting blocked or removed by a man is funny asf.. like awn did I make u mad princess?"
+- Playful, not polished — "Let me be the reason you forget your ex"
+
+AI-sounding captions (NEVER write these):
+- "When staying in becomes the main event" ← vague corporate-influencer speak
+- "When you dress down but the mood's still extra" ← generic word salad
+- "When you know his heart can't handle this outfit" ← corny, reads like Pinterest
+- "When your gym playlist hits and so do you 💪🎵" ← emoji-stuffed, formulaic
+
+Hard rules:
+- No stacked emojis (💪🎵🔥). One emoji is fine if it adds meaning. Zero is usually better.
+- No "When you ___" openers unless they land something unexpected. Avoid if they're just generic flex.
+- Use lowercase, typos, abbreviations (u, ur, bc, asf, tbh, ngl, ik, idk) when it fits voice
+- SPECIFICITY > VAGUENESS. "When he cancels plans but you look this cute" = generic. "Texting him 'u up?' at 11pm knowing he'll say yes" = specific.
+- If the caption could work on 50 random reels, scrap it. It must be tied to THIS clip.
 
 You will be shown:
-1. Training examples (approved reels that worked, with their frames + the text that was on screen)
-2. A target clip (one frame) that needs text suggestions${creatorContext ? '\n3. The creator\'s profile + DNA' : ''}
+1. Training examples (approved reels that worked, with frames + actual on-screen text)
+2. A target clip — multiple frames across the video${creatorContext ? '\n3. The creator\'s profile + DNA' : ''}
 
-Your job: generate ${count} distinct on-screen text suggestions for the target clip. Each should work for this specific visual while following the mode rules.
+Your job: generate ${count} distinct on-screen text suggestions for THIS specific clip. Match the approved examples' voice, not a generic influencer voice.
 
 CRITICAL — READ THE CLIP CAREFULLY BEFORE SUGGESTING:
 Before writing any caption, describe the target clip in your head:
@@ -348,7 +370,7 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
       ],
-      temperature: 0.9,
+      temperature: 1.05,
     })
 
     const raw = completion.choices[0]?.message?.content || '{}'

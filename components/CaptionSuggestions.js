@@ -28,6 +28,7 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
   const [copiedIdx, setCopiedIdx] = useState(null)
   const [pickedIdx, setPickedIdx] = useState(null)
   const [analyzedFrames, setAnalyzedFrames] = useState(null)
+  const [videoDuration, setVideoDuration] = useState(null)
   const [observed, setObserved] = useState(null)
 
   async function generate(selectedMode) {
@@ -35,18 +36,31 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
     setLoading(true)
     setError('')
     setSuggestions(null)
-    setAnalyzedFrames(null)
     setObserved(null)
     try {
+      // Reuse extracted frames across mode switches — no need to re-run ffmpeg
+      const payload = {
+        mode: selectedMode,
+        creatorId,
+        count: 5,
+      }
+      if (analyzedFrames?.length) {
+        payload.cachedFrames = analyzedFrames
+        payload.videoDuration = videoDuration
+      } else {
+        payload.thumbnailUrl = thumbnailUrl
+        payload.videoUrl = videoUrl
+      }
       const res = await fetch('/api/editor/suggest-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thumbnailUrl, videoUrl, mode: selectedMode, creatorId, count: 5 }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
       setSuggestions(data.suggestions || [])
       if (data.analyzedFrames) setAnalyzedFrames(data.analyzedFrames)
+      if (data.videoDuration) setVideoDuration(data.videoDuration)
       if (data.observed) setObserved(data.observed)
     } catch (e) {
       setError(e.message)
