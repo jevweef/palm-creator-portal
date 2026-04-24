@@ -11,6 +11,13 @@ const CAPTION_MODES = [
   { value: 'Mood / Reflective', label: 'Mood', color: '#22d3ee' },
 ]
 
+const TONE_LEVELS = [
+  { value: 'subtle', label: 'Subtle', color: '#94a3b8' },
+  { value: 'flirty', label: 'Flirty', color: '#f472b6' },
+  { value: 'suggestive', label: 'Suggestive', color: '#f87171' },
+  { value: 'spicy', label: 'Spicy', color: '#ef4444' },
+]
+
 /**
  * Shared caption suggestion UI.
  * - thumbnailUrl: preferred — a direct image URL (Airtable attachment)
@@ -30,17 +37,21 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
   const [analyzedFrames, setAnalyzedFrames] = useState(null)
   const [videoDuration, setVideoDuration] = useState(null)
   const [observed, setObserved] = useState(null)
+  const [tone, setTone] = useState('flirty')
+  const [rawResponse, setRawResponse] = useState(null)
 
-  async function generate(selectedMode) {
+  async function generate(selectedMode, selectedTone = tone) {
     setMode(selectedMode)
     setLoading(true)
     setError('')
     setSuggestions(null)
     setObserved(null)
+    setRawResponse(null)
     try {
-      // Reuse extracted frames across mode switches — no need to re-run ffmpeg
+      // Reuse extracted frames across mode/tone switches — no need to re-run ffmpeg
       const payload = {
         mode: selectedMode,
+        tone: selectedTone,
         creatorId,
         count: 5,
       }
@@ -62,11 +73,17 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
       if (data.analyzedFrames) setAnalyzedFrames(data.analyzedFrames)
       if (data.videoDuration) setVideoDuration(data.videoDuration)
       if (data.observed) setObserved(data.observed)
+      if (data.rawResponse) setRawResponse(data.rawResponse)
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleToneChange(newTone) {
+    setTone(newTone)
+    if (mode) generate(mode, newTone)
   }
 
   function copyText(text, idx) {
@@ -127,7 +144,7 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
         {CAPTION_MODES.map(m => (
           <button
             key={m.value}
-            onClick={() => generate(m.value)}
+            onClick={() => generate(m.value, tone)}
             disabled={loading}
             style={{
               padding: '4px 10px', fontSize: '11px', fontWeight: 500,
@@ -143,6 +160,32 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
         ))}
       </div>
 
+      {/* Tone slider (segmented) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Tone:</span>
+        <div style={{ display: 'flex', gap: '2px', background: 'rgba(0,0,0,0.25)', padding: '2px', borderRadius: '6px' }}>
+          {TONE_LEVELS.map(t => {
+            const active = tone === t.value
+            return (
+              <button
+                key={t.value}
+                onClick={() => handleToneChange(t.value)}
+                disabled={loading}
+                style={{
+                  padding: '3px 10px', fontSize: '10px', fontWeight: 600,
+                  background: active ? t.color : 'transparent',
+                  color: active ? '#fff' : 'var(--foreground-muted)',
+                  border: 'none', borderRadius: '4px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {loading && (
         <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
           Analyzing clip…
@@ -154,7 +197,17 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
       )}
 
       {suggestions && suggestions.length === 0 && !loading && (
-        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>No suggestions returned.</div>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+          No suggestions returned.
+          {rawResponse && (
+            <details style={{ marginTop: '4px' }}>
+              <summary style={{ cursor: 'pointer', color: 'var(--palm-pink)', fontSize: '10px' }}>debug: raw AI response</summary>
+              <pre style={{ fontSize: '10px', background: 'rgba(0,0,0,0.4)', padding: '6px 8px', borderRadius: '4px', overflow: 'auto', maxHeight: '200px', color: '#ccc', marginTop: '4px' }}>
+                {JSON.stringify(rawResponse, null, 2)}
+              </pre>
+            </details>
+          )}
+        </div>
       )}
 
       {/* Frames the AI actually looked at + what it observed */}

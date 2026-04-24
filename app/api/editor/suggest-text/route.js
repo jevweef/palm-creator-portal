@@ -97,6 +97,29 @@ async function extractFramesFromVideo(videoUrl, frameCount = 5) {
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 
+const TONE_LEVELS = {
+  subtle: {
+    label: 'Subtle',
+    desc: 'Flirty but very implicit. No explicit words. Could post on a professional account.',
+    heat: 1,
+  },
+  flirty: {
+    label: 'Flirty',
+    desc: 'Clearly flirty/suggestive but keeps it playful. Innuendo, no explicit terms.',
+    heat: 2,
+  },
+  suggestive: {
+    label: 'Suggestive',
+    desc: 'Bold sexual implication. References body parts / sex acts via emoji substitutes. Clear what she means, never explicit in words.',
+    heat: 3,
+  },
+  spicy: {
+    label: 'Spicy',
+    desc: 'Maximum heat for top-of-funnel content. Strong sexual implication via emoji + implication. Still no literal explicit words — use emoji substitutes instead.',
+    heat: 4,
+  },
+}
+
 const MODE_BRIEFS = {
   'Scenario / Fantasy': {
     summary: 'Text places the viewer into a specific situation or fantasy. The visual alone is generic — the text creates the whole concept.',
@@ -170,7 +193,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const { thumbnailUrl, videoUrl, mode, creatorId, count = 5, cachedFrames } = body
+    const { thumbnailUrl, videoUrl, mode, creatorId, count = 5, cachedFrames, tone = 'flirty' } = body
 
     if (!mode) {
       return NextResponse.json({ error: 'mode required' }, { status: 400 })
@@ -183,6 +206,8 @@ export async function POST(request) {
     if (!brief) {
       return NextResponse.json({ error: `Unknown mode: ${mode}` }, { status: 400 })
     }
+
+    const toneBrief = TONE_LEVELS[tone] || TONE_LEVELS.flirty
 
     // Resolve the image source to feed OpenAI
     // 1. If caller provided thumbnailUrl (direct image URL or data URL), use it
@@ -292,8 +317,32 @@ AI-sounding captions (NEVER write these):
 - "When you know his heart can't handle this outfit" ← corny, reads like Pinterest
 - "When your gym playlist hits and so do you 💪🎵" ← emoji-stuffed, formulaic
 
+TONE LEVEL: ${toneBrief.label.toUpperCase()} (heat ${toneBrief.heat}/4)
+${toneBrief.desc}
+
+EMOJI RULES (strict):
+- MAXIMUM ONE emoji per caption. Zero is usually better.
+- NEVER decorate with emoji (no 💪🎵🔥✨💖 at the end of sentences for vibes).
+- Only use an emoji when it REPLACES an explicit word the caption needs to imply:
+    • 🐱 replaces "pussy"
+    • 🍆 replaces "dick" / "cock"
+    • 🍑 replaces "ass"
+    • 💦 replaces "cum" / "wet"
+    • 🫦 replaces "lips" / "mouth" in a sexual sense
+    • 👅 replaces "tongue" in a sexual sense
+- If the caption doesn't need to imply an explicit act/body-part, use NO emoji.
+
+BANNED WORDS & PHRASES (never use):
+- "vibe" / "vibes" / "energy" / "mood" as a standalone descriptor
+- "main event" / "main character" / "the moment"
+- "slay" / "queen" / "iconic" / "icon"
+- "obsessed with myself" / "obsessed"
+- "serving" / "giving" as flex adjective
+- "eating" as flex (in the "she's eating" sense)
+- "it's giving ___"
+- Literal explicit words (pussy, dick, cock, cum, fuck, etc.) — use emoji substitute instead per rules above
+
 Hard rules:
-- No stacked emojis (💪🎵🔥). One emoji is fine if it adds meaning. Zero is usually better.
 - No "When you ___" openers unless they land something unexpected. Avoid if they're just generic flex.
 - Use lowercase, typos, abbreviations (u, ur, bc, asf, tbh, ngl, ik, idk) when it fits voice
 - SPECIFICITY > VAGUENESS. "When he cancels plans but you look this cute" = generic. "Texting him 'u up?' at 11pm knowing he'll say yes" = specific.
@@ -381,15 +430,24 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
       return NextResponse.json({ error: 'Failed to parse AI response', raw }, { status: 500 })
     }
 
+    // Some responses nest the suggestions or use a different key — try to find them
+    const suggestions = parsed.suggestions
+      || parsed.captions
+      || parsed.output?.suggestions
+      || parsed.result?.suggestions
+      || []
+
     return NextResponse.json({
       mode,
+      tone,
       observed: parsed.observed || null,
-      suggestions: parsed.suggestions || [],
+      suggestions,
       trainingExampleCount: trainingExamples.length,
-      // Return every frame the AI saw, with timestamps, for debugging/transparency
       analyzedFrames: targetFrames,
       videoDuration,
       usage: completion.usage,
+      // Debug: return the raw AI response if no suggestions parsed out
+      rawResponse: suggestions.length === 0 ? parsed : undefined,
     })
   } catch (err) {
     console.error('[suggest-text] Error:', err)
