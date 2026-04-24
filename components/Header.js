@@ -11,8 +11,10 @@ export default function Header() {
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
   const isEditor = role === 'editor'
+  const isSMM = role === 'social_media'
   const isEditorPath = pathname?.startsWith('/editor')
   const isCreatorPath = pathname?.startsWith('/creator')
+  const isSmPath = pathname?.startsWith('/sm')
   const creatorIdFromPath = isCreatorPath ? pathname?.split('/')?.[2] : null
   const hqId = searchParams?.get('hqId')
   const hqSuffix = hqId ? `?hqId=${hqId}` : ''
@@ -55,13 +57,19 @@ export default function Header() {
     }}>
       <div className="header-inner px-4 md:px-8 py-4" style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
-        <Link href={isEditor ? '/admin/editor' : isCreatorPath ? `/creator/${creatorIdFromPath}/dashboard${hqSuffix}` : '/dashboard'} style={{ display: 'flex', alignItems: 'center' }}>
+        <Link href={isSMM || isSmPath ? '/sm' : isEditor ? '/admin/editor' : isCreatorPath ? `/creator/${creatorIdFromPath}/dashboard${hqSuffix}` : '/dashboard'} style={{ display: 'flex', alignItems: 'center' }}>
           <span className="font-display gradient-text" style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em' }}>
             Palm
           </span>
         </Link>
         <nav className="header-nav" style={{ display: 'flex', gap: '28px' }}>
-          {(isEditor || isEditorPath) ? (
+          {(isSMM || isSmPath) ? (
+            <>
+              <Link href="/sm/setup-requests" style={linkStyle(pathname?.startsWith('/sm/setup-requests'))}>Setup Requests</Link>
+              <Link href="/sm/grid-planner" style={linkStyle(pathname?.startsWith('/sm/grid-planner'))}>Grid Planner</Link>
+              <Link href="/sm/workspace" style={linkStyle(pathname?.startsWith('/sm/workspace'))}>Workspace</Link>
+            </>
+          ) : (isEditor || isEditorPath) ? (
             <>
               <Link href="/editor" style={linkStyle(pathname === '/editor')}>Editor Queue</Link>
               <Link href="/editor/inspo" style={linkStyle(pathname?.startsWith('/editor/inspo'))}>Inspo Board</Link>
