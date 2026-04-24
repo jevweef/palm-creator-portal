@@ -181,6 +181,9 @@ export function getSlotLabel(isoDateString) {
 export function QuotaDots({ slotColors, quota, done }) {
   const unlitColor = 'rgba(255,255,255,0.12)'
   const dividerColor = 'rgba(255,255,255,0.06)'
+  // Group dots by the editor's DAILY task quota so dividers fall between days,
+  // not between pairs. 14/wk → groups of 2, 21/wk → groups of 3, etc.
+  const dailyTasks = Math.max(1, Math.ceil((quota || 0) / 7))
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
@@ -188,7 +191,7 @@ export function QuotaDots({ slotColors, quota, done }) {
           const raw = slotColors?.[i]
           const lit = raw && raw !== 'var(--card-border)'
           const color = lit ? raw : unlitColor
-          const isNewDay = i > 0 && i % 2 === 0
+          const isNewDay = i > 0 && i % dailyTasks === 0
           return (
             <div key={i} style={{ display: 'contents' }}>
               {isNewDay && <div style={{ width: '1px', height: '8px', background: dividerColor, flexShrink: 0 }} />}
