@@ -620,12 +620,22 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
   const switchTab = key => { setActiveTab(key); setPage(1) }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '20px' }}
+    <div className="lib-picker-overlay" style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '20px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      {/* Mobile overrides: tighter padding + 2-column grid on narrow viewports.
+          Desktop behavior is unchanged (modal stays padded, grid flows wider). */}
+      <style>{`
+        @media (max-width: 640px) {
+          .lib-picker-overlay { padding: 8px !important; }
+          .lib-picker-header { padding: 12px 14px 10px !important; flex-wrap: wrap !important; gap: 8px !important; }
+          .lib-picker-body { padding: 12px 12px !important; }
+          .lib-picker-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+        }
+      `}</style>
       <div style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+        <div className="lib-picker-header" style={{ padding: '20px 28px 16px', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>Unreviewed Library</div>
             <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{creator.name}</div>
@@ -661,14 +671,14 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
         </div>
 
         {/* Body */}
-        <div style={{ overflowY: 'auto', padding: '20px 28px', flex: 1 }}>
+        <div className="lib-picker-body" style={{ overflowY: 'auto', padding: '20px 28px', flex: 1 }}>
           {loading && <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>Loading library…</div>}
           {err && <div style={{ color: '#E87878', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>{err}</div>}
           {!loading && !err && library?.length === 0 && (
             <div style={{ color: 'var(--foreground-subtle)', fontSize: '13px', textAlign: 'center', padding: '48px 0' }}>No unreviewed clips found for {creator.name}.</div>
           )}
           {!loading && paged.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+            <div className="lib-picker-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
               {paged.map(asset => (
                 <LibraryCard key={asset.id} asset={asset} onAssign={handleAssign} assigning={assigning} forcePhoto={activeTab === 'photos'} />
               ))}
