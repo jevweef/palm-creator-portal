@@ -464,44 +464,46 @@ function ProjectDetail({ project, onClose, onRefresh }) {
                 No files uploaded yet. Use the link above to upload.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {files.map((f, i) => {
-                  const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
-                  const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
-                    : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
-                  return (
-                    <div
-                      key={i}
-                      onClick={isMedia ? () => setPreviewFile(f) : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                        padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
-                        cursor: isMedia ? 'pointer' : 'default',
-                        transition: 'background 0.15s',
-                      }}
-                      onMouseEnter={e => { if (isMedia) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-                      onMouseLeave={e => { if (isMedia) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '14px' }}>{icon}</span>
-                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {files.map((f, i) => {
+                    const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
+                    const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
+                      : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
+                    return (
+                      <div
+                        key={i}
+                        onClick={isMedia ? () => setPreviewFile(f) : undefined}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                          padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
+                          cursor: isMedia ? 'pointer' : 'default',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => { if (isMedia) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                        onMouseLeave={e => { if (isMedia) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                          <span style={{ fontSize: '14px' }}>{icon}</span>
+                          <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+                          <span>{fmtSize(f.size)}</span>
+                          <span>{fmtDate(f.modified)}</span>
+                          {isMedia && <span style={{ color: 'var(--palm-pink)' }}>▶</span>}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
-                        <span>{fmtSize(f.size)}</span>
-                        <span>{fmtDate(f.modified)}</span>
-                        {isMedia && <span style={{ color: 'var(--palm-pink)' }}>▶</span>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              {previewFile && (
-                <VideoPreviewModal
-                  projectId={project.id}
-                  file={previewFile}
-                  onClose={() => setPreviewFile(null)}
-                />
-              )}
+                    )
+                  })}
+                </div>
+                {previewFile && (
+                  <VideoPreviewModal
+                    projectId={project.id}
+                    file={previewFile}
+                    onClose={() => setPreviewFile(null)}
+                  />
+                )}
+              </>
             )}
           </div>
 

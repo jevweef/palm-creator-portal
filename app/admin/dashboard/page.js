@@ -122,6 +122,183 @@ function RunwayBar({ days }) {
   )
 }
 
+/* ─── Pipeline Access Panel ─── */
+// Inline toggle for each creator's Social Media Editing flag — the single
+// switch that gates Editor Dashboard, Grid Planner, and Post Prep visibility.
+// Readiness badges show what's set up (DNA profile, Music DNA, IG accounts,
+// Telegram) so you know what else needs to land before a creator can actually
+// use the pipeline.
+function ReadinessBadge({ ok, label, title }) {
+  return (
+    <span
+      title={title}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: '3px',
+        padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+        background: ok ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 200, 120, 0.06)',
+        color: ok ? '#7DD3A4' : '#E8C878',
+        border: `1px solid ${ok ? 'rgba(125, 211, 164, 0.2)' : 'rgba(232, 200, 120, 0.2)'}`,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {ok ? '✓' : '⚠'} {label}
+    </span>
+  )
+}
+
+function ToggleSwitch({ on, onChange, disabled }) {
+  return (
+    <button
+      onClick={disabled ? undefined : () => onChange(!on)}
+      disabled={disabled}
+      aria-pressed={on}
+      style={{
+        position: 'relative', width: '36px', height: '20px', borderRadius: '20px',
+        background: on ? '#7DD3A4' : 'rgba(255,255,255,0.1)',
+        border: 'none', cursor: disabled ? 'wait' : 'pointer',
+        transition: 'background 0.2s ease',
+        padding: 0, flexShrink: 0,
+      }}
+    >
+      <span style={{
+        position: 'absolute', top: '2px', left: on ? '18px' : '2px',
+        width: '16px', height: '16px', borderRadius: '50%',
+        background: '#fff', transition: 'left 0.2s ease',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+      }} />
+    </button>
+  )
+}
+
+function PipelineAccessPanel() {
+  const [creators, setCreators] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState({})
+
+  const fetchCreators = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/creators/pipeline')
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      setCreators(data.creators || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchCreators() }, [fetchCreators])
+
+  const handleToggle = async (creator, nextValue) => {
+    setSaving(prev => ({ ...prev, [creator.id]: true }))
+    // Optimistic update — flip immediately, revert on error
+    setCreators(prev => prev.map(c =>
+      c.id === creator.id ? { ...c, socialMediaEditing: nextValue } : c
+    ))
+    try {
+      const res = await fetch('/api/admin/creators/pipeline', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: creator.id, socialMediaEditing: nextValue }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+    } catch (err) {
+      // Revert
+      setCreators(prev => prev.map(c =>
+        c.id === creator.id ? { ...c, socialMediaEditing: !nextValue } : c
+      ))
+      alert(`Failed to toggle: ${err.message}`)
+    } finally {
+      setSaving(prev => {
+        const next = { ...prev }
+        delete next[creator.id]
+        return next
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div style={{ ...CARD, padding: '14px 16px', marginBottom: '12px' }}>
+        <div style={SECTION_TITLE}>Editor Pipeline Access</div>
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>Loading creators…</div>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div style={{ ...CARD, padding: '14px 16px', marginBottom: '12px' }}>
+        <div style={SECTION_TITLE}>Editor Pipeline Access</div>
+        <div style={{ fontSize: '12px', color: '#E87878' }}>Error: {error}</div>
+      </div>
+    )
+  }
+
+  const activeCount = creators.filter(c => c.socialMediaEditing).length
+
+  return (
+    <div style={{ ...CARD, padding: '14px 16px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={SECTION_TITLE}>Editor Pipeline Access</div>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+          {activeCount} of {creators.length} active
+        </div>
+      </div>
+      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '10px' }}>
+        Toggle ON to add a creator to the Editor Dashboard, Grid Planner, and Post Prep. Readiness badges show what's set up; missing ones are nice-to-have, not required.
+      </div>
+      <div style={{ display: 'grid', gap: '4px' }}>
+        {creators.map(c => {
+          const isSaving = !!saving[c.id]
+          return (
+            <div key={c.id} style={{
+              display: 'grid',
+              gridTemplateColumns: '48px 150px 1fr auto',
+              gap: '12px', padding: '6px 8px', alignItems: 'center',
+              background: c.socialMediaEditing ? 'rgba(125, 211, 164, 0.03)' : 'transparent',
+              borderRadius: '6px',
+              opacity: c.socialMediaEditing ? 1 : 0.72,
+              transition: 'opacity 0.2s ease, background 0.2s ease',
+            }}>
+              <ToggleSwitch on={c.socialMediaEditing} onChange={v => handleToggle(c, v)} disabled={isSaving} />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>
+                {c.name}
+              </span>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                <ReadinessBadge
+                  ok={c.hasProfile}
+                  label="DNA Profile"
+                  title={c.hasProfile ? 'AI profile generated from onboarding docs' : 'No Profile Summary yet — run the profile builder on this creator'}
+                />
+                <ReadinessBadge
+                  ok={c.hasMusicDna}
+                  label="Music DNA"
+                  title={c.hasMusicDna ? 'Spotify playlist processed' : 'No Music DNA yet — paste their Spotify playlist URL on their creator profile'}
+                />
+                <ReadinessBadge
+                  ok={c.igAccountCount > 0}
+                  label={`${c.igAccountCount} IG${c.igAccountCount === 1 ? '' : 's'}`}
+                  title={c.igAccountCount > 0
+                    ? `${c.igAccountCount} active IG account${c.igAccountCount === 1 ? '' : 's'} in Creator Platform Directory`
+                    : 'No IG accounts linked — required for Grid Planner (not for Editor)'}
+                />
+                <ReadinessBadge
+                  ok={!!c.telegramThreadId}
+                  label="Telegram"
+                  title={c.telegramThreadId ? 'Telegram thread wired for sending' : 'No Telegram Thread ID — can\'t send posts to Telegram from Grid Planner'}
+                />
+              </div>
+              {isSaving && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>saving…</span>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Alert Pill ─── */
 function AlertPill({ alert }) {
   const config = {
@@ -1034,6 +1211,9 @@ export default function AdminDashboard() {
         </div>{/* close whale scroll container */}
       </div>
       </div>{/* close Row 1 */}
+
+      {/* ─── PIPELINE ACCESS ─── */}
+      <PipelineAccessPanel />
 
       {/* ─── ROW 2: Pipeline + Posting + Period History ─── */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
