@@ -31,6 +31,7 @@ const FIELDS = [
   'fldDrn5gbFp03ngNC', // Creator Invoice (attachment)
   'fldtJxnQil7qFI3v1', // Generated At
   'fldurnksixCkoU7Lh', // Sent At
+  'fldo1wsLtnfpK8wZr', // Amount Paid
 ]
 
 // In-memory cache (per server instance)
@@ -167,6 +168,7 @@ export async function GET(request) {
         : null,
       generatedAt: f['fldtJxnQil7qFI3v1'] || null,
       sentAt: f['fldurnksixCkoU7Lh'] || null,
+      amountPaid: f['fldo1wsLtnfpK8wZr'] || 0,
     }
   })
 
@@ -201,6 +203,7 @@ export async function PATCH(request) {
     invoiceNumber: 'fldl3FDN3H4pr2nIY',
     generatedAt: 'fldtJxnQil7qFI3v1',
     sentAt: 'fldurnksixCkoU7Lh',
+    amountPaid: 'fldo1wsLtnfpK8wZr',
   }
 
   const airtableFields = {}
