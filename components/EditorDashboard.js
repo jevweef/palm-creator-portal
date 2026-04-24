@@ -1443,12 +1443,11 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             )}
             {slot.type === 'inProgress' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {/* AI Caption Suggestions — always visible, picks fill Creatomate caption */}
+                {/* AI Caption Suggestions — brainstorm, copy to your editor of choice */}
                 {task?.asset?.thumbnail && (
                   <CaptionSuggestions
                     thumbnailUrl={task.asset.thumbnail}
                     creatorId={creator?.id}
-                    onPick={text => { setCaption(text); setEditorTab('create') }}
                   />
                 )}
 
