@@ -32,9 +32,10 @@ export async function GET(request) {
 
     const creatorRecs = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `OR(${creatorIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
-      fields: ['Creator', 'AKA'],
+      fields: ['Creator', 'AKA', 'Telegram Thread ID'],
     })
     const creatorMap = Object.fromEntries(creatorRecs.map(r => [r.id, r.fields?.AKA || r.fields?.Creator || '(unnamed)']))
+    const creatorThreadMap = Object.fromEntries(creatorRecs.map(r => [r.id, r.fields?.['Telegram Thread ID'] || null]))
 
     // Count IG accounts per creator to flag which ones are actually editable
     const accountsPerCreator = {}
@@ -90,7 +91,7 @@ export async function GET(request) {
       filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
       fields: [
         'Post Name', 'Creator', 'Account', 'Asset', 'Task',
-        'Status', 'Platform', 'Caption', 'Thumbnail',
+        'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail',
         'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link',
       ],
     })
@@ -157,12 +158,25 @@ export async function GET(request) {
         thumbnail: thumb,
         platform: f.Platform || [],
         caption: f.Caption || '',
+        hashtags: f.Hashtags || '',
+        // Asset details needed when sending to Telegram from the grid
+        asset: assetId ? {
+          id: assetId,
+          editedFileLink: asset['Edited File Link'] || '',
+        } : null,
+        // Thumbnail URL from the Post's attachment (not the .thumbnails.large
+        // preview) — Telegram send expects the full Dropbox/Airtable URL
+        thumbnailUrl: f.Thumbnail?.[0]?.url || '',
       }
     })
 
     return NextResponse.json({
       creators,
-      selectedCreator: { id: creatorId, name: creatorMap[creatorId] || '' },
+      selectedCreator: {
+        id: creatorId,
+        name: creatorMap[creatorId] || '',
+        telegramThreadId: creatorThreadMap[creatorId] || null,
+      },
       accounts,
       posts: normalized,
     })

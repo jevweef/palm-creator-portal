@@ -677,13 +677,19 @@ function PostCard({ post, onRefresh, onSend }) {
               {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save'}
             </button>
           )}
-          {post.status === 'Prepping' && (
-            <button onClick={() => onSend({ ...post, caption, hashtags, platform: platforms, thumbnailUrl, scheduledDate })} disabled={!hasFile}
-              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700,
-                background: hasFile ? 'rgba(120, 180, 232, 0.06)' : 'var(--card-bg-solid)', color: hasFile ? '#78B4E8' : 'transparent',
-                border: `1px solid ${hasFile ? 'rgba(120, 180, 232, 0.2)' : 'rgba(232, 160, 160, 0.06)'}`, borderRadius: '6px', cursor: hasFile ? 'pointer' : 'default' }}>
-              ✈ Telegram
-            </button>
+          {/* Send action lives in Grid Planner now — Post Prep just preps
+              (caption, hashtags, thumbnail, schedule). Once you've saved here,
+              head over to Grid Planner to stage + send. */}
+          {post.status === 'Prepping' && hasFile && (
+            <a
+              href={`/admin/editor?tab=grid&creatorId=${post.creator?.id || ''}`}
+              style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, textAlign: 'center',
+                background: 'rgba(232, 160, 160, 0.06)', color: 'var(--palm-pink)',
+                border: '1px solid rgba(232, 160, 160, 0.2)', borderRadius: '6px', textDecoration: 'none' }}
+              title="Post is ready — go to Grid Planner to position and send"
+            >
+              ▦ Open in Grid →
+            </a>
           )}
           {post.asset?.editedFileLink && (
             <a href={post.asset.editedFileLink} target="_blank" rel="noopener noreferrer"

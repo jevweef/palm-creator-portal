@@ -403,11 +403,14 @@ export default function GridPlanner() {
   const [error, setError] = useState('')
   const [creators, setCreators] = useState([])
   const [selectedCreatorId, setSelectedCreatorId] = useState(null)
+  const [selectedCreatorMeta, setSelectedCreatorMeta] = useState(null) // { telegramThreadId, name }
   const [accounts, setAccounts] = useState([])
   const [posts, setPosts] = useState([])
   const [dragging, setDragging] = useState({ postId: null, sourceAccountId: null })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
+  const [detailPost, setDetailPost] = useState(null) // { post, accountId, account }
+  const [sendingPostId, setSendingPostId] = useState(null)
 
   // Load creator list on mount
   useEffect(() => {
@@ -435,6 +438,7 @@ export default function GridPlanner() {
       if (!res.ok) throw new Error(d.error || 'Failed to load')
       setAccounts(d.accounts || [])
       setPosts(d.posts || [])
+      setSelectedCreatorMeta(d.selectedCreator || null)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -573,6 +577,68 @@ export default function GridPlanner() {
     }
   }
 
+  // Send a single post to Telegram. Uses waitUntil on the server so this
+  // returns in ~1s — the real send happens in the background. We optimistically
+  // flip the post's status to 'Sending' so the cell recolors immediately, then
+  // poll for completion.
+  const handleSendToTelegram = async (post) => {
+    if (sendingPostId) return // prevent double-click
+    if (!selectedCreatorMeta?.telegramThreadId) {
+      showToast('This creator has no Telegram Thread ID set', true)
+      return
+    }
+    setSendingPostId(post.id)
+    // Optimistic UI update
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'Sending' } : p))
+    setDetailPost(null)
+    try {
+      const res = await fetch('/api/telegram/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId: post.id,
+          editedFileLink: post.asset?.editedFileLink || post.assetEditedFileLink,
+          threadId: selectedCreatorMeta.telegramThreadId,
+          caption: [post.caption, post.hashtags].filter(Boolean).join('\n\n') || undefined,
+          thumbnailUrl: post.thumbnailUrl || undefined,
+          assetId: post.asset?.id || undefined,
+          rawCaption: post.caption || undefined,
+          rawHashtags: post.hashtags || undefined,
+          platform: post.platform?.length ? post.platform : undefined,
+          scheduledDate: post.scheduledDate || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Queue failed')
+      showToast('Queued — sending in background ⏳')
+      // Poll for up to 3min
+      let attempts = 0
+      const poll = setInterval(async () => {
+        attempts++
+        if (attempts > 45) { clearInterval(poll); setSendingPostId(null); return }
+        try {
+          const r = await fetch(`/api/admin/grid-planner?creatorId=${selectedCreatorId}`)
+          const d = await r.json()
+          const latest = (d.posts || []).find(p => p.id === post.id)
+          if (!latest || latest.status === 'Sending') return
+          clearInterval(poll)
+          setSendingPostId(null)
+          setPosts(d.posts || [])
+          if (latest.status === 'Sent to Telegram' || latest.status === 'Ready to Post') {
+            showToast('Sent to Telegram ✓')
+          } else if (latest.status === 'Send Failed') {
+            showToast('Send failed — check Admin Notes on post', true)
+          }
+        } catch {}
+      }, 4000)
+    } catch (e) {
+      showToast(e.message, true)
+      setSendingPostId(null)
+      // Revert optimistic update
+      await loadCreator(selectedCreatorId)
+    }
+  }
+
   // Fan out: duplicate post to all managed accounts, auto-staggering times
   const handleFanOut = async (post) => {
     if (!accounts.length) return
@@ -681,15 +747,25 @@ export default function GridPlanner() {
                     onDragStart={(postId) => handleDragStart(postId, acc.id)}
                     onDragEnd={handleDragEnd}
                     onDrop={(targetPostId) => handleDropOnPost(targetPostId, acc.id)}
-                    onCellClick={(post) => {
-                      // future: open post detail
-                    }}
+                    onCellClick={(post) => setDetailPost({ post, account: acc })}
                   />
                 </div>
               ))}
             </div>
           )}
         </>
+      )}
+
+      {/* Post detail + Send modal */}
+      {detailPost && (
+        <PostDetailModal
+          post={detailPost.post}
+          account={detailPost.account}
+          creatorMeta={selectedCreatorMeta}
+          sending={sendingPostId === detailPost.post.id}
+          onClose={() => setDetailPost(null)}
+          onSend={() => handleSendToTelegram(detailPost.post)}
+        />
       )}
 
       {/* Toast */}
@@ -705,6 +781,127 @@ export default function GridPlanner() {
           {toast.msg}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Post detail + Send modal ──────────────────────────────────────────────────
+// Opens when a cell is clicked in the grid. Shows thumbnail + caption preview
+// and a "Send to Telegram" action. This is where posts actually get sent now
+// (Post Prep only preps — no send action there anymore).
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend }) {
+  const canSend = post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
+  const scheduledLabel = post.scheduledDate
+    ? new Date(post.scheduledDate).toLocaleDateString('en-US', {
+        timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+      })
+    : null
+  const statusStyle = {
+    'Sending': { bg: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
+    'Sent to Telegram': { bg: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8', border: 'rgba(120, 180, 232, 0.3)' },
+    'Send Failed': { bg: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' },
+    'Posted': { bg: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
+    'Prepping': { bg: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04', border: 'rgba(202, 138, 4, 0.3)' },
+  }[post.status] || { bg: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: 'rgba(255,255,255,0.08)' }
+
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+      }}
+    >
+      <div style={{
+        background: 'var(--card-bg-solid)', borderRadius: '16px',
+        width: '100%', maxWidth: '440px', maxHeight: '85vh',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {post.name || 'Untitled post'}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+              @{account?.handle || account?.name} {scheduledLabel ? ' · ' + scheduledLabel : ''}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px' }}>×</button>
+        </div>
+
+        {/* Thumbnail */}
+        <div style={{ padding: '0 20px' }}>
+          <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {post.thumbnail ? (
+              <img src={post.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No thumbnail</div>
+            )}
+          </div>
+        </div>
+
+        {/* Status pill */}
+        <div style={{ padding: '12px 20px 0', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+            padding: '3px 10px', borderRadius: '20px',
+            background: statusStyle.bg, color: statusStyle.color,
+            border: `1px solid ${statusStyle.border}`,
+          }}>
+            {post.status || 'Prepping'}
+          </span>
+          {post.platform?.map(p => (
+            <span key={p} style={{
+              fontSize: '10px', fontWeight: 600,
+              padding: '3px 10px', borderRadius: '20px',
+              background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}>{p}</span>
+          ))}
+        </div>
+
+        {/* Caption preview */}
+        {(post.caption || post.hashtags) && (
+          <div style={{ padding: '12px 20px 0', fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
+            {post.caption}
+            {post.hashtags ? '\n\n' + post.hashtags : ''}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ padding: '16px 20px', display: 'flex', gap: '8px', marginTop: 'auto' }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
+          >
+            Close
+          </button>
+          {canSend && (
+            <button
+              onClick={onSend}
+              disabled={sending || !creatorMeta?.telegramThreadId}
+              style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700,
+                background: sending ? 'rgba(245, 158, 11, 0.08)' : 'rgba(125, 211, 164, 0.12)',
+                color: sending ? '#f59e0b' : '#7DD3A4',
+                border: `1px solid ${sending ? 'rgba(245, 158, 11, 0.3)' : 'rgba(125, 211, 164, 0.3)'}`,
+                borderRadius: '8px', cursor: sending ? 'default' : 'pointer' }}
+            >
+              {sending ? 'Sending…' : '✈ Send to Telegram'}
+            </button>
+          )}
+          {!canSend && post.postLink && (
+            <a href={post.postLink} target="_blank" rel="noopener noreferrer"
+              style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, textAlign: 'center', textDecoration: 'none',
+                background: 'rgba(232, 160, 160, 0.06)', color: 'var(--palm-pink)',
+                border: '1px solid rgba(232, 160, 160, 0.2)', borderRadius: '8px' }}>
+              View on IG ↗
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
