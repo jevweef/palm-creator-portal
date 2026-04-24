@@ -10,12 +10,13 @@ export async function GET() {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    // Pull all creators — no Social Media Editing filter, we want the whole roster
-    // so the admin can flip anyone on from the dashboard.
+    // Pull Active + Onboarding creators. Churned/Inactive roster entries stay
+    // in Airtable for history but shouldn't clutter the admin's live controls.
     const [creators, igAccounts] = await Promise.all([
       fetchAirtableRecords('Palm Creators', {
+        filterByFormula: `OR({Status}='Active',{Status}='Onboarding')`,
         fields: [
-          'Creator', 'AKA', 'Social Media Editing',
+          'Creator', 'AKA', 'Status', 'Social Media Editing',
           'Weekly Reel Quota', 'Telegram Thread ID',
           'Profile Summary', 'Music DNA Processed',
         ],
@@ -39,6 +40,7 @@ export async function GET() {
       return {
         id: c.id,
         name: f.AKA || f.Creator || '(unnamed)',
+        status: f.Status || '',
         socialMediaEditing: !!f['Social Media Editing'],
         hasProfile: !!(f['Profile Summary'] && f['Profile Summary'].trim()),
         hasMusicDna: !!f['Music DNA Processed'],

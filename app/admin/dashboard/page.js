@@ -768,6 +768,48 @@ export default function AdminDashboard() {
   const [whaleExpandedCreator, setWhaleExpandedCreator] = useState(null)
   const whaleAlertsFetched = useRef(false)
 
+  // Pipeline data: Active + Onboarding creators with their Social Media Editing
+  // flag + readiness badges. Merged into the Creators table below so one row
+  // shows revenue, runway, library, AND the pipeline toggle + readiness state.
+  const [pipelineCreators, setPipelineCreators] = useState(null) // array | null
+  const [pipelineSaving, setPipelineSaving] = useState({}) // { creatorId: true }
+
+  const fetchPipeline = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/creators/pipeline')
+      if (!res.ok) return
+      const d = await res.json()
+      setPipelineCreators(d.creators || [])
+    } catch {}
+  }, [])
+  useEffect(() => { fetchPipeline() }, [fetchPipeline])
+
+  const togglePipeline = async (creatorId, nextValue) => {
+    setPipelineSaving(prev => ({ ...prev, [creatorId]: true }))
+    setPipelineCreators(prev => prev.map(c =>
+      c.id === creatorId ? { ...c, socialMediaEditing: nextValue } : c
+    ))
+    try {
+      const res = await fetch('/api/admin/creators/pipeline', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, socialMediaEditing: nextValue }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+    } catch (err) {
+      setPipelineCreators(prev => prev.map(c =>
+        c.id === creatorId ? { ...c, socialMediaEditing: !nextValue } : c
+      ))
+      alert(`Failed to toggle: ${err.message}`)
+    } finally {
+      setPipelineSaving(prev => {
+        const n = { ...prev }
+        delete n[creatorId]
+        return n
+      })
+    }
+  }
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
@@ -912,10 +954,23 @@ export default function AdminDashboard() {
     if (!creatorMap[c.name]) creatorMap[c.name] = { name: c.name }
     creatorMap[c.name].posting = c
   }
-  // Sort by revenue descending, creators without revenue at bottom
-  const unifiedCreators = Object.values(creatorMap).sort((a, b) =>
-    (b.revenue?.currentTR || 0) - (a.revenue?.currentTR || 0)
-  )
+  // Pipeline data — Active + Onboarding creators. This drives the creator list:
+  // only creators in the pipeline roster show up in the Creators table. Revenue
+  // rows without a matching pipeline entry are suppressed (old/churned creators
+  // that still have invoice history but aren't actively managed).
+  if (pipelineCreators) {
+    for (const c of pipelineCreators) {
+      if (!creatorMap[c.name]) creatorMap[c.name] = { name: c.name }
+      creatorMap[c.name].pipeline = c
+    }
+  }
+  // Sort by revenue descending, creators without revenue at bottom.
+  // If pipeline data loaded, restrict to creators present in the pipeline roster
+  // (Active + Onboarding only). Before pipeline loads, show full list so the
+  // page doesn't flash empty.
+  const unifiedCreators = Object.values(creatorMap)
+    .filter(c => !pipelineCreators || c.pipeline)
+    .sort((a, b) => (b.revenue?.currentTR || 0) - (a.revenue?.currentTR || 0))
 
   return (
     <div>
@@ -984,17 +1039,23 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* ─── ROW 1: Creators + Whale Alerts ─── */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
-      {/* ─── CREATORS TABLE ─── */}
-      <div ref={creatorsCardRef} style={{ ...CARD, flex: '3 1 0', padding: '14px 16px', minWidth: 0 }}>
-          <div style={SECTION_TITLE}>Creators</div>
+      {/* ─── CREATORS TABLE (full width) ─── */}
+      <div ref={creatorsCardRef} style={{ ...CARD, padding: '14px 16px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={SECTION_TITLE}>Creators</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>
+              {pipelineCreators
+                ? `${pipelineCreators.filter(c => c.socialMediaEditing).length} in editor · ${pipelineCreators.length} active/onboarding`
+                : 'Loading roster…'}
+            </div>
+          </div>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '80px 72px 36px 68px 44px 90px 60px 1fr',
-            gap: '4px', padding: '2px 0 6px', borderBottom: '1px solid transparent',
+            gridTemplateColumns: '46px 110px 82px 42px 78px 48px 90px 56px 110px 1fr',
+            gap: '8px', padding: '2px 4px 6px', borderBottom: '1px solid transparent',
             alignItems: 'center',
           }}>
+            <span style={{ ...LABEL, fontSize: '9px', textAlign: 'center' }}>Editor</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Creator</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Revenue</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Rate</span>
@@ -1002,40 +1063,75 @@ export default function AdminDashboard() {
             <span style={{ ...LABEL, fontSize: '9px' }}>Rwy</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Queue</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Library</span>
-            <span style={{ ...LABEL, fontSize: '9px', textAlign: 'right' }}>Trend</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Trend</span>
+            <span style={{ ...LABEL, fontSize: '9px' }}>Readiness</span>
           </div>
 
           {unifiedCreators.map(c => {
             const rev = c.revenue
             const rwy = c.runway
             const lib = c.library
+            const pipe = c.pipeline
             const bufferDays = rwy?.bufferDays ?? null
             const runwayColor = bufferDays === null ? 'rgba(255,255,255,0.08)' : bufferDays < 1 ? '#E87878' : bufferDays < 2 ? '#E8C878' : '#7DD3A4'
             const runwayBg = bufferDays === null ? 'var(--card-bg-solid)' : bufferDays < 1 ? 'rgba(232, 120, 120, 0.06)' : bufferDays < 2 ? 'rgba(232, 200, 120, 0.06)' : 'rgba(125, 211, 164, 0.06)'
             const editQueue = rwy ? (rwy.toEdit + rwy.inProgress + rwy.needsRevision + rwy.inReview) : null
+            const isSaving = pipe && !!pipelineSaving[pipe.id]
+            const isOnboarding = pipe?.status === 'Onboarding'
 
             return (
               <div key={c.name} style={{
                 display: 'grid',
-                gridTemplateColumns: '80px 72px 36px 68px 44px 90px 60px 1fr',
-                gap: '4px', padding: '5px 0',
+                gridTemplateColumns: '46px 110px 82px 42px 78px 48px 90px 56px 110px 1fr',
+                gap: '8px', padding: '6px 4px',
                 borderBottom: '1px solid rgba(255,255,255,0.04)',
                 alignItems: 'center',
               }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{c.name}</span>
+                {/* Toggle */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  {pipe ? (
+                    <ToggleSwitch
+                      on={pipe.socialMediaEditing}
+                      onChange={v => togglePipeline(pipe.id, v)}
+                      disabled={isSaving}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.08)' }}>—</span>
+                  )}
+                </div>
+                {/* Creator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.name}
+                  </span>
+                  {isOnboarding && (
+                    <span title="Onboarding" style={{
+                      fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px',
+                      background: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8',
+                      border: '1px solid rgba(120, 180, 232, 0.2)', flexShrink: 0,
+                    }}>
+                      ONB
+                    </span>
+                  )}
+                </div>
+                {/* Revenue */}
                 <span style={{ fontSize: '12px', fontWeight: 700, color: rev ? 'var(--foreground)' : 'rgba(255,255,255,0.08)' }}>
                   {rev ? fmtK(rev.currentTR) : '—'}
                 </span>
+                {/* Rate */}
                 <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{rev ? pct(rev.commissionPct) : ''}</span>
+                {/* Cut */}
                 <span style={{ fontSize: '12px', fontWeight: 600, color: rev ? '#7DD3A4' : 'rgba(255,255,255,0.08)' }}>
                   {rev ? fmtK(rev.palmCut) : '—'}
                 </span>
+                {/* Runway */}
                 <span style={{
                   fontSize: '10px', fontWeight: 700, color: runwayColor, background: runwayBg,
                   padding: '1px 4px', borderRadius: '3px', textAlign: 'center',
                 }}>
                   {bufferDays !== null ? `${bufferDays}d` : '—'}
                 </span>
+                {/* Queue */}
                 <div style={{ fontSize: '10px', color: 'rgba(240, 236, 232, 0.75)', display: 'flex', gap: '4px' }}>
                   {rwy ? (
                     editQueue > 0 ? (
@@ -1048,22 +1144,55 @@ export default function AdminDashboard() {
                     ) : <span style={{ color: 'var(--foreground-subtle)' }}>—</span>
                   ) : <span style={{ color: 'var(--foreground)' }}>—</span>}
                 </div>
+                {/* Library */}
                 <span style={{
                   fontSize: '11px', fontWeight: 600,
                   color: lib ? (lib.total === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)') : 'rgba(255,255,255,0.08)',
                 }}>
                   {lib ? lib.total : '—'}
                 </span>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {/* Trend */}
+                <div>
                   {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
+                </div>
+                {/* Readiness */}
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {pipe ? (
+                    <>
+                      <ReadinessBadge
+                        ok={pipe.hasProfile}
+                        label="DNA"
+                        title={pipe.hasProfile ? 'AI profile generated from onboarding docs' : 'No Profile Summary yet — run the profile builder'}
+                      />
+                      <ReadinessBadge
+                        ok={pipe.hasMusicDna}
+                        label="Music"
+                        title={pipe.hasMusicDna ? 'Spotify playlist processed' : 'No Music DNA yet — paste their Spotify playlist URL on their creator profile'}
+                      />
+                      <ReadinessBadge
+                        ok={pipe.igAccountCount > 0}
+                        label={`${pipe.igAccountCount} IG${pipe.igAccountCount === 1 ? '' : 's'}`}
+                        title={pipe.igAccountCount > 0
+                          ? `${pipe.igAccountCount} active IG account${pipe.igAccountCount === 1 ? '' : 's'} in CPD`
+                          : 'No IG accounts — required for Grid Planner (not for Editor)'}
+                      />
+                      <ReadinessBadge
+                        ok={!!pipe.telegramThreadId}
+                        label="TG"
+                        title={pipe.telegramThreadId ? 'Telegram thread wired' : 'No Telegram Thread ID — can\'t send from Grid Planner'}
+                      />
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.08)' }}>—</span>
+                  )}
                 </div>
               </div>
             )
           })}
       </div>
 
-      {/* ─── WHALE ALERTS ─── */}
-      <div style={{ ...CARD, flex: '2 1 0', padding: '14px 16px', minWidth: 0 }}>
+      {/* ─── WHALE ALERTS (full width, below creators) ─── */}
+      <div style={{ ...CARD, padding: '14px 16px', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: whaleAlerts && Object.keys(whaleAlerts).length > 0 ? '12px' : '0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px' }}>&#x1F433;</span>
@@ -1077,7 +1206,10 @@ export default function AdminDashboard() {
         )}
 
         <div style={{
-          maxHeight: creatorsHeight ? `${Math.max(200, creatorsHeight - 60)}px` : 'none',
+          // Whale Alerts now lives below Creators at full width — no need to
+          // cap height to match Creators anymore. Soft cap so extremely long
+          // lists stay scannable.
+          maxHeight: '520px',
           overflowY: 'auto',
           overflowX: 'hidden',
         }}>
@@ -1209,11 +1341,7 @@ export default function AdminDashboard() {
           )
         })}
         </div>{/* close whale scroll container */}
-      </div>
-      </div>{/* close Row 1 */}
-
-      {/* ─── PIPELINE ACCESS ─── */}
-      <PipelineAccessPanel />
+      </div>{/* close Whale Alerts card */}
 
       {/* ─── ROW 2: Pipeline + Posting + Period History ─── */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>
