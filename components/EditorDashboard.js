@@ -1091,14 +1091,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   }
 
   // Editor submit tool state
-  const [editorTab, setEditorTab] = useState('upload') // 'create' | 'upload'
-  const [caption, setCaption] = useState('')
-  const [yPosition, setYPosition] = useState(75)
-  const [rendering, setRendering] = useState(false)
-  const [renderId, setRenderId] = useState(null)
-  const [renderStatus, setRenderStatus] = useState('idle') // idle | rendering | succeeded | failed
-  const [renderUrl, setRenderUrl] = useState(null)
-  const [renderErr, setRenderErr] = useState('')
+  const [editorTab, setEditorTab] = useState('upload') // 'upload' | 'asis'
   const [uploadUrl, setUploadUrl] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
   const [uploadProgress, setUploadProgress] = useState('')
@@ -1137,27 +1130,6 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
       setStarting(false)
     }
   }
-
-  // Poll for render completion
-  useEffect(() => {
-    if (!renderId || renderStatus !== 'rendering') return
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/editor/render/${renderId}`)
-        const data = await res.json()
-        if (data.status === 'succeeded') {
-          setRenderStatus('succeeded')
-          setRenderUrl(data.url)
-          clearInterval(interval)
-        } else if (data.status === 'failed') {
-          setRenderStatus('failed')
-          setRenderErr(data.errorMessage || 'Render failed')
-          clearInterval(interval)
-        }
-      } catch {}
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [renderId, renderStatus])
 
   const handleFileUpload = async (file) => {
     if (!file) return
@@ -1211,31 +1183,6 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
       setUploadError(err.message)
     } finally {
       setUploadProgress('')
-    }
-  }
-
-  const handleRender = async () => {
-    const clipUrl = rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '')
-    if (!clipUrl) { setRenderErr('No clip URL found'); return }
-    if (!caption.trim()) { setRenderErr('Enter a caption first'); return }
-    setRendering(true)
-    setRenderErr('')
-    setRenderUrl(null)
-    setRenderStatus('rendering')
-    try {
-      const res = await fetch('/api/editor/render', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clipUrl, caption: caption.trim(), yPosition, safeZone: true }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Render failed')
-      setRenderId(data.renderId)
-    } catch (err) {
-      setRenderStatus('failed')
-      setRenderErr(err.message)
-    } finally {
-      setRendering(false)
     }
   }
 
@@ -1453,90 +1400,13 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
                 {/* Tab switcher */}
                 <div style={{ display: 'flex', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px', gap: '3px' }}>
-                  {['create', 'upload', 'asis'].map(tab => (
+                  {['upload', 'asis'].map(tab => (
                     <button key={tab} onClick={() => setEditorTab(tab)}
                       style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: editorTab === tab ? 'rgba(232, 160, 160, 0.05)' : 'transparent', color: editorTab === tab ? 'rgba(255,255,255,0.08)' : '#999' }}>
-                      {tab === 'create' ? 'Creatomate' : tab === 'upload' ? 'Upload' : 'Post As Is'}
+                      {tab === 'upload' ? 'Upload' : 'Post As Is'}
                     </button>
                   ))}
                 </div>
-
-                {/* CREATE tab */}
-                {editorTab === 'create' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Caption Text</div>
-                      <textarea
-                        value={caption}
-                        onChange={e => setCaption(e.target.value)}
-                        placeholder="Type the on-screen text..."
-                        rows={2}
-                        style={{ width: '100%', background: 'var(--background)', border: '1px solid transparent', borderRadius: '7px', padding: '8px 10px', fontSize: '13px', color: 'var(--foreground)', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                      />
-                    </div>
-
-                    {/* Vertical position picker */}
-                    <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                        Position — {yPosition <= 25 ? 'Top' : yPosition <= 55 ? 'Middle' : 'Lower Third'}
-                      </div>
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        {/* Frame preview */}
-                        <div style={{ position: 'relative', width: '54px', height: '96px', background: '#000', borderRadius: '5px', overflow: 'hidden', flexShrink: 0, border: '1px solid transparent' }}>
-                          {task?.asset?.thumbnail && (
-                            <img src={task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.35 }} />
-                          )}
-                          {/* Safe zone guides */}
-                          <div style={{ position: 'absolute', inset: '8% 8%', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '2px', pointerEvents: 'none' }} />
-                          {/* Text bar indicator */}
-                          <div style={{ position: 'absolute', left: '8%', right: '8%', top: `${yPosition}%`, transform: 'translateY(-50%)', background: 'rgba(232,143,172,0.85)', borderRadius: '2px', padding: '2px 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '10px' }}>
-                            <span style={{ fontSize: '5px', fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                              {caption || 'TEXT'}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Vertical slider */}
-                        <input
-                          type="range" min={5} max={95} value={yPosition}
-                          onChange={e => setYPosition(Number(e.target.value))}
-                          style={{ writingMode: 'vertical-lr', height: '96px', width: '20px', accentColor: 'var(--palm-pink)', cursor: 'pointer', flexShrink: 0 }}
-                        />
-                        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{yPosition}%</div>
-                      </div>
-                    </div>
-
-                    {/* Render result */}
-                    {renderUrl && (
-                      <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid transparent' }}>
-                        <video src={renderUrl} controls muted loop playsInline style={{ width: '100%', display: 'block', maxHeight: '180px', objectFit: 'contain', background: '#000' }} />
-                      </div>
-                    )}
-
-                    {renderErr && <div style={{ fontSize: '12px', color: '#E87878' }}>{renderErr}</div>}
-
-                    {renderStatus === 'rendering' && (
-                      <div style={{ fontSize: '12px', color: 'var(--palm-pink)', textAlign: 'center' }}>Rendering... this takes ~30–40s</div>
-                    )}
-
-                    {!renderUrl ? (
-                      <button onClick={handleRender} disabled={rendering || renderStatus === 'rendering' || !caption.trim()}
-                        style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '8px', cursor: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 'not-allowed' : 'pointer', opacity: (rendering || renderStatus === 'rendering' || !caption.trim()) ? 0.5 : 1 }}>
-                        {rendering ? 'Starting...' : renderStatus === 'rendering' ? 'Rendering...' : 'Render ↗'}
-                      </button>
-                    ) : (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => { setRenderUrl(null); setRenderId(null); setRenderStatus('idle') }}
-                          style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer' }}>
-                          Re-render
-                        </button>
-                        <button onClick={() => handleSave(renderUrl)} disabled={saving || saved}
-                          style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 700, background: saved ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#7DD3A4' : 'var(--palm-pink)', border: `1px solid ${saved ? 'rgba(125, 211, 164, 0.2)' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved) ? 'not-allowed' : 'pointer' }}>
-                          {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save & Submit ↑'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* UPLOAD tab */}
                 {editorTab === 'upload' && (
@@ -1599,7 +1469,6 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   </div>
                 )}
 
-                {saveErr && editorTab === 'create' && <div style={{ fontSize: '12px', color: '#E87878' }}>{saveErr}</div>}
               </div>
             )}
             {isClip && (
