@@ -74,8 +74,9 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  // Fetch all and filter client-side. ARRAYJOIN on a linked record field returns
+  // the primary-field value (name), not record IDs — so FIND('recXXX', ...) misses.
   const q = new URLSearchParams()
-  q.set('filterByFormula', `FIND('${creatorOpsId}', ARRAYJOIN({Creator}))`)
   q.set('sort[0][field]', 'Created At')
   q.set('sort[0][direction]', 'desc')
   q.set('pageSize', '100')
@@ -87,7 +88,8 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Airtable fetch failed', detail: await res.text() }, { status: 500 })
   }
   const data = await res.json()
-  return NextResponse.json({ projects: (data.records || []).map(mapRecord) })
+  const mine = (data.records || []).filter(r => (r.fields?.['Creator'] || []).includes(creatorOpsId))
+  return NextResponse.json({ projects: mine.map(mapRecord) })
 }
 
 export async function POST(request) {

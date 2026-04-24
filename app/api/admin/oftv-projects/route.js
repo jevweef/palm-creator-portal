@@ -13,9 +13,10 @@ export async function GET(request) {
   const creatorId = searchParams.get('creatorId')
   const sinceDays = Number(searchParams.get('sinceDays') || '0')
 
+  // Status + date can filter via formula. Creator filter done client-side because
+  // ARRAYJOIN on linked records returns names not IDs.
   const formulaParts = []
   if (status) formulaParts.push(`{Status} = '${status.replace(/'/g, "\\'")}'`)
-  if (creatorId) formulaParts.push(`FIND('${creatorId}', ARRAYJOIN({Creator}))`)
   if (sinceDays > 0) {
     formulaParts.push(`IS_AFTER({Created At}, DATEADD(NOW(), -${sinceDays}, 'days'))`)
   }
@@ -23,10 +24,13 @@ export async function GET(request) {
     ? formulaParts[0]
     : formulaParts.length > 1 ? `AND(${formulaParts.join(', ')})` : undefined
 
-  const records = await fetchAirtableRecords(PROJECTS_TABLE, {
+  const allRecords = await fetchAirtableRecords(PROJECTS_TABLE, {
     filterByFormula,
     sort: [{ field: 'Created At', direction: 'desc' }],
   })
+  const records = creatorId
+    ? allRecords.filter(r => (r.fields?.['Creator'] || []).includes(creatorId))
+    : allRecords
 
   const projects = records.map(r => {
     const f = r.fields || {}
