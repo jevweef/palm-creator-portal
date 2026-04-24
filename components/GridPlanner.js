@@ -183,19 +183,26 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           <div style={{ padding: '5px 8px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', borderRadius: '6px', fontSize: '11px' }}>▼</div>
         </div>
         {(account?.scrapedFeedUpdated || account?.scrapedError) && (
-          <div style={{ fontSize: '9px', marginTop: '6px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: '6px' }}>
+            <div style={{ fontSize: '9px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+              {account?.scrapedError && (
+                <span
+                  title={account.scrapedError}
+                  style={{ color: '#E87878', fontWeight: 600, background: 'rgba(232, 120, 120, 0.06)', padding: '1px 6px', borderRadius: '3px', border: '1px solid #fecaca' }}
+                >
+                  ⚠ last refresh failed
+                </span>
+              )}
+              {account?.scrapedFeedUpdated && (
+                <span style={{ color: 'var(--foreground-subtle)' }}>
+                  scraped {relativeTime(account.scrapedFeedUpdated)}
+                </span>
+              )}
+            </div>
             {account?.scrapedError && (
-              <span
-                title={account.scrapedError}
-                style={{ color: '#E87878', fontWeight: 600, background: 'rgba(232, 120, 120, 0.06)', padding: '1px 6px', borderRadius: '3px', border: '1px solid #fecaca' }}
-              >
-                ⚠ last refresh failed
-              </span>
-            )}
-            {account?.scrapedFeedUpdated && (
-              <span style={{ color: 'var(--foreground-subtle)' }}>
-                scraped {relativeTime(account.scrapedFeedUpdated)}
-              </span>
+              <div style={{ fontSize: '9px', marginTop: '4px', color: '#E87878', textAlign: 'right', fontFamily: 'monospace', wordBreak: 'break-word', opacity: 0.8 }}>
+                {account.scrapedError}
+              </div>
             )}
           </div>
         )}
