@@ -4,6 +4,43 @@ export const maxDuration = 30
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 
+// Standard posting slots: 11 AM and 7 PM Eastern, matching the editor's
+// auto-schedule in /api/admin/editor. Grid Planner uses these to pick the
+// next open slot on an account when an instance gets dragged onto the grid.
+const SLOT_HOURS_ET = [11, 19]
+
+function etToUTC(etDateStr, etHour) {
+  const [year, month, day] = etDateStr.split('-').map(Number)
+  const noonUTC = new Date(Date.UTC(year, month - 1, day, 12))
+  const etHourAtNoon = parseInt(
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(noonUTC)
+  )
+  const offset = 12 - etHourAtNoon
+  return new Date(Date.UTC(year, month - 1, day, etHour + offset))
+}
+
+// Given the ISO timestamps of posts already scheduled on an account, find the
+// first free slot (starting today, 2 slots/day) going forward.
+function getNextOpenSlot(existingISOs) {
+  const existingSet = new Set((existingISOs || []).map(s => new Date(s).toISOString()))
+  const now = new Date()
+  const todayET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now)
+  const [sy, sm, sd] = todayET.split('-').map(Number)
+
+  for (let dayOffset = 0; dayOffset <= 90; dayOffset++) {
+    const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset))
+    const etDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(iter)
+    for (const etHour of SLOT_HOURS_ET) {
+      const candidate = etToUTC(etDateStr, etHour)
+      // Never pick a past slot (except today's afternoon slot when it's still morning)
+      if (candidate < now && dayOffset > 0) continue
+      if (candidate < now) continue
+      if (!existingSet.has(candidate.toISOString())) return candidate
+    }
+  }
+  return new Date() // fallback: now
+}
+
 // GET /api/admin/grid-planner
 //   - No params: returns list of creators who have managed IG accounts
 //   - ?creatorId=rec...: returns that creator's accounts + all their posts grouped by account
@@ -142,6 +179,7 @@ export async function GET(request) {
     const normalized = posts.map(p => {
       const f = p.fields || {}
       const assetId = (f.Asset || [])[0]
+      const taskId = (f.Task || [])[0] || null
       const asset = assetId ? (assetMap[assetId] || {}) : {}
       const thumb = (f.Thumbnail?.[0]?.thumbnails?.large?.url) || (f.Thumbnail?.[0]?.url) ||
         (asset.Thumbnail?.[0]?.thumbnails?.large?.url) || (asset.Thumbnail?.[0]?.url) || ''
@@ -151,6 +189,7 @@ export async function GET(request) {
         name: f['Post Name'] || '',
         status: f.Status || '',
         accountId,
+        taskId, // for grouping sibling instances in the Unassigned tray
         scheduledDate: f['Scheduled Date'] || null,
         telegramSentAt: f['Telegram Sent At'] || null,
         postedAt: f['Posted At'] || null,
@@ -170,6 +209,53 @@ export async function GET(request) {
       }
     })
 
+    // Build task instance groups: for each Task linked to at least one post,
+    // count how many accounts still need this reel placed (N_accounts - already_placed).
+    // This powers the Unassigned Tray's "3-2-1 badge" UX: one card per task group,
+    // counter decrements as each instance gets dragged onto an account grid.
+    const taskGroups = {}
+    for (const p of normalized) {
+      const key = p.taskId || `orphan-${p.id}` // orphan = post with no linked Task
+      if (!taskGroups[key]) {
+        taskGroups[key] = {
+          taskId: p.taskId,
+          samplePost: p, // use any post in group for caption/thumbnail preview
+          allPosts: [],
+          assignedAccountIds: new Set(),
+          unassignedPostIds: [],
+        }
+      }
+      taskGroups[key].allPosts.push(p)
+      if (p.accountId) taskGroups[key].assignedAccountIds.add(p.accountId)
+      else taskGroups[key].unassignedPostIds.push(p.id)
+      // Prefer a post with a thumbnail as the sample
+      if (p.thumbnail && !taskGroups[key].samplePost.thumbnail) taskGroups[key].samplePost = p
+    }
+    // Only show groups that (a) have at least one unplaced instance, AND
+    // (b) are NOT already sent/posted everywhere (those graduate out of the tray)
+    const accountIdsSet = new Set(accounts.map(a => a.id))
+    const unassignedGroups = Object.values(taskGroups)
+      .filter(g => {
+        // Skip groups where every post is already sent or posted
+        const allFinal = g.allPosts.every(p => p.telegramSentAt || p.postedAt || p.postLink)
+        if (allFinal) return false
+        // Remaining = accounts this reel still needs to hit
+        const remaining = accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length
+        return remaining > 0
+      })
+      .map(g => ({
+        taskId: g.taskId,
+        samplePost: g.samplePost,
+        remaining: accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length,
+        unassignedPostIds: g.unassignedPostIds,
+        assignedAccountIds: [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)),
+      }))
+      // Sort: needs-more-slots first, then by scheduled date
+      .sort((a, b) => {
+        if (b.remaining !== a.remaining) return b.remaining - a.remaining
+        return new Date(a.samplePost.scheduledDate || 0) - new Date(b.samplePost.scheduledDate || 0)
+      })
+
     return NextResponse.json({
       creators,
       selectedCreator: {
@@ -179,6 +265,7 @@ export async function GET(request) {
       },
       accounts,
       posts: normalized,
+      unassignedGroups,
     })
   } catch (err) {
     console.error('[Grid Planner] GET error:', err)
@@ -239,6 +326,62 @@ export async function PATCH(request) {
       if (!postId) return NextResponse.json({ error: 'postId required' }, { status: 400 })
       await patchAirtableRecord('Posts', postId, { 'Scheduled Date': scheduledDate || null })
       return NextResponse.json({ ok: true })
+    }
+
+    // assignInstance: the "3-badge drag" action.
+    // Body shape: { action: 'assignInstance', taskId, accountId, unassignedPostIds: [...] }
+    //   - If unassignedPostIds has entries: re-use the first one, set Account + next-open-slot
+    //   - If all task instances already placed but user wants another: clone from a sibling
+    // Returns: { ok: true, postId: <assigned or created> }
+    if (action === 'assignInstance') {
+      const { taskId, accountId, unassignedPostIds = [] } = body
+      if (!accountId) return NextResponse.json({ error: 'accountId required' }, { status: 400 })
+
+      // Compute next open slot on this account
+      const accountPostsRes = await fetchAirtableRecords('Posts', {
+        filterByFormula: `FIND('${accountId}', ARRAYJOIN({Account}))`,
+        fields: ['Account', 'Scheduled Date'],
+      })
+      const existingSlotISOs = accountPostsRes
+        .filter(p => (p.fields?.Account || []).includes(accountId))
+        .map(p => p.fields?.['Scheduled Date'])
+        .filter(Boolean)
+      const nextSlot = getNextOpenSlot(existingSlotISOs)
+
+      // Case 1: reuse an unassigned instance in this task group
+      if (unassignedPostIds.length) {
+        const reuseId = unassignedPostIds[0]
+        await patchAirtableRecord('Posts', reuseId, {
+          'Account': [accountId],
+          'Scheduled Date': nextSlot.toISOString(),
+        })
+        return NextResponse.json({ ok: true, postId: reuseId, scheduledDate: nextSlot.toISOString(), reused: true })
+      }
+
+      // Case 2: all instances already placed — clone from a sibling in the same task group
+      if (!taskId) return NextResponse.json({ error: 'taskId required when no unassigned instances' }, { status: 400 })
+      const siblings = await fetchAirtableRecords('Posts', {
+        filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+        fields: ['Post Name', 'Creator', 'Asset', 'Task', 'Platform', 'Caption', 'Hashtags', 'Thumbnail'],
+      })
+      const seed = siblings.find(s => (s.fields?.Task || []).includes(taskId))
+      if (!seed) return NextResponse.json({ error: 'No sibling post found for task' }, { status: 404 })
+      const src = seed.fields || {}
+      const fields = {
+        'Post Name': src['Post Name'] || '',
+        ...(src.Creator ? { 'Creator': src.Creator } : {}),
+        ...(src.Asset ? { 'Asset': src.Asset } : {}),
+        'Task': [taskId],
+        'Account': [accountId],
+        'Status': 'Prepping',
+        ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
+        ...(src.Caption ? { 'Caption': src.Caption } : {}),
+        ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
+        ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
+        'Scheduled Date': nextSlot.toISOString(),
+      }
+      const created = await createAirtableRecord('Posts', fields)
+      return NextResponse.json({ ok: true, postId: created.id, scheduledDate: nextSlot.toISOString(), cloned: true })
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })

@@ -325,72 +325,74 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
 // ─── Unassigned tray ───────────────────────────────────────────────────────────
 
-function UnassignedTray({ posts, accounts, draggingId, onDragStart, onDragEnd, onFanOut }) {
-  if (posts.length === 0) return null
+// Unassigned tray — groups Post records by Task. Each card represents a reel
+// that still needs to be placed on N accounts. Counter badge shows remaining
+// instances (e.g., "3" initially, drops to "2" after dragging onto one grid).
+function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd }) {
+  if (groups.length === 0) return null
+  const totalSlotsRemaining = groups.reduce((s, g) => s + g.remaining, 0)
   return (
     <div style={{
       background: 'var(--card-bg-solid)',
-      border: '1px dashed #E8C4CC',
+      border: '1px dashed rgba(232, 160, 160, 0.3)',
       borderRadius: '14px',
       padding: '14px 16px',
       marginBottom: '20px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Unassigned posts</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Ready to schedule</div>
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
-            {posts.length} to assign — drag to one account, or use Fan Out to post across all {accounts.length}
+            {groups.length} reel{groups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} to fill across {accounts.length} account{accounts.length !== 1 && 's'}
           </div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
-        {posts.map(p => (
-          <div key={p.id} style={{ flexShrink: 0, width: '96px' }}>
-            <div
-              draggable
-              onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(p.id, null) }}
-              onDragEnd={onDragEnd}
-              title={`${p.name} · ${formatScheduled(p.scheduledDate)}`}
-              style={{
-                width: '96px', height: '96px',
-                background: '#000', borderRadius: '8px', overflow: 'hidden',
-                cursor: 'grab', position: 'relative',
-                opacity: draggingId === p.id ? 0.4 : 1,
-                border: '1px solid transparent',
-              }}
-            >
-              {p.thumbnail ? (
-                <img src={p.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px' }}>✏</div>
-              )}
-              <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: 0,
-                background: 'rgba(0,0,0,0.65)', color: 'var(--foreground)',
-                fontSize: '9px', padding: '2px 5px',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {p.scheduledDate ? new Date(p.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' }) : 'no date'}
+        {groups.map(g => {
+          const key = g.taskId || `orphan-${g.samplePost.id}`
+          const isDragging = draggingTaskKey === key
+          const sample = g.samplePost
+          return (
+            <div key={key} style={{ flexShrink: 0, width: '96px' }}>
+              <div
+                draggable
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; onDragStart(g) }}
+                onDragEnd={onDragEnd}
+                title={`${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
+                style={{
+                  width: '96px', height: '96px',
+                  background: '#000', borderRadius: '8px', overflow: 'hidden',
+                  cursor: 'grab', position: 'relative',
+                  opacity: isDragging ? 0.4 : 1,
+                  border: sample.thumbnail ? '1px solid transparent' : '1px dashed rgba(232, 160, 160, 0.3)',
+                }}
+              >
+                {sample.thumbnail ? (
+                  <img src={sample.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px', gap: '2px' }}>
+                    <span>✏</span>
+                    <span style={{ fontSize: '8px', fontWeight: 600 }}>UNPREPPED</span>
+                  </div>
+                )}
+                {/* Counter badge — big, top-right, like IG Stories unread count */}
+                <div style={{
+                  position: 'absolute', top: 4, right: 4,
+                  minWidth: '22px', height: '22px', borderRadius: '11px',
+                  background: 'var(--palm-pink)', color: '#060606',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12px', fontWeight: 800, padding: '0 6px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                }}>
+                  {g.remaining}
+                </div>
+              </div>
+              <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '96px' }}>
+                {sample.name || 'Reel'}
               </div>
             </div>
-            {onFanOut && accounts.length > 1 && (
-              <button
-                onClick={() => onFanOut(p)}
-                style={{
-                  marginTop: '4px', width: '96px',
-                  padding: '3px 6px', fontSize: '9px', fontWeight: 700,
-                  background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)',
-                  border: '1px solid transparent', borderRadius: '5px',
-                  cursor: 'pointer',
-                  textTransform: 'uppercase', letterSpacing: '0.04em',
-                }}
-                title={`Duplicate this post to all ${accounts.length} account grids`}
-              >
-                ⇉ Fan Out
-              </button>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -406,6 +408,8 @@ export default function GridPlanner() {
   const [selectedCreatorMeta, setSelectedCreatorMeta] = useState(null) // { telegramThreadId, name }
   const [accounts, setAccounts] = useState([])
   const [posts, setPosts] = useState([])
+  const [unassignedGroups, setUnassignedGroups] = useState([])
+  const [draggingTaskGroup, setDraggingTaskGroup] = useState(null) // the group currently being dragged from the tray
   const [dragging, setDragging] = useState({ postId: null, sourceAccountId: null })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
@@ -438,6 +442,7 @@ export default function GridPlanner() {
       if (!res.ok) throw new Error(d.error || 'Failed to load')
       setAccounts(d.accounts || [])
       setPosts(d.posts || [])
+      setUnassignedGroups(d.unassignedGroups || [])
       setSelectedCreatorMeta(d.selectedCreator || null)
     } catch (e) {
       setError(e.message)
@@ -516,6 +521,44 @@ export default function GridPlanner() {
 
   // Drop onto the empty space of a phone grid (for unassigned → that account, no target post)
   const handleDropOnAccount = async (accountId) => {
+    // Drop from the Unassigned Tray (task group drag) — this is the primary
+    // drop path now. Triggers assignInstance: picks up an unassigned Post in
+    // the task group or clones a sibling, then schedules it on the next open
+    // slot on this account.
+    if (draggingTaskGroup) {
+      const group = draggingTaskGroup
+      // Guard: already at this account
+      if (group.assignedAccountIds?.includes(accountId)) {
+        showToast('Already on this account', true)
+        setDraggingTaskGroup(null)
+        return
+      }
+      setSaving(true)
+      try {
+        const res = await fetch('/api/admin/grid-planner', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'assignInstance',
+            taskId: group.taskId,
+            accountId,
+            unassignedPostIds: group.unassignedPostIds || [],
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Assign failed')
+        showToast(`Scheduled on ${accounts.find(a => a.id === accountId)?.name || 'account'}`)
+        await loadCreator(selectedCreatorId)
+      } catch (e) {
+        showToast(e.message, true)
+      } finally {
+        setSaving(false)
+        setDraggingTaskGroup(null)
+      }
+      return
+    }
+
+    // Fallback: drag from a different account grid (post already placed)
     const sourcePostId = dragging.postId
     if (!sourcePostId) return
     const src = posts.find(p => p.id === sourcePostId)
@@ -710,14 +753,13 @@ export default function GridPlanner() {
 
       {!loading && !error && selectedCreatorId && (
         <>
-          {/* Unassigned tray */}
+          {/* Unassigned tray — task groups with "3-2-1 badge" counter drag */}
           <UnassignedTray
-            posts={unassignedPosts}
+            groups={unassignedGroups}
             accounts={accounts}
-            draggingId={dragging.postId}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onFanOut={handleFanOut}
+            draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
+            onDragStart={(group) => setDraggingTaskGroup(group)}
+            onDragEnd={() => setDraggingTaskGroup(null)}
           />
 
           {/* Phones */}
