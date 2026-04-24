@@ -130,6 +130,12 @@ function AlertPill({ alert }) {
     revision_stuck: { color: '#E8C878', bg: 'rgba(232, 200, 120, 0.06)', icon: '!', label: `${alert.creator}: ${alert.count} revision${(alert.count || 0) > 1 ? 's' : ''}` },
     analysis_errors: { color: '#E8C878', bg: 'rgba(232, 200, 120, 0.06)', icon: '!', label: `${alert.count} analysis error${(alert.count || 0) > 1 ? 's' : ''}` },
     empty_library: { color: '#E8C878', bg: 'rgba(232, 200, 120, 0.06)', icon: '0', label: `${alert.creator}: no content` },
+    new_oftv_project: {
+      color: '#78B4E8',
+      bg: 'rgba(120, 180, 232, 0.06)',
+      icon: '+',
+      label: `${alert.creator ? alert.creator + ': ' : ''}OFTV project${alert.fileCount > 0 ? ` (${alert.fileCount} file${alert.fileCount === 1 ? '' : 's'})` : ''}`,
+    },
   }
   const c = config[alert.type] || { color: 'var(--foreground-muted)', bg: 'rgba(255,255,255,0.03)', icon: '?', label: alert.type }
   return (

@@ -329,6 +329,7 @@ export async function GET() {
       const f = c.fields || {}
       const lib = libraryByCreator[c.id] || { photos: 0, videos: 0 }
       return {
+        opsId: c.id,
         name: f.AKA || f.Creator || '',
         photos: lib.photos,
         videos: lib.videos,
@@ -457,6 +458,33 @@ export async function GET() {
       if (cl.total === 0) {
         alerts.push({ type: 'empty_library', creator: cl.name })
       }
+    }
+
+    // New long-form / OFTV projects (last 7 days)
+    try {
+      const oftvRecords = await fetchAirtableRecords('tbl7DTdRooCsAns7j', {
+        filterByFormula: `IS_AFTER({Created At}, DATEADD(NOW(), -7, 'days'))`,
+        sort: [{ field: 'Created At', direction: 'desc' }],
+      })
+      const creatorNamesById = {}
+      for (const cl of creatorLibrary) {
+        if (cl.opsId) creatorNamesById[cl.opsId] = cl.name
+      }
+      for (const r of oftvRecords) {
+        const f = r.fields || {}
+        const creatorId = (f['Creator'] || [])[0]
+        alerts.push({
+          type: 'new_oftv_project',
+          projectId: r.id,
+          projectName: f['Project Name'] || 'Untitled',
+          status: f['Status'] || 'Awaiting Upload',
+          fileCount: f['File Count'] || 0,
+          creator: creatorNamesById[creatorId] || '',
+          createdAt: f['Created At'] || null,
+        })
+      }
+    } catch (err) {
+      console.warn('[Admin Dashboard] OFTV alert fetch failed:', err.message)
     }
 
     // Period-over-period deltas for KPIs

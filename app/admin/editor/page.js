@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { EditorDashboardContent, getSlotLabel, LibraryCard, LibPickerPaginator, isVideo, isPhoto, LIB_PAGE_SIZE } from '@/components/EditorDashboard'
 import PostsPage from '@/app/admin/posts/page'
 import LongFormUpload from '@/components/LongFormUpload'
+import OftvProjectsQueue from '@/components/OftvProjectsQueue'
 import GridPlanner from '@/components/GridPlanner'
 import CaptionSuggestions from '@/components/CaptionSuggestions'
 
@@ -2127,7 +2128,8 @@ export default function EditorQueue() {
     { key: 'postprep', label: '✈️ Post Prep' },
     { key: 'grid', label: '▦ Grid Planner' },
     { key: 'library', label: '📁 Creator Library' },
-    { key: 'longform', label: '🎬 Long Form' },
+    { key: 'oftv', label: '🎬 OFTV Projects' },
+    { key: 'longform', label: '⬆️ Long Form Upload' },
   ]
 
   return (
@@ -2197,6 +2199,7 @@ export default function EditorQueue() {
       {activeSection === 'postprep' && <PostsPage />}
       {activeSection === 'grid' && <GridPlanner />}
       {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
+      {activeSection === 'oftv' && <OftvProjectsQueue showToast={showToast} />}
       {activeSection === 'longform' && <LongFormUpload showToast={showToast} />}
 
       {/* Toast */}

@@ -441,9 +441,7 @@ export default function CreatorDashboard() {
               {uploads?.socialUploadUrl && (
                 <ActionCard href={uploads.socialUploadUrl} icon="📱" title="Upload Social" subtitle="Dropbox" />
               )}
-              {uploads?.longformUploadUrl && (
-                <ActionCard href={uploads.longformUploadUrl} icon="🎬" title="Upload Longform" subtitle="Dropbox" />
-              )}
+              <ActionCard href={`/creator/${creatorOpsId}/long-form`} icon="🎬" title="Long-Form Projects" subtitle="OFTV / YouTube" />
               <ActionCard href={vaultPath} icon="🔐" title="OF Vault Upload" subtitle="OnlyFans" />
             </div>
 
