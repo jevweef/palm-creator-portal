@@ -95,7 +95,6 @@ async function extractFramesFromVideo(videoUrl, frameCount = 5) {
   }
 }
 
-const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 
 const TONE_LEVELS = {
@@ -148,6 +147,9 @@ const TONE_LEVELS = {
   },
 }
 
+// Gold examples curated from the top-performing approved reels per mode.
+// Each: text = actual on-screen text, why = one-line note on the pattern that made it work.
+// These replace dynamic Airtable retrieval — voice is stable + prompt caching works.
 const MODE_BRIEFS = {
   'Scenario / Fantasy': {
     summary: 'Text places the viewer into a specific situation or fantasy. The visual alone is generic — the text creates the whole concept.',
@@ -155,35 +157,66 @@ const MODE_BRIEFS = {
       'Use POV framing or "when he/you/we…" setups',
       'Create a forbidden, flirty, or wish-fulfillment scenario the viewer is placed into',
       'Text should work even on a simple visual — the situation is what stops the scroll',
-      'Avoid being too explicit — imply, don\'t state',
+    ],
+    goldExamples: [
+      { text: '"need a big boy."', why: 'Gym/body check-in + flat declarative = size/preference joke. Horny in 3 words.' },
+      { text: '"When you want to be restrained and edged til you cry but you gotta act cool and mysterious"', why: 'Composed visual + absurdly specific sexual desire = mismatch humor. Works because the fantasy is blunt but she\'s poised.' },
+      { text: '"POV: Wife cancelled dinner but the girl next door was free"', why: 'Places viewer in a cheating fantasy. The girl on screen IS the "girl next door" being cast.' },
+      { text: '"Ik what he wants.. I just act clueless bc I love when he puts me in my place"', why: 'Submissive confession-style line. Works as a skit (not lip sync) — her face sells the "acting clueless" beat.' },
+      { text: '"When he likes another girl\'s post so I show him exactly why others like mine"', why: 'Toxic-girlfriend clapback. The clip IS the proof she\'s showing off.' },
+      { text: '"Let me be the reason you forget your ex"', why: 'Direct-offer-to-viewer. Short, confident, flips to wish-fulfillment.' },
+      { text: '"POV: men are visual"', why: 'Two-word lampshade. Turns a straight thirst trap into a male-gaze joke the viewer is in on.' },
     ],
   },
+
   'Controversy / Opinion': {
     summary: 'Text makes a bold claim or hot take that people argue about in the comments. The video is a pretty girl — the text is the engagement driver.',
     rules: [
-      'Make a provocative claim, ranking, or opinion',
-      'Should invite disagreement or strong reaction in comments',
-      'Work on any thirst-trap-style visual',
-      'Short, declarative, confident tone',
+      'Make a provocative claim, ranking, or opinion that invites disagreement',
+      'Should work on any thirst-trap-style visual — visual is the credibility, text is the bait',
+      'Short, declarative, confident. No hedging.',
+    ],
+    goldExamples: [
+      { text: '"My ex said that anything more than a handful is just a waste"', why: 'Ex-clapback opinion-bait. Chest visibly disproves the claim — comment section argues.' },
+      { text: '"Being just friends is boring #LetsMakeout"', why: 'Rejects a polite premise with horny punchline.' },
+      { text: '"Me toxic? I\'m only ragebaiting you bc you look hot when you\'re mad"', why: 'Self-aware toxic flex. She admits to being the problem and makes it his fault for being hot.' },
+      { text: '"Getting blocked or removed by a man is funny asf.. like awn did I make u mad princess?"', why: 'Petty clapback with dead-eyed smug delivery. "Princess" flips the script.' },
+      { text: '"I could behave.. but where\'s the fun in that"', why: 'Bratty non-apology. Implies sexual mischief without naming it.' },
     ],
   },
+
   'Relationship / Conversation': {
-    summary: 'Text styled as a conversation — iMessage bubbles, him-vs-me dialogue, quoted lines + comeback.',
+    summary: 'Text styled as a conversation — quoted lines, him-vs-me dialogue, iMessage back-and-forth. The format itself is part of the concept.',
     rules: [
       'Use quoted dialogue format or "him: / me:" structure',
-      'Create a flirty, sharp, or unexpected comeback',
-      'The conversation format itself is part of the concept',
+      'The comeback/second line should land something flirty, sharp, or unexpected',
       'Feel spontaneous and real, not scripted',
     ],
-  },
-  'Visual Callout': {
-    summary: 'Text directly references or amplifies what\'s happening on screen, adding a flirty or provocative spin.',
-    rules: [
-      'Reference a specific element visible in the clip (body part, setting, outfit, activity)',
-      'Turn the literal visual into something suggestive or funny',
-      'Short, punchy, caption-like',
+    goldExamples: [
+      { text: '"Me: Nothing gives me butterflies / Guy turning my face towards him to kiss me*"', why: 'Self-setup + action line (the * is stage direction). Creates an imagined intimate moment.' },
+      { text: '""You guys would make such a cute couple" / "Nah we are just friends""', why: 'Fake-quote social-scenario bait. Viewer reads it as obvious attraction being denied.' },
+      { text: '""I like your fit" / Bet, take it off me then"', why: 'Compliment flipped into sexual comeback. Two lines max.' },
+      { text: '"Babe can you come crack my back please / crack my back please no"', why: 'Domestic request that accidentally sounds dirty — the repeat delivery makes it absurd.' },
     ],
   },
+
+  'Visual Callout': {
+    summary: 'Text directly references or amplifies what\'s on screen. The visual works alone, but the text adds a flirty or provocative spin.',
+    rules: [
+      'Reference a specific element visible in THIS clip (body part, outfit, setting, prop, activity)',
+      'Turn the literal visual into something suggestive or funny',
+      'Short, punchy. No generic captions that could apply anywhere.',
+    ],
+    goldExamples: [
+      { text: '"19 btw"', why: 'Pure age-bait. Two words, ties the body to a number.' },
+      { text: '"19 🇺🇸 120lbs"', why: 'Stat-line format. Reads like a dating-app bio, weaponized.' },
+      { text: '"Do you want sugar or"', why: 'Kitchen prop (sugar) → blatant "sugar" double entendre. Trails off on purpose.' },
+      { text: '"What colour is the chair?"', why: 'Asks about the object nobody is looking at. Frames the viewer for staring at her instead.' },
+      { text: '"The cutest little sausage dog 💕"', why: 'Caption draws attention to a pet while the low angle serves the body. Bait-and-switch.' },
+      { text: '"Not sure why he insists on keeping the blanket all the way down here..."', why: 'Calls out the visible ass-exposure while pretending not to understand.' },
+    ],
+  },
+
   'Relatable / Lifestyle': {
     summary: 'Relatable moment, routine caption, lifestyle statement, or engagement question. Makes viewers nod, comment, or tag a friend.',
     rules: [
@@ -191,25 +224,26 @@ const MODE_BRIEFS = {
       'Can be a direct question to the viewer (engagement farming)',
       'Feels like a real thought, not copy',
     ],
-  },
-  'Mood / Reflective': {
-    summary: 'Reflective, philosophical, or emotional statement paired with a generic pretty-girl visual. The caption gives the reel substance.',
-    rules: [
-      'Introspective, quote-like, emotionally resonant',
-      'Something a viewer would screenshot or save',
-      'Don\'t be preachy — feel like a private thought said out loud',
+    goldExamples: [
+      { text: '"Are you the voices? bc I can\'t get you out of my head (Down bad rizz)"', why: 'Self-deprecating-flirt rizz line. "(Down bad rizz)" is the meta-label that makes it work.' },
+      { text: '"Tbh I don\'t think i\'m ever gonna get over this one"', why: 'Sad-baddie intimate face card line. Works on any lip-sync to breakup audio.' },
+      { text: '"Can you guess my age?"', why: 'Engagement-farming direct question. Body answers while text asks.' },
+      { text: '"Am I doing it right?"', why: 'Fake-incompetent sexual move, self-aware delivery. Works on any tease that\'s mid-move.' },
+      { text: '"Am I chopped? Be honest"', why: 'Asks-for-compliments opinion bait. Invites every comment to be a "no way queen".' },
     ],
   },
-}
 
-function parseNotes(notes) {
-  if (!notes) return { inspoDirection: '', whatMattersMost: '' }
-  const inspoMatch = notes.match(/Inspo direction:\n?([\s\S]*?)(?=What matters most:|$)/i)
-  const wmmMatch = notes.match(/What matters most:\n?([\s\S]*?)$/i)
-  return {
-    inspoDirection: inspoMatch ? inspoMatch[1].trim() : '',
-    whatMattersMost: wmmMatch ? wmmMatch[1].trim() : '',
-  }
+  'Mood / Reflective': {
+    summary: 'Reflective, philosophical, or emotional statement paired with a generic pretty-girl visual. The caption gives the reel substance while the body stops the scroll.',
+    rules: [
+      'Introspective, quote-like, emotionally resonant',
+      'Feels like a private thought said out loud — not preachy, not affirmation-Pinterest',
+      'Should work on a walking/posing/candid-feeling shot',
+    ],
+    goldExamples: [
+      { text: '"honestly, maybe the chapter you\'re most afraid of will be your favorite one."', why: 'Soft reflective line dropped over a body-forward walk — the mix is the whole point.' },
+    ],
+  },
 }
 
 export async function POST(request) {
@@ -262,7 +296,7 @@ export async function POST(request) {
         targetFrames = [{ timestamp: 0, dataUrl: thumbnailUrl }]
       } else if (videoUrl) {
         try {
-          const { frames, duration } = await extractFramesFromVideo(videoUrl, 5)
+          const { frames, duration } = await extractFramesFromVideo(videoUrl, 3)
           videoDuration = duration
           targetFrames = frames.map(f => ({
             timestamp: f.timestamp,
@@ -281,37 +315,12 @@ export async function POST(request) {
       }
     }
 
-    // 1. Fetch approved training examples for this mode
-    const escapedMode = mode.replace(/'/g, "\\'")
-    const examples = await fetchAirtableRecords(INSPIRATION_TABLE, {
-      filterByFormula: `AND({Text Training Approved}, {Text Training Mode}='${escapedMode}')`,
-      fields: ['On-Screen Text', 'Notes', 'Thumbnail', 'Tags', 'Username'],
-      maxRecords: 5,
-    })
+    // Training examples are now baked into MODE_BRIEFS[mode].goldExamples —
+    // no more Airtable fetch per call, no more thumbnail images. Text-only,
+    // hand-curated examples that give the model stable voice signal.
+    const goldExamples = brief.goldExamples || []
 
-    const trainingExamples = examples
-      .map(r => {
-        const thumb = r.fields['Thumbnail']?.[0]?.url
-        if (!thumb) return null
-        const { inspoDirection, whatMattersMost } = parseNotes(r.fields['Notes'] || '')
-        return {
-          thumbnail: thumb,
-          text: r.fields['On-Screen Text'] || '',
-          tags: r.fields['Tags'] || [],
-          inspoDirection,
-          whatMattersMost,
-          username: r.fields['Username'] || '',
-        }
-      })
-      .filter(Boolean)
-
-    if (trainingExamples.length === 0) {
-      return NextResponse.json({
-        error: `No approved training examples found for mode "${mode}". Approve some reels in the training panel first.`,
-      }, { status: 400 })
-    }
-
-    // 2. Optionally fetch creator DNA
+    // Optionally fetch creator DNA
     let creatorContext = ''
     if (creatorId) {
       try {
@@ -332,7 +341,11 @@ export async function POST(request) {
       }
     }
 
-    // 3. Build the OpenAI prompt
+    // Build the system prompt with gold examples baked in
+    const goldExamplesBlock = goldExamples.length
+      ? `\n\nGOLD EXAMPLES FOR "${mode}" (these are real reels that worked — match this voice):\n${goldExamples.map((ex, i) => `${i + 1}. ${ex.text}\n   → WHY IT WORKS: ${ex.why}`).join('\n\n')}`
+      : ''
+
     const systemPrompt = `You are writing on-screen text captions for OnlyFans creators' Instagram/TikTok reels. Top-of-funnel public content: stop the scroll, create curiosity or attraction, funnel to follow/subscribe.
 
 MODE: ${mode}
@@ -340,6 +353,7 @@ ${brief.summary}
 
 RULES FOR THIS MODE:
 ${brief.rules.map(r => `- ${r}`).join('\n')}
+${goldExamplesBlock}
 
 VOICE — THIS IS THE HARDEST PART. READ CAREFULLY.
 The text must sound like a real 20-something internet girl actually wrote it — NOT like a marketing copywriter. Read it out loud: if it sounds like something a brand account would post, throw it out.
@@ -392,11 +406,9 @@ Hard rules:
 - SPECIFICITY > VAGUENESS. "When he cancels plans but you look this cute" = generic. "Texting him 'u up?' at 11pm knowing he'll say yes" = specific.
 - If the caption could work on 50 random reels, scrap it. It must be tied to THIS clip.
 
-You will be shown:
-1. Training examples (approved reels that worked, with frames + actual on-screen text)
-2. A target clip — multiple frames across the video${creatorContext ? '\n3. The creator\'s profile + DNA' : ''}
+You will be shown: the target clip — ${hasCachedDescription ? 'as a text description from a prior analysis' : 'as multiple frames across the video'}${creatorContext ? ' — plus the creator\'s profile + DNA' : ''}.
 
-Your job: generate ${count} distinct on-screen text suggestions for THIS specific clip. Match the approved examples' voice, not a generic influencer voice.
+Your job: generate ${count} distinct on-screen text suggestions for THIS specific clip. Match the gold examples' voice above, not generic influencer-speak.
 
 CRITICAL — READ THE CLIP CAREFULLY BEFORE SUGGESTING:
 Before writing any caption, describe the target clip in your head:
@@ -422,23 +434,7 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
 
     const userContent = []
 
-    // Training examples — include images ONLY on first call (no cached description).
-    // On refreshes we skip the thumbnails; the text of each example is what
-    // teaches voice, and keeping the payload small makes refreshes much cheaper.
-    userContent.push({
-      type: 'text',
-      text: `Here are ${trainingExamples.length} approved training examples for mode "${mode}":`,
-    })
-
-    trainingExamples.forEach((ex, i) => {
-      if (!hasCachedDescription) {
-        userContent.push({ type: 'image_url', image_url: { url: ex.thumbnail, detail: 'low' } })
-      }
-      userContent.push({
-        type: 'text',
-        text: `Example ${i + 1} (@${ex.username}):\n  ON-SCREEN TEXT: "${ex.text}"\n  CONCEPT: ${ex.whatMattersMost || ex.inspoDirection || '(no analysis)'}\n  TAGS: ${ex.tags.join(', ')}`,
-      })
-    })
+    // (Gold training examples are now in the system prompt — no per-call inject needed)
 
     // Target clip — use cached description (text-only, cheap) when available,
     // otherwise send multiple frames for OpenAI to actually analyze
@@ -463,7 +459,9 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
 
     userContent.push({
       type: 'text',
-      text: `\nRead the full sequence of frames to understand what the clip actually shows (motion, setting, outfit, pose). Generate ${count} on-screen text suggestions for the clip. Return JSON only.`,
+      text: hasCachedDescription
+        ? `\nGenerate ${count} on-screen text suggestions for this clip based on the description above. Return JSON only.`
+        : `\nRead the full sequence of frames to understand what the clip actually shows (motion, setting, outfit, pose). Generate ${count} on-screen text suggestions for the clip. Return JSON only.`,
     })
 
     // 4. Call the chosen engine (OpenAI or Claude)
@@ -543,7 +541,7 @@ Do not copy the training example texts. Generate fresh ideas tailored to the tar
       observed: parsed.observed || null,
       clipDescription: parsed.clipDescription || cachedDescription || null,
       suggestions,
-      trainingExampleCount: trainingExamples.length,
+      trainingExampleCount: goldExamples.length,
       analyzedFrames: hasCachedDescription ? undefined : targetFrames,
       videoDuration,
       usedCache: hasCachedDescription,
