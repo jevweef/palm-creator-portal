@@ -122,23 +122,34 @@ export async function POST(request) {
   let folderLink = ''
   let fileRequestUrl = ''
   let fileRequestId = ''
+  let fileRequestError = ''
+
+  let accessToken, rootNs
+  try {
+    accessToken = await getDropboxAccessToken()
+    rootNs = await getDropboxRootNamespaceId(accessToken)
+    // Ensure the Projects parent exists (creatorSetup only provisions Long Form + 10_UNREVIEWED_LIBRARY)
+    await createDropboxFolder(accessToken, rootNs, `/Palm Ops/Creators/${safeCreator}/Long Form/Projects`)
+    await createDropboxFolder(accessToken, rootNs, folderPath)
+  } catch (err) {
+    console.error('[oftv-projects] Folder creation failed:', err.message)
+    return NextResponse.json({ error: 'Failed to create Dropbox folder', detail: err.message }, { status: 500 })
+  }
+
+  try { folderLink = await createDropboxSharedLink(accessToken, rootNs, folderPath) || '' } catch (err) {
+    console.warn('[oftv-projects] Shared link failed:', err.message)
+  }
 
   try {
-    const accessToken = await getDropboxAccessToken()
-    const rootNs = await getDropboxRootNamespaceId(accessToken)
-
-    await createDropboxFolder(accessToken, rootNs, folderPath)
-    try { folderLink = await createDropboxSharedLink(accessToken, rootNs, folderPath) || '' } catch {}
-
     const fr = await createDropboxFileRequest(accessToken, rootNs, {
-      title: `${aka} — ${projectName}`,
+      title: `${aka} — ${projectName}`.slice(0, 140),
       destination: folderPath,
     })
     fileRequestUrl = fr.url
     fileRequestId = fr.id
   } catch (err) {
-    console.error('[oftv-projects] Dropbox setup failed:', err.message)
-    return NextResponse.json({ error: 'Failed to set up Dropbox folder', detail: err.message }, { status: 500 })
+    console.error('[oftv-projects] File request failed:', err.message)
+    fileRequestError = err.message
   }
 
   const createRes = await fetch(
@@ -173,5 +184,8 @@ export async function POST(request) {
   }
 
   const data = await createRes.json()
-  return NextResponse.json({ project: mapRecord(data.records[0]) })
+  return NextResponse.json({
+    project: mapRecord(data.records[0]),
+    ...(fileRequestError ? { warning: `Project created, but Dropbox upload link failed: ${fileRequestError}` } : {}),
+  })
 }

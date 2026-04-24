@@ -82,8 +82,8 @@ function NewProjectModal({ creatorOpsId, onClose, onCreated }) {
         body: JSON.stringify({ creatorOpsId, projectName: name.trim(), instructions: instructions.trim() }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Create failed')
-      onCreated(data.project)
+      if (!res.ok) throw new Error(data.detail || data.error || 'Create failed')
+      onCreated(data.project, data.warning)
     } catch (e) {
       setErr(e.message)
       setSubmitting(false)
@@ -229,11 +229,11 @@ function ProjectDetail({ project, onClose, onRefresh }) {
             </div>
           )}
 
-          {project.fileRequestUrl && (
+          {(project.fileRequestUrl || project.folderLink) && (
             <div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Upload Files</div>
               <a
-                href={project.fileRequestUrl}
+                href={project.fileRequestUrl || project.folderLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -245,8 +245,12 @@ function ProjectDetail({ project, onClose, onRefresh }) {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 600 }}>Open Dropbox upload link</div>
-                  <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>Drop files directly into the project folder — no Dropbox account needed</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{project.fileRequestUrl ? 'Open Dropbox upload link' : 'Open Dropbox folder'}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>
+                    {project.fileRequestUrl
+                      ? 'Drop files directly into the project folder — no Dropbox account needed'
+                      : 'Upload link unavailable — drop files into the project folder in Dropbox'}
+                  </div>
                 </div>
                 <span style={{ fontSize: '18px' }}>→</span>
               </a>
@@ -405,10 +409,11 @@ export default function LongFormPage() {
         <NewProjectModal
           creatorOpsId={creatorOpsId}
           onClose={() => setShowNew(false)}
-          onCreated={(p) => {
+          onCreated={(p, warning) => {
             setShowNew(false)
             setProjects(prev => [p, ...prev])
             setDetail(p)
+            if (warning) alert(warning)
           }}
         />
       )}
