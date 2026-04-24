@@ -3,6 +3,18 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 
+const relTime = iso => {
+  if (!iso) return ''
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.round(days / 30)
+  return `${months}mo ago`
+}
 const fmt = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtK = n => {
   if (n >= 10000) return '$' + (n / 1000).toFixed(1) + 'k'
@@ -1051,7 +1063,7 @@ export default function AdminDashboard() {
           </div>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '110px 82px 42px 78px 110px 46px 48px 90px 56px 1fr',
+            gridTemplateColumns: '110px 82px 42px 78px 110px 46px 48px 90px 100px 1fr',
             gap: '8px', padding: '2px 4px 6px', borderBottom: '1px solid transparent',
             alignItems: 'center',
           }}>
@@ -1082,7 +1094,7 @@ export default function AdminDashboard() {
             return (
               <div key={c.name} style={{
                 display: 'grid',
-                gridTemplateColumns: '110px 82px 42px 78px 110px 46px 48px 90px 56px 1fr',
+                gridTemplateColumns: '110px 82px 42px 78px 110px 46px 48px 90px 100px 1fr',
                 gap: '8px', padding: '6px 4px',
                 borderBottom: '1px solid rgba(255,255,255,0.04)',
                 alignItems: 'center',
@@ -1148,13 +1160,33 @@ export default function AdminDashboard() {
                     ) : <span style={{ color: 'var(--foreground-subtle)' }}>—</span>
                   ) : <span style={{ color: 'var(--foreground)' }}>—</span>}
                 </div>
-                {/* Library */}
-                <span style={{
-                  fontSize: '11px', fontWeight: 600,
-                  color: lib ? (lib.total === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)') : 'rgba(255,255,255,0.08)',
-                }}>
-                  {lib ? lib.total : '—'}
-                </span>
+                {/* Library — unused raw clips awaiting editor pickup.
+                    Top: photo/video split. Bottom: last upload time. */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', lineHeight: 1.2 }}>
+                  {lib ? (
+                    lib.total === 0 ? (
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#E87878' }}>empty</span>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(240, 236, 232, 0.85)', display: 'flex', gap: '6px' }}>
+                          <span title={`${lib.photos} photo${lib.photos === 1 ? '' : 's'}`}>{lib.photos}p</span>
+                          <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+                          <span title={`${lib.videos} video${lib.videos === 1 ? '' : 's'}`}>{lib.videos}v</span>
+                        </div>
+                        {lib.lastUploadAt && (
+                          <span
+                            title={`Last upload: ${new Date(lib.lastUploadAt).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
+                            style={{ fontSize: '9px', color: 'var(--foreground-subtle)' }}
+                          >
+                            {relTime(lib.lastUploadAt)}
+                          </span>
+                        )}
+                      </>
+                    )
+                  ) : (
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.08)' }}>—</span>
+                  )}
+                </div>
                 {/* Readiness */}
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                   {pipe ? (

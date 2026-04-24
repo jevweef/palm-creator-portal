@@ -91,10 +91,13 @@ export async function GET() {
         filterByFormula: `OR({Status}='To Do',{Status}='In Progress',AND({Status}='Done',IS_AFTER({Completed At},DATEADD(TODAY(),-14,'days'))))`,
         fields: ['Name', 'Status', 'Creator', 'Completed At', 'Admin Review Status'],
       }),
-      // OPS — uploaded assets (unused library)
+      // OPS — uploaded assets (unused library). Mirrors /api/admin/editor/unreviewed:
+      // any asset the editor would see as raw creator content awaiting pickup.
+      // Excludes Inspo Upload (reference clips pinned to a specific inspo; not
+      // "free" unused content).
       fetchAirtableRecords('Assets', {
-        filterByFormula: `{Pipeline Status}='Uploaded'`,
-        fields: ['Asset Name', 'Pipeline Status', 'Source Type', 'Palm Creators'],
+        filterByFormula: `AND(OR({Pipeline Status}='Uploaded',{Pipeline Status}=BLANK()),{Source Type}!='Inspo Upload')`,
+        fields: ['Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Palm Creators'],
       }),
       // OPS — posts from last 7 days + future
       fetchAirtableRecords('Posts', {
@@ -308,32 +311,47 @@ export async function GET() {
     })
 
     // =============================================
-    // 3. CREATOR LIBRARY
+    // 3. CREATOR LIBRARY (unused raw clips, creator uploads only)
     // =============================================
     const libraryByCreator = {}
     for (const asset of libraryAssets) {
       const creatorId = (asset.fields?.['Palm Creators'] || [])[0]
       if (!creatorId || !creatorIdSet.has(creatorId)) continue
-      if (!libraryByCreator[creatorId]) libraryByCreator[creatorId] = { photos: 0, videos: 0 }
-      const sourceType = asset.fields?.['Source Type'] || ''
-      // Rough classification by source type or name
+      if (!libraryByCreator[creatorId]) {
+        libraryByCreator[creatorId] = { photos: 0, videos: 0, lastUploadAt: null }
+      }
+
+      // Classify using Asset Type field first (authoritative when set), fall
+      // back to filename extension for legacy records without Asset Type.
+      const assetType = asset.fields?.['Asset Type'] || ''
       const name = (asset.fields?.['Asset Name'] || '').toLowerCase()
-      if (name.match(/\.(mp4|mov|avi|webm)/) || sourceType === 'Inspo Upload') {
-        libraryByCreator[creatorId].videos++
-      } else {
-        libraryByCreator[creatorId].photos++
+      let isVideo
+      if (assetType === 'Video') isVideo = true
+      else if (assetType === 'Photo' || assetType === 'Image') isVideo = false
+      else isVideo = /\.(mp4|mov|avi|webm|mkv|m4v)/.test(name)
+
+      if (isVideo) libraryByCreator[creatorId].videos++
+      else libraryByCreator[creatorId].photos++
+
+      // Track most recent upload — Airtable's createdTime on the asset record.
+      // Make.com automation creates the record when the file lands in Dropbox,
+      // so this reads as "last time a clip showed up for this creator".
+      const ct = asset.createdTime ? new Date(asset.createdTime).getTime() : 0
+      if (ct && (!libraryByCreator[creatorId].lastUploadAt || ct > libraryByCreator[creatorId].lastUploadAt)) {
+        libraryByCreator[creatorId].lastUploadAt = ct
       }
     }
 
     const creatorLibrary = creators.map(c => {
       const f = c.fields || {}
-      const lib = libraryByCreator[c.id] || { photos: 0, videos: 0 }
+      const lib = libraryByCreator[c.id] || { photos: 0, videos: 0, lastUploadAt: null }
       return {
         opsId: c.id,
         name: f.AKA || f.Creator || '',
         photos: lib.photos,
         videos: lib.videos,
         total: lib.photos + lib.videos,
+        lastUploadAt: lib.lastUploadAt ? new Date(lib.lastUploadAt).toISOString() : null,
       }
     })
 
