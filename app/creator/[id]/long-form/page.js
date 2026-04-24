@@ -178,6 +178,17 @@ function NewProjectModal({ creatorOpsId, onClose, onCreated }) {
 
 function ProjectDetail({ project, onClose, onRefresh }) {
   const [refreshing, setRefreshing] = useState(false)
+  const [files, setFiles] = useState(null)
+
+  const fetchFiles = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/creator/oftv-projects/${project.id}?includeFiles=1`)
+      if (res.ok) {
+        const data = await res.json()
+        setFiles(data.project?.files || [])
+      }
+    } catch {}
+  }, [project.id])
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -186,11 +197,21 @@ function ProjectDetail({ project, onClose, onRefresh }) {
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
   }, [onClose])
 
+  useEffect(() => { fetchFiles() }, [fetchFiles])
+
+  // Poll every 10s so uploads appear without needing a manual click
+  useEffect(() => {
+    const t = setInterval(() => {
+      fetch(`/api/creator/oftv-projects/${project.id}/sync`, { method: 'POST' }).then(() => fetchFiles())
+    }, 10000)
+    return () => clearInterval(t)
+  }, [project.id, fetchFiles])
+
   const syncFiles = async () => {
     setRefreshing(true)
     try {
       await fetch(`/api/creator/oftv-projects/${project.id}/sync`, { method: 'POST' })
-      await onRefresh()
+      await Promise.all([onRefresh(), fetchFiles()])
     } finally {
       setRefreshing(false)
     }
@@ -257,22 +278,47 @@ function ProjectDetail({ project, onClose, onRefresh }) {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-            <button
-              onClick={syncFiles}
-              disabled={refreshing}
-              style={{
-                padding: '8px 16px', fontSize: '12px', fontWeight: 600,
-                background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '9999px', cursor: refreshing ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {refreshing ? 'Checking…' : 'Check for new files'}
-            </button>
-            {project.lastUploadedAt && (
-              <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>
-                Last upload {fmtDate(project.lastUploadedAt)}
-              </span>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Uploaded Files {files !== null && `(${files.length})`}
+              </div>
+              <button
+                onClick={syncFiles}
+                disabled={refreshing}
+                style={{
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 600,
+                  background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '9999px', cursor: refreshing ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {refreshing ? 'Checking…' : '↻ Refresh'}
+              </button>
+            </div>
+            {files === null ? (
+              <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', padding: '14px', textAlign: 'center' }}>Loading…</div>
+            ) : files.length === 0 ? (
+              <div style={{ fontSize: '12px', color: 'var(--foreground-subtle)', padding: '18px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.08)' }}>
+                No files uploaded yet. Use the link above to upload.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {files.map((f, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                    padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                      <span style={{ fontSize: '14px' }}>📄</span>
+                      <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0 }}>
+                      <span>{fmtSize(f.size)}</span>
+                      <span>{fmtDate(f.modified)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
