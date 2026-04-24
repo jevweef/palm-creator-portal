@@ -1159,9 +1159,12 @@ function UnreviewedLibrary({ showToast }) {
                     {asset.creator.name}
                   </div>
                 )}
-                {asset.thumbnail && (
-                  <CaptionSuggestions thumbnailUrl={asset.thumbnail} creatorId={asset.creator?.id} />
-                )}
+                <CaptionSuggestions
+                  thumbnailUrl={asset.thumbnail}
+                  videoUrl={(asset.dropboxLinks?.[0] || asset.dropboxLink || '').replace(/([?&])dl=[01]/, '$1raw=1')}
+                  creatorId={asset.creator?.id}
+                />
+
               </div>
             ))}
           </div>

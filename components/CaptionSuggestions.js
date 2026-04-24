@@ -11,14 +11,52 @@ const CAPTION_MODES = [
   { value: 'Mood / Reflective', label: 'Mood', color: '#22d3ee' },
 ]
 
+// Capture a single frame from a video URL as a JPEG data URL.
+// Returns null if it can't be done (CORS, decode error, etc).
+async function captureVideoFrame(videoUrl, atSeconds = 0.5) {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    video.crossOrigin = 'anonymous'
+    video.muted = true
+    video.playsInline = true
+    video.preload = 'auto'
+    let settled = false
+    const cleanup = () => { video.src = ''; video.remove() }
+    const fail = () => { if (!settled) { settled = true; cleanup(); resolve(null) } }
+
+    video.onloadedmetadata = () => {
+      // Seek a tiny bit in so the first-frame isn't black
+      try {
+        video.currentTime = Math.min(atSeconds, (video.duration || 1) / 2)
+      } catch { fail() }
+    }
+    video.onseeked = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth || 720
+        canvas.height = video.videoHeight || 1280
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+        if (!settled) { settled = true; cleanup(); resolve(dataUrl) }
+      } catch { fail() }
+    }
+    video.onerror = fail
+    // Safety timeout
+    setTimeout(fail, 15000)
+    video.src = videoUrl
+  })
+}
+
 /**
  * Shared caption suggestion UI.
- * - thumbnailUrl: frame to analyze
+ * - thumbnailUrl: preferred — a direct image URL (Airtable attachment or similar)
+ * - videoUrl: fallback — if no thumbnailUrl, we'll capture a frame from this video client-side
  * - creatorId: optional, passed to API for DNA context
  * - onPick: optional callback (text) => void. When provided, each suggestion shows a "Use" button that calls this with the text. When absent, each suggestion has a "copy" button instead.
- * - compact: smaller collapsed state (icon-only trigger)
+ * - compact: smaller collapsed state
  */
-export default function CaptionSuggestions({ thumbnailUrl, creatorId, onPick, compact = false }) {
+export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, onPick, compact = false }) {
   const [expanded, setExpanded] = useState(false)
   const [mode, setMode] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -26,6 +64,7 @@ export default function CaptionSuggestions({ thumbnailUrl, creatorId, onPick, co
   const [error, setError] = useState('')
   const [copiedIdx, setCopiedIdx] = useState(null)
   const [pickedIdx, setPickedIdx] = useState(null)
+  const [capturedFrame, setCapturedFrame] = useState(null)
 
   async function generate(selectedMode) {
     setMode(selectedMode)
@@ -33,10 +72,19 @@ export default function CaptionSuggestions({ thumbnailUrl, creatorId, onPick, co
     setError('')
     setSuggestions(null)
     try {
+      let imageSource = thumbnailUrl
+      if (!imageSource && videoUrl) {
+        // Use a cached capture if we already grabbed one
+        imageSource = capturedFrame || await captureVideoFrame(videoUrl)
+        if (imageSource && !capturedFrame) setCapturedFrame(imageSource)
+      }
+      if (!imageSource) {
+        throw new Error('No thumbnail or video available to analyze')
+      }
       const res = await fetch('/api/editor/suggest-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thumbnailUrl, mode: selectedMode, creatorId, count: 5 }),
+        body: JSON.stringify({ thumbnailUrl: imageSource, mode: selectedMode, creatorId, count: 5 }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
@@ -60,7 +108,7 @@ export default function CaptionSuggestions({ thumbnailUrl, creatorId, onPick, co
     setTimeout(() => setPickedIdx(null), 1500)
   }
 
-  if (!thumbnailUrl) return null
+  if (!thumbnailUrl && !videoUrl) return null
 
   if (!expanded) {
     return (

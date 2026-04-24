@@ -1391,12 +1391,11 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
             {slot.type === 'inProgress' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {/* AI Caption Suggestions — brainstorm, copy to your editor of choice */}
-                {task?.asset?.thumbnail && (
-                  <CaptionSuggestions
-                    thumbnailUrl={task.asset.thumbnail}
-                    creatorId={creator?.id}
-                  />
-                )}
+                <CaptionSuggestions
+                  thumbnailUrl={task?.asset?.thumbnail}
+                  videoUrl={assetRawUrl}
+                  creatorId={creator?.id}
+                />
 
                 {/* Tab switcher */}
                 <div style={{ display: 'flex', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px', gap: '3px' }}>
