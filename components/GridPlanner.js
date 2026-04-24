@@ -70,9 +70,12 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   // These are the real IG feed thumbnails so the grid reads like the account's actual page.
   const scrapedCells = (account?.scrapedFeed || []).map(s => ({
     id: `scraped-${s.url}`,
+    name: s.caption ? s.caption.slice(0, 60) : 'Live IG post',
     thumbnail: s.thumbnail,
     postLink: s.url,
     postedAt: s.postedAt,
+    caption: s.caption || '',
+    likes: s.likes,
     _scraped: true,
   }))
 
@@ -935,9 +938,17 @@ export default function GridPlanner() {
 // and a "Send to Telegram" action. This is where posts actually get sent now
 // (Post Prep only preps — no send action there anymore).
 function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend }) {
-  const canSend = post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
+  const isScraped = !!post._scraped
+  // Scraped cells are just IG feed items — never sendable, never have an
+  // Airtable Status. Show them as "Live on IG" with a link out.
+  const effectiveStatus = isScraped ? 'Live on IG' : (post.status || 'Prepping')
+  const canSend = !isScraped && post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
   const scheduledLabel = post.scheduledDate
     ? new Date(post.scheduledDate).toLocaleDateString('en-US', {
+        timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+      })
+    : post.postedAt
+    ? new Date(post.postedAt).toLocaleDateString('en-US', {
         timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
       })
     : null
@@ -947,7 +958,8 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
     'Send Failed': { bg: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' },
     'Posted': { bg: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
     'Prepping': { bg: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04', border: 'rgba(202, 138, 4, 0.3)' },
-  }[post.status] || { bg: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: 'rgba(255,255,255,0.08)' }
+    'Live on IG': { bg: 'rgba(240, 236, 232, 0.08)', color: 'rgba(240, 236, 232, 0.85)', border: 'rgba(240, 236, 232, 0.2)' },
+  }[effectiveStatus] || { bg: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: 'rgba(255,255,255,0.08)' }
 
   return (
     <div
@@ -996,7 +1008,7 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend 
             background: statusStyle.bg, color: statusStyle.color,
             border: `1px solid ${statusStyle.border}`,
           }}>
-            {post.status || 'Prepping'}
+            {effectiveStatus}
           </span>
           {post.platform?.map(p => (
             <span key={p} style={{
