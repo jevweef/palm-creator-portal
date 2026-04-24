@@ -1,9 +1,72 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
-import { getDropboxAccessToken, getDropboxThumbnailFromLink } from '@/lib/dropbox'
 import OpenAI from 'openai'
+import ffmpegStatic from 'ffmpeg-static'
+import { writeFile, readFile, unlink, stat } from 'fs/promises'
+import { execFile } from 'child_process'
+import { tmpdir } from 'os'
+import { join } from 'path'
 
+export const dynamic = 'force-dynamic'
 export const maxDuration = 60
+
+function rawDropboxUrl(url) {
+  if (!url) return ''
+  const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
+  return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
+}
+
+function runFfmpeg(args, outputPath) {
+  return new Promise((resolve) => {
+    execFile(ffmpegStatic, args, { timeout: 25000 }, async (err, _stdout, stderr) => {
+      const s = await stat(outputPath).catch(() => null)
+      resolve({ ok: !!s && s.size > 0, size: s?.size || 0, err, stderr: stderr || '' })
+    })
+  })
+}
+
+// Download a Dropbox video and extract a representative frame via ffmpeg.
+// Returns a JPEG buffer, or throws.
+async function extractFrameFromVideo(videoUrl) {
+  const id = Date.now()
+  const inputPath = join(tmpdir(), `suggest_in_${id}.mp4`)
+  const outputPath = join(tmpdir(), `suggest_out_${id}.jpg`)
+  try {
+    const rawUrl = rawDropboxUrl(videoUrl)
+    const dlRes = await fetch(rawUrl, { redirect: 'follow' })
+    if (!dlRes.ok) throw new Error(`video download failed: ${dlRes.status}`)
+    const ct = dlRes.headers.get('content-type') || ''
+    const videoBuffer = Buffer.from(await dlRes.arrayBuffer())
+    const head = videoBuffer.slice(0, 100).toString('utf8')
+    if (ct.includes('text/html') || head.includes('<!DOCTYPE html') || head.includes('<html')) {
+      throw new Error('Dropbox returned HTML instead of video — share link may not be public')
+    }
+    await writeFile(inputPath, videoBuffer)
+
+    // Try extracting a frame around 1s in (avoids black first frames)
+    const mkArgs = (pre, post) => [
+      '-y', ...pre, '-i', inputPath, ...post,
+      '-frames:v', '1', '-update', '1', '-q:v', '2', outputPath,
+    ]
+    const strategies = [
+      mkArgs(['-ss', '1'], []),       // output seek ~1s (fast, keyframe-aligned)
+      mkArgs([], ['-ss', '1']),       // input seek ~1s (slow, precise)
+      mkArgs([], []),                 // first frame
+      mkArgs(['-sseof', '-0.5'], []), // last decodable frame
+    ]
+    for (const args of strategies) {
+      await unlink(outputPath).catch(() => {})
+      const r = await runFfmpeg(args, outputPath)
+      if (r.ok) {
+        return await readFile(outputPath)
+      }
+    }
+    throw new Error('all ffmpeg strategies failed')
+  } finally {
+    await unlink(inputPath).catch(() => {})
+    await unlink(outputPath).catch(() => {})
+  }
+}
 
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
@@ -99,25 +162,14 @@ export async function POST(request) {
     // 1. If caller provided thumbnailUrl (direct image URL or data URL), use it
     // 2. Otherwise extract a frame from the Dropbox video via their thumbnail API
     let targetImageSource = thumbnailUrl
-    let thumbErr = null
     if (!targetImageSource && videoUrl) {
-      if (/dropbox\.com/i.test(videoUrl)) {
-        try {
-          const token = await getDropboxAccessToken()
-          const thumbBuf = await getDropboxThumbnailFromLink(token, videoUrl)
-          if (thumbBuf) {
-            targetImageSource = `data:image/jpeg;base64,${thumbBuf.toString('base64')}`
-          }
-        } catch (e) {
-          thumbErr = e.message
-          console.warn('[suggest-text] Dropbox thumbnail failed:', e.message)
-        }
-      } else {
-        thumbErr = 'videoUrl is not a Dropbox share URL'
-      }
-      if (!targetImageSource) {
+      try {
+        const frameBuf = await extractFrameFromVideo(videoUrl)
+        targetImageSource = `data:image/jpeg;base64,${frameBuf.toString('base64')}`
+      } catch (e) {
+        console.warn('[suggest-text] frame extract failed:', e.message)
         return NextResponse.json({
-          error: `Could not extract a frame from the video. ${thumbErr || ''}`,
+          error: `Could not extract a frame from the video: ${e.message}`,
         }, { status: 400 })
       }
     }
