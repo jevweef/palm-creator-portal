@@ -371,57 +371,80 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
 // ─── Unassigned tray ───────────────────────────────────────────────────────────
 
-// Unassigned tray — groups Post records by Task. Each card represents a reel
-// that still needs to be placed on N accounts. Counter badge shows remaining
-// instances (e.g., "3" initially, drops to "2" after dragging onto one grid).
+// Unassigned column — phone-shaped container that sits in the same horizontal
+// row as the account phones. Renders each task group as a tile in a 3-wide IG-
+// style grid, stacking down. Counter badge shows remaining instances (e.g.,
+// "3" initially, drops to "2" after dragging onto one grid).
 function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd, smmMode = false }) {
-  // SMM is only interested in reels that are actually ready to schedule — hide
-  // unprepped groups (no thumbnail yet) so they don't clutter the tray.
   const visibleGroups = smmMode
     ? groups.filter(g => g.samplePost?.thumbnail)
     : groups
-  if (visibleGroups.length === 0) return null
   const totalSlotsRemaining = visibleGroups.reduce((s, g) => s + g.remaining, 0)
+
   return (
     <div style={{
+      width: '320px', flexShrink: 0,
       background: 'var(--card-bg-solid)',
-      border: '1px dashed rgba(232, 160, 160, 0.3)',
-      borderRadius: '14px',
-      padding: '14px 16px',
-      marginBottom: '20px',
+      borderRadius: '32px',
+      border: '10px solid #1a1a1a',
+      boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+      overflow: 'hidden',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Ready to schedule</div>
-          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
-            {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} to fill across {accounts.length} account{accounts.length !== 1 && 's'}
-          </div>
+      {/* Notch — matches phone frames */}
+      <div style={{ background: 'rgba(255,255,255,0.08)', height: '18px', position: 'relative' }}>
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: '4px',
+          width: '100px', height: '14px', background: '#000', borderRadius: '8px' }} />
+      </div>
+
+      {/* Header block */}
+      <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--palm-pink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>🗂️</span> Ready to schedule
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>
+          {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} left
+        </div>
+        <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+          Drag a thumbnail onto an account →
         </div>
       </div>
-      <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
-        {visibleGroups.map(g => {
-          const key = g.taskId || `orphan-${g.samplePost.id}`
-          const isDragging = draggingTaskKey === key
-          const sample = g.samplePost
-          return (
-            <div key={key} style={{ flexShrink: 0, width: '96px' }}>
+
+      {/* 3-column grid of reel tiles */}
+      {visibleGroups.length === 0 ? (
+        <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '12px' }}>
+          Nothing waiting to be scheduled.
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '2px',
+          background: 'var(--card-bg-solid)',
+          padding: '2px 0',
+        }}>
+          {visibleGroups.map(g => {
+            const key = g.taskId || `orphan-${g.samplePost.id}`
+            const isDragging = draggingTaskKey === key
+            const sample = g.samplePost
+            return (
               <div
+                key={key}
                 draggable
                 onDragStart={(e) => {
                   e.dataTransfer.effectAllowed = 'copy'
-                  // setData is REQUIRED on Firefox to actually initiate a drag.
-                  // Chrome tolerates its absence; Firefox silently fails without it.
                   try { e.dataTransfer.setData('text/plain', key) } catch {}
                   onDragStart(g)
                 }}
                 onDragEnd={onDragEnd}
                 title={`${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
                 style={{
-                  width: '96px', height: '96px',
-                  background: '#000', borderRadius: '8px', overflow: 'hidden',
-                  cursor: 'grab', position: 'relative',
+                  aspectRatio: '1 / 1',
+                  background: '#000',
+                  position: 'relative',
+                  cursor: 'grab',
                   opacity: isDragging ? 0.4 : 1,
-                  border: sample.thumbnail ? '1px solid transparent' : '1px dashed rgba(232, 160, 160, 0.3)',
+                  overflow: 'hidden',
                 }}
               >
                 {sample.thumbnail ? (
@@ -430,33 +453,30 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
                     alt=""
                     draggable={false}
                     onDragStart={(e) => e.preventDefault()}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
                   />
                 ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px', gap: '2px' }}>
+                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '20px', gap: '2px' }}>
                     <span>✏</span>
                     <span style={{ fontSize: '8px', fontWeight: 600 }}>UNPREPPED</span>
                   </div>
                 )}
-                {/* Counter badge — big, top-right, like IG Stories unread count */}
+                {/* Counter badge */}
                 <div style={{
                   position: 'absolute', top: 4, right: 4,
-                  minWidth: '22px', height: '22px', borderRadius: '11px',
+                  minWidth: '20px', height: '20px', borderRadius: '10px',
                   background: 'var(--palm-pink)', color: '#060606',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '12px', fontWeight: 800, padding: '0 6px',
+                  fontSize: '11px', fontWeight: 800, padding: '0 5px',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                 }}>
                   {g.remaining}
                 </div>
               </div>
-              <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '96px' }}>
-                {sample.name || 'Reel'}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -986,23 +1006,6 @@ export default function GridPlanner({ smmMode = false } = {}) {
 
       {!loading && !error && selectedCreatorId && (
         <>
-          {/* Unassigned tray — task groups with "3-2-1 badge" counter drag */}
-          <UnassignedTray
-            groups={unassignedGroups}
-            accounts={accounts}
-            smmMode={smmMode}
-            draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
-            onDragStart={(group) => {
-              console.log('[GridPlanner] tray dragStart', group.taskId, 'remaining:', group.remaining)
-              setDraggingTaskGroup(group)
-            }}
-            onDragEnd={() => {
-              console.log('[GridPlanner] tray dragEnd')
-              setDraggingTaskGroup(null)
-            }}
-          />
-
-          {/* Phones */}
           {accounts.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--background)', borderRadius: '12px' }}>
               No Instagram accounts found for this creator in Creator Platform Directory.
@@ -1013,8 +1016,26 @@ export default function GridPlanner({ smmMode = false } = {}) {
                 display: 'flex', gap: '24px', overflowX: 'auto',
                 paddingBottom: '20px', paddingTop: '10px',
                 scrollbarWidth: 'thin',
+                alignItems: 'flex-start',
               }}
             >
+              {/* Leftmost column — unassigned reels, phone-shaped */}
+              <UnassignedTray
+                groups={unassignedGroups}
+                accounts={accounts}
+                smmMode={smmMode}
+                draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
+                onDragStart={(group) => {
+                  console.log('[GridPlanner] tray dragStart', group.taskId, 'remaining:', group.remaining)
+                  setDraggingTaskGroup(group)
+                }}
+                onDragEnd={() => {
+                  console.log('[GridPlanner] tray dragEnd')
+                  setDraggingTaskGroup(null)
+                }}
+              />
+
+              {/* Account phones — drop targets */}
               {accounts.map(acc => (
                 <div
                   key={acc.id}
