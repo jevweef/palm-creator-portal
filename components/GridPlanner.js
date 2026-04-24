@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+
+const SELECTED_CREATOR_STORAGE_KEY = 'gridplanner:selectedCreatorId'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -461,6 +464,10 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function GridPlanner({ smmMode = false } = {}) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [creators, setCreators] = useState([])
@@ -476,20 +483,52 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const [detailPost, setDetailPost] = useState(null) // { post, accountId, account }
   const [sendingPostId, setSendingPostId] = useState(null)
 
-  // Load creator list on mount
+  // Load creator list on mount. Prefer (in order):
+  //   1. creatorId in URL query (so links are shareable)
+  //   2. last-selected creator in localStorage (persists across refresh)
+  //   3. first creator with ≥1 account (default)
   useEffect(() => {
     fetch('/api/admin/grid-planner')
       .then(r => r.json())
       .then(d => {
         if (d.error) throw new Error(d.error)
-        setCreators(d.creators || [])
-        // Auto-select the first creator w/ ≥1 account
-        const first = (d.creators || []).find(c => c.accountCount > 0)
-        if (first) setSelectedCreatorId(first.id)
-        else setLoading(false)
+        const list = d.creators || []
+        setCreators(list)
+
+        const urlId = searchParams?.get('creatorId')
+        let stored = null
+        try { stored = typeof window !== 'undefined' ? localStorage.getItem(SELECTED_CREATOR_STORAGE_KEY) : null } catch {}
+
+        const candidates = [urlId, stored].filter(Boolean)
+        const match = candidates
+          .map(id => list.find(c => c.id === id))
+          .find(Boolean)
+
+        if (match) {
+          setSelectedCreatorId(match.id)
+        } else {
+          const first = list.find(c => c.accountCount > 0)
+          if (first) setSelectedCreatorId(first.id)
+          else setLoading(false)
+        }
       })
       .catch(e => { setError(e.message); setLoading(false) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Persist selected creator to URL + localStorage whenever it changes so
+  // refresh / tab-restore brings the user back to the same view.
+  useEffect(() => {
+    if (!selectedCreatorId) return
+    try { localStorage.setItem(SELECTED_CREATOR_STORAGE_KEY, selectedCreatorId) } catch {}
+    const currentUrl = searchParams?.get('creatorId')
+    if (currentUrl !== selectedCreatorId && pathname) {
+      const params = new URLSearchParams(searchParams?.toString() || '')
+      params.set('creatorId', selectedCreatorId)
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCreatorId])
 
   // Load data for selected creator
   const loadCreator = useCallback(async (creatorId) => {
