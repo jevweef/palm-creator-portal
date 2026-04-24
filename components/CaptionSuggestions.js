@@ -39,6 +39,10 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
   const [observed, setObserved] = useState(null)
   const [tone, setTone] = useState('flirty')
   const [rawResponse, setRawResponse] = useState(null)
+  // Track the mode/tone that produced the CURRENT suggestions.
+  // If user changes mode or tone after generating, they need to click Update.
+  const [generatedForMode, setGeneratedForMode] = useState(null)
+  const [generatedForTone, setGeneratedForTone] = useState(null)
 
   async function generate(selectedMode, selectedTone = tone) {
     setMode(selectedMode)
@@ -48,7 +52,6 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
     setObserved(null)
     setRawResponse(null)
     try {
-      // Reuse extracted frames across mode/tone switches — no need to re-run ffmpeg
       const payload = {
         mode: selectedMode,
         tone: selectedTone,
@@ -74,6 +77,8 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
       if (data.videoDuration) setVideoDuration(data.videoDuration)
       if (data.observed) setObserved(data.observed)
       if (data.rawResponse) setRawResponse(data.rawResponse)
+      setGeneratedForMode(selectedMode)
+      setGeneratedForTone(selectedTone)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -81,10 +86,8 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
     }
   }
 
-  function handleToneChange(newTone) {
-    setTone(newTone)
-    if (mode) generate(mode, newTone)
-  }
+  // Settings-changed state — user picked a new mode/tone but hasn't regenerated yet
+  const settingsChanged = suggestions?.length > 0 && (mode !== generatedForMode || tone !== generatedForTone)
 
   function copyText(text, idx) {
     navigator.clipboard.writeText(text)
@@ -139,12 +142,12 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
         >×</button>
       </div>
 
-      {/* Mode pills */}
+      {/* Mode pills — pick one (does not auto-generate) */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
         {CAPTION_MODES.map(m => (
           <button
             key={m.value}
-            onClick={() => generate(m.value, tone)}
+            onClick={() => setMode(m.value)}
             disabled={loading}
             style={{
               padding: '4px 10px', fontSize: '11px', fontWeight: 500,
@@ -160,7 +163,7 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
         ))}
       </div>
 
-      {/* Tone slider (segmented) */}
+      {/* Tone segmented control (does not auto-generate) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Tone:</span>
         <div style={{ display: 'flex', gap: '2px', background: 'rgba(0,0,0,0.25)', padding: '2px', borderRadius: '6px' }}>
@@ -169,7 +172,7 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
             return (
               <button
                 key={t.value}
-                onClick={() => handleToneChange(t.value)}
+                onClick={() => setTone(t.value)}
                 disabled={loading}
                 style={{
                   padding: '3px 10px', fontSize: '10px', fontWeight: 600,
@@ -186,11 +189,26 @@ export default function CaptionSuggestions({ thumbnailUrl, videoUrl, creatorId, 
         </div>
       </div>
 
-      {loading && (
-        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
-          Analyzing clip…
-        </div>
+      {/* Primary action button — Generate / Update / Refresh depending on state */}
+      {mode && (
+        <button
+          onClick={() => generate(mode, tone)}
+          disabled={loading}
+          style={{
+            padding: '7px 14px', fontSize: '12px', fontWeight: 600,
+            background: settingsChanged ? '#a78bfa' : (suggestions?.length > 0 ? 'rgba(167, 139, 250, 0.15)' : '#a78bfa'),
+            color: settingsChanged ? '#fff' : (suggestions?.length > 0 ? '#a78bfa' : '#fff'),
+            border: '1px solid rgba(167, 139, 250, 0.4)',
+            borderRadius: '6px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            alignSelf: 'flex-start',
+          }}
+        >
+          {loading ? 'Analyzing…' : settingsChanged ? '↻ Update with new settings' : suggestions?.length > 0 ? '↻ Refresh' : '✨ Generate'}
+        </button>
       )}
+
 
       {error && (
         <div style={{ fontSize: '11px', color: '#f87171' }}>{error}</div>

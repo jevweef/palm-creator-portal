@@ -100,23 +100,50 @@ const PALM_CREATORS_TABLE = 'tbls2so6pHGbU4Uhh'
 const TONE_LEVELS = {
   subtle: {
     label: 'Subtle',
-    desc: 'Flirty but very implicit. No explicit words. Could post on a professional account.',
     heat: 1,
+    desc: 'Flirty but very implicit. No sexual undertone. Could post on a professional account.',
+    examples: [
+      '"19 btw"',
+      '"honestly, maybe the chapter you\'re most afraid of will be your favorite one"',
+      '"can you guess my age?"',
+    ],
   },
   flirty: {
     label: 'Flirty',
-    desc: 'Clearly flirty/suggestive but keeps it playful. Innuendo, no explicit terms.',
     heat: 2,
+    desc: 'Clearly flirty — playful, cheeky, a little naughty. Innuendo only. No body parts, no acts.',
+    examples: [
+      '"Being just friends is boring #LetsMakeout"',
+      '"ik what he wants.. I just act clueless"',
+      '"When he gives me that look that says \'just wait until we\'re alone\' >>>"',
+      '"Me: Nothing gives me butterflies / Guy turning my face towards him to kiss me*"',
+    ],
   },
   suggestive: {
     label: 'Suggestive',
-    desc: 'Bold sexual implication. References body parts / sex acts via emoji substitutes. Clear what she means, never explicit in words.',
     heat: 3,
+    desc: 'Bold sexual implication — obvious what she means. References body parts / acts via emoji substitute (🐱🍆🍑💦). Never literal explicit words.',
+    examples: [
+      '"Your hands have no idea how much I need them on me rn"',
+      '"I need a big boy"',
+      '"he had the AUDACITY to say \'I\'d hit that\'"',
+      '"ik what he wants.. I just act clueless bc I love when he puts me in my place"',
+      '"head empty, just thinking about what he does with that 🍆"',
+    ],
   },
   spicy: {
     label: 'Spicy',
-    desc: 'Maximum heat for top-of-funnel content. Strong sexual implication via emoji + implication. Still no literal explicit words — use emoji substitutes instead.',
     heat: 4,
+    desc: 'MAXIMUM HEAT for top-of-funnel. Unambiguously sexual. Reference sex acts, body parts, arousal — always via emoji substitute, never literal. Push as far as the platform allows. If it wouldn\'t get flagged on IG/TikTok, go harder.',
+    examples: [
+      '"this man 🍆 in me now he\'s bone smashing? whatever that means 😭"',
+      '"he eats my 🐱 like it owes him money"',
+      '"when he finds out how well i take 🍆"',
+      '"i was built to be pinned down fr"',
+      '"head game lethal on god 👅"',
+      '"ride or 🍆 die"',
+      '"he said wyd... crawling in his bed that\'s wyd 🫦"',
+    ],
   },
 }
 
@@ -319,6 +346,11 @@ AI-sounding captions (NEVER write these):
 
 TONE LEVEL: ${toneBrief.label.toUpperCase()} (heat ${toneBrief.heat}/4)
 ${toneBrief.desc}
+
+EXAMPLES AT THIS TONE (match this heat level — don't go softer):
+${toneBrief.examples.map(e => `  ${e}`).join('\n')}
+
+${toneBrief.heat >= 3 ? 'IMPORTANT: The user explicitly picked heat level ' + toneBrief.heat + '. Sanitized "safe" suggestions are a FAILURE at this tone. Be as bold as the example captions above. Emoji substitutes for explicit words are expected and encouraged.' : ''}
 
 EMOJI RULES (strict):
 - MAXIMUM ONE emoji per caption. Zero is usually better.
