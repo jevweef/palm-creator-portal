@@ -13,6 +13,7 @@ const ADMIN_NAV = [
     { key: 'review', label: 'Review' },
     { key: 'import', label: 'Import' },
     { key: 'training', label: 'Training' },
+    { key: 'suggest', label: 'Suggest' },
   ]},
   { href: '/admin/editor', label: 'Editor', icon: '✂️', children: [
     { key: 'editorview', label: 'Dashboard' },
