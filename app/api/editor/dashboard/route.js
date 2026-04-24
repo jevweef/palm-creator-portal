@@ -257,23 +257,38 @@ export async function GET() {
       const approvedBuffer = futurePostsByCreator[c.id] || 0
       const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
-      // Pin each in-review task to the day it was actually completed.
-      // Historically we redistributed overshoots forward to the next open slot
-      // to avoid a "phantom Slot 3" when editor finished 3 edits on a 2/day
-      // creator. Now that editors intentionally overproduce (3/day target but
-      // may land 4), redistribution hides work the editor really did and makes
-      // yesterday look short-handed. Keep completion truth; the daily view
-      // renders one slot per actual task even if it exceeds dailyQuota.
+      // Redistribute in-review tasks so they respect dailyQuota. Without
+      // this, the day ends up with more slot rows than the creator's quota,
+      // which reads as "phantom Slot N+1". Approved tasks are LOCKED to
+      // their post's Scheduled Date. In-review tasks default to their
+      // completion date but overflow to the next open day if the completion
+      // day is full.
       const doneTasksForRedist = ctasks.filter(t =>
         t.status === 'Done' && t.adminReviewStatus !== 'Needs Revision'
       )
+      const slotsUsedByDate = {}
+      // Pass 1: lock approved tasks into their assigned slot date
       for (const t of doneTasksForRedist) {
-        if (!t.postScheduledDate) {
-          // In-review: completion date wins
-          t.etSlotDate = t.etCompletedDate || todayStr
+        if (t.postScheduledDate) {
+          slotsUsedByDate[t.etSlotDate] = (slotsUsedByDate[t.etSlotDate] || 0) + 1
         }
-        // Approved tasks keep the etSlotDate upstream derived from
-        // post.scheduledDate — untouched here.
+      }
+      // Pass 2: in-review tasks pin to completion date, overflow forward
+      const nextDay = (ds) => {
+        const dt = new Date(ds + 'T12:00:00')
+        dt.setDate(dt.getDate() + 1)
+        return dt.toISOString().split('T')[0]
+      }
+      const inReviewSorted = doneTasksForRedist
+        .filter(t => !t.postScheduledDate)
+        .sort((a, b) => new Date(a.completedAt || 0) - new Date(b.completedAt || 0))
+      for (const t of inReviewSorted) {
+        let candidate = t.etCompletedDate || todayStr
+        while ((slotsUsedByDate[candidate] || 0) >= dailyQuota) {
+          candidate = nextDay(candidate)
+        }
+        t.etSlotDate = candidate
+        slotsUsedByDate[candidate] = (slotsUsedByDate[candidate] || 0) + 1
       }
 
       const doneThisWeek = ctasks.filter(t =>
