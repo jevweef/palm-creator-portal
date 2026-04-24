@@ -686,9 +686,9 @@ function PostCard({ post, onRefresh, onSend }) {
               style={{ flex: 1, padding: '7px', fontSize: '11px', fontWeight: 700, textAlign: 'center',
                 background: 'rgba(232, 160, 160, 0.06)', color: 'var(--palm-pink)',
                 border: '1px solid rgba(232, 160, 160, 0.2)', borderRadius: '6px', textDecoration: 'none' }}
-              title="Post is ready — go to Grid Planner to position and send"
+              title="Post is ready — go to Grid Planner to position on an account and send"
             >
-              ▦ Open in Grid →
+              ▦ Send to Grid →
             </a>
           )}
           {post.asset?.editedFileLink && (
@@ -816,7 +816,10 @@ export default function PostsPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filter, setFilter] = useState('Needs Prep')
+  // Post Prep shows ONLY prepping posts. No filter tabs — once a post is
+  // ready, admin clicks "Send to Grid" to move it off the prep list into
+  // the Grid Planner for scheduling + sending.
+  const filter = 'Prepping'
   const [telegramModal, setTelegramModal] = useState(null)
   const [toast, setToast] = useState(null)
   const [logModal, setLogModal] = useState(false)
@@ -862,21 +865,9 @@ export default function PostsPage() {
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '3px', marginBottom: '24px', width: 'fit-content' }}>
-        {STATUS_FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{ padding: '5px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: filter === f ? 'var(--palm-pink)' : 'transparent',
-              color: filter === f ? '#060606' : 'var(--foreground-muted)' }}>
-            {f}
-            {f !== 'All' && (
-              <span style={{ marginLeft: '6px', color: filter === f ? 'rgba(6, 6, 6, 0.6)' : 'var(--foreground-subtle)', fontWeight: 400 }}>
-                {posts.filter(p => matchesFilter(p, f)).length}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Header — Post Prep is prepping-only, no filter tabs */}
+      <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '24px' }}>
+        {filtered.length} post{filtered.length !== 1 && 's'} to prep · Use <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>Send to Grid</span> when ready
       </div>
 
       {loading && <div style={{ color: 'var(--foreground-muted)', textAlign: 'center', padding: '60px' }}>Loading...</div>}
