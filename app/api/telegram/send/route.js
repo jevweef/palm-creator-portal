@@ -569,12 +569,28 @@ export async function POST(request) {
       }).catch(err => console.warn('[Telegram Send] Pre-send Post update failed:', err.message))
     }
 
-    // Fire and forget. Vercel's waitUntil() keeps the function running up to
-    // maxDuration (300s) after the response has been sent, so download + ffmpeg
-    // + upload continue in the background while the client already got a 200.
+    // Two modes:
+    //   wait=false (default): Fire-and-forget. waitUntil keeps the function
+    //     running for the upload, response returns in ~1s. Used for one-off
+    //     single-cell sends. Order is NOT guaranteed across multiple parallel
+    //     requests — they all run in their own function instances.
+    //   wait=true: Await the upload synchronously. Response returns only after
+    //     the post has actually landed in Telegram. Used for ordered serial
+    //     bulk sends (client awaits each fetch in turn) so posts arrive in
+    //     queue order.
+    if (params.wait) {
+      console.log('[Telegram Send] Sync send for post', postId)
+      try {
+        await doSend(params)
+        return NextResponse.json({ ok: true, status: 'sent', postId })
+      } catch (err) {
+        console.error('[Telegram Send] Sync send error:', err)
+        return NextResponse.json({ error: err.message, postId }, { status: 500 })
+      }
+    }
+
     console.log('[Telegram Send] Queued for post', postId)
     waitUntil(doSend(params))
-
     return NextResponse.json({ ok: true, status: 'sending', postId })
   } catch (err) {
     console.error('[Telegram Send] Queue error:', err)

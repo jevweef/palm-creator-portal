@@ -967,6 +967,83 @@ export default function GridPlanner({ smmMode = false } = {}) {
     }
   }
 
+  // Per-account bulk send: fires this account's queue serially with wait=true
+  // so each post fully completes before the next starts. Guarantees Telegram
+  // receive-order matches queue order (4/25 AM first, 4/27 PM last).
+  const [accountBulkSending, setAccountBulkSending] = useState(null)
+  const handleAccountBulkSend = async (accountId) => {
+    const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
+    const account = accountById[accountId]
+    if (!account?.telegramTopicId) {
+      showToast('No Telegram topic for this account', true)
+      return
+    }
+    const accountQueue = posts
+      .filter(p =>
+        p.accountId === accountId &&
+        p.scheduledDate &&
+        !p.telegramSentAt &&
+        !p.postedAt &&
+        p.asset?.editedFileLink &&
+        p.status !== 'Sending' &&
+        p.status !== 'Sent to Telegram'
+      )
+      .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
+
+    if (!accountQueue.length) {
+      showToast('Nothing to send for this account', true)
+      return
+    }
+    const estMin = Math.ceil(accountQueue.length * 25 / 60)
+    if (!confirm(`Send ${accountQueue.length} post${accountQueue.length !== 1 ? 's' : ''} to @${account.handle}? Each waits for the previous to fully upload (~${estMin} min). Keep this tab open.`)) return
+
+    setAccountBulkSending(accountId)
+    const idsBeingSent = new Set(accountQueue.map(p => p.id))
+    setPosts(prev => prev.map(p => idsBeingSent.has(p.id) ? { ...p, status: 'Sending' } : p))
+
+    let okCount = 0
+    let failCount = 0
+    try {
+      for (let i = 0; i < accountQueue.length; i++) {
+        const p = accountQueue[i]
+        showToast(`Sending ${i + 1}/${accountQueue.length} to @${account.handle}…`)
+        try {
+          const res = await fetch('/api/telegram/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              postId: p.id,
+              editedFileLink: p.asset?.editedFileLink,
+              smmTopicId: account.telegramTopicId,
+              caption: [p.caption, p.hashtags].filter(Boolean).join('\n\n') || undefined,
+              thumbnailUrl: p.thumbnailUrl || undefined,
+              assetId: p.asset?.id || undefined,
+              rawCaption: p.caption || undefined,
+              rawHashtags: p.hashtags || undefined,
+              platform: p.platform?.length ? p.platform : undefined,
+              scheduledDate: p.scheduledDate || undefined,
+              wait: true,
+            }),
+          })
+          if (res.ok) {
+            okCount++
+            setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Sent to Telegram', telegramSentAt: new Date().toISOString() } : pp))
+          } else {
+            failCount++
+            setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Send Failed' } : pp))
+          }
+        } catch {
+          failCount++
+          setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Send Failed' } : pp))
+        }
+      }
+      showToast(`@${account.handle}: ${okCount} sent · ${failCount} failed`, failCount > 0)
+      await loadCreator(selectedCreatorId)
+    } finally {
+      setAccountBulkSending(null)
+    }
+  }
+
   // Refresh scraped IG feed for all of this creator's accounts.
   // Clicking this button always forces a fresh scrape — the whole point is
   // "I want the latest NOW". The 6h cache on the API is for programmatic
@@ -1188,7 +1265,13 @@ export default function GridPlanner({ smmMode = false } = {}) {
               />
 
               {/* Account phones — drop targets */}
-              {accounts.map(acc => (
+              {accounts.map(acc => {
+                const accountQueueCount = (postsByAccount[acc.id] || []).filter(p =>
+                  p.scheduledDate && !p.telegramSentAt && !p.postedAt && p.asset?.editedFileLink &&
+                  p.status !== 'Sending' && p.status !== 'Sent to Telegram'
+                ).length
+                const isThisAccountSending = accountBulkSending === acc.id
+                return (
                 <div
                   key={acc.id}
                   onDragEnter={(e) => {
@@ -1213,6 +1296,26 @@ export default function GridPlanner({ smmMode = false } = {}) {
                     transition: 'outline 0.1s ease',
                   }}
                 >
+                  {accountQueueCount > 0 && acc.telegramTopicId && (
+                    <div style={{ marginBottom: '8px', textAlign: 'center' }}>
+                      <button
+                        onClick={() => handleAccountBulkSend(acc.id)}
+                        disabled={!!accountBulkSending}
+                        title={`Send all ${accountQueueCount} queue posts to @${acc.handle}'s Telegram topic, in order. Each waits for the previous to upload.`}
+                        style={{
+                          padding: '6px 14px', fontSize: '11px', fontWeight: 700,
+                          background: isThisAccountSending ? 'rgba(245, 158, 11, 0.10)' : 'rgba(125, 211, 164, 0.10)',
+                          color: isThisAccountSending ? '#f59e0b' : '#7DD3A4',
+                          border: `1px solid ${isThisAccountSending ? 'rgba(245,158,11,0.3)' : 'rgba(125,211,164,0.3)'}`,
+                          borderRadius: '6px',
+                          cursor: accountBulkSending ? 'default' : 'pointer',
+                          opacity: accountBulkSending && !isThisAccountSending ? 0.4 : 1,
+                        }}
+                      >
+                        {isThisAccountSending ? 'Sending…' : `✈ Send queue (${accountQueueCount})`}
+                      </button>
+                    </div>
+                  )}
                   <PhoneFrame
                     account={acc}
                     creator={creators.find(c => c.id === selectedCreatorId)}
@@ -1224,7 +1327,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
                     onCellClick={(post) => setDetailPost({ post, account: acc })}
                   />
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </>
