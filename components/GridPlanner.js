@@ -1043,6 +1043,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
   // so each post fully completes before the next starts. Guarantees Telegram
   // receive-order matches queue order (4/25 AM first, 4/27 PM last).
   const [accountBulkSending, setAccountBulkSending] = useState(null)
+  // { handle, total, current, status: 'sending'|'done', okCount, failCount }
+  const [bulkProgress, setBulkProgress] = useState(null)
   const handleAccountBulkSend = async (accountId) => {
     const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
     const account = accountById[accountId]
@@ -1078,13 +1080,15 @@ export default function GridPlanner({ smmMode = false } = {}) {
     setAccountBulkSending(accountId)
     const idsBeingSent = new Set(accountQueue.map(p => p.id))
     setPosts(prev => prev.map(p => idsBeingSent.has(p.id) ? { ...p, status: 'Sending' } : p))
+    setBulkProgress({ handle: account.handle, total: accountQueue.length, current: 0, status: 'sending', okCount: 0, failCount: 0, lastError: null })
 
     let okCount = 0
     let failCount = 0
+    let lastError = null
     try {
       for (let i = 0; i < accountQueue.length; i++) {
         const p = accountQueue[i]
-        showToast(`Sending ${i + 1}/${accountQueue.length} to @${account.handle}…`)
+        setBulkProgress(prev => prev ? { ...prev, current: i + 1 } : prev)
         try {
           const res = await fetch('/api/telegram/send', {
             method: 'POST',
@@ -1108,14 +1112,22 @@ export default function GridPlanner({ smmMode = false } = {}) {
             setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Sent to Telegram', telegramSentAt: new Date().toISOString() } : pp))
           } else {
             failCount++
+            const data = await res.json().catch(() => ({}))
+            lastError = data.error || `HTTP ${res.status}`
+            console.error(`[Bulk send] ${p.id} failed:`, lastError)
             setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Send Failed' } : pp))
           }
-        } catch {
+        } catch (err) {
           failCount++
+          lastError = err.message
+          console.error(`[Bulk send] ${p.id} threw:`, err)
           setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Send Failed' } : pp))
         }
+        setBulkProgress(prev => prev ? { ...prev, okCount, failCount, lastError } : prev)
       }
-      showToast(`@${account.handle}: ${okCount} sent · ${failCount} failed`, failCount > 0)
+      setBulkProgress(prev => prev ? { ...prev, status: 'done' } : prev)
+      // Leave the final state visible for 8s, then clear
+      setTimeout(() => setBulkProgress(null), 8000)
       await loadCreator(selectedCreatorId)
     } finally {
       setAccountBulkSending(null)
@@ -1506,6 +1518,56 @@ export default function GridPlanner({ smmMode = false } = {}) {
       )}
 
       <ConfirmModal dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
+
+      {/* Bulk-send progress banner (persistent during send, no auto-dismiss) */}
+      {bulkProgress && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 350,
+          padding: '14px 22px', borderRadius: '12px', minWidth: '320px',
+          background: bulkProgress.status === 'done'
+            ? (bulkProgress.failCount > 0 ? 'rgba(239, 68, 68, 0.10)' : 'rgba(125, 211, 164, 0.10)')
+            : 'rgba(245, 158, 11, 0.10)',
+          color: bulkProgress.status === 'done'
+            ? (bulkProgress.failCount > 0 ? '#ef4444' : '#7DD3A4')
+            : '#f59e0b',
+          border: `1px solid ${bulkProgress.status === 'done'
+            ? (bulkProgress.failCount > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(125,211,164,0.3)')
+            : 'rgba(245,158,11,0.3)'}`,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(10px)',
+          fontSize: '13px', fontWeight: 600,
+          display: 'flex', flexDirection: 'column', gap: '6px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>
+              {bulkProgress.status === 'done'
+                ? (bulkProgress.failCount > 0 ? '✗' : '✓')
+                : '✈'}
+            </span>
+            <span>
+              {bulkProgress.status === 'done'
+                ? `@${bulkProgress.handle}: ${bulkProgress.okCount} sent · ${bulkProgress.failCount} failed`
+                : `Sending ${bulkProgress.current}/${bulkProgress.total} to @${bulkProgress.handle}…`}
+            </span>
+          </div>
+          {/* Progress bar */}
+          {bulkProgress.status !== 'done' && (
+            <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${(bulkProgress.current / bulkProgress.total) * 100}%`,
+                background: '#f59e0b',
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+          )}
+          {bulkProgress.lastError && (
+            <div style={{ fontSize: '11px', fontWeight: 400, opacity: 0.85, fontFamily: 'monospace' }}>
+              Last error: {bulkProgress.lastError}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
