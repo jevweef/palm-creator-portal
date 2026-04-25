@@ -1649,7 +1649,7 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           {/* Unassign: only if placed + editable (not scraped, not sent/posted) */}
           {!isScraped && onUnassign && post.accountId && !post.telegramSentAt && !post.postedAt && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted' && (
             <button
-              onClick={() => { if (confirm('Send this reel back to the tray?')) onUnassign() }}
+              onClick={onUnassign}
               title="Remove from this account — the reel goes back to the Ready to Schedule tray"
               style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
                 background: 'rgba(232, 120, 120, 0.06)', color: '#E87878',
