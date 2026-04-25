@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 
 export default function SmHome() {
   const [counts, setCounts] = useState({ pendingSetups: null, gridUnscheduled: null })
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState(null)
 
   useEffect(() => {
     fetch('/api/admin/sm-requests').then(r => r.json()).then(d => {
@@ -12,6 +14,21 @@ export default function SmHome() {
       setCounts(c => ({ ...c, pendingSetups: pending }))
     }).catch(() => {})
   }, [])
+
+  async function runBackfill() {
+    if (!confirm('Backfill Telegram topics for all currently-managed IG accounts? This is idempotent — re-running skips rows that already have topics.')) return
+    setBackfilling(true)
+    setBackfillResult(null)
+    try {
+      const res = await fetch('/api/admin/sm-requests/backfill-topics', { method: 'POST' })
+      const data = await res.json()
+      setBackfillResult(data)
+    } catch (err) {
+      setBackfillResult({ error: err.message })
+    } finally {
+      setBackfilling(false)
+    }
+  }
 
   const cardStyle = {
     display: 'block',
@@ -58,6 +75,33 @@ export default function SmHome() {
             All active creators, accounts, cadence.
           </div>
         </Link>
+      </div>
+
+      <div style={{ marginTop: '40px', padding: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--card-border)', borderRadius: '12px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>One-time setup</div>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
+          Backfill Telegram topics for all currently-managed IG accounts. Idempotent — safe to run more than once.
+        </div>
+        <button
+          onClick={runBackfill}
+          disabled={backfilling}
+          style={{
+            padding: '8px 14px',
+            fontSize: '13px',
+            fontWeight: 600,
+            background: 'var(--palm-pink)',
+            color: '#060606',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: backfilling ? 'wait' : 'pointer',
+            opacity: backfilling ? 0.6 : 1,
+          }}
+        >{backfilling ? 'Backfilling…' : 'Backfill Telegram Topics'}</button>
+        {backfillResult && (
+          <pre style={{ marginTop: '12px', padding: '12px', background: '#0a0a0a', border: '1px solid var(--card-border)', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', overflow: 'auto', maxHeight: '400px' }}>
+{JSON.stringify(backfillResult, null, 2)}
+          </pre>
+        )}
       </div>
     </div>
   )
