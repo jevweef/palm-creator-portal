@@ -1045,6 +1045,10 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const [accountBulkSending, setAccountBulkSending] = useState(null)
   // { handle, total, current, status: 'sending'|'done', okCount, failCount }
   const [bulkProgress, setBulkProgress] = useState(null)
+  // Holds the AbortController for the in-flight bulk send so the user can
+  // cancel a hung run. Also used by the per-fetch timeout to kill a single
+  // stuck request without blocking the rest of the queue.
+  const bulkCancelRef = useRef(null)
   const handleAccountBulkSend = async (accountId) => {
     const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
     const account = accountById[accountId]
