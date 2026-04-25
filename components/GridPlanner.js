@@ -956,51 +956,28 @@ export default function GridPlanner({ smmMode = false } = {}) {
     })
   }
   const runBulkSend = async () => {
-    const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
     setBulkSending(true)
-    // Optimistic UI update
-    const sendableIds = new Set(sendablePosts.map(p => p.id))
-    setPosts(prev => prev.map(p => sendableIds.has(p.id) ? { ...p, status: 'Sending' } : p))
     try {
-      // Fire all requests. Each server call returns in ~1s via waitUntil; the
-      // actual sends happen async on Vercel's side. Sequenced-by-date is
-      // already the sort order of sendablePosts; we kick them in that order
-      // 200ms apart so the server-side order lines up with user expectation.
-      let errorCount = 0
-      for (let i = 0; i < sendablePosts.length; i++) {
-        const p = sendablePosts[i]
-        try {
-          const res = await fetch('/api/telegram/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              postId: p.id,
-              editedFileLink: p.asset?.editedFileLink,
-              smmTopicId: accountById[p.accountId].telegramTopicId,
-              caption: [p.caption, p.hashtags].filter(Boolean).join('\n\n') || undefined,
-              thumbnailUrl: p.thumbnailUrl || undefined,
-              assetId: p.asset?.id || undefined,
-              rawCaption: p.caption || undefined,
-              rawHashtags: p.hashtags || undefined,
-              platform: p.platform?.length ? p.platform : undefined,
-              scheduledDate: p.scheduledDate || undefined,
-            }),
-          })
-          if (!res.ok) errorCount++
-        } catch {
-          errorCount++
-        }
-        // Small delay between queue submissions — keeps server logs readable
-        // and avoids hammering Vercel with 10 concurrent function starts.
-        if (i < sendablePosts.length - 1) await new Promise(r => setTimeout(r, 200))
+      // Group sendable posts by account, preserve queue order within each.
+      // Then run runAccountBulkSend (serial wait=true) for each account
+      // sequentially. Result: one Telegram upload at a time across the entire
+      // creator. Avoids the parallel-fire rate-limit storm we saw before.
+      const byAccount = {}
+      for (const p of sendablePosts) {
+        if (!byAccount[p.accountId]) byAccount[p.accountId] = []
+        byAccount[p.accountId].push(p)
       }
-      if (errorCount) {
-        showToast(`Queued ${sendablePosts.length - errorCount}/${sendablePosts.length} · ${errorCount} failed to queue`, errorCount > 0)
-      } else {
-        showToast(`Queued ${sendablePosts.length} post${sendablePosts.length !== 1 ? 's' : ''} — sending in background`)
+      const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
+      const orderedAccountIds = accounts.map(a => a.id).filter(id => byAccount[id]?.length)
+      for (const accountId of orderedAccountIds) {
+        const account = accountById[accountId]
+        const accountQueue = byAccount[accountId].sort(
+          (a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)
+        )
+        await runAccountBulkSend(accountId, account, accountQueue)
       }
-      // Give the server a beat, then reload to pick up 'Sending' status
-      setTimeout(() => loadCreator(selectedCreatorId), 2000)
+      showToast(`Done — sent across ${orderedAccountIds.length} account${orderedAccountIds.length !== 1 ? 's' : ''}`)
+      await loadCreator(selectedCreatorId)
     } finally {
       setBulkSending(false)
     }
@@ -1398,7 +1375,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           <button
             onClick={handleBulkSend}
             disabled={bulkSending}
-            title={`Fire all ${sendablePosts.length} scheduled-but-unsent posts to Telegram, sequenced by Scheduled Date. They run in the background — each post's card flips to Sending → Sent as it completes.`}
+            title={`Send all ${sendablePosts.length} scheduled-but-unsent posts to Telegram. Runs serially: account 1's full queue, then account 2's, etc. One upload at a time to stay under Telegram's rate limit.`}
             style={{
               padding: '6px 14px', fontSize: '12px', fontWeight: 700,
               background: bulkSending ? 'rgba(125, 211, 164, 0.04)' : 'rgba(125, 211, 164, 0.10)',
