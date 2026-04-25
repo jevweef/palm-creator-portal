@@ -700,12 +700,18 @@ function PostCard({ post, onRefresh, onSend }) {
             creatorId={post.creator?.id}
             platforms={platforms}
             onSelect={async (url) => {
-              setThumbnailUrl(url)
+              // Airtable's attachment ingester needs a URL that returns the
+              // actual image bytes. Dropbox ?dl=0 returns an HTML preview
+              // page, so Airtable can't ingest it and the field stays empty —
+              // which is why the thumbnail disappeared after refresh. Rewrite
+              // to ?raw=1 so Dropbox serves the raw image.
+              const rawUrl = rawDropboxUrl(url)
+              setThumbnailUrl(rawUrl)
               setShowPhotoPicker(false)
               await fetch('/api/admin/posts', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ postId: post.id, fields: { 'Thumbnail': [{ url }] } }),
+                body: JSON.stringify({ postId: post.id, fields: { 'Thumbnail': [{ url: rawUrl }] } }),
               })
             }}
             onClose={() => setShowPhotoPicker(false)}

@@ -374,7 +374,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // Unassigned column — phone-shaped, 3-wide grid of reel tiles. Each tile is
 // draggable; drop onto an account phone to place. Counter badge = remaining
 // instances.
-function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd, smmMode = false, onDebug }) {
+function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd, onTileClick, smmMode = false, onDebug }) {
   const visibleGroups = smmMode
     ? groups.filter(g => g.samplePost?.thumbnail)
     : groups
@@ -428,6 +428,7 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
               <div
                 key={key}
                 draggable
+                onClick={() => onTileClick?.(g)}
                 onDragStart={(e) => {
                   // 'all' lets either 'copy' or 'move' dropEffect be accepted
                   // by the target. Setting 'copy' while the target uses 'move'
@@ -442,7 +443,7 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
                   onDebug?.(`dragEnd dropEffect=${e.dataTransfer?.dropEffect || 'none'}`)
                   onDragEnd()
                 }}
-                title={`${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
+                title={`${sample.name || 'Reel'} — click to preview, drag to schedule`}
                 style={{
                   aspectRatio: '1 / 1',
                   background: '#000',
@@ -1045,6 +1046,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
                 draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
                 onDragStart={(group) => setDraggingTaskGroup(group)}
                 onDragEnd={() => setDraggingTaskGroup(null)}
+                onTileClick={(group) => setDetailPost({ post: group.samplePost, account: null, fromTray: true })}
                 onDebug={pushDebug}
               />
 
@@ -1264,7 +1266,10 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
               {post.name || 'Untitled post'}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
-              @{account?.handle || account?.name} {scheduledLabel ? ' · ' + scheduledLabel : ''}
+              {account?.handle || account?.name
+                ? `@${account.handle || account.name}`
+                : <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>Unassigned</span>}
+              {scheduledLabel ? ' · ' + scheduledLabel : ''}
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px' }}>×</button>
