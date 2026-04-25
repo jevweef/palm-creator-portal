@@ -316,7 +316,13 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
   const [capturedUrl, setCapturedUrl] = useState(null)
   const [error, setError] = useState('')
 
+  // Proxy the Dropbox URL through our own origin so we can set
+  // crossOrigin="anonymous" on the <video> and capture frames via canvas.
+  // The proxy adds CORS headers and forwards Range requests for seeking.
+  // Frame colors come out right because the browser's native HDR→SDR
+  // tonemapping kicks in and canvas.drawImage reads exactly what's shown.
   const rawUrl = rawDropboxUrl(videoUrl)
+  const proxiedUrl = `/api/admin/video-proxy?url=${encodeURIComponent(rawUrl)}`
 
   const handleScrub = (e) => {
     const t = parseFloat(e.target.value)
@@ -324,20 +330,48 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
     if (videoRef.current) videoRef.current.currentTime = t
   }
 
+  // Grab the currently-displayed video frame via <canvas>. The browser has
+  // already tonemapped HDR→SDR for display, so drawImage reads exactly what
+  // the user sees while scrubbing. Works because the video is served through
+  // our same-origin proxy with CORS headers — a direct Dropbox fetch would
+  // leave the canvas tainted and block toBlob.
+  const clientCapture = () => {
+    const video = videoRef.current
+    if (!video || !video.videoWidth || !video.videoHeight) return null
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    return new Promise((resolve, reject) => {
+      try {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob null')), 'image/jpeg', 0.92)
+      } catch (e) { reject(e) }
+    })
+  }
+
   const handleCapture = async () => {
     setCapturing(true)
     setError('')
     try {
-      // Extract frame server-side via ffmpeg
-      const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl, timestamp: currentTime }),
-      })
-      const frameData = await frameRes.json()
-      if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
-
-      const blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+      let blob = null
+      // Client-side canvas first — colors match what was just displayed
+      const promise = clientCapture()
+      if (promise) {
+        try { blob = await promise }
+        catch (e) { console.warn('[Frame] client capture failed, trying server:', e.message) }
+      }
+      // Server ffmpeg fallback (last-resort; colors may be off on HDR input)
+      if (!blob) {
+        const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoUrl, timestamp: currentTime }),
+        })
+        const frameData = await frameRes.json()
+        if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
+        blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+      }
 
       // Upload the JPEG to Dropbox via the existing thumbnail endpoint
       const form = new FormData()
@@ -406,7 +440,8 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
         <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '9/16', overflow: 'hidden' }}>
           <video
             ref={videoRef}
-            src={rawUrl}
+            src={proxiedUrl}
+            crossOrigin="anonymous"
             muted
             playsInline
             preload="metadata"
