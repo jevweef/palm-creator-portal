@@ -1121,6 +1121,15 @@ export default function GridPlanner({ smmMode = false } = {}) {
               loadCreator(selectedCreatorId)
             }
           }}
+          onThumbnailReplaced={(postId, newUrl) => {
+            // Update local posts so the grid cell + tray tile re-render with the new thumbnail
+            setPosts(ps => ps.map(p => p.id === postId ? { ...p, thumbnail: newUrl, thumbnailUrl: newUrl } : p))
+            setDetailPost(d => d && d.post.id === postId
+              ? { ...d, post: { ...d.post, thumbnail: newUrl, thumbnailUrl: newUrl } }
+              : d
+            )
+            showToast('Thumbnail updated')
+          }}
           smmMode={smmMode}
           onMarkScheduled={async (scheduled) => {
             // Optimistic update on the post in local state
@@ -1213,8 +1222,11 @@ const smmBtn = {
   cursor: 'pointer',
 }
 
-function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, smmMode = false, onMarkScheduled }) {
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, onThumbnailReplaced, smmMode = false, onMarkScheduled }) {
   const [copiedKey, setCopiedKey] = useState(null)
+  const [uploadingThumb, setUploadingThumb] = useState(false)
+  const [localThumb, setLocalThumb] = useState(null) // optimistic preview after upload
+  const thumbInputRef = useRef(null)
   async function copyText(text, key) {
     if (!text) return
     await navigator.clipboard.writeText(text)
@@ -1222,6 +1234,35 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
     setTimeout(() => setCopiedKey(null), 1500)
   }
   const isScraped = !!post._scraped
+  const canReplaceThumb = !isScraped && post.id?.startsWith('rec')
+
+  async function handleThumbnailFile(file) {
+    if (!file || !file.type?.startsWith('image/')) {
+      alert('Pick an image file (JPEG, PNG, etc.).')
+      return
+    }
+    setUploadingThumb(true)
+    try {
+      // Show local preview immediately
+      const previewUrl = URL.createObjectURL(file)
+      setLocalThumb(previewUrl)
+
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/admin/grid-planner/post-thumbnail/${post.id}`, {
+        method: 'POST',
+        body: fd,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Thumbnail upload failed')
+      onThumbnailReplaced?.(post.id, data.url)
+    } catch (e) {
+      alert(`Could not replace thumbnail: ${e.message}`)
+      setLocalThumb(null)
+    } finally {
+      setUploadingThumb(false)
+    }
+  }
   // Scraped cells are just IG feed items — never sendable, never have an
   // Airtable Status. Show them as "Live on IG" with a link out.
   const effectiveStatus = isScraped ? 'Live on IG' : (post.status || 'Prepping')
@@ -1276,14 +1317,55 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
         </div>
 
         {/* Thumbnail */}
-        <div style={{ padding: '0 20px' }}>
-          <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {post.thumbnail ? (
-              <img src={post.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        <div style={{ padding: '0 20px', position: 'relative' }}>
+          <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            {(localThumb || post.thumbnail) ? (
+              <img src={localThumb || post.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             ) : (
               <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No thumbnail</div>
             )}
+            {uploadingThumb && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'rgba(0,0,0,0.6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--palm-pink)', fontSize: '13px', fontWeight: 600,
+              }}>
+                Uploading new thumbnail…
+              </div>
+            )}
           </div>
+          {canReplaceThumb && (
+            <div style={{ marginTop: '8px', textAlign: 'center' }}>
+              <input
+                ref={thumbInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) handleThumbnailFile(f)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                onClick={() => thumbInputRef.current?.click()}
+                disabled={uploadingThumb}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--card-border)',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  color: 'var(--foreground-muted)',
+                  cursor: uploadingThumb ? 'default' : 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                {uploadingThumb ? 'Uploading…' : '↻ Replace thumbnail'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Status pill */}
