@@ -447,7 +447,7 @@ export async function POST(request) {
       // Managed IG accounts for this creator
       const allAccounts = await fetchAirtableRecords('Creator Platform Directory', {
         filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
-        fields: ['Account', 'Creator'],
+        fields: ['Account Name', 'Creator'],
       })
       const managed = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
       if (!managed.length) return NextResponse.json({ ok: true, distributed: 0, message: 'No managed accounts' })
