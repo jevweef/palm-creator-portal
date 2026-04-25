@@ -64,13 +64,14 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   const handle = account?.handle || account?.name || ''
   const profile = account?.scrapedProfile
 
-  // Sort: scheduled first (by date asc), then sent/posted (by date desc). Top-left = most recent scheduled.
-  // IG actually shows newest-at-top-left, but for PLANNING we want:
-  //  - Top rows: upcoming scheduled (draggable)
-  //  - Bottom rows: already posted (locked)
-  const scheduled = posts
+  // IG-style render: newest at top-left, oldest at bottom-right.
+  //  - Queue cells (unsent): top-left = furthest future (e.g. 4/27 PM),
+  //    bottom-right of queue = next to post (e.g. 4/25 AM).
+  //  - Then Scheduled (sent to Telegram, locked) below queue, by send date desc.
+  //  - Then Live (posted) below that.
+  const queue = posts
     .filter(p => !p.telegramSentAt && !p.postedAt)
-    .sort((a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0))
+    .sort((a, b) => new Date(b.scheduledDate || 0) - new Date(a.scheduledDate || 0))
 
   const past = posts
     .filter(p => p.telegramSentAt || p.postedAt)
@@ -93,7 +94,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   const postLinks = new Set(past.map(p => p.postLink).filter(Boolean))
   const uniqScraped = scrapedCells.filter(s => !postLinks.has(s.postLink))
 
-  const allCells = [...scheduled, ...past, ...uniqScraped]
+  const allCells = [...queue, ...past, ...uniqScraped]
 
   return (
     <div style={{
@@ -163,7 +164,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           <div style={{ flex: 1, display: 'flex', justifyContent: 'space-around', fontSize: '12px' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>
-                {profile?.postCount != null ? formatCount(profile.postCount) : (past.length + scheduled.length + uniqScraped.length)}
+                {profile?.postCount != null ? formatCount(profile.postCount) : (past.length + queue.length + uniqScraped.length)}
               </div>
               <div style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>posts</div>
             </div>
@@ -644,10 +645,11 @@ export default function GridPlanner({ smmMode = false } = {}) {
     setDragging({ postId: null, sourceAccountId: null })
   }
 
-  // Drop onto an existing post in an account grid:
-  //   - if source is same account → SWAP scheduled dates
-  //   - if source is different account or unassigned → REASSIGN dragged post to target account,
-  //     inheriting target's scheduled time shift? For v1, simpler: re-assign only.
+  // Drop onto an existing post in an account grid.
+  // Same account: insertion-shift reorder. Source moves to target's queue
+  // position; everything between source and target shifts toward source's
+  // old position. Server then renumbers all queue dates for that account.
+  // Different account: reassign dragged post to target account.
   const handleDropOnPost = async (targetPostId, targetAccountId) => {
     const sourcePostId = dragging.postId
     const sourceAcc = dragging.sourceAccountId
@@ -667,21 +669,59 @@ export default function GridPlanner({ smmMode = false } = {}) {
     setSaving(true)
     try {
       if (sourceAcc && sourceAcc === targetAccountId) {
-        // Same-grid swap
+        // Insertion-shift reorder within the same account.
+        // Build the queue (oldest → newest = sorted asc by current scheduledDate).
+        const queue = posts
+          .filter(p => p.accountId === targetAccountId && !p.telegramSentAt && !p.postedAt)
+          .sort((a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0))
+        const fromIdx = queue.findIndex(p => p.id === sourcePostId)
+        const toIdx = queue.findIndex(p => p.id === targetPostId)
+        if (fromIdx === -1 || toIdx === -1) return
+
+        // Move source to target's index; everything between shifts.
+        const newQueue = [...queue]
+        const [moved] = newQueue.splice(fromIdx, 1)
+        newQueue.splice(toIdx, 0, moved)
+
+        // Compute new dates: position 0 = today AM, 1 = today PM, 2 = tomorrow AM, ...
+        // Mirror server-side getQueueSlots so optimistic UI matches truth.
+        const computeSlots = (count) => {
+          const slots = []
+          const now = new Date()
+          const todayET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now)
+          const [sy, sm, sd] = todayET.split('-').map(Number)
+          for (let i = 0; i < count; i++) {
+            const dayOffset = Math.floor(i / 2)
+            const hourIdx = i % 2
+            const etHour = [11, 19][hourIdx]
+            // Construct noon UTC of target day so format-back-to-ET stays stable
+            const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset, 12))
+            const etDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(iter)
+            const [ty, tm, td] = etDateStr.split('-').map(Number)
+            // 11 AM EDT = 15:00 UTC, 7 PM EDT = 23:00 UTC. Use Intl-derived offset
+            // to handle EDT/EST boundary correctly.
+            const noonUtc = new Date(Date.UTC(ty, tm - 1, td, 12))
+            const etHourAtNoon = parseInt(
+              new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(noonUtc)
+            )
+            const utcHour = etHour + (12 - etHourAtNoon)
+            slots.push(new Date(Date.UTC(ty, tm - 1, td, utcHour)).toISOString())
+          }
+          return slots
+        }
+        const slots = computeSlots(newQueue.length)
+        const dateById = Object.fromEntries(newQueue.map((p, i) => [p.id, slots[i]]))
+
         // Optimistic UI
-        const newPosts = posts.map(p => {
-          if (p.id === sourcePostId) return { ...p, scheduledDate: targetPost.scheduledDate }
-          if (p.id === targetPostId) return { ...p, scheduledDate: sourcePost.scheduledDate }
-          return p
-        })
-        setPosts(newPosts)
+        setPosts(posts.map(p => dateById[p.id] ? { ...p, scheduledDate: dateById[p.id] } : p))
+
         const res = await fetch('/api/admin/grid-planner', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'swap', postA: sourcePostId, postB: targetPostId }),
+          body: JSON.stringify({ action: 'reorder', accountId: targetAccountId, postIds: newQueue.map(p => p.id) }),
         })
-        if (!res.ok) throw new Error('Swap failed')
-        showToast('Swapped times')
+        if (!res.ok) throw new Error('Reorder failed')
+        showToast('Reordered')
       } else {
         // Cross-account or from-unassigned → reassign
         const newPosts = posts.map(p => p.id === sourcePostId ? { ...p, accountId: targetAccountId } : p)

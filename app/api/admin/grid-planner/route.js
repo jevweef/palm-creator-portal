@@ -414,6 +414,22 @@ export async function PATCH(request) {
       return NextResponse.json({ ok: true })
     }
 
+    // reorder: take an ordered list of post IDs (oldest at index 0, newest
+    // last) and assign each post the canonical slot date for its index.
+    // Used by drag-drop within an account grid — client computes the new
+    // queue order via insertion-shift, sends the full list, server writes.
+    if (action === 'reorder') {
+      const { accountId, postIds } = body
+      if (!accountId || !Array.isArray(postIds) || !postIds.length) {
+        return NextResponse.json({ error: 'accountId and postIds[] required' }, { status: 400 })
+      }
+      const slots = getQueueSlots(postIds.length)
+      await Promise.all(postIds.map((pid, i) =>
+        patchAirtableRecord('Posts', pid, { 'Scheduled Date': slots[i] })
+      ))
+      return NextResponse.json({ ok: true, slots })
+    }
+
     // assignInstance: the "3-badge drag" action.
     // Body shape: { action: 'assignInstance', taskId, accountId, unassignedPostIds: [...] }
     //   - If unassignedPostIds has entries: re-use the first one, set Account + next-open-slot
