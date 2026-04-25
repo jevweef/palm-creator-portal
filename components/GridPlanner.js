@@ -309,13 +309,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       }}
     >
       {post.thumbnail ? (
-        <img
-          src={post.thumbnail}
-          alt=""
-          draggable={false}
-          onDragStart={(e) => e.preventDefault()}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-        />
+        <CellThumb post={post} style={style} status={status} />
       ) : (
         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style.badge, fontSize: '20px' }}>
           {status === 'draft' ? '✏' : '🗓'}
@@ -370,6 +364,56 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 }
 
 // ─── Unassigned tray ───────────────────────────────────────────────────────────
+
+// Phone-grid cell thumbnail with onError fallback. Same broken-attachment
+// problem as the tray — Airtable attachment URLs can rotate and source URLs
+// can die. Swap to the placeholder if the image won't load.
+function CellThumb({ post, style, status }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
+        {status === 'draft' ? '✏' : '🗓'}
+      </div>
+    )
+  }
+  return (
+    <img
+      src={post.thumbnail}
+      alt=""
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onError={() => setFailed(true)}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+    />
+  )
+}
+
+// Tray thumbnail with onError fallback. Some Post.Thumbnail attachments point
+// at stale/dead source URLs (Airtable attachment URLs rotate, original Dropbox
+// links can become invalid). When the <img> fails to load, swap to the
+// UNPREPPED placeholder so the cell doesn't show a broken-image icon.
+function TrayThumb({ sample }) {
+  const [failed, setFailed] = useState(false)
+  if (!sample.thumbnail || failed) {
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '20px', gap: '2px', pointerEvents: 'none' }}>
+        <span>✏</span>
+        <span style={{ fontSize: '8px', fontWeight: 600 }}>UNPREPPED</span>
+      </div>
+    )
+  }
+  return (
+    <img
+      src={sample.thumbnail}
+      alt=""
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onError={() => setFailed(true)}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+    />
+  )
+}
 
 // Unassigned column — phone-shaped, 3-wide grid of reel tiles. Each tile is
 // draggable; drop onto an account phone to place. Counter badge = remaining
@@ -453,20 +497,8 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
                   overflow: 'hidden',
                 }}
               >
-                {sample.thumbnail ? (
-                  <img
-                    src={sample.thumbnail}
-                    alt=""
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-                  />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '20px', gap: '2px', pointerEvents: 'none' }}>
-                    <span>✏</span>
-                    <span style={{ fontSize: '8px', fontWeight: 600 }}>UNPREPPED</span>
-                  </div>
-                )}
+                <TrayThumb sample={sample} />
+                {/* Counter badge */}
                 <div style={{
                   position: 'absolute', top: 4, right: 4,
                   minWidth: '20px', height: '20px', borderRadius: '10px',
