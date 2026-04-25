@@ -22,8 +22,7 @@ export default function SuperAdminBar() {
   // Determine active tab from pathname
   const isCreatorTab = pathname?.startsWith('/creator')
   const isEditorTab = pathname?.startsWith('/editor')
-  const isSmmTab = pathname?.startsWith('/sm')
-  const isAdminTab = !isCreatorTab && !isEditorTab && !isSmmTab
+  const isAdminTab = !isCreatorTab && !isEditorTab
 
   // Fetch creators for picker, then reconcile with stored selection
   useEffect(() => {
