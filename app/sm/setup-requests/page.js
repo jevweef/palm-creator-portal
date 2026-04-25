@@ -182,7 +182,7 @@ function SlotRow({ requestId, slot, onChange }) {
 
   async function markDone() {
     if (!handle.trim()) { alert('Enter a handle first.'); return }
-    if (!confirm(`Confirm: @${handle.trim().replace(/^@/, '')} is live and ready. This creates the CPD row.`)) return
+    if (!confirm(`Confirm: @${handle.trim().replace(/^@/, '')} is live and ready. This will register the username on the account and create its Telegram topic.`)) return
     setSavingDone(true)
     try {
       const r = await fetch(`/api/admin/sm-requests/${requestId}/complete-account`, {

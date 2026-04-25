@@ -6,7 +6,6 @@ import {
   requireAdminOrSocialMedia,
   fetchAirtableRecords,
   patchAirtableRecord,
-  createAirtableRecord,
 } from '@/lib/adminAuth'
 import { createSmmTopicForHandle, isSmmGroupConfigured } from '@/lib/telegramTopics'
 
@@ -16,8 +15,10 @@ const CPD_TABLE = 'Creator Platform Directory'
 // POST /api/admin/sm-requests/:id/complete-account
 // Body: { slot: 1|2|3, handle: string }
 //
-// Creates a real Instagram CPD row for the creator and marks the slot Done.
-// If all 3 slots are done, flips the request Status=Complete + sets Completed At.
+// Marks an existing CPD row Live by writing the handle/URL onto it. Default
+// CPD records (Palm IG 1/2/3 + IG Main) are pre-created for every creator —
+// this flow ADDS THE USERNAME, it does not create new rows. Also creates the
+// matching forum topic in the SMM master Telegram group.
 export async function POST(request, { params }) {
   try { await requireAdminOrSocialMedia() } catch (e) { return e }
 
@@ -41,27 +42,40 @@ export async function POST(request, { params }) {
 
     const f = reqRec.fields || {}
     const creatorLinks = f.Creator || []
+    const creatorId = creatorLinks[0]
     const aka = f.AKA || ''
 
-    // Create the CPD row
-    const accountName = `${aka || 'Creator'} - Palm IG ${slot}`
-    const cpdFields = {
-      'Account Name': accountName,
-      'Platform': 'Instagram',
-      'Managed by Palm': true,
-      'Account Type': 'Growth',
+    if (!creatorId) {
+      return NextResponse.json({ error: 'Setup request has no linked creator' }, { status: 400 })
+    }
+
+    // Find the existing default CPD row for this creator + slot. Account Name
+    // pattern: "{AKA} - Palm IG {N}". Can't filter linked records by record ID
+    // in Airtable formulas, so fetch IG records for this slot and filter in
+    // memory by the creator link.
+    const candidates = await fetchAirtableRecords(CPD_TABLE, {
+      filterByFormula: `AND({Platform}='Instagram', FIND('Palm IG ${slot}', {Account Name}))`,
+    })
+    const cpdRec = candidates.find(r => (r.fields?.Creator || []).includes(creatorId))
+    if (!cpdRec) {
+      return NextResponse.json({
+        error: `No existing Palm IG ${slot} record found for this creator. Default account records should be created upstream — contact admin.`,
+      }, { status: 404 })
+    }
+
+    // Patch handle + URL + Setup Status onto the existing row
+    const cpdUpdates = {
       'Handle Override': cleanHandle,
       'URL': `https://instagram.com/${cleanHandle}`,
-      'Status': 'Active',
       'Setup Status': 'Live',
+      'Status': 'Active',
+      'Managed by Palm': true,
     }
-    if (creatorLinks.length) cpdFields.Creator = creatorLinks
-
-    const cpdRec = await createAirtableRecord(CPD_TABLE, cpdFields)
+    await patchAirtableRecord(CPD_TABLE, cpdRec.id, cpdUpdates)
 
     // Create the matching forum topic in the SMM master Telegram group.
-    // Best-effort — if Telegram fails, the CPD row + slot completion still go
-    // through; admin can re-trigger topic creation later if needed.
+    // Best-effort — if Telegram fails, the CPD update + slot completion still
+    // go through; admin can re-trigger topic creation later if needed.
     let topicId = null
     if (isSmmGroupConfigured()) {
       try {
@@ -94,7 +108,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       ok: true,
       cpdRecordId: cpdRec.id,
-      accountName,
+      accountName: cpdRec.fields?.['Account Name'] || `Palm IG ${slot}`,
       telegramTopicId: topicId,
       requestComplete: !!slotUpdates.Status && slotUpdates.Status === 'Complete',
     })
