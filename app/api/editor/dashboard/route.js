@@ -76,7 +76,7 @@ export async function GET() {
       // Posts from last 14 days + all future — drives buffer + calendar coloring + telegram sent
       fetchAirtableRecords('Posts', {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -14, 'days'))`,
-        fields: ['Creator', 'Scheduled Date', 'Task', 'Telegram Sent At'],
+        fields: ['Creator', 'Scheduled Date', 'Task', 'Asset', 'Telegram Sent At'],
       }),
     ])
 
@@ -228,7 +228,11 @@ export async function GET() {
 
     // Group posts by creator: total future count + per-date breakdown
     // Use ET date for all grouping so evening posts (23:00 UTC = 7 PM ET) land on the correct day
-    const futurePostsByCreator = {}
+    //
+    // Runway = how many unique reels are scheduled, not how many Post records.
+    // A creator with N IG accounts produces N sibling Posts per reel (one per
+    // account), so counting raw Posts overstates buffer Nx. Dedupe by Asset ID.
+    const futureAssetsByCreator = {}  // { creatorId: Set<assetId> }
     const postsByDateByCreator = {}
     for (const post of allPosts) {
       const creatorId = (post.fields?.Creator || [])[0]
@@ -238,9 +242,12 @@ export async function GET() {
         if (!postsByDateByCreator[creatorId]) postsByDateByCreator[creatorId] = {}
         postsByDateByCreator[creatorId][date] = (postsByDateByCreator[creatorId][date] || 0) + 1
       }
-      // Only count future posts toward buffer
+      // Only count future posts toward buffer, deduped by Asset
       if (date && date > todayStr) {
-        futurePostsByCreator[creatorId] = (futurePostsByCreator[creatorId] || 0) + 1
+        const assetId = (post.fields?.Asset || [])[0]
+        if (!assetId) continue
+        if (!futureAssetsByCreator[creatorId]) futureAssetsByCreator[creatorId] = new Set()
+        futureAssetsByCreator[creatorId].add(assetId)
       }
     }
 
@@ -257,7 +264,7 @@ export async function GET() {
       const inspoClips = inspoClipsByCreator[c.id] || []
       const weeklyQuota = f['Weekly Reel Quota'] || 14
       const dailyQuota = Math.ceil(weeklyQuota / 7)
-      const approvedBuffer = futurePostsByCreator[c.id] || 0
+      const approvedBuffer = futureAssetsByCreator[c.id]?.size || 0
       const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
       // Redistribute ALL done tasks (approved + in-review) so each day stays
