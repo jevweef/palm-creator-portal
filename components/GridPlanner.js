@@ -629,9 +629,11 @@ export default function GridPlanner({ smmMode = false } = {}) {
 
   // Drag handlers
   const handleDragStart = (postId, sourceAccountId) => {
+    pushDebug(`cellDragStart post=${postId.slice(-6)} acc=${sourceAccountId?.slice(-6)}`)
     setDragging({ postId, sourceAccountId })
   }
   const handleDragEnd = () => {
+    pushDebug('cellDragEnd')
     setDragging({ postId: null, sourceAccountId: null })
   }
 
@@ -642,11 +644,18 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const handleDropOnPost = async (targetPostId, targetAccountId) => {
     const sourcePostId = dragging.postId
     const sourceAcc = dragging.sourceAccountId
-    if (!sourcePostId || sourcePostId === targetPostId) return
+    pushDebug(`dropOnPost target=${targetPostId.slice(-6)} acc=${targetAccountId.slice(-6)} src=${sourcePostId?.slice(-6) || 'null'}`)
+    if (!sourcePostId || sourcePostId === targetPostId) {
+      pushDebug(`↳ skip: ${!sourcePostId ? 'no source' : 'same post'}`)
+      return
+    }
 
     const sourcePost = posts.find(p => p.id === sourcePostId)
     const targetPost = posts.find(p => p.id === targetPostId)
-    if (!sourcePost || !targetPost) return
+    if (!sourcePost || !targetPost) {
+      pushDebug(`↳ skip: ${!sourcePost ? 'source not found' : 'target not found'}`)
+      return
+    }
 
     setSaving(true)
     try {
