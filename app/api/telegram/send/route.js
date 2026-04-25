@@ -530,6 +530,10 @@ async function doSend(params) {
         'Admin Notes': `[Telegram Send Error @ ${new Date().toISOString()}] ${err.message}`,
       }).catch(() => {})
     }
+    // Re-throw so callers awaiting doSend (wait=true mode) can detect the
+    // failure and surface it. waitUntil callers ignore rejection — they just
+    // run the promise to completion — so this is safe for both paths.
+    throw err
   }
 }
 
