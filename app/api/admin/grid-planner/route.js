@@ -32,7 +32,11 @@ function getQueueSlots(count) {
   for (let i = 0; i < count; i++) {
     const dayOffset = Math.floor(i / SLOT_HOURS_ET.length)
     const hourIdx = i % SLOT_HOURS_ET.length
-    const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset))
+    // Use noon UTC, not midnight UTC, when constructing the iterator. UTC
+    // midnight on "today's ET date" formats back to *yesterday's* date in
+    // ET because EDT/EST is 4-5 hours behind UTC. Noon UTC is safely
+    // inside the same ET calendar date, so the format() round-trip is stable.
+    const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset, 12))
     const etDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(iter)
     out.push(etToUTC(etDateStr, SLOT_HOURS_ET[hourIdx]).toISOString())
   }
