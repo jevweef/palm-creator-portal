@@ -551,9 +551,13 @@ async function doSend(params) {
       }).catch(err => console.error('[Telegram Send] Failed to update Post record:', err.message))
     }
 
-    // Move file to 40_READY_TO_POST in Dropbox
+    // Move file to 50_POSTED_ARCHIVE in Dropbox. This is the single
+    // canonical move-on-send: regardless of which sibling Post fires the
+    // send first, the asset's underlying file ends up in the archive.
+    // Subsequent siblings hit moveToNextStage and find the file already
+    // in 50_POSTED_ARCHIVE → "Path did not change" warning, no-op move.
     if (assetId) {
-      moveToNextStage(assetId, '40_READY_TO_POST').catch(err =>
+      moveToNextStage(assetId, '50_POSTED_ARCHIVE').catch(err =>
         console.error('[Telegram Send] Dropbox move failed (non-fatal):', err.message)
       )
     }
