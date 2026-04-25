@@ -293,27 +293,60 @@ function getFilename(url) {
   return url.split('/').pop()?.split('?')[0] || 'file'
 }
 
+// Parse Telegram's "Too Many Requests: retry after N" 429 description and
+// wait for that many seconds before letting the caller retry. Returns the
+// number of seconds slept, or null if this wasn't a rate-limit response.
+async function handleRateLimit(data) {
+  if (!data) return null
+  // Telegram returns parameters.retry_after on 429s, but we've also seen the
+  // info only in the description. Parse both.
+  const retryFromParams = data.parameters?.retry_after
+  const retryFromDesc = data.description?.match(/retry after (\d+)/)?.[1]
+  const retrySeconds = parseInt(retryFromParams ?? retryFromDesc ?? '', 10)
+  if (!Number.isFinite(retrySeconds) || retrySeconds <= 0) return null
+  // Cap at 60s — if Telegram says wait longer, surface as a normal error so
+  // the user sees it rather than silently hanging the function for minutes.
+  const waitMs = Math.min(retrySeconds, 60) * 1000 + 500 // small buffer
+  console.warn(`[Telegram] Rate limited; sleeping ${waitMs}ms before retry`)
+  await new Promise(r => setTimeout(r, waitMs))
+  return retrySeconds
+}
+
 async function telegramUpload(method, form, { signal } = {}) {
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
-    method: 'POST',
-    body: form,
-    signal,
-  })
-  const data = await res.json()
-  if (!data.ok) throw new Error(`Telegram ${method} failed: ${data.description}`)
-  return data
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
+      method: 'POST',
+      body: form,
+      signal,
+    })
+    const data = await res.json()
+    if (data.ok) return data
+    if (res.status === 429 || /too many requests/i.test(data.description || '')) {
+      const slept = await handleRateLimit(data)
+      if (slept) continue
+    }
+    throw new Error(`Telegram ${method} failed: ${data.description}`)
+  }
+  throw new Error(`Telegram ${method} failed: rate limit exceeded after 3 retries`)
 }
 
 async function telegramJson(method, body, { signal } = {}) {
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  })
-  const data = await res.json()
-  if (!data.ok) throw new Error(`Telegram ${method} failed: ${data.description}`)
-  return data
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    })
+    const data = await res.json()
+    if (data.ok) return data
+    if (res.status === 429 || /too many requests/i.test(data.description || '')) {
+      const slept = await handleRateLimit(data)
+      if (slept) continue
+    }
+    throw new Error(`Telegram ${method} failed: ${data.description}`)
+  }
+  throw new Error(`Telegram ${method} failed: rate limit exceeded after 3 retries`)
 }
 
 // Build a "📅 Fri, Apr 25 · Morning" prefix from a scheduled-date ISO.
