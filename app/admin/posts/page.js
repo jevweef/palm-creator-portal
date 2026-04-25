@@ -22,18 +22,65 @@ function isVideo(url) {
   return /\.(mp4|mov|avi|webm|mkv)/i.test(url || '')
 }
 
-// HEIC/HEIF/TIFF don't render in Chrome or Firefox. For these we serve a
-// JPEG thumbnail through our Dropbox-thumbnail proxy. Browser-native formats
-// (jpg/png/gif/webp) load direct from Dropbox to skip the proxy hop.
-function isUnrenderableImage(url) {
-  return /\.(heic|heif|tiff?)(\?|$)/i.test(url || '')
+// HEIC/HEIF don't render in Chrome or Firefox (only Safari does). Server-side
+// decode via Vercel was unreliable, so we decode in the browser via heic2any
+// (libheif WASM). Bytes are fetched through our existing CORS proxy because
+// Dropbox shared links don't send Access-Control-Allow-Origin headers.
+function isHeic(url) {
+  return /\.(heic|heif)(\?|$)/i.test(url || '')
 }
-function browserSafeImageUrl(dropboxLink, w = 480, h = 480) {
-  if (!dropboxLink) return ''
-  if (isUnrenderableImage(dropboxLink)) {
-    return `/api/admin/dropbox-thumbnail?url=${encodeURIComponent(dropboxLink)}&w=${w}&h=${h}`
+
+// In-memory cache keyed by Dropbox URL → object URL of decoded JPEG blob.
+// Survives picker open/close so re-opening doesn't re-decode the same photos.
+const heicBlobCache = new Map()
+
+// Decode a single HEIC URL → blob URL. Reuses cached result if already decoded.
+async function decodeHeic(url) {
+  if (heicBlobCache.has(url)) return heicBlobCache.get(url)
+  const proxied = `/api/admin/video-proxy?url=${encodeURIComponent(rawDropboxUrl(url))}`
+  const res = await fetch(proxied)
+  if (!res.ok) throw new Error(`proxy ${res.status}`)
+  const heicBlob = await res.blob()
+  // Dynamic import — only loads heic2any (~80KB gz) when a HEIC is actually shown
+  const { default: heic2any } = await import('heic2any')
+  const out = await heic2any({ blob: heicBlob, toType: 'image/jpeg', quality: 0.6 })
+  const finalBlob = Array.isArray(out) ? out[0] : out
+  const objectUrl = URL.createObjectURL(finalBlob)
+  heicBlobCache.set(url, objectUrl)
+  return objectUrl
+}
+
+function HeicImage({ src, alt, style, onClick }) {
+  const [blobUrl, setBlobUrl] = useState(() => heicBlobCache.get(src) || null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    if (heicBlobCache.has(src)) {
+      setBlobUrl(heicBlobCache.get(src))
+      return
+    }
+    let cancelled = false
+    decodeHeic(src)
+      .then(u => { if (!cancelled) setBlobUrl(u) })
+      .catch(() => { if (!cancelled) setError(true) })
+    return () => { cancelled = true }
+  }, [src])
+
+  if (error) {
+    return (
+      <div onClick={onClick} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.15)', color: 'var(--foreground-muted)', fontSize: '10px', fontWeight: 600 }}>
+        HEIC
+      </div>
+    )
   }
-  return rawDropboxUrl(dropboxLink)
+  if (!blobUrl) {
+    return (
+      <div onClick={onClick} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.05)', color: 'var(--foreground-muted)', fontSize: '10px' }}>
+        ...
+      </div>
+    )
+  }
+  return <img src={blobUrl} alt={alt} style={style} onClick={onClick} />
 }
 
 // Convert UTC ISO string to ET local datetime string for <input type="datetime-local">
@@ -220,8 +267,8 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
 
   // Preview mode
   if (preview) {
-    // Larger thumbnail for the preview pane — Dropbox supports up to w2048
-    const rawUrl = browserSafeImageUrl(preview.dropboxLink, 1024, 1024)
+    const isHeicPhoto = isHeic(preview.dropboxLink)
+    const rawUrl = rawDropboxUrl(preview.dropboxLink)
     return (
       <div onClick={e => e.target === e.currentTarget && onClose()}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -234,7 +281,11 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
           </div>
           <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '4/3', overflow: 'hidden' }}>
-            <img src={rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+            {isHeicPhoto ? (
+              <HeicImage src={preview.dropboxLink} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+            ) : (
+              <img src={rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+            )}
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
             <button onClick={() => setPreview(null)}
@@ -290,13 +341,19 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
                   {pagePhotos.map(photo => {
-                    const thumbUrl = browserSafeImageUrl(photo.dropboxLink, 240, 240)
+                    const heic = isHeic(photo.dropboxLink)
+                    const rawUrl = rawDropboxUrl(photo.dropboxLink)
+                    const cellStyle = { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
                     return (
                       <div key={photo.id} onClick={() => setPreview(photo)}
                         style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s' }}
                         onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--palm-pink)'}
                         onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
-                        <img src={thumbUrl} alt={photo.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        {heic ? (
+                          <HeicImage src={photo.dropboxLink} alt={photo.name} style={cellStyle} />
+                        ) : (
+                          <img src={rawUrl} alt={photo.name} loading="lazy" style={cellStyle} />
+                        )}
                       </div>
                     )
                   })}
@@ -652,12 +709,21 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
             {thumbnailUrl ? (
-              <img
-                src={thumbnailUrl.includes('dropbox.com') ? browserSafeImageUrl(thumbnailUrl, 96, 96) : thumbnailUrl}
-                alt="thumbnail"
-                style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
-                onClick={() => setShowPhotoPicker(true)}
-              />
+              isHeic(thumbnailUrl) ? (
+                <HeicImage
+                  src={thumbnailUrl}
+                  alt="thumbnail"
+                  onClick={() => setShowPhotoPicker(true)}
+                  style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
+                />
+              ) : (
+                <img
+                  src={thumbnailUrl.includes('dropbox.com') ? rawDropboxUrl(thumbnailUrl) : thumbnailUrl}
+                  alt="thumbnail"
+                  style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
+                  onClick={() => setShowPhotoPicker(true)}
+                />
+              )
             ) : null}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <button onClick={() => setShowPhotoPicker(true)}
