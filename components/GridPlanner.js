@@ -29,12 +29,16 @@ function formatCount(n) {
 //   - 'live'       — already on IG (postedAt or postLink set)
 //   - 'scheduled'  — sent to Telegram, locked in. SMM will post next.
 //                    Cannot be moved/reordered.
+//   - 'sending'    — currently uploading to Telegram. Transient state.
+//   - 'failed'     — last upload attempt failed. Editable to retry.
 //   - 'queue'      — placed on a grid with a future date OR no date set,
 //                    waiting to be sent. Movable. Date is reactive (derived
 //                    from queue position).
 function postStatus(post) {
   if (post.postedAt || post.postLink) return 'live'
   if (post.telegramSentAt) return 'scheduled'
+  if (post.status === 'Sending') return 'sending'
+  if (post.status === 'Send Failed') return 'failed'
   return 'queue'
 }
 
@@ -291,7 +295,9 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
   const borderByStatus = {
     queue:     { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
+    sending:   { bg: 'rgba(245, 158, 11, 0.10)', ring: 'rgba(245, 158, 11, 0.5)', badge: '#f59e0b' },
     scheduled: { bg: 'rgba(125, 211, 164, 0.06)', ring: 'rgba(125, 211, 164, 0.2)', badge: '#7DD3A4' },
+    failed:    { bg: 'rgba(239, 68, 68, 0.10)', ring: 'rgba(239, 68, 68, 0.4)', badge: '#ef4444' },
     live:      { bg: 'var(--foreground)', ring: 'transparent', badge: 'rgba(240, 236, 232, 0.75)' },
   }
   const style = borderByStatus[status] || borderByStatus.live
