@@ -54,30 +54,58 @@ async function getDropboxCredentials() {
   return { token: access_token, pathRoot }
 }
 
-// Move a single file in Dropbox from currentPath into the target stage folder
-// (replacing the /XX_FOLDER_NAME/ segment). Returns { newPath, newLink } or
-// throws on hard failure. No-op if the path is already in the target folder.
-async function moveOne({ token, pathRoot }, currentPath, targetFolder) {
+// Compute the destination path. Default: regex-replace the /XX_FOLDER/
+// segment with /{targetFolder}/. Fallback: when the file lives outside the
+// per-creator pipeline (e.g. /Palm Ops/Edited Exports/foo.mp4), build the
+// canonical creator-folder path from the AKA so the file lands in the right
+// place. Returns null if both strategies fail.
+function computeNewPath(currentPath, targetFolder, creatorAka) {
+  // Standard: replace /XX_STAGE_FOLDER/ inline
+  const replaced = currentPath.replace(/\/\d+_[^/]+\//i, `/${targetFolder}/`)
+  if (replaced !== currentPath) return replaced
+  // Fallback: rebuild path under creator's social media folder
+  if (creatorAka) {
+    const filename = currentPath.split('/').pop()
+    return `/palm ops/creators/${creatorAka.toLowerCase()}/social media/${targetFolder}/${filename}`
+  }
+  return null
+}
+
+// Move a single file in Dropbox into the target stage folder. Handles
+// Dropbox rate limits (too_many_write_operations) with exponential backoff,
+// and uses computeNewPath for both standard and fallback path layouts.
+async function moveOne({ token, pathRoot }, currentPath, targetFolder, creatorAka) {
   if (currentPath.includes(`/${targetFolder}/`)) {
     return { newPath: currentPath, newLink: null, skipped: 'already-in-target' }
   }
-  const newPath = currentPath.replace(/\/\d+_[^/]+\//i, `/${targetFolder}/`)
-  if (newPath === currentPath) {
-    throw new Error(`Could not detect stage folder in path: ${currentPath}`)
+  const newPath = computeNewPath(currentPath, targetFolder, creatorAka)
+  if (!newPath) {
+    throw new Error(`Could not compute target path from: ${currentPath}`)
   }
 
   const dbxHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Dropbox-API-Path-Root': pathRoot }
-  const moveRes = await fetch('https://api.dropboxapi.com/2/files/move_v2', {
-    method: 'POST',
-    headers: dbxHeaders,
-    body: JSON.stringify({ from_path: currentPath, to_path: newPath, autorename: false }),
-  })
-  if (!moveRes.ok) {
-    const errText = await moveRes.text()
-    // If the file already exists in the target (e.g. another sibling moved it),
-    // surface as a soft skip rather than hard error.
+
+  // Retry on too_many_write_operations with exponential backoff
+  let moveRes
+  for (let attempt = 0; attempt < 4; attempt++) {
+    moveRes = await fetch('https://api.dropboxapi.com/2/files/move_v2', {
+      method: 'POST',
+      headers: dbxHeaders,
+      body: JSON.stringify({ from_path: currentPath, to_path: newPath, autorename: false }),
+    })
+    if (moveRes.ok) break
+    const errText = await moveRes.clone().text()
+    if (errText.includes('too_many_write_operations')) {
+      const waitMs = 800 * Math.pow(2, attempt) // 800, 1600, 3200, 6400
+      console.warn(`[backfill] Rate limited on move; waiting ${waitMs}ms`)
+      await new Promise(r => setTimeout(r, waitMs))
+      continue
+    }
     if (errText.includes('to/conflict')) return { newPath, newLink: null, skipped: 'destination-exists' }
     throw new Error(`Dropbox move failed: ${errText}`)
+  }
+  if (!moveRes.ok) {
+    throw new Error(`Dropbox move failed after retries: ${await moveRes.text()}`)
   }
 
   // Best-effort fresh shared link
@@ -135,7 +163,7 @@ export async function POST() {
       const formula = `OR(${chunk.map(id => `RECORD_ID()='${id}'`).join(',')})`
       const recs = await fetchAirtableRecords('Assets', {
         filterByFormula: formula,
-        fields: ['Asset Name', 'Edited File Path', 'Edited File Link'],
+        fields: ['Asset Name', 'Edited File Path', 'Edited File Link', 'Palm Creators', 'AKA (from Palm Creators)'],
       })
       for (const r of recs) assetMap[r.id] = r
     }
@@ -174,16 +202,43 @@ export async function POST() {
         continue
       }
 
+      // Pull the creator AKA for the path-rebuild fallback (Edited Exports etc)
+      const creatorAka = (asset.fields?.['AKA (from Palm Creators)'] || [])[0] || null
+
       // Move it
       try {
-        const moveOut = await moveOne(dbx, path, TARGET)
+        const moveOut = await moveOne(dbx, path, TARGET, creatorAka)
         const updates = { 'Edited File Path': moveOut.newPath }
         if (moveOut.newLink) updates['Edited File Link'] = moveOut.newLink
         await patchAirtableRecord('Assets', assetId, updates)
         results.processed.push({ assetId, name, oldPath: path, newPath: moveOut.newPath, ...(moveOut.skipped ? { note: moveOut.skipped } : {}) })
       } catch (err) {
+        // If Dropbox says the source file isn't where we think it is, try
+        // re-resolving the path from the shared link (handles cases where
+        // the asset's stored path is stale from a manual move).
+        if (err.message.includes('from_lookup/not_found') && link) {
+          try {
+            const fresh = await resolveSharedLinkToPath(dbx, link)
+            if (fresh && fresh !== path) {
+              await patchAirtableRecord('Assets', assetId, { 'Edited File Path': fresh })
+              const moveOut2 = await moveOne(dbx, fresh, TARGET, creatorAka)
+              const updates = { 'Edited File Path': moveOut2.newPath }
+              if (moveOut2.newLink) updates['Edited File Link'] = moveOut2.newLink
+              await patchAirtableRecord('Assets', assetId, updates)
+              results.processed.push({ assetId, name, oldPath: fresh, newPath: moveOut2.newPath, note: 'path-was-stale' })
+              await new Promise(r => setTimeout(r, 250))
+              continue
+            }
+          } catch (retryErr) {
+            results.failed.push({ assetId, name, step: 'move-retry', error: retryErr.message })
+            continue
+          }
+        }
         results.failed.push({ assetId, name, step: 'move', error: err.message })
       }
+      // Throttle: ~250ms between moves to avoid Dropbox's
+      // too_many_write_operations on the same parent folder.
+      await new Promise(r => setTimeout(r, 250))
     }
 
     return NextResponse.json({
