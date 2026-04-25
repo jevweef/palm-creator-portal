@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { rawDropboxUrl, isVideo } from './EditorDashboard'
 
 const SELECTED_CREATOR_STORAGE_KEY = 'gridplanner:selectedCreatorId'
 
@@ -1379,14 +1380,30 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px' }}>×</button>
         </div>
 
-        {/* Thumbnail */}
+        {/* Thumbnail / Video */}
         <div style={{ padding: '0 20px', position: 'relative' }}>
           <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-            {(localThumb || post.thumbnail) ? (
-              <img src={localThumb || post.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-            ) : (
-              <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No thumbnail</div>
-            )}
+            {(() => {
+              const videoLink = post.asset?.editedFileLink || post.assetEditedFileLink
+              const videoSrc = videoLink && isVideo(videoLink) ? rawDropboxUrl(videoLink) : null
+              const posterSrc = localThumb || post.thumbnail
+              if (videoSrc) {
+                return (
+                  <video
+                    src={videoSrc}
+                    poster={posterSrc || undefined}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+                  />
+                )
+              }
+              if (posterSrc) {
+                return <img src={posterSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              }
+              return <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No thumbnail</div>
+            })()}
             {uploadingThumb && (
               <div style={{
                 position: 'absolute', inset: 0,
@@ -1451,11 +1468,29 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           ))}
         </div>
 
-        {/* Caption preview */}
-        {(post.caption || post.hashtags) && (
-          <div style={{ padding: '12px 20px 0', fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
-            {post.caption}
-            {post.hashtags ? '\n\n' + post.hashtags : ''}
+        {/* Caption + Hashtags */}
+        {(post.caption || post.hashtags) ? (
+          <div style={{ padding: '12px 20px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {post.caption && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '4px' }}>Caption</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 10px' }}>
+                  {post.caption}
+                </div>
+              </div>
+            )}
+            {post.hashtags && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '4px' }}>Hashtags</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '100px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 10px' }}>
+                  {post.hashtags}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ padding: '12px 20px 0', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+            No caption or hashtags yet.
           </div>
         )}
 
