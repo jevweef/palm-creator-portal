@@ -19,6 +19,26 @@ function etToUTC(etDateStr, etHour) {
   return new Date(Date.UTC(year, month - 1, day, etHour + offset))
 }
 
+// Build N consecutive slot ISOs starting from today AM going forward.
+// Slot i = today AM, today PM, tomorrow AM, tomorrow PM, ...
+// Used by the queue normalizer on GET to keep unsent post dates reactive
+// to "today" — slot 0 is always today AM, slot 1 today PM, etc.
+function getQueueSlots(count) {
+  if (count <= 0) return []
+  const now = new Date()
+  const todayET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now)
+  const [sy, sm, sd] = todayET.split('-').map(Number)
+  const out = []
+  for (let i = 0; i < count; i++) {
+    const dayOffset = Math.floor(i / SLOT_HOURS_ET.length)
+    const hourIdx = i % SLOT_HOURS_ET.length
+    const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset))
+    const etDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(iter)
+    out.push(etToUTC(etDateStr, SLOT_HOURS_ET[hourIdx]).toISOString())
+  }
+  return out
+}
+
 // Given the ISO timestamps of posts already scheduled on an account, find the
 // first free slot (starting today, 2 slots/day) going forward.
 function getNextOpenSlot(existingISOs) {
@@ -138,6 +158,42 @@ export async function GET(request) {
       ],
     })
     const posts = allRecentPosts.filter(p => (p.fields?.Creator || []).includes(creatorId))
+
+    // Queue normalization: for each managed account, sort unsent posts by
+    // current Scheduled Date asc, then rewrite their dates to fit the
+    // canonical "today AM, today PM, tomorrow AM, ..." sequence. This keeps
+    // queue date labels reactive to the current date — yesterday's "today AM"
+    // becomes today's "yesterday AM" and that post bumps up to "today AM"
+    // automatically. Sent and Live posts are immune (their dates are real).
+    //
+    // We only PATCH posts whose dates actually drifted, to keep the GET
+    // round-trip cheap. Patches fire in parallel.
+    const normPatches = []
+    for (const acc of creatorAccounts) {
+      const queue = posts
+        .filter(p =>
+          (p.fields?.Account || []).includes(acc.id) &&
+          !p.fields?.['Telegram Sent At'] &&
+          !p.fields?.['Posted At']
+        )
+        .sort((a, b) =>
+          new Date(a.fields?.['Scheduled Date'] || 0) - new Date(b.fields?.['Scheduled Date'] || 0)
+        )
+      if (!queue.length) continue
+      const slots = getQueueSlots(queue.length)
+      for (let i = 0; i < queue.length; i++) {
+        const p = queue[i]
+        const desired = slots[i]
+        if (p.fields?.['Scheduled Date'] !== desired) {
+          normPatches.push(patchAirtableRecord('Posts', p.id, { 'Scheduled Date': desired }))
+          // Mutate in-memory so the response below reflects normalized dates
+          p.fields['Scheduled Date'] = desired
+        }
+      }
+    }
+    if (normPatches.length) {
+      await Promise.all(normPatches)
+    }
 
     // Pull asset thumbnails (fallback when Post doesn't have its own thumb yet)
     const assetIds = [...new Set(posts.flatMap(p => p.fields?.Asset || []).filter(Boolean))]
