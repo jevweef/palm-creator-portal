@@ -528,6 +528,58 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
   )
 }
 
+// ─── Confirmation modal ────────────────────────────────────────────────────────
+
+// Replaces the browser-native window.confirm() which renders as an OS-styled
+// dialog that doesn't match the rest of the UI. Caller sets dialog state with
+// { title, message, confirmLabel, onConfirm, danger } and we render a modal
+// matching the rest of the app.
+function ConfirmModal({ dialog, onClose }) {
+  if (!dialog) return null
+  const { title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm, danger = false } = dialog
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 600,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+      }}
+    >
+      <div style={{
+        background: 'var(--card-bg-solid)', borderRadius: '14px',
+        width: '100%', maxWidth: '380px',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+        padding: '20px 22px',
+        display: 'flex', flexDirection: 'column', gap: '10px',
+      }}>
+        {title && <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>{title}</div>}
+        <div style={{ fontSize: '13px', lineHeight: 1.55, color: 'var(--foreground-muted)' }}>{message}</div>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '8px 16px', fontSize: '12px', fontWeight: 600,
+              background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)',
+              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer',
+            }}
+          >{cancelLabel}</button>
+          <button
+            onClick={() => { onConfirm?.(); onClose() }}
+            style={{
+              padding: '8px 16px', fontSize: '12px', fontWeight: 700,
+              background: danger ? 'rgba(239, 68, 68, 0.12)' : 'rgba(232, 160, 160, 0.15)',
+              color: danger ? '#ef4444' : 'var(--palm-pink)',
+              border: `1px solid ${danger ? 'rgba(239,68,68,0.3)' : 'rgba(232,160,160,0.3)'}`,
+              borderRadius: '8px', cursor: 'pointer',
+            }}
+          >{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function GridPlanner({ smmMode = false } = {}) {
@@ -537,6 +589,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const [creators, setCreators] = useState([])
   const [selectedCreatorId, setSelectedCreatorId] = useState(null)
   const [selectedCreatorMeta, setSelectedCreatorMeta] = useState(null) // { telegramThreadId, name }
@@ -889,8 +942,15 @@ export default function GridPlanner({ smmMode = false } = {}) {
       showToast(`${missingTopic.length} post${missingTopic.length !== 1 ? 's' : ''} can't send — account has no Telegram topic. Run backfill on /sm.`, true)
       return
     }
-    const confirmed = window.confirm(`Send ${sendablePosts.length} scheduled post${sendablePosts.length !== 1 ? 's' : ''} to Telegram? They'll fire in order of Scheduled Date, each routed to its account's topic in the SMM group.`)
-    if (!confirmed) return
+    setConfirmDialog({
+      title: 'Send all scheduled posts',
+      message: `Send ${sendablePosts.length} post${sendablePosts.length !== 1 ? 's' : ''} to Telegram? They'll fire in queue order, each routed to its account's topic in the SMM group.`,
+      confirmLabel: `Send ${sendablePosts.length}`,
+      onConfirm: () => runBulkSend(),
+    })
+  }
+  const runBulkSend = async () => {
+    const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
     setBulkSending(true)
     // Optimistic UI update
     const sendableIds = new Set(sendablePosts.map(p => p.id))
@@ -947,8 +1007,14 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const handleDistributeQueue = async () => {
     if (!selectedCreatorId || !unassignedGroups.length) return
     const remaining = unassignedGroups.reduce((s, g) => s + (g.remaining || 0), 0)
-    const confirmed = window.confirm(`Push ${unassignedGroups.length} queue item${unassignedGroups.length !== 1 ? 's' : ''} (${remaining} placement${remaining !== 1 ? 's' : ''}) onto every Palm IG account that's missing it?`)
-    if (!confirmed) return
+    setConfirmDialog({
+      title: 'Push queue to all accounts',
+      message: `Push ${unassignedGroups.length} queue item${unassignedGroups.length !== 1 ? 's' : ''} (${remaining} placement${remaining !== 1 ? 's' : ''}) onto every Palm IG account that's missing it?`,
+      confirmLabel: 'Distribute',
+      onConfirm: () => runDistributeQueue(),
+    })
+  }
+  const runDistributeQueue = async () => {
     setDistributing(true)
     try {
       const res = await fetch('/api/admin/grid-planner', {
@@ -995,8 +1061,14 @@ export default function GridPlanner({ smmMode = false } = {}) {
       return
     }
     const estMin = Math.ceil(accountQueue.length * 25 / 60)
-    if (!confirm(`Send ${accountQueue.length} post${accountQueue.length !== 1 ? 's' : ''} to @${account.handle}? Each waits for the previous to fully upload (~${estMin} min). Keep this tab open.`)) return
-
+    setConfirmDialog({
+      title: `Send queue to @${account.handle}`,
+      message: `Send ${accountQueue.length} post${accountQueue.length !== 1 ? 's' : ''} in queue order to the @${account.handle} topic? Each waits for the previous to fully upload (~${estMin} min). Keep this tab open.`,
+      confirmLabel: `Send ${accountQueue.length}`,
+      onConfirm: () => runAccountBulkSend(accountId, account, accountQueue),
+    })
+  }
+  const runAccountBulkSend = async (accountId, account, accountQueue) => {
     setAccountBulkSending(accountId)
     const idsBeingSent = new Set(accountQueue.map(p => p.id))
     setPosts(prev => prev.map(p => idsBeingSent.has(p.id) ? { ...p, status: 'Sending' } : p))
@@ -1427,6 +1499,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
         />
       )}
 
+      <ConfirmModal dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
+
       {/* Toast */}
       {toast && (
         <div style={{
@@ -1765,7 +1839,7 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           {/* Send back to Prepping: any non-prepping, non-final post */}
           {!isScraped && onSendBackToPrepping && post.status !== 'Prepping' && !post.telegramSentAt && !post.postedAt && (
             <button
-              onClick={() => { if (confirm('Send this post back to Prepping? You can re-edit thumbnail, caption, etc.')) onSendBackToPrepping() }}
+              onClick={onSendBackToPrepping}
               title="Move this post back to Prepping status"
               style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
                 background: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04',
