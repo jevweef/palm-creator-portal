@@ -63,13 +63,12 @@ export async function POST(request, { params }) {
       }, { status: 404 })
     }
 
-    // Patch handle + URL + Setup Status onto the existing row
+    // Patch handle + Setup Status onto the existing row.
+    // URL and Status are synced fields — read-only via API. Managed by Palm
+    // is set on default rows already.
     const cpdUpdates = {
       'Handle Override': cleanHandle,
-      'URL': `https://instagram.com/${cleanHandle}`,
       'Setup Status': 'Live',
-      'Status': 'Active',
-      'Managed by Palm': true,
     }
     await patchAirtableRecord(CPD_TABLE, cpdRec.id, cpdUpdates)
 

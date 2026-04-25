@@ -77,30 +77,37 @@ export async function POST() {
         continue
       }
 
+      // URL and Status are synced fields on this base — read-only via API.
+      // Only patch fields we own: Handle Override, Setup Status, Telegram Topic ID.
       const updates = {}
       if (existingOverride !== handle) updates['Handle Override'] = handle
-      const expectedUrl = `https://instagram.com/${handle}`
-      if ((f.URL || '').trim() !== expectedUrl) updates.URL = expectedUrl
       if (f['Setup Status'] !== 'Live') updates['Setup Status'] = 'Live'
-      if (f.Status !== 'Active') updates.Status = 'Active'
 
+      const fieldsUpdated = []
       try {
         if (Object.keys(updates).length) {
           await patchAirtableRecord(CPD_TABLE, row.id, updates)
+          fieldsUpdated.push(...Object.keys(updates))
         }
+      } catch (err) {
+        // Log but don't block topic creation — partial progress is better than none
+        results.failed.push({ accountName, step: 'airtable patch', error: err.message })
+      }
 
+      try {
         // Create topic if missing
         if (!f['Telegram Topic ID']) {
           const topicId = await createSmmTopicForHandle(handle, { creatorAka: aka })
           if (topicId) {
             await patchAirtableRecord(CPD_TABLE, row.id, { 'Telegram Topic ID': topicId })
+            fieldsUpdated.push('Telegram Topic ID')
           }
-          results.processed.push({ accountName, handle, topicId, fieldsUpdated: Object.keys(updates) })
+          results.processed.push({ accountName, handle, topicId, fieldsUpdated })
         } else {
-          results.processed.push({ accountName, handle, topicId: f['Telegram Topic ID'], fieldsUpdated: Object.keys(updates), topicAlreadyExisted: true })
+          results.processed.push({ accountName, handle, topicId: f['Telegram Topic ID'], fieldsUpdated, topicAlreadyExisted: true })
         }
       } catch (err) {
-        results.failed.push({ accountName, error: err.message })
+        results.failed.push({ accountName, step: 'topic creation', error: err.message })
       }
     }
 
