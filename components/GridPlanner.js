@@ -1122,13 +1122,19 @@ export default function GridPlanner({ smmMode = false } = {}) {
             }
           }}
           onThumbnailReplaced={(postId, newUrl) => {
-            // Update local posts so the grid cell + tray tile re-render with the new thumbnail
+            // Optimistic: drop the new URL on the post so the grid cell flips
+            // immediately. The Dropbox URL itself doesn't render in <img> reliably,
+            // so we also refetch from Airtable — Airtable re-hosts attachments
+            // on its CDN and that URL works everywhere.
             setPosts(ps => ps.map(p => p.id === postId ? { ...p, thumbnail: newUrl, thumbnailUrl: newUrl } : p))
             setDetailPost(d => d && d.post.id === postId
               ? { ...d, post: { ...d.post, thumbnail: newUrl, thumbnailUrl: newUrl } }
               : d
             )
             showToast('Thumbnail updated')
+            // Airtable needs ~3-5s to ingest the source URL into its CDN. Refetch
+            // after that so the post object gets the Airtable-hosted URL.
+            setTimeout(() => loadCreator(selectedCreatorId), 4000)
           }}
           smmMode={smmMode}
           onMarkScheduled={async (scheduled) => {

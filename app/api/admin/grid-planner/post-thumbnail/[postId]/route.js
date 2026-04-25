@@ -36,9 +36,24 @@ export async function POST(request, { params }) {
     const path = `${folder}/${params.postId}-${ts}-${safeName}`
     await uploadToDropbox(accessToken, rootNamespaceId, path, buf)
     const sharedLink = await createDropboxSharedLink(accessToken, rootNamespaceId, path)
-    const directUrl = sharedLink.replace('?dl=0', '?raw=1').replace('&dl=0', '&raw=1')
+    // Airtable ingests image URLs by fetching them. www.dropbox.com URLs with
+    // ?raw=1 sometimes return HTML wrappers depending on the team namespace.
+    // dl.dropboxusercontent.com serves the bytes directly — the canonical way.
+    const directUrl = (() => {
+      try {
+        const u = new URL(sharedLink)
+        u.host = 'dl.dropboxusercontent.com'
+        u.searchParams.delete('dl')
+        u.searchParams.delete('raw')
+        return u.toString()
+      } catch {
+        return sharedLink
+      }
+    })()
 
-    // Replace the Thumbnail attachment on the Post (Airtable re-hosts on ingest)
+    // Replace the Thumbnail attachment on the Post. Airtable downloads the
+    // source asynchronously and re-hosts on its CDN; subsequent reads return
+    // the CDN URL.
     await patchAirtableRecord('Posts', params.postId, {
       'Thumbnail': [{ url: directUrl, filename: safeName }],
     })
