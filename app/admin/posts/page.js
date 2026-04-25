@@ -324,64 +324,20 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
     if (videoRef.current) videoRef.current.currentTime = t
   }
 
-  // Capture pipeline:
-  //   1. Try CLIENT-SIDE canvas grab from the live <video> element. The browser
-  //      already does HDR→SDR tonemapping for display, so what user sees while
-  //      scrubbing is exactly what canvas.drawImage captures. This eliminates
-  //      the orange/warm cast that ffmpeg's server-side extraction produces
-  //      when libzimg/zscale isn't available on the runtime.
-  //   2. If that fails (tainted canvas from a CORS-less response, or video
-  //      element not seekable), fall back to the server-side ffmpeg endpoint.
-  const tryClientCapture = () => {
-    const video = videoRef.current
-    if (!video) return null
-    if (!video.videoWidth || !video.videoHeight) return null
-    try {
-      const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      // toBlob is async; wrap in promise so the outer flow can await it.
-      // Throws SecurityError synchronously on tainted canvas → caller falls back.
-      return new Promise((resolve, reject) => {
-        try {
-          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob returned null')), 'image/jpeg', 0.92)
-        } catch (e) { reject(e) }
-      })
-    } catch {
-      return null
-    }
-  }
-
   const handleCapture = async () => {
     setCapturing(true)
     setError('')
     try {
-      let blob = null
+      // Extract frame server-side via ffmpeg
+      const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl, timestamp: currentTime }),
+      })
+      const frameData = await frameRes.json()
+      if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
 
-      // 1. Client-side first
-      const clientPromise = tryClientCapture()
-      if (clientPromise) {
-        try {
-          blob = await clientPromise
-        } catch (e) {
-          // Tainted canvas → CORS missing → fall through to server
-          console.warn('[Frame] Client capture blocked (likely CORS), using server fallback:', e.message)
-        }
-      }
-
-      // 2. Server-side fallback
-      if (!blob) {
-        const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoUrl, timestamp: currentTime }),
-        })
-        const frameData = await frameRes.json()
-        if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
-        blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
-      }
+      const blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
 
       // Upload the JPEG to Dropbox via the existing thumbnail endpoint
       const form = new FormData()
@@ -451,7 +407,6 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
           <video
             ref={videoRef}
             src={rawUrl}
-            crossOrigin="anonymous"
             muted
             playsInline
             preload="metadata"
@@ -485,56 +440,6 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
             style={{ padding: '10px', background: capturing || !duration ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)', border: `1px solid ${capturing || !duration ? 'transparent' : 'var(--palm-pink-dark)'}`, color: capturing || !duration ? 'var(--foreground-subtle)' : '#060606', borderRadius: '8px', cursor: capturing || !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
             {capturing ? 'Capturing...' : '📸 Capture this frame'}
           </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Lightweight preview for Post Prep cards. Defaults to the Airtable-hosted
-// asset thumbnail (Airtable's CDN, no Dropbox throttling). Click → swap to
-// a playing <video> only for that one card. Avoids the "all 14 videos go
-// blank because Dropbox rate-limited the shared link bandwidth" failure.
-function PostPrepPreview({ post, hasFile, videoRawUrl }) {
-  const [playing, setPlaying] = useState(false)
-  const thumb = post.asset?.thumbnail || (post.thumbnail?.[0]?.thumbnails?.large?.url || post.thumbnail?.[0]?.url || '')
-  const isImg = hasFile && !isVideo(post.asset?.editedFileLink || '')
-
-  if (!hasFile) {
-    return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>
-  }
-  // Photos: just render the photo directly (no Dropbox throttling concern,
-  // photos load once and don't keep streaming like videos do).
-  if (isImg) {
-    return <img src={videoRawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-  }
-  // Videos: show thumbnail by default, click to play
-  if (playing) {
-    return (
-      <video src={videoRawUrl} autoPlay muted loop playsInline preload="auto"
-        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
-        onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-    )
-  }
-  return (
-    <div onClick={() => setPlaying(true)}
-      style={{ width: '100%', height: '100%', position: 'relative', cursor: 'pointer' }}
-      title="Click to play">
-      {thumb ? (
-        <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-      ) : (
-        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '11px', background: 'rgba(255,255,255,0.02)' }}>
-          No thumbnail
-        </div>
-      )}
-      {/* Play indicator overlay */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '50%',
-          background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backdropFilter: 'blur(2px)',
-        }}>
-          <span style={{ color: '#fff', fontSize: '18px', marginLeft: '3px' }}>▶</span>
         </div>
       </div>
     </div>
@@ -630,12 +535,19 @@ function PostCard({ post, onRefresh, onSend }) {
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
-      {/* Left — Airtable-hosted thumbnail by default, click to expand into a
-          playable video. Loading 14 Dropbox <video> streams in parallel
-          saturates Dropbox's per-link rate limit and the videos go blank;
-          the Airtable thumbnail (different CDN) is reliable. */}
+      {/* Left — video at 9:16 */}
       <div style={{ width: '300px', flexShrink: 0, background: 'rgba(232, 160, 160, 0.04)', position: 'relative', aspectRatio: '9/16' }}>
-        <PostPrepPreview post={post} hasFile={hasFile} videoRawUrl={rawUrl} />
+        {hasFile ? (
+          isVideo(post.asset.editedFileLink) ? (
+            <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+              onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+          ) : (
+            <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          )
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>
+        )}
         <div style={{ position: 'absolute', bottom: '6px', left: '6px' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, color: STATUS_COLORS[post.status] || '#999',
             background: 'rgba(0,0,0,0.4)', border: `1px solid ${STATUS_COLORS[post.status] || 'transparent'}40`,
