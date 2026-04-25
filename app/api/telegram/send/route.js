@@ -316,9 +316,8 @@ async function telegramJson(method, body, { signal } = {}) {
   return data
 }
 
-// Build a "📅 Fri, Apr 25 · Morning · 11:00 AM" prefix from a scheduled-date
-// ISO. Returns empty string if iso is missing/invalid. Uses 11 AM = Morning,
-// anything else = Evening (matches the SLOT_HOURS_ET convention).
+// Build a "📅 Fri, Apr 25 · Morning" prefix from a scheduled-date ISO.
+// Uses ET hour < 14 = Morning, otherwise Evening (matches SLOT_HOURS_ET).
 function buildDatePrefix(iso) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -326,10 +325,9 @@ function buildDatePrefix(iso) {
   const fmt = (opts) => new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'America/New_York' }).format(d)
   const dow = fmt({ weekday: 'short' })
   const monthDay = fmt({ month: 'short', day: 'numeric' })
-  const time = fmt({ hour: 'numeric', minute: '2-digit', hour12: true })
   const etHour = parseInt(fmt({ hour: '2-digit', hour12: false }))
   const slotLabel = etHour < 14 ? 'Morning' : 'Evening'
-  return `📅 ${dow}, ${monthDay} · ${slotLabel} · ${time}`
+  return `📅 ${dow}, ${monthDay} · ${slotLabel}`
 }
 
 // The actual send work: download from Dropbox → remux/compress if needed →
