@@ -58,7 +58,7 @@ export async function GET(request) {
     // Fetch ALL managed creators (anyone with at least one active IG account in CPD)
     const allAccounts = await fetchAirtableRecords('Creator Platform Directory', {
       filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
-      fields: ['Account Name', 'Creator', 'Platform', 'Status', 'Handle/ Username', 'Handle Override', 'URL', 'Follower Count', 'Account Type'],
+      fields: ['Account Name', 'Creator', 'Platform', 'Status', 'Handle/ Username', 'Handle Override', 'URL', 'Follower Count', 'Account Type', 'Telegram Topic ID'],
     })
 
     // Extract unique creator IDs + fetch their names
@@ -169,6 +169,7 @@ export async function GET(request) {
         scrapedFeedUpdated: scraped.updated,
         scrapedError: scraped.error,
         scrapedProfile: scraped.profile,  // { followers, following, bio, fullName, profilePicUrl, isVerified, isPrivate, postCount }
+        telegramTopicId: f['Telegram Topic ID'] || null,
       }
     }).sort((a, b) => {
       // Main first, then numbered Palm IGs in order

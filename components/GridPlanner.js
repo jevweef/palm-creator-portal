@@ -824,11 +824,16 @@ export default function GridPlanner({ smmMode = false } = {}) {
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
   const handleBulkSend = async () => {
     if (!sendablePosts.length) return
-    if (!selectedCreatorMeta?.telegramThreadId) {
-      showToast('This creator has no Telegram Thread ID set', true)
+    // Each post routes to its own account's Telegram topic in the SMM master
+    // group. Posts without an account or whose account has no topic ID can't
+    // be sent — flag them.
+    const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
+    const missingTopic = sendablePosts.filter(p => !accountById[p.accountId]?.telegramTopicId)
+    if (missingTopic.length) {
+      showToast(`${missingTopic.length} post${missingTopic.length !== 1 ? 's' : ''} can't send — account has no Telegram topic. Run backfill on /sm.`, true)
       return
     }
-    const confirmed = window.confirm(`Send ${sendablePosts.length} scheduled post${sendablePosts.length !== 1 ? 's' : ''} to Telegram? They'll fire in order of Scheduled Date.`)
+    const confirmed = window.confirm(`Send ${sendablePosts.length} scheduled post${sendablePosts.length !== 1 ? 's' : ''} to Telegram? They'll fire in order of Scheduled Date, each routed to its account's topic in the SMM group.`)
     if (!confirmed) return
     setBulkSending(true)
     // Optimistic UI update
@@ -849,7 +854,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
             body: JSON.stringify({
               postId: p.id,
               editedFileLink: p.asset?.editedFileLink,
-              threadId: selectedCreatorMeta.telegramThreadId,
+              smmTopicId: accountById[p.accountId].telegramTopicId,
               caption: [p.caption, p.hashtags].filter(Boolean).join('\n\n') || undefined,
               thumbnailUrl: p.thumbnailUrl || undefined,
               assetId: p.asset?.id || undefined,
@@ -914,8 +919,9 @@ export default function GridPlanner({ smmMode = false } = {}) {
   // poll for completion.
   const handleSendToTelegram = async (post) => {
     if (sendingPostId) return // prevent double-click
-    if (!selectedCreatorMeta?.telegramThreadId) {
-      showToast('This creator has no Telegram Thread ID set', true)
+    const account = accounts.find(a => a.id === post.accountId)
+    if (!account?.telegramTopicId) {
+      showToast('This account has no Telegram topic set. Run backfill on /sm.', true)
       return
     }
     setSendingPostId(post.id)
@@ -929,7 +935,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
         body: JSON.stringify({
           postId: post.id,
           editedFileLink: post.asset?.editedFileLink || post.assetEditedFileLink,
-          threadId: selectedCreatorMeta.telegramThreadId,
+          smmTopicId: account.telegramTopicId,
           caption: [post.caption, post.hashtags].filter(Boolean).join('\n\n') || undefined,
           thumbnailUrl: post.thumbnailUrl || undefined,
           assetId: post.asset?.id || undefined,

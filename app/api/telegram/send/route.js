@@ -256,6 +256,7 @@ async function moveToNextStage(assetId, targetFolder) {
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
+const TELEGRAM_SMM_GROUP_CHAT_ID = process.env.TELEGRAM_SMM_GROUP_CHAT_ID
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 // 50MB Telegram bot upload limit
 
@@ -311,11 +312,15 @@ async function telegramJson(method, body, { signal } = {}) {
 // upload to Telegram → stamp Post record. Runs entirely in the background
 // via waitUntil() so the admin's click returns in ~1s instead of 60-90s.
 async function doSend(params) {
-  const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
+  const { editedFileLink, threadId, smmTopicId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
 
   try {
     const rawUrl = rawDropboxUrl(editedFileLink)
-    const chatId = parseInt(TELEGRAM_CHAT_ID)
+    // SMM mode: route to per-account topic in the SMM master group instead
+    // of the creator's review thread. Topic ID > thread ID when both present.
+    const useSmm = !!smmTopicId
+    const chatId = useSmm ? parseInt(TELEGRAM_SMM_GROUP_CHAT_ID) : parseInt(TELEGRAM_CHAT_ID)
+    const messageThreadId = useSmm ? smmTopicId : threadId
 
     const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
     const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
@@ -347,7 +352,7 @@ async function doSend(params) {
       // Upload directly to Telegram as multipart
       const form = new FormData()
       form.append('chat_id', String(chatId))
-      form.append('message_thread_id', String(threadId))
+      form.append('message_thread_id', String(messageThreadId))
       if (caption) form.append('caption', caption)
 
       const filename = getFilename(editedFileLink)
@@ -438,7 +443,7 @@ async function doSend(params) {
           // Fall back to video-only send without thumbnail
           const fallbackForm = new FormData()
           fallbackForm.append('chat_id', String(chatId))
-          fallbackForm.append('message_thread_id', String(threadId))
+          fallbackForm.append('message_thread_id', String(messageThreadId))
           if (caption) fallbackForm.append('caption', caption)
           fallbackForm.append('video', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
           fallbackForm.append('supports_streaming', 'true')
@@ -454,7 +459,7 @@ async function doSend(params) {
           console.warn('[Telegram Send] sendVideo failed, trying sendDocument:', err.message)
           const fallbackForm = new FormData()
           fallbackForm.append('chat_id', String(chatId))
-          fallbackForm.append('message_thread_id', String(threadId))
+          fallbackForm.append('message_thread_id', String(messageThreadId))
           if (caption) fallbackForm.append('caption', caption)
           fallbackForm.append('document', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
           result = await telegramUpload('sendDocument', fallbackForm)
@@ -538,12 +543,17 @@ export async function POST(request) {
 
   try {
     const params = await request.json()
-    const { editedFileLink, threadId, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
+    const { editedFileLink, threadId, smmTopicId, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
 
     if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
-    if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
+    if (!threadId && !smmTopicId) return NextResponse.json({ error: 'No threadId or smmTopicId provided' }, { status: 400 })
     if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
-    if (!TELEGRAM_CHAT_ID) return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
+    if (smmTopicId && !TELEGRAM_SMM_GROUP_CHAT_ID) {
+      return NextResponse.json({ error: 'TELEGRAM_SMM_GROUP_CHAT_ID not set' }, { status: 500 })
+    }
+    if (!smmTopicId && !TELEGRAM_CHAT_ID) {
+      return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
+    }
 
     // Stamp the Post immediately so the UI can show "Sending" without waiting
     // for the actual Telegram upload to finish. Also save any user-edited
