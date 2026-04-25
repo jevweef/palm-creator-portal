@@ -1428,16 +1428,21 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
                   e.target.value = ''
                 }}
               />
+              {post.thumbnailBroken && (
+                <div style={{ fontSize: '11px', color: '#ef4444', marginBottom: '6px', fontWeight: 500 }}>
+                  ⚠ Existing thumbnail is broken — replace it.
+                </div>
+              )}
               <button
                 onClick={() => thumbInputRef.current?.click()}
                 disabled={uploadingThumb}
                 style={{
-                  background: 'transparent',
-                  border: '1px solid var(--card-border)',
+                  background: post.thumbnailBroken ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                  border: `1px solid ${post.thumbnailBroken ? 'rgba(239, 68, 68, 0.4)' : 'var(--card-border)'}`,
                   borderRadius: '6px',
                   padding: '6px 12px',
                   fontSize: '11px',
-                  color: 'var(--foreground-muted)',
+                  color: post.thumbnailBroken ? '#ef4444' : 'var(--foreground-muted)',
                   cursor: uploadingThumb ? 'default' : 'pointer',
                   fontWeight: 500,
                 }}

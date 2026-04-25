@@ -187,8 +187,16 @@ export async function GET(request) {
       const assetId = (f.Asset || [])[0]
       const taskId = (f.Task || [])[0] || null
       const asset = assetId ? (assetMap[assetId] || {}) : {}
-      const thumb = (f.Thumbnail?.[0]?.thumbnails?.large?.url) || (f.Thumbnail?.[0]?.url) ||
-        (asset.Thumbnail?.[0]?.thumbnails?.large?.url) || (asset.Thumbnail?.[0]?.url) || ''
+      // Pick the first attachment whose type is actually an image. Some Make.com
+      // uploads land in Airtable with type=text/html (URL ingest returned HTML
+      // instead of image bytes) — those serve broken icons in the browser. Skip
+      // them and fall through to a valid one or to Asset.Thumbnail.
+      const pickImage = (atts) => (atts || []).find(a => a?.type?.startsWith('image/'))
+      const postImg = pickImage(f.Thumbnail)
+      const assetImg = pickImage(asset.Thumbnail)
+      const thumb = (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
+        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) || ''
+      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0
       const accountId = (f.Account || [])[0] || null
       return {
         id: p.id,
@@ -210,8 +218,11 @@ export async function GET(request) {
           editedFileLink: asset['Edited File Link'] || '',
         } : null,
         // Thumbnail URL from the Post's attachment (not the .thumbnails.large
-        // preview) — Telegram send expects the full Dropbox/Airtable URL
-        thumbnailUrl: f.Thumbnail?.[0]?.url || '',
+        // preview) — Telegram send expects the full Dropbox/Airtable URL.
+        // Use the same image-only filter so a text/html attachment doesn't
+        // flow through to Telegram and break sendMediaGroup.
+        thumbnailUrl: postImg?.url || '',
+        thumbnailBroken: hasBrokenThumb,
         smmScheduled: !!f['SMM Scheduled'],
         smmScheduledAt: f['SMM Scheduled At'] || null,
       }
