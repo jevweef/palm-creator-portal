@@ -1121,6 +1121,25 @@ export default function GridPlanner({ smmMode = false } = {}) {
               loadCreator(selectedCreatorId)
             }
           }}
+          onSendBackToPrepping={async () => {
+            const postId = detailPost.post.id
+            // Optimistic
+            setPosts(ps => ps.map(p => p.id === postId ? { ...p, status: 'Prepping' } : p))
+            setDetailPost(d => d && d.post.id === postId ? { ...d, post: { ...d.post, status: 'Prepping' } } : d)
+            try {
+              const res = await fetch('/api/admin/grid-planner', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'setStatus', postId, status: 'Prepping' }),
+              })
+              if (!res.ok) throw new Error('Status update failed')
+              showToast('Sent back to Prepping')
+              setTimeout(() => loadCreator(selectedCreatorId), 2500)
+            } catch (e) {
+              showToast(e.message, true)
+              loadCreator(selectedCreatorId)
+            }
+          }}
           onThumbnailReplaced={(postId, newUrl) => {
             // Optimistic: drop the new URL on the post so the grid cell flips
             // immediately. The Dropbox URL itself doesn't render in <img> reliably,
@@ -1228,7 +1247,7 @@ const smmBtn = {
   cursor: 'pointer',
 }
 
-function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, onThumbnailReplaced, smmMode = false, onMarkScheduled }) {
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, onThumbnailReplaced, onSendBackToPrepping, smmMode = false, onMarkScheduled }) {
   const [copiedKey, setCopiedKey] = useState(null)
   const [uploadingThumb, setUploadingThumb] = useState(false)
   const [localThumb, setLocalThumb] = useState(null) // optimistic preview after upload
@@ -1452,6 +1471,18 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
                 border: '1px solid rgba(232, 120, 120, 0.25)', borderRadius: '8px', cursor: 'pointer' }}
             >
               ↶ Unassign
+            </button>
+          )}
+          {/* Send back to Prepping: any non-prepping, non-final post */}
+          {!isScraped && onSendBackToPrepping && post.status !== 'Prepping' && !post.telegramSentAt && !post.postedAt && (
+            <button
+              onClick={() => { if (confirm('Send this post back to Prepping? You can re-edit thumbnail, caption, etc.')) onSendBackToPrepping() }}
+              title="Move this post back to Prepping status"
+              style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
+                background: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04',
+                border: '1px solid rgba(202, 138, 4, 0.3)', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              ↺ To Prepping
             </button>
           )}
           {smmMode && !isScraped ? (

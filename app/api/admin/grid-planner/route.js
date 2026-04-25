@@ -335,6 +335,13 @@ export async function PATCH(request) {
       return NextResponse.json({ ok: true })
     }
 
+    if (action === 'setStatus') {
+      const { postId, status } = body
+      if (!postId || !status) return NextResponse.json({ error: 'postId and status required' }, { status: 400 })
+      await patchAirtableRecord('Posts', postId, { 'Status': status })
+      return NextResponse.json({ ok: true })
+    }
+
     // assignInstance: the "3-badge drag" action.
     // Body shape: { action: 'assignInstance', taskId, accountId, unassignedPostIds: [...] }
     //   - If unassignedPostIds has entries: re-use the first one, set Account + next-open-slot
