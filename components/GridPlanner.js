@@ -1039,6 +1039,97 @@ export default function GridPlanner({ smmMode = false } = {}) {
     }
   }
 
+  // Shuffle: randomize each account's queue under the constraint that no
+  // asset lands on the same slot index across accounts (so the same reel
+  // never posts at the same time on two managed accounts). Builds a column-
+  // by-column random latin-rectangle; if it gets stuck, retries up to 30x.
+  const [shuffling, setShuffling] = useState(false)
+  const handleShuffle = async () => {
+    if (!selectedCreatorId || !accounts.length) return
+    const queues = accounts.map(acc =>
+      posts
+        .filter(p => p.accountId === acc.id && postStatus(p) === 'queue' && p.scheduledDate)
+        .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
+    )
+    const totalQueueItems = queues.reduce((s, q) => s + q.length, 0)
+    if (totalQueueItems === 0) {
+      showToast('No queue items to shuffle', true)
+      return
+    }
+    setConfirmDialog({
+      title: 'Shuffle queue',
+      message: `Randomize ${totalQueueItems} queue item${totalQueueItems !== 1 ? 's' : ''} across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}? Same reel won't land on the same slot across accounts.`,
+      confirmLabel: 'Shuffle',
+      onConfirm: () => runShuffle(queues),
+    })
+  }
+  const runShuffle = async (queues) => {
+    setShuffling(true)
+    try {
+      const assetKey = p => p.asset?.id || p.taskId || p.id
+      // Column-by-column build with random row order. Returns null on dead-end.
+      const buildShuffle = () => {
+        const remaining = queues.map(q => [...q])
+        const result = queues.map(q => Array(q.length).fill(null))
+        const maxLen = Math.max(...queues.map(q => q.length))
+        for (let c = 0; c < maxLen; c++) {
+          const usedThisCol = new Set()
+          const rowOrder = queues
+            .map((_, i) => i)
+            .filter(r => c < queues[r].length)
+            .sort(() => Math.random() - 0.5)
+          for (const r of rowOrder) {
+            const candidates = remaining[r].filter(p => !usedThisCol.has(assetKey(p)))
+            if (!candidates.length) return null
+            const pick = candidates[Math.floor(Math.random() * candidates.length)]
+            result[r][c] = pick
+            usedThisCol.add(assetKey(pick))
+            remaining[r] = remaining[r].filter(p => p !== pick)
+          }
+        }
+        return result
+      }
+      let shuffled = null
+      for (let attempt = 0; attempt < 30 && !shuffled; attempt++) {
+        shuffled = buildShuffle()
+      }
+      if (!shuffled) {
+        showToast('Could not find collision-free shuffle — too many duplicates', true)
+        return
+      }
+      // Optimistic UI: recompute scheduledDate per account from index, locally
+      const newDateByPostId = {}
+      shuffled.forEach((row, i) => {
+        const accQueue = queues[i]
+        row.forEach((post, slotIdx) => {
+          newDateByPostId[post.id] = accQueue[slotIdx].scheduledDate
+        })
+      })
+      setPosts(posts.map(p =>
+        newDateByPostId[p.id] ? { ...p, scheduledDate: newDateByPostId[p.id] } : p
+      ))
+      // Commit per account
+      await Promise.all(shuffled.map((row, i) =>
+        fetch('/api/admin/grid-planner', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'reorder',
+            accountId: accounts[i].id,
+            postIds: row.map(p => p.id),
+          }),
+        })
+      ))
+      showToast(`Shuffled ${queues.reduce((s, q) => s + q.length, 0)} posts`)
+      await loadCreator(selectedCreatorId)
+    } catch (e) {
+      showToast(e.message, true)
+      loadCreator(selectedCreatorId)
+    } finally {
+      setShuffling(false)
+    }
+  }
+
   // Per-account bulk send: fires this account's queue serially with wait=true
   // so each post fully completes before the next starts. Guarantees Telegram
   // receive-order matches queue order (4/25 AM first, 4/27 PM last).
@@ -1285,6 +1376,22 @@ export default function GridPlanner({ smmMode = false } = {}) {
             }}
           >
             {distributing ? 'Distributing…' : `↗ Push queue to all accounts`}
+          </button>
+        )}
+        {accounts.length > 1 && posts.some(p => postStatus(p) === 'queue') && (
+          <button
+            onClick={handleShuffle}
+            disabled={shuffling}
+            title="Randomize each account's queue. Same reel won't land on the same slot across accounts."
+            style={{
+              padding: '6px 14px', fontSize: '12px', fontWeight: 700,
+              background: shuffling ? 'rgba(168, 132, 232, 0.04)' : 'rgba(168, 132, 232, 0.10)',
+              color: '#a884e8',
+              border: '1px solid rgba(168, 132, 232, 0.25)',
+              borderRadius: '6px', cursor: shuffling ? 'default' : 'pointer',
+            }}
+          >
+            {shuffling ? 'Shuffling…' : '🎲 Shuffle queue'}
           </button>
         )}
         {sendablePosts.length > 0 && (
