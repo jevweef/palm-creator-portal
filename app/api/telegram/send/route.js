@@ -39,7 +39,14 @@ async function getVideoDuration(filePath) {
 // serverless because stdout/stderr pipes weren't being drained.
 async function resizeImage(inputBuffer, inputName) {
   const id = Date.now()
-  const ext = inputName.split('.').pop().toLowerCase()
+  // Sanitize "extension" — Airtable/Dropbox URLs often have no real extension,
+  // so split('.').pop() returns the URL hash. Without a known image extension
+  // ffmpeg sniffs the input and sometimes picks 'mjpeg' (Motion JPEG = video)
+  // instead of treating it as a single still — then complains about needing a
+  // '%03d' multi-frame output pattern. Force a clean .jpg extension.
+  const rawExt = (inputName.split('.').pop() || '').toLowerCase()
+  const knownExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'heic', 'heif']
+  const ext = knownExts.includes(rawExt) ? rawExt : 'jpg'
   const inputPath = join(tmpdir(), `tg_img_in_${id}.${ext}`)
   const outputPath = join(tmpdir(), `tg_img_out_${id}.jpg`)
   await writeFile(inputPath, Buffer.from(inputBuffer))
@@ -47,6 +54,7 @@ async function resizeImage(inputBuffer, inputName) {
     const args = [
       '-y', '-i', inputPath,
       '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease',
+      '-frames:v', '1',  // Belt + suspenders: even if ffmpeg sniffs as video, only write one frame
       '-q:v', '2',
       outputPath,
     ]
@@ -308,11 +316,32 @@ async function telegramJson(method, body, { signal } = {}) {
   return data
 }
 
+// Build a "📅 Fri, Apr 25 · Morning · 11:00 AM" prefix from a scheduled-date
+// ISO. Returns empty string if iso is missing/invalid. Uses 11 AM = Morning,
+// anything else = Evening (matches the SLOT_HOURS_ET convention).
+function buildDatePrefix(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const fmt = (opts) => new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'America/New_York' }).format(d)
+  const dow = fmt({ weekday: 'short' })
+  const monthDay = fmt({ month: 'short', day: 'numeric' })
+  const time = fmt({ hour: 'numeric', minute: '2-digit', hour12: true })
+  const etHour = parseInt(fmt({ hour: '2-digit', hour12: false }))
+  const slotLabel = etHour < 14 ? 'Morning' : 'Evening'
+  return `📅 ${dow}, ${monthDay} · ${slotLabel} · ${time}`
+}
+
 // The actual send work: download from Dropbox → remux/compress if needed →
 // upload to Telegram → stamp Post record. Runs entirely in the background
 // via waitUntil() so the admin's click returns in ~1s instead of 60-90s.
 async function doSend(params) {
-  const { editedFileLink, threadId, smmTopicId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
+  const { editedFileLink, threadId, smmTopicId, caption: rawIncomingCaption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
+  // Prepend the date/slot label so SMM can see at a glance which post this
+  // is for. Caption order: date prefix → user caption → hashtags (already
+  // joined client-side into the incoming caption).
+  const datePrefix = buildDatePrefix(scheduledDate)
+  const caption = [datePrefix, rawIncomingCaption].filter(Boolean).join('\n\n') || undefined
 
   try {
     const rawUrl = rawDropboxUrl(editedFileLink)
