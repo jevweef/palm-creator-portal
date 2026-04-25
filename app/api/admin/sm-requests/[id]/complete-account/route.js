@@ -8,6 +8,7 @@ import {
   patchAirtableRecord,
   createAirtableRecord,
 } from '@/lib/adminAuth'
+import { createSmmTopicForHandle, isSmmGroupConfigured } from '@/lib/telegramTopics'
 
 const SM_SETUP_REQUESTS_TABLE = 'SM Setup Requests'
 const CPD_TABLE = 'Creator Platform Directory'
@@ -58,6 +59,21 @@ export async function POST(request, { params }) {
 
     const cpdRec = await createAirtableRecord(CPD_TABLE, cpdFields)
 
+    // Create the matching forum topic in the SMM master Telegram group.
+    // Best-effort — if Telegram fails, the CPD row + slot completion still go
+    // through; admin can re-trigger topic creation later if needed.
+    let topicId = null
+    if (isSmmGroupConfigured()) {
+      try {
+        topicId = await createSmmTopicForHandle(cleanHandle, { creatorAka: aka })
+        if (topicId) {
+          await patchAirtableRecord(CPD_TABLE, cpdRec.id, { 'Telegram Topic ID': topicId })
+        }
+      } catch (err) {
+        console.error('[complete-account] topic creation failed (non-fatal):', err.message)
+      }
+    }
+
     // Mark slot done on the request + save handle
     const slotUpdates = {
       [`Slot ${slot} Handle`]: cleanHandle,
@@ -79,6 +95,7 @@ export async function POST(request, { params }) {
       ok: true,
       cpdRecordId: cpdRec.id,
       accountName,
+      telegramTopicId: topicId,
       requestComplete: !!slotUpdates.Status && slotUpdates.Status === 'Complete',
     })
   } catch (err) {
