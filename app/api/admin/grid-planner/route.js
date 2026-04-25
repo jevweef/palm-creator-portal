@@ -436,6 +436,106 @@ export async function POST(request) {
     const body = await request.json()
     const { action } = body
 
+    // distributeQueue: for the given creator, place every queue item (each
+    // unsent task group) onto every managed IG account it isn't already on.
+    // Reuses unassigned-post instances first, clones siblings second. Each
+    // landing gets the next open slot on the destination account.
+    if (action === 'distributeQueue') {
+      const { creatorId } = body
+      if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
+
+      // Managed IG accounts for this creator
+      const allAccounts = await fetchAirtableRecords('Creator Platform Directory', {
+        filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
+        fields: ['Account', 'Creator'],
+      })
+      const managed = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
+      if (!managed.length) return NextResponse.json({ ok: true, distributed: 0, message: 'No managed accounts' })
+
+      // All unsent posts for this creator
+      const allRecent = await fetchAirtableRecords('Posts', {
+        filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
+        fields: ['Post Name', 'Creator', 'Account', 'Task', 'Asset', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
+      })
+      const creatorPosts = allRecent.filter(p =>
+        (p.fields?.Creator || []).includes(creatorId) &&
+        !p.fields?.['Telegram Sent At'] &&
+        !p.fields?.['Posted At']
+      )
+
+      // Group by Task ID
+      const groups = {}
+      for (const p of creatorPosts) {
+        const taskId = (p.fields?.Task || [])[0] || `orphan-${p.id}`
+        if (!groups[taskId]) groups[taskId] = { taskId, posts: [] }
+        groups[taskId].posts.push(p)
+      }
+
+      // For each account, track existing slot ISOs so we can compute next-open per account.
+      // We update in-memory as we add to avoid re-fetching after each add.
+      const accountSlots = {}
+      for (const acc of managed) {
+        accountSlots[acc.id] = creatorPosts
+          .filter(p => (p.fields?.Account || []).includes(acc.id))
+          .map(p => p.fields?.['Scheduled Date'])
+          .filter(Boolean)
+      }
+
+      let distributed = 0
+      const updates = []
+
+      for (const group of Object.values(groups)) {
+        // Accounts already covered by this group
+        const covered = new Set()
+        for (const p of group.posts) {
+          for (const accId of (p.fields?.Account || [])) covered.add(accId)
+        }
+        // Unassigned instances within this group (no Account set)
+        const unassignedInGroup = group.posts.filter(p => !(p.fields?.Account || []).length)
+        // Sample sibling for cloning
+        const sibling = group.posts[0]
+        const src = sibling?.fields || {}
+
+        for (const acc of managed) {
+          if (covered.has(acc.id)) continue
+          const nextSlot = getNextOpenSlot(accountSlots[acc.id]).toISOString()
+
+          if (unassignedInGroup.length) {
+            // Reuse unassigned instance
+            const reuse = unassignedInGroup.shift()
+            await patchAirtableRecord('Posts', reuse.id, {
+              'Account': [acc.id],
+              'Scheduled Date': nextSlot,
+            })
+            updates.push({ postId: reuse.id, accountId: acc.id, scheduledDate: nextSlot, reused: true })
+          } else {
+            // Clone from sibling
+            const fields = {
+              'Post Name': src['Post Name'] || '',
+              ...(src.Creator ? { 'Creator': src.Creator } : {}),
+              ...(src.Asset ? { 'Asset': src.Asset } : {}),
+              ...(group.taskId && !group.taskId.startsWith('orphan-') ? { 'Task': [group.taskId] } : {}),
+              'Account': [acc.id],
+              'Status': 'Prepping',
+              ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
+              ...(src.Caption ? { 'Caption': src.Caption } : {}),
+              ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
+              ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
+              'Scheduled Date': nextSlot,
+            }
+            const created = await createAirtableRecord('Posts', fields)
+            updates.push({ postId: created.id, accountId: acc.id, scheduledDate: nextSlot, cloned: true })
+          }
+
+          accountSlots[acc.id].push(nextSlot)
+          covered.add(acc.id)
+          distributed++
+        }
+      }
+
+      return NextResponse.json({ ok: true, distributed, accountCount: managed.length, updates })
+    }
+
     if (action !== 'fanOut') {
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
     }

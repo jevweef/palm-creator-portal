@@ -777,11 +777,10 @@ export default function GridPlanner({ smmMode = false } = {}) {
           }
         }).filter(g => g.remaining > 0))
 
-        // Authoritative refetch — 2500ms delay to give Airtable's eventual
-        // consistency time to propagate. At 400ms the GET often came back
-        // with the pre-PATCH state and wiped out the optimistic placement
-        // (post popped back to the tray). 2.5s reliably sees the write.
-        setTimeout(() => { loadCreator(selectedCreatorId) }, 2500)
+        // Optimistic update is authoritative — no auto-refetch. The PATCH
+        // response confirms the write, so re-GETing just to verify wastes
+        // the round-trip and makes the page feel like it's reloading after
+        // every drop. User can manually refresh if they suspect drift.
       } catch (e) {
         showToast(e.message, true)
       } finally {
@@ -891,6 +890,33 @@ export default function GridPlanner({ smmMode = false } = {}) {
       setTimeout(() => loadCreator(selectedCreatorId), 2000)
     } finally {
       setBulkSending(false)
+    }
+  }
+
+  // Push every queue item onto every managed account that doesn't already
+  // have it. After this runs, the unassigned tray empties — admin can drag
+  // posts around inside each account grid to reorder.
+  const [distributing, setDistributing] = useState(false)
+  const handleDistributeQueue = async () => {
+    if (!selectedCreatorId || !unassignedGroups.length) return
+    const remaining = unassignedGroups.reduce((s, g) => s + (g.remaining || 0), 0)
+    const confirmed = window.confirm(`Push ${unassignedGroups.length} queue item${unassignedGroups.length !== 1 ? 's' : ''} (${remaining} placement${remaining !== 1 ? 's' : ''}) onto every Palm IG account that's missing it?`)
+    if (!confirmed) return
+    setDistributing(true)
+    try {
+      const res = await fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'distributeQueue', creatorId: selectedCreatorId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Distribute failed')
+      showToast(`Distributed ${data.distributed} placement${data.distributed !== 1 ? 's' : ''}`)
+      await loadCreator(selectedCreatorId)
+    } catch (e) {
+      showToast(e.message, true)
+    } finally {
+      setDistributing(false)
     }
   }
 
@@ -1027,6 +1053,22 @@ export default function GridPlanner({ smmMode = false } = {}) {
         <div style={{ flex: 1 }} />
         {saving && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Saving…</span>}
         {refreshing && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Scraping IG…</span>}
+        {unassignedGroups.length > 0 && (
+          <button
+            onClick={handleDistributeQueue}
+            disabled={distributing}
+            title="Push every queue item onto every managed Palm IG account it's not already on. Skips accounts that already have the item."
+            style={{
+              padding: '6px 14px', fontSize: '12px', fontWeight: 700,
+              background: distributing ? 'rgba(232, 160, 160, 0.04)' : 'rgba(232, 160, 160, 0.10)',
+              color: 'var(--palm-pink)',
+              border: '1px solid rgba(232, 160, 160, 0.25)',
+              borderRadius: '6px', cursor: distributing ? 'default' : 'pointer',
+            }}
+          >
+            {distributing ? 'Distributing…' : `↗ Push queue to all accounts`}
+          </button>
+        )}
         {sendablePosts.length > 0 && (
           <button
             onClick={handleBulkSend}
