@@ -26,12 +26,12 @@ function isVideo(url) {
 // JPEG thumbnail through our Dropbox-thumbnail proxy. Browser-native formats
 // (jpg/png/gif/webp) load direct from Dropbox to skip the proxy hop.
 function isUnrenderableImage(url) {
-  return /\.(heic|heif|tiff?)/i.test(url || '')
+  return /\.(heic|heif|tiff?)(\?|$)/i.test(url || '')
 }
-function browserSafeImageUrl(dropboxLink, size = 'w480h480') {
+function browserSafeImageUrl(dropboxLink, w = 480, h = 480) {
   if (!dropboxLink) return ''
   if (isUnrenderableImage(dropboxLink)) {
-    return `/api/admin/dropbox-thumbnail?url=${encodeURIComponent(dropboxLink)}&size=${size}`
+    return `/api/admin/dropbox-thumbnail?url=${encodeURIComponent(dropboxLink)}&w=${w}&h=${h}`
   }
   return rawDropboxUrl(dropboxLink)
 }
@@ -221,7 +221,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   // Preview mode
   if (preview) {
     // Larger thumbnail for the preview pane — Dropbox supports up to w2048
-    const rawUrl = browserSafeImageUrl(preview.dropboxLink, 'w1024h1024')
+    const rawUrl = browserSafeImageUrl(preview.dropboxLink, 1024, 1024)
     return (
       <div onClick={e => e.target === e.currentTarget && onClose()}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -290,7 +290,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
                   {pagePhotos.map(photo => {
-                    const thumbUrl = browserSafeImageUrl(photo.dropboxLink, 'w480h480')
+                    const thumbUrl = browserSafeImageUrl(photo.dropboxLink, 240, 240)
                     return (
                       <div key={photo.id} onClick={() => setPreview(photo)}
                         style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s' }}
@@ -653,7 +653,7 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
             {thumbnailUrl ? (
               <img
-                src={thumbnailUrl.includes('dropbox.com') ? browserSafeImageUrl(thumbnailUrl, 'w128h128') : thumbnailUrl}
+                src={thumbnailUrl.includes('dropbox.com') ? browserSafeImageUrl(thumbnailUrl, 96, 96) : thumbnailUrl}
                 alt="thumbnail"
                 style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
                 onClick={() => setShowPhotoPicker(true)}
