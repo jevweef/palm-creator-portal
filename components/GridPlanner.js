@@ -25,11 +25,17 @@ function formatCount(n) {
   return String(n)
 }
 
+// Status terminology:
+//   - 'live'       — already on IG (postedAt or postLink set)
+//   - 'scheduled'  — sent to Telegram, locked in. SMM will post next.
+//                    Cannot be moved/reordered.
+//   - 'queue'      — placed on a grid with a future date OR no date set,
+//                    waiting to be sent. Movable. Date is reactive (derived
+//                    from queue position).
 function postStatus(post) {
-  if (post.postedAt || post.postLink) return 'posted'
-  if (post.telegramSentAt) return 'sent'
-  if (post.scheduledDate && new Date(post.scheduledDate) > new Date()) return 'scheduled'
-  return 'draft'
+  if (post.postedAt || post.postLink) return 'live'
+  if (post.telegramSentAt) return 'scheduled'
+  return 'queue'
 }
 
 // ─── Phone frame mimicking IG profile ──────────────────────────────────────────
@@ -253,7 +259,9 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
         )}
         {allCells.map((post) => {
           const status = postStatus(post)
-          const draggable = status === 'scheduled' || status === 'draft'
+          // Only queue items can be reordered. Scheduled (sent to Telegram)
+          // and live posts are locked.
+          const draggable = status === 'queue'
           const isDragging = draggingId === post.id
           return (
             <GridCell
@@ -281,12 +289,11 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
   const isScraped = !!post._scraped
 
   const borderByStatus = {
-    scheduled: { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
-    draft:     { bg: 'var(--background)', ring: 'var(--card-border)', badge: '#999' },
-    sent:      { bg: 'rgba(125, 211, 164, 0.06)', ring: 'rgba(125, 211, 164, 0.2)', badge: '#7DD3A4' },
-    posted:    { bg: 'var(--foreground)', ring: 'transparent', badge: 'rgba(240, 236, 232, 0.75)' },
+    queue:     { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
+    scheduled: { bg: 'rgba(125, 211, 164, 0.06)', ring: 'rgba(125, 211, 164, 0.2)', badge: '#7DD3A4' },
+    live:      { bg: 'var(--foreground)', ring: 'transparent', badge: 'rgba(240, 236, 232, 0.75)' },
   }
-  const style = borderByStatus[status] || borderByStatus.posted
+  const style = borderByStatus[status] || borderByStatus.live
 
   return (
     <div
@@ -313,7 +320,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
         <CellThumb post={post} style={style} status={status} />
       ) : (
         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style.badge, fontSize: '20px' }}>
-          {status === 'draft' ? '✏' : '🗓'}
+          {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
         </div>
       )}
 
@@ -338,7 +345,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
         {isScraped ? 'live' : status}
       </div>
       {/* Date chip */}
-      {post.scheduledDate && status !== 'posted' && !isScraped && (
+      {post.scheduledDate && status !== 'live' && !isScraped && (
         <div style={{
           position: 'absolute', bottom: 3, right: 3,
           padding: '1px 4px', borderRadius: '3px',
@@ -374,7 +381,7 @@ function CellThumb({ post, style, status }) {
   if (failed) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
-        {status === 'draft' ? '✏' : '🗓'}
+        {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
       </div>
     )
   }
@@ -998,7 +1005,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           setSendingPostId(null)
           setPosts(d.posts || [])
           if (latest.status === 'Sent to Telegram' || latest.status === 'Ready to Post') {
-            showToast('Sent to Telegram ✓')
+            showToast('Scheduled ✓')
           } else if (latest.status === 'Send Failed') {
             showToast('Send failed — check Admin Notes on post', true)
           }
@@ -1379,8 +1386,18 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
     }
   }
   // Scraped cells are just IG feed items — never sendable, never have an
-  // Airtable Status. Show them as "Live on IG" with a link out.
-  const effectiveStatus = isScraped ? 'Live on IG' : (post.status || 'Prepping')
+  // Airtable Status. Show them as "Live" with a link out.
+  // Airtable Status values are mapped to user-facing labels:
+  //   Prepping/Staged → Queue, Sent to Telegram → Scheduled, Posted → Live.
+  const rawStatus = isScraped ? 'Live' : (post.status || 'Prepping')
+  const displayStatusMap = {
+    'Prepping': 'Queue',
+    'Staged': 'Queue',
+    'Sent to Telegram': 'Scheduled',
+    'Posted': 'Live',
+    'Live on IG': 'Live',
+  }
+  const effectiveStatus = displayStatusMap[rawStatus] || rawStatus
   const canSend = !isScraped && post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
   const scheduledLabel = post.scheduledDate
     ? new Date(post.scheduledDate).toLocaleDateString('en-US', {
@@ -1393,11 +1410,10 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
     : null
   const statusStyle = {
     'Sending': { bg: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
-    'Sent to Telegram': { bg: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8', border: 'rgba(120, 180, 232, 0.3)' },
+    'Scheduled': { bg: 'rgba(125, 211, 164, 0.10)', color: '#7DD3A4', border: 'rgba(125, 211, 164, 0.3)' },
     'Send Failed': { bg: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' },
-    'Posted': { bg: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
-    'Prepping': { bg: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04', border: 'rgba(202, 138, 4, 0.3)' },
-    'Live on IG': { bg: 'rgba(240, 236, 232, 0.08)', color: 'rgba(240, 236, 232, 0.85)', border: 'rgba(240, 236, 232, 0.2)' },
+    'Live': { bg: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
+    'Queue': { bg: 'rgba(232, 160, 160, 0.10)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
   }[effectiveStatus] || { bg: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: 'rgba(255,255,255,0.08)' }
 
   return (
