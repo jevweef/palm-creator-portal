@@ -26,12 +26,7 @@ export async function GET() {
       // yet set up on IG by the social media manager) have no handle and no URL,
       // and shouldn't count toward the readiness badge.
       fetchAirtableRecords('Creator Platform Directory', {
-        filterByFormula: `AND(
-          {Platform}='Instagram',
-          {Managed by Palm}=1,
-          {Status}!='Does Not Exist',
-          OR({Handle Override}!='',{Handle/ Username}!='',{URL}!='')
-        )`.replace(/\s+/g, ''),
+        filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist',OR({Handle Override}!='',{Handle/ Username}!='',{URL}!=''))`,
         fields: ['Creator', 'Platform', 'Account Name', 'Handle/ Username', 'Handle Override', 'URL'],
       }),
     ])
