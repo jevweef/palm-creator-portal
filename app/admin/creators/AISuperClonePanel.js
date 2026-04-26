@@ -212,6 +212,23 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     finally { setApproving(false) }
   }
 
+  const [resyncing, setResyncing] = useState(false)
+  const handleResync = async () => {
+    setResyncing(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/creator-ai-clone/resync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, pose }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Resync failed')
+      await onRefresh()
+    } catch (e) { setError(e.message) }
+    finally { setResyncing(false) }
+  }
+
   const canGenerate = inputs.length > 0 && !generating
 
   // Drag handlers — apply to the whole inputs section so users can drop anywhere
@@ -391,8 +408,18 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
           </div>
         ) : output ? (
           <div>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-              AI Reference
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                AI Reference
+              </div>
+              <button
+                onClick={handleResync}
+                disabled={resyncing}
+                title="Re-fetch from Dropbox (use if the displayed image looks stale)"
+                style={{ padding: '2px 6px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: resyncing ? 'wait' : 'pointer' }}
+              >
+                {resyncing ? '…' : '🔁 Sync'}
+              </button>
             </div>
             <div style={{ position: 'relative', aspectRatio: '9/16', maxHeight: '320px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
