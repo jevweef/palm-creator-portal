@@ -33,7 +33,7 @@ export async function GET(request) {
     // SEARCH is case-insensitive and tolerates URL format differences (/reel/ vs /reels/).
     const inspoRecords = await fetchAirtableRecords(INSPIRATION_TABLE, {
       filterByFormula: `SEARCH("${shortcode}", {Content link})`,
-      fields: ['Content link', 'Username', 'Caption', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Status'],
+      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Status'],
       maxRecords: 1,
     })
 
@@ -44,7 +44,7 @@ export async function GET(request) {
         id: r.id,
         url: r.fields['Content link'] || '',
         username: r.fields['Username'] || '',
-        caption: r.fields['Caption'] || '',
+        title: r.fields['Title'] || '',
         onScreenText: r.fields['On-Screen Text'] || '',
         thumbnail: r.fields['Thumbnail']?.[0]?.url || null,
         dbShareLink: r.fields['DB Share Link'] || '',
