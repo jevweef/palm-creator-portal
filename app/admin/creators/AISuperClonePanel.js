@@ -2,6 +2,43 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 
+// Vercel serverless body limit is ~4.5MB. iPhone photos can easily be 5-10MB.
+// Downscale + re-encode client-side before sending so the multipart payload
+// stays well under the limit. Falls back to the original file if the browser
+// can't decode it (e.g. HEIC on Chrome/Firefox — surfaces as an error upstream).
+async function compressImageForUpload(file, maxDim = 2048, quality = 0.9) {
+  if (!file.type.startsWith('image/')) return file
+  // Skip compression if already small enough (under 1.5MB)
+  if (file.size < 1.5 * 1024 * 1024) return file
+  try {
+    const url = URL.createObjectURL(file)
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image()
+      el.onload = () => resolve(el)
+      el.onerror = () => reject(new Error(`Browser can't decode ${file.name} (HEIC?)`))
+      el.src = url
+    })
+    URL.revokeObjectURL(url)
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+    const w = Math.round(img.width * scale)
+    const h = Math.round(img.height * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = w; canvas.height = h
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0, w, h)
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', quality)
+    })
+    const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg'
+    return new File([blob], newName, { type: 'image/jpeg', lastModified: file.lastModified })
+  } catch (e) {
+    // If decode/encode fails (HEIC etc.), let the original through and let the
+    // server-side error path handle it.
+    console.warn('[ai-clone] compress failed, sending original:', e.message)
+    return file
+  }
+}
+
 const POSE_ORDER = ['front', 'back', 'face']
 const POSE_META = {
   front: { label: 'Front View', model: 'Wan 2.7', emoji: '🧍‍♀️' },
@@ -97,13 +134,22 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     if (!filesList?.length) return
     setUploading(true); setError('')
     try {
+      const compressed = await Promise.all(Array.from(filesList).map(f => compressImageForUpload(f)))
       const form = new FormData()
       form.append('creatorId', creatorId)
       form.append('pose', pose)
-      Array.from(filesList).forEach(f => form.append('files', f))
+      compressed.forEach(f => form.append('files', f))
       const res = await fetch('/api/admin/creator-ai-clone/upload', { method: 'POST', body: form })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      // Server may return non-JSON on payload-too-large (Vercel HTML/text response)
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) } catch { data = null }
+      if (!res.ok) {
+        const msg = data?.error || (res.status === 413
+          ? 'Photos too large even after compression. Try fewer at once.'
+          : `Upload failed (${res.status})`)
+        throw new Error(msg)
+      }
       await onRefresh()
     } catch (e) { setError(e.message) }
     finally {
