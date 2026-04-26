@@ -29,9 +29,10 @@ export async function GET(request) {
   }
 
   try {
-    // Try Inspiration table first — these are reviewed reels with full pipeline data
+    // Try Inspiration table first — these are reviewed reels with full pipeline data.
+    // SEARCH is case-insensitive and tolerates URL format differences (/reel/ vs /reels/).
     const inspoRecords = await fetchAirtableRecords(INSPIRATION_TABLE, {
-      filterByFormula: `FIND('/${shortcode}', {Content link})`,
+      filterByFormula: `SEARCH("${shortcode}", {Content link})`,
       fields: ['Content link', 'Username', 'Caption', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Status'],
       maxRecords: 1,
     })
@@ -56,7 +57,7 @@ export async function GET(request) {
 
     // Fall back to Source Reels (not yet promoted to Inspiration)
     const srRecords = await fetchAirtableRecords(SOURCE_REELS_TABLE, {
-      filterByFormula: `FIND('/${shortcode}', {Reel URL})`,
+      filterByFormula: `SEARCH("${shortcode}", {Reel URL})`,
       fields: ['Reel URL', 'Username', 'Source Handle', 'Caption'],
       maxRecords: 1,
     })

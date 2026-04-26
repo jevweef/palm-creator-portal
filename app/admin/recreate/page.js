@@ -240,8 +240,9 @@ export default function RecreatePage() {
           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
             Shortcode: <code style={{ color: 'var(--palm-pink)' }}>{shortcode}</code>
             {lookupLoading && <span style={{ marginLeft: '12px' }}>Looking up in pipeline…</span>}
+            {!lookupLoading && lookup?.error && <span style={{ marginLeft: '12px', color: '#E87878' }}>Lookup error: {lookup.error}</span>}
             {!lookupLoading && lookup?.source && <span style={{ marginLeft: '12px', color: '#7DD3A4' }}>✓ Found in {lookup.source}</span>}
-            {!lookupLoading && lookup && !lookup.source && <span style={{ marginLeft: '12px', color: '#FFC864' }}>Not in pipeline yet — manual upload available below</span>}
+            {!lookupLoading && lookup && !lookup.source && !lookup.error && <span style={{ marginLeft: '12px', color: '#FFC864' }}>Not in pipeline — manual upload available below</span>}
           </div>
         )}
         {!shortcode && (
