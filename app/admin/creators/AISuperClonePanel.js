@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import ConfirmModal from '@/components/ConfirmModal'
 
 const POSE_ORDER = ['front', 'back', 'face']
 const POSE_META = {
@@ -50,7 +51,7 @@ function Lightbox({ url, onClose }) {
   )
 }
 
-function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, onZoom }) {
+function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, onZoom, onConfirm }) {
   const meta = POSE_META[pose]
   const inputs = state.inputsByPose[pose] || []
   const output = state.outputs[pose]
@@ -135,8 +136,16 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     }
   }
 
-  const handleDelete = async (attachmentId) => {
-    if (!confirm('Remove this input photo?')) return
+  const requestDelete = (attachmentId, filename) => {
+    onConfirm({
+      title: 'Remove input photo?',
+      message: filename ? `Remove "${filename}" from this pose's input set?` : 'Remove this input photo from the input set?',
+      confirmLabel: 'Remove',
+      danger: true,
+      onConfirm: () => doDelete(attachmentId),
+    })
+  }
+  const doDelete = async (attachmentId) => {
     setError('')
     try {
       const res = await fetch('/api/admin/creator-ai-clone', {
@@ -165,8 +174,12 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
   }
 
   const handleRegenerate = () => {
-    if (!confirm(`Regenerate ${meta.label} reference? The current image will be replaced.`)) return
-    handleGenerate()
+    onConfirm({
+      title: `Regenerate ${meta.label} reference?`,
+      message: 'The current approved image will be replaced with a new generation.',
+      confirmLabel: 'Regenerate',
+      onConfirm: () => handleGenerate(),
+    })
   }
 
   const canGenerate = inputs.length > 0 && !generating
@@ -244,7 +257,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                   </div>
                 )}
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(att.id) }}
+                  onClick={(e) => { e.stopPropagation(); requestDelete(att.id, att.filename) }}
                   title={`Delete ${att.filename}`}
                   style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', fontSize: '10px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', lineHeight: 1, padding: 0 }}
                 >×</button>
@@ -383,6 +396,7 @@ export default function AISuperClonePanel({ creatorId }) {
   const [error, setError] = useState('')
   const [prompts, setPrompts] = useState(HARDCODED_PROMPTS)
   const [lightboxUrl, setLightboxUrl] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   const fetchState = useCallback(async () => {
     try {
@@ -465,6 +479,7 @@ export default function AISuperClonePanel({ creatorId }) {
           onPromptChange={(p, value) => setPrompts(prev => ({ ...prev, [p]: value }))}
           onRefresh={fetchState}
           onZoom={setLightboxUrl}
+          onConfirm={setConfirmDialog}
         />
       ))}
 
@@ -475,6 +490,7 @@ export default function AISuperClonePanel({ creatorId }) {
       )}
 
       <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      <ConfirmModal dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
     </div>
   )
 }
