@@ -50,7 +50,10 @@ export async function POST(request) {
     const dropboxPath = `${folder}/${filename}`
     await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, buf, { overwrite: true })
     const sharedLink = await createDropboxSharedLink(accessToken, rootNamespaceId, dropboxPath)
-    const publicUrl = rawDropboxUrl(sharedLink)
+    // Cache-bust: same Dropbox path → same shared link. Without a unique
+    // suffix, Airtable dedupes by URL and never re-downloads, so the
+    // attachment keeps showing the OLD image even after a regenerate.
+    const publicUrl = `${rawDropboxUrl(sharedLink)}&t=${Date.now()}`
 
     await patchAirtableRecord(PALM_CREATORS, creatorId, {
       [poseConfig.airtableOutputField]: [{ url: publicUrl, filename }],
