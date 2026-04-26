@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import AISuperClonePanel from './AISuperClonePanel'
 
 const TAG_CATEGORIES = [
   'Setting / Location',
@@ -4699,7 +4700,7 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
 
       {/* Tabs — hidden during refine preview */}
       {!refinePreview && <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid transparent', marginBottom: '20px' }}>
-        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ['music', 'Music DNA'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
+        {[['profile', 'Profile'], ['documents', `Documents (${documents.length})`], ['tags', 'Tag Weights'], ['music', 'Music DNA'], ['superclone', 'AI Super Clone'], ...(c.refinementHistory?.length > 0 ? [['adjustments', 'Adjustments']] : [])].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             style={{
               padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === key ? 600 : 400,
@@ -4783,6 +4784,11 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
         <MusicDnaPanel creator={c} creatorId={creator.id} onUpdate={(dna) => {
           setProfile(prev => prev ? { ...prev, creator: { ...prev.creator, musicDnaProcessed: dna } } : prev)
         }} />
+      )}
+
+      {/* AI Super Clone tab */}
+      {!refinePreview && activeTab === 'superclone' && (
+        <AISuperClonePanel creatorId={creator.id} />
       )}
 
       {/* Adjustments tab */}
