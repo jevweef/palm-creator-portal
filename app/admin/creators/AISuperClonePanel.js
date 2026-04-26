@@ -191,14 +191,9 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     } catch (e) { setError(e.message); setGenerating(false) }
   }
 
-  const handleRegenerate = () => {
-    onConfirm({
-      title: `Regenerate ${meta.label} reference?`,
-      message: 'The current approved image will be replaced when you pick a new one.',
-      confirmLabel: 'Regenerate',
-      onConfirm: () => handleGenerate(),
-    })
-  }
+  // Non-destructive — current approved image stays until user clicks Approve
+  // on a new candidate. No confirmation needed.
+  const handleRegenerate = () => handleGenerate()
 
   const handleApprove = async (outputUrl) => {
     setApproving(true)
