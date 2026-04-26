@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 const NANO_BANANA_URL = 'https://wavespeed.ai/models/google/nano-banana-2/edit'
@@ -11,6 +11,11 @@ const EXTRACT_PROMPT = `extract the exact image prompt, keep everything the same
 function shortcodeFromUrl(url) {
   const m = url?.match(/instagram\.com\/(?:p|reel|reels)\/([A-Za-z0-9_-]+)/)
   return m ? m[1] : null
+}
+
+function rawDropboxUrl(url) {
+  if (!url) return ''
+  return url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
 }
 
 function CopyBtn({ text, label = 'Copy' }) {
@@ -64,13 +69,100 @@ function StepCard({ n, title, status, children }) {
   )
 }
 
+// Inline frame picker: scrub a Dropbox-hosted reel video and capture a frame
+// purely client-side via canvas. No upload — the captured data URL is shown
+// and can be downloaded for use in ChatGPT/Grok in Step 3.
+function FrameCapture({ videoUrl, onCapture }) {
+  const videoRef = useRef(null)
+  const [duration, setDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [error, setError] = useState('')
+
+  const proxiedUrl = `/api/admin/video-proxy?url=${encodeURIComponent(rawDropboxUrl(videoUrl))}`
+
+  const handleScrub = (e) => {
+    const t = parseFloat(e.target.value)
+    setCurrentTime(t)
+    if (videoRef.current) videoRef.current.currentTime = t
+  }
+
+  const handleCapture = () => {
+    setError('')
+    const video = videoRef.current
+    if (!video || !video.videoWidth) { setError('Video not ready'); return }
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    try {
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+      onCapture(dataUrl)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60).toString().padStart(2, '0')
+    return `${m}:${sec}`
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+      <div style={{ width: '180px', aspectRatio: '9/16', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
+        <video
+          ref={videoRef}
+          src={proxiedUrl}
+          crossOrigin="anonymous"
+          muted
+          playsInline
+          preload="metadata"
+          onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+          onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+          onError={() => setError('Failed to load video')}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+          Scrub to the frame you want and capture it. Defaults to the first frame.
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            step={0.05}
+            value={currentTime}
+            onChange={handleScrub}
+            style={{ flex: 1, accentColor: 'var(--palm-pink)', cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', minWidth: '32px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatTime(duration)}</span>
+        </div>
+        {error && <div style={{ fontSize: '11px', color: '#E87878' }}>{error}</div>}
+        <button
+          onClick={handleCapture}
+          disabled={!duration}
+          style={{ padding: '10px', background: !duration ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)', border: 'none', color: !duration ? 'var(--foreground-subtle)' : '#060606', borderRadius: '8px', cursor: !duration ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700 }}
+        >
+          📸 Capture this frame
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function RecreatePage() {
   const searchParams = useSearchParams()
   const initialUrl = searchParams.get('url') || ''
 
   const [reelUrl, setReelUrl] = useState(initialUrl)
-  const [screenshotFile, setScreenshotFile] = useState(null)
-  const [screenshotPreview, setScreenshotPreview] = useState(null)
+  const [lookup, setLookup] = useState(null) // { source, dbRawLink, thumbnail, ... }
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [capturedFrame, setCapturedFrame] = useState(null) // data URL or attachment URL
   const [extractedPrompt, setExtractedPrompt] = useState('')
   const [allCreators, setAllCreators] = useState([])
   const [selectedCreator, setSelectedCreator] = useState('')
@@ -82,14 +174,21 @@ export default function RecreatePage() {
       .catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (!screenshotFile) { setScreenshotPreview(null); return }
-    const url = URL.createObjectURL(screenshotFile)
-    setScreenshotPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [screenshotFile])
-
   const shortcode = useMemo(() => shortcodeFromUrl(reelUrl), [reelUrl])
+
+  // Auto-lookup whenever the reel URL changes to a valid shortcode
+  useEffect(() => {
+    if (!shortcode) { setLookup(null); return }
+    let cancelled = false
+    setLookupLoading(true)
+    fetch(`/api/admin/recreate/lookup?shortcode=${encodeURIComponent(shortcode)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setLookup(d) })
+      .catch(() => { if (!cancelled) setLookup(null) })
+      .finally(() => { if (!cancelled) setLookupLoading(false) })
+    return () => { cancelled = true }
+  }, [shortcode])
+
   const creator = useMemo(() => allCreators.find(c => c.id === selectedCreator), [allCreators, selectedCreator])
 
   const mergedPrompt = useMemo(() => {
@@ -98,6 +197,14 @@ export default function RecreatePage() {
     const identityHeader = `Subject: ${creator.aka || creator.name || 'creator'} — keep face, hair, body, and styling consistent with reference image.`
     return `${identityHeader}\n\n${extractedPrompt}`
   }, [extractedPrompt, creator])
+
+  const downloadCapturedFrame = () => {
+    if (!capturedFrame) return
+    const a = document.createElement('a')
+    a.href = capturedFrame
+    a.download = `inspo_frame_${shortcode || 'reel'}.jpg`
+    a.click()
+  }
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
@@ -129,32 +236,81 @@ export default function RecreatePage() {
             >Open Reel ↗</button>
           )}
         </div>
-        {shortcode ? (
+        {shortcode && (
           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
             Shortcode: <code style={{ color: 'var(--palm-pink)' }}>{shortcode}</code>
+            {lookupLoading && <span style={{ marginLeft: '12px' }}>Looking up in pipeline…</span>}
+            {!lookupLoading && lookup?.source && <span style={{ marginLeft: '12px', color: '#7DD3A4' }}>✓ Found in {lookup.source}</span>}
+            {!lookupLoading && lookup && !lookup.source && <span style={{ marginLeft: '12px', color: '#FFC864' }}>Not in pipeline yet — manual upload available below</span>}
           </div>
-        ) : (
+        )}
+        {!shortcode && (
           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
             Paste an Instagram reel URL to begin. Currently scoped to simple short videos with no camera motion.
           </div>
         )}
       </StepCard>
 
-      {/* Step 2 — Screenshot First Frame */}
-      <StepCard n={2} title="Screenshot the First Frame">
-        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
-          Open the reel, screenshot the first frame, and upload it here. We&apos;ll feed this into ChatGPT or Grok in the next step.
-        </div>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={e => setScreenshotFile(e.target.files?.[0] || null)}
-          style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
-        />
-        {screenshotPreview && (
-          <div style={{ marginTop: '12px', maxWidth: '300px', borderRadius: '8px', overflow: 'hidden' }}>
+      {/* Step 2 — Frame Capture */}
+      <StepCard n={2} title="Capture the First Frame">
+        {/* Already captured — show preview + actions */}
+        {capturedFrame && (
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={capturedFrame} alt="Captured frame" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>✓ Frame captured</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>Download it and upload to ChatGPT/Grok in Step 3.</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={downloadCapturedFrame} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>↓ Download</button>
+                  <button onClick={() => setCapturedFrame(null)} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>Try another</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* No capture yet — show frame picker if we have a video, else fallback options */}
+        {!capturedFrame && lookup?.dbRawLink && (
+          <FrameCapture videoUrl={lookup.dbRawLink} onCapture={setCapturedFrame} />
+        )}
+
+        {!capturedFrame && lookup && !lookup.dbRawLink && lookup.thumbnail && (
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={screenshotPreview} alt="First frame" style={{ width: '100%', display: 'block' }} />
+            <img src={lookup.thumbnail} alt="Existing thumbnail" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                Video file isn&apos;t saved for this record, but we have the thumbnail from the analysis pipeline. Use it as the screenshot:
+              </div>
+              <button
+                onClick={() => setCapturedFrame(lookup.thumbnail)}
+                style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
+              >
+                Use this thumbnail
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!capturedFrame && (!lookup || (!lookup.dbRawLink && !lookup.thumbnail)) && (
+          <div>
+            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
+              {lookup === null && shortcode ? 'Looking up…' : 'No saved video found. Upload a screenshot manually:'}
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={e => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = ev => setCapturedFrame(ev.target.result)
+                reader.readAsDataURL(file)
+              }}
+              style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
+            />
           </div>
         )}
       </StepCard>
@@ -162,7 +318,7 @@ export default function RecreatePage() {
       {/* Step 3 — Extract Generic Prompt */}
       <StepCard n={3} title="Extract Generic Prompt in ChatGPT or Grok">
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
-          Open ChatGPT or Grok, upload the screenshot from Step 2, and paste this prompt:
+          Open ChatGPT or Grok, upload the frame from Step 2, and paste this prompt:
         </div>
         <div style={{
           background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '12px',
