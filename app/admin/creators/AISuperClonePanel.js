@@ -27,6 +27,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh }
   const [generating, setGenerating] = useState(false)
   const [taskId, setTaskId] = useState(null)
   const [error, setError] = useState('')
+  const [dragOver, setDragOver] = useState(false)
 
   // Polling effect — when we have a taskId, poll every 4s until completed/failed.
   useEffect(() => {
@@ -185,13 +186,34 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh }
             onChange={e => handleUpload(e.target.files)}
             style={{ display: 'none' }}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px dashed var(--palm-pink)', borderRadius: '6px', cursor: uploading ? 'wait' : 'pointer', width: '100%' }}
+          <div
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); if (!uploading) setDragOver(true) }}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!uploading) setDragOver(true) }}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false) }}
+            onDrop={(e) => {
+              e.preventDefault(); e.stopPropagation()
+              setDragOver(false)
+              if (uploading) return
+              const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'))
+              if (files.length) handleUpload(files)
+            }}
+            style={{
+              padding: '14px 12px', fontSize: '12px', fontWeight: 600,
+              background: dragOver ? 'rgba(232, 160, 160, 0.12)' : 'transparent',
+              color: 'var(--palm-pink)',
+              border: `1px dashed ${dragOver ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.5)'}`,
+              borderRadius: '6px', cursor: uploading ? 'wait' : 'pointer',
+              textAlign: 'center', userSelect: 'none',
+              transition: 'background 0.12s, border-color 0.12s',
+            }}
           >
-            {uploading ? 'Uploading…' : `+ Add ${meta.label.toLowerCase()} photos`}
-          </button>
+            {uploading
+              ? 'Uploading…'
+              : dragOver
+                ? `Drop to upload`
+                : `+ Drop or click to add ${meta.label.toLowerCase()} photos`}
+          </div>
           {inputs.length > 0 && (
             <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '6px', fontStyle: 'italic' }}>
               First image = face anchor. The AI locks onto this face for all outputs.
