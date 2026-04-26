@@ -42,6 +42,12 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh }
         })
         const data = await res.json()
         if (cancelled) return
+        if (!res.ok) {
+          setError(data.error || `Poll failed (${res.status})`)
+          setTaskId(null)
+          setGenerating(false)
+          return
+        }
         if (data.status === 'completed') {
           setTaskId(null)
           setGenerating(false)
