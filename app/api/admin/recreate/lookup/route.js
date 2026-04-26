@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 
+export const dynamic = 'force-dynamic'
+
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 const SOURCE_REELS_TABLE = 'Source Reels'
 
