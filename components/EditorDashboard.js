@@ -2349,6 +2349,171 @@ function BufferOverview({ creators }) {
 // /api/editor/dashboard payload the main board uses, then flattens every
 // creator's needsRevision array into a single sorted list so the editor
 // doesn't have to scrub day-by-day to find them.
+//
+// Card layout mirrors the admin For Review screen — RAW | EDIT | INSPO
+// autoplay video strip on top, admin feedback panel + Upload Revision below —
+// so the editor sees both their original submission and their source clip
+// side-by-side without leaving the tab.
+
+function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
+  const [expanded, setExpanded] = useState(false)
+  const fmtDate = task.completedAt
+    ? new Date(task.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
+    : null
+
+  const rawClipPrimary = (task.asset?.dropboxLink || '').split('\n').filter(Boolean)[0] || ''
+  const rawClipUrl = rawDropboxUrl(rawClipPrimary)
+  const editedFileLink = task.asset?.editedFileLink || ''
+  const editUrl = rawDropboxUrl(editedFileLink)
+  const inspoVideoUrl = task.inspo?.dbShareLink ? rawDropboxUrl(task.inspo.dbShareLink) : ''
+  const hasInspo = !!(inspoVideoUrl || task.inspo?.thumbnail)
+
+  return (
+    <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {/* Video strip — RAW | EDIT | INSPO */}
+      <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
+        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a0a14' }}>
+          {rawClipUrl ? (
+            <>
+              <video src={rawClipUrl} autoPlay muted loop playsInline preload="metadata"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+              <button onClick={() => onOpenVideo(rawClipPrimary)}
+                style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                ⛶
+              </button>
+            </>
+          ) : (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-subtle)', fontSize: '11px' }}>No raw clip</div>
+          )}
+          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#78B4E8', fontWeight: 600 }}>RAW</div>
+        </div>
+
+        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a1a0a' }}>
+          {editUrl ? (
+            <>
+              <video src={editUrl} autoPlay muted loop playsInline preload="metadata"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+              <button onClick={() => onOpenVideo(editedFileLink)}
+                style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                ⛶
+              </button>
+            </>
+          ) : (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-subtle)', fontSize: '11px' }}>No edit yet</div>
+          )}
+          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#7DD3A4', fontWeight: 600 }}>EDIT</div>
+        </div>
+
+        {hasInspo && (
+          <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#14000a' }}>
+            {inspoVideoUrl ? (
+              <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+            ) : task.inspo?.thumbnail ? (
+              <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+            ) : null}
+            <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)', wordBreak: 'break-word' }}>
+              {task._creatorName}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px', wordBreak: 'break-word' }}>
+              {task.inspo?.title || task.name || 'Untitled'}
+            </div>
+          </div>
+          {fmtDate && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', marginTop: '2px' }}>Submitted {fmtDate}</span>}
+        </div>
+
+        {/* Quick links */}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {editedFileLink && (
+            <a href={editedFileLink} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '3px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid transparent' }}>
+              Download Edit ↗
+            </a>
+          )}
+          {(task.asset?.dropboxLinks?.length > 1)
+            ? task.asset.dropboxLinks.map((link, i) => (
+                <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '11px', color: '#78B4E8', textDecoration: 'none', padding: '3px 8px', background: 'rgba(120, 180, 232, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
+                  Raw Clip {i + 1} ↗
+                </a>
+              ))
+            : rawClipPrimary && (
+                <a href={rawClipPrimary} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '11px', color: '#78B4E8', textDecoration: 'none', padding: '3px 8px', background: 'rgba(120, 180, 232, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
+                  Raw Clip ↗
+                </a>
+              )
+          }
+          {task.inspo?.contentLink && (
+            <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '3px 8px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '4px', border: '1px solid transparent' }}>
+              Original Reel ↗
+            </a>
+          )}
+        </div>
+
+        {/* Admin feedback (always shown — that's the whole point of this view) */}
+        {task.adminFeedback && (
+          <div style={{ background: 'rgba(232, 120, 120, 0.06)', border: '1px solid rgba(232, 120, 120, 0.2)', borderRadius: '8px', padding: '10px 12px' }}>
+            <div style={{ fontSize: '10px', color: '#E87878', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+              Feedback from reviewer
+            </div>
+            <div style={{ fontSize: '12px', color: '#E87878', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {task.adminFeedback}
+            </div>
+            {task.adminScreenshots?.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
+                {task.adminScreenshots.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'block', width: '56px', height: '56px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(232, 120, 120, 0.25)', flexShrink: 0 }}>
+                    <img src={url} alt={`Screenshot ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Optional: inspo direction toggle for context */}
+        {task.inspo?.notes && (
+          <>
+            <button onClick={() => setExpanded(p => !p)}
+              style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+              {expanded ? '▾ Hide inspo direction' : '▸ View inspo direction'}
+            </button>
+            {expanded && (
+              <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
+                {task.inspo.onScreenText && (
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#E8C878', background: 'rgba(232, 200, 120, 0.08)', borderRadius: '4px', padding: '6px 8px' }}>
+                    "{task.inspo.onScreenText}"
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        <button onClick={() => onUploadRevision(task)}
+          style={{ marginTop: 'auto', width: '100%', padding: '10px', fontSize: '13px', fontWeight: 700, background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.25)', borderRadius: '8px', cursor: 'pointer' }}>
+          Upload Revision
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export function EditorRevisionsView() {
   const [creators, setCreators] = useState([])
@@ -2357,6 +2522,7 @@ export function EditorRevisionsView() {
   const [submitModal, setSubmitModal] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [toast, setToast] = useState(null)
+  const [videoModal, setVideoModal] = useState(null)
 
   const showToast = (msg, isError = false) => {
     setToast({ msg, error: isError })
@@ -2447,18 +2613,12 @@ export function EditorRevisionsView() {
       ) : (
         <div className="editor-revisions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           {revisions.map(task => (
-            <div key={task.id} style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                {task._creatorName}
-              </div>
-              <TaskCard
-                task={task}
-                type="needsRevision"
-                creatorName={task._creatorName}
-                onAction={handleAction}
-                updating={updating === task.id}
-              />
-            </div>
+            <RevisionCard
+              key={task.id}
+              task={task}
+              onUploadRevision={() => setSubmitModal({ task, isRevision: true })}
+              onOpenVideo={(url) => setVideoModal(url)}
+            />
           ))}
         </div>
       )}
@@ -2472,6 +2632,19 @@ export function EditorRevisionsView() {
           onClose={() => setSubmitModal(null)}
           onSubmit={handleSubmit}
         />
+      )}
+
+      {videoModal && (
+        <div onClick={() => setVideoModal(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+          <video src={rawDropboxUrl(videoModal)} controls autoPlay
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '12px', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
+          <button onClick={() => setVideoModal(null)}
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--foreground)', fontSize: '20px', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer' }}>
+            ×
+          </button>
+        </div>
       )}
 
       {toast && (
