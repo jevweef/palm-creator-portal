@@ -59,41 +59,57 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(null) // { current, total, name }
   const [generating, setGenerating] = useState(false)
-  const [taskId, setTaskId] = useState(null)
+  // candidates: [{ taskId, status: 'processing'|'completed'|'failed', outputUrl?, error? }]
+  const [candidates, setCandidates] = useState([])
+  const [count, setCount] = useState(1)
+  const [approving, setApproving] = useState(false)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
+  // Poll each in-flight candidate independently. Stops when none are processing.
   useEffect(() => {
-    if (!taskId) return
+    if (!candidates.length) return
+    const inflight = candidates.filter(c => c.status === 'processing')
+    if (!inflight.length) return
     let cancelled = false
-    const poll = async () => {
+
+    const pollOne = async (taskId) => {
       try {
         const res = await fetch('/api/admin/creator-ai-clone/poll', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ creatorId, pose, taskId }),
+          body: JSON.stringify({ taskId }),
         })
         const data = await res.json()
         if (cancelled) return
         if (!res.ok) {
-          setError(data.error || `Poll failed (${res.status})`)
-          setTaskId(null); setGenerating(false); return
+          setCandidates(prev => prev.map(c => c.taskId === taskId ? { ...c, status: 'failed', error: data.error || `${res.status}` } : c))
+          return
         }
         if (data.status === 'completed') {
-          setTaskId(null); setGenerating(false); await onRefresh()
+          setCandidates(prev => prev.map(c => c.taskId === taskId ? { ...c, status: 'completed', outputUrl: data.outputUrl } : c))
         } else if (data.status === 'failed') {
-          setTaskId(null); setGenerating(false); setError(data.error || 'Generation failed')
+          setCandidates(prev => prev.map(c => c.taskId === taskId ? { ...c, status: 'failed', error: data.error } : c))
         } else {
-          setTimeout(poll, 4000)
+          setTimeout(() => pollOne(taskId), 4000)
         }
       } catch (e) {
         if (cancelled) return
-        setError(e.message); setTaskId(null); setGenerating(false)
+        setCandidates(prev => prev.map(c => c.taskId === taskId ? { ...c, status: 'failed', error: e.message } : c))
       }
     }
-    poll()
+
+    inflight.forEach(c => pollOne(c.taskId))
     return () => { cancelled = true }
-  }, [taskId, creatorId, pose, onRefresh])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidates.map(c => c.taskId).join(',')])
+
+  // When all candidates are done, flip generating off
+  useEffect(() => {
+    if (!candidates.length) return
+    const inflight = candidates.filter(c => c.status === 'processing')
+    if (inflight.length === 0) setGenerating(false)
+  }, [candidates])
 
   // Upload one file per request to stay under Vercel's 4.5MB body limit
   // without compressing. Sequential so we can show progress + so concurrent
@@ -160,26 +176,45 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
   }
 
   const handleGenerate = async () => {
-    setError(''); setGenerating(true)
+    setError('')
+    setGenerating(true)
+    setCandidates([]) // wipe any previous candidate set
     try {
       const res = await fetch('/api/admin/creator-ai-clone/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, pose, customPrompt: prompts[pose] }),
+        body: JSON.stringify({ creatorId, pose, count, customPrompt: prompts[pose] }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generate failed')
-      setTaskId(data.taskId)
+      setCandidates(data.taskIds.map(id => ({ taskId: id, status: 'processing' })))
     } catch (e) { setError(e.message); setGenerating(false) }
   }
 
   const handleRegenerate = () => {
     onConfirm({
       title: `Regenerate ${meta.label} reference?`,
-      message: 'The current approved image will be replaced with a new generation.',
+      message: 'The current approved image will be replaced when you pick a new one.',
       confirmLabel: 'Regenerate',
       onConfirm: () => handleGenerate(),
     })
+  }
+
+  const handleApprove = async (outputUrl) => {
+    setApproving(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/creator-ai-clone/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, pose, outputUrl }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Approve failed')
+      setCandidates([])
+      await onRefresh()
+    } catch (e) { setError(e.message) }
+    finally { setApproving(false) }
   }
 
   const canGenerate = inputs.length > 0 && !generating
@@ -217,8 +252,8 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
         )}
       </div>
 
-      {/* Body — inputs (left) + output (right when present) */}
-      <div style={{ display: 'grid', gridTemplateColumns: output ? 'minmax(0, 1fr) 200px' : 'minmax(0, 1fr)', gap: '14px', alignItems: 'start' }}>
+      {/* Body — inputs (left) + output/candidates (right when present) */}
+      <div style={{ display: 'grid', gridTemplateColumns: (output || candidates.length) ? 'minmax(0, 1fr) minmax(220px, 320px)' : 'minmax(0, 1fr)', gap: '14px', alignItems: 'start' }}>
         {/* Inputs */}
         <div
           {...dragHandlers}
@@ -310,8 +345,56 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
           )}
         </div>
 
-        {/* Output */}
-        {output && (
+        {/* Right column: candidates (taking precedence) OR approved output */}
+        {candidates.length > 0 ? (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Candidates ({candidates.filter(c => c.status === 'completed').length}/{candidates.length})
+              </div>
+              <button
+                onClick={() => setCandidates([])}
+                style={{ padding: '2px 6px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
+              >Clear</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: candidates.length === 1 ? '1fr' : 'repeat(2, 1fr)', gap: '6px' }}>
+              {candidates.map((c) => (
+                <div key={c.taskId} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
+                  {c.status === 'processing' && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--foreground-muted)', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ width: '20px', height: '20px', border: '2px solid rgba(232,160,160,0.3)', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
+                      <span>Generating…</span>
+                    </div>
+                  )}
+                  {c.status === 'failed' && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#E87878', textAlign: 'center', padding: '6px' }}>
+                      ✕ {c.error || 'Failed'}
+                    </div>
+                  )}
+                  {c.status === 'completed' && c.outputUrl && (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={c.outputUrl}
+                        alt="candidate"
+                        onClick={() => onZoom(c.outputUrl)}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+                      />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleApprove(c.outputUrl) }}
+                        disabled={approving}
+                        title="Approve this one as the reference"
+                        style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', padding: '4px 6px', fontSize: '10px', fontWeight: 700, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '4px', cursor: approving ? 'wait' : 'pointer' }}
+                      >
+                        {approving ? '…' : '✓ Approve'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : output ? (
           <div>
             <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
               AI Reference
@@ -324,17 +407,9 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                 onClick={() => onZoom(output.url)}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
-              <button
-                onClick={(e) => { e.stopPropagation(); handleRegenerate() }}
-                disabled={generating}
-                title="Regenerate"
-                style={{ position: 'absolute', bottom: '6px', right: '6px', padding: '4px 8px', fontSize: '10px', fontWeight: 600, background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '4px', cursor: generating ? 'wait' : 'pointer' }}
-              >
-                {generating ? '…' : '🔄'}
-              </button>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Bottom row — prompt details + generate button */}
@@ -356,23 +431,40 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
           )}
         </details>
 
-        {!output && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', flexShrink: 0, marginTop: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+              Count
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={4}
+              step={1}
+              value={count}
+              onChange={e => setCount(parseInt(e.target.value, 10))}
+              disabled={generating}
+              style={{ width: '90px', accentColor: 'var(--palm-pink)', cursor: generating ? 'not-allowed' : 'pointer' }}
+            />
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)', minWidth: '14px', textAlign: 'right' }}>{count}</span>
+          </div>
           <button
-            onClick={handleGenerate}
+            onClick={output ? handleRegenerate : handleGenerate}
             disabled={!canGenerate}
             style={{
               padding: '7px 14px', fontSize: '12px', fontWeight: 700,
               background: canGenerate ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
               color: canGenerate ? '#060606' : 'var(--foreground-subtle)',
-              border: 'none', borderRadius: '6px', flexShrink: 0,
+              border: 'none', borderRadius: '6px',
               cursor: canGenerate ? 'pointer' : 'not-allowed',
-              alignSelf: 'flex-start', marginTop: '4px',
             }}
           >
-            {generating ? '⏳ Generating…' : `✨ Generate`}
+            {generating ? '⏳ Generating…' : output ? `🔄 Regenerate ${count > 1 ? `(${count})` : ''}` : `✨ Generate ${count > 1 ? `(${count})` : ''}`}
           </button>
-        )}
+        </div>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
       {generating && !output && (
         <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
