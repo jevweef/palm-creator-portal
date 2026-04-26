@@ -33,7 +33,7 @@ export async function GET(request) {
     // SEARCH is case-insensitive and tolerates URL format differences (/reel/ vs /reels/).
     const inspoRecords = await fetchAirtableRecords(INSPIRATION_TABLE, {
       filterByFormula: `SEARCH("${shortcode}", {Content link})`,
-      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Status'],
+      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status'],
       maxRecords: 1,
     })
 
@@ -46,6 +46,10 @@ export async function GET(request) {
         username: r.fields['Username'] || '',
         title: r.fields['Title'] || '',
         onScreenText: r.fields['On-Screen Text'] || '',
+        notes: r.fields['Notes'] || '',
+        tags: r.fields['Tags'] || [],
+        filmFormat: r.fields['Film Format'] || [],
+        klingPrompt: r.fields['Kling Prompt'] || '',
         thumbnail: r.fields['Thumbnail']?.[0]?.url || null,
         dbShareLink: r.fields['DB Share Link'] || '',
         dbRawLink: r.fields['DB Raw = 1'] || '',

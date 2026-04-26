@@ -6,8 +6,6 @@ import { useSearchParams } from 'next/navigation'
 const NANO_BANANA_URL = 'https://wavespeed.ai/models/google/nano-banana-2/edit'
 const KLING_URL = 'https://wavespeed.ai/models/kwaivgi/kling-video-o3-pro/image-to-video'
 
-const EXTRACT_PROMPT = `extract the exact image prompt, keep everything the same, dont describe the girl's shape or hair or facial features, include settings like "Raw image, shot on iphone, 4K, hyper realistic."`
-
 function shortcodeFromUrl(url) {
   const m = url?.match(/instagram\.com\/(?:p|reel|reels)\/([A-Za-z0-9_-]+)/)
   return m ? m[1] : null
@@ -69,15 +67,11 @@ function StepCard({ n, title, status, children }) {
   )
 }
 
-// Inline frame picker: scrub a Dropbox-hosted reel video and capture a frame
-// purely client-side via canvas. No upload — the captured data URL is shown
-// and can be downloaded for use in ChatGPT/Grok in Step 3.
 function FrameCapture({ videoUrl, onCapture }) {
   const videoRef = useRef(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [error, setError] = useState('')
-
   const proxiedUrl = `/api/admin/video-proxy?url=${encodeURIComponent(rawDropboxUrl(videoUrl))}`
 
   const handleScrub = (e) => {
@@ -95,12 +89,8 @@ function FrameCapture({ videoUrl, onCapture }) {
     canvas.height = video.videoHeight
     const ctx = canvas.getContext('2d')
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    try {
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
-      onCapture(dataUrl)
-    } catch (e) {
-      setError(e.message)
-    }
+    try { onCapture(canvas.toDataURL('image/jpeg', 0.92)) }
+    catch (e) { setError(e.message) }
   }
 
   const formatTime = (s) => {
@@ -126,9 +116,6 @@ function FrameCapture({ videoUrl, onCapture }) {
         />
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-          Scrub to the frame you want and capture it. Defaults to the first frame.
-        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', minWidth: '32px', fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
           <input
@@ -155,35 +142,63 @@ function FrameCapture({ videoUrl, onCapture }) {
   )
 }
 
+// ChatGPT prompt template that turns existing inspo analysis into a Kling-formatted action prompt.
+// Until the analysis pipeline auto-generates these, the user pastes this into ChatGPT with the frame.
+function buildKlingChatGPTPrompt({ notes, onScreenText, tags, filmFormat, title }) {
+  const tagsLine = (tags || []).join(', ')
+  const filmLine = (filmFormat || []).join(', ')
+  return `Convert this video analysis into a Kling V3.0 4K image-to-video prompt.
+
+Format requirements (one paragraph, copy-paste ready):
+- Start with camera framing: "Selfie shot of...", "Mirror selfie of...", "Static shot of...", etc.
+- Describe the subject as an "american girl" — keep generic, NO shape/hair/face/body details
+- Describe the literal action happening on screen, beat by beat
+- If she speaks, include the exact spoken quote: she said "..."
+- End with motion descriptors: "Realistic lip sync, subtle hand-held movement, natural movements"
+- Add constraints when relevant: "no phone visible" if hand frames a selfie, "no cuts", etc.
+- Add voice direction at the end: "american accent"
+- No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
+
+Video analysis:
+Title: ${title || '(none)'}
+Tags: ${tagsLine || '(none)'}
+Film Format: ${filmLine || '(none)'}
+On-Screen Text: ${onScreenText || '(none)'}
+
+Inspo direction + what matters most:
+${notes || '(none)'}
+
+The reference image is attached. Output ONE Kling V3.0 4K image-to-video prompt only.`
+}
+
 export default function RecreatePage() {
   const searchParams = useSearchParams()
   const initialUrl = searchParams.get('url') || ''
 
   const [reelUrl, setReelUrl] = useState(initialUrl)
-  const [lookup, setLookup] = useState(null) // { source, dbRawLink, thumbnail, ... }
+  const [lookup, setLookup] = useState(null)
   const [lookupLoading, setLookupLoading] = useState(false)
-  const [capturedFrame, setCapturedFrame] = useState(null) // data URL or attachment URL
-  const [extractedPrompt, setExtractedPrompt] = useState('')
+  const [sourceFrame, setSourceFrame] = useState(null) // data URL or attachment URL
+  const [showScrubber, setShowScrubber] = useState(false)
   const [allCreators, setAllCreators] = useState([])
   const [selectedCreator, setSelectedCreator] = useState('')
+  const [klingPrompt, setKlingPrompt] = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/palm-creators')
-      .then(r => r.json())
-      .then(d => setAllCreators(d.creators || []))
-      .catch(() => {})
+    fetch('/api/admin/palm-creators').then(r => r.json()).then(d => setAllCreators(d.creators || [])).catch(() => {})
   }, [])
 
   const shortcode = useMemo(() => shortcodeFromUrl(reelUrl), [reelUrl])
 
-  // Auto-lookup whenever the reel URL changes to a valid shortcode
   useEffect(() => {
     if (!shortcode) { setLookup(null); return }
     let cancelled = false
     setLookupLoading(true)
+    setSourceFrame(null)
+    setShowScrubber(false)
     fetch(`/api/admin/recreate/lookup?shortcode=${encodeURIComponent(shortcode)}`)
       .then(r => r.json())
-      .then(d => { if (!cancelled) setLookup(d) })
+      .then(d => { if (!cancelled) { setLookup(d); if (d?.klingPrompt) setKlingPrompt(d.klingPrompt) } })
       .catch(() => { if (!cancelled) setLookup(null) })
       .finally(() => { if (!cancelled) setLookupLoading(false) })
     return () => { cancelled = true }
@@ -191,17 +206,21 @@ export default function RecreatePage() {
 
   const creator = useMemo(() => allCreators.find(c => c.id === selectedCreator), [allCreators, selectedCreator])
 
-  const mergedPrompt = useMemo(() => {
-    if (!extractedPrompt) return ''
-    if (!creator) return extractedPrompt
-    const identityHeader = `Subject: ${creator.aka || creator.name || 'creator'} — keep face, hair, body, and styling consistent with reference image.`
-    return `${identityHeader}\n\n${extractedPrompt}`
-  }, [extractedPrompt, creator])
+  const chatgptPrompt = useMemo(() => {
+    if (!lookup) return ''
+    return buildKlingChatGPTPrompt({
+      notes: lookup.notes,
+      onScreenText: lookup.onScreenText,
+      tags: lookup.tags,
+      filmFormat: lookup.filmFormat,
+      title: lookup.title,
+    })
+  }, [lookup])
 
-  const downloadCapturedFrame = () => {
-    if (!capturedFrame) return
+  const downloadFrame = () => {
+    if (!sourceFrame) return
     const a = document.createElement('a')
-    a.href = capturedFrame
+    a.href = sourceFrame
     a.download = `inspo_frame_${shortcode || 'reel'}.jpg`
     a.click()
   }
@@ -211,7 +230,7 @@ export default function RecreatePage() {
       <div style={{ marginBottom: '24px' }}>
         <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate</div>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
-          Take an inspo reel and recreate it with one of our creators using AI. Work in progress — bones first.
+          Inspo reel → Nano Banana 2 (creator-swap on the frame) → Kling V3.0 4K (animate). Work in progress.
         </div>
       </div>
 
@@ -241,188 +260,174 @@ export default function RecreatePage() {
             Shortcode: <code style={{ color: 'var(--palm-pink)' }}>{shortcode}</code>
             {lookupLoading && <span style={{ marginLeft: '12px' }}>Looking up in pipeline…</span>}
             {!lookupLoading && lookup?.error && <span style={{ marginLeft: '12px', color: '#E87878' }}>Lookup error: {lookup.error}</span>}
-            {!lookupLoading && lookup?.source && <span style={{ marginLeft: '12px', color: '#7DD3A4' }}>✓ Found in {lookup.source}</span>}
+            {!lookupLoading && lookup?.source && <span style={{ marginLeft: '12px', color: '#7DD3A4' }}>✓ Found {lookup.title ? `"${lookup.title}"` : ''} in {lookup.source}</span>}
             {!lookupLoading && lookup && !lookup.source && !lookup.error && <span style={{ marginLeft: '12px', color: '#FFC864' }}>Not in pipeline — manual upload available below</span>}
           </div>
         )}
-        {!shortcode && (
-          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-            Paste an Instagram reel URL to begin. Currently scoped to simple short videos with no camera motion.
-          </div>
-        )}
       </StepCard>
 
-      {/* Step 2 — Frame Capture */}
-      <StepCard n={2} title="Capture the First Frame">
-        {/* Already captured — show preview + actions */}
-        {capturedFrame && (
-          <div style={{ marginBottom: '14px' }}>
-            <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={capturedFrame} alt="Captured frame" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>✓ Frame captured</div>
-                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>Download it and upload to ChatGPT/Grok in Step 3.</div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={downloadCapturedFrame} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>↓ Download</button>
-                  <button onClick={() => setCapturedFrame(null)} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>Try another</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* No capture yet — show frame picker if we have a video, else fallback options */}
-        {!capturedFrame && lookup?.dbRawLink && (
-          <FrameCapture videoUrl={lookup.dbRawLink} onCapture={setCapturedFrame} />
-        )}
-
-        {!capturedFrame && lookup && !lookup.dbRawLink && lookup.thumbnail && (
+      {/* Step 2 — Source Frame */}
+      <StepCard n={2} title="Source Frame">
+        {sourceFrame ? (
           <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={lookup.thumbnail} alt="Existing thumbnail" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
+            <img src={sourceFrame} alt="Source frame" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-                Video file isn&apos;t saved for this record, but we have the thumbnail from the analysis pipeline. Use it as the screenshot:
+              <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>✓ Frame ready</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>This is the frame Nano Banana 2 will use for the creator swap.</div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={downloadFrame} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>↓ Download JPEG</button>
+                <button onClick={() => { setSourceFrame(null); setShowScrubber(false) }} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>Pick another</button>
               </div>
-              <button
-                onClick={() => setCapturedFrame(lookup.thumbnail)}
-                style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
-              >
-                Use this thumbnail
-              </button>
             </div>
           </div>
-        )}
-
-        {!capturedFrame && (!lookup || (!lookup.dbRawLink && !lookup.thumbnail)) && (
+        ) : (
           <div>
-            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
-              {lookup === null && shortcode ? 'Looking up…' : 'No saved video found. Upload a screenshot manually:'}
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={e => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                const reader = new FileReader()
-                reader.onload = ev => setCapturedFrame(ev.target.result)
-                reader.readAsDataURL(file)
-              }}
-              style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
-            />
+            {/* Default: existing analysis thumbnail */}
+            {lookup?.thumbnail && !showScrubber && (
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '12px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={lookup.thumbnail} alt="Pipeline thumbnail" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>Frame from analysis</div>
+                  <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>This is the frame the inspo pipeline already pulled. Most of the time this is the one you want.</div>
+                  <button
+                    onClick={() => setSourceFrame(lookup.thumbnail)}
+                    style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 700, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
+                  >
+                    Use this frame
+                  </button>
+                  {lookup.dbRawLink && (
+                    <button
+                      onClick={() => setShowScrubber(true)}
+                      style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
+                    >
+                      Pick a different frame from the video
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Scrubber: only when user opts in */}
+            {lookup?.dbRawLink && showScrubber && (
+              <FrameCapture videoUrl={lookup.dbRawLink} onCapture={setSourceFrame} />
+            )}
+
+            {/* Fallback: manual upload */}
+            {(!lookup || (!lookup.thumbnail && !lookup.dbRawLink)) && (
+              <div>
+                <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
+                  {lookup === null && shortcode ? 'Looking up…' : 'No saved frame for this reel. Upload a screenshot manually:'}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => {
+                    const file = e.target.files?.[0]; if (!file) return
+                    const reader = new FileReader()
+                    reader.onload = ev => setSourceFrame(ev.target.result)
+                    reader.readAsDataURL(file)
+                  }}
+                  style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
+                />
+              </div>
+            )}
           </div>
         )}
       </StepCard>
 
-      {/* Step 3 — Extract Generic Prompt */}
-      <StepCard n={3} title="Extract Generic Prompt in ChatGPT or Grok">
-        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
-          Open ChatGPT or Grok, upload the frame from Step 2, and paste this prompt:
-        </div>
-        <div style={{
-          background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '12px',
-          fontSize: '12px', fontFamily: 'monospace', color: 'var(--foreground)',
-          marginBottom: '10px', whiteSpace: 'pre-wrap', lineHeight: 1.5,
-        }}>{EXTRACT_PROMPT}</div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <CopyBtn text={EXTRACT_PROMPT} label="Copy prompt" />
-          <a href="https://chat.openai.com/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-            <button style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}>Open ChatGPT ↗</button>
-          </a>
-          <a href="https://grok.com/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-            <button style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}>Open Grok ↗</button>
-          </a>
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '10px', fontStyle: 'italic' }}>
-          Why no shape / hair / facial features? So the prompt stays generic and we can swap in our creator&apos;s identity in Step 4.
-        </div>
-      </StepCard>
-
-      {/* Step 4 — Paste Extracted Prompt + Pick Creator */}
-      <StepCard n={4} title="Paste Extracted Prompt & Pick Creator">
-        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
-          Paste what ChatGPT / Grok returned, then pick the creator we&apos;re recreating this for.
-        </div>
-        <textarea
-          placeholder="Paste the extracted image prompt here..."
-          value={extractedPrompt}
-          onChange={e => setExtractedPrompt(e.target.value)}
-          rows={6}
-          style={{
-            width: '100%', padding: '10px', fontSize: '12px',
-            background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '6px', color: 'var(--foreground)', fontFamily: 'monospace',
-            resize: 'vertical', marginBottom: '12px',
-          }}
-        />
+      {/* Step 3 — Pick Creator */}
+      <StepCard n={3} title="Pick Creator">
         <select
           value={selectedCreator}
           onChange={e => setSelectedCreator(e.target.value)}
-          style={{
-            width: '100%', padding: '8px 12px', fontSize: '13px',
-            background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '6px', color: 'var(--foreground)',
-          }}
+          style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)' }}
         >
           <option value="">— Select creator —</option>
           {allCreators.map(c => (
             <option key={c.id} value={c.id}>{c.aka || c.name}</option>
           ))}
         </select>
-      </StepCard>
-
-      {/* Step 5 — Merged Prompt for Nano Banana 2 */}
-      <StepCard n={5} title="Generate Image in Nano Banana 2" status={mergedPrompt ? null : 'waiting'}>
-        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
-          Copy the merged prompt below, open Nano Banana 2, upload your creator&apos;s reference image, and paste this prompt.
-        </div>
-        <div style={{
-          background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '12px',
-          fontSize: '12px', fontFamily: 'monospace', color: 'var(--foreground)',
-          marginBottom: '10px', whiteSpace: 'pre-wrap', lineHeight: 1.5,
-          minHeight: '60px',
-        }}>{mergedPrompt || <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>Complete steps 3 and 4 to generate the merged prompt.</span>}</div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <CopyBtn text={mergedPrompt} label="Copy merged prompt" />
-          <a href={NANO_BANANA_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-            <button style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}>Open Nano Banana 2 ↗</button>
-          </a>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '8px', fontStyle: 'italic' }}>
+          You&apos;ll need this creator&apos;s reference photo handy when you upload to Nano Banana 2 in Step 4.
         </div>
       </StepCard>
 
-      {/* Step 6 — Animate in Kling O3 Pro */}
-      <StepCard n={6} title="Animate in Kling O3 Pro" status="bones">
-        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
-          Once the still image looks right, take it to Kling O3 Pro to animate. Process for matching the original reel&apos;s motion / talking is still being figured out.
+      {/* Step 4 — Generate Image in Nano Banana 2 */}
+      <StepCard n={4} title="Swap Creator into the Frame (Nano Banana 2)">
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.6 }}>
+          Open Nano Banana 2, upload <strong style={{ color: 'var(--foreground)' }}>two images</strong>: the source frame from Step 2, and {creator ? <strong style={{ color: 'var(--foreground)' }}>{creator.aka || creator.name}&apos;s</strong> : 'your creator&apos;s'} reference photo. Tell it to keep the scene from the first image and replace the subject&apos;s identity (face, hair, body) with the second.
         </div>
-        <a href={KLING_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-          <button style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}>Open Kling O3 Pro ↗</button>
+        <a href={NANO_BANANA_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+          <button style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Open Nano Banana 2 ↗</button>
         </a>
       </StepCard>
 
-      {/* Step 7 — Final Output */}
+      {/* Step 5 — Kling Action Prompt */}
+      <StepCard n={5} title="Kling V3.0 4K Action Prompt" status={lookup?.klingPrompt ? null : 'manual'}>
+        {lookup?.klingPrompt ? (
+          <div>
+            <div style={{ fontSize: '12px', color: '#7DD3A4', marginBottom: '10px', fontWeight: 600 }}>✓ Pre-generated from analysis</div>
+            <textarea
+              value={klingPrompt}
+              onChange={e => setKlingPrompt(e.target.value)}
+              rows={5}
+              style={{ width: '100%', padding: '10px', fontSize: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', fontFamily: 'monospace', resize: 'vertical', marginBottom: '10px' }}
+            />
+            <CopyBtn text={klingPrompt} label="Copy Kling prompt" />
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.6 }}>
+              No pre-generated Kling prompt for this reel yet (analysis pipeline doesn&apos;t output them). Paste the template below into ChatGPT along with the frame from Step 2 — it&apos;ll return a Kling V3.0–formatted action prompt.
+            </div>
+            <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '12px', fontSize: '11px', fontFamily: 'monospace', color: 'var(--foreground)', marginBottom: '10px', whiteSpace: 'pre-wrap', lineHeight: 1.5, maxHeight: '240px', overflowY: 'auto' }}>{chatgptPrompt || 'Paste a reel URL above to populate the template.'}</div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <CopyBtn text={chatgptPrompt} label="Copy ChatGPT template" />
+              <a href="https://chat.openai.com/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                <button style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}>Open ChatGPT ↗</button>
+              </a>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>Paste the result back here:</div>
+            <textarea
+              placeholder="Kling V3.0 4K action prompt..."
+              value={klingPrompt}
+              onChange={e => setKlingPrompt(e.target.value)}
+              rows={4}
+              style={{ width: '100%', padding: '10px', fontSize: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', fontFamily: 'monospace', resize: 'vertical', marginBottom: '10px' }}
+            />
+            <CopyBtn text={klingPrompt} label="Copy Kling prompt" />
+          </div>
+        )}
+      </StepCard>
+
+      {/* Step 6 — Animate in Kling */}
+      <StepCard n={6} title="Animate in Kling V3.0 4K">
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.6 }}>
+          Upload the Nano Banana 2 output (the creator-swapped image), paste the Kling prompt from Step 5, and generate.
+        </div>
+        <a href={KLING_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+          <button style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Open Kling ↗</button>
+        </a>
+      </StepCard>
+
+      {/* Step 7 — Final */}
       <StepCard n={7} title="Save Final Output" status="tbd">
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
           Will eventually attach the final video to the creator&apos;s asset library and the originating inspo reel record.
         </div>
       </StepCard>
 
-      {/* Open Questions */}
-      <div style={{
-        background: 'rgba(255, 200, 100, 0.04)',
-        border: '1px solid rgba(255, 200, 100, 0.15)',
-        borderRadius: '12px', padding: '16px', marginTop: '24px',
-      }}>
+      {/* TODO callout */}
+      <div style={{ background: 'rgba(255, 200, 100, 0.04)', border: '1px solid rgba(255, 200, 100, 0.15)', borderRadius: '12px', padding: '16px', marginTop: '24px' }}>
         <div style={{ fontSize: '12px', fontWeight: 700, color: '#FFC864', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Open questions
+          Next on the roadmap
         </div>
         <ul style={{ fontSize: '12px', color: 'var(--foreground-muted)', margin: 0, paddingLeft: '18px', lineHeight: 1.6 }}>
-          <li>One screenshot vs multiple frames?</li>
-          <li>Does this work for reels with camera motion or just static shots?</li>
-          <li>How do we transfer the action / pose / talking of the original onto our creator?</li>
-          <li>How do we keep continuity if the reel has multiple scenes or cuts?</li>
+          <li>Bake Kling V3.0 prompt generation into the inspo analysis pipeline (test_inspo.py) so every new reel gets one auto-saved to the <code>Kling Prompt</code> field. Step 5 will then be a one-click copy.</li>
+          <li>Backfill old records on demand (~600 to redo, expensive — only if the manual flow shows it&apos;s worth it).</li>
+          <li>Open question: does the analysis frame work for talking-head reels, or do we need a frame where lips are clearly open?</li>
         </ul>
       </div>
     </div>
