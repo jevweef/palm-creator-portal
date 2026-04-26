@@ -15,15 +15,26 @@ const FIELDS = [
 // Shape the Airtable record for the UI.
 function buildState(record) {
   const f = record.fields || {}
-  const inputs = (f['AI Ref Inputs'] || []).map(att => ({
-    id: att.id,
-    url: att.url,
-    filename: att.filename,
-    pose: poseFromFilename(att.filename),
-    width: att.width,
-    height: att.height,
-    type: att.type,
-  }))
+  // Dedupe by filename — pre-fix uploads could overwrite an existing Dropbox
+  // file at the same path and leave Airtable with two attachment records
+  // pointing at the same shared link.
+  const seen = new Set()
+  const inputs = (f['AI Ref Inputs'] || [])
+    .filter(att => {
+      const key = att.filename || att.url
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .map(att => ({
+      id: att.id,
+      url: att.url,
+      filename: att.filename,
+      pose: poseFromFilename(att.filename),
+      width: att.width,
+      height: att.height,
+      type: att.type,
+    }))
 
   const inputsByPose = { front: [], back: [], face: [] }
   for (const att of inputs) {

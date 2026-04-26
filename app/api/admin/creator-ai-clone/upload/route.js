@@ -60,8 +60,18 @@ export async function POST(request) {
 
     const existing = record.fields['AI Ref Inputs'] || []
     const poseFilePrefix = `${POSES[pose].fileLabel} input_`
-    const existingForPose = existing.filter(att => att.filename?.startsWith(poseFilePrefix))
-    let nextIndex = existingForPose.length + 1
+    // Use max existing index + 1 (NOT length + 1). After deleting a middle
+    // photo, length drops but the higher filenames are still taken — reusing
+    // an index would overwrite the existing Dropbox file and leave Airtable
+    // with two attachments pointing at the same shared link (duplicates).
+    const indexRe = new RegExp(`^${POSES[pose].fileLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} input_(\\d+)`)
+    const existingIndices = existing
+      .map(att => {
+        const m = att.filename?.match(indexRe)
+        return m ? parseInt(m[1], 10) : 0
+      })
+      .filter(n => n > 0)
+    let nextIndex = (existingIndices.length ? Math.max(...existingIndices) : 0) + 1
 
     // Dropbox setup
     const accessToken = await getDropboxAccessToken()
