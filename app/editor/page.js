@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
-import { EditorDashboardContent } from '@/components/EditorDashboard'
+import { EditorDashboardContent, EditorRevisionsView } from '@/components/EditorDashboard'
 import LongFormUpload from '@/components/LongFormUpload'
 
 export { EditorDashboardContent }
@@ -13,6 +13,25 @@ export default function EditorDashboardPage() {
   const pathname = usePathname()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'dashboard')
   const [toast, setToast] = useState(null)
+  // Lightweight poll just for the revisions count badge — same endpoint the
+  // dashboard already hits, so no real cost at the API layer.
+  const [revisionCount, setRevisionCount] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch('/api/editor/dashboard')
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled) return
+        const total = (data.creators || []).reduce((sum, c) => sum + (c.needsRevision?.length || 0), 0)
+        setRevisionCount(total)
+      } catch {}
+    }
+    load()
+    return () => { cancelled = true }
+  }, [activeTab])
 
   const switchTab = (key) => {
     setActiveTab(key)
@@ -26,6 +45,7 @@ export default function EditorDashboardPage() {
 
   const TABS = [
     { key: 'dashboard', label: '📋 Dashboard' },
+    { key: 'revisions', label: '⚠ Revisions', badge: revisionCount },
     { key: 'longform', label: '🎬 Long Form' },
   ]
 
@@ -58,13 +78,25 @@ export default function EditorDashboardPage() {
                 color: activeTab === tab.key ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none',
                 borderBottom: activeTab === tab.key ? '1px solid var(--palm-pink)' : '1px solid transparent',
                 cursor: 'pointer', marginBottom: '-1px', transition: 'all 0.3s var(--ease-stripe)',
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
               }}>
               {tab.label}
+              {tab.badge ? (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  minWidth: '18px', height: '18px', padding: '0 6px', borderRadius: '9px',
+                  fontSize: '10px', fontWeight: 700, letterSpacing: 0,
+                  background: 'rgba(232, 120, 120, 0.15)', color: '#E87878',
+                }}>
+                  {tab.badge}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
 
         {activeTab === 'dashboard' && <EditorDashboardContent />}
+        {activeTab === 'revisions' && <EditorRevisionsView />}
         {activeTab === 'longform' && <LongFormUpload showToast={showToast} />}
 
         {toast && (

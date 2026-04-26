@@ -2344,6 +2344,152 @@ function BufferOverview({ creators }) {
   )
 }
 
+// ─── Revisions-only view (editor) ──────────────────────────────────────────────
+// Editor's at-a-glance "what still needs revision" list. Pulls the same
+// /api/editor/dashboard payload the main board uses, then flattens every
+// creator's needsRevision array into a single sorted list so the editor
+// doesn't have to scrub day-by-day to find them.
+
+export function EditorRevisionsView() {
+  const [creators, setCreators] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [submitModal, setSubmitModal] = useState(null)
+  const [updating, setUpdating] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const showToast = (msg, isError = false) => {
+    setToast({ msg, error: isError })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    if (!silent) setError(null)
+    try {
+      const res = await fetch('/api/editor/dashboard')
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+      const data = await res.json()
+      setCreators(data.creators || [])
+    } catch (err) {
+      if (!silent) setError(err.message)
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // Flatten revisions across creators, oldest first so the most-overdue
+  // sits at the top. Tag each with the creator name + id so TaskCard can
+  // render context and the resubmit path can target the right creator.
+  const revisions = creators.flatMap(c =>
+    (c.needsRevision || []).map(t => ({ ...t, _creatorName: c.name, _creatorId: c.id }))
+  ).sort((a, b) => new Date(a.completedAt || 0) - new Date(b.completedAt || 0))
+
+  const handleAction = (type, task) => {
+    if (type === 'revision') setSubmitModal({ task, isRevision: true })
+  }
+
+  const handleSubmit = async (taskId, editedFileLink, editedFilePath, editorNotes) => {
+    setUpdating(taskId)
+    try {
+      const res = await fetch('/api/admin/editor', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, newStatus: 'Done', editedFileLink, editedFilePath, editorNotes, isRevision: true }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Submit failed')
+      setSubmitModal(null)
+      showToast('Revision submitted')
+      await fetchData(true)
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  if (loading) return <div style={{ color: 'var(--foreground-subtle)', fontSize: '14px', padding: '40px 0' }}>Loading revisions...</div>
+  if (error) return <div style={{ color: '#E87878', fontSize: '14px', padding: '40px 0' }}>{error}</div>
+
+  return (
+    <div>
+      <style>{`
+        @media (max-width: 768px) {
+          .editor-revisions-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (min-width: 769px) and (max-width: 1100px) {
+          .editor-revisions-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>
+            Revisions
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+            {revisions.length === 0
+              ? 'No revisions outstanding — you\'re caught up.'
+              : `${revisions.length} edit${revisions.length === 1 ? '' : 's'} need${revisions.length === 1 ? 's' : ''} revision`}
+          </div>
+        </div>
+        <button onClick={() => fetchData()}
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
+          Refresh
+        </button>
+      </div>
+
+      {revisions.length === 0 ? (
+        <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+          ✓ All clear — nothing waiting on you.
+        </div>
+      ) : (
+        <div className="editor-revisions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+          {revisions.map(task => (
+            <div key={task.id} style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                {task._creatorName}
+              </div>
+              <TaskCard
+                task={task}
+                type="needsRevision"
+                creatorName={task._creatorName}
+                onAction={handleAction}
+                updating={updating === task.id}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {submitModal && (
+        <SubmitModal
+          task={submitModal.task}
+          creatorName={submitModal.task._creatorName}
+          creatorId={submitModal.task._creatorId}
+          isRevision={submitModal.isRevision}
+          onClose={() => setSubmitModal(null)}
+          onSubmit={handleSubmit}
+        />
+      )}
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 100,
+          padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+          background: toast.error ? 'rgba(232, 120, 120, 0.06)' : 'rgba(125, 211, 164, 0.08)',
+          color: toast.error ? '#E87878' : '#7DD3A4',
+          border: `1px solid ${toast.error ? 'rgba(232, 120, 120, 0.2)' : 'rgba(125, 211, 164, 0.2)'}`,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        }}>
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main exported component ───────────────────────────────────────────────────
 
 export function EditorDashboardContent() {
