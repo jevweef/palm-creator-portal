@@ -2,43 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-// Vercel serverless body limit is ~4.5MB. iPhone photos can easily be 5-10MB.
-// Downscale + re-encode client-side before sending so the multipart payload
-// stays well under the limit. Falls back to the original file if the browser
-// can't decode it (e.g. HEIC on Chrome/Firefox — surfaces as an error upstream).
-async function compressImageForUpload(file, maxDim = 2048, quality = 0.9) {
-  if (!file.type.startsWith('image/')) return file
-  // Skip compression if already small enough (under 1.5MB)
-  if (file.size < 1.5 * 1024 * 1024) return file
-  try {
-    const url = URL.createObjectURL(file)
-    const img = await new Promise((resolve, reject) => {
-      const el = new Image()
-      el.onload = () => resolve(el)
-      el.onerror = () => reject(new Error(`Browser can't decode ${file.name} (HEIC?)`))
-      el.src = url
-    })
-    URL.revokeObjectURL(url)
-    const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
-    const w = Math.round(img.width * scale)
-    const h = Math.round(img.height * scale)
-    const canvas = document.createElement('canvas')
-    canvas.width = w; canvas.height = h
-    const ctx = canvas.getContext('2d')
-    ctx.drawImage(img, 0, 0, w, h)
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', quality)
-    })
-    const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg'
-    return new File([blob], newName, { type: 'image/jpeg', lastModified: file.lastModified })
-  } catch (e) {
-    // If decode/encode fails (HEIC etc.), let the original through and let the
-    // server-side error path handle it.
-    console.warn('[ai-clone] compress failed, sending original:', e.message)
-    return file
-  }
-}
-
 const POSE_ORDER = ['front', 'back', 'face']
 const POSE_META = {
   front: { label: 'Front View', model: 'Wan 2.7', emoji: '🧍‍♀️' },
@@ -93,6 +56,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
   const output = state.outputs[pose]
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null) // { current, total, name }
   const [generating, setGenerating] = useState(false)
   const [taskId, setTaskId] = useState(null)
   const [error, setError] = useState('')
@@ -130,30 +94,43 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     return () => { cancelled = true }
   }, [taskId, creatorId, pose, onRefresh])
 
+  // Upload one file per request to stay under Vercel's 4.5MB body limit
+  // without compressing. Sequential so we can show progress + so concurrent
+  // requests don't clobber each other's filename indexing on the server.
   const handleUpload = async (filesList) => {
-    if (!filesList?.length) return
+    const files = Array.from(filesList || [])
+    if (!files.length) return
     setUploading(true); setError('')
+    setUploadProgress({ current: 0, total: files.length, name: '' })
+    let failed = 0
+    let lastError = ''
     try {
-      const compressed = await Promise.all(Array.from(filesList).map(f => compressImageForUpload(f)))
-      const form = new FormData()
-      form.append('creatorId', creatorId)
-      form.append('pose', pose)
-      compressed.forEach(f => form.append('files', f))
-      const res = await fetch('/api/admin/creator-ai-clone/upload', { method: 'POST', body: form })
-      // Server may return non-JSON on payload-too-large (Vercel HTML/text response)
-      const text = await res.text()
-      let data
-      try { data = JSON.parse(text) } catch { data = null }
-      if (!res.ok) {
-        const msg = data?.error || (res.status === 413
-          ? 'Photos too large even after compression. Try fewer at once.'
-          : `Upload failed (${res.status})`)
-        throw new Error(msg)
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setUploadProgress({ current: i + 1, total: files.length, name: file.name })
+        const form = new FormData()
+        form.append('creatorId', creatorId)
+        form.append('pose', pose)
+        form.append('files', file)
+        const res = await fetch('/api/admin/creator-ai-clone/upload', { method: 'POST', body: form })
+        const text = await res.text()
+        let data
+        try { data = JSON.parse(text) } catch { data = null }
+        if (!res.ok) {
+          failed++
+          lastError = data?.error || (res.status === 413
+            ? `${file.name} is over Vercel's 4.5MB limit — please trim that one`
+            : `${file.name}: upload failed (${res.status})`)
+        }
+        // Refresh after each successful upload so the UI streams in
+        if (res.ok) await onRefresh()
       }
-      await onRefresh()
-    } catch (e) { setError(e.message) }
-    finally {
+      if (failed > 0) setError(`${failed} of ${files.length} failed. ${lastError}`)
+    } catch (e) {
+      setError(e.message)
+    } finally {
       setUploading(false)
+      setUploadProgress(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -293,18 +270,27 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                 border: '1px dashed rgba(232, 160, 160, 0.5)',
                 background: 'transparent',
                 color: 'var(--palm-pink)',
-                fontSize: '20px', fontWeight: 600,
+                fontSize: uploading ? '11px' : '20px', fontWeight: 600,
                 borderRadius: '5px',
                 cursor: uploading ? 'wait' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 0,
+                lineHeight: 1.2,
               }}
             >
-              {uploading ? '…' : '+'}
+              {uploading
+                ? (uploadProgress ? `${uploadProgress.current}/${uploadProgress.total}` : '…')
+                : '+'}
             </button>
           </div>
 
-          {inputs.length === 0 && (
+          {uploading && uploadProgress && (
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '6px' }}>
+              Uploading {uploadProgress.current} of {uploadProgress.total}: <span style={{ color: 'var(--foreground)' }}>{uploadProgress.name}</span>
+            </div>
+          )}
+
+          {!uploading && inputs.length === 0 && (
             <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '6px', fontStyle: 'italic' }}>
               Drag &amp; drop photos anywhere here, or click the + tile.
             </div>
