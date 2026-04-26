@@ -1931,7 +1931,7 @@ function ForReview({ showToast }) {
                 <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
 
                   {/* RAW clip */}
-                  <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a0a14' }}>
+                  <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
                     {rawClipUrl ? (
                       <>
                         <video src={rawClipUrl} autoPlay muted loop playsInline preload="metadata"
@@ -1949,7 +1949,7 @@ function ForReview({ showToast }) {
                   </div>
 
                   {/* EDIT clip */}
-                  <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a1a0a' }}>
+                  <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
                     {editUrl ? (
                       <>
                         <video src={editUrl} autoPlay muted loop playsInline preload="metadata"
@@ -1968,7 +1968,7 @@ function ForReview({ showToast }) {
 
                   {/* INSPO clip — only if available */}
                   {hasInspo && (
-                    <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#14000a' }}>
+                    <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
                       {inspoVideoUrl ? (
                         <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
                           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}

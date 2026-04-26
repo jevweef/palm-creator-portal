@@ -1080,6 +1080,11 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const task = slot.task || null
   const clip = slot.clip || null
   const isClip = slot.type === 'inspoClip'
+  // Pinned-day revision tasks are slot.type === 'done' but still need the
+  // editor's upload UI so they can re-submit. Treat them like an inProgress
+  // task for action rendering.
+  const isNeedsRevision = task?.adminReviewStatus === 'Needs Revision'
+  const showUploadUI = slot.type === 'inProgress' || isNeedsRevision
   const [starting, setStarting] = useState(false)
   const [startErr, setStartErr] = useState('')
 
@@ -1401,8 +1406,13 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 {updating ? 'Starting...' : 'Start Editing →'}
               </button>
             )}
-            {slot.type === 'inProgress' && (
+            {showUploadUI && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {isNeedsRevision && (
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#E87878', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Re-upload revision
+                  </div>
+                )}
                 {/* AI Caption Suggestions — brainstorm, copy to your editor of choice */}
                 <CaptionSuggestions
                   thumbnailUrl={task?.asset?.thumbnail}
@@ -1460,7 +1470,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                       onClick={() => uploadFile ? handleFileUpload(uploadFile) : handleSave(uploadUrl)}
                       disabled={saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress}
                       style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#7DD3A4' : 'var(--palm-pink)', border: `1px solid ${saved ? 'rgba(125, 211, 164, 0.2)' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
-                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : 'Save & Submit ↑'}
+                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : (isNeedsRevision ? 'Resubmit Revision ↑' : 'Save & Submit ↑')}
                     </button>
                   </div>
                 )}
@@ -2340,6 +2350,325 @@ function BufferOverview({ creators }) {
           <BufferCreatorCard key={creator.id} creator={creator} />
         ))}
       </div>
+    </div>
+  )
+}
+
+// ─── Revisions-only view (editor) ──────────────────────────────────────────────
+// Editor's at-a-glance "what still needs revision" list. Pulls the same
+// /api/editor/dashboard payload the main board uses, then flattens every
+// creator's needsRevision array into a single sorted list so the editor
+// doesn't have to scrub day-by-day to find them.
+//
+// Card layout mirrors the admin For Review screen — RAW | EDIT | INSPO
+// autoplay video strip on top, admin feedback panel + Upload Revision below —
+// so the editor sees both their original submission and their source clip
+// side-by-side without leaving the tab.
+
+function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
+  const [expanded, setExpanded] = useState(false)
+  const fmtDate = task.completedAt
+    ? new Date(task.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
+    : null
+
+  const rawClipPrimary = (task.asset?.dropboxLink || '').split('\n').filter(Boolean)[0] || ''
+  const rawClipUrl = rawDropboxUrl(rawClipPrimary)
+  const editedFileLink = task.asset?.editedFileLink || ''
+  const editUrl = rawDropboxUrl(editedFileLink)
+  const inspoVideoUrl = task.inspo?.dbShareLink ? rawDropboxUrl(task.inspo.dbShareLink) : ''
+  const hasInspo = !!(inspoVideoUrl || task.inspo?.thumbnail)
+
+  return (
+    <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {/* Video strip — RAW | EDIT | INSPO */}
+      <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
+        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
+          {rawClipUrl ? (
+            <>
+              <video src={rawClipUrl} autoPlay muted loop playsInline preload="metadata"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+              <button onClick={() => onOpenVideo(rawClipPrimary)}
+                style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                ⛶
+              </button>
+            </>
+          ) : (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-subtle)', fontSize: '11px' }}>No raw clip</div>
+          )}
+          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#78B4E8', fontWeight: 600 }}>RAW</div>
+        </div>
+
+        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
+          {editUrl ? (
+            <>
+              <video src={editUrl} autoPlay muted loop playsInline preload="metadata"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+              <button onClick={() => onOpenVideo(editedFileLink)}
+                style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+                ⛶
+              </button>
+            </>
+          ) : (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-subtle)', fontSize: '11px' }}>No edit yet</div>
+          )}
+          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#7DD3A4', fontWeight: 600 }}>EDIT</div>
+        </div>
+
+        {hasInspo && (
+          <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
+            {inspoVideoUrl ? (
+              <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+            ) : task.inspo?.thumbnail ? (
+              <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+            ) : null}
+            <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)', wordBreak: 'break-word' }}>
+              {task._creatorName}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px', wordBreak: 'break-word' }}>
+              {task.inspo?.title || task.name || 'Untitled'}
+            </div>
+          </div>
+          {fmtDate && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', marginTop: '2px' }}>Submitted {fmtDate}</span>}
+        </div>
+
+        {/* Quick links */}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {editedFileLink && (
+            <a href={editedFileLink} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '11px', color: '#7DD3A4', textDecoration: 'none', padding: '3px 8px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '4px', border: '1px solid transparent' }}>
+              Download Edit ↗
+            </a>
+          )}
+          {(task.asset?.dropboxLinks?.length > 1)
+            ? task.asset.dropboxLinks.map((link, i) => (
+                <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '11px', color: '#78B4E8', textDecoration: 'none', padding: '3px 8px', background: 'rgba(120, 180, 232, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
+                  Raw Clip {i + 1} ↗
+                </a>
+              ))
+            : rawClipPrimary && (
+                <a href={rawClipPrimary} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '11px', color: '#78B4E8', textDecoration: 'none', padding: '3px 8px', background: 'rgba(120, 180, 232, 0.06)', borderRadius: '4px', border: '1px solid transparent' }}>
+                  Raw Clip ↗
+                </a>
+              )
+          }
+          {task.inspo?.contentLink && (
+            <a href={task.inspo.contentLink} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '3px 8px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '4px', border: '1px solid transparent' }}>
+              Original Reel ↗
+            </a>
+          )}
+        </div>
+
+        {/* Admin feedback (always shown — that's the whole point of this view) */}
+        {task.adminFeedback && (
+          <div style={{ background: 'rgba(232, 120, 120, 0.06)', border: '1px solid rgba(232, 120, 120, 0.2)', borderRadius: '8px', padding: '10px 12px' }}>
+            <div style={{ fontSize: '10px', color: '#E87878', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+              Feedback from reviewer
+            </div>
+            <div style={{ fontSize: '12px', color: '#E87878', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {task.adminFeedback}
+            </div>
+            {task.adminScreenshots?.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
+                {task.adminScreenshots.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'block', width: '56px', height: '56px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(232, 120, 120, 0.25)', flexShrink: 0 }}>
+                    <img src={url} alt={`Screenshot ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Optional: inspo direction toggle for context */}
+        {task.inspo?.notes && (
+          <>
+            <button onClick={() => setExpanded(p => !p)}
+              style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+              {expanded ? '▾ Hide inspo direction' : '▸ View inspo direction'}
+            </button>
+            {expanded && (
+              <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.85)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{task.inspo.notes}</div>
+                {task.inspo.onScreenText && (
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#E8C878', background: 'rgba(232, 200, 120, 0.08)', borderRadius: '4px', padding: '6px 8px' }}>
+                    "{task.inspo.onScreenText}"
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        <button onClick={() => onUploadRevision(task)}
+          style={{ marginTop: 'auto', width: '100%', padding: '10px', fontSize: '13px', fontWeight: 700, background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.25)', borderRadius: '8px', cursor: 'pointer' }}>
+          Upload Revision
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export function EditorRevisionsView() {
+  const [creators, setCreators] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [submitModal, setSubmitModal] = useState(null)
+  const [updating, setUpdating] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [videoModal, setVideoModal] = useState(null)
+
+  const showToast = (msg, isError = false) => {
+    setToast({ msg, error: isError })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    if (!silent) setError(null)
+    try {
+      const res = await fetch('/api/editor/dashboard')
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+      const data = await res.json()
+      setCreators(data.creators || [])
+    } catch (err) {
+      if (!silent) setError(err.message)
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // Flatten revisions across creators, oldest first so the most-overdue
+  // sits at the top. Tag each with the creator name + id so TaskCard can
+  // render context and the resubmit path can target the right creator.
+  const revisions = creators.flatMap(c =>
+    (c.needsRevision || []).map(t => ({ ...t, _creatorName: c.name, _creatorId: c.id }))
+  ).sort((a, b) => new Date(a.completedAt || 0) - new Date(b.completedAt || 0))
+
+  const handleAction = (type, task) => {
+    if (type === 'revision') setSubmitModal({ task, isRevision: true })
+  }
+
+  const handleSubmit = async (taskId, editedFileLink, editedFilePath, editorNotes) => {
+    setUpdating(taskId)
+    try {
+      const res = await fetch('/api/admin/editor', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, newStatus: 'Done', editedFileLink, editedFilePath, editorNotes, isRevision: true }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Submit failed')
+      setSubmitModal(null)
+      showToast('Revision submitted')
+      await fetchData(true)
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  if (loading) return <div style={{ color: 'var(--foreground-subtle)', fontSize: '14px', padding: '40px 0' }}>Loading revisions...</div>
+  if (error) return <div style={{ color: '#E87878', fontSize: '14px', padding: '40px 0' }}>{error}</div>
+
+  return (
+    <div>
+      <style>{`
+        @media (max-width: 768px) {
+          .editor-revisions-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (min-width: 769px) and (max-width: 1100px) {
+          .editor-revisions-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>
+            Revisions
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+            {revisions.length === 0
+              ? 'No revisions outstanding — you\'re caught up.'
+              : `${revisions.length} edit${revisions.length === 1 ? '' : 's'} need${revisions.length === 1 ? 's' : ''} revision`}
+          </div>
+        </div>
+        <button onClick={() => fetchData()}
+          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
+          Refresh
+        </button>
+      </div>
+
+      {revisions.length === 0 ? (
+        <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+          ✓ All clear — nothing waiting on you.
+        </div>
+      ) : (
+        <div className="editor-revisions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+          {revisions.map(task => (
+            <RevisionCard
+              key={task.id}
+              task={task}
+              onUploadRevision={() => setSubmitModal({ task, isRevision: true })}
+              onOpenVideo={(url) => setVideoModal(url)}
+            />
+          ))}
+        </div>
+      )}
+
+      {submitModal && (
+        <SubmitModal
+          task={submitModal.task}
+          creatorName={submitModal.task._creatorName}
+          creatorId={submitModal.task._creatorId}
+          isRevision={submitModal.isRevision}
+          onClose={() => setSubmitModal(null)}
+          onSubmit={handleSubmit}
+        />
+      )}
+
+      {videoModal && (
+        <div onClick={() => setVideoModal(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+          <video src={rawDropboxUrl(videoModal)} controls autoPlay
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '12px', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
+          <button onClick={() => setVideoModal(null)}
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--foreground)', fontSize: '20px', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer' }}>
+            ×
+          </button>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 100,
+          padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+          background: toast.error ? 'rgba(232, 120, 120, 0.06)' : 'rgba(125, 211, 164, 0.08)',
+          color: toast.error ? '#E87878' : '#7DD3A4',
+          border: `1px solid ${toast.error ? 'rgba(232, 120, 120, 0.2)' : 'rgba(125, 211, 164, 0.2)'}`,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        }}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   )
 }
