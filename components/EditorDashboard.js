@@ -2372,7 +2372,7 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Video strip — RAW | EDIT | INSPO */}
       <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
-        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a0a14' }}>
+        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
           {rawClipUrl ? (
             <>
               <video src={rawClipUrl} autoPlay muted loop playsInline preload="metadata"
@@ -2389,7 +2389,7 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
           <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#78B4E8', fontWeight: 600 }}>RAW</div>
         </div>
 
-        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#0a1a0a' }}>
+        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
           {editUrl ? (
             <>
               <video src={editUrl} autoPlay muted loop playsInline preload="metadata"
@@ -2407,7 +2407,7 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
         </div>
 
         {hasInspo && (
-          <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#14000a' }}>
+          <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
             {inspoVideoUrl ? (
               <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
