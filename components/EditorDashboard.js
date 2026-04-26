@@ -1080,6 +1080,11 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const task = slot.task || null
   const clip = slot.clip || null
   const isClip = slot.type === 'inspoClip'
+  // Pinned-day revision tasks are slot.type === 'done' but still need the
+  // editor's upload UI so they can re-submit. Treat them like an inProgress
+  // task for action rendering.
+  const isNeedsRevision = task?.adminReviewStatus === 'Needs Revision'
+  const showUploadUI = slot.type === 'inProgress' || isNeedsRevision
   const [starting, setStarting] = useState(false)
   const [startErr, setStartErr] = useState('')
 
@@ -1401,8 +1406,13 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 {updating ? 'Starting...' : 'Start Editing →'}
               </button>
             )}
-            {slot.type === 'inProgress' && (
+            {showUploadUI && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {isNeedsRevision && (
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#E87878', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Re-upload revision
+                  </div>
+                )}
                 {/* AI Caption Suggestions — brainstorm, copy to your editor of choice */}
                 <CaptionSuggestions
                   thumbnailUrl={task?.asset?.thumbnail}
@@ -1460,7 +1470,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                       onClick={() => uploadFile ? handleFileUpload(uploadFile) : handleSave(uploadUrl)}
                       disabled={saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress}
                       style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#7DD3A4' : 'var(--palm-pink)', border: `1px solid ${saved ? 'rgba(125, 211, 164, 0.2)' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
-                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : 'Save & Submit ↑'}
+                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : (isNeedsRevision ? 'Resubmit Revision ↑' : 'Save & Submit ↑')}
                     </button>
                   </div>
                 )}
