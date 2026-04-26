@@ -1819,6 +1819,8 @@ function VideoModal({ url, onClose }) {
   )
 }
 
+const REVIEW_PAGE_SIZE = 10
+
 function ForReview({ showToast }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1826,6 +1828,7 @@ function ForReview({ showToast }) {
   const [videoModal, setVideoModal] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [revisionTask, setRevisionTask] = useState(null)
+  const [page, setPage] = useState(0)
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -1902,9 +1905,15 @@ function ForReview({ showToast }) {
         <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           No edits waiting for review.
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
-          {tasks.map(task => {
+      ) : (() => {
+        // Paginate to REVIEW_PAGE_SIZE per page; clamp the page if approvals
+        // dropped tasks from later pages and we're now past the end.
+        const totalPages = Math.max(1, Math.ceil(tasks.length / REVIEW_PAGE_SIZE))
+        const safePage = Math.min(page, totalPages - 1)
+        const pagedTasks = tasks.slice(safePage * REVIEW_PAGE_SIZE, (safePage + 1) * REVIEW_PAGE_SIZE)
+        return (<>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+          {pagedTasks.map(task => {
             const isExpanded = expanded.has(task.id)
             const fmtDate = task.completedAt
               ? new Date(task.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
@@ -2046,7 +2055,23 @@ function ForReview({ showToast }) {
             )
           })}
         </div>
-      )}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '20px' }}>
+            <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={safePage === 0}
+              style={{ padding: '8px 16px', fontSize: '13px', fontWeight: 600, background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', color: safePage === 0 ? 'var(--foreground-muted)' : 'rgba(240,236,232,0.85)', cursor: safePage === 0 ? 'default' : 'pointer', opacity: safePage === 0 ? 0.5 : 1 }}>
+              ← Prev
+            </button>
+            <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+              Page {safePage + 1} of {totalPages} · {tasks.length} total
+            </span>
+            <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={safePage === totalPages - 1}
+              style={{ padding: '8px 16px', fontSize: '13px', fontWeight: 600, background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', color: safePage === totalPages - 1 ? 'var(--foreground-muted)' : 'rgba(240,236,232,0.85)', cursor: safePage === totalPages - 1 ? 'default' : 'pointer', opacity: safePage === totalPages - 1 ? 0.5 : 1 }}>
+              Next →
+            </button>
+          </div>
+        )}
+        </>)
+      })()}
 
       {revisionTask && (
         <RevisionModal
