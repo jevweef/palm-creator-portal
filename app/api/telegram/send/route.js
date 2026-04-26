@@ -39,7 +39,14 @@ async function getVideoDuration(filePath) {
 // serverless because stdout/stderr pipes weren't being drained.
 async function resizeImage(inputBuffer, inputName) {
   const id = Date.now()
-  const ext = inputName.split('.').pop().toLowerCase()
+  // Sanitize "extension" — Airtable/Dropbox URLs often have no real extension,
+  // so split('.').pop() returns the URL hash. Without a known image extension
+  // ffmpeg sniffs the input and sometimes picks 'mjpeg' (Motion JPEG = video)
+  // instead of treating it as a single still — then complains about needing a
+  // '%03d' multi-frame output pattern. Force a clean .jpg extension.
+  const rawExt = (inputName.split('.').pop() || '').toLowerCase()
+  const knownExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'heic', 'heif']
+  const ext = knownExts.includes(rawExt) ? rawExt : 'jpg'
   const inputPath = join(tmpdir(), `tg_img_in_${id}.${ext}`)
   const outputPath = join(tmpdir(), `tg_img_out_${id}.jpg`)
   await writeFile(inputPath, Buffer.from(inputBuffer))
@@ -47,6 +54,7 @@ async function resizeImage(inputBuffer, inputName) {
     const args = [
       '-y', '-i', inputPath,
       '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease',
+      '-frames:v', '1',  // Belt + suspenders: even if ffmpeg sniffs as video, only write one frame
       '-q:v', '2',
       outputPath,
     ]
@@ -256,6 +264,7 @@ async function moveToNextStage(assetId, targetFolder) {
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
+const TELEGRAM_SMM_GROUP_CHAT_ID = process.env.TELEGRAM_SMM_GROUP_CHAT_ID
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 // 50MB Telegram bot upload limit
 
@@ -284,38 +293,94 @@ function getFilename(url) {
   return url.split('/').pop()?.split('?')[0] || 'file'
 }
 
+// Parse Telegram's "Too Many Requests: retry after N" 429 description and
+// wait for that many seconds before letting the caller retry. Returns the
+// number of seconds slept, or null if this wasn't a rate-limit response.
+async function handleRateLimit(data) {
+  if (!data) return null
+  // Telegram returns parameters.retry_after on 429s, but we've also seen the
+  // info only in the description. Parse both.
+  const retryFromParams = data.parameters?.retry_after
+  const retryFromDesc = data.description?.match(/retry after (\d+)/)?.[1]
+  const retrySeconds = parseInt(retryFromParams ?? retryFromDesc ?? '', 10)
+  if (!Number.isFinite(retrySeconds) || retrySeconds <= 0) return null
+  // Cap at 60s — if Telegram says wait longer, surface as a normal error so
+  // the user sees it rather than silently hanging the function for minutes.
+  const waitMs = Math.min(retrySeconds, 60) * 1000 + 500 // small buffer
+  console.warn(`[Telegram] Rate limited; sleeping ${waitMs}ms before retry`)
+  await new Promise(r => setTimeout(r, waitMs))
+  return retrySeconds
+}
+
 async function telegramUpload(method, form, { signal } = {}) {
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
-    method: 'POST',
-    body: form,
-    signal,
-  })
-  const data = await res.json()
-  if (!data.ok) throw new Error(`Telegram ${method} failed: ${data.description}`)
-  return data
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
+      method: 'POST',
+      body: form,
+      signal,
+    })
+    const data = await res.json()
+    if (data.ok) return data
+    if (res.status === 429 || /too many requests/i.test(data.description || '')) {
+      const slept = await handleRateLimit(data)
+      if (slept) continue
+    }
+    throw new Error(`Telegram ${method} failed: ${data.description}`)
+  }
+  throw new Error(`Telegram ${method} failed: rate limit exceeded after 3 retries`)
 }
 
 async function telegramJson(method, body, { signal } = {}) {
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  })
-  const data = await res.json()
-  if (!data.ok) throw new Error(`Telegram ${method} failed: ${data.description}`)
-  return data
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    })
+    const data = await res.json()
+    if (data.ok) return data
+    if (res.status === 429 || /too many requests/i.test(data.description || '')) {
+      const slept = await handleRateLimit(data)
+      if (slept) continue
+    }
+    throw new Error(`Telegram ${method} failed: ${data.description}`)
+  }
+  throw new Error(`Telegram ${method} failed: rate limit exceeded after 3 retries`)
+}
+
+// Build a "📅 Fri, Apr 25 · Morning" prefix from a scheduled-date ISO.
+// Uses ET hour < 14 = Morning, otherwise Evening (matches SLOT_HOURS_ET).
+function buildDatePrefix(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const fmt = (opts) => new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'America/New_York' }).format(d)
+  const dow = fmt({ weekday: 'short' })
+  const monthDay = fmt({ month: 'short', day: 'numeric' })
+  const etHour = parseInt(fmt({ hour: '2-digit', hour12: false }))
+  const slotLabel = etHour < 14 ? 'Morning' : 'Evening'
+  return `📅 ${dow}, ${monthDay} · ${slotLabel}`
 }
 
 // The actual send work: download from Dropbox → remux/compress if needed →
 // upload to Telegram → stamp Post record. Runs entirely in the background
 // via waitUntil() so the admin's click returns in ~1s instead of 60-90s.
 async function doSend(params) {
-  const { editedFileLink, threadId, caption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
+  const { editedFileLink, threadId, smmTopicId, caption: rawIncomingCaption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
+  // Prepend the date/slot label so SMM can see at a glance which post this
+  // is for. Caption order: date prefix → user caption → hashtags (already
+  // joined client-side into the incoming caption).
+  const datePrefix = buildDatePrefix(scheduledDate)
+  const caption = [datePrefix, rawIncomingCaption].filter(Boolean).join('\n\n') || undefined
 
   try {
     const rawUrl = rawDropboxUrl(editedFileLink)
-    const chatId = parseInt(TELEGRAM_CHAT_ID)
+    // SMM mode: route to per-account topic in the SMM master group instead
+    // of the creator's review thread. Topic ID > thread ID when both present.
+    const useSmm = !!smmTopicId
+    const chatId = useSmm ? parseInt(TELEGRAM_SMM_GROUP_CHAT_ID) : parseInt(TELEGRAM_CHAT_ID)
+    const messageThreadId = useSmm ? smmTopicId : threadId
 
     const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
     const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
@@ -347,7 +412,7 @@ async function doSend(params) {
       // Upload directly to Telegram as multipart
       const form = new FormData()
       form.append('chat_id', String(chatId))
-      form.append('message_thread_id', String(threadId))
+      form.append('message_thread_id', String(messageThreadId))
       if (caption) form.append('caption', caption)
 
       const filename = getFilename(editedFileLink)
@@ -438,7 +503,7 @@ async function doSend(params) {
           // Fall back to video-only send without thumbnail
           const fallbackForm = new FormData()
           fallbackForm.append('chat_id', String(chatId))
-          fallbackForm.append('message_thread_id', String(threadId))
+          fallbackForm.append('message_thread_id', String(messageThreadId))
           if (caption) fallbackForm.append('caption', caption)
           fallbackForm.append('video', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
           fallbackForm.append('supports_streaming', 'true')
@@ -454,7 +519,7 @@ async function doSend(params) {
           console.warn('[Telegram Send] sendVideo failed, trying sendDocument:', err.message)
           const fallbackForm = new FormData()
           fallbackForm.append('chat_id', String(chatId))
-          fallbackForm.append('message_thread_id', String(threadId))
+          fallbackForm.append('message_thread_id', String(messageThreadId))
           if (caption) fallbackForm.append('caption', caption)
           fallbackForm.append('document', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
           result = await telegramUpload('sendDocument', fallbackForm)
@@ -486,9 +551,13 @@ async function doSend(params) {
       }).catch(err => console.error('[Telegram Send] Failed to update Post record:', err.message))
     }
 
-    // Move file to 40_READY_TO_POST in Dropbox
+    // Move file to 50_POSTED_ARCHIVE in Dropbox. This is the single
+    // canonical move-on-send: regardless of which sibling Post fires the
+    // send first, the asset's underlying file ends up in the archive.
+    // Subsequent siblings hit moveToNextStage and find the file already
+    // in 50_POSTED_ARCHIVE → "Path did not change" warning, no-op move.
     if (assetId) {
-      moveToNextStage(assetId, '40_READY_TO_POST').catch(err =>
+      moveToNextStage(assetId, '50_POSTED_ARCHIVE').catch(err =>
         console.error('[Telegram Send] Dropbox move failed (non-fatal):', err.message)
       )
     }
@@ -525,6 +594,10 @@ async function doSend(params) {
         'Admin Notes': `[Telegram Send Error @ ${new Date().toISOString()}] ${err.message}`,
       }).catch(() => {})
     }
+    // Re-throw so callers awaiting doSend (wait=true mode) can detect the
+    // failure and surface it. waitUntil callers ignore rejection — they just
+    // run the promise to completion — so this is safe for both paths.
+    throw err
   }
 }
 
@@ -538,12 +611,17 @@ export async function POST(request) {
 
   try {
     const params = await request.json()
-    const { editedFileLink, threadId, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
+    const { editedFileLink, threadId, smmTopicId, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
 
     if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
-    if (!threadId) return NextResponse.json({ error: 'No thread ID for this creator' }, { status: 400 })
+    if (!threadId && !smmTopicId) return NextResponse.json({ error: 'No threadId or smmTopicId provided' }, { status: 400 })
     if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
-    if (!TELEGRAM_CHAT_ID) return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
+    if (smmTopicId && !TELEGRAM_SMM_GROUP_CHAT_ID) {
+      return NextResponse.json({ error: 'TELEGRAM_SMM_GROUP_CHAT_ID not set' }, { status: 500 })
+    }
+    if (!smmTopicId && !TELEGRAM_CHAT_ID) {
+      return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
+    }
 
     // Stamp the Post immediately so the UI can show "Sending" without waiting
     // for the actual Telegram upload to finish. Also save any user-edited
@@ -559,12 +637,28 @@ export async function POST(request) {
       }).catch(err => console.warn('[Telegram Send] Pre-send Post update failed:', err.message))
     }
 
-    // Fire and forget. Vercel's waitUntil() keeps the function running up to
-    // maxDuration (300s) after the response has been sent, so download + ffmpeg
-    // + upload continue in the background while the client already got a 200.
+    // Two modes:
+    //   wait=false (default): Fire-and-forget. waitUntil keeps the function
+    //     running for the upload, response returns in ~1s. Used for one-off
+    //     single-cell sends. Order is NOT guaranteed across multiple parallel
+    //     requests — they all run in their own function instances.
+    //   wait=true: Await the upload synchronously. Response returns only after
+    //     the post has actually landed in Telegram. Used for ordered serial
+    //     bulk sends (client awaits each fetch in turn) so posts arrive in
+    //     queue order.
+    if (params.wait) {
+      console.log('[Telegram Send] Sync send for post', postId)
+      try {
+        await doSend(params)
+        return NextResponse.json({ ok: true, status: 'sent', postId })
+      } catch (err) {
+        console.error('[Telegram Send] Sync send error:', err)
+        return NextResponse.json({ error: err.message, postId }, { status: 500 })
+      }
+    }
+
     console.log('[Telegram Send] Queued for post', postId)
     waitUntil(doSend(params))
-
     return NextResponse.json({ ok: true, status: 'sending', postId })
   } catch (err) {
     console.error('[Telegram Send] Queue error:', err)

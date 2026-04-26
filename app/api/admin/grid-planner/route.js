@@ -19,6 +19,60 @@ function etToUTC(etDateStr, etHour) {
   return new Date(Date.UTC(year, month - 1, day, etHour + offset))
 }
 
+// Build N consecutive slot ISOs starting from today AM going forward.
+// Slot i = today AM, today PM, tomorrow AM, tomorrow PM, ...
+// Used by the queue normalizer on GET to keep unsent post dates reactive
+// to "today" — slot 0 is always today AM, slot 1 today PM, etc.
+// Normalize a single account's queue: take all unsent posts on the account,
+// sort by current Scheduled Date asc, rewrite each one's date to the canonical
+// slot sequence (today AM, today PM, tomorrow AM, ...). Returns the list of
+// PATCH promises (caller awaits). Cheap-diff first — only patches actual
+// drifts. Posts with .fields mutated in place so callers can read the new
+// dates without re-fetching.
+async function normalizeAccountQueue(accountId, allPostsForCreator) {
+  const queue = allPostsForCreator
+    .filter(p =>
+      (p.fields?.Account || []).includes(accountId) &&
+      !p.fields?.['Telegram Sent At'] &&
+      !p.fields?.['Posted At']
+    )
+    .sort((a, b) =>
+      new Date(a.fields?.['Scheduled Date'] || 0) - new Date(b.fields?.['Scheduled Date'] || 0)
+    )
+  if (!queue.length) return []
+  const slots = getQueueSlots(queue.length)
+  const patches = []
+  for (let i = 0; i < queue.length; i++) {
+    const p = queue[i]
+    const desired = slots[i]
+    if (p.fields?.['Scheduled Date'] !== desired) {
+      patches.push(patchAirtableRecord('Posts', p.id, { 'Scheduled Date': desired }))
+      p.fields['Scheduled Date'] = desired
+    }
+  }
+  return patches
+}
+
+function getQueueSlots(count) {
+  if (count <= 0) return []
+  const now = new Date()
+  const todayET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now)
+  const [sy, sm, sd] = todayET.split('-').map(Number)
+  const out = []
+  for (let i = 0; i < count; i++) {
+    const dayOffset = Math.floor(i / SLOT_HOURS_ET.length)
+    const hourIdx = i % SLOT_HOURS_ET.length
+    // Use noon UTC, not midnight UTC, when constructing the iterator. UTC
+    // midnight on "today's ET date" formats back to *yesterday's* date in
+    // ET because EDT/EST is 4-5 hours behind UTC. Noon UTC is safely
+    // inside the same ET calendar date, so the format() round-trip is stable.
+    const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset, 12))
+    const etDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(iter)
+    out.push(etToUTC(etDateStr, SLOT_HOURS_ET[hourIdx]).toISOString())
+  }
+  return out
+}
+
 // Given the ISO timestamps of posts already scheduled on an account, find the
 // first free slot (starting today, 2 slots/day) going forward.
 function getNextOpenSlot(existingISOs) {
@@ -58,7 +112,7 @@ export async function GET(request) {
     // Fetch ALL managed creators (anyone with at least one active IG account in CPD)
     const allAccounts = await fetchAirtableRecords('Creator Platform Directory', {
       filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
-      fields: ['Account Name', 'Creator', 'Platform', 'Status', 'Handle/ Username', 'Handle Override', 'URL', 'Follower Count', 'Account Type'],
+      fields: ['Account Name', 'Creator', 'Platform', 'Status', 'Handle/ Username', 'Handle Override', 'URL', 'Follower Count', 'Account Type', 'Telegram Topic ID'],
     })
 
     // Extract unique creator IDs + fetch their names
@@ -139,6 +193,18 @@ export async function GET(request) {
     })
     const posts = allRecentPosts.filter(p => (p.fields?.Creator || []).includes(creatorId))
 
+    // Queue normalization: for each managed account, sort unsent posts and
+    // renumber their Scheduled Dates to the canonical "today AM, today PM,
+    // tomorrow AM, ..." sequence. Yesterday's "today AM" becomes today's
+    // "yesterday AM" and that post bumps to today AM automatically. Sent and
+    // Live posts are immune.
+    const normPatches = (await Promise.all(
+      creatorAccounts.map(acc => normalizeAccountQueue(acc.id, posts))
+    )).flat()
+    if (normPatches.length) {
+      await Promise.all(normPatches)
+    }
+
     // Pull asset thumbnails (fallback when Post doesn't have its own thumb yet)
     const assetIds = [...new Set(posts.flatMap(p => p.fields?.Asset || []).filter(Boolean))]
     const assetMap = {}
@@ -169,6 +235,7 @@ export async function GET(request) {
         scrapedFeedUpdated: scraped.updated,
         scrapedError: scraped.error,
         scrapedProfile: scraped.profile,  // { followers, following, bio, fullName, profilePicUrl, isVerified, isPrivate, postCount }
+        telegramTopicId: f['Telegram Topic ID'] || null,
       }
     }).sort((a, b) => {
       // Main first, then numbered Palm IGs in order
@@ -186,8 +253,16 @@ export async function GET(request) {
       const assetId = (f.Asset || [])[0]
       const taskId = (f.Task || [])[0] || null
       const asset = assetId ? (assetMap[assetId] || {}) : {}
-      const thumb = (f.Thumbnail?.[0]?.thumbnails?.large?.url) || (f.Thumbnail?.[0]?.url) ||
-        (asset.Thumbnail?.[0]?.thumbnails?.large?.url) || (asset.Thumbnail?.[0]?.url) || ''
+      // Pick the first attachment whose type is actually an image. Some Make.com
+      // uploads land in Airtable with type=text/html (URL ingest returned HTML
+      // instead of image bytes) — those serve broken icons in the browser. Skip
+      // them and fall through to a valid one or to Asset.Thumbnail.
+      const pickImage = (atts) => (atts || []).find(a => a?.type?.startsWith('image/'))
+      const postImg = pickImage(f.Thumbnail)
+      const assetImg = pickImage(asset.Thumbnail)
+      const thumb = (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
+        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) || ''
+      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0
       const accountId = (f.Account || [])[0] || null
       return {
         id: p.id,
@@ -209,8 +284,11 @@ export async function GET(request) {
           editedFileLink: asset['Edited File Link'] || '',
         } : null,
         // Thumbnail URL from the Post's attachment (not the .thumbnails.large
-        // preview) — Telegram send expects the full Dropbox/Airtable URL
-        thumbnailUrl: f.Thumbnail?.[0]?.url || '',
+        // preview) — Telegram send expects the full Dropbox/Airtable URL.
+        // Use the same image-only filter so a text/html attachment doesn't
+        // flow through to Telegram and break sendMediaGroup.
+        thumbnailUrl: postImg?.url || '',
+        thumbnailBroken: hasBrokenThumb,
         smmScheduled: !!f['SMM Scheduled'],
         smmScheduledAt: f['SMM Scheduled At'] || null,
       }
@@ -290,7 +368,7 @@ export async function GET(request) {
 //   body: { action: 'setDate', postId: 'rec...', scheduledDate: 'ISO' }
 //     → updates a single post's scheduled time directly
 export async function PATCH(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireAdminOrSocialMedia() } catch (e) { return e }
 
   try {
     const body = await request.json()
@@ -335,6 +413,29 @@ export async function PATCH(request) {
       return NextResponse.json({ ok: true })
     }
 
+    if (action === 'setStatus') {
+      const { postId, status } = body
+      if (!postId || !status) return NextResponse.json({ error: 'postId and status required' }, { status: 400 })
+      await patchAirtableRecord('Posts', postId, { 'Status': status })
+      return NextResponse.json({ ok: true })
+    }
+
+    // reorder: take an ordered list of post IDs (oldest at index 0, newest
+    // last) and assign each post the canonical slot date for its index.
+    // Used by drag-drop within an account grid — client computes the new
+    // queue order via insertion-shift, sends the full list, server writes.
+    if (action === 'reorder') {
+      const { accountId, postIds } = body
+      if (!accountId || !Array.isArray(postIds) || !postIds.length) {
+        return NextResponse.json({ error: 'accountId and postIds[] required' }, { status: 400 })
+      }
+      const slots = getQueueSlots(postIds.length)
+      await Promise.all(postIds.map((pid, i) =>
+        patchAirtableRecord('Posts', pid, { 'Scheduled Date': slots[i] })
+      ))
+      return NextResponse.json({ ok: true, slots })
+    }
+
     // assignInstance: the "3-badge drag" action.
     // Body shape: { action: 'assignInstance', taskId, accountId, unassignedPostIds: [...] }
     //   - If unassignedPostIds has entries: re-use the first one, set Account + next-open-slot
@@ -344,51 +445,66 @@ export async function PATCH(request) {
       const { taskId, accountId, unassignedPostIds = [] } = body
       if (!accountId) return NextResponse.json({ error: 'accountId required' }, { status: 400 })
 
-      // Compute next open slot on this account
-      const accountPostsRes = await fetchAirtableRecords('Posts', {
-        filterByFormula: `FIND('${accountId}', ARRAYJOIN({Account}))`,
-        fields: ['Account', 'Scheduled Date'],
-      })
-      const existingSlotISOs = accountPostsRes
-        .filter(p => (p.fields?.Account || []).includes(accountId))
-        .map(p => p.fields?.['Scheduled Date'])
-        .filter(Boolean)
-      const nextSlot = getNextOpenSlot(existingSlotISOs)
+      // Append-to-end strategy. We don't try to fill gaps — normalize will
+      // renumber every queue date to the canonical slot sequence after the
+      // assign/clone, so the new post lands at slot N (queue length), and
+      // any drift in existing dates gets cleaned up in the same call.
+      const FAR_FUTURE = '2099-01-01T00:00:00.000Z'
+      let assignedPostId = null
 
-      // Case 1: reuse an unassigned instance in this task group
       if (unassignedPostIds.length) {
+        // Case 1: reuse an unassigned instance in this task group
         const reuseId = unassignedPostIds[0]
         await patchAirtableRecord('Posts', reuseId, {
           'Account': [accountId],
-          'Scheduled Date': nextSlot.toISOString(),
+          'Scheduled Date': FAR_FUTURE,
         })
-        return NextResponse.json({ ok: true, postId: reuseId, scheduledDate: nextSlot.toISOString(), reused: true })
+        assignedPostId = reuseId
+      } else {
+        // Case 2: all instances already placed — clone from a sibling
+        if (!taskId) return NextResponse.json({ error: 'taskId required when no unassigned instances' }, { status: 400 })
+        const siblings = await fetchAirtableRecords('Posts', {
+          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+          fields: ['Post Name', 'Creator', 'Asset', 'Task', 'Platform', 'Caption', 'Hashtags', 'Thumbnail'],
+        })
+        const seed = siblings.find(s => (s.fields?.Task || []).includes(taskId))
+        if (!seed) return NextResponse.json({ error: 'No sibling post found for task' }, { status: 404 })
+        const src = seed.fields || {}
+        const fields = {
+          'Post Name': src['Post Name'] || '',
+          ...(src.Creator ? { 'Creator': src.Creator } : {}),
+          ...(src.Asset ? { 'Asset': src.Asset } : {}),
+          'Task': [taskId],
+          'Account': [accountId],
+          'Status': 'Prepping',
+          ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
+          ...(src.Caption ? { 'Caption': src.Caption } : {}),
+          ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
+          ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
+          'Scheduled Date': FAR_FUTURE,
+        }
+        const created = await createAirtableRecord('Posts', fields)
+        assignedPostId = created.id
       }
 
-      // Case 2: all instances already placed — clone from a sibling in the same task group
-      if (!taskId) return NextResponse.json({ error: 'taskId required when no unassigned instances' }, { status: 400 })
-      const siblings = await fetchAirtableRecords('Posts', {
-        filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
-        fields: ['Post Name', 'Creator', 'Asset', 'Task', 'Platform', 'Caption', 'Hashtags', 'Thumbnail'],
+      // Re-fetch the account's posts now that we've appended one, then
+      // normalize. This compacts the queue and gives the new post a real
+      // slot date (slot N where N = queue length - 1).
+      const accountPosts = await fetchAirtableRecords('Posts', {
+        filterByFormula: `FIND('${accountId}', ARRAYJOIN({Account}))`,
+        fields: ['Account', 'Scheduled Date', 'Telegram Sent At', 'Posted At'],
       })
-      const seed = siblings.find(s => (s.fields?.Task || []).includes(taskId))
-      if (!seed) return NextResponse.json({ error: 'No sibling post found for task' }, { status: 404 })
-      const src = seed.fields || {}
-      const fields = {
-        'Post Name': src['Post Name'] || '',
-        ...(src.Creator ? { 'Creator': src.Creator } : {}),
-        ...(src.Asset ? { 'Asset': src.Asset } : {}),
-        'Task': [taskId],
-        'Account': [accountId],
-        'Status': 'Prepping',
-        ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
-        ...(src.Caption ? { 'Caption': src.Caption } : {}),
-        ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
-        ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
-        'Scheduled Date': nextSlot.toISOString(),
-      }
-      const created = await createAirtableRecord('Posts', fields)
-      return NextResponse.json({ ok: true, postId: created.id, scheduledDate: nextSlot.toISOString(), cloned: true })
+      const patches = await normalizeAccountQueue(accountId, accountPosts)
+      if (patches.length) await Promise.all(patches)
+
+      const newPost = accountPosts.find(p => p.id === assignedPostId)
+      const scheduledDate = newPost?.fields?.['Scheduled Date'] || null
+      return NextResponse.json({
+        ok: true,
+        postId: assignedPostId,
+        scheduledDate,
+        ...(unassignedPostIds.length ? { reused: true } : { cloned: true }),
+      })
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
@@ -411,11 +527,111 @@ export async function PATCH(request) {
 // posts around in the grid to fine-tune, but the default gets you a
 // not-identical-feed starting point for free.
 export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireAdminOrSocialMedia() } catch (e) { return e }
 
   try {
     const body = await request.json()
     const { action } = body
+
+    // distributeQueue: for the given creator, place every queue item (each
+    // unsent task group) onto every managed IG account it isn't already on.
+    // Reuses unassigned-post instances first, clones siblings second. Each
+    // landing gets the next open slot on the destination account.
+    if (action === 'distributeQueue') {
+      const { creatorId } = body
+      if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
+
+      // Managed IG accounts for this creator
+      const allAccounts = await fetchAirtableRecords('Creator Platform Directory', {
+        filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
+        fields: ['Account Name', 'Creator'],
+      })
+      const managed = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
+      if (!managed.length) return NextResponse.json({ ok: true, distributed: 0, message: 'No managed accounts' })
+
+      // All unsent posts for this creator
+      const allRecent = await fetchAirtableRecords('Posts', {
+        filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
+        fields: ['Post Name', 'Creator', 'Account', 'Task', 'Asset', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
+      })
+      const creatorPosts = allRecent.filter(p =>
+        (p.fields?.Creator || []).includes(creatorId) &&
+        !p.fields?.['Telegram Sent At'] &&
+        !p.fields?.['Posted At']
+      )
+
+      // Group by Task ID
+      const groups = {}
+      for (const p of creatorPosts) {
+        const taskId = (p.fields?.Task || [])[0] || `orphan-${p.id}`
+        if (!groups[taskId]) groups[taskId] = { taskId, posts: [] }
+        groups[taskId].posts.push(p)
+      }
+
+      // For each account, track existing slot ISOs so we can compute next-open per account.
+      // We update in-memory as we add to avoid re-fetching after each add.
+      const accountSlots = {}
+      for (const acc of managed) {
+        accountSlots[acc.id] = creatorPosts
+          .filter(p => (p.fields?.Account || []).includes(acc.id))
+          .map(p => p.fields?.['Scheduled Date'])
+          .filter(Boolean)
+      }
+
+      let distributed = 0
+      const updates = []
+
+      for (const group of Object.values(groups)) {
+        // Accounts already covered by this group
+        const covered = new Set()
+        for (const p of group.posts) {
+          for (const accId of (p.fields?.Account || [])) covered.add(accId)
+        }
+        // Unassigned instances within this group (no Account set)
+        const unassignedInGroup = group.posts.filter(p => !(p.fields?.Account || []).length)
+        // Sample sibling for cloning
+        const sibling = group.posts[0]
+        const src = sibling?.fields || {}
+
+        for (const acc of managed) {
+          if (covered.has(acc.id)) continue
+          const nextSlot = getNextOpenSlot(accountSlots[acc.id]).toISOString()
+
+          if (unassignedInGroup.length) {
+            // Reuse unassigned instance
+            const reuse = unassignedInGroup.shift()
+            await patchAirtableRecord('Posts', reuse.id, {
+              'Account': [acc.id],
+              'Scheduled Date': nextSlot,
+            })
+            updates.push({ postId: reuse.id, accountId: acc.id, scheduledDate: nextSlot, reused: true })
+          } else {
+            // Clone from sibling
+            const fields = {
+              'Post Name': src['Post Name'] || '',
+              ...(src.Creator ? { 'Creator': src.Creator } : {}),
+              ...(src.Asset ? { 'Asset': src.Asset } : {}),
+              ...(group.taskId && !group.taskId.startsWith('orphan-') ? { 'Task': [group.taskId] } : {}),
+              'Account': [acc.id],
+              'Status': 'Prepping',
+              ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
+              ...(src.Caption ? { 'Caption': src.Caption } : {}),
+              ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
+              ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
+              'Scheduled Date': nextSlot,
+            }
+            const created = await createAirtableRecord('Posts', fields)
+            updates.push({ postId: created.id, accountId: acc.id, scheduledDate: nextSlot, cloned: true })
+          }
+
+          accountSlots[acc.id].push(nextSlot)
+          covered.add(acc.id)
+          distributed++
+        }
+      }
+
+      return NextResponse.json({ ok: true, distributed, accountCount: managed.length, updates })
+    }
 
     if (action !== 'fanOut') {
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })

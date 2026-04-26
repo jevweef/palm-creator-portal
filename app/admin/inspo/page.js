@@ -8,6 +8,7 @@ import AdminReview from '@/app/admin/review/page'
 import AdminImport from '@/app/admin/import/page'
 import TextTrainingPage from '@/app/admin/training/page'
 import SuggestTestPage from '@/app/admin/suggest-test/page'
+import RecreatePage from '@/app/admin/recreate/page'
 
 const TABS = [
   { key: 'pipeline', label: 'Pipeline', icon: '⚡' },
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'import', label: 'Import', icon: '📥' },
   { key: 'training', label: 'Training', icon: '🧠' },
   { key: 'suggest', label: 'Suggest', icon: '✨' },
+  { key: 'recreate', label: 'AI Recreate', icon: '🎨' },
 ]
 
 export default function InspoBoard() {
@@ -61,6 +63,7 @@ export default function InspoBoard() {
       {activeTab === 'import' && <AdminImport />}
       {activeTab === 'training' && <TextTrainingPage />}
       {activeTab === 'suggest' && <SuggestTestPage />}
+      {activeTab === 'recreate' && <RecreatePage />}
     </div>
   )
 }

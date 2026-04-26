@@ -793,13 +793,24 @@ export default function AdminDashboard() {
     setTimeout(() => setToast(null), 3500)
   }
 
+  const [pipelineError, setPipelineError] = useState(null)
   const fetchPipeline = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/creators/pipeline')
-      if (!res.ok) return
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        const msg = `Pipeline API ${res.status}: ${txt.slice(0, 200) || res.statusText}`
+        console.error('[Dashboard]', msg)
+        setPipelineError(msg)
+        return
+      }
       const d = await res.json()
       setPipelineCreators(d.creators || [])
-    } catch {}
+      setPipelineError(null)
+    } catch (err) {
+      console.error('[Dashboard] Pipeline fetch failed:', err)
+      setPipelineError(err.message || 'fetch failed')
+    }
   }, [])
   useEffect(() => { fetchPipeline() }, [fetchPipeline])
 
@@ -1068,10 +1079,12 @@ export default function AdminDashboard() {
       <div ref={creatorsCardRef} style={{ ...CARD, padding: '14px 16px', marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '8px' }}>
             <div style={SECTION_TITLE}>Creators</div>
-            <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>
-              {pipelineCreators
-                ? `${pipelineCreators.filter(c => c.socialMediaEditing).length} in editor · ${pipelineCreators.length} active/onboarding`
-                : 'Loading roster…'}
+            <div style={{ fontSize: '11px', color: pipelineError ? '#E87878' : 'var(--foreground-subtle)' }}>
+              {pipelineError
+                ? `Pipeline error: ${pipelineError}`
+                : pipelineCreators
+                  ? `${pipelineCreators.filter(c => c.socialMediaEditing).length} in editor · ${pipelineCreators.length} active/onboarding`
+                  : 'Loading roster…'}
             </div>
           </div>
           <div style={{

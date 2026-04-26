@@ -25,11 +25,16 @@ export async function GET(request) {
     // picker doesn't show "unused" when the photo is already in the pipeline.
     // The Asset flag 'Used As Reel Thumbnail' only flips on successful
     // Telegram send; this covers the gap between pick and send.
+    // Note on sort: this base has a custom field literally called 'Created Time'
+    // (not the Airtable system field) that behaves opposite of what its name
+    // suggests — sorting by it returns the oldest records first regardless of
+    // the direction param. Drop the API-level sort here and sort in memory
+    // below using each record's actual system createdTime, which is the real
+    // record-creation timestamp and behaves correctly.
     const [assets, activePostsWithThumbs] = await Promise.all([
       fetchAirtableRecords('Assets', {
         filterByFormula: `NOT({Dropbox Shared Link}='')`,
         fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status', 'Used As Reel Thumbnail', 'File Extension'],
-        sort: [{ field: 'Created Time', direction: 'desc' }],
       }),
       forReel ? fetchAirtableRecords('Posts', {
         filterByFormula: `AND(NOT({Thumbnail}=''),OR({Status}='Prepping',{Status}='Staged',{Status}='Sending',{Status}='Sent to Telegram',{Status}='Ready to Post',{Status}='Posted'))`,
@@ -73,7 +78,9 @@ export async function GET(request) {
       } catch { return '' }
     }
 
-    // Filter in memory for this creator + image type + not-already-used
+    // Filter in memory for this creator + image type + not-already-used,
+    // then sort by the record's actual system createdTime descending so the
+    // newest uploads land at the top of the picker.
     const photos = assets
       .filter(a => {
         if (!getLinkedIds(a.fields?.['Palm Creators']).includes(creatorId)) return false
@@ -86,11 +93,13 @@ export async function GET(request) {
         if (fname && usedFilenames.has(fname)) return false
         return true
       })
+      .sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0))
       .map(a => ({
         id: a.id,
         name: a.fields['Asset Name'] || '',
         dropboxLink: a.fields['Dropbox Shared Link'] || '',
         pipelineStatus: a.fields['Pipeline Status'] || '',
+        createdTime: a.createdTime,
       }))
 
     return NextResponse.json({ photos })

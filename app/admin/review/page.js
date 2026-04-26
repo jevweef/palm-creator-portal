@@ -314,6 +314,15 @@ export default function AdminReview() {
                 Open Reel ↗
               </button>
             )}
+            {record.url && (
+              <button
+                onClick={() => window.open(`/admin/inspo?tab=recreate&url=${encodeURIComponent(record.url)}`, '_blank')}
+                title="Recreate this reel with one of our creators using AI"
+                style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                ✨ Create AI
+              </button>
+            )}
           </div>
         </div>
 

@@ -1,6 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { rawDropboxUrl, isVideo } from './EditorDashboard'
+
+const SELECTED_CREATOR_STORAGE_KEY = 'gridplanner:selectedCreatorId'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -21,11 +25,21 @@ function formatCount(n) {
   return String(n)
 }
 
+// Status terminology:
+//   - 'live'       — already on IG (postedAt or postLink set)
+//   - 'scheduled'  — sent to Telegram, locked in. SMM will post next.
+//                    Cannot be moved/reordered.
+//   - 'sending'    — currently uploading to Telegram. Transient state.
+//   - 'failed'     — last upload attempt failed. Editable to retry.
+//   - 'queue'      — placed on a grid with a future date OR no date set,
+//                    waiting to be sent. Movable. Date is reactive (derived
+//                    from queue position).
 function postStatus(post) {
-  if (post.postedAt || post.postLink) return 'posted'
-  if (post.telegramSentAt) return 'sent'
-  if (post.scheduledDate && new Date(post.scheduledDate) > new Date()) return 'scheduled'
-  return 'draft'
+  if (post.postedAt || post.postLink) return 'live'
+  if (post.telegramSentAt) return 'scheduled'
+  if (post.status === 'Sending') return 'sending'
+  if (post.status === 'Send Failed') return 'failed'
+  return 'queue'
 }
 
 // ─── Phone frame mimicking IG profile ──────────────────────────────────────────
@@ -54,13 +68,14 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   const handle = account?.handle || account?.name || ''
   const profile = account?.scrapedProfile
 
-  // Sort: scheduled first (by date asc), then sent/posted (by date desc). Top-left = most recent scheduled.
-  // IG actually shows newest-at-top-left, but for PLANNING we want:
-  //  - Top rows: upcoming scheduled (draggable)
-  //  - Bottom rows: already posted (locked)
-  const scheduled = posts
+  // IG-style render: newest at top-left, oldest at bottom-right.
+  //  - Queue cells (unsent): top-left = furthest future (e.g. 4/27 PM),
+  //    bottom-right of queue = next to post (e.g. 4/25 AM).
+  //  - Then Scheduled (sent to Telegram, locked) below queue, by send date desc.
+  //  - Then Live (posted) below that.
+  const queue = posts
     .filter(p => !p.telegramSentAt && !p.postedAt)
-    .sort((a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0))
+    .sort((a, b) => new Date(b.scheduledDate || 0) - new Date(a.scheduledDate || 0))
 
   const past = posts
     .filter(p => p.telegramSentAt || p.postedAt)
@@ -83,7 +98,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   const postLinks = new Set(past.map(p => p.postLink).filter(Boolean))
   const uniqScraped = scrapedCells.filter(s => !postLinks.has(s.postLink))
 
-  const allCells = [...scheduled, ...past, ...uniqScraped]
+  const allCells = [...queue, ...past, ...uniqScraped]
 
   return (
     <div style={{
@@ -153,7 +168,7 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           <div style={{ flex: 1, display: 'flex', justifyContent: 'space-around', fontSize: '12px' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>
-                {profile?.postCount != null ? formatCount(profile.postCount) : (past.length + scheduled.length + uniqScraped.length)}
+                {profile?.postCount != null ? formatCount(profile.postCount) : (past.length + queue.length + uniqScraped.length)}
               </div>
               <div style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>posts</div>
             </div>
@@ -249,7 +264,9 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
         )}
         {allCells.map((post) => {
           const status = postStatus(post)
-          const draggable = status === 'scheduled' || status === 'draft'
+          // Only queue items can be reordered. Scheduled (sent to Telegram)
+          // and live posts are locked.
+          const draggable = status === 'queue'
           const isDragging = draggingId === post.id
           return (
             <GridCell
@@ -277,12 +294,13 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
   const isScraped = !!post._scraped
 
   const borderByStatus = {
-    scheduled: { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
-    draft:     { bg: 'var(--background)', ring: 'var(--card-border)', badge: '#999' },
-    sent:      { bg: 'rgba(125, 211, 164, 0.06)', ring: 'rgba(125, 211, 164, 0.2)', badge: '#7DD3A4' },
-    posted:    { bg: 'var(--foreground)', ring: 'transparent', badge: 'rgba(240, 236, 232, 0.75)' },
+    queue:     { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
+    sending:   { bg: 'rgba(245, 158, 11, 0.10)', ring: 'rgba(245, 158, 11, 0.5)', badge: '#f59e0b' },
+    scheduled: { bg: 'rgba(125, 211, 164, 0.06)', ring: 'rgba(125, 211, 164, 0.2)', badge: '#7DD3A4' },
+    failed:    { bg: 'rgba(239, 68, 68, 0.10)', ring: 'rgba(239, 68, 68, 0.4)', badge: '#ef4444' },
+    live:      { bg: 'var(--foreground)', ring: 'transparent', badge: 'rgba(240, 236, 232, 0.75)' },
   }
-  const style = borderByStatus[status] || borderByStatus.posted
+  const style = borderByStatus[status] || borderByStatus.live
 
   return (
     <div
@@ -306,16 +324,10 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       }}
     >
       {post.thumbnail ? (
-        <img
-          src={post.thumbnail}
-          alt=""
-          draggable={false}
-          onDragStart={(e) => e.preventDefault()}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-        />
+        <CellThumb post={post} style={style} status={status} />
       ) : (
         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style.badge, fontSize: '20px' }}>
-          {status === 'draft' ? '✏' : '🗓'}
+          {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
         </div>
       )}
 
@@ -340,7 +352,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
         {isScraped ? 'live' : status}
       </div>
       {/* Date chip */}
-      {post.scheduledDate && status !== 'posted' && !isScraped && (
+      {post.scheduledDate && status !== 'live' && !isScraped && (
         <div style={{
           position: 'absolute', bottom: 3, right: 3,
           padding: '1px 4px', borderRadius: '3px',
@@ -368,91 +380,207 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
 // ─── Unassigned tray ───────────────────────────────────────────────────────────
 
-// Unassigned tray — groups Post records by Task. Each card represents a reel
-// that still needs to be placed on N accounts. Counter badge shows remaining
-// instances (e.g., "3" initially, drops to "2" after dragging onto one grid).
-function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd, smmMode = false }) {
-  // SMM is only interested in reels that are actually ready to schedule — hide
-  // unprepped groups (no thumbnail yet) so they don't clutter the tray.
+// Phone-grid cell thumbnail with onError fallback. Same broken-attachment
+// problem as the tray — Airtable attachment URLs can rotate and source URLs
+// can die. Swap to the placeholder if the image won't load.
+function CellThumb({ post, style, status }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
+        {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
+      </div>
+    )
+  }
+  return (
+    <img
+      src={post.thumbnail}
+      alt=""
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onError={() => setFailed(true)}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+    />
+  )
+}
+
+// Tray thumbnail with onError fallback. Some Post.Thumbnail attachments point
+// at stale/dead source URLs (Airtable attachment URLs rotate, original Dropbox
+// links can become invalid). When the <img> fails to load, swap to the
+// UNPREPPED placeholder so the cell doesn't show a broken-image icon.
+function TrayThumb({ sample }) {
+  const [failed, setFailed] = useState(false)
+  if (!sample.thumbnail || failed) {
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '20px', gap: '2px', pointerEvents: 'none' }}>
+        <span>✏</span>
+        <span style={{ fontSize: '8px', fontWeight: 600 }}>UNPREPPED</span>
+      </div>
+    )
+  }
+  return (
+    <img
+      src={sample.thumbnail}
+      alt=""
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onError={() => setFailed(true)}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+    />
+  )
+}
+
+// Unassigned column — phone-shaped, 3-wide grid of reel tiles. Each tile is
+// draggable; drop onto an account phone to place. Counter badge = remaining
+// instances.
+function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDragEnd, onTileClick, smmMode = false, onDebug }) {
   const visibleGroups = smmMode
     ? groups.filter(g => g.samplePost?.thumbnail)
     : groups
-  if (visibleGroups.length === 0) return null
   const totalSlotsRemaining = visibleGroups.reduce((s, g) => s + g.remaining, 0)
+
   return (
     <div style={{
+      width: '320px', flexShrink: 0,
       background: 'var(--card-bg-solid)',
-      border: '1px dashed rgba(232, 160, 160, 0.3)',
-      borderRadius: '14px',
-      padding: '14px 16px',
-      marginBottom: '20px',
+      borderRadius: '32px',
+      border: '10px solid #1a1a1a',
+      boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+      overflow: 'hidden',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Ready to schedule</div>
-          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
-            {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} to fill across {accounts.length} account{accounts.length !== 1 && 's'}
-          </div>
+      {/* Notch */}
+      <div style={{ background: 'rgba(255,255,255,0.08)', height: '18px', position: 'relative' }}>
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: '4px',
+          width: '100px', height: '14px', background: '#000', borderRadius: '8px' }} />
+      </div>
+
+      <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--palm-pink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>🗂️</span> Ready to schedule
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>
+          {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} left
+        </div>
+        <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+          Drag a thumbnail onto an account →
         </div>
       </div>
-      <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
-        {visibleGroups.map(g => {
-          const key = g.taskId || `orphan-${g.samplePost.id}`
-          const isDragging = draggingTaskKey === key
-          const sample = g.samplePost
-          return (
-            <div key={key} style={{ flexShrink: 0, width: '96px' }}>
+
+      {visibleGroups.length === 0 ? (
+        <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '12px' }}>
+          Nothing waiting to be scheduled.
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '2px',
+          background: 'var(--card-bg-solid)',
+          padding: '2px 0',
+        }}>
+          {visibleGroups.map(g => {
+            const key = g.taskId || `orphan-${g.samplePost.id}`
+            const isDragging = draggingTaskKey === key
+            const sample = g.samplePost
+            return (
               <div
+                key={key}
                 draggable
+                onClick={() => onTileClick?.(g)}
                 onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = 'copy'
-                  // setData is REQUIRED on Firefox to actually initiate a drag.
-                  // Chrome tolerates its absence; Firefox silently fails without it.
+                  // 'all' lets either 'copy' or 'move' dropEffect be accepted
+                  // by the target. Setting 'copy' while the target uses 'move'
+                  // causes the browser to silently cancel the drop (dropEffect
+                  // ends up 'none'), which was the actual bug here.
+                  e.dataTransfer.effectAllowed = 'all'
                   try { e.dataTransfer.setData('text/plain', key) } catch {}
+                  onDebug?.(`dragStart ${key.slice(-8)} rem=${g.remaining}`)
                   onDragStart(g)
                 }}
-                onDragEnd={onDragEnd}
-                title={`${sample.name || 'Reel'} — ${g.remaining} of ${accounts.length} accounts remaining`}
+                onDragEnd={(e) => {
+                  onDebug?.(`dragEnd dropEffect=${e.dataTransfer?.dropEffect || 'none'}`)
+                  onDragEnd()
+                }}
+                title={`${sample.name || 'Reel'} — click to preview, drag to schedule`}
                 style={{
-                  width: '96px', height: '96px',
-                  background: '#000', borderRadius: '8px', overflow: 'hidden',
-                  cursor: 'grab', position: 'relative',
+                  aspectRatio: '1 / 1',
+                  background: '#000',
+                  position: 'relative',
+                  cursor: 'grab',
                   opacity: isDragging ? 0.4 : 1,
-                  border: sample.thumbnail ? '1px solid transparent' : '1px dashed rgba(232, 160, 160, 0.3)',
+                  overflow: 'hidden',
                 }}
               >
-                {sample.thumbnail ? (
-                  <img
-                    src={sample.thumbnail}
-                    alt=""
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
-                  />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '22px', gap: '2px' }}>
-                    <span>✏</span>
-                    <span style={{ fontSize: '8px', fontWeight: 600 }}>UNPREPPED</span>
-                  </div>
-                )}
-                {/* Counter badge — big, top-right, like IG Stories unread count */}
+                <TrayThumb sample={sample} />
+                {/* Counter badge */}
                 <div style={{
                   position: 'absolute', top: 4, right: 4,
-                  minWidth: '22px', height: '22px', borderRadius: '11px',
+                  minWidth: '20px', height: '20px', borderRadius: '10px',
                   background: 'var(--palm-pink)', color: '#060606',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '12px', fontWeight: 800, padding: '0 6px',
+                  fontSize: '11px', fontWeight: 800, padding: '0 5px',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                  pointerEvents: 'none',
                 }}>
                   {g.remaining}
                 </div>
               </div>
-              <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '96px' }}>
-                {sample.name || 'Reel'}
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Confirmation modal ────────────────────────────────────────────────────────
+
+// Replaces the browser-native window.confirm() which renders as an OS-styled
+// dialog that doesn't match the rest of the UI. Caller sets dialog state with
+// { title, message, confirmLabel, onConfirm, danger } and we render a modal
+// matching the rest of the app.
+function ConfirmModal({ dialog, onClose }) {
+  if (!dialog) return null
+  const { title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm, danger = false } = dialog
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 600,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+      }}
+    >
+      <div style={{
+        background: 'var(--card-bg-solid)', borderRadius: '14px',
+        width: '100%', maxWidth: '380px',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+        padding: '20px 22px',
+        display: 'flex', flexDirection: 'column', gap: '10px',
+      }}>
+        {title && <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>{title}</div>}
+        <div style={{ fontSize: '13px', lineHeight: 1.55, color: 'var(--foreground-muted)' }}>{message}</div>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '8px 16px', fontSize: '12px', fontWeight: 600,
+              background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)',
+              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer',
+            }}
+          >{cancelLabel}</button>
+          <button
+            onClick={() => { onConfirm?.(); onClose() }}
+            style={{
+              padding: '8px 16px', fontSize: '12px', fontWeight: 700,
+              background: danger ? 'rgba(239, 68, 68, 0.12)' : 'rgba(232, 160, 160, 0.15)',
+              color: danger ? '#ef4444' : 'var(--palm-pink)',
+              border: `1px solid ${danger ? 'rgba(239,68,68,0.3)' : 'rgba(232,160,160,0.3)'}`,
+              borderRadius: '8px', cursor: 'pointer',
+            }}
+          >{confirmLabel}</button>
+        </div>
       </div>
     </div>
   )
@@ -461,35 +589,80 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function GridPlanner({ smmMode = false } = {}) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const [creators, setCreators] = useState([])
   const [selectedCreatorId, setSelectedCreatorId] = useState(null)
   const [selectedCreatorMeta, setSelectedCreatorMeta] = useState(null) // { telegramThreadId, name }
   const [accounts, setAccounts] = useState([])
   const [posts, setPosts] = useState([])
   const [unassignedGroups, setUnassignedGroups] = useState([])
-  const [draggingTaskGroup, setDraggingTaskGroup] = useState(null) // the group currently being dragged from the tray
+  const [draggingTaskGroup, setDraggingTaskGroup] = useState(null) // picked-up group (via click) — name kept so downstream code unchanged
   const [dragging, setDragging] = useState({ postId: null, sourceAccountId: null })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const [detailPost, setDetailPost] = useState(null) // { post, accountId, account }
   const [sendingPostId, setSendingPostId] = useState(null)
 
-  // Load creator list on mount
+  // On-screen debug log — visible diagnostic panel. Captures drag/drop/API
+  // events so bugs can be diagnosed without opening devtools.
+  const [debugLog, setDebugLog] = useState([])
+  const pushDebug = useCallback((msg) => {
+    const ts = new Date().toLocaleTimeString('en-US', { hour12: false }).slice(-8)
+    setDebugLog(prev => [`${ts}  ${msg}`, ...prev].slice(0, 12))
+  }, [])
+
+  // Load creator list on mount. Prefer (in order):
+  //   1. creatorId in URL query (so links are shareable)
+  //   2. last-selected creator in localStorage (persists across refresh)
+  //   3. first creator with ≥1 account (default)
   useEffect(() => {
     fetch('/api/admin/grid-planner')
       .then(r => r.json())
       .then(d => {
         if (d.error) throw new Error(d.error)
-        setCreators(d.creators || [])
-        // Auto-select the first creator w/ ≥1 account
-        const first = (d.creators || []).find(c => c.accountCount > 0)
-        if (first) setSelectedCreatorId(first.id)
-        else setLoading(false)
+        const list = d.creators || []
+        setCreators(list)
+
+        const urlId = searchParams?.get('creatorId')
+        let stored = null
+        try { stored = typeof window !== 'undefined' ? localStorage.getItem(SELECTED_CREATOR_STORAGE_KEY) : null } catch {}
+
+        const candidates = [urlId, stored].filter(Boolean)
+        const match = candidates
+          .map(id => list.find(c => c.id === id))
+          .find(Boolean)
+
+        if (match) {
+          setSelectedCreatorId(match.id)
+        } else {
+          const first = list.find(c => c.accountCount > 0)
+          if (first) setSelectedCreatorId(first.id)
+          else setLoading(false)
+        }
       })
       .catch(e => { setError(e.message); setLoading(false) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Persist selected creator to URL + localStorage whenever it changes so
+  // refresh / tab-restore brings the user back to the same view.
+  useEffect(() => {
+    if (!selectedCreatorId) return
+    try { localStorage.setItem(SELECTED_CREATOR_STORAGE_KEY, selectedCreatorId) } catch {}
+    const currentUrl = searchParams?.get('creatorId')
+    if (currentUrl !== selectedCreatorId && pathname) {
+      const params = new URLSearchParams(searchParams?.toString() || '')
+      params.set('creatorId', selectedCreatorId)
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCreatorId])
 
   // Load data for selected creator
   const loadCreator = useCallback(async (creatorId) => {
@@ -517,48 +690,97 @@ export default function GridPlanner({ smmMode = false } = {}) {
 
   const showToast = (msg, isError = false) => {
     setToast({ msg, isError })
-    setTimeout(() => setToast(null), 2800)
+    // Errors stick for 10s so failures don't get missed; successes fade 2.8s
+    setTimeout(() => setToast(null), isError ? 10000 : 2800)
   }
 
   // Drag handlers
   const handleDragStart = (postId, sourceAccountId) => {
+    pushDebug(`cellDragStart post=${postId.slice(-6)} acc=${sourceAccountId?.slice(-6)}`)
     setDragging({ postId, sourceAccountId })
   }
   const handleDragEnd = () => {
+    pushDebug('cellDragEnd')
     setDragging({ postId: null, sourceAccountId: null })
   }
 
-  // Drop onto an existing post in an account grid:
-  //   - if source is same account → SWAP scheduled dates
-  //   - if source is different account or unassigned → REASSIGN dragged post to target account,
-  //     inheriting target's scheduled time shift? For v1, simpler: re-assign only.
+  // Drop onto an existing post in an account grid.
+  // Same account: insertion-shift reorder. Source moves to target's queue
+  // position; everything between source and target shifts toward source's
+  // old position. Server then renumbers all queue dates for that account.
+  // Different account: reassign dragged post to target account.
   const handleDropOnPost = async (targetPostId, targetAccountId) => {
     const sourcePostId = dragging.postId
     const sourceAcc = dragging.sourceAccountId
-    if (!sourcePostId || sourcePostId === targetPostId) return
+    pushDebug(`dropOnPost target=${targetPostId.slice(-6)} acc=${targetAccountId.slice(-6)} src=${sourcePostId?.slice(-6) || 'null'}`)
+    if (!sourcePostId || sourcePostId === targetPostId) {
+      pushDebug(`↳ skip: ${!sourcePostId ? 'no source' : 'same post'}`)
+      return
+    }
 
     const sourcePost = posts.find(p => p.id === sourcePostId)
     const targetPost = posts.find(p => p.id === targetPostId)
-    if (!sourcePost || !targetPost) return
+    if (!sourcePost || !targetPost) {
+      pushDebug(`↳ skip: ${!sourcePost ? 'source not found' : 'target not found'}`)
+      return
+    }
 
     setSaving(true)
     try {
       if (sourceAcc && sourceAcc === targetAccountId) {
-        // Same-grid swap
+        // Insertion-shift reorder within the same account.
+        // Build the queue (oldest → newest = sorted asc by current scheduledDate).
+        const queue = posts
+          .filter(p => p.accountId === targetAccountId && !p.telegramSentAt && !p.postedAt)
+          .sort((a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0))
+        const fromIdx = queue.findIndex(p => p.id === sourcePostId)
+        const toIdx = queue.findIndex(p => p.id === targetPostId)
+        if (fromIdx === -1 || toIdx === -1) return
+
+        // Move source to target's index; everything between shifts.
+        const newQueue = [...queue]
+        const [moved] = newQueue.splice(fromIdx, 1)
+        newQueue.splice(toIdx, 0, moved)
+
+        // Compute new dates: position 0 = today AM, 1 = today PM, 2 = tomorrow AM, ...
+        // Mirror server-side getQueueSlots so optimistic UI matches truth.
+        const computeSlots = (count) => {
+          const slots = []
+          const now = new Date()
+          const todayET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now)
+          const [sy, sm, sd] = todayET.split('-').map(Number)
+          for (let i = 0; i < count; i++) {
+            const dayOffset = Math.floor(i / 2)
+            const hourIdx = i % 2
+            const etHour = [11, 19][hourIdx]
+            // Construct noon UTC of target day so format-back-to-ET stays stable
+            const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset, 12))
+            const etDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(iter)
+            const [ty, tm, td] = etDateStr.split('-').map(Number)
+            // 11 AM EDT = 15:00 UTC, 7 PM EDT = 23:00 UTC. Use Intl-derived offset
+            // to handle EDT/EST boundary correctly.
+            const noonUtc = new Date(Date.UTC(ty, tm - 1, td, 12))
+            const etHourAtNoon = parseInt(
+              new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(noonUtc)
+            )
+            const utcHour = etHour + (12 - etHourAtNoon)
+            slots.push(new Date(Date.UTC(ty, tm - 1, td, utcHour)).toISOString())
+          }
+          return slots
+        }
+        const slots = computeSlots(newQueue.length)
+        const dateById = Object.fromEntries(newQueue.map((p, i) => [p.id, slots[i]]))
+
         // Optimistic UI
-        const newPosts = posts.map(p => {
-          if (p.id === sourcePostId) return { ...p, scheduledDate: targetPost.scheduledDate }
-          if (p.id === targetPostId) return { ...p, scheduledDate: sourcePost.scheduledDate }
-          return p
-        })
-        setPosts(newPosts)
+        setPosts(posts.map(p => dateById[p.id] ? { ...p, scheduledDate: dateById[p.id] } : p))
+
         const res = await fetch('/api/admin/grid-planner', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'swap', postA: sourcePostId, postB: targetPostId }),
+          body: JSON.stringify({ action: 'reorder', accountId: targetAccountId, postIds: newQueue.map(p => p.id) }),
         })
-        if (!res.ok) throw new Error('Swap failed')
-        showToast('Swapped times')
+        if (!res.ok) throw new Error('Reorder failed')
+        showToast('Reordered')
       } else {
         // Cross-account or from-unassigned → reassign
         const newPosts = posts.map(p => p.id === sourcePostId ? { ...p, accountId: targetAccountId } : p)
@@ -585,16 +807,19 @@ export default function GridPlanner({ smmMode = false } = {}) {
     // drop path now. Triggers assignInstance: picks up an unassigned Post in
     // the task group or clones a sibling, then schedules it on the next open
     // slot on this account.
+    pushDebug(`handleDrop acc=${accountId.slice(-6)} group=${!!draggingTaskGroup}`)
     if (draggingTaskGroup) {
       const group = draggingTaskGroup
       // Guard: already at this account
       if (group.assignedAccountIds?.includes(accountId)) {
+        pushDebug('↳ already on this account')
         showToast('Already on this account', true)
         setDraggingTaskGroup(null)
         return
       }
       setSaving(true)
       try {
+        pushDebug(`↳ PATCH assignInstance ids=${(group.unassignedPostIds || []).length}`)
         const res = await fetch('/api/admin/grid-planner', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -606,6 +831,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           }),
         })
         const data = await res.json()
+        pushDebug(`↳ resp ${res.status} ${data.reused ? 'reused' : data.cloned ? 'cloned' : 'other'}`)
         if (!res.ok) throw new Error(data.error || 'Assign failed')
         showToast(`Scheduled on ${accounts.find(a => a.id === accountId)?.name || 'account'}`)
 
@@ -657,10 +883,10 @@ export default function GridPlanner({ smmMode = false } = {}) {
           }
         }).filter(g => g.remaining > 0))
 
-        // Authoritative refetch — 400ms delay to give Airtable's eventual
-        // consistency time to propagate before we re-read. Without this the
-        // GET can return the pre-PATCH state and wipe out the optimistic UI.
-        setTimeout(() => { loadCreator(selectedCreatorId) }, 400)
+        // Optimistic update is authoritative — no auto-refetch. The PATCH
+        // response confirms the write, so re-GETing just to verify wastes
+        // the round-trip and makes the page feel like it's reloading after
+        // every drop. User can manually refresh if they suspect drift.
       } catch (e) {
         showToast(e.message, true)
       } finally {
@@ -713,24 +939,228 @@ export default function GridPlanner({ smmMode = false } = {}) {
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
   const handleBulkSend = async () => {
     if (!sendablePosts.length) return
-    if (!selectedCreatorMeta?.telegramThreadId) {
-      showToast('This creator has no Telegram Thread ID set', true)
+    // Each post routes to its own account's Telegram topic in the SMM master
+    // group. Posts without an account or whose account has no topic ID can't
+    // be sent — flag them.
+    const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
+    const missingTopic = sendablePosts.filter(p => !accountById[p.accountId]?.telegramTopicId)
+    if (missingTopic.length) {
+      showToast(`${missingTopic.length} post${missingTopic.length !== 1 ? 's' : ''} can't send — account has no Telegram topic. Run backfill on /sm.`, true)
       return
     }
-    const confirmed = window.confirm(`Send ${sendablePosts.length} scheduled post${sendablePosts.length !== 1 ? 's' : ''} to Telegram? They'll fire in order of Scheduled Date.`)
-    if (!confirmed) return
+    setConfirmDialog({
+      title: 'Send all scheduled posts',
+      message: `Send ${sendablePosts.length} post${sendablePosts.length !== 1 ? 's' : ''} to Telegram? They'll fire in queue order, each routed to its account's topic in the SMM group.`,
+      confirmLabel: `Send ${sendablePosts.length}`,
+      onConfirm: () => runBulkSend(),
+    })
+  }
+  const runBulkSend = async () => {
     setBulkSending(true)
-    // Optimistic UI update
-    const sendableIds = new Set(sendablePosts.map(p => p.id))
-    setPosts(prev => prev.map(p => sendableIds.has(p.id) ? { ...p, status: 'Sending' } : p))
     try {
-      // Fire all requests. Each server call returns in ~1s via waitUntil; the
-      // actual sends happen async on Vercel's side. Sequenced-by-date is
-      // already the sort order of sendablePosts; we kick them in that order
-      // 200ms apart so the server-side order lines up with user expectation.
-      let errorCount = 0
-      for (let i = 0; i < sendablePosts.length; i++) {
-        const p = sendablePosts[i]
+      // Group sendable posts by account, preserve queue order within each.
+      // Then run runAccountBulkSend (serial wait=true) for each account
+      // sequentially. Result: one Telegram upload at a time across the entire
+      // creator. Avoids the parallel-fire rate-limit storm we saw before.
+      const byAccount = {}
+      for (const p of sendablePosts) {
+        if (!byAccount[p.accountId]) byAccount[p.accountId] = []
+        byAccount[p.accountId].push(p)
+      }
+      const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
+      const orderedAccountIds = accounts.map(a => a.id).filter(id => byAccount[id]?.length)
+      for (const accountId of orderedAccountIds) {
+        const account = accountById[accountId]
+        const accountQueue = byAccount[accountId].sort(
+          (a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)
+        )
+        await runAccountBulkSend(accountId, account, accountQueue)
+      }
+      showToast(`Done — sent across ${orderedAccountIds.length} account${orderedAccountIds.length !== 1 ? 's' : ''}`)
+      await loadCreator(selectedCreatorId)
+    } finally {
+      setBulkSending(false)
+    }
+  }
+
+  // Push every queue item onto every managed account that doesn't already
+  // have it. After this runs, the unassigned tray empties — admin can drag
+  // posts around inside each account grid to reorder.
+  const [distributing, setDistributing] = useState(false)
+  const handleDistributeQueue = async () => {
+    if (!selectedCreatorId || !unassignedGroups.length) return
+    const remaining = unassignedGroups.reduce((s, g) => s + (g.remaining || 0), 0)
+    setConfirmDialog({
+      title: 'Push queue to all accounts',
+      message: `Push ${unassignedGroups.length} queue item${unassignedGroups.length !== 1 ? 's' : ''} (${remaining} placement${remaining !== 1 ? 's' : ''}) onto every Palm IG account that's missing it?`,
+      confirmLabel: 'Distribute',
+      onConfirm: () => runDistributeQueue(),
+    })
+  }
+  const runDistributeQueue = async () => {
+    setDistributing(true)
+    try {
+      const res = await fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'distributeQueue', creatorId: selectedCreatorId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Distribute failed')
+      showToast(`Distributed ${data.distributed} placement${data.distributed !== 1 ? 's' : ''}`)
+      await loadCreator(selectedCreatorId)
+    } catch (e) {
+      showToast(e.message, true)
+    } finally {
+      setDistributing(false)
+    }
+  }
+
+  // Shuffle: randomize each account's queue under the constraint that no
+  // asset lands on the same slot index across accounts (so the same reel
+  // never posts at the same time on two managed accounts). Builds a column-
+  // by-column random latin-rectangle; if it gets stuck, retries up to 30x.
+  const [shuffling, setShuffling] = useState(false)
+  const handleShuffle = async () => {
+    if (!selectedCreatorId || !accounts.length) return
+    const queues = accounts.map(acc =>
+      posts
+        .filter(p => p.accountId === acc.id && postStatus(p) === 'queue' && p.scheduledDate)
+        .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
+    )
+    const totalQueueItems = queues.reduce((s, q) => s + q.length, 0)
+    if (totalQueueItems === 0) {
+      showToast('No queue items to shuffle', true)
+      return
+    }
+    setConfirmDialog({
+      title: 'Shuffle queue',
+      message: `Randomize ${totalQueueItems} queue item${totalQueueItems !== 1 ? 's' : ''} across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}? Same reel won't land on the same slot across accounts.`,
+      confirmLabel: 'Shuffle',
+      onConfirm: () => runShuffle(queues),
+    })
+  }
+  const runShuffle = async (queues) => {
+    setShuffling(true)
+    try {
+      const assetKey = p => p.asset?.id || p.taskId || p.id
+      // Column-by-column build with random row order. Returns null on dead-end.
+      const buildShuffle = () => {
+        const remaining = queues.map(q => [...q])
+        const result = queues.map(q => Array(q.length).fill(null))
+        const maxLen = Math.max(...queues.map(q => q.length))
+        for (let c = 0; c < maxLen; c++) {
+          const usedThisCol = new Set()
+          const rowOrder = queues
+            .map((_, i) => i)
+            .filter(r => c < queues[r].length)
+            .sort(() => Math.random() - 0.5)
+          for (const r of rowOrder) {
+            const candidates = remaining[r].filter(p => !usedThisCol.has(assetKey(p)))
+            if (!candidates.length) return null
+            const pick = candidates[Math.floor(Math.random() * candidates.length)]
+            result[r][c] = pick
+            usedThisCol.add(assetKey(pick))
+            remaining[r] = remaining[r].filter(p => p !== pick)
+          }
+        }
+        return result
+      }
+      let shuffled = null
+      for (let attempt = 0; attempt < 30 && !shuffled; attempt++) {
+        shuffled = buildShuffle()
+      }
+      if (!shuffled) {
+        showToast('Could not find collision-free shuffle — too many duplicates', true)
+        return
+      }
+      // Optimistic UI: recompute scheduledDate per account from index, locally
+      const newDateByPostId = {}
+      shuffled.forEach((row, i) => {
+        const accQueue = queues[i]
+        row.forEach((post, slotIdx) => {
+          newDateByPostId[post.id] = accQueue[slotIdx].scheduledDate
+        })
+      })
+      setPosts(posts.map(p =>
+        newDateByPostId[p.id] ? { ...p, scheduledDate: newDateByPostId[p.id] } : p
+      ))
+      // Commit per account
+      await Promise.all(shuffled.map((row, i) =>
+        fetch('/api/admin/grid-planner', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'reorder',
+            accountId: accounts[i].id,
+            postIds: row.map(p => p.id),
+          }),
+        })
+      ))
+      showToast(`Shuffled ${queues.reduce((s, q) => s + q.length, 0)} posts`)
+      await loadCreator(selectedCreatorId)
+    } catch (e) {
+      showToast(e.message, true)
+      loadCreator(selectedCreatorId)
+    } finally {
+      setShuffling(false)
+    }
+  }
+
+  // Per-account bulk send: fires this account's queue serially with wait=true
+  // so each post fully completes before the next starts. Guarantees Telegram
+  // receive-order matches queue order (4/25 AM first, 4/27 PM last).
+  const [accountBulkSending, setAccountBulkSending] = useState(null)
+  // { handle, total, current, status: 'sending'|'done', okCount, failCount }
+  const [bulkProgress, setBulkProgress] = useState(null)
+  // Holds the AbortController for the in-flight bulk send so the user can
+  // cancel a hung run. Also used by the per-fetch timeout to kill a single
+  // stuck request without blocking the rest of the queue.
+  const bulkCancelRef = useRef(null)
+  const handleAccountBulkSend = async (accountId) => {
+    const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
+    const account = accountById[accountId]
+    if (!account?.telegramTopicId) {
+      showToast('No Telegram topic for this account', true)
+      return
+    }
+    const accountQueue = posts
+      .filter(p =>
+        p.accountId === accountId &&
+        p.scheduledDate &&
+        !p.telegramSentAt &&
+        !p.postedAt &&
+        p.asset?.editedFileLink &&
+        p.status !== 'Sending' &&
+        p.status !== 'Sent to Telegram'
+      )
+      .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
+
+    if (!accountQueue.length) {
+      showToast('Nothing to send for this account', true)
+      return
+    }
+    const estMin = Math.ceil(accountQueue.length * 25 / 60)
+    setConfirmDialog({
+      title: `Send queue to @${account.handle}`,
+      message: `Send ${accountQueue.length} post${accountQueue.length !== 1 ? 's' : ''} in queue order to the @${account.handle} topic? Each waits for the previous to fully upload (~${estMin} min). Keep this tab open.`,
+      confirmLabel: `Send ${accountQueue.length}`,
+      onConfirm: () => runAccountBulkSend(accountId, account, accountQueue),
+    })
+  }
+  const runAccountBulkSend = async (accountId, account, accountQueue) => {
+    setAccountBulkSending(accountId)
+    const idsBeingSent = new Set(accountQueue.map(p => p.id))
+    setPosts(prev => prev.map(p => idsBeingSent.has(p.id) ? { ...p, status: 'Sending' } : p))
+    setBulkProgress({ handle: account.handle, total: accountQueue.length, current: 0, status: 'sending', okCount: 0, failCount: 0, lastError: null })
+
+    let okCount = 0
+    let failCount = 0
+    let lastError = null
+    try {
+      for (let i = 0; i < accountQueue.length; i++) {
+        const p = accountQueue[i]
+        setBulkProgress(prev => prev ? { ...prev, current: i + 1 } : prev)
         try {
           const res = await fetch('/api/telegram/send', {
             method: 'POST',
@@ -738,7 +1168,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
             body: JSON.stringify({
               postId: p.id,
               editedFileLink: p.asset?.editedFileLink,
-              threadId: selectedCreatorMeta.telegramThreadId,
+              smmTopicId: account.telegramTopicId,
               caption: [p.caption, p.hashtags].filter(Boolean).join('\n\n') || undefined,
               thumbnailUrl: p.thumbnailUrl || undefined,
               assetId: p.asset?.id || undefined,
@@ -746,25 +1176,33 @@ export default function GridPlanner({ smmMode = false } = {}) {
               rawHashtags: p.hashtags || undefined,
               platform: p.platform?.length ? p.platform : undefined,
               scheduledDate: p.scheduledDate || undefined,
+              wait: true,
             }),
           })
-          if (!res.ok) errorCount++
-        } catch {
-          errorCount++
+          if (res.ok) {
+            okCount++
+            setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Sent to Telegram', telegramSentAt: new Date().toISOString() } : pp))
+          } else {
+            failCount++
+            const data = await res.json().catch(() => ({}))
+            lastError = data.error || `HTTP ${res.status}`
+            console.error(`[Bulk send] ${p.id} failed:`, lastError)
+            setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Send Failed' } : pp))
+          }
+        } catch (err) {
+          failCount++
+          lastError = err.message
+          console.error(`[Bulk send] ${p.id} threw:`, err)
+          setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Send Failed' } : pp))
         }
-        // Small delay between queue submissions — keeps server logs readable
-        // and avoids hammering Vercel with 10 concurrent function starts.
-        if (i < sendablePosts.length - 1) await new Promise(r => setTimeout(r, 200))
+        setBulkProgress(prev => prev ? { ...prev, okCount, failCount, lastError } : prev)
       }
-      if (errorCount) {
-        showToast(`Queued ${sendablePosts.length - errorCount}/${sendablePosts.length} · ${errorCount} failed to queue`, errorCount > 0)
-      } else {
-        showToast(`Queued ${sendablePosts.length} post${sendablePosts.length !== 1 ? 's' : ''} — sending in background`)
-      }
-      // Give the server a beat, then reload to pick up 'Sending' status
-      setTimeout(() => loadCreator(selectedCreatorId), 2000)
+      setBulkProgress(prev => prev ? { ...prev, status: 'done' } : prev)
+      // Leave the final state visible for 8s, then clear
+      setTimeout(() => setBulkProgress(null), 8000)
+      await loadCreator(selectedCreatorId)
     } finally {
-      setBulkSending(false)
+      setAccountBulkSending(null)
     }
   }
 
@@ -803,8 +1241,9 @@ export default function GridPlanner({ smmMode = false } = {}) {
   // poll for completion.
   const handleSendToTelegram = async (post) => {
     if (sendingPostId) return // prevent double-click
-    if (!selectedCreatorMeta?.telegramThreadId) {
-      showToast('This creator has no Telegram Thread ID set', true)
+    const account = accounts.find(a => a.id === post.accountId)
+    if (!account?.telegramTopicId) {
+      showToast('This account has no Telegram topic set. Run backfill on /sm.', true)
       return
     }
     setSendingPostId(post.id)
@@ -818,7 +1257,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
         body: JSON.stringify({
           postId: post.id,
           editedFileLink: post.asset?.editedFileLink || post.assetEditedFileLink,
-          threadId: selectedCreatorMeta.telegramThreadId,
+          smmTopicId: account.telegramTopicId,
           caption: [post.caption, post.hashtags].filter(Boolean).join('\n\n') || undefined,
           thumbnailUrl: post.thumbnailUrl || undefined,
           assetId: post.asset?.id || undefined,
@@ -845,7 +1284,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           setSendingPostId(null)
           setPosts(d.posts || [])
           if (latest.status === 'Sent to Telegram' || latest.status === 'Ready to Post') {
-            showToast('Sent to Telegram ✓')
+            showToast('Scheduled ✓')
           } else if (latest.status === 'Send Failed') {
             showToast('Send failed — check Admin Notes on post', true)
           }
@@ -900,11 +1339,43 @@ export default function GridPlanner({ smmMode = false } = {}) {
         <div style={{ flex: 1 }} />
         {saving && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Saving…</span>}
         {refreshing && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Scraping IG…</span>}
+        {unassignedGroups.length > 0 && (
+          <button
+            onClick={handleDistributeQueue}
+            disabled={distributing}
+            title="Push every queue item onto every managed Palm IG account it's not already on. Skips accounts that already have the item."
+            style={{
+              padding: '6px 14px', fontSize: '12px', fontWeight: 700,
+              background: distributing ? 'rgba(232, 160, 160, 0.04)' : 'rgba(232, 160, 160, 0.10)',
+              color: 'var(--palm-pink)',
+              border: '1px solid rgba(232, 160, 160, 0.25)',
+              borderRadius: '6px', cursor: distributing ? 'default' : 'pointer',
+            }}
+          >
+            {distributing ? 'Distributing…' : `↗ Push queue to all accounts`}
+          </button>
+        )}
+        {accounts.length > 1 && posts.some(p => postStatus(p) === 'queue') && (
+          <button
+            onClick={handleShuffle}
+            disabled={shuffling}
+            title="Randomize each account's queue. Same reel won't land on the same slot across accounts."
+            style={{
+              padding: '6px 14px', fontSize: '12px', fontWeight: 700,
+              background: shuffling ? 'rgba(168, 132, 232, 0.04)' : 'rgba(168, 132, 232, 0.10)',
+              color: '#a884e8',
+              border: '1px solid rgba(168, 132, 232, 0.25)',
+              borderRadius: '6px', cursor: shuffling ? 'default' : 'pointer',
+            }}
+          >
+            {shuffling ? 'Shuffling…' : '🎲 Shuffle queue'}
+          </button>
+        )}
         {sendablePosts.length > 0 && (
           <button
             onClick={handleBulkSend}
             disabled={bulkSending}
-            title={`Fire all ${sendablePosts.length} scheduled-but-unsent posts to Telegram, sequenced by Scheduled Date. They run in the background — each post's card flips to Sending → Sent as it completes.`}
+            title={`Send all ${sendablePosts.length} scheduled-but-unsent posts to Telegram. Runs serially: account 1's full queue, then account 2's, etc. One upload at a time to stay under Telegram's rate limit.`}
             style={{
               padding: '6px 14px', fontSize: '12px', fontWeight: 700,
               background: bulkSending ? 'rgba(125, 211, 164, 0.04)' : 'rgba(125, 211, 164, 0.10)',
@@ -946,23 +1417,6 @@ export default function GridPlanner({ smmMode = false } = {}) {
 
       {!loading && !error && selectedCreatorId && (
         <>
-          {/* Unassigned tray — task groups with "3-2-1 badge" counter drag */}
-          <UnassignedTray
-            groups={unassignedGroups}
-            accounts={accounts}
-            smmMode={smmMode}
-            draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
-            onDragStart={(group) => {
-              console.log('[GridPlanner] tray dragStart', group.taskId, 'remaining:', group.remaining)
-              setDraggingTaskGroup(group)
-            }}
-            onDragEnd={() => {
-              console.log('[GridPlanner] tray dragEnd')
-              setDraggingTaskGroup(null)
-            }}
-          />
-
-          {/* Phones */}
           {accounts.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--background)', borderRadius: '12px' }}>
               No Instagram accounts found for this creator in Creator Platform Directory.
@@ -973,18 +1427,73 @@ export default function GridPlanner({ smmMode = false } = {}) {
                 display: 'flex', gap: '24px', overflowX: 'auto',
                 paddingBottom: '20px', paddingTop: '10px',
                 scrollbarWidth: 'thin',
+                alignItems: 'flex-start',
               }}
             >
-              {accounts.map(acc => (
+              {/* Leftmost column — unassigned reels, phone-shaped. Drag a tile. */}
+              <UnassignedTray
+                groups={unassignedGroups}
+                accounts={accounts}
+                smmMode={smmMode}
+                draggingTaskKey={draggingTaskGroup ? (draggingTaskGroup.taskId || `orphan-${draggingTaskGroup.samplePost?.id}`) : null}
+                onDragStart={(group) => setDraggingTaskGroup(group)}
+                onDragEnd={() => setDraggingTaskGroup(null)}
+                onTileClick={(group) => setDetailPost({ post: group.samplePost, account: null, fromTray: true })}
+                onDebug={pushDebug}
+              />
+
+              {/* Account phones — drop targets */}
+              {accounts.map(acc => {
+                const accountQueueCount = (postsByAccount[acc.id] || []).filter(p =>
+                  p.scheduledDate && !p.telegramSentAt && !p.postedAt && p.asset?.editedFileLink &&
+                  p.status !== 'Sending' && p.status !== 'Sent to Telegram'
+                ).length
+                const isThisAccountSending = accountBulkSending === acc.id
+                return (
                 <div
                   key={acc.id}
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                  onDragEnter={(e) => {
+                    e.preventDefault()
+                    pushDebug(`dragEnter acc=${acc.name?.slice(-10) || acc.id.slice(-6)}`)
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }}
                   onDrop={(e) => {
                     e.preventDefault()
-                    console.log('[GridPlanner] drop on account', acc.id, 'draggingTaskGroup?', !!draggingTaskGroup)
+                    e.stopPropagation()
+                    pushDebug(`DROP acc=${acc.name?.slice(-10) || acc.id.slice(-6)} hasGroup=${!!draggingTaskGroup}`)
                     handleDropOnAccount(acc.id)
                   }}
+                  style={{
+                    // Subtle visible drop target so user sees phones ARE drop zones
+                    outline: draggingTaskGroup ? '2px dashed rgba(232,160,160,0.5)' : 'none',
+                    outlineOffset: '6px',
+                    borderRadius: '40px',
+                    transition: 'outline 0.1s ease',
+                  }}
                 >
+                  {accountQueueCount > 0 && acc.telegramTopicId && (
+                    <div style={{ marginBottom: '8px', textAlign: 'center' }}>
+                      <button
+                        onClick={() => handleAccountBulkSend(acc.id)}
+                        disabled={!!accountBulkSending}
+                        title={`Send all ${accountQueueCount} queue posts to @${acc.handle}'s Telegram topic, in order. Each waits for the previous to upload.`}
+                        style={{
+                          padding: '6px 14px', fontSize: '11px', fontWeight: 700,
+                          background: isThisAccountSending ? 'rgba(245, 158, 11, 0.10)' : 'rgba(125, 211, 164, 0.10)',
+                          color: isThisAccountSending ? '#f59e0b' : '#7DD3A4',
+                          border: `1px solid ${isThisAccountSending ? 'rgba(245,158,11,0.3)' : 'rgba(125,211,164,0.3)'}`,
+                          borderRadius: '6px',
+                          cursor: accountBulkSending ? 'default' : 'pointer',
+                          opacity: accountBulkSending && !isThisAccountSending ? 0.4 : 1,
+                        }}
+                      >
+                        {isThisAccountSending ? 'Sending…' : `✈ Send queue (${accountQueueCount})`}
+                      </button>
+                    </div>
+                  )}
                   <PhoneFrame
                     account={acc}
                     creator={creators.find(c => c.id === selectedCreatorId)}
@@ -996,7 +1505,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
                     onCellClick={(post) => setDetailPost({ post, account: acc })}
                   />
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </>
@@ -1024,11 +1534,45 @@ export default function GridPlanner({ smmMode = false } = {}) {
               })
               if (!res.ok) throw new Error('Unassign failed')
               showToast('Sent back to tray')
-              setTimeout(() => loadCreator(selectedCreatorId), 400)
+              setTimeout(() => loadCreator(selectedCreatorId), 2500)
             } catch (e) {
               showToast(e.message, true)
               loadCreator(selectedCreatorId)
             }
+          }}
+          onSendBackToPrepping={async () => {
+            const postId = detailPost.post.id
+            // Optimistic
+            setPosts(ps => ps.map(p => p.id === postId ? { ...p, status: 'Prepping' } : p))
+            setDetailPost(d => d && d.post.id === postId ? { ...d, post: { ...d.post, status: 'Prepping' } } : d)
+            try {
+              const res = await fetch('/api/admin/grid-planner', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'setStatus', postId, status: 'Prepping' }),
+              })
+              if (!res.ok) throw new Error('Status update failed')
+              showToast('Sent back to Prepping')
+              setTimeout(() => loadCreator(selectedCreatorId), 2500)
+            } catch (e) {
+              showToast(e.message, true)
+              loadCreator(selectedCreatorId)
+            }
+          }}
+          onThumbnailReplaced={(postId, newUrl) => {
+            // Optimistic: drop the new URL on the post so the grid cell flips
+            // immediately. The Dropbox URL itself doesn't render in <img> reliably,
+            // so we also refetch from Airtable — Airtable re-hosts attachments
+            // on its CDN and that URL works everywhere.
+            setPosts(ps => ps.map(p => p.id === postId ? { ...p, thumbnail: newUrl, thumbnailUrl: newUrl } : p))
+            setDetailPost(d => d && d.post.id === postId
+              ? { ...d, post: { ...d.post, thumbnail: newUrl, thumbnailUrl: newUrl } }
+              : d
+            )
+            showToast('Thumbnail updated')
+            // Airtable needs ~3-5s to ingest the source URL into its CDN. Refetch
+            // after that so the post object gets the Airtable-hosted URL.
+            setTimeout(() => loadCreator(selectedCreatorId), 4000)
           }}
           smmMode={smmMode}
           onMarkScheduled={async (scheduled) => {
@@ -1061,6 +1605,58 @@ export default function GridPlanner({ smmMode = false } = {}) {
         />
       )}
 
+      <ConfirmModal dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
+
+      {/* Bulk-send progress banner (persistent during send, no auto-dismiss) */}
+      {bulkProgress && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 350,
+          padding: '14px 22px', borderRadius: '12px', minWidth: '320px',
+          background: bulkProgress.status === 'done'
+            ? (bulkProgress.failCount > 0 ? 'rgba(239, 68, 68, 0.10)' : 'rgba(125, 211, 164, 0.10)')
+            : 'rgba(245, 158, 11, 0.10)',
+          color: bulkProgress.status === 'done'
+            ? (bulkProgress.failCount > 0 ? '#ef4444' : '#7DD3A4')
+            : '#f59e0b',
+          border: `1px solid ${bulkProgress.status === 'done'
+            ? (bulkProgress.failCount > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(125,211,164,0.3)')
+            : 'rgba(245,158,11,0.3)'}`,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(10px)',
+          fontSize: '13px', fontWeight: 600,
+          display: 'flex', flexDirection: 'column', gap: '6px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>
+              {bulkProgress.status === 'done'
+                ? (bulkProgress.failCount > 0 ? '✗' : '✓')
+                : '✈'}
+            </span>
+            <span>
+              {bulkProgress.status === 'done'
+                ? `@${bulkProgress.handle}: ${bulkProgress.okCount} sent · ${bulkProgress.failCount} failed`
+                : `Sending ${bulkProgress.current}/${bulkProgress.total} to @${bulkProgress.handle}…`}
+            </span>
+          </div>
+          {/* Progress bar */}
+          {bulkProgress.status !== 'done' && (
+            <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${(bulkProgress.current / bulkProgress.total) * 100}%`,
+                background: '#f59e0b',
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+          )}
+          {bulkProgress.lastError && (
+            <div style={{ fontSize: '11px', fontWeight: 400, opacity: 0.85, fontFamily: 'monospace' }}>
+              Last error: {bulkProgress.lastError}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Toast */}
       {toast && (
         <div style={{
@@ -1072,6 +1668,32 @@ export default function GridPlanner({ smmMode = false } = {}) {
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
         }}>
           {toast.msg}
+        </div>
+      )}
+
+      {/* On-screen debug log — TEMPORARY. Paste this back so we can diagnose
+          drag-drop. Click the × to dismiss. */}
+      {debugLog.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '24px', zIndex: 300,
+          width: '420px', maxHeight: '320px', overflowY: 'auto',
+          background: 'rgba(10, 10, 10, 0.95)',
+          border: '1px solid rgba(232, 160, 160, 0.3)',
+          borderRadius: '8px',
+          padding: '10px 12px',
+          fontSize: '11px', fontFamily: 'monospace',
+          color: 'var(--foreground)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <span style={{ fontWeight: 700, color: 'var(--palm-pink)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Drag Debug</span>
+            <button onClick={() => setDebugLog([])} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', padding: 0, fontSize: '14px' }}>×</button>
+          </div>
+          {debugLog.map((line, i) => (
+            <div key={i} style={{ lineHeight: 1.6, color: i === 0 ? 'var(--palm-pink)' : 'var(--foreground-muted)', whiteSpace: 'pre-wrap' }}>
+              {line}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -1096,8 +1718,11 @@ const smmBtn = {
   cursor: 'pointer',
 }
 
-function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, smmMode = false, onMarkScheduled }) {
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, onThumbnailReplaced, onSendBackToPrepping, smmMode = false, onMarkScheduled }) {
   const [copiedKey, setCopiedKey] = useState(null)
+  const [uploadingThumb, setUploadingThumb] = useState(false)
+  const [localThumb, setLocalThumb] = useState(null) // optimistic preview after upload
+  const thumbInputRef = useRef(null)
   async function copyText(text, key) {
     if (!text) return
     await navigator.clipboard.writeText(text)
@@ -1105,9 +1730,48 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
     setTimeout(() => setCopiedKey(null), 1500)
   }
   const isScraped = !!post._scraped
+  const canReplaceThumb = !isScraped && post.id?.startsWith('rec')
+
+  async function handleThumbnailFile(file) {
+    if (!file || !file.type?.startsWith('image/')) {
+      alert('Pick an image file (JPEG, PNG, etc.).')
+      return
+    }
+    setUploadingThumb(true)
+    try {
+      // Show local preview immediately
+      const previewUrl = URL.createObjectURL(file)
+      setLocalThumb(previewUrl)
+
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/admin/grid-planner/post-thumbnail/${post.id}`, {
+        method: 'POST',
+        body: fd,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Thumbnail upload failed')
+      onThumbnailReplaced?.(post.id, data.url)
+    } catch (e) {
+      alert(`Could not replace thumbnail: ${e.message}`)
+      setLocalThumb(null)
+    } finally {
+      setUploadingThumb(false)
+    }
+  }
   // Scraped cells are just IG feed items — never sendable, never have an
-  // Airtable Status. Show them as "Live on IG" with a link out.
-  const effectiveStatus = isScraped ? 'Live on IG' : (post.status || 'Prepping')
+  // Airtable Status. Show them as "Live" with a link out.
+  // Airtable Status values are mapped to user-facing labels:
+  //   Prepping/Staged → Queue, Sent to Telegram → Scheduled, Posted → Live.
+  const rawStatus = isScraped ? 'Live' : (post.status || 'Prepping')
+  const displayStatusMap = {
+    'Prepping': 'Queue',
+    'Staged': 'Queue',
+    'Sent to Telegram': 'Scheduled',
+    'Posted': 'Live',
+    'Live on IG': 'Live',
+  }
+  const effectiveStatus = displayStatusMap[rawStatus] || rawStatus
   const canSend = !isScraped && post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
   const scheduledLabel = post.scheduledDate
     ? new Date(post.scheduledDate).toLocaleDateString('en-US', {
@@ -1120,11 +1784,10 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
     : null
   const statusStyle = {
     'Sending': { bg: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
-    'Sent to Telegram': { bg: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8', border: 'rgba(120, 180, 232, 0.3)' },
+    'Scheduled': { bg: 'rgba(125, 211, 164, 0.10)', color: '#7DD3A4', border: 'rgba(125, 211, 164, 0.3)' },
     'Send Failed': { bg: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' },
-    'Posted': { bg: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
-    'Prepping': { bg: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04', border: 'rgba(202, 138, 4, 0.3)' },
-    'Live on IG': { bg: 'rgba(240, 236, 232, 0.08)', color: 'rgba(240, 236, 232, 0.85)', border: 'rgba(240, 236, 232, 0.2)' },
+    'Live': { bg: 'rgba(232, 160, 160, 0.08)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
+    'Queue': { bg: 'rgba(232, 160, 160, 0.10)', color: 'var(--palm-pink)', border: 'rgba(232, 160, 160, 0.3)' },
   }[effectiveStatus] || { bg: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: 'rgba(255,255,255,0.08)' }
 
   return (
@@ -1149,21 +1812,86 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
               {post.name || 'Untitled post'}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
-              @{account?.handle || account?.name} {scheduledLabel ? ' · ' + scheduledLabel : ''}
+              {account?.handle || account?.name
+                ? `@${account.handle || account.name}`
+                : <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>Unassigned</span>}
+              {scheduledLabel ? ' · ' + scheduledLabel : ''}
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px' }}>×</button>
         </div>
 
-        {/* Thumbnail */}
-        <div style={{ padding: '0 20px' }}>
-          <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {post.thumbnail ? (
-              <img src={post.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-            ) : (
-              <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No thumbnail</div>
+        {/* Thumbnail / Video */}
+        <div style={{ padding: '0 20px', position: 'relative' }}>
+          <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            {(() => {
+              const videoLink = post.asset?.editedFileLink || post.assetEditedFileLink
+              const videoSrc = videoLink && isVideo(videoLink) ? rawDropboxUrl(videoLink) : null
+              const posterSrc = localThumb || post.thumbnail
+              if (videoSrc) {
+                return (
+                  <video
+                    src={videoSrc}
+                    poster={posterSrc || undefined}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+                  />
+                )
+              }
+              if (posterSrc) {
+                return <img src={posterSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              }
+              return <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No thumbnail</div>
+            })()}
+            {uploadingThumb && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'rgba(0,0,0,0.6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--palm-pink)', fontSize: '13px', fontWeight: 600,
+              }}>
+                Uploading new thumbnail…
+              </div>
             )}
           </div>
+          {canReplaceThumb && (
+            <div style={{ marginTop: '8px', textAlign: 'center' }}>
+              <input
+                ref={thumbInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) handleThumbnailFile(f)
+                  e.target.value = ''
+                }}
+              />
+              {post.thumbnailBroken && (
+                <div style={{ fontSize: '11px', color: '#ef4444', marginBottom: '6px', fontWeight: 500 }}>
+                  ⚠ Existing thumbnail is broken — replace it.
+                </div>
+              )}
+              <button
+                onClick={() => thumbInputRef.current?.click()}
+                disabled={uploadingThumb}
+                style={{
+                  background: post.thumbnailBroken ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                  border: `1px solid ${post.thumbnailBroken ? 'rgba(239, 68, 68, 0.4)' : 'var(--card-border)'}`,
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  color: post.thumbnailBroken ? '#ef4444' : 'var(--foreground-muted)',
+                  cursor: uploadingThumb ? 'default' : 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                {uploadingThumb ? 'Uploading…' : '↻ Replace thumbnail'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Status pill */}
@@ -1186,11 +1914,29 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           ))}
         </div>
 
-        {/* Caption preview */}
-        {(post.caption || post.hashtags) && (
-          <div style={{ padding: '12px 20px 0', fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
-            {post.caption}
-            {post.hashtags ? '\n\n' + post.hashtags : ''}
+        {/* Caption + Hashtags */}
+        {(post.caption || post.hashtags) ? (
+          <div style={{ padding: '12px 20px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {post.caption && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '4px' }}>Caption</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 10px' }}>
+                  {post.caption}
+                </div>
+              </div>
+            )}
+            {post.hashtags && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '4px' }}>Hashtags</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '100px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 10px' }}>
+                  {post.hashtags}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ padding: '12px 20px 0', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+            No caption or hashtags yet.
           </div>
         )}
 
@@ -1237,13 +1983,25 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           {/* Unassign: only if placed + editable (not scraped, not sent/posted) */}
           {!isScraped && onUnassign && post.accountId && !post.telegramSentAt && !post.postedAt && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted' && (
             <button
-              onClick={() => { if (confirm('Send this reel back to the tray?')) onUnassign() }}
+              onClick={onUnassign}
               title="Remove from this account — the reel goes back to the Ready to Schedule tray"
               style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
                 background: 'rgba(232, 120, 120, 0.06)', color: '#E87878',
                 border: '1px solid rgba(232, 120, 120, 0.25)', borderRadius: '8px', cursor: 'pointer' }}
             >
               ↶ Unassign
+            </button>
+          )}
+          {/* Send back to Prepping: any non-prepping, non-final post */}
+          {!isScraped && onSendBackToPrepping && post.status !== 'Prepping' && !post.telegramSentAt && !post.postedAt && (
+            <button
+              onClick={onSendBackToPrepping}
+              title="Move this post back to Prepping status"
+              style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
+                background: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04',
+                border: '1px solid rgba(202, 138, 4, 0.3)', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              ↺ To Prepping
             </button>
           )}
           {smmMode && !isScraped ? (

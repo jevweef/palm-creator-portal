@@ -122,6 +122,7 @@ export async function GET(request) {
         invoiceFilename: f['Creator Invoice']?.[0]?.filename || null,
         invoiceDropboxUrl: f['Invoice Dropbox Link'] || null,
         invoiceStatus: f['Invoice Status'] || '',
+        amountPaid: f['Amount Paid'] || 0,
         accountName: (() => {
           const inv = f['Invoice'] || ''
           const match = inv.match(/- (.+?) \|/)

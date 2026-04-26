@@ -76,7 +76,7 @@ export async function GET() {
       // Posts from last 14 days + all future — drives buffer + calendar coloring + telegram sent
       fetchAirtableRecords('Posts', {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -14, 'days'))`,
-        fields: ['Creator', 'Scheduled Date', 'Task', 'Telegram Sent At'],
+        fields: ['Creator', 'Scheduled Date', 'Task', 'Asset', 'Telegram Sent At'],
       }),
     ])
 
@@ -228,7 +228,11 @@ export async function GET() {
 
     // Group posts by creator: total future count + per-date breakdown
     // Use ET date for all grouping so evening posts (23:00 UTC = 7 PM ET) land on the correct day
-    const futurePostsByCreator = {}
+    //
+    // Runway = how many unique reels are scheduled, not how many Post records.
+    // A creator with N IG accounts produces N sibling Posts per reel (one per
+    // account), so counting raw Posts overstates buffer Nx. Dedupe by Asset ID.
+    const futureAssetsByCreator = {}  // { creatorId: Set<assetId> }
     const postsByDateByCreator = {}
     for (const post of allPosts) {
       const creatorId = (post.fields?.Creator || [])[0]
@@ -238,9 +242,12 @@ export async function GET() {
         if (!postsByDateByCreator[creatorId]) postsByDateByCreator[creatorId] = {}
         postsByDateByCreator[creatorId][date] = (postsByDateByCreator[creatorId][date] || 0) + 1
       }
-      // Only count future posts toward buffer
+      // Only count future posts toward buffer, deduped by Asset
       if (date && date > todayStr) {
-        futurePostsByCreator[creatorId] = (futurePostsByCreator[creatorId] || 0) + 1
+        const assetId = (post.fields?.Asset || [])[0]
+        if (!assetId) continue
+        if (!futureAssetsByCreator[creatorId]) futureAssetsByCreator[creatorId] = new Set()
+        futureAssetsByCreator[creatorId].add(assetId)
       }
     }
 
@@ -257,17 +264,23 @@ export async function GET() {
       const inspoClips = inspoClipsByCreator[c.id] || []
       const weeklyQuota = f['Weekly Reel Quota'] || 14
       const dailyQuota = Math.ceil(weeklyQuota / 7)
-      const approvedBuffer = futurePostsByCreator[c.id] || 0
+      const approvedBuffer = futureAssetsByCreator[c.id]?.size || 0
       const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
-      // Redistribute ALL done tasks (approved + in-review) so each day stays
-      // at dailyQuota. Everyone pins to their completion date first; if that
-      // day is full, the task rolls forward to the next day's first open slot.
-      // Sort by completion time so earlier tasks get first pick of same-day
-      // slots — overshoots (the 4th edit of a 3-slot day) roll to tomorrow.
-      const doneTasksForRedist = ctasks.filter(t =>
-        t.status === 'Done' && t.adminReviewStatus !== 'Needs Revision'
+      // Redistribute ALL submitted tasks (approved + in-review + needs-revision)
+      // so each day stays at dailyQuota. A revision is still a real edit the
+      // editor produced on its original day — it should stay pinned to that
+      // day's slot rather than floating forward into today's queue. Without
+      // this, sending back a revision empties yesterday's slot retroactively
+      // and double-counts against today.
+      // Everyone pins to their completion date first; if that day is full, the
+      // task rolls forward to the next day's first open slot. Sort by
+      // completion time so earlier tasks get first pick of same-day slots —
+      // overshoots (the 4th edit of a 3-slot day) roll to tomorrow.
+      const isPinnedTask = t => t.completedAt && (
+        t.status === 'Done' || t.adminReviewStatus === 'Needs Revision'
       )
+      const doneTasksForRedist = ctasks.filter(isPinnedTask)
       const sortedDone = [...doneTasksForRedist].sort(
         (a, b) => new Date(a.completedAt || 0) - new Date(b.completedAt || 0)
       )
@@ -286,23 +299,21 @@ export async function GET() {
         slotsUsedByDate[candidate] = (slotsUsedByDate[candidate] || 0) + 1
       }
 
+      // doneThisWeek counts the editor's productivity — revisions still count
+      // as work they did this week (the rework is ahead of them, but the
+      // original edit is in the books).
       const doneThisWeek = ctasks.filter(t =>
-        t.status === 'Done' &&
-        t.etCompletedDate >= weekStartStr &&
-        t.adminReviewStatus !== 'Needs Revision'
+        isPinnedTask(t) && t.etCompletedDate >= weekStartStr
       ).length
 
       const doneTodayList = ctasks.filter(t =>
-        t.status === 'Done' &&
-        t.etSlotDate === todayStr &&
-        t.adminReviewStatus !== 'Needs Revision'
+        isPinnedTask(t) && t.etSlotDate === todayStr
       )
 
-      // All done tasks from the past 14 days for date navigation
+      // All pinned tasks from the past 14 days for date navigation. Includes
+      // revisions so they render in the slot they were originally submitted.
       const recentDone = ctasks.filter(t =>
-        t.status === 'Done' &&
-        t.adminReviewStatus !== 'Needs Revision' &&
-        t.etSlotDate >= twoWeeksAgoStr
+        isPinnedTask(t) && t.etSlotDate >= twoWeeksAgoStr
       )
 
       return {
@@ -319,7 +330,11 @@ export async function GET() {
         bufferDays,
         needsRevision: ctasks.filter(t => t.adminReviewStatus === 'Needs Revision'),
         queue: ctasks.filter(t => t.status === 'To Do'),
-        inProgress: ctasks.filter(t => t.status === 'In Progress'),
+        // In-progress tasks that have NEVER been submitted (no completedAt)
+        // float forward from today as queue items. Revisions are also In
+        // Progress but they're pinned to their original submission day above,
+        // so exclude them here to avoid double-rendering.
+        inProgress: ctasks.filter(t => t.status === 'In Progress' && !t.completedAt),
         inReview: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Pending Review'),
         approved: ctasks.filter(t => t.status === 'Done' && t.adminReviewStatus === 'Approved' && (t.completedAt || '') >= weekStartStr),
         inspoClips,

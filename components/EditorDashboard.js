@@ -1600,6 +1600,13 @@ function SlotText({ slot }) {
 
 function doneSlotStyle(task) {
   const s = task?.adminReviewStatus || ''
+  if (s === 'Needs Revision') return {
+    borderColor: 'transparent',
+    bg: 'rgba(232, 120, 120, 0.08)',
+    hoverBg: 'rgba(232, 120, 120, 0.12)',
+    dotColor: '#E87878',
+    label: 'Needs Revision'
+  }
   if (task?.telegramSentAt) return {
     borderColor: 'transparent',
     bg: 'rgba(125, 211, 164, 0.06)',

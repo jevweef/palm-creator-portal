@@ -85,11 +85,13 @@ function groupInvoicesByPeriod(invoices) {
         dueDate: inv.dueDate,
         totalEarnings: 0,
         totalCommission: 0,
+        totalPaid: 0,
         invoices: [],
       }
     }
     groups[key].totalEarnings += inv.earnings || 0
     groups[key].totalCommission += inv.totalCommission || 0
+    groups[key].totalPaid += inv.amountPaid || 0
     groups[key].invoices.push(inv)
     if (inv.dueDate && !groups[key].dueDate) groups[key].dueDate = inv.dueDate
   }
@@ -175,13 +177,26 @@ function InvoiceModal({ group, onClose }) {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', minWidth: '70px' }}>{acctLabel}</div>
-                      {inv.invoiceStatus && (
-                        <span style={{
-                          fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '5px',
-                          background: inv.invoiceStatus === 'Paid' ? 'rgba(125, 211, 164, 0.08)' : inv.invoiceStatus === 'Sent' ? 'rgba(232, 200, 120, 0.08)' : 'rgba(255,255,255,0.04)',
-                          color: inv.invoiceStatus === 'Paid' ? '#7DD3A4' : inv.invoiceStatus === 'Sent' ? '#E8A878' : '#6b7280',
-                        }}>{inv.invoiceStatus}</span>
-                      )}
+                      {(() => {
+                        const paid = inv.amountPaid || 0
+                        const owed = inv.totalCommission || 0
+                        let status = inv.invoiceStatus
+                        if (status === 'Sent' && paid > 0 && paid < owed) status = 'Partial'
+                        if (!status) return null
+                        const palette = {
+                          Paid:    { bg: 'rgba(125, 211, 164, 0.08)', fg: '#7DD3A4' },
+                          Sent:    { bg: 'rgba(120, 180, 232, 0.08)', fg: '#78B4E8' },
+                          Partial: { bg: 'rgba(232, 200, 120, 0.08)', fg: '#E8C878' },
+                          Draft:   { bg: 'rgba(255,255,255,0.04)',    fg: '#6b7280' },
+                        }
+                        const p = palette[status] || palette.Draft
+                        return (
+                          <span style={{
+                            fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '5px',
+                            background: p.bg, color: p.fg,
+                          }}>{status}</span>
+                        )
+                      })()}
                       <span style={{ fontSize: '12px', color: 'rgba(240, 236, 232, 0.75)' }}>{fmt$(inv.earnings)}</span>
                       <span style={{ fontSize: '12px', color: 'var(--foreground-subtle)' }}>·</span>
                       <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{fmtPct(inv.commissionPct)} fee</span>
@@ -198,13 +213,25 @@ function InvoiceModal({ group, onClose }) {
               })}
 
               {/* Zelle payment section */}
-              {!allPaid && (
+              {!allPaid && (() => {
+                const remaining = Math.max(0, (group.totalCommission || 0) - (group.totalPaid || 0))
+                const hasPartial = (group.totalPaid || 0) > 0 && remaining > 0
+                return (
                 <div style={{
                   marginTop: '20px', padding: '20px', background: 'var(--card-bg-solid)', borderRadius: '14px',
                   border: '1px solid transparent', textAlign: 'center',
                 }}>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>Pay via Zelle</div>
-                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '14px' }}>Scan the QR code or send to the info below</div>
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: hasPartial ? '10px' : '14px' }}>Scan the QR code or send to the info below</div>
+                  {hasPartial && (
+                    <div style={{
+                      fontSize: '11px', color: '#E8C878', marginBottom: '14px',
+                      background: 'rgba(232, 200, 120, 0.06)', padding: '6px 12px',
+                      borderRadius: '8px', display: 'inline-block',
+                    }}>
+                      {fmt$(group.totalPaid)} of {fmt$(group.totalCommission)} paid · thank you
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
                     <img src="/zelle-qr.png" alt="Zelle QR Code" style={{ width: '120px', height: '120px', borderRadius: '10px', objectFit: 'contain' }} />
                     <div style={{ textAlign: 'left' }}>
@@ -220,12 +247,12 @@ function InvoiceModal({ group, onClose }) {
                         marginTop: '12px', padding: '10px 20px', background: 'var(--palm-pink)', color: '#060606',
                         borderRadius: '10px', fontSize: '13px', fontWeight: 600, display: 'inline-block',
                       }}>
-                        {fmt$(group.totalCommission)} due
+                        {fmt$(remaining)} due
                       </div>
                     </div>
                   </div>
                 </div>
-              )}
+              )})()}
             </div>
           )}
         </div>
@@ -465,9 +492,11 @@ export default function CreatorDashboard() {
                   const isActive = periodEnd && now <= periodEnd
 
                   let statusLabel, statusColor, statusBg
+                  const hasPartialPayment = (group.totalPaid || 0) > 0 && (group.totalPaid || 0) < (group.totalCommission || 0)
                   if (allPaid) { statusLabel = 'Paid'; statusColor = '#7DD3A4'; statusBg = 'rgba(125, 211, 164, 0.08)' }
+                  else if (allSent && hasPartialPayment) { statusLabel = 'Partial'; statusColor = '#E8C878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
                   else if (allSent) { statusLabel = 'Sent'; statusColor = '#E8A878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
-                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#E8A878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
+                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#E8C878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
                   else if (isActive) { statusLabel = 'Active'; statusColor = '#78B4E8'; statusBg = 'rgba(120, 180, 232, 0.08)' }
                   else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = 'rgba(255,255,255,0.04)' }
 
@@ -566,9 +595,11 @@ export default function CreatorDashboard() {
                   const isActive = periodEnd && now <= periodEnd
 
                   let statusLabel, statusColor, statusBg
+                  const hasPartialPayment = (group.totalPaid || 0) > 0 && (group.totalPaid || 0) < (group.totalCommission || 0)
                   if (allPaid) { statusLabel = 'Paid'; statusColor = '#7DD3A4'; statusBg = 'rgba(125, 211, 164, 0.08)' }
+                  else if (allSent && hasPartialPayment) { statusLabel = 'Partial'; statusColor = '#E8C878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
                   else if (allSent) { statusLabel = 'Sent'; statusColor = '#E8A878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
-                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#E8A878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
+                  else if (somePaid || someSent) { statusLabel = 'Partial'; statusColor = '#E8C878'; statusBg = 'rgba(232, 200, 120, 0.08)' }
                   else if (isActive) { statusLabel = 'Active'; statusColor = '#78B4E8'; statusBg = 'rgba(120, 180, 232, 0.08)' }
                   else { statusLabel = 'Not Sent'; statusColor = '#9ca3af'; statusBg = 'rgba(255,255,255,0.04)' }
 

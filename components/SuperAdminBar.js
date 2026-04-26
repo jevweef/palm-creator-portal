@@ -22,8 +22,7 @@ export default function SuperAdminBar() {
   // Determine active tab from pathname
   const isCreatorTab = pathname?.startsWith('/creator')
   const isEditorTab = pathname?.startsWith('/editor')
-  const isSmmTab = pathname?.startsWith('/sm')
-  const isAdminTab = !isCreatorTab && !isEditorTab && !isSmmTab
+  const isAdminTab = !isCreatorTab && !isEditorTab
 
   // Fetch creators for picker, then reconcile with stored selection
   useEffect(() => {
@@ -80,7 +79,6 @@ export default function SuperAdminBar() {
 
   const handleAdminTab = () => router.push('/admin/inspo')
   const handleEditorTab = () => router.push('/editor')
-  const handleSmmTab = () => router.push('/sm')
   const handleCreatorSelect = (creator) => {
     setSelectedCreator(creator)
     localStorage.setItem('superadmin_creator', JSON.stringify(creator))
@@ -106,7 +104,6 @@ export default function SuperAdminBar() {
 
       <button style={tabStyle(isAdminTab)} onClick={handleAdminTab}>Admin</button>
       <button style={tabStyle(isEditorTab)} onClick={handleEditorTab}>Editor</button>
-      <button style={tabStyle(isSmmTab)} onClick={handleSmmTab}>SMM</button>
 
       {/* Creator tab with dropdown */}
       <div ref={dropdownRef} style={{ position: 'relative' }}>

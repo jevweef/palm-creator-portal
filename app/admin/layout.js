@@ -14,6 +14,7 @@ const ADMIN_NAV = [
     { key: 'import', label: 'Import' },
     { key: 'training', label: 'Training' },
     { key: 'suggest', label: 'Suggest' },
+    { key: 'recreate', label: 'AI Recreate' },
   ]},
   { href: '/admin/editor', label: 'Editor', icon: '✂️', children: [
     { key: 'editorview', label: 'Dashboard' },

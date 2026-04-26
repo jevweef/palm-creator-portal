@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useRef, useMemo } from 'react'
 import DOMPurify from 'dompurify'
+import { useUser } from '@clerk/nextjs'
 import { tagStyle } from '@/lib/tagStyle'
 
 function gradeColor(grade) {
@@ -31,6 +32,9 @@ function parseNotes(notes) {
 }
 
 export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext, isSaved, onSave, onUpload }) {
+  const { user } = useUser()
+  const role = user?.publicMetadata?.role
+  const isAdmin = role === 'admin' || role === 'super_admin'
   const bodyRef = useRef(null)
 
   // On mobile, auto-scroll to midpoint so content is visible on open
@@ -303,9 +307,9 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               </div>
             )}
 
-            {/* Original link */}
+            {/* Original link + admin AI Recreate */}
             {record.contentLink && (
-              <div>
+              <div style={{display:'flex', alignItems:'center', gap:'16px', flexWrap:'wrap'}}>
                 <a
                   href={record.contentLink}
                   target="_blank"
@@ -318,6 +322,18 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   </svg>
                   View original
                 </a>
+                {isAdmin && (
+                  <a
+                    href={`/admin/inspo?tab=recreate&url=${encodeURIComponent(record.contentLink)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold transition-colors"
+                    title="Recreate this reel with one of our creators using AI"
+                    style={{color:'var(--palm-pink)', border:'1px solid var(--palm-pink)', borderRadius:'9999px', padding:'4px 12px'}}
+                  >
+                    ✨ Create AI
+                  </a>
+                )}
               </div>
             )}
 
