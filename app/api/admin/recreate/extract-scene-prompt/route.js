@@ -33,8 +33,15 @@ positivePrompt rules:
 - Hyper-realistic raw iPhone photo, shot on iPhone camera, ultra detailed, sharp focus, natural skin texture, minimal editing, no cinematic look, 9:16, 4K
 - Describe clothing precisely (garment type, color, fit, brand if visible on tag/waistband only, NOT printed graphics)
 - Describe action / pose / hand position / what subject is holding
+- DESCRIBE EXACT FRAMING + COMPOSITION (critical for matching the original):
+  * Camera distance: close-up | medium-shot | medium-full | full-body | wide
+  * Subject scale: e.g. "subject occupies the middle 60% of frame height", "head at the upper third, feet at the bottom edge", "subject fills only the lower half"
+  * Subject horizontal position: centered | left-of-center | right-of-center
+  * Camera angle: low (waist-height) | eye-level | high | slightly upward tilt | downward tilt
+  * Foreground / midground / background: what's visible in each layer (e.g. "bed visible on the left edge of frame", "TV on the right wall behind subject", "rug filling the lower third")
+  * Pose detail: weight distribution, head turn, posture, gaze direction
 - Describe whether it's selfie / mirror selfie / tripod static / handheld / over-the-shoulder
-- Describe setting in detail (location, surfaces, furniture, decor visible)
+- Describe setting in detail (location, surfaces, furniture, decor visible at the frame edges so the model knows the spatial layout)
 - Describe lighting (natural daylight, soft, even, harsh sunlight, indoor warm, etc.)
 - CAPTURE THE REALISM OF THE SPACE — this is critical. AI image models default to staged magazine-style perfection, which makes the result look fake. Aggressively describe lived-in details that are actually visible: unmade bed, wrinkled sheets, scattered clothing, items on the floor, partially open closet, visible ring light or tripod, slightly drawn curtains, half-empty water bottle, makeup on the dresser, charging cables, etc. If the room is genuinely tidy, say "ordinary room, no styling" — but never default to clean/polished if the inspo shows otherwise.
 - Describe vibe in plain terms: "casual at-home, filming in her own bedroom, not styled" beats "elegant lifestyle photography". Use words like "candid", "lived-in", "real apartment", "everyday", "Tuesday afternoon" rather than "luxurious", "elegant", "magazine".
