@@ -32,9 +32,10 @@ export async function POST(request) {
     const allInputs = records[0].fields['AI Ref Inputs'] || []
     if (!allInputs.length) return NextResponse.json({ error: 'No AI Ref Inputs on creator. Set up the AI Super Clone first.' }, { status: 400 })
 
-    // Prefer face close-ups for identity lock; round out with front-body for
-    // proportions and back views for hair/shoulder shape during turns. Back
-    // views matter when the reel has any over-shoulder or turn-around motion.
+    // Kling Elements caps at 4 total reference images (1 primary + up to 3 in
+    // element_refer_list). For face accuracy, we use all 4 slots on face
+    // close-ups — body context comes from the Step 5 start-frame swap.
+    // If face inputs aren't available, fall back to front then back.
     const faceInputs = allInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
     const frontInputs = allInputs.filter(att => /^Front View input_/i.test(att.filename || ''))
     const backInputs = allInputs.filter(att => /^Back View input_/i.test(att.filename || ''))
@@ -43,13 +44,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No Close Up Face, Front View, or Back View inputs found on creator.' }, { status: 400 })
     }
 
-    // Cap mix: 9 face + 3 front + 3 back = 15 total. Kling supports many
-    // references; capping keeps request size bounded.
+    // Pick up to 4 face shots; fill remaining slots from front/back if needed.
     const refs = [
-      ...faceInputs.slice(0, 9),
-      ...frontInputs.slice(0, 3),
-      ...backInputs.slice(0, 3),
-    ]
+      ...faceInputs.slice(0, 4),
+      ...frontInputs.slice(0, Math.max(0, 4 - faceInputs.length)),
+      ...backInputs.slice(0, Math.max(0, 4 - faceInputs.length - frontInputs.length)),
+    ].slice(0, 4)
     if (refs.length === 0) {
       return NextResponse.json({ error: 'No reference images available.' }, { status: 400 })
     }
@@ -103,13 +103,17 @@ export async function POST(request) {
       'Kling Element ID': elementId,
     })
 
+    const usedFace = refs.filter(r => /^Close Up Face input_/i.test(r.filename || '')).length
+    const usedFront = refs.filter(r => /^Front View input_/i.test(r.filename || '')).length
+    const usedBack = refs.filter(r => /^Back View input_/i.test(r.filename || '')).length
+
     return NextResponse.json({
       ok: true,
       elementId,
       referenceCount: refs.length,
-      faceCount: Math.min(faceInputs.length, 9),
-      frontCount: Math.min(frontInputs.length, 3),
-      backCount: Math.min(backInputs.length, 3),
+      faceCount: usedFace,
+      frontCount: usedFront,
+      backCount: usedBack,
     })
   } catch (err) {
     console.error('[register-kling-element] error:', err)

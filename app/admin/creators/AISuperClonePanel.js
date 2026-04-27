@@ -666,7 +666,7 @@ function KlingElementCard({ state, onRefresh }) {
             {!elementId && <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, background: 'rgba(255, 200, 100, 0.08)', color: '#FFC864', border: '1px solid rgba(255, 200, 100, 0.2)' }}>NOT REGISTERED</span>}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-            One-time registration with Kling. Bundles up to 9 face close-ups + 3 front-body shots into a single character ID. When set, Step 7 passes this as element_list to Kling V3.0 Pro so identity is locked from all reference angles instead of just the start frame.
+            One-time registration with Kling. Bundles 4 face close-ups (Kling caps element references at 4) into a single character ID. When set, Step 7 passes this as element_list to Kling V3.0 Pro so identity is locked from multiple face angles instead of just the start frame.
           </div>
           {elementId && (
             <div style={{ marginTop: '6px', fontSize: '10px', color: 'var(--foreground-subtle)', fontFamily: 'monospace' }}>
