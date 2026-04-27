@@ -430,6 +430,99 @@ export default function RecreatePage() {
   const [extractingMotion, setExtractingMotion] = useState(false)
   const [motionError, setMotionError] = useState('')
 
+  // Step 7 — Kling V3.0 Pro image-to-video, with original-audio mux post-process
+  const [animateState, setAnimateState] = useState({
+    taskId: null,
+    result: null,        // { url, filename, muxed, muxNote }
+    error: '',
+    running: false,
+    duration: 10,        // 5 or 10
+    audioOffset: 0,      // seconds to skip at start of inspo audio
+  })
+
+  const handleAnimate = async () => {
+    const startSwap = swapState.start.result?.url
+    const endSwap = swapState.end.result?.url
+    if (!startSwap) {
+      setAnimateState(s => ({ ...s, error: 'No start-frame swap yet. Run Step 5 first.' })); return
+    }
+    if (!motionPrompt.positive) {
+      setAnimateState(s => ({ ...s, error: 'No motion prompt. Run Step 6 first.' })); return
+    }
+    setAnimateState(s => ({ ...s, running: true, error: '', result: null, taskId: null }))
+    try {
+      const res = await fetch('/api/admin/recreate/animate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorId: selectedCreator,
+          shortcode,
+          startUrl: startSwap,
+          endUrl: endSwap || undefined,
+          motionPrompt: motionPrompt.positive,
+          motionNegative: motionPrompt.negative,
+          duration: animateState.duration,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Animate submit failed')
+      setAnimateState(s => ({ ...s, taskId: data.taskId }))
+    } catch (e) {
+      setAnimateState(s => ({ ...s, error: e.message, running: false }))
+    }
+  }
+
+  // Poll animate status — when complete, server muxes audio + uploads
+  useEffect(() => {
+    if (!animateState.taskId) return
+    let cancelled = false
+    const startedAt = Date.now()
+    const MAX_MS = 8 * 60 * 1000  // Kling can take a few minutes for 10s clips
+    const poll = async () => {
+      try {
+        if (Date.now() - startedAt > MAX_MS) {
+          setAnimateState(s => ({ ...s, error: 'Timed out after 8 min', taskId: null, running: false }))
+          return
+        }
+        const res = await fetch('/api/admin/recreate/animate-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taskId: animateState.taskId,
+            creatorId: selectedCreator,
+            shortcode: shortcode || undefined,
+            inspoVideoUrl: lookup?.dbRawLink || undefined,
+            audioOffset: animateState.audioOffset,
+          }),
+        })
+        const data = await res.json()
+        if (cancelled) return
+        if (!res.ok) {
+          setAnimateState(s => ({ ...s, error: data.error || `Poll failed (${res.status})`, taskId: null, running: false }))
+          return
+        }
+        if (data.status === 'completed') {
+          setAnimateState(s => ({
+            ...s,
+            result: { url: data.outputUrl, filename: data.filename, muxed: data.muxed, muxNote: data.muxNote },
+            taskId: null,
+            running: false,
+          }))
+        } else if (data.status === 'failed') {
+          setAnimateState(s => ({ ...s, error: data.error || 'Animation failed', taskId: null, running: false }))
+        } else {
+          setTimeout(poll, 5000)
+        }
+      } catch (e) {
+        if (cancelled) return
+        setAnimateState(s => ({ ...s, error: e.message, taskId: null, running: false }))
+      }
+    }
+    poll()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animateState.taskId, selectedCreator, shortcode, lookup?.dbRawLink])
+
   const handleExtractMotion = async () => {
     if (!lookup?.dbRawLink) {
       setMotionError('No video URL found for this reel — needs to be in the Inspiration pipeline.')
@@ -1116,20 +1209,103 @@ export default function RecreatePage() {
         )}
       </StepCard>
 
-      {/* Step 6 — Animate in Kling */}
-      <StepCard n={7} title="Animate in Kling V3.0 4K">
-        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.6 }}>
-          Upload the Nano Banana 2 output (the creator-swapped image), paste the Kling prompt from Step 5, and generate.
+      {/* Step 7 — Animate in Kling V3.0 Pro (with original-audio mux) */}
+      <StepCard n={7} title="Animate in Kling V3.0 Pro" status={animateState.result ? null : 'auto'}>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.5 }}>
+          Sends Step 5&apos;s start swap as Kling&apos;s <code>image</code>{swapState.end.result?.url ? ', the end swap as ' : ''}{swapState.end.result?.url && <code>tail_image</code>}, plus the Step 6 motion prompt.
+          Then muxes the inspo&apos;s original audio onto the silent Kling output (Kling&apos;s built-in sound is unreliable for trending music).
         </div>
-        <a href={KLING_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-          <button style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Open Kling ↗</button>
-        </a>
+
+        {/* Controls row */}
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Duration</label>
+            <select
+              value={animateState.duration}
+              onChange={e => setAnimateState(s => ({ ...s, duration: Number(e.target.value) }))}
+              disabled={animateState.running}
+              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: 'var(--foreground)' }}
+            >
+              <option value={5}>5s</option>
+              <option value={10}>10s</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>Audio offset</label>
+            <input
+              type="range"
+              min={0}
+              max={20}
+              step={0.5}
+              value={animateState.audioOffset}
+              onChange={e => setAnimateState(s => ({ ...s, audioOffset: Number(e.target.value) }))}
+              disabled={animateState.running}
+              style={{ flex: 1, accentColor: 'var(--palm-pink)' }}
+            />
+            <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontVariantNumeric: 'tabular-nums', minWidth: '36px', textAlign: 'right' }}>
+              {animateState.audioOffset.toFixed(1)}s
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={handleAnimate}
+          disabled={animateState.running || !swapState.start.result?.url || !motionPrompt.positive}
+          style={{
+            padding: '8px 14px', fontSize: '12px', fontWeight: 700,
+            background: (!swapState.start.result?.url || !motionPrompt.positive) ? 'rgba(232, 160, 160, 0.06)' : (animateState.running ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
+            color: (!swapState.start.result?.url || !motionPrompt.positive) ? 'var(--foreground-subtle)' : '#060606',
+            border: 'none', borderRadius: '6px',
+            cursor: animateState.running ? 'wait' : ((!swapState.start.result?.url || !motionPrompt.positive) ? 'not-allowed' : 'pointer'),
+          }}
+        >
+          {animateState.running
+            ? '⏳ Kling generating + muxing audio… (~2-5 min)'
+            : (swapState.end.result?.url ? '🎬 Animate (start → end)' : '🎬 Animate')}
+        </button>
+
+        {animateState.error && (
+          <div style={{ marginTop: '10px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>
+            {animateState.error}
+          </div>
+        )}
+
+        {animateState.result && (
+          <div style={{ marginTop: '14px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+              Result · saved to Dropbox
+              {animateState.result.muxed === false && (
+                <span style={{ marginLeft: '8px', fontSize: '9px', color: '#FFC864', textTransform: 'none', fontWeight: 700 }}>(silent — mux fallback)</span>
+              )}
+            </div>
+            <video
+              src={animateState.result.url}
+              controls
+              autoPlay
+              loop
+              style={{ width: '100%', maxWidth: '360px', borderRadius: '12px', display: 'block', background: 'rgba(0,0,0,0.4)' }}
+            />
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontFamily: 'monospace', marginTop: '6px', wordBreak: 'break-all' }}>
+              {animateState.result.filename}
+            </div>
+            {animateState.result.muxNote && (
+              <div style={{ marginTop: '6px', fontSize: '10px', color: '#FFC864' }}>⚠ {animateState.result.muxNote}</div>
+            )}
+            <button
+              onClick={handleAnimate}
+              disabled={animateState.running}
+              style={{ marginTop: '8px', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              {animateState.running ? '…' : '🔄 Regenerate'}
+            </button>
+          </div>
+        )}
       </StepCard>
 
-      {/* Step 7 — Final */}
-      <StepCard n={8} title="Save Final Output" status="tbd">
+      {/* Step 8 — Save to creator library (placeholder) */}
+      <StepCard n={8} title="Save to Creator Library" status="tbd">
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
-          Will eventually attach the final video to the creator&apos;s asset library and the originating inspo reel record.
+          Will attach the final muxed video to the creator&apos;s asset library and link it back to the originating Inspiration record.
         </div>
       </StepCard>
 
