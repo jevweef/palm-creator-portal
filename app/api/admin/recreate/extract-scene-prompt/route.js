@@ -68,57 +68,69 @@ export async function POST(request) {
       }
     }
 
+    // Use tool use for guaranteed structured output. Anthropic forces the
+    // model to call this tool with input matching the schema — no JSON
+    // parsing of free-form text required.
+    const extractTool = {
+      name: 'submit_scene_prompt',
+      description: 'Submit the extracted scene prompt details for this frame.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          shotType: {
+            type: 'string',
+            enum: ['close-up', 'front', 'back'],
+            description: 'close-up = face fills >40% of frame or only head/shoulders/upper chest visible. front = three-quarter or full body view from the front. back = subject\'s back is to the camera.',
+          },
+          positivePrompt: {
+            type: 'string',
+            description: 'One-paragraph hyper-realistic image-edit prompt describing scene/clothing/action/framing/lighting/vibe ONLY. Never describe physical character traits (hair, face, body, skin, age, ethnicity, makeup).',
+          },
+          negativePrompt: {
+            type: 'string',
+            description: 'Comma-separated negative prompt tokens with framing-specific blockers based on shot type and scene.',
+          },
+        },
+        required: ['shotType', 'positivePrompt', 'negativePrompt'],
+      },
+    }
+
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const claudeResponse = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 2000,
-      system: [
-        { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-      ],
+      system: SYSTEM_PROMPT,
+      tools: [extractTool],
+      tool_choice: { type: 'tool', name: 'submit_scene_prompt' },
       messages: [
         {
           role: 'user',
           content: [
             imageBlock,
-            { type: 'text', text: 'Extract the scene prompt for this frame. Respond with the JSON object only.' },
+            { type: 'text', text: 'Extract the scene prompt for this frame using the submit_scene_prompt tool.' },
           ],
         },
-        // Prefill the assistant's reply with the opening brace — forces Claude
-        // to continue with valid JSON and skip any "Here is..." prose.
-        { role: 'assistant', content: '{' },
       ],
     })
 
-    const textBlock = claudeResponse.content.find(b => b.type === 'text')
-    if (!textBlock?.text) {
-      return NextResponse.json({ error: `Claude returned no text (stop: ${claudeResponse.stop_reason})` }, { status: 500 })
+    const toolUse = claudeResponse.content.find(b => b.type === 'tool_use')
+    if (!toolUse?.input) {
+      return NextResponse.json({
+        error: `Claude did not call the tool (stop: ${claudeResponse.stop_reason})`,
+        raw: claudeResponse.content,
+      }, { status: 500 })
     }
 
-    // Reattach the prefill brace and isolate JSON between first { and last }
-    let raw = '{' + textBlock.text
-    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
-    const firstBrace = raw.indexOf('{')
-    const lastBrace = raw.lastIndexOf('}')
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      raw = raw.slice(firstBrace, lastBrace + 1)
-    }
-
-    let parsed
-    try { parsed = JSON.parse(raw) }
-    catch (e) {
-      console.error('[extract-scene-prompt] JSON parse failed. Raw:', raw)
-      return NextResponse.json({ error: 'Claude returned invalid JSON', raw: raw.slice(0, 800) }, { status: 500 })
-    }
-
-    if (!parsed.positivePrompt || !parsed.negativePrompt || !parsed.shotType) {
-      return NextResponse.json({ error: 'Claude response missing required fields', raw: parsed }, { status: 500 })
+    const { shotType, positivePrompt, negativePrompt } = toolUse.input
+    if (!shotType || !positivePrompt || !negativePrompt) {
+      return NextResponse.json({ error: 'Tool input missing required fields', raw: toolUse.input }, { status: 500 })
     }
 
     return NextResponse.json({
       ok: true,
-      shotType: parsed.shotType,
-      positivePrompt: parsed.positivePrompt,
-      negativePrompt: parsed.negativePrompt,
+      shotType,
+      positivePrompt,
+      negativePrompt,
       tokensIn: claudeResponse.usage?.input_tokens,
       tokensOut: claudeResponse.usage?.output_tokens,
     })
