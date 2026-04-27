@@ -555,7 +555,10 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                   )}
                 </div>
               ))}
-              {savedCandidates.map((c) => (
+              {savedCandidates.map((c) => {
+                const numMatch = c.filename?.match(/Candidate (\d+)/)
+                const candidateNum = numMatch ? numMatch[1] : null
+                return (
                 <div key={c.id} style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -564,6 +567,11 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                     onClick={() => onZoom(c.url)}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
                   />
+                  {candidateNum && (
+                    <div style={{ position: 'absolute', top: '4px', left: '4px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', background: 'rgba(0,0,0,0.7)', color: 'white', borderRadius: '3px', pointerEvents: 'none' }}>
+                      #{candidateNum}
+                    </div>
+                  )}
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDeleteCandidate(c.filename) }}
                     title="Delete this candidate"
@@ -578,7 +586,8 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                     {approving === c.url ? '…' : '✓ Approve'}
                   </button>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
