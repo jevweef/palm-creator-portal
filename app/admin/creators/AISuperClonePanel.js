@@ -635,12 +635,31 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
 // V3.0 Pro animate call as element_list, which locks identity across the
 // generated video using all reference angles instead of just the start frame.
 function KlingElementCard({ state, onRefresh }) {
+  const [previewing, setPreviewing] = useState(false)
   const [registering, setRegistering] = useState(false)
   const [error, setError] = useState('')
+  const [previewRefs, setPreviewRefs] = useState(null)
+  const [primaryFilename, setPrimaryFilename] = useState('')
   const [result, setResult] = useState(null)
   const elementId = state.klingElementId
 
-  const handleRegister = async () => {
+  const handlePreview = async () => {
+    setPreviewing(true); setError(''); setResult(null); setPreviewRefs(null)
+    try {
+      const res = await fetch('/api/admin/creators/register-kling-element', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: state.id, preview: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Preview failed')
+      setPreviewRefs(data.refs || [])
+      setPrimaryFilename(data.primaryFilename || '')
+    } catch (e) { setError(e.message) }
+    finally { setPreviewing(false) }
+  }
+
+  const handleConfirmRegister = async () => {
     setRegistering(true); setError(''); setResult(null)
     try {
       const res = await fetch('/api/admin/creators/register-kling-element', {
@@ -651,9 +670,16 @@ function KlingElementCard({ state, onRefresh }) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Registration failed')
       setResult(data)
+      setPreviewRefs(null)
       await onRefresh()
     } catch (e) { setError(e.message) }
     finally { setRegistering(false) }
+  }
+
+  const handleCancelPreview = () => {
+    setPreviewRefs(null)
+    setPrimaryFilename('')
+    setError('')
   }
 
   return (
@@ -685,18 +711,65 @@ function KlingElementCard({ state, onRefresh }) {
           )}
         </div>
         <button
-          onClick={handleRegister}
-          disabled={registering}
+          onClick={handlePreview}
+          disabled={previewing || registering || !!previewRefs}
           style={{
             padding: '8px 14px', fontSize: '12px', fontWeight: 700,
-            background: registering ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)',
+            background: (previewing || registering) ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)',
             color: '#060606', border: 'none', borderRadius: '6px',
-            cursor: registering ? 'wait' : 'pointer', whiteSpace: 'nowrap',
+            cursor: (previewing || registering) ? 'wait' : 'pointer', whiteSpace: 'nowrap',
+            opacity: previewRefs ? 0.4 : 1,
           }}
         >
-          {registering ? '⏳ Registering…' : (elementId ? '🔄 Re-register' : '✨ Register Kling Element')}
+          {previewing ? '⏳ Loading…' : (elementId ? '🔄 Re-register' : '✨ Register Kling Element')}
         </button>
       </div>
+
+      {previewRefs && (
+        <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>
+            Review the {previewRefs.length} reference{previewRefs.length === 1 ? '' : 's'} that will be sent
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic', marginBottom: '10px' }}>
+            First image is the <span style={{ color: 'var(--palm-pink)' }}>primary</span> face anchor; the rest are additional angle references. Confirm to send to Kling and lock in the element ID.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+            {previewRefs.map((r, i) => (
+              <div key={r.url} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ position: 'relative', aspectRatio: '3/4', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', border: i === 0 ? '2px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.06)' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={r.url} alt={r.filename} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {i === 0 && (
+                    <div style={{ position: 'absolute', top: '4px', left: '4px', background: 'var(--palm-pink)', color: '#060606', fontSize: '8px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px' }}>PRIMARY</div>
+                  )}
+                </div>
+                <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{r.filename}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleConfirmRegister}
+              disabled={registering}
+              style={{
+                padding: '8px 14px', fontSize: '12px', fontWeight: 700,
+                background: registering ? 'rgba(125,211,164,0.3)' : '#7DD3A4',
+                color: '#060606', border: 'none', borderRadius: '6px',
+                cursor: registering ? 'wait' : 'pointer',
+              }}
+            >
+              {registering ? '⏳ Registering…' : '✓ Confirm & register'}
+            </button>
+            <button
+              onClick={handleCancelPreview}
+              disabled={registering}
+              style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

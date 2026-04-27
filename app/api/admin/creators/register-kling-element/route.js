@@ -8,15 +8,14 @@ export const maxDuration = 60
 const PALM_CREATORS = 'Palm Creators'
 const KLING_ELEMENTS_MODEL = 'kwaivgi/kling-elements'
 
-// POST — body: { creatorId }
-// Pulls the creator's AI Ref Inputs (Close Up Face + a few Front View),
-// registers them as a Kling Element, saves the element_id to the creator
-// record. Returns { ok, elementId }.
+// POST — body: { creatorId, preview?: boolean }
+// preview=true → returns the 4 refs that WOULD be used, no Kling call.
+// preview=false (default) → actually registers with Kling, saves element_id.
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorId } = await request.json()
+    const { creatorId, preview } = await request.json()
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
 
     const records = await fetchAirtableRecords(PALM_CREATORS, {
@@ -56,6 +55,21 @@ export async function POST(request) {
 
     const primary = refs[0]
     const remaining = refs.slice(1)
+
+    // Preview mode: surface what we'd send before committing the paid call.
+    if (preview) {
+      return NextResponse.json({
+        ok: true,
+        preview: true,
+        refs: refs.map(r => ({
+          url: r.url,
+          filename: r.filename,
+          width: r.width,
+          height: r.height,
+        })),
+        primaryFilename: primary.filename,
+      })
+    }
 
     // Generic identity description. Kling extracts visual features from the
     // images themselves; the description is mostly for the element's own
