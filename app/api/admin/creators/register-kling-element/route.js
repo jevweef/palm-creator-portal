@@ -32,18 +32,24 @@ export async function POST(request) {
     const allInputs = records[0].fields['AI Ref Inputs'] || []
     if (!allInputs.length) return NextResponse.json({ error: 'No AI Ref Inputs on creator. Set up the AI Super Clone first.' }, { status: 400 })
 
-    // Prefer face close-ups for identity lock; round out with a couple of
-    // front-body shots so Kling has head-to-body proportion context.
+    // Prefer face close-ups for identity lock; round out with front-body for
+    // proportions and back views for hair/shoulder shape during turns. Back
+    // views matter when the reel has any over-shoulder or turn-around motion.
     const faceInputs = allInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
     const frontInputs = allInputs.filter(att => /^Front View input_/i.test(att.filename || ''))
+    const backInputs = allInputs.filter(att => /^Back View input_/i.test(att.filename || ''))
 
-    if (faceInputs.length === 0 && frontInputs.length === 0) {
-      return NextResponse.json({ error: 'No Close Up Face or Front View inputs found on creator.' }, { status: 400 })
+    if (faceInputs.length === 0 && frontInputs.length === 0 && backInputs.length === 0) {
+      return NextResponse.json({ error: 'No Close Up Face, Front View, or Back View inputs found on creator.' }, { status: 400 })
     }
 
-    // Cap at ~12 total references. Kling Elements supports many; we cap to
-    // keep request size bounded and noise low.
-    const refs = [...faceInputs.slice(0, 9), ...frontInputs.slice(0, 3)]
+    // Cap mix: 9 face + 3 front + 3 back = 15 total. Kling supports many
+    // references; capping keeps request size bounded.
+    const refs = [
+      ...faceInputs.slice(0, 9),
+      ...frontInputs.slice(0, 3),
+      ...backInputs.slice(0, 3),
+    ]
     if (refs.length === 0) {
       return NextResponse.json({ error: 'No reference images available.' }, { status: 400 })
     }
@@ -103,6 +109,7 @@ export async function POST(request) {
       referenceCount: refs.length,
       faceCount: Math.min(faceInputs.length, 9),
       frontCount: Math.min(frontInputs.length, 3),
+      backCount: Math.min(backInputs.length, 3),
     })
   } catch (err) {
     console.error('[register-kling-element] error:', err)

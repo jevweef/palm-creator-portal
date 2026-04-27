@@ -675,7 +675,7 @@ function KlingElementCard({ state, onRefresh }) {
           )}
           {result && (
             <div style={{ marginTop: '6px', fontSize: '10px', color: '#7DD3A4' }}>
-              ✓ Registered with {result.referenceCount} refs ({result.faceCount} face + {result.frontCount} front)
+              ✓ Registered with {result.referenceCount} refs ({result.faceCount} face + {result.frontCount} front + {result.backCount} back)
             </div>
           )}
           {error && (
