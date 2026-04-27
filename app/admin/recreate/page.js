@@ -250,6 +250,30 @@ export default function RecreatePage() {
     } catch (e) { setSwapError(e.message); setSwapping(false) }
   }
 
+  // Motion prompt extraction (Gemini on the inspo video)
+  const [motionPrompt, setMotionPrompt] = useState({ positive: '', negative: '' })
+  const [extractingMotion, setExtractingMotion] = useState(false)
+  const [motionError, setMotionError] = useState('')
+
+  const handleExtractMotion = async () => {
+    if (!lookup?.dbRawLink) {
+      setMotionError('No video URL found for this reel — needs to be in the Inspiration pipeline.')
+      return
+    }
+    setExtractingMotion(true); setMotionError('')
+    try {
+      const res = await fetch('/api/admin/recreate/extract-motion-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: lookup.dbRawLink }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Motion extraction failed')
+      setMotionPrompt({ positive: data.positivePrompt, negative: data.negativePrompt })
+    } catch (e) { setMotionError(e.message) }
+    finally { setExtractingMotion(false) }
+  }
+
   // Poll swap status
   useEffect(() => {
     if (!swapTaskId) return
