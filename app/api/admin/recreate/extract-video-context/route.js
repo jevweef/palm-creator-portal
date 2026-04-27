@@ -51,7 +51,9 @@ motionPrompt format (one paragraph, copy-paste ready for Kling V3.0 4K):
 - Add voice direction at the end: "american accent" (or other)
 - No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
 
-motionNegative format — comma-separated tokens preventing common Kling failure modes plus framing-specific blockers based on the video. Always include: cartoon, anime, illustration, painting, CGI, 3D render, plastic skin, airbrushed, beauty filter, cinematic lighting, studio lighting, blurry, low resolution, jpeg artifacts, watermark, text, logo, deformed face, asymmetric eyes, extra fingers, missing fingers, distorted hands, malformed hands, extra limbs, broken anatomy, mannequin, AI artifacts, uncanny valley, double face, multiple people, child, underage features, nudity, censor bars, scene cut, jump cut, transition, multiple shots. If video is tripod-static, also add: mirror selfie, mirror reflection, phone in hand, holding a smartphone, selfie pose. If subject doesn't speak, add: lip sync, mouth movement, talking.`
+motionNegative format — comma-separated tokens preventing common Kling failure modes plus framing-specific blockers based on the video. Always include: cartoon, anime, illustration, painting, CGI, 3D render, plastic skin, airbrushed, beauty filter, cinematic lighting, studio lighting, blurry, low resolution, jpeg artifacts, watermark, text, logo, deformed face, asymmetric eyes, extra fingers, missing fingers, distorted hands, malformed hands, extra limbs, broken anatomy, mannequin, AI artifacts, uncanny valley, double face, multiple people, child, underage features, nudity, censor bars, scene cut, jump cut, transition, multiple shots. If video is tripod-static, also add: mirror selfie, mirror reflection, phone in hand, holding a smartphone, selfie pose.
+
+hasSpokenDialogue — boolean. true ONLY if the subject is clearly speaking, mouthing words, or lip-syncing audibly in the video. false if the audio is just music with no spoken vocals from the subject (her mouth is closed or making non-speech expressions). This drives whether we add aggressive "no talking" negatives downstream — Kling defaults to making subjects talk, so silent reels need explicit blockers.`
 
 async function fetchVideoBuffer(videoUrl) {
   const res = await fetch(videoUrl, { redirect: 'follow' })
@@ -107,8 +109,12 @@ export async function POST(request) {
                 type: 'string',
                 description: 'Comma-separated negative prompt tokens for Kling V3.0 with framing-specific blockers based on the video.',
               },
+              hasSpokenDialogue: {
+                type: 'boolean',
+                description: 'True if subject is speaking/mouthing words audibly. False if audio is just music with no vocals from the subject. Drives auto-blockers for talking when false.',
+              },
             },
-            required: ['videoContext', 'motionPrompt', 'motionNegative'],
+            required: ['videoContext', 'motionPrompt', 'motionNegative', 'hasSpokenDialogue'],
           },
         }],
       }],
@@ -153,24 +159,37 @@ export async function POST(request) {
       }, { status: 500 })
     }
 
-    const { videoContext, motionPrompt, motionNegative } = fnCall.args || {}
+    const { videoContext, motionPrompt, motionNegative, hasSpokenDialogue } = fnCall.args || {}
     if (!videoContext || !motionPrompt || !motionNegative) {
       return NextResponse.json({ error: 'Tool input missing required fields', raw: fnCall.args }, { status: 500 })
     }
+
+    // If the subject is silent in the inspo, prepend aggressive "no talking"
+    // blockers — Kling otherwise defaults to lip-syncing creators.
+    const TALKING_BLOCKERS = 'talking, lip sync, lip syncing, mouth open, mouth opening, singing, vocalizing, speaking, mouth movement, lip movement, screaming, yelling, performing, exaggerated facial expressions'
+    const finalNegative = hasSpokenDialogue === false
+      ? `${TALKING_BLOCKERS}, ${motionNegative}`
+      : motionNegative
 
     if (inspoRecordId) {
       try {
         await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, {
           'Recreate Video Context': videoContext,
           'Recreate Motion Prompt': motionPrompt,
-          'Recreate Motion Negative': motionNegative,
+          'Recreate Motion Negative': finalNegative,
         })
       } catch (e) {
         console.warn('[extract-video-context] Airtable cache write failed:', e.message)
       }
     }
 
-    return NextResponse.json({ ok: true, videoContext, motionPrompt, motionNegative })
+    return NextResponse.json({
+      ok: true,
+      videoContext,
+      motionPrompt,
+      motionNegative: finalNegative,
+      hasSpokenDialogue: hasSpokenDialogue ?? null,
+    })
   } catch (err) {
     console.error('[recreate/extract-video-context] error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

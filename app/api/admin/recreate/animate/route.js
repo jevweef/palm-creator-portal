@@ -32,9 +32,12 @@ export async function POST(request) {
       prompt: motionPrompt,
       negative_prompt: motionNegative || '',
       duration: dur,
-      cfg_scale: 0.5,
-      // We mux the original inspo audio in animate-status — Kling-generated
-      // audio is unreliable for trending music / specific voices.
+      // 0.7 = tighter prompt adherence than the 0.5 default. Kling otherwise
+      // improvises based on its trending-reel priors (talking heads, hair
+      // flips, performance energy) — we want it to follow the prompt.
+      cfg_scale: 0.7,
+      // Mux original inspo audio post-process in animate-status — Kling's
+      // built-in sound is unreliable for trending music / specific voices.
       sound: false,
     }
     if (endUrl) body.tail_image = endUrl

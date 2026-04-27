@@ -33,7 +33,7 @@ export async function GET(request) {
     // SEARCH is case-insensitive and tolerates URL format differences (/reel/ vs /reels/).
     const inspoRecords = await fetchAirtableRecords(INSPIRATION_TABLE, {
       filterByFormula: `SEARCH("${shortcode}", {Content link})`,
-      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate End Scene Prompt', 'Recreate End Scene Negative', 'Recreate End Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative', 'Recreate Notes', 'Recreate End Notes', 'Recreate Video Context', 'Recreate Source Frame URL', 'Recreate End Frame URL'],
+      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Duration', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate End Scene Prompt', 'Recreate End Scene Negative', 'Recreate End Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative', 'Recreate Notes', 'Recreate End Notes', 'Recreate Video Context', 'Recreate Source Frame URL', 'Recreate End Frame URL'],
       maxRecords: 1,
     })
 
@@ -55,6 +55,7 @@ export async function GET(request) {
         dbRawLink: r.fields['DB Raw = 1'] || '',
         dbEmbedCode: r.fields['DB Embed Code'] || '',
         status: r.fields['Status'] || '',
+        duration: r.fields['Duration'] ?? null,
         shortcode,
         // Cached Recreate prompts (creator-agnostic — same scene/motion
         // regardless of which creator is doing the swap)

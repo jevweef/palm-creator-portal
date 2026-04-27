@@ -775,12 +775,23 @@ export default function RecreatePage() {
           )}
         </div>
         {shortcode && (
-          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-            Shortcode: <code style={{ color: 'var(--palm-pink)' }}>{shortcode}</code>
-            {lookupLoading && <span style={{ marginLeft: '12px' }}>Looking up in pipeline…</span>}
-            {!lookupLoading && lookup?.error && <span style={{ marginLeft: '12px', color: '#E87878' }}>Lookup error: {lookup.error}</span>}
-            {!lookupLoading && lookup?.source && <span style={{ marginLeft: '12px', color: '#7DD3A4' }}>✓ Found {lookup.title ? `"${lookup.title}"` : ''} in {lookup.source}</span>}
-            {!lookupLoading && lookup && !lookup.source && !lookup.error && <span style={{ marginLeft: '12px', color: '#FFC864' }}>Not in pipeline — manual upload available below</span>}
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+            <span>Shortcode: <code style={{ color: 'var(--palm-pink)' }}>{shortcode}</code></span>
+            {lookupLoading && <span>Looking up in pipeline…</span>}
+            {!lookupLoading && lookup?.error && <span style={{ color: '#E87878' }}>Lookup error: {lookup.error}</span>}
+            {!lookupLoading && lookup?.source && <span style={{ color: '#7DD3A4' }}>✓ Found {lookup.title ? `"${lookup.title}"` : ''} in {lookup.source}</span>}
+            {!lookupLoading && lookup && !lookup.source && !lookup.error && <span style={{ color: '#FFC864' }}>Not in pipeline — manual upload available below</span>}
+            {!lookupLoading && lookup?.duration != null && (
+              <span style={{
+                padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                background: lookup.duration > 15 ? 'rgba(255, 200, 100, 0.1)' : 'rgba(125, 211, 164, 0.08)',
+                color: lookup.duration > 15 ? '#FFC864' : '#7DD3A4',
+                border: `1px solid ${lookup.duration > 15 ? 'rgba(255, 200, 100, 0.25)' : 'rgba(125, 211, 164, 0.2)'}`,
+              }}>
+                {lookup.duration.toFixed(1)}s
+                {lookup.duration > 15 && ` · Kling caps at 15s, you'll lose ${(lookup.duration - 15).toFixed(1)}s of audio`}
+              </span>
+            )}
           </div>
         )}
       </StepCard>
