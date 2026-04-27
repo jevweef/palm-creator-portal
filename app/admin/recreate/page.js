@@ -481,9 +481,8 @@ export default function RecreatePage() {
       const dur = v.duration
       if (Number.isFinite(dur)) {
         setInspoDuration(dur)
-        // Smart default: pick the smallest Kling option that covers the inspo,
-        // or 15 (the cap) if inspo is longer.
-        const def = dur <= 5.5 ? 5 : dur <= 10.5 ? 10 : 15
+        // Smart default: ceil to next integer so we never truncate, capped at 15.
+        const def = Math.min(15, Math.max(1, Math.ceil(dur)))
         setAnimateState(s => ({ ...s, duration: def }))
       }
     }
@@ -1296,9 +1295,9 @@ export default function RecreatePage() {
               disabled={animateState.running}
               style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: 'var(--foreground)' }}
             >
-              <option value={5}>5s</option>
-              <option value={10}>10s</option>
-              <option value={15}>15s</option>
+              {Array.from({ length: 15 }, (_, i) => i + 1).map(s => (
+                <option key={s} value={s}>{s}s</option>
+              ))}
             </select>
             {inspoDuration != null && (
               <span style={{ fontSize: '10px', color: inspoDuration > 15 ? '#FFC864' : 'var(--foreground-subtle)', fontVariantNumeric: 'tabular-nums' }}>

@@ -25,8 +25,11 @@ export async function POST(request) {
     if (!startUrl) return NextResponse.json({ error: 'Missing startUrl (start frame swap output)' }, { status: 400 })
     if (!motionPrompt) return NextResponse.json({ error: 'Missing motionPrompt (run Step 6 first)' }, { status: 400 })
 
-    // Kling V3.0 Pro on WaveSpeed accepts 5, 10, or 15. Default to 10.
-    const dur = [5, 10, 15].includes(Number(duration)) ? Number(duration) : 10
+    // Kling V3.0 Pro accepts integer durations 1-15. Default to 10.
+    const parsedDur = Number(duration)
+    const dur = Number.isFinite(parsedDur) && parsedDur >= 1 && parsedDur <= 15
+      ? Math.round(parsedDur)
+      : 10
     const body = {
       image: startUrl,
       prompt: motionPrompt,
