@@ -273,6 +273,26 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     } catch (e) { setError(e.message) }
   }
 
+  const handleLockIn = () => {
+    onConfirm({
+      title: `Lock in ${meta.label}?`,
+      message: `This deletes all ${savedCandidates.length} candidate${savedCandidates.length === 1 ? '' : 's'} for ${meta.label} and hides the candidates section. The approved AI Reference stays.`,
+      confirmLabel: 'Lock in',
+      onConfirm: async () => {
+        for (const c of savedCandidates) {
+          try {
+            await fetch('/api/admin/creator-ai-clone', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ creatorId, attachmentId: c.id, target: 'candidates', pose }),
+            })
+          } catch (e) { /* keep going */ }
+        }
+        await onRefresh()
+      },
+    })
+  }
+
   const [resyncing, setResyncing] = useState(false)
   const handleResync = async () => {
     setResyncing(true)
@@ -305,283 +325,275 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     },
   }
 
+  const showGallery = output || savedCandidates.length > 0 || inFlight.length > 0
+
   return (
     <div style={{
       background: 'var(--card-bg-solid)',
-      borderRadius: '14px', padding: '16px', marginBottom: '12px',
+      borderRadius: '14px', padding: '14px 16px', marginBottom: '12px',
       boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
       maxWidth: '1100px',
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+      {/* HEADER */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '16px' }}>{meta.emoji}</span>
           <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>{meta.label}</div>
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>· {meta.model}</div>
         </div>
-        {output && (
-          <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid rgba(125, 211, 164, 0.2)' }}>
-            ✓ APPROVED
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {output && (
+            <button
+              onClick={handleResync}
+              disabled={resyncing}
+              title="Re-fetch from Dropbox"
+              style={{ padding: '2px 6px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: resyncing ? 'wait' : 'pointer' }}
+            >{resyncing ? '…' : '🔁 Sync'}</button>
+          )}
+          {output && (
+            <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid rgba(125, 211, 164, 0.2)' }}>
+              ✓ APPROVED
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Body — left column (inputs + prompt + generate) | right column (output + candidates) */}
-      <div style={{ display: 'grid', gridTemplateColumns: (output || savedCandidates.length || inFlight.length) ? 'minmax(0, 1fr) minmax(240px, 320px)' : 'minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
-
-      {/* LEFT COLUMN — wraps inputs, prompt, generate button */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
-        {/* Inputs */}
-        <div
-          {...dragHandlers}
-          style={{
-            position: 'relative',
-            border: dragOver ? '1px dashed var(--palm-pink)' : '1px dashed transparent',
-            background: dragOver ? 'rgba(232, 160, 160, 0.06)' : 'transparent',
-            borderRadius: '8px', padding: dragOver ? '6px' : '0',
-            transition: 'background 0.12s, border-color 0.12s',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Inputs ({inputs.length})
-            </div>
-            {inputs.length > 0 && (
-              <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
-                First image = face anchor
-              </div>
-            )}
+      {/* INPUTS — full width, compact */}
+      <div
+        {...dragHandlers}
+        style={{
+          position: 'relative',
+          border: dragOver ? '1px dashed var(--palm-pink)' : '1px dashed transparent',
+          background: dragOver ? 'rgba(232, 160, 160, 0.06)' : 'transparent',
+          borderRadius: '8px', padding: dragOver ? '6px' : '0',
+          transition: 'background 0.12s, border-color 0.12s',
+          marginBottom: '10px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Inputs ({inputs.length})
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', gap: '5px' }}>
-            {inputs.map((att, i) => (
-              <div key={att.id} style={{ position: 'relative', aspectRatio: '1', borderRadius: '5px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={att.url}
-                  alt={att.filename}
-                  onClick={() => onZoom(att.url)}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-                {i === 0 && (
-                  <div style={{ position: 'absolute', top: '2px', left: '2px', fontSize: '8px', fontWeight: 700, padding: '1px 4px', background: 'var(--palm-pink)', color: '#060606', borderRadius: '3px', pointerEvents: 'none' }}>
-                    ANCHOR
-                  </div>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); requestDelete(att.id, att.filename) }}
-                  title={`Delete ${att.filename}`}
-                  style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', fontSize: '10px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', lineHeight: 1, padding: 0 }}
-                >×</button>
-              </div>
-            ))}
-
-            {/* "+" tile to add more (or full drop zone if no inputs yet) */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              disabled={uploading}
-              onChange={e => handleUpload(e.target.files)}
-              style={{ display: 'none' }}
-            />
-            <button
-              onClick={() => !uploading && fileInputRef.current?.click()}
-              disabled={uploading}
-              title="Add photos (or drag/drop anywhere)"
-              style={{
-                aspectRatio: '1',
-                border: '1px dashed rgba(232, 160, 160, 0.5)',
-                background: 'transparent',
-                color: 'var(--palm-pink)',
-                fontSize: uploading ? '11px' : '20px', fontWeight: 600,
-                borderRadius: '5px',
-                cursor: uploading ? 'wait' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 0,
-                lineHeight: 1.2,
-              }}
-            >
-              {uploading
-                ? (uploadProgress ? `${uploadProgress.current}/${uploadProgress.total}` : '…')
-                : '+'}
-            </button>
-          </div>
-
-          {uploading && uploadProgress && (
-            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '6px' }}>
-              Uploading {uploadProgress.current} of {uploadProgress.total}: <span style={{ color: 'var(--foreground)' }}>{uploadProgress.name}</span>
-            </div>
-          )}
-
-          {!uploading && inputs.length === 0 && (
-            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '6px', fontStyle: 'italic' }}>
-              Drag &amp; drop photos anywhere here, or click the + tile.
+          {inputs.length > 0 && (
+            <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
+              First image = face anchor
             </div>
           )}
         </div>
-
-        {/* Prompt (collapsible) */}
-        <details>
-          <summary style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', padding: '4px 0' }}>
-            Prompt {prompts[pose] !== HARDCODED_PROMPTS[pose] && <span style={{ color: 'var(--palm-pink)', textTransform: 'none' }}> · edited</span>}
-          </summary>
-          <textarea
-            value={prompts[pose]}
-            onChange={e => onPromptChange(pose, e.target.value)}
-            rows={4}
-            style={{ width: '100%', marginTop: '6px', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(56px, 64px))', gap: '5px' }}>
+          {inputs.map((att, i) => (
+            <div key={att.id} style={{ position: 'relative', aspectRatio: '1', borderRadius: '5px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={att.url}
+                alt={att.filename}
+                onClick={() => onZoom(att.url)}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+              {i === 0 && (
+                <div style={{ position: 'absolute', top: '2px', left: '2px', fontSize: '8px', fontWeight: 700, padding: '1px 4px', background: 'var(--palm-pink)', color: '#060606', borderRadius: '3px', pointerEvents: 'none' }}>
+                  ANCHOR
+                </div>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); requestDelete(att.id, att.filename) }}
+                title={`Delete ${att.filename}`}
+                style={{ position: 'absolute', top: '2px', right: '2px', width: '15px', height: '15px', fontSize: '10px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', lineHeight: 1, padding: 0 }}
+              >×</button>
+            </div>
+          ))}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            disabled={uploading}
+            onChange={e => handleUpload(e.target.files)}
+            style={{ display: 'none' }}
           />
-          {prompts[pose] !== HARDCODED_PROMPTS[pose] && (
-            <button onClick={() => onPromptChange(pose, HARDCODED_PROMPTS[pose])} style={{ marginTop: '4px', padding: '3px 8px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}>
-              Reset
-            </button>
-          )}
-        </details>
-
-        {/* Count slider + Generate button (right-aligned within left column) */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '14px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-              Count
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={4}
-              step={1}
-              value={count}
-              onChange={e => setCount(parseInt(e.target.value, 10))}
-              disabled={generating}
-              style={{ width: '90px', accentColor: 'var(--palm-pink)', cursor: generating ? 'not-allowed' : 'pointer' }}
-            />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)', minWidth: '14px', textAlign: 'right' }}>{count}</span>
-          </div>
           <button
-            onClick={output ? handleRegenerate : handleGenerate}
-            disabled={!canGenerate}
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            disabled={uploading}
+            title="Add photos (or drag/drop anywhere)"
             style={{
-              padding: '8px 16px', fontSize: '12px', fontWeight: 700,
-              background: canGenerate ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
-              color: canGenerate ? '#060606' : 'var(--foreground-subtle)',
-              border: 'none', borderRadius: '6px',
-              cursor: canGenerate ? 'pointer' : 'not-allowed',
+              aspectRatio: '1',
+              border: '1px dashed rgba(232, 160, 160, 0.5)',
+              background: 'transparent',
+              color: 'var(--palm-pink)',
+              fontSize: uploading ? '10px' : '18px', fontWeight: 600,
+              borderRadius: '5px',
+              cursor: uploading ? 'wait' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 0,
+              lineHeight: 1.2,
             }}
           >
-            {generating ? '⏳ Generating…' : output ? `🔄 Regenerate ${count > 1 ? `(${count})` : ''}` : `✨ Generate ${count > 1 ? `(${count})` : ''}`}
+            {uploading
+              ? (uploadProgress ? `${uploadProgress.current}/${uploadProgress.total}` : '…')
+              : '+'}
           </button>
         </div>
-
-        {generating && (
-          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
-            Calling {meta.model}… typically 30-60s per image.
+        {uploading && uploadProgress && (
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '5px' }}>
+            Uploading {uploadProgress.current}/{uploadProgress.total}: <span style={{ color: 'var(--foreground)' }}>{uploadProgress.name}</span>
+          </div>
+        )}
+        {!uploading && inputs.length === 0 && (
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '5px', fontStyle: 'italic' }}>
+            Drag &amp; drop photos anywhere here, or click the + tile.
           </div>
         )}
       </div>
-      {/* END LEFT COLUMN */}
 
-        {/* Right column: approved output (top) + candidates gallery (bottom) */}
-        {(output || savedCandidates.length > 0 || inFlight.length > 0) ? (
-          <div>
-            {output && (
-              <div style={{ marginBottom: savedCandidates.length || inFlight.length ? '12px' : 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    AI Reference
-                  </div>
-                  <button
-                    onClick={handleResync}
-                    disabled={resyncing}
-                    title="Re-fetch from Dropbox"
-                    style={{ padding: '2px 6px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: resyncing ? 'wait' : 'pointer' }}
-                  >
-                    {resyncing ? '…' : '🔁 Sync'}
-                  </button>
-                </div>
-                <div style={{ position: 'relative', aspectRatio: '9/16', maxHeight: '320px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={output.url}
-                    alt={output.filename}
-                    onClick={() => onZoom(output.url)}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                </div>
-              </div>
-            )}
+      {/* PROMPT (collapsible) */}
+      <details style={{ marginBottom: '10px' }}>
+        <summary style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', padding: '4px 0' }}>
+          Prompt {prompts[pose] !== HARDCODED_PROMPTS[pose] && <span style={{ color: 'var(--palm-pink)', textTransform: 'none' }}> · edited</span>}
+        </summary>
+        <textarea
+          value={prompts[pose]}
+          onChange={e => onPromptChange(pose, e.target.value)}
+          rows={4}
+          style={{ width: '100%', marginTop: '6px', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+        />
+        {prompts[pose] !== HARDCODED_PROMPTS[pose] && (
+          <button onClick={() => onPromptChange(pose, HARDCODED_PROMPTS[pose])} style={{ marginTop: '4px', padding: '3px 8px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}>
+            Reset
+          </button>
+        )}
+      </details>
 
-            {(savedCandidates.length > 0 || inFlight.length > 0) && (
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                  Candidates ({savedCandidates.length}{inFlight.length ? ` + ${inFlight.length} generating` : ''})
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-                  {/* In-flight tasks: spinners */}
-                  {inFlight.map((t) => (
-                    <div key={t.taskId} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
-                      {t.status === 'processing' && (
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--foreground-muted)', flexDirection: 'column', gap: '4px' }}>
-                          <div style={{ width: '20px', height: '20px', border: '2px solid rgba(232,160,160,0.3)', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
-                          <span>Generating…</span>
-                        </div>
-                      )}
-                      {t.status === 'failed' && (
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#E87878', textAlign: 'center', padding: '6px' }}>
-                          <div>
-                            <div>✕ {t.error || 'Failed'}</div>
-                            <button
-                              onClick={() => setInFlight(prev => prev.filter(x => x.taskId !== t.taskId))}
-                              style={{ marginTop: '4px', padding: '2px 6px', fontSize: '9px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer' }}
-                            >Dismiss</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Saved candidates: persisted in Dropbox + Airtable */}
-                  {savedCandidates.map((c) => (
-                    <div key={c.id} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={c.url}
-                        alt={c.filename}
-                        onClick={() => onZoom(c.url)}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
-                      />
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteCandidate(c.id) }}
-                        title="Delete this candidate"
-                        style={{ position: 'absolute', top: '4px', right: '4px', width: '18px', height: '18px', fontSize: '11px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', lineHeight: 1, padding: 0 }}
-                      >×</button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleApprove(c.url) }}
-                        disabled={!!approving}
-                        title="Approve as the reference"
-                        style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', padding: '4px 6px', fontSize: '10px', fontWeight: 700, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '4px', cursor: approving ? 'wait' : 'pointer' }}
-                      >
-                        {approving === c.url ? '…' : '✓ Approve'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : null}
+      {/* CONTROLS — count + generate, right-aligned */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '14px', flexWrap: 'wrap', marginBottom: showGallery ? '12px' : 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+            Count
+          </label>
+          <input
+            type="range"
+            min={1}
+            max={4}
+            step={1}
+            value={count}
+            onChange={e => setCount(parseInt(e.target.value, 10))}
+            disabled={generating}
+            style={{ width: '90px', accentColor: 'var(--palm-pink)', cursor: generating ? 'not-allowed' : 'pointer' }}
+          />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)', minWidth: '14px', textAlign: 'right' }}>{count}</span>
+        </div>
+        <button
+          onClick={output ? handleRegenerate : handleGenerate}
+          disabled={!canGenerate}
+          style={{
+            padding: '8px 16px', fontSize: '12px', fontWeight: 700,
+            background: canGenerate ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
+            color: canGenerate ? '#060606' : 'var(--foreground-subtle)',
+            border: 'none', borderRadius: '6px',
+            cursor: canGenerate ? 'pointer' : 'not-allowed',
+          }}
+        >
+          {generating ? '⏳ Generating…' : output ? `🔄 Regenerate ${count > 1 ? `(${count})` : ''}` : `✨ Generate ${count > 1 ? `(${count})` : ''}`}
+        </button>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      {/* GALLERY — AI Reference + candidates in one horizontal row */}
+      {showGallery && (
+        <div>
+          {(savedCandidates.length > 0) && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px' }}>
+              <button
+                onClick={handleLockIn}
+                title="Delete candidates and clear this section"
+                style={{ padding: '3px 10px', fontSize: '10px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                🔒 Lock In
+              </button>
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 130px))', gap: '8px' }}>
+            {/* AI Reference (first, distinguished) */}
+            {output && (
+              <div style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in', border: '2px solid #7DD3A4' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={output.url}
+                  alt={output.filename}
+                  onClick={() => onZoom(output.url)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+                <div style={{ position: 'absolute', top: '4px', left: '4px', fontSize: '8px', fontWeight: 700, padding: '2px 5px', background: '#7DD3A4', color: '#060606', borderRadius: '3px', pointerEvents: 'none' }}>
+                  ✓ APPROVED
+                </div>
+              </div>
+            )}
+            {/* In-flight tasks */}
+            {inFlight.map((t) => (
+              <div key={t.taskId} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
+                {t.status === 'processing' && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'var(--foreground-muted)', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ width: '18px', height: '18px', border: '2px solid rgba(232,160,160,0.3)', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
+                    <span>Generating…</span>
+                  </div>
+                )}
+                {t.status === 'failed' && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#E87878', textAlign: 'center', padding: '6px' }}>
+                    <div>
+                      <div>✕ {t.error || 'Failed'}</div>
+                      <button
+                        onClick={() => setInFlight(prev => prev.filter(x => x.taskId !== t.taskId))}
+                        style={{ marginTop: '4px', padding: '2px 6px', fontSize: '9px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer' }}
+                      >Dismiss</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* Saved candidates */}
+            {savedCandidates.map((c) => (
+              <div key={c.id} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={c.url}
+                  alt={c.filename}
+                  onClick={() => onZoom(c.url)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+                />
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteCandidate(c.id) }}
+                  title="Delete this candidate"
+                  style={{ position: 'absolute', top: '4px', right: '4px', width: '16px', height: '16px', fontSize: '10px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', lineHeight: 1, padding: 0 }}
+                >×</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleApprove(c.url) }}
+                  disabled={!!approving}
+                  title="Approve as the reference"
+                  style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', padding: '4px 6px', fontSize: '10px', fontWeight: 700, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '4px', cursor: approving ? 'wait' : 'pointer' }}
+                >
+                  {approving === c.url ? '…' : '✓ Approve'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {generating && (
+        <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+          Calling {meta.model}… typically 30-60s per image.
+        </div>
+      )}
 
       {error && (
         <div style={{ marginTop: '8px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>
           {error}
         </div>
       )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
+
 
 export default function AISuperClonePanel({ creatorId }) {
   const [state, setState] = useState(null)
