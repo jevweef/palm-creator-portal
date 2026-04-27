@@ -193,8 +193,6 @@ export default function RecreatePage() {
     if (!sourceFrame) { setSceneError('Pick a frame in Step 2 first.'); return }
     setExtractingScene(true); setSceneError('')
     try {
-      // Frame can be a data: URL (from canvas capture / file upload) OR a
-      // remote URL (Airtable thumbnail). Send accordingly.
       const body = sourceFrame.startsWith('data:')
         ? { frameDataUrl: sourceFrame }
         : { frameUrl: sourceFrame }
@@ -216,6 +214,80 @@ export default function RecreatePage() {
     } catch (e) { setSceneError(e.message) }
     finally { setExtractingScene(false) }
   }
+
+  // Swap creator into the frame via Wan 2.7 image-edit
+  const [swapTaskId, setSwapTaskId] = useState(null)
+  const [swapResult, setSwapResult] = useState(null) // { url, filename }
+  const [swapError, setSwapError] = useState('')
+  const [swapping, setSwapping] = useState(false)
+  const [swapMeta, setSwapMeta] = useState(null) // { pose, referenceCount }
+
+  const handleSwap = async () => {
+    if (!sourceFrame) { setSwapError('Pick a frame in Step 2 first.'); return }
+    if (!selectedCreator) { setSwapError('Pick a creator in Step 4 first.'); return }
+    if (!scenePrompt.positive) { setSwapError('Run Step 3 to extract the scene prompt first.'); return }
+    setSwapping(true); setSwapError(''); setSwapResult(null); setSwapTaskId(null); setSwapMeta(null)
+    try {
+      const body = {
+        creatorId: selectedCreator,
+        shotType: scenePrompt.shotType,
+        shortcode: shortcode || undefined,
+        positivePrompt: scenePrompt.positive,
+        ...(sourceFrame.startsWith('data:') ? { frameDataUrl: sourceFrame } : { frameUrl: sourceFrame }),
+      }
+      const res = await fetch('/api/admin/recreate/swap-creator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Swap submit failed')
+      setSwapTaskId(data.taskId)
+      setSwapMeta({ pose: data.pose, referenceCount: data.referenceCount })
+    } catch (e) { setSwapError(e.message); setSwapping(false) }
+  }
+
+  // Poll swap status
+  useEffect(() => {
+    if (!swapTaskId) return
+    let cancelled = false
+    const startedAt = Date.now()
+    const MAX_MS = 5 * 60 * 1000
+    const poll = async () => {
+      try {
+        if (Date.now() - startedAt > MAX_MS) {
+          setSwapError('Timed out after 5 min — WaveSpeed may be overloaded')
+          setSwapTaskId(null); setSwapping(false); return
+        }
+        const res = await fetch('/api/admin/recreate/swap-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: swapTaskId, creatorId: selectedCreator, shortcode: shortcode || undefined }),
+        })
+        const data = await res.json()
+        if (cancelled) return
+        if (!res.ok) {
+          setSwapError(data.error || `Poll failed (${res.status})`)
+          setSwapTaskId(null); setSwapping(false); return
+        }
+        if (data.status === 'completed') {
+          setSwapResult({ url: data.outputUrl, filename: data.filename })
+          setSwapTaskId(null); setSwapping(false)
+        } else if (data.status === 'failed') {
+          setSwapError(data.error || 'Generation failed')
+          setSwapTaskId(null); setSwapping(false)
+        } else {
+          setTimeout(poll, 4000)
+        }
+      } catch (e) {
+        if (cancelled) return
+        setSwapError(e.message)
+        setSwapTaskId(null); setSwapping(false)
+      }
+    }
+    poll()
+    return () => { cancelled = true }
+  }, [swapTaskId, selectedCreator, shortcode])
 
   useEffect(() => {
     fetch('/api/admin/palm-creators').then(r => r.json()).then(d => setAllCreators(d.creators || [])).catch(() => {})
@@ -452,18 +524,62 @@ export default function RecreatePage() {
           ))}
         </select>
         <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '8px', fontStyle: 'italic' }}>
-          You&apos;ll need this creator&apos;s reference photo handy when you upload to Nano Banana 2 in Step 4.
+          Step 5 auto-pulls this creator&apos;s saved reference input photos based on the shot type from Step 3.
         </div>
       </StepCard>
 
-      {/* Step 4 — Generate Image in Nano Banana 2 */}
-      <StepCard n={5} title="Swap Creator into the Frame (Nano Banana 2)">
-        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.6 }}>
-          Open Nano Banana 2, upload <strong style={{ color: 'var(--foreground)' }}>two images</strong>: the source frame from Step 2, and {creator ? <strong style={{ color: 'var(--foreground)' }}>{creator.aka || creator.name}&apos;s</strong> : 'your creator&apos;s'} reference photo. Tell it to keep the scene from the first image and replace the subject&apos;s identity (face, hair, body) with the second.
+      {/* Step 5 — Swap Creator into the Frame via Wan 2.7 (API) */}
+      <StepCard n={5} title="Swap Creator into the Frame (Wan 2.7)" status={swapResult ? null : 'auto'}>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
+          Sends the source frame + {creator ? <strong style={{ color: 'var(--foreground)' }}>{creator.aka || creator.name}&apos;s</strong> : 'the creator\'s'} reference input photos
+          (auto-picked: <strong style={{ color: 'var(--foreground)' }}>{scenePrompt.shotType ? (scenePrompt.shotType === 'close-up' ? 'Close Up Face' : scenePrompt.shotType === 'back' ? 'Back View' : 'Front View') : 'pending Step 3'}</strong>)
+          to Wan 2.7 image-edit. Result loads inline.
         </div>
-        <a href={NANO_BANANA_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-          <button style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Open Nano Banana 2 ↗</button>
-        </a>
+        <button
+          onClick={handleSwap}
+          disabled={swapping || !sourceFrame || !selectedCreator || !scenePrompt.positive}
+          style={{
+            padding: '8px 14px', fontSize: '12px', fontWeight: 700,
+            background: (!sourceFrame || !selectedCreator || !scenePrompt.positive) ? 'rgba(232, 160, 160, 0.06)' : (swapping ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
+            color: (!sourceFrame || !selectedCreator || !scenePrompt.positive) ? 'var(--foreground-subtle)' : '#060606',
+            border: 'none', borderRadius: '6px',
+            cursor: swapping ? 'wait' : ((!sourceFrame || !selectedCreator || !scenePrompt.positive) ? 'not-allowed' : 'pointer'),
+          }}
+        >
+          {swapping ? '⏳ Wan 2.7 generating… (~30-60s)' : '✨ Generate creator-swapped image'}
+        </button>
+        {swapMeta && swapping && (
+          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+            Using {swapMeta.referenceCount} {swapMeta.pose} reference photos.
+          </div>
+        )}
+        {swapError && (
+          <div style={{ marginTop: '10px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>
+            {swapError}
+          </div>
+        )}
+        {swapResult && (
+          <div style={{ marginTop: '14px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+              Result · saved to Dropbox
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={swapResult.url} alt="Swapped" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block', cursor: 'zoom-in' }} onClick={() => window.open(swapResult.url, '_blank')} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontSize: '12px', color: '#7DD3A4', fontWeight: 600 }}>✓ Saved</div>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{swapResult.filename}</div>
+                <button
+                  onClick={handleSwap}
+                  disabled={swapping}
+                  style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  {swapping ? '…' : '🔄 Regenerate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </StepCard>
 
       {/* Step 5 — Kling Action Prompt */}
