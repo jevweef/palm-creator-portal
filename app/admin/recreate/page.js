@@ -216,6 +216,14 @@ export default function RecreatePage() {
   // Backward-compat alias for downstream paths that still talk "userNotes"
   const userNotes = notesBySlot.start
   const setUserNotes = (v) => setNotesBySlot(prev => ({ ...prev, start: typeof v === 'function' ? v(prev.start) : v }))
+
+  // Video context — Gemini watches the full reel and writes a beat-by-beat
+  // summary that gets injected into Sonnet's per-frame extraction. Helps
+  // Sonnet identify things you can't see in a single still (e.g. underwear
+  // used as a hair tie). Auto-runs once per reel and caches to Airtable.
+  const [videoContext, setVideoContext] = useState('')
+  const [videoContextLoading, setVideoContextLoading] = useState(false)
+  const [videoContextError, setVideoContextError] = useState('')
   // Toggle for sending source frame as image[0] to anchor exact composition
   const [preserveScene, setPreserveScene] = useState(false)
 

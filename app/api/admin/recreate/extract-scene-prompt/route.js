@@ -100,7 +100,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { frameUrl, frameDataUrl, inspoRecordId, userNotes, slot } = await request.json()
+    const { frameUrl, frameDataUrl, inspoRecordId, userNotes, slot, videoContext } = await request.json()
     if (!frameUrl && !frameDataUrl) {
       return NextResponse.json({ error: 'Missing frameUrl or frameDataUrl' }, { status: 400 })
     }
@@ -178,9 +178,15 @@ export async function POST(request) {
             imageBlock,
             {
               type: 'text',
-              text: userNotes?.trim()
-                ? `Extract the scene prompt for this frame using the submit_scene_prompt tool.\n\nADDITIONAL NOTES FROM THE ADMIN (specific to THIS reel — incorporate these into your prompt, don't paraphrase, follow them literally):\n${userNotes.trim()}`
-                : 'Extract the scene prompt for this frame using the submit_scene_prompt tool.',
+              text: [
+                'Extract the scene prompt for this frame using the submit_scene_prompt tool.',
+                videoContext?.trim()
+                  ? `\n\nVIDEO CONTEXT (from a separate Gemini pass that watched the FULL reel — use to disambiguate things you can't tell from this single still, e.g. props, hair ties made from non-obvious objects, action timing). DO NOT add details from the context that aren't visible in THIS frame:\n${videoContext.trim()}`
+                  : '',
+                userNotes?.trim()
+                  ? `\n\nADDITIONAL NOTES FROM THE ADMIN (specific to THIS reel — incorporate these into your prompt, don't paraphrase, follow them literally):\n${userNotes.trim()}`
+                  : '',
+              ].filter(Boolean).join(''),
             },
           ],
         },
