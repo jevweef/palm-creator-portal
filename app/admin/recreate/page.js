@@ -1211,26 +1211,29 @@ export default function RecreatePage() {
         )}
       </StepCard>
 
-      {/* Step 6 — Extract motion prompt via Gemini */}
-      <StepCard n={6} title="Extract Motion Prompt (Gemini)" status={motionPrompt.positive ? (lookup?.recreateMotionPrompt === motionPrompt.positive ? 'cached' : null) : 'auto'}>
+      {/* Step 6 — Motion prompt (auto-filled by the same Gemini call as Step 2.5) */}
+      <StepCard n={6} title="Motion Prompt (Gemini)" status={motionPrompt.positive ? 'auto-filled' : 'pending'}>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
-          Gemini watches the original reel and returns a Kling V3.0–formatted motion prompt
-          (camera framing, action beat-by-beat, exact spoken quote if any, motion descriptors)
-          plus a strong negative prompt.
+          {motionPrompt.positive
+            ? <>Auto-filled from the same Gemini call that produced Step 2.5 — one paid run produces video context, motion prompt, and negative. Edit below if you want to override before Step 7, or use 🔄 Regenerate to re-run Gemini.</>
+            : <>Will auto-fill when Gemini finishes analyzing the video in Step 2.5. If it doesn&apos;t fill, click below to extract motion only.</>
+          }
         </div>
-        <button
-          onClick={handleExtractMotion}
-          disabled={extractingMotion || !lookup?.dbRawLink}
-          style={{
-            padding: '8px 14px', fontSize: '12px', fontWeight: 700,
-            background: !lookup?.dbRawLink ? 'rgba(232, 160, 160, 0.06)' : (extractingMotion ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
-            color: !lookup?.dbRawLink ? 'var(--foreground-subtle)' : '#060606',
-            border: 'none', borderRadius: '6px',
-            cursor: extractingMotion ? 'wait' : (!lookup?.dbRawLink ? 'not-allowed' : 'pointer'),
-          }}
-        >
-          {extractingMotion ? '⏳ Gemini analyzing video…' : '✨ Extract motion prompt'}
-        </button>
+        {!motionPrompt.positive && (
+          <button
+            onClick={handleExtractMotion}
+            disabled={extractingMotion || !lookup?.dbRawLink}
+            style={{
+              padding: '8px 14px', fontSize: '12px', fontWeight: 700,
+              background: !lookup?.dbRawLink ? 'rgba(232, 160, 160, 0.06)' : (extractingMotion ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
+              color: !lookup?.dbRawLink ? 'var(--foreground-subtle)' : '#060606',
+              border: 'none', borderRadius: '6px',
+              cursor: extractingMotion ? 'wait' : (!lookup?.dbRawLink ? 'not-allowed' : 'pointer'),
+            }}
+          >
+            {extractingMotion ? '⏳ Gemini analyzing video…' : '✨ Extract motion prompt'}
+          </button>
+        )}
         {!lookup?.dbRawLink && shortcode && (
           <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
             This reel needs to be in the Inspiration pipeline (with a Dropbox-hosted video) for Gemini to analyze it.
