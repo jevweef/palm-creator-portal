@@ -77,9 +77,12 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
     .filter(p => !p.telegramSentAt && !p.postedAt)
     .sort((a, b) => new Date(b.scheduledDate || 0) - new Date(a.scheduledDate || 0))
 
+  // Sort scheduled/sent cells by scheduledDate desc — matches the queue's
+  // "newest at top-left" rule so the timeline reads continuously across the
+  // queue → scheduled boundary instead of scrambling by send time.
   const past = posts
     .filter(p => p.telegramSentAt || p.postedAt)
-    .sort((a, b) => new Date(b.telegramSentAt || b.postedAt || 0) - new Date(a.telegramSentAt || a.postedAt || 0))
+    .sort((a, b) => new Date(b.scheduledDate || b.telegramSentAt || b.postedAt || 0) - new Date(a.scheduledDate || a.telegramSentAt || a.postedAt || 0))
 
   // Scraped IG posts from RapidAPI — show as locked "posted" cells beneath scheduled/past.
   // These are the real IG feed thumbnails so the grid reads like the account's actual page.
