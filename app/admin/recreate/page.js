@@ -254,6 +254,24 @@ export default function RecreatePage() {
     } catch (e) { setSwapError(e.message); setSwapping(false) }
   }
 
+  // Rehydrate the latest Wan swap from Dropbox when creator + shortcode
+  // are known. Saves the user from having to re-run Step 5 after a refresh.
+  useEffect(() => {
+    if (!selectedCreator || !shortcode) return
+    let cancelled = false
+    fetch(`/api/admin/recreate/last-swap?creatorId=${encodeURIComponent(selectedCreator)}&shortcode=${encodeURIComponent(shortcode)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        if (d?.output?.url) {
+          // Only set if we don't already have a (possibly fresher) in-memory result
+          setSwapResult(prev => prev || { url: d.output.url, filename: d.output.filename })
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [selectedCreator, shortcode])
+
   // Motion prompt extraction (Gemini on the inspo video)
   const [motionPrompt, setMotionPrompt] = useState({ positive: '', negative: '' })
   const [extractingMotion, setExtractingMotion] = useState(false)
