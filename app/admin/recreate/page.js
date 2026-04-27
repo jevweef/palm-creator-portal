@@ -303,11 +303,11 @@ export default function RecreatePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={sourceFrame} alt="Source frame" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>✓ Frame ready</div>
-              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>This is the frame Nano Banana 2 will use for the creator swap.</div>
+              <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>✓ Frame loaded</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>Held in memory and passed to the downstream steps automatically.</div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={downloadFrame} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>↓ Download JPEG</button>
                 <button onClick={() => { setSourceFrame(null); setShowScrubber(false) }} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>Pick another</button>
+                <button onClick={downloadFrame} title="Optional: download a copy" style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-subtle)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', cursor: 'pointer' }}>↓ JPEG</button>
               </div>
             </div>
           </div>
