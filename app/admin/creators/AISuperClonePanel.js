@@ -71,8 +71,9 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
   const savedCandidates = state.candidates?.[pose] || []
 
   // Poll each in-flight task. On completion the server saves to Dropbox +
-  // Airtable Candidates field, so we trigger an onRefresh to pick up the
-  // new saved candidate, and remove the task from inFlight.
+  // Airtable Candidates field. Auto-fails after MAX_POLL_MS so wedged
+  // WaveSpeed tasks don't trap the UI in spinners forever.
+  const MAX_POLL_MS = 5 * 60 * 1000
   useEffect(() => {
     const processing = inFlight.filter(t => t.status === 'processing')
     if (!processing.length) return
@@ -80,6 +81,11 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
 
     const pollOne = async (taskId) => {
       try {
+        const t0 = inFlight.find(t => t.taskId === taskId)?.startedAt || Date.now()
+        if (Date.now() - t0 > MAX_POLL_MS) {
+          setInFlight(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'failed', error: 'Timed out after 5 min — WaveSpeed may be overloaded' } : t))
+          return
+        }
         const res = await fetch('/api/admin/creator-ai-clone/poll', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -92,7 +98,6 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
           return
         }
         if (data.status === 'completed') {
-          // Saved to Airtable. Refresh state to pick it up, then drop from inFlight.
           await onRefresh()
           setInFlight(prev => prev.filter(t => t.taskId !== taskId))
         } else if (data.status === 'failed') {
@@ -235,7 +240,8 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generate failed')
-      setInFlight(prev => [...prev, ...data.taskIds.map(id => ({ taskId: id, status: 'processing' }))])
+      const startedAt = Date.now()
+      setInFlight(prev => [...prev, ...data.taskIds.map(id => ({ taskId: id, status: 'processing', startedAt }))])
     } catch (e) { setError(e.message); setGenerating(false) }
   }
 
@@ -524,10 +530,17 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
               {inFlight.map((t) => (
                 <div key={t.taskId} style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
                   {t.status === 'processing' && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'var(--foreground-muted)', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ width: '18px', height: '18px', border: '2px solid rgba(232,160,160,0.3)', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
-                      <span>Generating…</span>
-                    </div>
+                    <>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'var(--foreground-muted)', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ width: '18px', height: '18px', border: '2px solid rgba(232,160,160,0.3)', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
+                        <span>Generating…</span>
+                      </div>
+                      <button
+                        onClick={() => setInFlight(prev => prev.filter(x => x.taskId !== t.taskId))}
+                        title="Cancel — server polling stops, WaveSpeed task continues but result may not save"
+                        style={{ position: 'absolute', top: '4px', right: '4px', width: '16px', height: '16px', fontSize: '10px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', lineHeight: 1, padding: 0 }}
+                      >×</button>
+                    </>
                   )}
                   {t.status === 'failed' && (
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#E87878', textAlign: 'center', padding: '6px' }}>
