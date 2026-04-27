@@ -25,6 +25,8 @@ shotType rules (for picking the right reference photo set):
 - "back" — subject's back is to the camera
 
 positivePrompt rules:
+- MUST start with this exact phrase: "Exact same woman as in the reference images,"
+  This is the identity anchor that tells Wan 2.7 to use the reference photos for face/hair/body/skin. Without it the model defaults to a generic woman.
 - One paragraph, copy-paste ready
 - Hyper-realistic raw iPhone photo, shot on iPhone camera, ultra detailed, professional, sharp focus, natural skin texture, minimal editing, no cinematic look, 9:16, 4K
 - Describe clothing precisely (garment type, color, fit, brand if visible on tag/waistband only, NOT printed graphics)
@@ -33,7 +35,7 @@ positivePrompt rules:
 - Describe setting in detail (location, surfaces, furniture, decor visible)
 - Describe lighting (natural daylight, soft, even, harsh sunlight, indoor warm, etc.)
 - Describe vibe (candid, social-media lifestyle, casual at-home, etc.)
-- DO NOT describe the subject's physical features
+- DO NOT describe the subject's physical features (hair, face, body, skin, age, ethnicity, makeup) — those come from the reference photos via the anchor phrase
 
 negativePrompt rules:
 - Comma-separated tokens, copy-paste ready
@@ -121,9 +123,21 @@ export async function POST(request) {
       }, { status: 500 })
     }
 
-    const { shotType, positivePrompt, negativePrompt } = toolUse.input
+    const { shotType, negativePrompt } = toolUse.input
+    let { positivePrompt } = toolUse.input
     if (!shotType || !positivePrompt || !negativePrompt) {
       return NextResponse.json({ error: 'Tool input missing required fields', raw: toolUse.input }, { status: 500 })
+    }
+
+    // Enforce the "Exact same woman..." identity anchor prefix. Without
+    // this phrase, Wan 2.7 ignores the reference photos for face/hair/body
+    // and produces a generic woman in the scene.
+    const ANCHOR = 'Exact same woman as in the reference images,'
+    if (!positivePrompt.toLowerCase().startsWith(ANCHOR.toLowerCase())) {
+      // Drop any leading "A young woman..." style intro that Sonnet may have
+      // led with, then prepend the anchor.
+      const trimmed = positivePrompt.replace(/^(?:a |the )?(young\s+)?woman[^,.]*[,.]\s*/i, '').trim()
+      positivePrompt = `${ANCHOR} ${trimmed.charAt(0).toLowerCase() + trimmed.slice(1)}`
     }
 
     return NextResponse.json({
