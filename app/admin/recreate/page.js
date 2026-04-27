@@ -629,40 +629,67 @@ export default function RecreatePage() {
         )}
       </StepCard>
 
-      {/* Step 5 — Kling Action Prompt */}
-      <StepCard n={6} title="Kling V3.0 4K Action Prompt" status={lookup?.klingPrompt ? null : 'manual'}>
-        {lookup?.klingPrompt ? (
-          <div>
-            <div style={{ fontSize: '12px', color: '#7DD3A4', marginBottom: '10px', fontWeight: 600 }}>✓ Pre-generated from analysis</div>
-            <textarea
-              value={klingPrompt}
-              onChange={e => setKlingPrompt(e.target.value)}
-              rows={5}
-              style={{ width: '100%', padding: '10px', fontSize: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', fontFamily: 'monospace', resize: 'vertical', marginBottom: '10px' }}
-            />
-            <CopyBtn text={klingPrompt} label="Copy Kling prompt" />
+      {/* Step 6 — Extract motion prompt via Gemini */}
+      <StepCard n={6} title="Extract Motion Prompt (Gemini)" status={motionPrompt.positive ? null : 'auto'}>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
+          Gemini watches the original reel and returns a Kling V3.0–formatted motion prompt
+          (camera framing, action beat-by-beat, exact spoken quote if any, motion descriptors)
+          plus a strong negative prompt.
+        </div>
+        <button
+          onClick={handleExtractMotion}
+          disabled={extractingMotion || !lookup?.dbRawLink}
+          style={{
+            padding: '8px 14px', fontSize: '12px', fontWeight: 700,
+            background: !lookup?.dbRawLink ? 'rgba(232, 160, 160, 0.06)' : (extractingMotion ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
+            color: !lookup?.dbRawLink ? 'var(--foreground-subtle)' : '#060606',
+            border: 'none', borderRadius: '6px',
+            cursor: extractingMotion ? 'wait' : (!lookup?.dbRawLink ? 'not-allowed' : 'pointer'),
+          }}
+        >
+          {extractingMotion ? '⏳ Gemini analyzing video…' : '✨ Extract motion prompt'}
+        </button>
+        {!lookup?.dbRawLink && shortcode && (
+          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+            This reel needs to be in the Inspiration pipeline (with a Dropbox-hosted video) for Gemini to analyze it.
           </div>
-        ) : (
-          <div>
-            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.6 }}>
-              No pre-generated Kling prompt for this reel yet (analysis pipeline doesn&apos;t output them). Paste the template below into ChatGPT along with the frame from Step 2 — it&apos;ll return a Kling V3.0–formatted action prompt.
+        )}
+        {motionError && (
+          <div style={{ marginTop: '10px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>
+            {motionError}
+          </div>
+        )}
+        {motionPrompt.positive && (
+          <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                Motion (positive) prompt
+              </div>
+              <textarea
+                value={motionPrompt.positive}
+                onChange={e => setMotionPrompt(s => ({ ...s, positive: e.target.value }))}
+                rows={6}
+                style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+              />
             </div>
-            <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '12px', fontSize: '11px', fontFamily: 'monospace', color: 'var(--foreground)', marginBottom: '10px', whiteSpace: 'pre-wrap', lineHeight: 1.5, maxHeight: '240px', overflowY: 'auto' }}>{chatgptPrompt || 'Paste a reel URL above to populate the template.'}</div>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-              <CopyBtn text={chatgptPrompt} label="Copy ChatGPT template" />
-              <a href="https://chat.openai.com/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                <button style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}>Open ChatGPT ↗</button>
-              </a>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                Negative prompt
+              </div>
+              <textarea
+                value={motionPrompt.negative}
+                onChange={e => setMotionPrompt(s => ({ ...s, negative: e.target.value }))}
+                rows={4}
+                style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+              />
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>Paste the result back here:</div>
-            <textarea
-              placeholder="Kling V3.0 4K action prompt..."
-              value={klingPrompt}
-              onChange={e => setKlingPrompt(e.target.value)}
-              rows={4}
-              style={{ width: '100%', padding: '10px', fontSize: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', fontFamily: 'monospace', resize: 'vertical', marginBottom: '10px' }}
-            />
-            <CopyBtn text={klingPrompt} label="Copy Kling prompt" />
+            <button
+              onClick={handleExtractMotion}
+              disabled={extractingMotion}
+              style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              {extractingMotion ? '…' : '🔄 Regenerate'}
+            </button>
           </div>
         )}
       </StepCard>
