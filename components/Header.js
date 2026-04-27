@@ -80,7 +80,7 @@ export default function Header() {
               <Link href="/inspo" style={linkStyle(pathname === '/inspo')}>Inspo Board</Link>
               <Link href="/content-request" style={linkStyle(pathname === '/content-request')}>Content Request</Link>
               {isAdmin && (
-                <Link href="/admin/inspo" style={{ ...linkStyle(pathname?.startsWith('/admin')), color: pathname?.startsWith('/admin') ? 'var(--palm-pink)' : 'var(--foreground-muted)' }}>Admin</Link>
+                <Link href="/admin/dashboard" style={{ ...linkStyle(pathname?.startsWith('/admin')), color: pathname?.startsWith('/admin') ? 'var(--palm-pink)' : 'var(--foreground-muted)' }}>Admin</Link>
               )}
             </>
           )}
