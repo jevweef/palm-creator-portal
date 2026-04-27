@@ -106,10 +106,11 @@ export async function POST(request) {
     }
     const slotKey = slot === 'end' ? 'end' : 'start'
 
-    // Build image content block — either from a URL or a data URL
+    // Build image content block. We ALWAYS pass base64 to Anthropic — passing
+    // frameUrl directly fails for Dropbox-hosted frames because Anthropic's
+    // URL fetcher respects robots.txt and Dropbox disallows bots.
     let imageBlock
     if (frameDataUrl) {
-      // data:image/jpeg;base64,XXXX
       const match = frameDataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/)
       if (!match) return NextResponse.json({ error: 'Invalid frameDataUrl' }, { status: 400 })
       imageBlock = {
@@ -117,9 +118,18 @@ export async function POST(request) {
         source: { type: 'base64', media_type: match[1], data: match[2] },
       }
     } else {
+      const fetchRes = await fetch(frameUrl)
+      if (!fetchRes.ok) {
+        return NextResponse.json({ error: `Frame fetch failed (${fetchRes.status})` }, { status: 400 })
+      }
+      const arrayBuf = await fetchRes.arrayBuffer()
+      const base64 = Buffer.from(arrayBuf).toString('base64')
+      const ct = fetchRes.headers.get('content-type') || ''
+      const m = ct.match(/^(image\/[a-z]+)/i)
+      const mediaType = m ? m[1].toLowerCase().replace('image/jpg', 'image/jpeg') : 'image/jpeg'
       imageBlock = {
         type: 'image',
-        source: { type: 'url', url: frameUrl },
+        source: { type: 'base64', media_type: mediaType, data: base64 },
       }
     }
 
