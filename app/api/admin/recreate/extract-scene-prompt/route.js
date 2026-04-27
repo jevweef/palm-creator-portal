@@ -83,6 +83,9 @@ export async function POST(request) {
             { type: 'text', text: 'Extract the scene prompt for this frame. Respond with the JSON object only.' },
           ],
         },
+        // Prefill the assistant's reply with the opening brace — forces Claude
+        // to continue with valid JSON and skip any "Here is..." prose.
+        { role: 'assistant', content: '{' },
       ],
     })
 
@@ -91,14 +94,20 @@ export async function POST(request) {
       return NextResponse.json({ error: `Claude returned no text (stop: ${claudeResponse.stop_reason})` }, { status: 500 })
     }
 
-    // Strip code fences if Claude wrapped the JSON
-    let raw = textBlock.text.trim()
+    // Reattach the prefill brace and isolate JSON between first { and last }
+    let raw = '{' + textBlock.text
     raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+    const firstBrace = raw.indexOf('{')
+    const lastBrace = raw.lastIndexOf('}')
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      raw = raw.slice(firstBrace, lastBrace + 1)
+    }
 
     let parsed
     try { parsed = JSON.parse(raw) }
     catch (e) {
-      return NextResponse.json({ error: 'Claude returned invalid JSON', raw: raw.slice(0, 500) }, { status: 500 })
+      console.error('[extract-scene-prompt] JSON parse failed. Raw:', raw)
+      return NextResponse.json({ error: 'Claude returned invalid JSON', raw: raw.slice(0, 800) }, { status: 500 })
     }
 
     if (!parsed.positivePrompt || !parsed.negativePrompt || !parsed.shotType) {

@@ -204,7 +204,10 @@ export default function RecreatePage() {
         body: JSON.stringify(body),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Extraction failed')
+      if (!res.ok) {
+        const detail = data.raw ? ` — raw: ${typeof data.raw === 'string' ? data.raw.slice(0, 300) : JSON.stringify(data.raw).slice(0, 300)}` : ''
+        throw new Error((data.error || 'Extraction failed') + detail)
+      }
       setScenePrompt({
         positive: data.positivePrompt,
         negative: data.negativePrompt,

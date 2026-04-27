@@ -1,8 +1,31 @@
 export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
+import { currentUser } from '@clerk/nextjs/server'
 import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { sendPushToAdmins } from '@/lib/sendPushNotifications'
+
+// Build a snapshot of who pressed submit (Clerk identity at the moment of save).
+// Stored on the Task record so the submissions feed can render an avatar +
+// name without doing a live Clerk lookup per row.
+async function getSubmitterSnapshot() {
+  try {
+    const u = await currentUser()
+    if (!u) return null
+    const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+      || u.fullName
+      || u.username
+      || u.emailAddresses?.[0]?.emailAddress
+      || ''
+    return {
+      'Submitted By ID': u.id,
+      'Submitted By Name': name,
+      'Submitted By Avatar': u.imageUrl || u.profileImageUrl || '',
+    }
+  } catch {
+    return null
+  }
+}
 
 // Status mapping: Task Status → Asset Pipeline Status
 const TASK_TO_ASSET_STATUS = {
@@ -388,6 +411,10 @@ export async function PATCH(request) {
       taskUpdate['Admin Review Status'] = 'Pending Review'
       // Clear any previous revision feedback when resubmitting
       if (isRevision) taskUpdate['Admin Feedback'] = ''
+      // Snapshot who pressed submit (could be the editor OR an admin filling
+      // in for them) so the submissions feed can render an avatar.
+      const submitter = await getSubmitterSnapshot()
+      if (submitter) Object.assign(taskUpdate, submitter)
     }
     if (editorNotes) taskUpdate['Editor Notes'] = editorNotes
     await patchAirtableRecord('Tasks', taskId, taskUpdate)

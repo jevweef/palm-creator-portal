@@ -30,6 +30,7 @@ export async function GET() {
         'Completed At', 'Started At',
         'Admin Review Status', 'Admin Feedback',
         'Editor Notes',
+        'Submitted By ID', 'Submitted By Name', 'Submitted By Avatar',
       ],
     })
 
