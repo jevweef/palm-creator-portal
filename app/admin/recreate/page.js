@@ -445,6 +445,26 @@ export default function RecreatePage() {
     audioOffset: 0,      // seconds to skip at start of inspo audio
   })
 
+  // Critique (Gemini analysis of the animated output)
+  const [critique, setCritique] = useState(null)  // { overall, topIssues, whatWorked, recommendedFix }
+  const [critiqueLoading, setCritiqueLoading] = useState(false)
+  const [critiqueError, setCritiqueError] = useState('')
+  const handleCritique = async () => {
+    if (!animateState.result?.url) return
+    setCritiqueLoading(true); setCritiqueError(''); setCritique(null)
+    try {
+      const res = await fetch('/api/admin/recreate/critique-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: animateState.result.url }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Critique failed')
+      setCritique(data.critique)
+    } catch (e) { setCritiqueError(e.message) }
+    finally { setCritiqueLoading(false) }
+  }
+
   // Inspo duration (in seconds) — read client-side from video metadata so
   // we can smart-default Kling duration and warn about audio truncation.
   const [inspoDuration, setInspoDuration] = useState(null)
@@ -1329,13 +1349,57 @@ export default function RecreatePage() {
             {animateState.result.muxNote && (
               <div style={{ marginTop: '6px', fontSize: '10px', color: '#FFC864' }}>⚠ {animateState.result.muxNote}</div>
             )}
-            <button
-              onClick={handleAnimate}
-              disabled={animateState.running}
-              style={{ marginTop: '8px', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              {animateState.running ? '…' : '🔄 Regenerate'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button
+                onClick={handleAnimate}
+                disabled={animateState.running}
+                style={{ padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                {animateState.running ? '…' : '🔄 Regenerate'}
+              </button>
+              <button
+                onClick={handleCritique}
+                disabled={critiqueLoading}
+                style={{ padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: critiqueLoading ? 'wait' : 'pointer' }}
+              >
+                {critiqueLoading ? '⏳ Analyzing…' : '🔍 Critique with Gemini'}
+              </button>
+            </div>
+            {critiqueError && (
+              <div style={{ marginTop: '8px', fontSize: '10px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid rgba(232,120,120,0.2)', borderRadius: '6px', padding: '6px 10px' }}>
+                {critiqueError}
+              </div>
+            )}
+            {critique && (
+              <div style={{ marginTop: '10px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', fontSize: '11px', color: 'var(--foreground)', lineHeight: 1.5 }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--palm-pink)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Overall: </span>
+                  {critique.overall}
+                </div>
+                {critique.topIssues?.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 700, color: '#E87878', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Top issues</div>
+                    <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                      {critique.topIssues.map((issue, i) => <li key={i} style={{ marginBottom: '3px' }}>{issue}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {critique.whatWorked?.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>What worked</div>
+                    <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                      {critique.whatWorked.map((s, i) => <li key={i} style={{ marginBottom: '3px' }}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {critique.recommendedFix && (
+                  <div>
+                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#FFC864', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Try next: </span>
+                    {critique.recommendedFix}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </StepCard>
