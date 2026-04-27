@@ -31,10 +31,13 @@ function parseNotes(notes) {
   }
 }
 
-export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext, isSaved, onSave, onUpload }) {
+export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext, isSaved, onSave, onUpload, viewAsCreator }) {
   const { user } = useUser()
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
+  // Only show "Create AI" when admin has picked a creator in the view-as bar
+  // AND that creator is toggled on for AI Conversions.
+  const showCreateAI = isAdmin && viewAsCreator?.aiConversionsEnabled
   const bodyRef = useRef(null)
 
   // On mobile, auto-scroll to midpoint so content is visible on open
@@ -322,16 +325,16 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   </svg>
                   View original
                 </a>
-                {isAdmin && (
+                {showCreateAI && (
                   <a
-                    href={`/admin/inspo?tab=recreate&url=${encodeURIComponent(record.contentLink)}`}
+                    href={`/admin/inspo?tab=recreate&url=${encodeURIComponent(record.contentLink)}&creatorId=${encodeURIComponent(viewAsCreator.id)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-semibold transition-colors"
-                    title="Recreate this reel with one of our creators using AI"
+                    title={`Recreate this reel as ${viewAsCreator.name} using AI`}
                     style={{color:'var(--palm-pink)', border:'1px solid var(--palm-pink)', borderRadius:'9999px', padding:'4px 12px'}}
                   >
-                    ✨ Create AI
+                    ✨ Create AI as {viewAsCreator.name}
                   </a>
                 )}
               </div>

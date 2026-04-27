@@ -174,6 +174,7 @@ The reference image is attached. Output ONE Kling V3.0 4K image-to-video prompt 
 export default function RecreatePage() {
   const searchParams = useSearchParams()
   const initialUrl = searchParams.get('url') || ''
+  const initialCreatorId = searchParams.get('creatorId') || ''
 
   const [reelUrl, setReelUrl] = useState(initialUrl)
   const [lookup, setLookup] = useState(null)
@@ -181,7 +182,7 @@ export default function RecreatePage() {
   const [sourceFrame, setSourceFrame] = useState(null) // data URL or attachment URL
   const [showScrubber, setShowScrubber] = useState(false)
   const [allCreators, setAllCreators] = useState([])
-  const [selectedCreator, setSelectedCreator] = useState('')
+  const [selectedCreator, setSelectedCreator] = useState(initialCreatorId)
   const [klingPrompt, setKlingPrompt] = useState('')
 
   // Scene prompt extraction (Claude Sonnet vision on the source frame)
@@ -536,21 +537,57 @@ export default function RecreatePage() {
         )}
       </StepCard>
 
-      {/* Step 4 — Pick Creator */}
-      <StepCard n={4} title="Pick Creator">
-        <select
-          value={selectedCreator}
-          onChange={e => setSelectedCreator(e.target.value)}
-          style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)' }}
-        >
-          <option value="">— Select creator —</option>
-          {allCreators.map(c => (
-            <option key={c.id} value={c.id}>{c.aka || c.name}</option>
-          ))}
-        </select>
-        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '8px', fontStyle: 'italic' }}>
-          Step 5 auto-pulls this creator&apos;s saved reference input photos based on the shot type from Step 3.
-        </div>
+      {/* Step 4 — Pick Creator (filtered to AI-enabled only) */}
+      <StepCard n={4} title="Pick Creator" status={creator && initialCreatorId ? null : null}>
+        {(() => {
+          // Only AI-enabled creators are valid for this workflow
+          const aiEnabled = allCreators.filter(c => c.aiConversionsEnabled)
+          if (initialCreatorId && creator?.aiConversionsEnabled) {
+            return (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>
+                    {creator.aka || creator.name}
+                  </span>
+                  <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid rgba(125, 211, 164, 0.2)' }}>
+                    AUTO-SELECTED
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '6px', fontStyle: 'italic' }}>
+                  Picked from your &quot;view as&quot; selection on the Inspo Board.
+                </div>
+                <button
+                  onClick={() => setSelectedCreator('')}
+                  style={{ marginTop: '8px', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  Change creator
+                </button>
+              </div>
+            )
+          }
+          return (
+            <>
+              <select
+                value={selectedCreator}
+                onChange={e => setSelectedCreator(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)' }}
+              >
+                <option value="">— Select creator —</option>
+                {aiEnabled.map(c => (
+                  <option key={c.id} value={c.id}>{c.aka || c.name}</option>
+                ))}
+              </select>
+              {aiEnabled.length === 0 && (
+                <div style={{ fontSize: '11px', color: '#FFC864', marginTop: '8px', fontStyle: 'italic' }}>
+                  No creators have AI Conversions enabled. Toggle one on in Admin → Creators → DNA → AI Super Clone.
+                </div>
+              )}
+              <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '8px', fontStyle: 'italic' }}>
+                Only AI-enabled creators shown. Step 5 auto-pulls their saved reference input photos based on the shot type from Step 3.
+              </div>
+            </>
+          )
+        })()}
       </StepCard>
 
       {/* Step 5 — Swap Creator into the Frame via Wan 2.7 (API) */}

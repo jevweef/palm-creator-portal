@@ -189,7 +189,11 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       .then(data => {
         const creators = (data.creators || [])
           .filter(c => c.status === 'Active')
-          .map(c => ({ id: c.opsId || c.id, name: c.name || c.aka || 'Unknown' }))
+          .map(c => ({
+            id: c.opsId || c.id,
+            name: c.name || c.aka || 'Unknown',
+            aiConversionsEnabled: !!c.aiConversionsEnabled,
+          }))
           .sort((a, b) => a.name.localeCompare(b.name))
         setAdminCreators(creators)
       })
@@ -853,6 +857,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
           hasNext={selectedIdx < filtered.length - 1}
           isSaved={savedIds.has(filtered[selectedIdx]?.id)}
           onSave={handleSave}
+          viewAsCreator={isAdmin && adminSelectedCreator
+            ? adminCreators.find(c => c.id === adminSelectedCreator) || null
+            : null}
         />
       )}
     </div>
