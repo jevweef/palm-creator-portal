@@ -222,6 +222,9 @@ export default function RecreatePage() {
   const [swapping, setSwapping] = useState(false)
   const [swapMeta, setSwapMeta] = useState(null) // { pose, referenceCount }
 
+  // shortcode needs to be available before any effect that depends on it
+  const shortcode = useMemo(() => shortcodeFromUrl(reelUrl), [reelUrl])
+
   const handleSwap = async () => {
     if (!sourceFrame) { setSwapError('Pick a frame in Step 2 first.'); return }
     if (!selectedCreator) { setSwapError('Pick a creator in Step 4 first.'); return }
@@ -292,8 +295,6 @@ export default function RecreatePage() {
   useEffect(() => {
     fetch('/api/admin/palm-creators').then(r => r.json()).then(d => setAllCreators(d.creators || [])).catch(() => {})
   }, [])
-
-  const shortcode = useMemo(() => shortcodeFromUrl(reelUrl), [reelUrl])
 
   useEffect(() => {
     if (!shortcode) { setLookup(null); return }
