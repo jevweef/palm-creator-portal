@@ -184,6 +184,36 @@ export default function RecreatePage() {
   const [selectedCreator, setSelectedCreator] = useState('')
   const [klingPrompt, setKlingPrompt] = useState('')
 
+  // Scene prompt extraction (Claude Sonnet vision on the source frame)
+  const [scenePrompt, setScenePrompt] = useState({ positive: '', negative: '', shotType: '' })
+  const [extractingScene, setExtractingScene] = useState(false)
+  const [sceneError, setSceneError] = useState('')
+
+  const handleExtractScene = async () => {
+    if (!sourceFrame) { setSceneError('Pick a frame in Step 2 first.'); return }
+    setExtractingScene(true); setSceneError('')
+    try {
+      // Frame can be a data: URL (from canvas capture / file upload) OR a
+      // remote URL (Airtable thumbnail). Send accordingly.
+      const body = sourceFrame.startsWith('data:')
+        ? { frameDataUrl: sourceFrame }
+        : { frameUrl: sourceFrame }
+      const res = await fetch('/api/admin/recreate/extract-scene-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Extraction failed')
+      setScenePrompt({
+        positive: data.positivePrompt,
+        negative: data.negativePrompt,
+        shotType: data.shotType,
+      })
+    } catch (e) { setSceneError(e.message) }
+    finally { setExtractingScene(false) }
+  }
+
   useEffect(() => {
     fetch('/api/admin/palm-creators').then(r => r.json()).then(d => setAllCreators(d.creators || [])).catch(() => {})
   }, [])
@@ -337,8 +367,77 @@ export default function RecreatePage() {
         )}
       </StepCard>
 
-      {/* Step 3 — Pick Creator */}
-      <StepCard n={3} title="Pick Creator">
+      {/* Step 3 — Extract scene prompt with Claude Sonnet */}
+      <StepCard n={3} title="Extract Scene Prompt (Claude Sonnet)" status={scenePrompt.positive ? null : 'auto'}>
+        <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
+          Sonnet looks at the frame from Step 2 and returns a scene-only prompt
+          (clothing, setting, action, framing, lighting, vibe — no character traits)
+          plus a strong negative prompt and the shot type for picking the right
+          reference photos.
+        </div>
+        <button
+          onClick={handleExtractScene}
+          disabled={extractingScene || !sourceFrame}
+          style={{
+            padding: '8px 14px', fontSize: '12px', fontWeight: 700,
+            background: !sourceFrame ? 'rgba(232, 160, 160, 0.06)' : (extractingScene ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
+            color: !sourceFrame ? 'var(--foreground-subtle)' : '#060606',
+            border: 'none', borderRadius: '6px',
+            cursor: extractingScene ? 'wait' : (!sourceFrame ? 'not-allowed' : 'pointer'),
+          }}
+        >
+          {extractingScene ? '⏳ Sonnet analyzing…' : '✨ Extract scene prompt'}
+        </button>
+        {sceneError && (
+          <div style={{ marginTop: '10px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>
+            {sceneError}
+          </div>
+        )}
+        {scenePrompt.positive && (
+          <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                Shot type · <span style={{ color: 'var(--palm-pink)', textTransform: 'none' }}>{scenePrompt.shotType}</span>
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
+                Will use the {scenePrompt.shotType === 'close-up' ? 'Close Up Face' : scenePrompt.shotType === 'back' ? 'Back View' : 'Front View'} input photos for the swap in Step 5.
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                Positive prompt
+              </div>
+              <textarea
+                value={scenePrompt.positive}
+                onChange={e => setScenePrompt(s => ({ ...s, positive: e.target.value }))}
+                rows={6}
+                style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                Negative prompt
+              </div>
+              <textarea
+                value={scenePrompt.negative}
+                onChange={e => setScenePrompt(s => ({ ...s, negative: e.target.value }))}
+                rows={4}
+                style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+              />
+            </div>
+            <button
+              onClick={handleExtractScene}
+              disabled={extractingScene}
+              style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              {extractingScene ? '…' : '🔄 Regenerate'}
+            </button>
+          </div>
+        )}
+      </StepCard>
+
+      {/* Step 4 — Pick Creator */}
+      <StepCard n={4} title="Pick Creator">
         <select
           value={selectedCreator}
           onChange={e => setSelectedCreator(e.target.value)}
@@ -355,7 +454,7 @@ export default function RecreatePage() {
       </StepCard>
 
       {/* Step 4 — Generate Image in Nano Banana 2 */}
-      <StepCard n={4} title="Swap Creator into the Frame (Nano Banana 2)">
+      <StepCard n={5} title="Swap Creator into the Frame (Nano Banana 2)">
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.6 }}>
           Open Nano Banana 2, upload <strong style={{ color: 'var(--foreground)' }}>two images</strong>: the source frame from Step 2, and {creator ? <strong style={{ color: 'var(--foreground)' }}>{creator.aka || creator.name}&apos;s</strong> : 'your creator&apos;s'} reference photo. Tell it to keep the scene from the first image and replace the subject&apos;s identity (face, hair, body) with the second.
         </div>
@@ -365,7 +464,7 @@ export default function RecreatePage() {
       </StepCard>
 
       {/* Step 5 — Kling Action Prompt */}
-      <StepCard n={5} title="Kling V3.0 4K Action Prompt" status={lookup?.klingPrompt ? null : 'manual'}>
+      <StepCard n={6} title="Kling V3.0 4K Action Prompt" status={lookup?.klingPrompt ? null : 'manual'}>
         {lookup?.klingPrompt ? (
           <div>
             <div style={{ fontSize: '12px', color: '#7DD3A4', marginBottom: '10px', fontWeight: 600 }}>✓ Pre-generated from analysis</div>
@@ -403,7 +502,7 @@ export default function RecreatePage() {
       </StepCard>
 
       {/* Step 6 — Animate in Kling */}
-      <StepCard n={6} title="Animate in Kling V3.0 4K">
+      <StepCard n={7} title="Animate in Kling V3.0 4K">
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.6 }}>
           Upload the Nano Banana 2 output (the creator-swapped image), paste the Kling prompt from Step 5, and generate.
         </div>
@@ -413,7 +512,7 @@ export default function RecreatePage() {
       </StepCard>
 
       {/* Step 7 — Final */}
-      <StepCard n={7} title="Save Final Output" status="tbd">
+      <StepCard n={8} title="Save Final Output" status="tbd">
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
           Will eventually attach the final video to the creator&apos;s asset library and the originating inspo reel record.
         </div>
