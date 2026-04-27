@@ -20,7 +20,7 @@ export async function POST(request) {
 
     const records = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
-      fields: ['AKA', 'AI Ref Inputs'],
+      fields: ['AKA', 'AI Ref Front', 'AI Ref Back', 'AI Ref Face', 'AI Ref Inputs'],
       maxRecords: 1,
     })
     if (!records.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
@@ -28,27 +28,31 @@ export async function POST(request) {
     const aka = records[0].fields.AKA
     if (!aka) return NextResponse.json({ error: 'Creator missing AKA' }, { status: 400 })
 
-    const allInputs = records[0].fields['AI Ref Inputs'] || []
-    if (!allInputs.length) return NextResponse.json({ error: 'No AI Ref Inputs on creator. Set up the AI Super Clone first.' }, { status: 400 })
+    // Prefer the locked-in AI-generated references (clean, identity-locked,
+    // pre-approved) over the raw input photos. Order matters — face is the
+    // primary anchor for Kling Element identity locking.
+    const faceRef = (records[0].fields['AI Ref Face'] || [])[0]
+    const frontRef = (records[0].fields['AI Ref Front'] || [])[0]
+    const backRef = (records[0].fields['AI Ref Back'] || [])[0]
 
-    // Kling Elements caps at 4 total reference images (1 primary + up to 3 in
-    // element_refer_list). For face accuracy, we use all 4 slots on face
-    // close-ups — body context comes from the Step 5 start-frame swap.
-    // If face inputs aren't available, fall back to front then back.
-    const faceInputs = allInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
-    const frontInputs = allInputs.filter(att => /^Front View input_/i.test(att.filename || ''))
-    const backInputs = allInputs.filter(att => /^Back View input_/i.test(att.filename || ''))
+    let refs = [faceRef, frontRef, backRef].filter(Boolean)
 
-    if (faceInputs.length === 0 && frontInputs.length === 0 && backInputs.length === 0) {
-      return NextResponse.json({ error: 'No Close Up Face, Front View, or Back View inputs found on creator.' }, { status: 400 })
+    // Fallback to the raw inputs if the locked outputs aren't available yet
+    if (refs.length === 0) {
+      const allInputs = records[0].fields['AI Ref Inputs'] || []
+      const faceInputs = allInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
+      const frontInputs = allInputs.filter(att => /^Front View input_/i.test(att.filename || ''))
+      const backInputs = allInputs.filter(att => /^Back View input_/i.test(att.filename || ''))
+      if (faceInputs.length === 0 && frontInputs.length === 0 && backInputs.length === 0) {
+        return NextResponse.json({ error: 'No AI references found on creator. Lock in the AI Super Clone references first.' }, { status: 400 })
+      }
+      refs = [
+        ...faceInputs.slice(0, 4),
+        ...frontInputs.slice(0, Math.max(0, 4 - faceInputs.length)),
+        ...backInputs.slice(0, Math.max(0, 4 - faceInputs.length - frontInputs.length)),
+      ].slice(0, 4)
     }
-
-    // Pick up to 4 face shots; fill remaining slots from front/back if needed.
-    const refs = [
-      ...faceInputs.slice(0, 4),
-      ...frontInputs.slice(0, Math.max(0, 4 - faceInputs.length)),
-      ...backInputs.slice(0, Math.max(0, 4 - faceInputs.length - frontInputs.length)),
-    ].slice(0, 4)
+    refs = refs.slice(0, 4)
     if (refs.length === 0) {
       return NextResponse.json({ error: 'No reference images available.' }, { status: 400 })
     }
