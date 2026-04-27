@@ -119,9 +119,11 @@ export async function POST(request) {
       'Kling Element ID': elementId,
     })
 
-    const usedFace = refs.filter(r => /^Close Up Face input_/i.test(r.filename || '')).length
-    const usedFront = refs.filter(r => /^Front View input_/i.test(r.filename || '')).length
-    const usedBack = refs.filter(r => /^Back View input_/i.test(r.filename || '')).length
+    // Match both locked AI refs ("Close Up Face AI Reference.*") and raw
+    // input fallbacks ("Close Up Face input_*").
+    const usedFace = refs.filter(r => /^Close Up Face/i.test(r.filename || '')).length
+    const usedFront = refs.filter(r => /^Front View/i.test(r.filename || '')).length
+    const usedBack = refs.filter(r => /^Back View/i.test(r.filename || '')).length
 
     return NextResponse.json({
       ok: true,
