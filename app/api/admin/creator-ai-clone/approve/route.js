@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { POSES, AI_REF_FOLDER, outputFilename } from '@/lib/aiCloneConfig'
+import { stripImageMetadata } from '@/lib/stripImageMetadata'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -39,9 +40,13 @@ export async function POST(request) {
 
     const dl = await fetch(outputUrl)
     if (!dl.ok) throw new Error(`Failed to download WaveSpeed output: ${dl.status}`)
-    const buf = Buffer.from(await dl.arrayBuffer())
+    const rawBuf = Buffer.from(await dl.arrayBuffer())
     const ext = outputUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg'
     const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
+    // Strip C2PA / Content Credentials / EXIF / etc. The candidate already
+    // had metadata stripped on its way into Dropbox, but if outputUrl is a
+    // direct WaveSpeed URL (e.g. via Resync), we strip again here.
+    const buf = await stripImageMetadata(rawBuf, safeExt)
 
     const accessToken = await getDropboxAccessToken()
     const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)

@@ -3,6 +3,7 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/a
 import { pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { POSES, AI_REF_FOLDER, candidateFilename } from '@/lib/aiCloneConfig'
+import { stripImageMetadata } from '@/lib/stripImageMetadata'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -86,9 +87,12 @@ export async function POST(request) {
 
     const dl = await fetch(outputUrl)
     if (!dl.ok) throw new Error(`Failed to download WaveSpeed output: ${dl.status}`)
-    const buf = Buffer.from(await dl.arrayBuffer())
+    const rawBuf = Buffer.from(await dl.arrayBuffer())
     const ext = outputUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg'
     const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
+    // Strip C2PA / Content Credentials / EXIF / ICC / etc. before we save.
+    // Pixel-level watermarks (Google SynthID) are not affected.
+    const buf = await stripImageMetadata(rawBuf, safeExt)
 
     const accessToken = await getDropboxAccessToken()
     const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
