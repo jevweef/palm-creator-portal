@@ -479,8 +479,10 @@ export default function RecreatePage() {
       const dur = v.duration
       if (Number.isFinite(dur)) {
         setInspoDuration(dur)
-        // Smart default: if inspo is ≤5s, use 5; otherwise use 10 (cap)
-        setAnimateState(s => ({ ...s, duration: dur <= 5.5 ? 5 : 10 }))
+        // Smart default: pick the smallest Kling option that covers the inspo,
+        // or 15 (the cap) if inspo is longer.
+        const def = dur <= 5.5 ? 5 : dur <= 10.5 ? 10 : 15
+        setAnimateState(s => ({ ...s, duration: def }))
       }
     }
     v.addEventListener('loadedmetadata', onLoaded)
@@ -1280,11 +1282,12 @@ export default function RecreatePage() {
             >
               <option value={5}>5s</option>
               <option value={10}>10s</option>
+              <option value={15}>15s</option>
             </select>
             {inspoDuration != null && (
-              <span style={{ fontSize: '10px', color: inspoDuration > 10 ? '#FFC864' : 'var(--foreground-subtle)', fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{ fontSize: '10px', color: inspoDuration > 15 ? '#FFC864' : 'var(--foreground-subtle)', fontVariantNumeric: 'tabular-nums' }}>
                 inspo: {inspoDuration.toFixed(1)}s
-                {inspoDuration > 10 && ' (audio will truncate at 10s)'}
+                {inspoDuration > 15 && ` (audio truncates at 15s — losing ${(inspoDuration - 15).toFixed(1)}s)`}
               </span>
             )}
           </div>
