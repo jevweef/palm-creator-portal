@@ -1246,8 +1246,64 @@ export default function RecreatePage() {
         {motionPrompt.positive && (
           <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                Motion (positive) prompt
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Motion (positive) prompt
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <label style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>Camera motion override:</label>
+                  <select
+                    onChange={e => {
+                      const choice = e.target.value
+                      if (!choice) return
+                      const PHRASES = {
+                        locked: 'Static camera, no movement',
+                        dolly_back: 'Camera slowly dollies backward, smooth pull-back motion',
+                        dolly_forward: 'Camera slowly dollies forward, smooth push-in motion',
+                        pan_left: 'Slow pan left, smooth horizontal camera move',
+                        pan_right: 'Slow pan right, smooth horizontal camera move',
+                        slider: 'Smooth slider move with gentle parallax',
+                        handheld_drift: 'Subtle hand-held drift, natural micro-movements',
+                      }
+                      const STRIP = [
+                        /static camera,\s*no movement/gi,
+                        /static shot of/gi,
+                        /tripod static shot of/gi,
+                        /camera (slowly )?dollies (backward|forward|in|out|back)[^.,]*/gi,
+                        /slow pan (left|right)[^.,]*/gi,
+                        /smooth slider move[^.]*/gi,
+                        /(subtle )?hand-?held (drift|movement)[^,.]*/gi,
+                        /camera fixed on tripod[^,.]*/gi,
+                      ]
+                      const phrase = PHRASES[choice]
+                      setMotionPrompt(s => {
+                        let next = s.positive
+                        for (const re of STRIP) next = next.replace(re, '')
+                        next = next.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim()
+                        next = next.replace(/^,\s*/, '')
+                        // Insert before "no phone visible / no cuts" if present, else append
+                        if (/no phone visible|no cuts/i.test(next)) {
+                          next = next.replace(/(no phone visible|no cuts)/i, `${phrase}, $1`)
+                        } else {
+                          next = `${phrase}. ${next}`
+                        }
+                        return { ...s, positive: next }
+                      })
+                      e.target.value = ''  // reset so picking same option twice works
+                    }}
+                    defaultValue=""
+                    style={{ padding: '3px 6px', fontSize: '10px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: 'var(--foreground)' }}
+                  >
+                    <option value="">Pick to swap…</option>
+                    <option value="locked">Locked (static)</option>
+                    <option value="dolly_back">Dolly back</option>
+                    <option value="dolly_forward">Dolly forward</option>
+                    <option value="pan_left">Pan left</option>
+                    <option value="pan_right">Pan right</option>
+                    <option value="slider">Slider / parallax</option>
+                    <option value="handheld_drift">Handheld drift</option>
+                  </select>
+                </div>
               </div>
               <textarea
                 value={motionPrompt.positive}
