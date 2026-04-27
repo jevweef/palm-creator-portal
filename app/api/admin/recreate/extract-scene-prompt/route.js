@@ -28,32 +28,53 @@ shotType rules (for picking the right reference photo set):
 
 positivePrompt rules:
 - MUST start with this exact phrase: "Exact same woman as in the reference images,"
-  This is the identity anchor that tells Wan 2.7 to use the reference photos for face/hair/body/skin. Without it the model defaults to a generic woman.
-- One paragraph, copy-paste ready
-- Hyper-realistic raw iPhone photo, shot on iPhone camera, ultra detailed, sharp focus, natural skin texture, minimal editing, no cinematic look, 9:16, 4K
-- Describe clothing precisely (garment type, color, fit, brand if visible on tag/waistband only, NOT printed graphics)
-- Describe action / pose / hand position / what subject is holding
-- DESCRIBE EXACT FRAMING + COMPOSITION (critical for matching the original):
+  This is the identity anchor that tells Wan 2.7 to use the reference photos for face/hair/body/skin.
+- One paragraph, copy-paste ready.
+- Hyper-realistic raw iPhone photo, shot on iPhone camera, ultra detailed, sharp focus, natural skin texture, minimal editing, no cinematic look, 9:16, 4K.
+
+GOAL: describe the inspo so faithfully that everything except the woman's identity is reproduced. Outfit, pose, gaze, expression, hair direction (even mid-motion), framing, lighting, room, and the room's REALISM LEVEL must all match what's actually in the inspo. Don't add details the inspo doesn't show. Don't remove details that are clearly there.
+
+CLOTHING — exact garment type, color, fit, length, how it's worn (buttoned/unbuttoned and how much, sleeves rolled up or down, shirt tucked or untucked, etc.). Brand only if visible on a tag or waistband. NEVER describe printed graphics on the garment.
+
+POSE / MOTION STATE — be precise about whether the subject is in a STATIC pose or captured MID-MOTION:
+  * Static example: "standing relaxed, weight on right hip, left hand at side"
+  * Mid-motion examples: "captured mid-step, left foot lifted off the floor", "hair caught mid-whip from left to right with motion blur trailing on the tips", "hand frozen mid-wave", "torso twisted from a turning motion"
+  * Capture body weight distribution, hip angle, shoulder rotation, head turn angle, hand positions explicitly.
+
+GAZE / FACIAL EXPRESSION — CRITICAL: do NOT default to "looking at camera" / "direct eye contact". Default eye-contact is an AI giveaway when the original wasn't actually looking at the camera.
+  * Describe exactly where the eyes are pointing: "looking directly at the camera lens with steady eye contact" (ONLY if she actually is), "looking down at the floor", "looking off-camera to her right toward the window", "looking past the camera at the wall behind it", "eyes closed mid-blink", "looking down at her phone".
+  * Describe exact mouth/lip state: "soft closed-mouth smile", "lips slightly parted mid-speech", "neutral lips, no expression", "mouth open in a laugh", "lips pressed together".
+  * If you can't tell exactly where she's looking, err on the side of "looking off-camera" — never invent eye contact.
+
+FRAMING / COMPOSITION — exactly as the inspo shows:
   * Camera distance: close-up | medium-shot | medium-full | full-body | wide
-  * Subject scale: e.g. "subject occupies the middle 60% of frame height", "head at the upper third, feet at the bottom edge", "subject fills only the lower half"
+  * Subject scale ("middle 60% of frame height", "head at upper third, feet at bottom edge")
   * Subject horizontal position: centered | left-of-center | right-of-center
   * Camera angle: low (waist-height) | eye-level | high | slightly upward tilt | downward tilt
-  * Foreground / midground / background: what's visible in each layer (e.g. "bed visible on the left edge of frame", "TV on the right wall behind subject", "rug filling the lower third")
-  * Pose detail: weight distribution, head turn, posture, gaze direction
-- Describe whether it's selfie / mirror selfie / tripod static / handheld / over-the-shoulder
-- Describe setting in detail (location, surfaces, furniture, decor visible at the frame edges so the model knows the spatial layout)
-- Describe lighting (natural daylight, soft, even, harsh sunlight, indoor warm, etc.)
-- CAPTURE THE REALISM OF THE SPACE — this is critical. AI image models default to staged magazine-style perfection, which makes the result look fake. Aggressively describe lived-in details that are actually visible: unmade bed, wrinkled sheets, scattered clothing, items on the floor, partially open closet, visible ring light or tripod, slightly drawn curtains, half-empty water bottle, makeup on the dresser, charging cables, etc. If the room is genuinely tidy, say "ordinary room, no styling" — but never default to clean/polished if the inspo shows otherwise.
-- Describe vibe in plain terms: "casual at-home, filming in her own bedroom, not styled" beats "elegant lifestyle photography". Use words like "candid", "lived-in", "real apartment", "everyday", "Tuesday afternoon" rather than "luxurious", "elegant", "magazine".
-- DO NOT describe the subject's physical features (hair, face, body, skin, age, ethnicity, makeup) — those come from the reference photos via the anchor phrase
+  * What's visible at each frame edge ("bed visible on left edge", "TV on right wall behind subject", "rug filling lower third")
+
+CAMERA SETUP — selfie | mirror selfie | tripod static | handheld | over-the-shoulder | someone else filming.
+
+LIGHTING — natural daylight, soft, even, harsh sunlight, indoor warm, golden hour, ring light visible, etc. — match the inspo.
+
+ROOM REALISM — describe the actual realism level of the inspo. DO NOT default to either "polished/staged" OR "messy/lived-in". Describe what's actually visible:
+  * If the room is genuinely tidy → "ordinary tidy bedroom, modern minimal decor, nothing on surfaces"
+  * If it's lived-in/messy → call out specific visible mess: "unmade pink gingham sheets, fitted sheet partially exposed, ring light + tripod with phone visible on right, scattered clothing on the bed"
+  * If hotel-style → say so
+  * Match the inspo. Don't invent mess. Don't remove mess that's there.
+
+VIBE — plain language matching the inspo. "Candid lifestyle", "casual at-home", "lived-in", "hotel-room", "modern apartment", "Tuesday afternoon", "evening warm-light". Avoid "elegant", "luxurious", "magazine", "editorial" unless the inspo really is that.
+
+DO NOT describe the subject's physical features (hair length, hair color, eye color, face shape, body type, skin tone, ethnicity, age, makeup style). Those come from the reference photos via the identity anchor. EXCEPTION: hair POSITION / direction / motion state IS required when present ("hair falling forward over her left shoulder", "hair caught mid-whip toward the right side of frame") — that's pose data, not identity.
 
 negativePrompt rules:
-- Comma-separated tokens, copy-paste ready
-- Always include: cartoon, anime, illustration, painting, CGI, 3D render, plastic skin, airbrushed, beauty filter, cinematic lighting, studio lighting, blurry, low resolution, jpeg artifacts, watermark, text, logo, deformed face, asymmetric eyes, extra fingers, missing fingers, distorted hands, malformed hands, extra limbs, broken anatomy, mannequin, AI artifacts, uncanny valley, double face, multiple people, child, underage features, nudity, censor bars
-- ALWAYS include lived-in / authenticity blockers (counter Wan 2.7's magazine-style bias): magazine photo, magazine-style, staged, professionally styled, interior design photography, hotel suite, real estate listing, perfectly tidy, spotless, showroom, polished, immaculate, decorator-styled, professionally lit interior, glossy lifestyle photo, perfectly made bed, hospital corners, perfectly arranged, retouched, glossy magazine
-- Add framing-specific blockers based on the shot type — e.g. if NOT a mirror selfie, add: mirror selfie, mirror reflection, phone in hand, holding a smartphone, selfie pose. If NOT a back shot, add: rear view, back to camera. Etc.
-- If subject is holding a specific object (hairbrush, cup), add: multiple {object}s, two {object}s
-- If clothing is specific (e.g. white t-shirt), add competing clothing: black shirt, dress, jacket, coat`
+- Comma-separated tokens, copy-paste ready.
+- Always include: cartoon, anime, illustration, painting, CGI, 3D render, plastic skin, airbrushed, beauty filter, cinematic lighting, studio lighting, blurry, low resolution, jpeg artifacts, watermark, text, logo, deformed face, asymmetric eyes, extra fingers, missing fingers, distorted hands, malformed hands, extra limbs, broken anatomy, mannequin, AI artifacts, uncanny valley, double face, multiple people, child, underage features, nudity, censor bars.
+- IF the inspo room is lived-in / messy / not professionally styled, ADD: magazine photo, magazine-style, staged, professionally styled, interior design photography, hotel suite, real estate listing, perfectly tidy, spotless, showroom, decorator-styled, glossy lifestyle photo, perfectly made bed. Otherwise SKIP these — they would fight the inspo if it's actually a clean modern space.
+- IF the subject is NOT looking directly at the camera in the inspo, ADD: looking at camera, direct eye contact, staring at camera, eyes on camera, gaze at lens. (Default AI eye-contact is a major tell.)
+- Add framing-specific blockers based on the shot type — e.g. if NOT a mirror selfie, add: mirror selfie, mirror reflection, phone in hand, holding a smartphone, selfie pose. If NOT a back shot, add: rear view, back to camera.
+- If subject is holding a specific object (hairbrush, cup), add: multiple {object}s, two {object}s.
+- If clothing is specific (e.g. white t-shirt), add competing clothing: black shirt, dress, jacket, coat.`
 
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
