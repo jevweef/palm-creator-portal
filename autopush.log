@@ -6601,3 +6601,19 @@ After doing this, you may fix the identity used for this commit with:
 
  1 file changed, 6 insertions(+), 4 deletions(-)
 Everything up-to-date
+[dev 768493f] Auto-save: 2026-04-27 16:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 4 files changed, 156 insertions(+), 5 deletions(-)
+ create mode 100644 app/api/admin/recreate/extract-video-context/route.js
+Everything up-to-date

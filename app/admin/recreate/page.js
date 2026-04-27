@@ -195,6 +195,28 @@ export default function RecreatePage() {
   const [selectedCreator, setSelectedCreator] = useState(initialCreatorId)
   const [klingPrompt, setKlingPrompt] = useState('')
 
+  const handleExtractVideoContext = async ({ force = false } = {}) => {
+    if (!lookup?.dbRawLink) return
+    if (!force && videoContext) return
+    setVideoContextLoading(true); setVideoContextError('')
+    try {
+      const res = await fetch('/api/admin/recreate/extract-video-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: lookup.dbRawLink, inspoRecordId: lookup.id }),
+      })
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) } catch { data = null }
+      if (!res.ok) {
+        throw new Error(data?.error || (text ? text.slice(0, 300) : `Server ${res.status}`))
+      }
+      if (!data?.videoContext) throw new Error('No videoContext in response')
+      setVideoContext(data.videoContext)
+    } catch (e) { setVideoContextError(e.message) }
+    finally { setVideoContextLoading(false) }
+  }
+
   // Scene prompts — one per slot (start/end). Each frame has its own
   // pose/framing/scale so prompts must differ; notes are shared (constants).
   const [scenePrompts, setScenePrompts] = useState({
@@ -277,6 +299,7 @@ export default function RecreatePage() {
     const slotNotes = notesBySlot[slot]
     if (slotNotes?.trim()) body.userNotes = slotNotes
     body.slot = slot
+    if (videoContext?.trim()) body.videoContext = videoContext
     const res = await fetch('/api/admin/recreate/extract-scene-prompt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -490,6 +513,17 @@ export default function RecreatePage() {
     fetch('/api/admin/palm-creators').then(r => r.json()).then(d => setAllCreators(d.creators || [])).catch(() => {})
   }, [])
 
+  // Auto-trigger Gemini video context once we have a video URL and nothing
+  // cached yet. Runs in background; Sonnet extraction will use whatever
+  // context exists at the moment of its call.
+  useEffect(() => {
+    if (!lookup?.dbRawLink) return
+    if (videoContext) return
+    if (videoContextLoading) return
+    handleExtractVideoContext()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookup?.dbRawLink, videoContext])
+
   useEffect(() => {
     if (!shortcode) { setLookup(null); return }
     let cancelled = false
@@ -498,6 +532,8 @@ export default function RecreatePage() {
     setScrubberOpen({ start: false, end: false })
     setFrameErrors({ start: '', end: '' })
     setSwapState({ start: { ...EMPTY_SLOT }, end: { ...EMPTY_SLOT } })
+    setVideoContext('')
+    setVideoContextError('')
     fetch(`/api/admin/recreate/lookup?shortcode=${encodeURIComponent(shortcode)}`)
       .then(r => r.json())
       .then(d => {
@@ -527,6 +563,7 @@ export default function RecreatePage() {
           start: d?.recreateNotes || '',
           end: d?.recreateEndNotes || '',
         })
+        setVideoContext(d?.recreateVideoContext || '')
         if (d?.recreateSourceFrameUrl || d?.recreateEndFrameUrl) {
           setFrames({
             start: d.recreateSourceFrameUrl || null,
@@ -700,11 +737,60 @@ export default function RecreatePage() {
         </div>
       </StepCard>
 
+      {/* Step 2.5 — Video context (Gemini watches the full reel, gives Sonnet
+          cross-frame context like "she uses underwear as a hair tie at 0:06"
+          that Sonnet can't infer from a single still). Auto-runs on lookup. */}
+      <div style={{ background: 'var(--card-bg-solid)', borderRadius: '18px', padding: '14px 18px', marginBottom: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '16px' }}>🎬</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)' }}>
+                Video context
+                {videoContextLoading && <span style={{ marginLeft: '8px', fontSize: '10px', color: '#FFC864', fontWeight: 600 }}>⏳ Gemini analyzing…</span>}
+                {!videoContextLoading && videoContext && <span style={{ marginLeft: '8px', fontSize: '10px', color: '#7DD3A4', fontWeight: 600 }}>✓ ready</span>}
+                {!videoContextLoading && !videoContext && !lookup?.dbRawLink && <span style={{ marginLeft: '8px', fontSize: '10px', color: 'var(--foreground-subtle)', fontWeight: 600 }}>no video</span>}
+                {!videoContextLoading && !videoContext && lookup?.dbRawLink && !videoContextError && <span style={{ marginLeft: '8px', fontSize: '10px', color: 'var(--foreground-subtle)', fontWeight: 600 }}>queued</span>}
+                {videoContextError && <span style={{ marginLeft: '8px', fontSize: '10px', color: '#E87878', fontWeight: 600 }}>error</span>}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', lineHeight: 1.4 }}>
+                Gemini watches the full reel and gives Sonnet cross-frame context (action timing, props that span frames). Auto-feeds into Step 3.
+              </div>
+            </div>
+          </div>
+          {lookup?.dbRawLink && (
+            <button
+              onClick={() => handleExtractVideoContext({ force: true })}
+              disabled={videoContextLoading}
+              style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: videoContextLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}
+            >
+              {videoContext ? '🔄 Re-analyze' : '▶ Run now'}
+            </button>
+          )}
+        </div>
+        {videoContextError && (
+          <div style={{ marginTop: '8px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid rgba(232,120,120,0.2)', borderRadius: '6px', padding: '6px 10px' }}>
+            {videoContextError}
+          </div>
+        )}
+        {videoContext && (
+          <details style={{ marginTop: '10px' }}>
+            <summary style={{ fontSize: '10px', color: 'var(--foreground-muted)', cursor: 'pointer', userSelect: 'none' }}>View context</summary>
+            <textarea
+              value={videoContext}
+              onChange={e => setVideoContext(e.target.value)}
+              rows={Math.min(12, Math.max(4, videoContext.split('\n').length))}
+              style={{ marginTop: '6px', width: '100%', padding: '8px', fontSize: '10px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+            />
+          </details>
+        )}
+      </div>
+
       {/* Step 3 — Extract scene prompt with Claude Sonnet (per-frame) */}
       <StepCard n={3} title="Extract Scene Prompt (Claude Sonnet)" status={scenePrompts.start.positive ? null : 'auto'}>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
           Sonnet looks at each frame and returns a scene-only prompt (clothing, setting, action, framing, lighting — no character traits)
-          plus a strong negative prompt. Notes are <strong>shared</strong> across both frames since they describe constants of the reel; prompts are <strong>per-frame</strong> because pose/framing differ.
+          plus a strong negative prompt. Both notes and prompts are <strong>per-frame</strong> because pose/framing/expression differ. Sonnet auto-drafts the notes; the video context above feeds in for cross-frame disambiguation.
         </div>
 
         <div style={{ marginBottom: '12px' }}>
