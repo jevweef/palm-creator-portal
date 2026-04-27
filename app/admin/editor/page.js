@@ -2088,6 +2088,215 @@ function ForReview({ showToast }) {
   )
 }
 
+// ─── Submissions Feed (Admin) ─────────────────────────────────────────────────
+// Activity feed of editor submissions, grouped by ET day, sorted newest first.
+// Filterable by submission type (Initial / Revision) and by creator.
+// Each row shows the timestamp of the LATEST submission for that task — for
+// revisions, that's when the editor resubmitted (not when the original task
+// was created).
+
+function SubmissionsFeed({ showToast }) {
+  const [submissions, setSubmissions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [typeFilter, setTypeFilter] = useState('all') // all | Initial | Revision
+  const [creatorFilter, setCreatorFilter] = useState('all')
+  const [videoModal, setVideoModal] = useState(null)
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/editor/submissions')
+      if (!res.ok) throw new Error(`Failed to load submissions (${res.status})`)
+      const data = await res.json()
+      setSubmissions(data.submissions || [])
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // Build creator dropdown options from the data we have
+  const creatorOptions = (() => {
+    const map = new Map()
+    for (const s of submissions) {
+      if (s.creator?.id && !map.has(s.creator.id)) {
+        map.set(s.creator.id, s.creator.name || '(unnamed)')
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  })()
+
+  const filtered = submissions.filter(s => {
+    if (typeFilter !== 'all' && s.type !== typeFilter) return false
+    if (creatorFilter !== 'all' && s.creator?.id !== creatorFilter) return false
+    return true
+  })
+
+  // Group by ET date
+  const etDateStr = iso => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(d) // YYYY-MM-DD
+  }
+  const todayET = etDateStr(new Date().toISOString())
+  const yesterdayET = (() => {
+    const d = new Date(); d.setDate(d.getDate() - 1)
+    return etDateStr(d.toISOString())
+  })()
+
+  const groups = (() => {
+    const m = new Map()
+    for (const s of filtered) {
+      const k = etDateStr(s.submittedAt)
+      if (!m.has(k)) m.set(k, [])
+      m.get(k).push(s)
+    }
+    return [...m.entries()].sort((a, b) => b[0].localeCompare(a[0])) // desc by date
+  })()
+
+  const dateLabel = ds => {
+    if (ds === todayET) return 'Today'
+    if (ds === yesterdayET) return 'Yesterday'
+    const d = new Date(ds + 'T12:00:00')
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const fmtTime = iso => new Date(iso).toLocaleTimeString('en-US', {
+    timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true,
+  })
+
+  const toRawUrl = url => url ? url.replace(/([?&])dl=[01]/, '$1raw=1').replace(/^(https:\/\/www\.dropbox\.com\/.+)(?<![?&]raw=1)$/, m => m.includes('?') ? m + '&raw=1' : m + '?raw=1') : ''
+
+  if (loading) {
+    return <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px 0' }}>Loading submission feed...</div>
+  }
+
+  return (
+    <div>
+      {/* Header + filters */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: 0 }}>
+            {filtered.length} submission{filtered.length === 1 ? '' : 's'}
+            {(typeFilter !== 'all' || creatorFilter !== 'all') && submissions.length !== filtered.length && (
+              <span style={{ marginLeft: '6px' }}>· filtered from {submissions.length}</span>
+            )}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Type filter pills */}
+          <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', padding: '3px', borderRadius: '7px' }}>
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'Initial', label: 'Initial' },
+              { key: 'Revision', label: 'Revision' },
+            ].map(opt => (
+              <button key={opt.key} onClick={() => setTypeFilter(opt.key)}
+                style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 600, background: typeFilter === opt.key ? 'var(--background)' : 'transparent', color: typeFilter === opt.key ? 'var(--foreground)' : 'var(--foreground-muted)', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {/* Creator dropdown */}
+          <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value)}
+            style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 500, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '7px', cursor: 'pointer', outline: 'none' }}>
+            <option value="all">All creators</option>
+            {creatorOptions.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
+          <button onClick={fetchData}
+            style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+          No submissions match the current filters.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {groups.map(([ds, items]) => (
+            <div key={ds}>
+              {/* Date header */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--card-border)' }}>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>{dateLabel(ds)}</h3>
+                <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>{items.length} submission{items.length === 1 ? '' : 's'}</span>
+              </div>
+              {/* Submission rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {items.map(s => {
+                  const isRevision = s.type === 'Revision'
+                  const statusBadge = s.adminReviewStatus === 'Approved'
+                    ? { label: 'Approved ✓', color: '#7DD3A4', bg: 'rgba(125, 211, 164, 0.08)' }
+                    : s.adminReviewStatus === 'Needs Revision'
+                    ? { label: 'Needs Revision', color: '#E87878', bg: 'rgba(232, 120, 120, 0.06)' }
+                    : { label: 'Pending Review', color: '#E8C878', bg: 'rgba(232, 200, 120, 0.08)' }
+                  const editUrl = toRawUrl(s.asset?.editedFileLink || '')
+                  return (
+                    <div key={s.id} style={{ background: 'var(--card-bg-solid)', borderRadius: '12px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      {/* Thumbnail */}
+                      <div style={{ width: '48px', height: '64px', borderRadius: '6px', overflow: 'hidden', background: 'var(--background)', flexShrink: 0 }}>
+                        {(s.asset?.thumbnail || s.inspo?.thumbnail) && (
+                          <img src={s.asset?.thumbnail || s.inspo?.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        )}
+                      </div>
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>{s.creator?.name || '—'}</span>
+                          <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.06em', background: isRevision ? 'rgba(232, 120, 120, 0.08)' : 'rgba(120, 180, 232, 0.08)', color: isRevision ? '#E87878' : '#78B4E8' }}>
+                            {isRevision ? 'Revision' : 'Initial'}
+                          </span>
+                          <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '4px', background: statusBadge.bg, color: statusBadge.color }}>
+                            {statusBadge.label}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {s.taskName || s.asset?.name}
+                        </div>
+                      </div>
+                      {/* Submitted at + actions */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                          Submitted {fmtTime(s.submittedAt)}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          {editUrl && (
+                            <button onClick={() => setVideoModal(s.asset.editedFileLink)}
+                              style={{ padding: '3px 9px', fontSize: '11px', fontWeight: 600, color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.06)', border: '1px solid transparent', borderRadius: '5px', cursor: 'pointer' }}>
+                              Watch edit
+                            </button>
+                          )}
+                          {s.asset?.editedFileLink && (
+                            <a href={s.asset.editedFileLink} target="_blank" rel="noopener noreferrer"
+                              style={{ padding: '3px 9px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid transparent', borderRadius: '5px', textDecoration: 'none' }}>
+                              ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {videoModal && <VideoModal url={videoModal} onClose={() => setVideoModal(null)} />}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function EditorQueue() {
@@ -2150,6 +2359,7 @@ export default function EditorQueue() {
   const TABS = [
     { key: 'editorview', label: '📋 Dashboard' },
     { key: 'review', label: '👁 For Review' },
+    { key: 'submissions', label: '📨 Submissions' },
     { key: 'postprep', label: '✈️ Post Prep' },
     { key: 'grid', label: '▦ Grid Planner' },
     { key: 'library', label: '📁 Creator Library' },
@@ -2221,6 +2431,7 @@ export default function EditorQueue() {
       {/* Section content */}
       {activeSection === 'editorview' && <EditorDashboardContent />}
       {activeSection === 'review' && <ForReview showToast={showToast} />}
+      {activeSection === 'submissions' && <SubmissionsFeed showToast={showToast} />}
       {activeSection === 'postprep' && <PostsPage />}
       {activeSection === 'grid' && <GridPlanner />}
       {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
