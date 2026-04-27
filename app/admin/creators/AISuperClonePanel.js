@@ -259,13 +259,14 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     finally { setApproving(null) }
   }
 
-  const handleDeleteCandidate = async (attachmentId) => {
+  const handleDeleteCandidate = async (filename) => {
     setError('')
     try {
+      // Match by filename — attachment IDs are unstable after re-PATCH
       const res = await fetch('/api/admin/creator-ai-clone', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, attachmentId, target: 'candidates', pose }),
+        body: JSON.stringify({ creatorId, filename, target: 'candidates', pose }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Delete failed')
@@ -279,15 +280,19 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
       message: `This deletes all ${savedCandidates.length} candidate${savedCandidates.length === 1 ? '' : 's'} for ${meta.label} and hides the candidates section. The approved AI Reference stays.`,
       confirmLabel: 'Lock in',
       onConfirm: async () => {
-        for (const c of savedCandidates) {
-          try {
-            await fetch('/api/admin/creator-ai-clone', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ creatorId, attachmentId: c.id, target: 'candidates', pose }),
-            })
-          } catch (e) { /* keep going */ }
-        }
+        try {
+          // One PATCH that empties the candidates field — atomic, no race
+          // conditions, no stale-ID issues.
+          const res = await fetch('/api/admin/creator-ai-clone', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ creatorId, target: 'candidates', pose, clearAll: true }),
+          })
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            throw new Error(data.error || 'Lock in failed')
+          }
+        } catch (e) { setError(e.message) }
         await onRefresh()
       },
     })
@@ -547,7 +552,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
                   />
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDeleteCandidate(c.id) }}
+                    onClick={(e) => { e.stopPropagation(); handleDeleteCandidate(c.filename) }}
                     title="Delete this candidate"
                     style={{ position: 'absolute', top: '4px', right: '4px', width: '16px', height: '16px', fontSize: '10px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', lineHeight: 1, padding: 0 }}
                   >×</button>
