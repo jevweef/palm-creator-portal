@@ -33,7 +33,7 @@ export async function GET(request) {
     // SEARCH is case-insensitive and tolerates URL format differences (/reel/ vs /reels/).
     const inspoRecords = await fetchAirtableRecords(INSPIRATION_TABLE, {
       filterByFormula: `SEARCH("${shortcode}", {Content link})`,
-      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative', 'Recreate Notes', 'Recreate Source Frame URL', 'Recreate End Frame URL'],
+      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate End Scene Prompt', 'Recreate End Scene Negative', 'Recreate End Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative', 'Recreate Notes', 'Recreate Source Frame URL', 'Recreate End Frame URL'],
       maxRecords: 1,
     })
 
@@ -61,6 +61,9 @@ export async function GET(request) {
         recreateScenePrompt: r.fields['Recreate Scene Prompt'] || '',
         recreateSceneNegative: r.fields['Recreate Scene Negative'] || '',
         recreateShotType: r.fields['Recreate Shot Type']?.name || r.fields['Recreate Shot Type'] || '',
+        recreateEndScenePrompt: r.fields['Recreate End Scene Prompt'] || '',
+        recreateEndSceneNegative: r.fields['Recreate End Scene Negative'] || '',
+        recreateEndShotType: r.fields['Recreate End Shot Type']?.name || r.fields['Recreate End Shot Type'] || '',
         recreateMotionPrompt: r.fields['Recreate Motion Prompt'] || '',
         recreateMotionNegative: r.fields['Recreate Motion Negative'] || '',
         recreateNotes: r.fields['Recreate Notes'] || '',

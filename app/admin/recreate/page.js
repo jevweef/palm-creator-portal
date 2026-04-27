@@ -195,10 +195,20 @@ export default function RecreatePage() {
   const [selectedCreator, setSelectedCreator] = useState(initialCreatorId)
   const [klingPrompt, setKlingPrompt] = useState('')
 
-  // Scene prompt extraction (Claude Sonnet vision on the source frame)
-  const [scenePrompt, setScenePrompt] = useState({ positive: '', negative: '', shotType: '' })
+  // Scene prompts — one per slot (start/end). Each frame has its own
+  // pose/framing/scale so prompts must differ; notes are shared (constants).
+  const [scenePrompts, setScenePrompts] = useState({
+    start: { positive: '', negative: '', shotType: '' },
+    end: { positive: '', negative: '', shotType: '' },
+  })
   const [extractingScene, setExtractingScene] = useState(false)
   const [sceneError, setSceneError] = useState('')
+  // Backward-compat alias for downstream code paths
+  const scenePrompt = scenePrompts.start
+  const setScenePrompt = (updater) => setScenePrompts(prev => ({
+    ...prev,
+    start: typeof updater === 'function' ? updater(prev.start) : updater,
+  }))
   // Per-reel admin notes injected into Sonnet (not in the system prompt)
   const [userNotes, setUserNotes] = useState('')
   // Toggle for sending source frame as image[0] to anchor exact composition
@@ -246,42 +256,55 @@ export default function RecreatePage() {
     } catch (e) { console.warn('[recreate] frame clear failed:', e.message) }
   }
 
+  const extractForSlot = async (slot) => {
+    const frame = frames[slot]
+    if (!frame) return null
+    const body = frame.startsWith('data:') ? { frameDataUrl: frame } : { frameUrl: frame }
+    if (lookup?.id) body.inspoRecordId = lookup.id
+    if (userNotes?.trim()) body.userNotes = userNotes
+    body.slot = slot
+    const res = await fetch('/api/admin/recreate/extract-scene-prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const text = await res.text()
+    let data
+    try { data = JSON.parse(text) } catch { data = null }
+    if (!res.ok) {
+      if (!data) {
+        throw new Error(text
+          ? `Server error (${res.status}): ${text.slice(0, 300)}`
+          : `Server returned no body (${res.status}) for ${slot} frame. Likely a function timeout — try again.`)
+      }
+      const detail = data.raw ? ` — raw: ${typeof data.raw === 'string' ? data.raw.slice(0, 300) : JSON.stringify(data.raw).slice(0, 300)}` : ''
+      throw new Error(`[${slot}] ` + (data.error || 'Extraction failed') + detail)
+    }
+    if (!data) throw new Error(`[${slot}] Unexpected response shape (no JSON body)`)
+    return data
+  }
+
   const handleExtractScene = async () => {
-    if (!sourceFrame) { setSceneError('Pick a frame in Step 2 first.'); return }
+    if (!frames.start) { setSceneError('Pick a start frame in Step 2 first.'); return }
     setExtractingScene(true); setSceneError('')
     try {
-      const body = sourceFrame.startsWith('data:')
-        ? { frameDataUrl: sourceFrame }
-        : { frameUrl: sourceFrame }
-      // Pass the inspo record ID so the server caches the result on
-      // Airtable. Refresh = no second paid call.
-      if (lookup?.id) body.inspoRecordId = lookup.id
-      // Per-reel admin notes get injected into Sonnet's user message
-      if (userNotes?.trim()) body.userNotes = userNotes
-      const res = await fetch('/api/admin/recreate/extract-scene-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      // Server may return empty body on Vercel timeout — fall back to text
-      const text = await res.text()
-      let data
-      try { data = JSON.parse(text) } catch { data = null }
-      if (!res.ok) {
-        if (!data) {
-          throw new Error(text
-            ? `Server error (${res.status}): ${text.slice(0, 300)}`
-            : `Server returned no body (${res.status}). Likely a function timeout — Sonnet took too long with this frame. Try a smaller frame or retry.`)
+      const slots = frames.end ? ['start', 'end'] : ['start']
+      const results = await Promise.all(slots.map(s => extractForSlot(s).then(r => ({ slot: s, data: r }))))
+      setScenePrompts(prev => {
+        const next = { ...prev }
+        for (const { slot, data } of results) {
+          next[slot] = {
+            positive: data.positivePrompt,
+            negative: data.negativePrompt,
+            shotType: data.shotType,
+          }
         }
-        const detail = data.raw ? ` — raw: ${typeof data.raw === 'string' ? data.raw.slice(0, 300) : JSON.stringify(data.raw).slice(0, 300)}` : ''
-        throw new Error((data.error || 'Extraction failed') + detail)
-      }
-      if (!data) throw new Error('Unexpected response shape (no JSON body)')
-      setScenePrompt({
-        positive: data.positivePrompt,
-        negative: data.negativePrompt,
-        shotType: data.shotType,
+        return next
       })
+      // Pull the auto-drafted (or user-echoed) notes from the start call;
+      // both calls produce the same notes since they're shared.
+      const startResult = results.find(r => r.slot === 'start')?.data
+      if (startResult?.reelSpecificNotes) setUserNotes(startResult.reelSpecificNotes)
     } catch (e) { setSceneError(e.message) }
     finally { setExtractingScene(false) }
   }
@@ -302,15 +325,18 @@ export default function RecreatePage() {
   const shortcode = useMemo(() => shortcodeFromUrl(reelUrl), [reelUrl])
 
   const submitSlotSwap = async (slot, frameUrl) => {
+    const slotPrompt = scenePrompts[slot]
+    if (!slotPrompt.positive) {
+      updateSlot(slot, { error: `No scene prompt for ${slot} frame yet. Run Step 3 first.` })
+      return
+    }
     updateSlot(slot, { running: true, error: '', result: null, taskId: null, meta: null })
     try {
       const body = {
         creatorId: selectedCreator,
-        // End frame is by definition closer-up — force close-up references for
-        // a higher-resolution face anchor when subject fills more of the frame.
-        shotType: slot === 'end' ? 'close-up' : scenePrompt.shotType,
+        shotType: slotPrompt.shotType || (slot === 'end' ? 'close-up' : 'front'),
         shortcode: shortcode ? `${shortcode}-${slot}` : undefined,
-        positivePrompt: scenePrompt.positive,
+        positivePrompt: slotPrompt.positive,
         preserveScene: !!preserveScene,
         ...(frameUrl.startsWith('data:') ? { frameDataUrl: frameUrl } : { frameUrl }),
       }
@@ -330,7 +356,8 @@ export default function RecreatePage() {
   const handleSwap = async () => {
     if (!frames.start) { updateSlot('start', { error: 'Pick a start frame in Step 2 first.' }); return }
     if (!selectedCreator) { updateSlot('start', { error: 'Pick a creator in Step 4 first.' }); return }
-    if (!scenePrompt.positive) { updateSlot('start', { error: 'Run Step 3 to extract the scene prompt first.' }); return }
+    if (!scenePrompts.start.positive) { updateSlot('start', { error: 'Run Step 3 to extract the scene prompt first.' }); return }
+    if (frames.end && !scenePrompts.end.positive) { updateSlot('end', { error: 'No end-frame prompt yet — re-run Step 3 to extract for both.' }); return }
     const slots = frames.end ? ['start', 'end'] : ['start']
     await Promise.all(slots.map(s => submitSlotSwap(s, frames[s])))
   }
@@ -460,13 +487,18 @@ export default function RecreatePage() {
         setLookup(d)
         if (d?.klingPrompt) setKlingPrompt(d.klingPrompt)
         // Hydrate cached prompts so the page doesn't have to re-run paid APIs
-        if (d?.recreateScenePrompt) {
-          setScenePrompt({
-            positive: d.recreateScenePrompt,
-            negative: d.recreateSceneNegative || '',
-            shotType: d.recreateShotType || 'front',
-          })
-        }
+        setScenePrompts({
+          start: {
+            positive: d?.recreateScenePrompt || '',
+            negative: d?.recreateSceneNegative || '',
+            shotType: d?.recreateShotType || '',
+          },
+          end: {
+            positive: d?.recreateEndScenePrompt || '',
+            negative: d?.recreateEndSceneNegative || '',
+            shotType: d?.recreateEndShotType || '',
+          },
+        })
         if (d?.recreateMotionPrompt) {
           setMotionPrompt({
             positive: d.recreateMotionPrompt,
@@ -647,91 +679,100 @@ export default function RecreatePage() {
         </div>
       </StepCard>
 
-      {/* Step 3 — Extract scene prompt with Claude Sonnet */}
-      <StepCard n={3} title="Extract Scene Prompt (Claude Sonnet)" status={scenePrompt.positive ? (lookup?.recreateScenePrompt === scenePrompt.positive ? 'cached' : null) : 'auto'}>
+      {/* Step 3 — Extract scene prompt with Claude Sonnet (per-frame) */}
+      <StepCard n={3} title="Extract Scene Prompt (Claude Sonnet)" status={scenePrompts.start.positive ? null : 'auto'}>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
-          Sonnet looks at the frame from Step 2 and returns a scene-only prompt
-          (clothing, setting, action, framing, lighting, vibe — no character traits)
-          plus a strong negative prompt and the shot type for picking the right
-          reference photos.
+          Sonnet looks at each frame and returns a scene-only prompt (clothing, setting, action, framing, lighting — no character traits)
+          plus a strong negative prompt. Notes are <strong>shared</strong> across both frames since they describe constants of the reel; prompts are <strong>per-frame</strong> because pose/framing differ.
         </div>
 
-        {/* Per-reel admin notes — injected into Sonnet ONLY for this reel.
-            Universal rules belong in the system prompt; this is for quirks
-            specific to this single inspo. */}
         <div style={{ marginBottom: '12px' }}>
-          <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-            Reel-specific notes (optional)
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Reel-specific notes
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
+              {userNotes ? 'Will be used literally — clear to let Sonnet auto-draft' : 'Sonnet will auto-draft on next extract'}
+            </div>
           </div>
           <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', fontStyle: 'italic', marginBottom: '6px' }}>
-            Anything Sonnet might miss or get wrong on this specific reel — camera tilt, exact furniture details, motion direction, ring light condition, bed rumpled, etc. Persists per-reel; not applied to other reels.
+            Constants of the reel — camera tilt, lighting characteristics, gear placement, hair direction, foot placement, wardrobe specifics. Leave empty for Sonnet to draft from the frame; edit and re-extract to override.
           </div>
           <textarea
             value={userNotes}
             onChange={e => setUserNotes(e.target.value)}
-            placeholder="e.g. Camera is tilted ~5° clockwise. Subject is spinning right-to-left, foot pivoting on left toe. Ring light is older/used-looking. Bed sheets slightly rumpled. Black square frame industrial pendant ceiling fixture in upper left."
-            rows={3}
+            placeholder="(Sonnet will fill this in automatically when you click Extract — or pre-fill manually to override.)"
+            rows={5}
             style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
           />
         </div>
 
         <button
           onClick={handleExtractScene}
-          disabled={extractingScene || !sourceFrame}
+          disabled={extractingScene || !frames.start}
           style={{
             padding: '8px 14px', fontSize: '12px', fontWeight: 700,
-            background: !sourceFrame ? 'rgba(232, 160, 160, 0.06)' : (extractingScene ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
-            color: !sourceFrame ? 'var(--foreground-subtle)' : '#060606',
+            background: !frames.start ? 'rgba(232, 160, 160, 0.06)' : (extractingScene ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
+            color: !frames.start ? 'var(--foreground-subtle)' : '#060606',
             border: 'none', borderRadius: '6px',
-            cursor: extractingScene ? 'wait' : (!sourceFrame ? 'not-allowed' : 'pointer'),
+            cursor: extractingScene ? 'wait' : (!frames.start ? 'not-allowed' : 'pointer'),
           }}
         >
-          {extractingScene ? '⏳ Sonnet analyzing…' : '✨ Extract scene prompt'}
+          {extractingScene
+            ? '⏳ Sonnet analyzing…'
+            : frames.end ? '✨ Extract for both frames' : '✨ Extract scene prompt'}
         </button>
         {sceneError && (
           <div style={{ marginTop: '10px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>
             {sceneError}
           </div>
         )}
-        {scenePrompt.positive && (
-          <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                Shot type · <span style={{ color: 'var(--palm-pink)', textTransform: 'none' }}>{scenePrompt.shotType}</span>
-              </div>
-              <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
-                Will use the {scenePrompt.shotType === 'close-up' ? 'Close Up Face' : scenePrompt.shotType === 'back' ? 'Back View' : 'Front View'} input photos for the swap in Step 5.
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                Positive prompt
-              </div>
-              <textarea
-                value={scenePrompt.positive}
-                onChange={e => setScenePrompt(s => ({ ...s, positive: e.target.value }))}
-                rows={6}
-                style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                Negative prompt
-              </div>
-              <textarea
-                value={scenePrompt.negative}
-                onChange={e => setScenePrompt(s => ({ ...s, negative: e.target.value }))}
-                rows={4}
-                style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
-              />
-            </div>
-            <button
-              onClick={handleExtractScene}
-              disabled={extractingScene}
-              style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              {extractingScene ? '…' : '🔄 Regenerate'}
-            </button>
+
+        {(scenePrompts.start.positive || scenePrompts.end.positive) && (
+          <div style={{ marginTop: '14px', display: 'grid', gridTemplateColumns: frames.end ? '1fr 1fr' : '1fr', gap: '12px' }}>
+            {['start', 'end'].filter(s => s === 'start' || frames.end).map(slot => {
+              const p = scenePrompts[slot]
+              return (
+                <div key={slot} style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: slot === 'start' ? 'var(--palm-pink)' : 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {slot === 'start' ? 'Start prompt' : 'End prompt'}
+                    </div>
+                    {p.shotType && (
+                      <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', fontFamily: 'monospace' }}>
+                        {p.shotType} refs
+                      </div>
+                    )}
+                  </div>
+                  {!p.positive ? (
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+                      {extractingScene ? 'Generating…' : 'Not yet extracted.'}
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>Positive</div>
+                        <textarea
+                          value={p.positive}
+                          onChange={e => setScenePrompts(prev => ({ ...prev, [slot]: { ...prev[slot], positive: e.target.value } }))}
+                          rows={6}
+                          style={{ width: '100%', padding: '6px', fontSize: '10px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>Negative</div>
+                        <textarea
+                          value={p.negative}
+                          onChange={e => setScenePrompts(prev => ({ ...prev, [slot]: { ...prev[slot], negative: e.target.value } }))}
+                          rows={4}
+                          style={{ width: '100%', padding: '6px', fontSize: '10px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </StepCard>

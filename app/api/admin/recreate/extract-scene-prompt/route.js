@@ -80,16 +80,31 @@ negativePrompt rules:
 - IF the subject is NOT looking directly at the camera in the inspo, ADD: looking at camera, direct eye contact, staring at camera, eyes on camera, gaze at lens. (Default AI eye-contact is a major tell.)
 - Add framing-specific blockers based on the shot type — e.g. if NOT a mirror selfie, add: mirror selfie, mirror reflection, phone in hand, holding a smartphone, selfie pose. If NOT a back shot, add: rear view, back to camera.
 - If subject is holding a specific object (hairbrush, cup), add: multiple {object}s, two {object}s.
-- If clothing is specific (e.g. white t-shirt), add competing clothing: black shirt, dress, jacket, coat.`
+- If clothing is specific (e.g. white t-shirt), add competing clothing: black shirt, dress, jacket, coat.
+
+reelSpecificNotes rules — ALWAYS POPULATE THIS FIELD:
+- A SHORT bullet list (4-8 lines starting with "- ") of frame-specific quirks an AI image generator is likely to miss or get wrong about THIS particular reel.
+- These are constants of the reel: camera tilt, lighting characteristics, gear placement, pose specifics, hair direction, foot placement, wardrobe specifics.
+- Examples:
+    - "- Camera tilted ~5° clockwise — right edge of ceiling line sits lower than left."
+    - "- Lighting split: cool window light from left, warm lamp light from right — visible color cast across her body."
+    - "- iPhone+ring light tripod free-standing on FLOOR at right edge — TV is WALL-MOUNTED, NOT on desk."
+    - "- Hair caught mid-whip right to left, individual strands separating with motion blur on tips."
+    - "- Shirt fully buttoned, worn as a dress, hem mid-thigh — bare legs only."
+    - "- Weight on right foot, left foot pivoting on toe mid-spin."
+- If the admin already supplied notes via the user message, ECHO them back verbatim in this field — don't re-derive.
+- Otherwise, generate them yourself from the frame.
+- These notes drive the positive prompt content; both should agree.`
 
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { frameUrl, frameDataUrl, inspoRecordId, userNotes } = await request.json()
+    const { frameUrl, frameDataUrl, inspoRecordId, userNotes, slot } = await request.json()
     if (!frameUrl && !frameDataUrl) {
       return NextResponse.json({ error: 'Missing frameUrl or frameDataUrl' }, { status: 400 })
     }
+    const slotKey = slot === 'end' ? 'end' : 'start'
 
     // Build image content block — either from a URL or a data URL
     let imageBlock
@@ -130,8 +145,12 @@ export async function POST(request) {
             type: 'string',
             description: 'Comma-separated negative prompt tokens with framing-specific blockers based on shot type and scene.',
           },
+          reelSpecificNotes: {
+            type: 'string',
+            description: 'Bullet list (4-8 short lines starting with "- ") of frame-specific quirks an AI image gen is likely to miss: camera tilt, lighting split, gear placement, hair direction, foot placement, wardrobe specifics. Echo admin-supplied notes verbatim if provided.',
+          },
         },
-        required: ['shotType', 'positivePrompt', 'negativePrompt'],
+        required: ['shotType', 'positivePrompt', 'negativePrompt', 'reelSpecificNotes'],
       },
     }
 
@@ -166,7 +185,7 @@ export async function POST(request) {
       }, { status: 500 })
     }
 
-    const { shotType } = toolUse.input
+    const { shotType, reelSpecificNotes } = toolUse.input
     let { positivePrompt, negativePrompt } = toolUse.input
     if (!shotType || !positivePrompt || !negativePrompt) {
       return NextResponse.json({ error: 'Tool input missing required fields', raw: toolUse.input }, { status: 500 })
@@ -183,16 +202,23 @@ export async function POST(request) {
       positivePrompt = `${ANCHOR} ${trimmed.charAt(0).toLowerCase() + trimmed.slice(1)}`
     }
 
+    // The notes that "won": user-supplied if provided, otherwise Sonnet's draft.
+    const finalNotes = userNotes?.trim() || (reelSpecificNotes || '')
+
     // Persist to Airtable so refreshes don't trigger another paid call.
     if (inspoRecordId) {
       try {
+        const promptField = slotKey === 'end' ? 'Recreate End Scene Prompt' : 'Recreate Scene Prompt'
+        const negativeField = slotKey === 'end' ? 'Recreate End Scene Negative' : 'Recreate Scene Negative'
+        const shotField = slotKey === 'end' ? 'Recreate End Shot Type' : 'Recreate Shot Type'
         const patch = {
-          'Recreate Scene Prompt': positivePrompt,
-          'Recreate Scene Negative': negativePrompt,
-          'Recreate Shot Type': shotType,
+          [promptField]: positivePrompt,
+          [negativeField]: negativePrompt,
+          [shotField]: shotType,
         }
-        // Only write user notes if explicitly provided (don't clobber)
-        if (typeof userNotes === 'string') patch['Recreate Notes'] = userNotes
+        // Notes are SHARED across slots — only the start call writes them.
+        // (Both extracts run in parallel; whichever finishes second would clobber otherwise.)
+        if (slotKey === 'start') patch['Recreate Notes'] = finalNotes
         await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, patch)
       } catch (e) {
         console.warn('[extract-scene-prompt] Airtable cache write failed:', e.message)
@@ -201,9 +227,11 @@ export async function POST(request) {
 
     return NextResponse.json({
       ok: true,
+      slot: slotKey,
       shotType,
       positivePrompt,
       negativePrompt,
+      reelSpecificNotes: finalNotes,
       tokensIn: claudeResponse.usage?.input_tokens,
       tokensOut: claudeResponse.usage?.output_tokens,
     })
