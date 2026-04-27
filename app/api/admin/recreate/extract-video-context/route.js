@@ -46,13 +46,23 @@ motionPrompt format (one paragraph, copy-paste ready for Kling V3.0 4K):
 - Describe the subject as "an american girl" (or other accent if clearly different) — keep generic.
 - Describe the literal action / motion beat by beat (walks into frame from left, brushes hair, glances at camera, mouths along to audio, body weight shifts onto right hip, etc.). Keep it leaner when start AND end frame anchors are present (text should describe the TRANSITION, not re-imagine the bookends).
 - If she speaks audibly, include the EXACT spoken quote: she said "..."
-- End with motion descriptors that match what the camera ACTUALLY does in the inspo. CRITICAL: do NOT default to "Static camera, no movement" just because you see a tripod. Look at whether the framing changes across the timeline:
-    * Frame is locked the entire video → "Static camera, no movement"
-    * Subject grows or shrinks across frames → "Camera slowly dollies backward" or "Camera slowly dollies forward"
-    * Horizontal sweep → "Slow pan left" or "Slow pan right"
-    * Subtle wobble that doesn't feel like deliberate motion → "Subtle hand-held drift, natural micro-movements"
-    * Smooth slider/glidecam → "Smooth slider move, gentle parallax"
-  The camera-motion description directly controls Kling's generated camera behavior — getting it wrong means Kling produces a static shot when the inspo had motion (or vice versa). Always describe what the camera is actually doing.
+- The motionPrompt's last segment will be set automatically based on your separate cameraMotion enum (see below). Do NOT include "Static camera, no movement" in the motionPrompt — leave camera direction out, just describe action and audio constraints; the server will append the camera descriptor from your cameraMotion choice.
+
+cameraMotion field — REQUIRED, single enum value. CRITICAL: do not default to "locked" just because you see a tripod. Tripod-mounted cameras can dolly, pan, slide. Use this exact procedure:
+
+STEP 1 — Watch the FIRST 0.5 seconds and the LAST 0.5 seconds of the video.
+STEP 2 — Compare the SUBJECT SCALE (how much of the frame the subject occupies):
+    - Subject occupies the SAME % of frame at start and end → likely "locked"
+    - Subject is SMALLER at the end (further away) → "dolly_back" (camera pulled away from subject)
+    - Subject is LARGER at the end (closer) → "dolly_forward" (camera pushed in toward subject)
+STEP 3 — If subject scale is identical, check horizontal background drift:
+    - Background scrolls right-to-left across timeline → "pan_right" (camera panned right, world moved left)
+    - Background scrolls left-to-right → "pan_left"
+    - Smooth lateral motion with parallax depth → "slider"
+STEP 4 — If none of the above clearly apply but the framing has subtle wobble → "handheld_drift"
+STEP 5 — Only return "locked" if you are confident the framing did not change at all.
+
+Subject scale is the most reliable signal. Even subtle pull-backs (subject 60% of frame at start → 50% at end) count as "dolly_back" — write it down. Tripod-on-wheels content is common in OF reels; assume motion is possible until you've checked subject scale specifically.
 - Add constraints when relevant: "no phone visible" if it's a tripod shot, "no cuts" for single-clip, etc.
 - Add voice direction at the end: "american accent" (or other)
 - No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
@@ -119,8 +129,13 @@ export async function POST(request) {
                 type: 'boolean',
                 description: 'True if subject is speaking/mouthing words audibly. False if audio is just music with no vocals from the subject. Drives auto-blockers for talking when false.',
               },
+              cameraMotion: {
+                type: 'string',
+                enum: ['locked', 'dolly_back', 'dolly_forward', 'pan_left', 'pan_right', 'slider', 'handheld_drift'],
+                description: 'REQUIRED. Determined by comparing subject scale at start vs end of video. Do NOT default to locked — tripods can dolly. See system prompt for the step-by-step procedure.',
+              },
             },
-            required: ['videoContext', 'motionPrompt', 'motionNegative', 'hasSpokenDialogue'],
+            required: ['videoContext', 'motionPrompt', 'motionNegative', 'hasSpokenDialogue', 'cameraMotion'],
           },
         }],
       }],
@@ -165,9 +180,52 @@ export async function POST(request) {
       }, { status: 500 })
     }
 
-    const { videoContext, motionPrompt, motionNegative, hasSpokenDialogue } = fnCall.args || {}
+    const { videoContext, motionPrompt, motionNegative, hasSpokenDialogue, cameraMotion } = fnCall.args || {}
     if (!videoContext || !motionPrompt || !motionNegative) {
       return NextResponse.json({ error: 'Tool input missing required fields', raw: fnCall.args }, { status: 500 })
+    }
+
+    // Force the camera-motion phrase in the motion prompt to match Gemini's
+    // structured cameraMotion enum. Without this, Gemini sometimes commits to
+    // "dolly_back" in the enum but still writes "Static camera" in the prompt
+    // body — Kling reads the prompt text, not our structured field.
+    const CAMERA_PHRASES = {
+      locked: 'Static camera, no movement',
+      dolly_back: 'Camera slowly dollies backward, smooth pull-back motion',
+      dolly_forward: 'Camera slowly dollies forward, smooth push-in motion',
+      pan_left: 'Slow pan left, smooth horizontal camera move',
+      pan_right: 'Slow pan right, smooth horizontal camera move',
+      slider: 'Smooth slider move with gentle parallax',
+      handheld_drift: 'Subtle hand-held drift, natural micro-movements',
+    }
+    const cameraPhrase = CAMERA_PHRASES[cameraMotion] || ''
+    let finalMotionPrompt = motionPrompt
+    if (cameraPhrase) {
+      // Strip any existing camera-motion phrase Gemini may have included
+      // (case-insensitive, common variants), then append the canonical one.
+      const stripPatterns = [
+        /static camera,\s*no movement/gi,
+        /static shot/gi,
+        /tripod static shot/gi,
+        /camera (slowly )?dollies (backward|forward|in|out|back)/gi,
+        /slow pan (left|right)/gi,
+        /smooth slider move[^.]*/gi,
+        /(subtle )?hand-?held (drift|movement)[^,.]*/gi,
+        /camera fixed on tripod[^,.]*/gi,
+      ]
+      for (const re of stripPatterns) finalMotionPrompt = finalMotionPrompt.replace(re, '')
+      // Clean up doubled commas/spaces from the strips
+      finalMotionPrompt = finalMotionPrompt.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim()
+      // Insert the canonical camera phrase before "no phone visible" / "no cuts"
+      // / final segments if present, otherwise append to the end.
+      if (/no phone visible|no cuts/i.test(finalMotionPrompt)) {
+        finalMotionPrompt = finalMotionPrompt.replace(
+          /(no phone visible|no cuts)/i,
+          `${cameraPhrase}, $1`
+        )
+      } else {
+        finalMotionPrompt = `${finalMotionPrompt} ${cameraPhrase}.`
+      }
     }
 
     // If the subject is silent in the inspo, prepend aggressive "no talking"
@@ -181,7 +239,7 @@ export async function POST(request) {
       try {
         await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, {
           'Recreate Video Context': videoContext,
-          'Recreate Motion Prompt': motionPrompt,
+          'Recreate Motion Prompt': finalMotionPrompt,
           'Recreate Motion Negative': finalNegative,
         })
       } catch (e) {
@@ -192,9 +250,10 @@ export async function POST(request) {
     return NextResponse.json({
       ok: true,
       videoContext,
-      motionPrompt,
+      motionPrompt: finalMotionPrompt,
       motionNegative: finalNegative,
       hasSpokenDialogue: hasSpokenDialogue ?? null,
+      cameraMotion: cameraMotion || null,
     })
   } catch (err) {
     console.error('[recreate/extract-video-context] error:', err)
