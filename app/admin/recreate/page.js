@@ -213,6 +213,11 @@ export default function RecreatePage() {
       }
       if (!data?.videoContext) throw new Error('No videoContext in response')
       setVideoContext(data.videoContext)
+      // Same call now also returns Kling motion prompt — auto-fill Step 6
+      // (only if user hasn't manually edited it; check by current state).
+      if (data.motionPrompt && data.motionNegative) {
+        setMotionPrompt(prev => prev.positive ? prev : { positive: data.motionPrompt, negative: data.motionNegative })
+      }
     } catch (e) { setVideoContextError(e.message) }
     finally { setVideoContextLoading(false) }
   }

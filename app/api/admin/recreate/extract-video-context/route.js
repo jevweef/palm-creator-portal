@@ -8,7 +8,14 @@ export const maxDuration = 60
 
 const GEMINI_MODEL = 'gemini-2.5-flash'
 
-const SYSTEM_INSTRUCTION = `You watch a short Instagram reel and produce a compact "video context" summary that will be injected into a separate per-frame analysis pass. The downstream consumer (Claude Sonnet) sees ONE still image at a time and can't tell what's happening across the timeline. Your job is to give it the cross-frame context it can't derive from a single frame.
+const SYSTEM_INSTRUCTION = `You watch a short Instagram reel and produce TWO outputs in a single tool call:
+
+1. videoContext — a compact bullet-list summary that will be injected into a separate per-frame analysis pass (Claude Sonnet). Sonnet sees ONE still image at a time and can't tell what's happening across the timeline. Give it the cross-frame context it can't derive from a single frame.
+
+2. motionPrompt + motionNegative — a Kling V3.0 4K image-to-video prompt that will be used to animate a still image into a video matching this reel's motion.
+
+—————————————————————————
+videoContext format:
 
 Output via the submit_video_context tool. Keep it tight — 6-10 short bullet lines, each starting with "- ".
 
@@ -24,14 +31,27 @@ Do NOT include:
 - Generic scene description that's already obvious in any frame (e.g. "she's in a bedroom").
 - Camera-direction jargon, fantasy language, mood adjectives.
 
-Example output for a reel where a creator films herself getting ready:
+Example videoContext output:
 - 0:00–0:01: subject walks into frame from the right, full body framing.
 - 0:01–0:03: stops in front of a desk, hair flips back as she turns.
 - 0:03–0:04: removes white cotton underwear from under her oversized blue shirt.
 - 0:04–0:06: uses the underwear as a hair tie, ties hair into a low ponytail.
 - 0:06–end: turns toward camera, glances back over shoulder. Camera stays static on tripod.
-- Wardrobe is constant: oversized light blue button-up shirt, fully buttoned, worn as dress. No pants or visible underwear after 0:06.
-- iPhone + ring light tripod stays in same position bottom-right entire time.`
+- Wardrobe is constant: oversized light blue button-up shirt, fully buttoned, worn as dress.
+- iPhone + ring light tripod stays in same position bottom-right entire time.
+
+—————————————————————————
+motionPrompt format (one paragraph, copy-paste ready for Kling V3.0 4K):
+- Start with camera framing: "Selfie shot of...", "Mirror selfie of...", "Static shot of...", "Tripod static shot of...", "Handheld shot of...", etc.
+- Describe the subject as "an american girl" (or other accent if clearly different) — keep generic.
+- Describe the literal action / motion beat by beat (walks into frame from left, brushes hair, glances at camera, mouths along to audio, body weight shifts onto right hip, etc.). Keep it leaner when start AND end frame anchors are present (text should describe the TRANSITION, not re-imagine the bookends).
+- If she speaks audibly, include the EXACT spoken quote: she said "..."
+- End with motion descriptors: "Realistic lip sync, subtle hand-held movement, natural movements" (or "Static camera, no movement" for tripod)
+- Add constraints when relevant: "no phone visible" if it's a tripod shot, "no cuts" for single-clip, etc.
+- Add voice direction at the end: "american accent" (or other)
+- No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
+
+motionNegative format — comma-separated tokens preventing common Kling failure modes plus framing-specific blockers based on the video. Always include: cartoon, anime, illustration, painting, CGI, 3D render, plastic skin, airbrushed, beauty filter, cinematic lighting, studio lighting, blurry, low resolution, jpeg artifacts, watermark, text, logo, deformed face, asymmetric eyes, extra fingers, missing fingers, distorted hands, malformed hands, extra limbs, broken anatomy, mannequin, AI artifacts, uncanny valley, double face, multiple people, child, underage features, nudity, censor bars, scene cut, jump cut, transition, multiple shots. If video is tripod-static, also add: mirror selfie, mirror reflection, phone in hand, holding a smartphone, selfie pose. If subject doesn't speak, add: lip sync, mouth movement, talking.`
 
 async function fetchVideoBuffer(videoUrl) {
   const res = await fetch(videoUrl, { redirect: 'follow' })
@@ -71,7 +91,7 @@ export async function POST(request) {
       tools: [{
         functionDeclarations: [{
           name: 'submit_video_context',
-          description: 'Submit the cross-frame video context summary for this reel.',
+          description: 'Submit BOTH the cross-frame video context summary AND the Kling V3.0 motion prompt for this reel in a single call.',
           parameters: {
             type: 'object',
             properties: {
@@ -79,8 +99,16 @@ export async function POST(request) {
                 type: 'string',
                 description: '6-10 bullet lines starting with "- " covering beat-by-beat action and cross-frame details a per-frame analyzer would miss.',
               },
+              motionPrompt: {
+                type: 'string',
+                description: 'One-paragraph Kling V3.0 motion prompt describing the action / motion / camera behavior. Generic subject ("an american girl"), exact spoken quote if any, motion descriptors at the end.',
+              },
+              motionNegative: {
+                type: 'string',
+                description: 'Comma-separated negative prompt tokens for Kling V3.0 with framing-specific blockers based on the video.',
+              },
             },
-            required: ['videoContext'],
+            required: ['videoContext', 'motionPrompt', 'motionNegative'],
           },
         }],
       }],
@@ -125,22 +153,24 @@ export async function POST(request) {
       }, { status: 500 })
     }
 
-    const { videoContext } = fnCall.args || {}
-    if (!videoContext) {
-      return NextResponse.json({ error: 'Tool input missing videoContext', raw: fnCall.args }, { status: 500 })
+    const { videoContext, motionPrompt, motionNegative } = fnCall.args || {}
+    if (!videoContext || !motionPrompt || !motionNegative) {
+      return NextResponse.json({ error: 'Tool input missing required fields', raw: fnCall.args }, { status: 500 })
     }
 
     if (inspoRecordId) {
       try {
         await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, {
           'Recreate Video Context': videoContext,
+          'Recreate Motion Prompt': motionPrompt,
+          'Recreate Motion Negative': motionNegative,
         })
       } catch (e) {
         console.warn('[extract-video-context] Airtable cache write failed:', e.message)
       }
     }
 
-    return NextResponse.json({ ok: true, videoContext })
+    return NextResponse.json({ ok: true, videoContext, motionPrompt, motionNegative })
   } catch (err) {
     console.error('[recreate/extract-video-context] error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
