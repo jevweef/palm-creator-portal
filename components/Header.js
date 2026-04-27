@@ -75,12 +75,17 @@ export default function Header() {
             </>
           ) : (
             <>
-              <Link href="/dashboard" style={linkStyle(pathname === '/dashboard')}>Dashboard</Link>
+              <Link
+                href={isAdmin ? '/admin/dashboard' : '/dashboard'}
+                style={linkStyle(isAdmin ? (pathname === '/admin/dashboard' || pathname === '/admin') : pathname === '/dashboard')}
+              >
+                Dashboard
+              </Link>
               <Link href="/my-content" style={linkStyle(pathname === '/my-content')}>My Content</Link>
               <Link href="/inspo" style={linkStyle(pathname === '/inspo')}>Inspo Board</Link>
               <Link href="/content-request" style={linkStyle(pathname === '/content-request')}>Content Request</Link>
               {isAdmin && (
-                <Link href="/admin/dashboard" style={{ ...linkStyle(pathname?.startsWith('/admin')), color: pathname?.startsWith('/admin') ? 'var(--palm-pink)' : 'var(--foreground-muted)' }}>Admin</Link>
+                <Link href="/admin/dashboard" style={{ ...linkStyle(pathname?.startsWith('/admin') && pathname !== '/admin/dashboard' && pathname !== '/admin'), color: pathname?.startsWith('/admin') ? 'var(--palm-pink)' : 'var(--foreground-muted)' }}>Admin</Link>
               )}
             </>
           )}
