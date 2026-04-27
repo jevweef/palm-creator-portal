@@ -2259,9 +2259,24 @@ function SubmissionsFeed({ showToast }) {
                             {statusBadge.label}
                           </span>
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: s.submitter ? '4px' : 0 }}>
                           {s.taskName || s.asset?.name}
                         </div>
+                        {s.submitter && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {s.submitter.avatar ? (
+                              <img src={s.submitter.avatar} alt={s.submitter.name}
+                                style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                            ) : (
+                              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, color: 'var(--foreground-muted)', flexShrink: 0 }}>
+                                {(s.submitter.name || '?').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                              by <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>{s.submitter.name || 'Unknown'}</span>
+                            </span>
+                          </div>
+                        )}
                       </div>
                       {/* Submitted at + actions */}
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>

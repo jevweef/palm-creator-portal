@@ -79,6 +79,9 @@ export async function GET() {
         const reviewStatus = f['Admin Review Status'] || ''
         // Inference rule above. Treat "no feedback yet" as Initial.
         const type = adminFeedback ? 'Revision' : 'Initial'
+        const submitterId = (f['Submitted By ID'] || '').trim()
+        const submitterName = (f['Submitted By Name'] || '').trim()
+        const submitterAvatar = (f['Submitted By Avatar'] || '').trim()
         return {
           id: t.id,
           taskName: f.Name || '',
@@ -88,6 +91,7 @@ export async function GET() {
           adminReviewStatus: reviewStatus,
           adminFeedback,
           editorNotes: f['Editor Notes'] || '',
+          submitter: submitterId ? { id: submitterId, name: submitterName, avatar: submitterAvatar } : null,
           creator: creatorId ? { id: creatorId, name: creator?.AKA || creator?.Creator || '' } : null,
           asset: assetId ? {
             id: assetId,
