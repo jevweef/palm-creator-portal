@@ -194,7 +194,11 @@ export async function POST(request) {
       tokensOut: claudeResponse.usage?.output_tokens,
     })
   } catch (err) {
-    console.error('[recreate/extract-scene-prompt] error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error('[recreate/extract-scene-prompt] error:', err?.stack || err?.message || err)
+    // Defensive: ensure we ALWAYS return a JSON body. err.message can be
+    // null/undefined for some thrown values (e.g. Anthropic SDK errors
+    // without a message) and would silently produce an empty response.
+    const message = err?.message || err?.toString?.() || 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

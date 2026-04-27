@@ -205,11 +205,20 @@ export default function RecreatePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const data = await res.json()
+      // Server may return empty body on Vercel timeout — fall back to text
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) } catch { data = null }
       if (!res.ok) {
+        if (!data) {
+          throw new Error(text
+            ? `Server error (${res.status}): ${text.slice(0, 300)}`
+            : `Server returned no body (${res.status}). Likely a function timeout — Sonnet took too long with this frame. Try a smaller frame or retry.`)
+        }
         const detail = data.raw ? ` — raw: ${typeof data.raw === 'string' ? data.raw.slice(0, 300) : JSON.stringify(data.raw).slice(0, 300)}` : ''
         throw new Error((data.error || 'Extraction failed') + detail)
       }
+      if (!data) throw new Error('Unexpected response shape (no JSON body)')
       setScenePrompt({
         positive: data.positivePrompt,
         negative: data.negativePrompt,
@@ -293,8 +302,18 @@ export default function RecreatePage() {
           inspoRecordId: lookup.id,
         }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Motion extraction failed')
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) } catch { data = null }
+      if (!res.ok) {
+        if (!data) {
+          throw new Error(text
+            ? `Server error (${res.status}): ${text.slice(0, 300)}`
+            : `Server returned no body (${res.status}). Likely a function timeout. Try again.`)
+        }
+        throw new Error(data.error || 'Motion extraction failed')
+      }
+      if (!data) throw new Error('Unexpected response shape (no JSON body)')
       setMotionPrompt({ positive: data.positivePrompt, negative: data.negativePrompt })
     } catch (e) { setMotionError(e.message) }
     finally { setExtractingMotion(false) }
