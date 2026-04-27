@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
+
+const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -41,7 +43,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { videoUrl } = await request.json()
+    const { videoUrl, inspoRecordId } = await request.json()
     if (!videoUrl) return NextResponse.json({ error: 'Missing videoUrl' }, { status: 400 })
 
     const apiKey = process.env.GEMINI_API_KEY
@@ -113,6 +115,18 @@ export async function POST(request) {
     const { positivePrompt, negativePrompt } = args
     if (!positivePrompt || !negativePrompt) {
       return NextResponse.json({ error: 'Tool input missing required fields', raw: args }, { status: 500 })
+    }
+
+    // Persist to Airtable so refreshes don't trigger another paid call.
+    if (inspoRecordId) {
+      try {
+        await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, {
+          'Recreate Motion Prompt': positivePrompt,
+          'Recreate Motion Negative': negativePrompt,
+        })
+      } catch (e) {
+        console.warn('[extract-motion-prompt] Airtable cache write failed:', e.message)
+      }
     }
 
     return NextResponse.json({ ok: true, positivePrompt, negativePrompt })

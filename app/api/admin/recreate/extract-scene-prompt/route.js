@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
 import Anthropic from '@anthropic-ai/sdk'
+
+const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -48,7 +50,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { frameUrl, frameDataUrl } = await request.json()
+    const { frameUrl, frameDataUrl, inspoRecordId } = await request.json()
     if (!frameUrl && !frameDataUrl) {
       return NextResponse.json({ error: 'Missing frameUrl or frameDataUrl' }, { status: 400 })
     }
@@ -138,6 +140,19 @@ export async function POST(request) {
       // led with, then prepend the anchor.
       const trimmed = positivePrompt.replace(/^(?:a |the )?(young\s+)?woman[^,.]*[,.]\s*/i, '').trim()
       positivePrompt = `${ANCHOR} ${trimmed.charAt(0).toLowerCase() + trimmed.slice(1)}`
+    }
+
+    // Persist to Airtable so refreshes don't trigger another paid call.
+    if (inspoRecordId) {
+      try {
+        await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, {
+          'Recreate Scene Prompt': positivePrompt,
+          'Recreate Scene Negative': negativePrompt,
+          'Recreate Shot Type': shotType,
+        })
+      } catch (e) {
+        console.warn('[extract-scene-prompt] Airtable cache write failed:', e.message)
+      }
     }
 
     return NextResponse.json({

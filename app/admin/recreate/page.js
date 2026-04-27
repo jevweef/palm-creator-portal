@@ -197,6 +197,9 @@ export default function RecreatePage() {
       const body = sourceFrame.startsWith('data:')
         ? { frameDataUrl: sourceFrame }
         : { frameUrl: sourceFrame }
+      // Pass the inspo record ID so the server caches the result on
+      // Airtable. Refresh = no second paid call.
+      if (lookup?.id) body.inspoRecordId = lookup.id
       const res = await fetch('/api/admin/recreate/extract-scene-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -266,7 +269,11 @@ export default function RecreatePage() {
       const res = await fetch('/api/admin/recreate/extract-motion-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl: lookup.dbRawLink }),
+        body: JSON.stringify({
+          videoUrl: lookup.dbRawLink,
+          // Cache result on Airtable so refresh doesn't re-run Gemini
+          inspoRecordId: lookup.id,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Motion extraction failed')
@@ -329,7 +336,25 @@ export default function RecreatePage() {
     setShowScrubber(false)
     fetch(`/api/admin/recreate/lookup?shortcode=${encodeURIComponent(shortcode)}`)
       .then(r => r.json())
-      .then(d => { if (!cancelled) { setLookup(d); if (d?.klingPrompt) setKlingPrompt(d.klingPrompt) } })
+      .then(d => {
+        if (cancelled) return
+        setLookup(d)
+        if (d?.klingPrompt) setKlingPrompt(d.klingPrompt)
+        // Hydrate cached prompts so the page doesn't have to re-run paid APIs
+        if (d?.recreateScenePrompt) {
+          setScenePrompt({
+            positive: d.recreateScenePrompt,
+            negative: d.recreateSceneNegative || '',
+            shotType: d.recreateShotType || 'front',
+          })
+        }
+        if (d?.recreateMotionPrompt) {
+          setMotionPrompt({
+            positive: d.recreateMotionPrompt,
+            negative: d.recreateMotionNegative || '',
+          })
+        }
+      })
       .catch(() => { if (!cancelled) setLookup(null) })
       .finally(() => { if (!cancelled) setLookupLoading(false) })
     return () => { cancelled = true }
@@ -469,7 +494,7 @@ export default function RecreatePage() {
       </StepCard>
 
       {/* Step 3 — Extract scene prompt with Claude Sonnet */}
-      <StepCard n={3} title="Extract Scene Prompt (Claude Sonnet)" status={scenePrompt.positive ? null : 'auto'}>
+      <StepCard n={3} title="Extract Scene Prompt (Claude Sonnet)" status={scenePrompt.positive ? (lookup?.recreateScenePrompt === scenePrompt.positive ? 'cached' : null) : 'auto'}>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
           Sonnet looks at the frame from Step 2 and returns a scene-only prompt
           (clothing, setting, action, framing, lighting, vibe — no character traits)
@@ -667,7 +692,7 @@ export default function RecreatePage() {
       </StepCard>
 
       {/* Step 6 — Extract motion prompt via Gemini */}
-      <StepCard n={6} title="Extract Motion Prompt (Gemini)" status={motionPrompt.positive ? null : 'auto'}>
+      <StepCard n={6} title="Extract Motion Prompt (Gemini)" status={motionPrompt.positive ? (lookup?.recreateMotionPrompt === motionPrompt.positive ? 'cached' : null) : 'auto'}>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
           Gemini watches the original reel and returns a Kling V3.0–formatted motion prompt
           (camera framing, action beat-by-beat, exact spoken quote if any, motion descriptors)

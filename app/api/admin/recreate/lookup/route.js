@@ -33,7 +33,7 @@ export async function GET(request) {
     // SEARCH is case-insensitive and tolerates URL format differences (/reel/ vs /reels/).
     const inspoRecords = await fetchAirtableRecords(INSPIRATION_TABLE, {
       filterByFormula: `SEARCH("${shortcode}", {Content link})`,
-      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status'],
+      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative'],
       maxRecords: 1,
     })
 
@@ -56,6 +56,13 @@ export async function GET(request) {
         dbEmbedCode: r.fields['DB Embed Code'] || '',
         status: r.fields['Status'] || '',
         shortcode,
+        // Cached Recreate prompts (creator-agnostic — same scene/motion
+        // regardless of which creator is doing the swap)
+        recreateScenePrompt: r.fields['Recreate Scene Prompt'] || '',
+        recreateSceneNegative: r.fields['Recreate Scene Negative'] || '',
+        recreateShotType: r.fields['Recreate Shot Type']?.name || r.fields['Recreate Shot Type'] || '',
+        recreateMotionPrompt: r.fields['Recreate Motion Prompt'] || '',
+        recreateMotionNegative: r.fields['Recreate Motion Negative'] || '',
       })
     }
 
