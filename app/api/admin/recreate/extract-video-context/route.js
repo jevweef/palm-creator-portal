@@ -46,7 +46,13 @@ motionPrompt format (one paragraph, copy-paste ready for Kling V3.0 4K):
 - Describe the subject as "an american girl" (or other accent if clearly different) — keep generic.
 - Describe the literal action / motion beat by beat (walks into frame from left, brushes hair, glances at camera, mouths along to audio, body weight shifts onto right hip, etc.). Keep it leaner when start AND end frame anchors are present (text should describe the TRANSITION, not re-imagine the bookends).
 - If she speaks audibly, include the EXACT spoken quote: she said "..."
-- End with motion descriptors: "Realistic lip sync, subtle hand-held movement, natural movements" (or "Static camera, no movement" for tripod)
+- End with motion descriptors that match what the camera ACTUALLY does in the inspo. CRITICAL: do NOT default to "Static camera, no movement" just because you see a tripod. Look at whether the framing changes across the timeline:
+    * Frame is locked the entire video → "Static camera, no movement"
+    * Subject grows or shrinks across frames → "Camera slowly dollies backward" or "Camera slowly dollies forward"
+    * Horizontal sweep → "Slow pan left" or "Slow pan right"
+    * Subtle wobble that doesn't feel like deliberate motion → "Subtle hand-held drift, natural micro-movements"
+    * Smooth slider/glidecam → "Smooth slider move, gentle parallax"
+  The camera-motion description directly controls Kling's generated camera behavior — getting it wrong means Kling produces a static shot when the inspo had motion (or vice versa). Always describe what the camera is actually doing.
 - Add constraints when relevant: "no phone visible" if it's a tripod shot, "no cuts" for single-clip, etc.
 - Add voice direction at the end: "american accent" (or other)
 - No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
