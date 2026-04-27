@@ -194,6 +194,52 @@ export default function RecreatePage() {
   // Toggle for sending source frame as image[0] to anchor exact composition
   const [preserveScene, setPreserveScene] = useState(false)
 
+  // Frame persistence — saves the picked frame to Dropbox so refreshes
+  // hydrate the same frame instead of forcing a re-pick.
+  const [savingFrame, setSavingFrame] = useState(false)
+  const [frameError, setFrameError] = useState('')
+
+  const persistFrame = async ({ frameDataUrl, sourceUrl }) => {
+    if (!lookup?.id) {
+      // No Airtable record — just hold in memory (manual upload before lookup hits)
+      if (frameDataUrl) setSourceFrame(frameDataUrl)
+      else if (sourceUrl) setSourceFrame(sourceUrl)
+      return
+    }
+    setSavingFrame(true); setFrameError('')
+    // Optimistic — show the frame immediately while we upload
+    if (frameDataUrl) setSourceFrame(frameDataUrl)
+    else if (sourceUrl) setSourceFrame(sourceUrl)
+    try {
+      const res = await fetch('/api/admin/recreate/save-frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          frameDataUrl: frameDataUrl || undefined,
+          sourceUrl: sourceUrl || undefined,
+          inspoRecordId: lookup.id,
+          shortcode,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      setSourceFrame(data.url)  // swap the data URL for the stable Dropbox URL
+    } catch (e) { setFrameError(`Saved in memory only — Dropbox save failed: ${e.message}`) }
+    finally { setSavingFrame(false) }
+  }
+
+  const clearFrame = async () => {
+    setSourceFrame(null); setShowScrubber(false); setFrameError('')
+    if (!lookup?.id || !shortcode) return
+    try {
+      await fetch('/api/admin/recreate/save-frame', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspoRecordId: lookup.id, shortcode }),
+      })
+    } catch (e) { console.warn('[recreate] frame clear failed:', e.message) }
+  }
+
   const handleExtractScene = async () => {
     if (!sourceFrame) { setSceneError('Pick a frame in Step 2 first.'); return }
     setExtractingScene(true); setSceneError('')
@@ -399,6 +445,7 @@ export default function RecreatePage() {
           })
         }
         if (d?.recreateNotes) setUserNotes(d.recreateNotes)
+        if (d?.recreateSourceFrameUrl) setSourceFrame(d.recreateSourceFrameUrl)
       })
       .catch(() => { if (!cancelled) setLookup(null) })
       .finally(() => { if (!cancelled) setLookupLoading(false) })
@@ -474,10 +521,17 @@ export default function RecreatePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={sourceFrame} alt="Source frame" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>✓ Frame loaded</div>
-              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>Held in memory and passed to the downstream steps automatically.</div>
+              <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>
+                {savingFrame ? '⏳ Saving…' : '✓ Frame loaded'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                {sourceFrame?.startsWith('data:')
+                  ? 'Saving to Dropbox so it persists across refreshes…'
+                  : 'Saved to Dropbox — this exact frame will hydrate on refresh.'}
+              </div>
+              {frameError && <div style={{ fontSize: '11px', color: '#FFC864' }}>⚠ {frameError}</div>}
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => { setSourceFrame(null); setShowScrubber(false) }} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>Pick another</button>
+                <button onClick={clearFrame} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>Pick another</button>
                 <button onClick={downloadFrame} title="Optional: download a copy" style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-subtle)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', cursor: 'pointer' }}>↓ JPEG</button>
               </div>
             </div>
@@ -493,7 +547,7 @@ export default function RecreatePage() {
                   <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>Frame from analysis</div>
                   <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>This is the frame the inspo pipeline already pulled. Most of the time this is the one you want.</div>
                   <button
-                    onClick={() => setSourceFrame(lookup.thumbnail)}
+                    onClick={() => persistFrame({ sourceUrl: lookup.thumbnail })}
                     style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 700, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
                   >
                     Use this frame
@@ -512,7 +566,7 @@ export default function RecreatePage() {
 
             {/* Scrubber: only when user opts in */}
             {lookup?.dbRawLink && showScrubber && (
-              <FrameCapture videoUrl={lookup.dbRawLink} onCapture={setSourceFrame} />
+              <FrameCapture videoUrl={lookup.dbRawLink} onCapture={dataUrl => persistFrame({ frameDataUrl: dataUrl })} />
             )}
 
             {/* Fallback: manual upload */}
@@ -527,7 +581,7 @@ export default function RecreatePage() {
                   onChange={e => {
                     const file = e.target.files?.[0]; if (!file) return
                     const reader = new FileReader()
-                    reader.onload = ev => setSourceFrame(ev.target.result)
+                    reader.onload = ev => persistFrame({ frameDataUrl: ev.target.result })
                     reader.readAsDataURL(file)
                   }}
                   style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
