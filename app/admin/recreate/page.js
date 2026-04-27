@@ -251,8 +251,10 @@ export default function RecreatePage() {
   const [videoContext, setVideoContext] = useState('')
   const [videoContextLoading, setVideoContextLoading] = useState(false)
   const [videoContextError, setVideoContextError] = useState('')
-  // Toggle for sending source frame as image[0] to anchor exact composition
-  const [preserveScene, setPreserveScene] = useState(false)
+  // Toggle for sending source frame as image[0] to anchor exact composition.
+  // On by default — locks the scene/lighting/pose to the picked frame so
+  // Wan only swaps identity instead of regenerating from prompt alone.
+  const [preserveScene, setPreserveScene] = useState(true)
 
   const persistFrame = async ({ slot = 'start', frameDataUrl, sourceUrl }) => {
     setFrameErrors(prev => ({ ...prev, [slot]: '' }))
