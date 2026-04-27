@@ -75,10 +75,9 @@ export async function POST(request) {
       })
     }
 
-    // Generic identity description. Kling extracts visual features from the
-    // images themselves; the description is mostly for the element's own
-    // metadata / future "type element name in prompt" use.
-    const description = `${aka} — OnlyFans creator. Identity locked from ${refs.length} reference photos covering face close-ups and front-body angles.`
+    // Description capped at 100 chars by Kling. Kling extracts visual
+    // features from the images themselves — description is just metadata.
+    const description = `${aka} character reference set`.slice(0, 100)
 
     const body = {
       name: aka.replace(/\s+/g, '_').toLowerCase(),
