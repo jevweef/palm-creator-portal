@@ -521,7 +521,7 @@ export default function RecreatePage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Animate submit failed')
-      setAnimateState(s => ({ ...s, taskId: data.taskId }))
+      setAnimateState(s => ({ ...s, taskId: data.taskId, usedElementId: data.usedElementId || null }))
     } catch (e) {
       setAnimateState(s => ({ ...s, error: e.message, running: false }))
     }
@@ -1339,6 +1339,17 @@ export default function RecreatePage() {
             ? '⏳ Kling generating + muxing audio… (~2-5 min)'
             : (swapState.end.result?.url ? '🎬 Animate (start → end)' : '🎬 Animate')}
         </button>
+
+        {animateState.usedElementId && (
+          <div style={{ marginTop: '8px', fontSize: '10px', color: '#7DD3A4' }}>
+            ✓ Using registered Kling Element <span style={{ fontFamily: 'monospace', color: 'var(--foreground-muted)' }}>{animateState.usedElementId}</span> — identity locked from creator&apos;s 12 reference angles
+          </div>
+        )}
+        {animateState.taskId && !animateState.usedElementId && animateState.running && (
+          <div style={{ marginTop: '8px', fontSize: '10px', color: '#FFC864' }}>
+            ⚠ No Kling Element registered for this creator — running with start-frame identity only. Register one on the AI Super Clone tab for tighter face consistency.
+          </div>
+        )}
 
         {animateState.error && (
           <div style={{ marginTop: '10px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>

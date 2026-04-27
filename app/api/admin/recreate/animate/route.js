@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { submitWaveSpeedTask } from '@/lib/wavespeed'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const KLING_MODEL = 'kwaivgi/kling-v3.0-pro/image-to-video'
+const PALM_CREATORS = 'Palm Creators'
 
 // POST — body: {
 //   creatorId, shortcode,
@@ -45,12 +46,33 @@ export async function POST(request) {
     }
     if (endUrl) body.tail_image = endUrl
 
+    // If the creator has a registered Kling Element, pass it as element_list
+    // so Kling locks identity from ALL reference angles (face close-ups +
+    // front-body) instead of just the start frame. Major lever for face
+    // consistency across the animation.
+    let usedElementId = null
+    try {
+      const records = await fetchAirtableRecords(PALM_CREATORS, {
+        filterByFormula: `RECORD_ID() = '${creatorId}'`,
+        fields: ['Kling Element ID'],
+        maxRecords: 1,
+      })
+      const elementId = records[0]?.fields?.['Kling Element ID']
+      if (elementId) {
+        body.element_list = [elementId]
+        usedElementId = elementId
+      }
+    } catch (e) {
+      console.warn('[animate] could not look up Kling Element ID:', e.message)
+    }
+
     const task = await submitWaveSpeedTask(KLING_MODEL, body)
     return NextResponse.json({
       ok: true,
       taskId: task.id,
       durationRequested: dur,
       hasEndFrame: !!endUrl,
+      usedElementId,
     })
   } catch (err) {
     console.error('[recreate/animate] error:', err)

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 const PALM_CREATORS = 'Palm Creators'
 const FIELDS = [
-  'Creator', 'AKA', 'Status',
+  'Creator', 'AKA', 'Status', 'Kling Element ID',
   'AI Conversions Enabled',
   'AI Ref Inputs',
   'AI Ref Front', 'AI Ref Back', 'AI Ref Face',
@@ -58,6 +58,7 @@ function buildState(record) {
     creator: f['Creator'] || '',
     aka: f['AKA'] || '',
     enabled: !!f['AI Conversions Enabled'],
+    klingElementId: f['Kling Element ID'] || '',
     inputs,
     inputsByPose,
     outputs,

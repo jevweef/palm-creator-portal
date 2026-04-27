@@ -629,6 +629,78 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
 }
 
 
+// Kling Element registration — one-time per creator. Pulls AI Ref Inputs
+// (face close-ups + a couple front-body shots) and registers them as a
+// Kling Element. The returned element_id gets passed to Step 7's Kling
+// V3.0 Pro animate call as element_list, which locks identity across the
+// generated video using all reference angles instead of just the start frame.
+function KlingElementCard({ state, onRefresh }) {
+  const [registering, setRegistering] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState(null)
+  const elementId = state.klingElementId
+
+  const handleRegister = async () => {
+    setRegistering(true); setError(''); setResult(null)
+    try {
+      const res = await fetch('/api/admin/creators/register-kling-element', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: state.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Registration failed')
+      setResult(data)
+      await onRefresh()
+    } catch (e) { setError(e.message) }
+    finally { setRegistering(false) }
+  }
+
+  return (
+    <div style={{ background: 'var(--card-bg-solid)', borderRadius: '14px', padding: '14px 18px', marginTop: '12px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Kling Element
+            {elementId && <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid rgba(125, 211, 164, 0.2)' }}>REGISTERED</span>}
+            {!elementId && <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, background: 'rgba(255, 200, 100, 0.08)', color: '#FFC864', border: '1px solid rgba(255, 200, 100, 0.2)' }}>NOT REGISTERED</span>}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+            One-time registration with Kling. Bundles up to 9 face close-ups + 3 front-body shots into a single character ID. When set, Step 7 passes this as element_list to Kling V3.0 Pro so identity is locked from all reference angles instead of just the start frame.
+          </div>
+          {elementId && (
+            <div style={{ marginTop: '6px', fontSize: '10px', color: 'var(--foreground-subtle)', fontFamily: 'monospace' }}>
+              ID: <span style={{ color: 'var(--palm-pink)' }}>{elementId}</span>
+            </div>
+          )}
+          {result && (
+            <div style={{ marginTop: '6px', fontSize: '10px', color: '#7DD3A4' }}>
+              ✓ Registered with {result.referenceCount} refs ({result.faceCount} face + {result.frontCount} front)
+            </div>
+          )}
+          {error && (
+            <div style={{ marginTop: '6px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid rgba(232,120,120,0.2)', borderRadius: '6px', padding: '6px 10px' }}>
+              {error}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={handleRegister}
+          disabled={registering}
+          style={{
+            padding: '8px 14px', fontSize: '12px', fontWeight: 700,
+            background: registering ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)',
+            color: '#060606', border: 'none', borderRadius: '6px',
+            cursor: registering ? 'wait' : 'pointer', whiteSpace: 'nowrap',
+          }}
+        >
+          {registering ? '⏳ Registering…' : (elementId ? '🔄 Re-register' : '✨ Register Kling Element')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function AISuperClonePanel({ creatorId }) {
   const [state, setState] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -755,6 +827,8 @@ export default function AISuperClonePanel({ creatorId }) {
           onConfirm={setConfirmDialog}
         />
       ))}
+
+      {state.enabled && <KlingElementCard state={state} onRefresh={fetchState} />}
 
       {error && (
         <div style={{ marginTop: '12px', fontSize: '12px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '8px 12px' }}>
