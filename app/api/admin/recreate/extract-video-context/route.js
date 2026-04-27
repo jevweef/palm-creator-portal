@@ -89,18 +89,30 @@ export async function POST(request) {
       },
     }
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      }
-    )
-    const data = await res.json()
+    // Retry on transient 429/503 (Gemini "high demand" / quota spikes).
+    // Exponential backoff with jitter; 3 attempts total.
+    let res, data
+    const MAX_ATTEMPTS = 3
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) }
+      )
+      data = await res.json()
+      if (res.ok) break
+      const isTransient = res.status === 429 || res.status === 503 ||
+        /UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(data?.error?.message || '')
+      if (!isTransient || attempt === MAX_ATTEMPTS) break
+      const delay = (2 ** attempt) * 1000 + Math.random() * 500
+      await new Promise(r => setTimeout(r, delay))
+    }
     if (!res.ok) {
       console.error('[extract-video-context] Gemini error:', data)
-      return NextResponse.json({ error: data?.error?.message || `Gemini ${res.status}` }, { status: 500 })
+      const msg = data?.error?.message || `Gemini ${res.status}`
+      const friendly = /UNAVAILABLE|overload|high demand/i.test(msg)
+        ? `Gemini overloaded after ${MAX_ATTEMPTS} retries — try the Run now button again in a minute.`
+        : msg
+      return NextResponse.json({ error: friendly }, { status: 500 })
     }
 
     const candidates = data.candidates || []
