@@ -111,38 +111,80 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
     if (inflight.length === 0) setGenerating(false)
   }, [candidates])
 
-  // Upload one file per request to stay under Vercel's 4.5MB body limit
-  // without compressing. Sequential so we can show progress + so concurrent
-  // requests don't clobber each other's filename indexing on the server.
+  // Direct browser → Dropbox upload. Bypasses Vercel's 4.5MB body limit
+  // entirely (server never sees the file bytes). Photos go up at full
+  // original quality, no size cap.
+  // Flow: get short-lived token + folder + start index → loop upload
+  // each file straight to Dropbox → call finalize so server creates
+  // shared links + attaches to Airtable.
   const handleUpload = async (filesList) => {
     const files = Array.from(filesList || [])
     if (!files.length) return
     setUploading(true); setError('')
     setUploadProgress({ current: 0, total: files.length, name: '' })
-    let failed = 0
-    let lastError = ''
+
     try {
+      // 1) Get token + namespace + folder + starting index from server
+      const initRes = await fetch('/api/admin/creator-ai-clone/upload-init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, pose }),
+      })
+      const init = await initRes.json()
+      if (!initRes.ok) throw new Error(init.error || 'Init failed')
+
+      const uploaded = []
+      const failures = []
+
+      // 2) Upload each file directly to Dropbox
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         setUploadProgress({ current: i + 1, total: files.length, name: file.name })
-        const form = new FormData()
-        form.append('creatorId', creatorId)
-        form.append('pose', pose)
-        form.append('files', file)
-        const res = await fetch('/api/admin/creator-ai-clone/upload', { method: 'POST', body: form })
-        const text = await res.text()
-        let data
-        try { data = JSON.parse(text) } catch { data = null }
-        if (!res.ok) {
-          failed++
-          lastError = data?.error || (res.status === 413
-            ? `${file.name} is over Vercel's 4.5MB limit — please trim that one`
-            : `${file.name}: upload failed (${res.status})`)
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+        const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(ext) ? ext : 'jpg'
+        const filename = `${init.poseLabel} input_${init.startIndex + i}.${safeExt}`
+        const path = `${init.folder}/${filename}`
+
+        try {
+          const upRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${init.accessToken}`,
+              'Dropbox-API-Arg': JSON.stringify({
+                path, mode: 'overwrite', autorename: false, mute: true,
+              }),
+              'Dropbox-API-Path-Root': JSON.stringify({
+                '.tag': 'root', root: init.rootNamespaceId,
+              }),
+              'Content-Type': 'application/octet-stream',
+            },
+            body: file,
+          })
+          if (!upRes.ok) {
+            const errText = await upRes.text()
+            throw new Error(errText.slice(0, 120))
+          }
+          uploaded.push({ path, filename })
+        } catch (e) {
+          failures.push(`${file.name}: ${e.message}`)
         }
-        // Refresh after each successful upload so the UI streams in
-        if (res.ok) await onRefresh()
       }
-      if (failed > 0) setError(`${failed} of ${files.length} failed. ${lastError}`)
+
+      // 3) Finalize — server creates shared links + attaches to Airtable
+      if (uploaded.length) {
+        const finRes = await fetch('/api/admin/creator-ai-clone/upload-finalize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creatorId, paths: uploaded }),
+        })
+        const finData = await finRes.json()
+        if (!finRes.ok) throw new Error(finData.error || 'Finalize failed')
+        await onRefresh()
+      }
+
+      if (failures.length) {
+        setError(`${failures.length} of ${files.length} failed: ${failures[0]}`)
+      }
     } catch (e) {
       setError(e.message)
     } finally {
