@@ -189,6 +189,10 @@ export default function RecreatePage() {
   const [scenePrompt, setScenePrompt] = useState({ positive: '', negative: '', shotType: '' })
   const [extractingScene, setExtractingScene] = useState(false)
   const [sceneError, setSceneError] = useState('')
+  // Per-reel admin notes injected into Sonnet (not in the system prompt)
+  const [userNotes, setUserNotes] = useState('')
+  // Toggle for sending source frame as image[0] to anchor exact composition
+  const [preserveScene, setPreserveScene] = useState(false)
 
   const handleExtractScene = async () => {
     if (!sourceFrame) { setSceneError('Pick a frame in Step 2 first.'); return }
@@ -200,6 +204,8 @@ export default function RecreatePage() {
       // Pass the inspo record ID so the server caches the result on
       // Airtable. Refresh = no second paid call.
       if (lookup?.id) body.inspoRecordId = lookup.id
+      // Per-reel admin notes get injected into Sonnet's user message
+      if (userNotes?.trim()) body.userNotes = userNotes
       const res = await fetch('/api/admin/recreate/extract-scene-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -249,6 +255,7 @@ export default function RecreatePage() {
         shotType: scenePrompt.shotType,
         shortcode: shortcode || undefined,
         positivePrompt: scenePrompt.positive,
+        preserveScene: !!preserveScene,
         ...(sourceFrame.startsWith('data:') ? { frameDataUrl: sourceFrame } : { frameUrl: sourceFrame }),
       }
       const res = await fetch('/api/admin/recreate/swap-creator', {
@@ -391,6 +398,7 @@ export default function RecreatePage() {
             negative: d.recreateMotionNegative || '',
           })
         }
+        if (d?.recreateNotes) setUserNotes(d.recreateNotes)
       })
       .catch(() => { if (!cancelled) setLookup(null) })
       .finally(() => { if (!cancelled) setLookupLoading(false) })
@@ -538,6 +546,26 @@ export default function RecreatePage() {
           plus a strong negative prompt and the shot type for picking the right
           reference photos.
         </div>
+
+        {/* Per-reel admin notes — injected into Sonnet ONLY for this reel.
+            Universal rules belong in the system prompt; this is for quirks
+            specific to this single inspo. */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+            Reel-specific notes (optional)
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', fontStyle: 'italic', marginBottom: '6px' }}>
+            Anything Sonnet might miss or get wrong on this specific reel — camera tilt, exact furniture details, motion direction, ring light condition, bed rumpled, etc. Persists per-reel; not applied to other reels.
+          </div>
+          <textarea
+            value={userNotes}
+            onChange={e => setUserNotes(e.target.value)}
+            placeholder="e.g. Camera is tilted ~5° clockwise. Subject is spinning right-to-left, foot pivoting on left toe. Ring light is older/used-looking. Bed sheets slightly rumpled. Black square frame industrial pendant ceiling fixture in upper left."
+            rows={3}
+            style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+          />
+        </div>
+
         <button
           onClick={handleExtractScene}
           disabled={extractingScene || !sourceFrame}
@@ -655,10 +683,26 @@ export default function RecreatePage() {
       {/* Step 5 — Swap Creator into the Frame via Wan 2.7 (API) */}
       <StepCard n={5} title="Swap Creator into the Frame (Wan 2.7)" status={swapResult ? null : 'auto'}>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
-          Sends only {creator ? <strong style={{ color: 'var(--foreground)' }}>{creator.aka || creator.name}&apos;s</strong> : 'the creator\'s'} reference input photos
+          Sends {creator ? <strong style={{ color: 'var(--foreground)' }}>{creator.aka || creator.name}&apos;s</strong> : 'the creator\'s'} reference input photos
           (auto-picked: <strong style={{ color: 'var(--foreground)' }}>{scenePrompt.shotType ? (scenePrompt.shotType === 'close-up' ? 'Close Up Face' : scenePrompt.shotType === 'back' ? 'Back View' : 'Front View') : 'pending Step 3'}</strong>)
-          + the scene prompt to Wan 2.7. The source frame stays with Sonnet — never sent to Wan.
+          + the scene prompt to Wan 2.7.
         </div>
+
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px', padding: '10px', background: preserveScene ? 'rgba(125, 211, 164, 0.06)' : 'rgba(0,0,0,0.15)', border: `1px solid ${preserveScene ? 'rgba(125, 211, 164, 0.25)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '6px', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={preserveScene}
+            onChange={e => setPreserveScene(e.target.checked)}
+            style={{ marginTop: '2px', accentColor: 'var(--palm-pink)' }}
+          />
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>Preserve original scene composition</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px', lineHeight: 1.4 }}>
+              Sends the source frame as the FIRST input image so Wan must match the actual scene, lighting, camera tilt, pose, and small imperfections. Identity comes from the creator&apos;s 8 reference photos. Best for tight composition match. Off = Wan generates from prompt alone (more freedom, more drift).
+            </div>
+          </div>
+        </label>
+
         <button
           onClick={handleSwap}
           disabled={swapping || !sourceFrame || !selectedCreator || !scenePrompt.positive}

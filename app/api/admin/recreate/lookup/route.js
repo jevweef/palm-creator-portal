@@ -33,7 +33,7 @@ export async function GET(request) {
     // SEARCH is case-insensitive and tolerates URL format differences (/reel/ vs /reels/).
     const inspoRecords = await fetchAirtableRecords(INSPIRATION_TABLE, {
       filterByFormula: `SEARCH("${shortcode}", {Content link})`,
-      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative'],
+      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative', 'Recreate Notes'],
       maxRecords: 1,
     })
 
@@ -63,6 +63,7 @@ export async function GET(request) {
         recreateShotType: r.fields['Recreate Shot Type']?.name || r.fields['Recreate Shot Type'] || '',
         recreateMotionPrompt: r.fields['Recreate Motion Prompt'] || '',
         recreateMotionNegative: r.fields['Recreate Motion Negative'] || '',
+        recreateNotes: r.fields['Recreate Notes'] || '',
       })
     }
 

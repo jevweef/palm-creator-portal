@@ -40,6 +40,8 @@ POSE / MOTION STATE — be precise about whether the subject is in a STATIC pose
   * Static example: "standing relaxed, weight on right hip, left hand at side"
   * Mid-motion examples: "captured mid-step, left foot lifted off the floor", "hair caught mid-whip from left to right with motion blur trailing on the tips", "hand frozen mid-wave", "torso twisted from a turning motion"
   * Capture body weight distribution, hip angle, shoulder rotation, head turn angle, hand positions explicitly.
+  * MOTION DIRECTION matters — explicitly state which way she's spinning, walking, turning, or whipping her hair. "Spinning counter-clockwise (her right shoulder rotating forward toward camera)", "walking toward camera, left foot forward and right foot still planted behind", "whipping head from right to left so hair trails toward the right side of frame". Wrong-direction body language reads instantly as fake.
+  * FOOT PLACEMENT must match the motion: e.g. if mid-spin counter-clockwise, the back foot pivots on the ball, the front foot leads. Describe stance explicitly.
 
 GAZE / FACIAL EXPRESSION — CRITICAL: do NOT default to "looking at camera" / "direct eye contact". Default eye-contact is an AI giveaway when the original wasn't actually looking at the camera.
   * Describe exactly where the eyes are pointing: "looking directly at the camera lens with steady eye contact" (ONLY if she actually is), "looking down at the floor", "looking off-camera to her right toward the window", "looking past the camera at the wall behind it", "eyes closed mid-blink", "looking down at her phone".
@@ -47,10 +49,11 @@ GAZE / FACIAL EXPRESSION — CRITICAL: do NOT default to "looking at camera" / "
   * If you can't tell exactly where she's looking, err on the side of "looking off-camera" — never invent eye contact.
 
 FRAMING / COMPOSITION — exactly as the inspo shows:
-  * Camera distance: close-up | medium-shot | medium-full | full-body | wide
-  * Subject scale ("middle 60% of frame height", "head at upper third, feet at bottom edge")
+  * Camera distance: close-up | medium-shot | medium-full | full-body | wide. Be SPECIFIC about distance — "subject ~3 meters from camera, occupying middle 50% of frame height" beats "full-body".
+  * Subject scale ("head at upper third, feet at bottom edge"; or "head at vertical center, feet not visible") — match actual scale, don't make her larger than she is.
   * Subject horizontal position: centered | left-of-center | right-of-center
   * Camera angle: low (waist-height) | eye-level | high | slightly upward tilt | downward tilt
+  * CAMERA TILT (Dutch angle): if the inspo's horizon is not perfectly level — e.g. ceiling line tilts down to one side, floor tilts up — call out the tilt explicitly: "camera tilted ~5° clockwise (right edge sits lower than left edge)" or "slight Dutch angle, ceiling slopes downward to the right". Phone-on-tripod content often has this. Wan defaults to perfectly level, so silence here = perfectly level result.
   * What's visible at each frame edge ("bed visible on left edge", "TV on right wall behind subject", "rug filling lower third")
 
 CAMERA SETUP — selfie | mirror selfie | tripod static | handheld | over-the-shoulder | someone else filming.
@@ -80,7 +83,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { frameUrl, frameDataUrl, inspoRecordId } = await request.json()
+    const { frameUrl, frameDataUrl, inspoRecordId, userNotes } = await request.json()
     if (!frameUrl && !frameDataUrl) {
       return NextResponse.json({ error: 'Missing frameUrl or frameDataUrl' }, { status: 400 })
     }
@@ -141,7 +144,12 @@ export async function POST(request) {
           role: 'user',
           content: [
             imageBlock,
-            { type: 'text', text: 'Extract the scene prompt for this frame using the submit_scene_prompt tool.' },
+            {
+              type: 'text',
+              text: userNotes?.trim()
+                ? `Extract the scene prompt for this frame using the submit_scene_prompt tool.\n\nADDITIONAL NOTES FROM THE ADMIN (specific to THIS reel — incorporate these into your prompt, don't paraphrase, follow them literally):\n${userNotes.trim()}`
+                : 'Extract the scene prompt for this frame using the submit_scene_prompt tool.',
+            },
           ],
         },
       ],
@@ -175,11 +183,14 @@ export async function POST(request) {
     // Persist to Airtable so refreshes don't trigger another paid call.
     if (inspoRecordId) {
       try {
-        await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, {
+        const patch = {
           'Recreate Scene Prompt': positivePrompt,
           'Recreate Scene Negative': negativePrompt,
           'Recreate Shot Type': shotType,
-        })
+        }
+        // Only write user notes if explicitly provided (don't clobber)
+        if (typeof userNotes === 'string') patch['Recreate Notes'] = userNotes
+        await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, patch)
       } catch (e) {
         console.warn('[extract-scene-prompt] Airtable cache write failed:', e.message)
       }
