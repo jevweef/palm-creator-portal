@@ -634,7 +634,40 @@ export default function AISuperClonePanel({ creatorId }) {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState(false)
   const [error, setError] = useState('')
-  const [prompts, setPrompts] = useState(HARDCODED_PROMPTS)
+  // Prompts persist per-creator via localStorage so edits survive refreshes
+  // and tab switches. Falls back to hardcoded defaults.
+  const promptsStorageKey = `aiCloneCustomPrompts:${creatorId}`
+  const [prompts, setPromptsState] = useState(HARDCODED_PROMPTS)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const saved = window.localStorage.getItem(promptsStorageKey)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setPromptsState({ ...HARDCODED_PROMPTS, ...parsed })
+      } else {
+        setPromptsState(HARDCODED_PROMPTS)
+      }
+    } catch { setPromptsState(HARDCODED_PROMPTS) }
+  }, [promptsStorageKey])
+  const setPrompts = useCallback((updater) => {
+    setPromptsState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      try {
+        // Only store the deltas vs hardcoded defaults to keep storage small
+        const deltas = {}
+        for (const [k, v] of Object.entries(next)) {
+          if (v !== HARDCODED_PROMPTS[k]) deltas[k] = v
+        }
+        if (Object.keys(deltas).length === 0) {
+          window.localStorage.removeItem(promptsStorageKey)
+        } else {
+          window.localStorage.setItem(promptsStorageKey, JSON.stringify(deltas))
+        }
+      } catch {}
+      return next
+    })
+  }, [promptsStorageKey])
   const [lightboxUrl, setLightboxUrl] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
 
