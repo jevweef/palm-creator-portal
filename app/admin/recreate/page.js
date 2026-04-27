@@ -445,6 +445,33 @@ export default function RecreatePage() {
     audioOffset: 0,      // seconds to skip at start of inspo audio
   })
 
+  // Inspo duration (in seconds) — read client-side from video metadata so
+  // we can smart-default Kling duration and warn about audio truncation.
+  const [inspoDuration, setInspoDuration] = useState(null)
+  useEffect(() => {
+    if (!lookup?.dbRawLink) { setInspoDuration(null); return }
+    const v = document.createElement('video')
+    v.preload = 'metadata'
+    v.crossOrigin = 'anonymous'
+    let cancelled = false
+    const onLoaded = () => {
+      if (cancelled) return
+      const dur = v.duration
+      if (Number.isFinite(dur)) {
+        setInspoDuration(dur)
+        // Smart default: if inspo is ≤5s, use 5; otherwise use 10 (cap)
+        setAnimateState(s => ({ ...s, duration: dur <= 5.5 ? 5 : 10 }))
+      }
+    }
+    v.addEventListener('loadedmetadata', onLoaded)
+    v.src = `/api/admin/video-proxy?url=${encodeURIComponent(rawDropboxUrl(lookup.dbRawLink))}`
+    return () => {
+      cancelled = true
+      v.removeEventListener('loadedmetadata', onLoaded)
+      v.src = ''
+    }
+  }, [lookup?.dbRawLink])
+
   const handleAnimate = async () => {
     const startSwap = swapState.start.result?.url
     const endSwap = swapState.end.result?.url
@@ -1234,6 +1261,12 @@ export default function RecreatePage() {
               <option value={5}>5s</option>
               <option value={10}>10s</option>
             </select>
+            {inspoDuration != null && (
+              <span style={{ fontSize: '10px', color: inspoDuration > 10 ? '#FFC864' : 'var(--foreground-subtle)', fontVariantNumeric: 'tabular-nums' }}>
+                inspo: {inspoDuration.toFixed(1)}s
+                {inspoDuration > 10 && ' (audio will truncate at 10s)'}
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
             <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>Audio offset</label>
