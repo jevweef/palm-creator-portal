@@ -44,9 +44,12 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
   const [saving, setSaving] = useState(false)
   const [files, setFiles] = useState(null)
   const [assets, setAssets] = useState([])
+  const [finalFiles, setFinalFiles] = useState([])
+  const [finalUploadUrl, setFinalUploadUrl] = useState('')
   const [previewFile, setPreviewFile] = useState(null)
   const [previewSrc, setPreviewSrc] = useState('')
-  const [previewKind, setPreviewKind] = useState('project') // 'project' | 'asset'
+  const [previewKind, setPreviewKind] = useState('project') // 'project' | 'asset' | 'final'
+  const [deletingFinalPath, setDeletingFinalPath] = useState('')
 
   useEffect(() => {
     fetch(`/api/creator/oftv-projects/${project.id}?includeFiles=1`)
@@ -64,16 +67,46 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
       .catch(() => setAssets([]))
   }, [creatorId])
 
+  const loadFinal = useCallback(() => {
+    fetch(`/api/admin/oftv-projects/${project.id}/final`)
+      .then(r => r.json())
+      .then(d => {
+        setFinalFiles(d.files || [])
+        setFinalUploadUrl(d.fileRequestUrl || '')
+      })
+      .catch(() => {})
+  }, [project.id])
+  useEffect(() => { loadFinal() }, [loadFinal])
+  useEffect(() => {
+    const t = setInterval(loadFinal, 15000)
+    return () => clearInterval(t)
+  }, [loadFinal])
+
   useEffect(() => {
     if (!previewFile) { setPreviewSrc(''); return }
     const url = previewKind === 'asset'
       ? `/api/admin/creator-assets?creatorOpsId=${creatorId}&path=${encodeURIComponent(previewFile.path)}`
+      : previewKind === 'final'
+      ? `/api/admin/oftv-projects/${project.id}/final?path=${encodeURIComponent(previewFile.path)}`
       : `/api/creator/oftv-projects/${project.id}/file-link?path=${encodeURIComponent(previewFile.path)}`
     fetch(url)
       .then(r => r.json())
       .then(d => setPreviewSrc(d.link || ''))
       .catch(() => setPreviewSrc(''))
   }, [previewFile, previewKind, project.id, creatorId])
+
+  const deleteFinal = async (file) => {
+    if (!confirm(`Delete final cut "${file.name}"?\n\nThis removes the file from Dropbox permanently.`)) return
+    if (!confirm(`Really delete "${file.name}"? No undo.`)) return
+    setDeletingFinalPath(file.path)
+    try {
+      const res = await fetch(`/api/admin/oftv-projects/${project.id}/final?path=${encodeURIComponent(file.path)}`, { method: 'DELETE' })
+      if (res.ok) setFinalFiles(prev => prev.filter(f => f.path !== file.path))
+      else alert('Delete failed')
+    } finally {
+      setDeletingFinalPath('')
+    }
+  }
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -272,9 +305,87 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
             }} />
           </div>
 
+          {/* Final Cut Upload + Files */}
+          <div style={{
+            background: 'rgba(125, 211, 164, 0.04)', border: '1px solid rgba(125, 211, 164, 0.18)',
+            borderRadius: '12px', padding: '14px 16px',
+          }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+              ✅ Final Cut Delivery
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
+              Drop your finished edit here. Re-upload anytime for revisions.
+            </div>
+            {finalUploadUrl && (
+              <a
+                href={finalUploadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '11px 14px', borderRadius: '10px', marginBottom: '10px',
+                  background: 'rgba(125, 211, 164, 0.08)', border: '1px solid rgba(125, 211, 164, 0.25)',
+                  textDecoration: 'none', color: 'var(--foreground)',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600 }}>Upload final cut to Dropbox</div>
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>No size limit · Lands directly in this project's _Final folder</div>
+                </div>
+                <span style={{ fontSize: '15px' }}>→</span>
+              </a>
+            )}
+            {finalFiles.length === 0 ? (
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', padding: '12px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.08)' }}>
+                No final cut delivered yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {finalFiles.map((f, i) => {
+                  const isMedia = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name)
+                  const isDeleting = deletingFinalPath === f.path
+                  return (
+                    <div
+                      key={i}
+                      onClick={isMedia && !isDeleting ? () => { setPreviewKind('final'); setPreviewFile(f) } : undefined}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                        padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px',
+                        cursor: isMedia && !isDeleting ? 'pointer' : 'default',
+                        opacity: isDeleting ? 0.4 : 1,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '13px' }}>🎞️</span>
+                        <span style={{ fontSize: '12px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                        <span>{fmtSize(f.size)}</span>
+                        {isMedia && <span style={{ color: '#7DD3A4' }}>▶</span>}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteFinal(f) }}
+                          disabled={isDeleting}
+                          title="Delete final"
+                          style={{
+                            padding: '3px 7px', fontSize: '10px', fontWeight: 600,
+                            background: 'transparent', color: 'var(--foreground-subtle)',
+                            border: '1px solid transparent', borderRadius: '5px',
+                            cursor: isDeleting ? 'not-allowed' : 'pointer',
+                          }}
+                          onMouseEnter={e => { if (!isDeleting) { e.currentTarget.style.background = 'rgba(232, 120, 120, 0.1)'; e.currentTarget.style.color = '#E87878' } }}
+                          onMouseLeave={e => { if (!isDeleting) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--foreground-subtle)' } }}
+                        >{isDeleting ? '…' : '✕'}</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           <div>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Delivered Edit URL</label>
-            <input value={editedFileLink} onChange={e => setEditedFileLink(e.target.value)} placeholder="Dropbox / Drive link to final cut" style={{
+            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Delivered Edit URL <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--foreground-subtle)' }}>(optional — for outside links)</span></label>
+            <input value={editedFileLink} onChange={e => setEditedFileLink(e.target.value)} placeholder="Frame.io, Drive, etc — only if not using Dropbox upload above" style={{
               width: '100%', padding: '10px 12px', fontSize: '13px',
               background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
             }} />

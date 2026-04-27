@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { EditorDashboardContent, EditorRevisionsView } from '@/components/EditorDashboard'
+import OftvProjectsQueue from '@/components/OftvProjectsQueue'
 import LongFormUpload from '@/components/LongFormUpload'
 
 export { EditorDashboardContent }
@@ -46,7 +47,8 @@ export default function EditorDashboardPage() {
   const TABS = [
     { key: 'dashboard', label: '📋 Dashboard' },
     { key: 'revisions', label: '⚠ Revisions', badge: revisionCount },
-    { key: 'longform', label: '🎬 Long Form' },
+    { key: 'oftv', label: '🎬 OFTV Projects' },
+    { key: 'longform', label: '⬆️ Long Form Upload' },
   ]
 
   return (
@@ -97,6 +99,7 @@ export default function EditorDashboardPage() {
 
         {activeTab === 'dashboard' && <EditorDashboardContent />}
         {activeTab === 'revisions' && <EditorRevisionsView />}
+        {activeTab === 'oftv' && <OftvProjectsQueue showToast={showToast} />}
         {activeTab === 'longform' && <LongFormUpload showToast={showToast} />}
 
         {toast && (
