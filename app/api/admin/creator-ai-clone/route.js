@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
-import { POSES, poseFromFilename } from '@/lib/aiCloneConfig'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile } from '@/lib/dropbox'
+import { POSES, poseFromFilename, AI_REF_FOLDER } from '@/lib/aiCloneConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,16 +115,15 @@ export async function PATCH(request) {
   }
 }
 
-// DELETE — remove an attachment, or clear the whole field.
-// Body:
+// DELETE — remove an attachment (or clear the whole field) AND delete the
+// underlying Dropbox file(s) so we don't accumulate orphans.
+// Body shapes:
 //   { creatorId, target?: 'inputs' | 'candidates', pose?, clearAll: true }
-//     → wipes the entire field
+//     → wipes the entire field + deletes every file in Dropbox
 //   { creatorId, target?, pose?, filename }
-//     → removes the attachment matching filename (stable across re-attachments)
+//     → removes the attachment matching filename + deletes the Dropbox file
 //   { creatorId, attachmentId, target?, pose? }
-//     → legacy: matches by attachment ID (NOTE: IDs change every time a
-//       multipleAttachments field is re-PATCHed without IDs, so prefer
-//       filename for candidates that may have been re-attached)
+//     → legacy match by attachment ID (filename preferred; IDs are unstable)
 export async function DELETE(request) {
   try { await requireAdmin() } catch (e) { return e }
 
@@ -132,34 +132,67 @@ export async function DELETE(request) {
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
 
     let fieldName = 'AI Ref Inputs'
+    let isCandidates = false
     if (target === 'candidates') {
       if (!pose || !POSES[pose]) return NextResponse.json({ error: 'Missing/invalid pose for candidates delete' }, { status: 400 })
       fieldName = POSES[pose].airtableCandidatesField
+      isCandidates = true
     }
 
-    if (clearAll) {
-      await patchAirtableRecord(PALM_CREATORS, creatorId, { [fieldName]: [] })
-      return NextResponse.json({ ok: true, cleared: true })
-    }
-
-    if (!attachmentId && !filename) {
-      return NextResponse.json({ error: 'Missing attachmentId or filename' }, { status: 400 })
-    }
-
+    // Fetch current state — need AKA for Dropbox path + current attachments
     const records = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
-      fields: [fieldName],
+      fields: ['AKA', fieldName],
       maxRecords: 1,
     })
     if (!records.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
+    const aka = records[0].fields.AKA
+    const current = records[0].fields[fieldName] || []
 
-    const matches = (att) => filename ? att.filename === filename : att.id === attachmentId
-    const next = (records[0].fields[fieldName] || [])
-      .filter(att => !matches(att))
-      .map(att => ({ url: att.url, filename: att.filename }))
+    // Decide which attachments to remove
+    let toRemove = []
+    let next = []
+    if (clearAll) {
+      toRemove = current
+      next = []
+    } else {
+      if (!attachmentId && !filename) {
+        return NextResponse.json({ error: 'Missing attachmentId or filename' }, { status: 400 })
+      }
+      const matches = (att) => filename ? att.filename === filename : att.id === attachmentId
+      toRemove = current.filter(matches)
+      next = current.filter(att => !matches(att)).map(att => ({ url: att.url, filename: att.filename }))
+    }
 
+    // PATCH Airtable first (most important — UI source of truth)
     await patchAirtableRecord(PALM_CREATORS, creatorId, { [fieldName]: next })
-    return NextResponse.json({ ok: true })
+
+    // Then delete the Dropbox files. Errors here are non-fatal — log and
+    // continue. (Orphan files in Dropbox aren't great but better than a
+    // failed delete from the user's perspective.)
+    const dropboxResults = { deleted: 0, failed: 0 }
+    if (aka && toRemove.length) {
+      try {
+        const accessToken = await getDropboxAccessToken()
+        const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
+        const baseFolder = AI_REF_FOLDER(aka) + (isCandidates ? '/candidates' : '')
+        for (const att of toRemove) {
+          if (!att.filename) continue
+          const path = `${baseFolder}/${att.filename}`
+          try {
+            await deleteDropboxFile(accessToken, rootNamespaceId, path)
+            dropboxResults.deleted++
+          } catch (e) {
+            console.warn('[creator-ai-clone] Dropbox delete failed:', path, e.message)
+            dropboxResults.failed++
+          }
+        }
+      } catch (e) {
+        console.error('[creator-ai-clone] Dropbox setup failed:', e.message)
+      }
+    }
+
+    return NextResponse.json({ ok: true, cleared: clearAll || undefined, dropbox: dropboxResults })
   } catch (err) {
     console.error('[creator-ai-clone] DELETE error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
