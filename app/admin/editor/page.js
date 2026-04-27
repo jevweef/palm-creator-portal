@@ -2168,7 +2168,7 @@ function SubmissionsFeed({ showToast }) {
 
   const fmtTime = iso => new Date(iso).toLocaleTimeString('en-US', {
     timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true,
-  })
+  }) + ' ET'
 
   const toRawUrl = url => url ? url.replace(/([?&])dl=[01]/, '$1raw=1').replace(/^(https:\/\/www\.dropbox\.com\/.+)(?<![?&]raw=1)$/, m => m.includes('?') ? m + '&raw=1' : m + '?raw=1') : ''
 
