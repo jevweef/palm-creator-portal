@@ -310,6 +310,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
       background: 'var(--card-bg-solid)',
       borderRadius: '14px', padding: '16px', marginBottom: '12px',
       boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      maxWidth: '1100px',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -325,8 +326,11 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
         )}
       </div>
 
-      {/* Body — inputs (left) + output/candidates (right when present) */}
-      <div style={{ display: 'grid', gridTemplateColumns: (output || savedCandidates.length || inFlight.length) ? 'minmax(0, 1fr) minmax(220px, 320px)' : 'minmax(0, 1fr)', gap: '14px', alignItems: 'start' }}>
+      {/* Body — left column (inputs + prompt + generate) | right column (output + candidates) */}
+      <div style={{ display: 'grid', gridTemplateColumns: (output || savedCandidates.length || inFlight.length) ? 'minmax(0, 1fr) minmax(240px, 320px)' : 'minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
+
+      {/* LEFT COLUMN — wraps inputs, prompt, generate button */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
         {/* Inputs */}
         <div
           {...dragHandlers}
@@ -417,6 +421,65 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
             </div>
           )}
         </div>
+
+        {/* Prompt (collapsible) */}
+        <details>
+          <summary style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', padding: '4px 0' }}>
+            Prompt {prompts[pose] !== HARDCODED_PROMPTS[pose] && <span style={{ color: 'var(--palm-pink)', textTransform: 'none' }}> · edited</span>}
+          </summary>
+          <textarea
+            value={prompts[pose]}
+            onChange={e => onPromptChange(pose, e.target.value)}
+            rows={4}
+            style={{ width: '100%', marginTop: '6px', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+          />
+          {prompts[pose] !== HARDCODED_PROMPTS[pose] && (
+            <button onClick={() => onPromptChange(pose, HARDCODED_PROMPTS[pose])} style={{ marginTop: '4px', padding: '3px 8px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}>
+              Reset
+            </button>
+          )}
+        </details>
+
+        {/* Count slider + Generate button (right-aligned within left column) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+              Count
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={4}
+              step={1}
+              value={count}
+              onChange={e => setCount(parseInt(e.target.value, 10))}
+              disabled={generating}
+              style={{ width: '90px', accentColor: 'var(--palm-pink)', cursor: generating ? 'not-allowed' : 'pointer' }}
+            />
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)', minWidth: '14px', textAlign: 'right' }}>{count}</span>
+          </div>
+          <button
+            onClick={output ? handleRegenerate : handleGenerate}
+            disabled={!canGenerate}
+            style={{
+              padding: '8px 16px', fontSize: '12px', fontWeight: 700,
+              background: canGenerate ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
+              color: canGenerate ? '#060606' : 'var(--foreground-subtle)',
+              border: 'none', borderRadius: '6px',
+              cursor: canGenerate ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {generating ? '⏳ Generating…' : output ? `🔄 Regenerate ${count > 1 ? `(${count})` : ''}` : `✨ Generate ${count > 1 ? `(${count})` : ''}`}
+          </button>
+        </div>
+
+        {generating && (
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+            Calling {meta.model}… typically 30-60s per image.
+          </div>
+        )}
+      </div>
+      {/* END LEFT COLUMN */}
 
         {/* Right column: approved output (top) + candidates gallery (bottom) */}
         {(output || savedCandidates.length > 0 || inFlight.length > 0) ? (
@@ -509,65 +572,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
         ) : null}
       </div>
 
-      {/* Bottom row — prompt details + generate button */}
-      <div style={{ marginTop: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-        <details style={{ flex: 1, minWidth: 0 }}>
-          <summary style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', padding: '6px 0' }}>
-            Prompt {prompts[pose] !== HARDCODED_PROMPTS[pose] && <span style={{ color: 'var(--palm-pink)', textTransform: 'none' }}> · edited</span>}
-          </summary>
-          <textarea
-            value={prompts[pose]}
-            onChange={e => onPromptChange(pose, e.target.value)}
-            rows={4}
-            style={{ width: '100%', marginTop: '6px', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
-          />
-          {prompts[pose] !== HARDCODED_PROMPTS[pose] && (
-            <button onClick={() => onPromptChange(pose, HARDCODED_PROMPTS[pose])} style={{ marginTop: '4px', padding: '3px 8px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}>
-              Reset
-            </button>
-          )}
-        </details>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', flexShrink: 0, marginTop: '4px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-              Count
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={4}
-              step={1}
-              value={count}
-              onChange={e => setCount(parseInt(e.target.value, 10))}
-              disabled={generating}
-              style={{ width: '90px', accentColor: 'var(--palm-pink)', cursor: generating ? 'not-allowed' : 'pointer' }}
-            />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)', minWidth: '14px', textAlign: 'right' }}>{count}</span>
-          </div>
-          <button
-            onClick={output ? handleRegenerate : handleGenerate}
-            disabled={!canGenerate}
-            style={{
-              padding: '7px 14px', fontSize: '12px', fontWeight: 700,
-              background: canGenerate ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
-              color: canGenerate ? '#060606' : 'var(--foreground-subtle)',
-              border: 'none', borderRadius: '6px',
-              cursor: canGenerate ? 'pointer' : 'not-allowed',
-            }}
-          >
-            {generating ? '⏳ Generating…' : output ? `🔄 Regenerate ${count > 1 ? `(${count})` : ''}` : `✨ Generate ${count > 1 ? `(${count})` : ''}`}
-          </button>
-        </div>
-      </div>
-
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
-      {generating && !output && (
-        <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
-          Calling {meta.model}… typically 30-60s.
-        </div>
-      )}
 
       {error && (
         <div style={{ marginTop: '8px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>
