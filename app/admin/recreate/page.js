@@ -179,8 +179,18 @@ export default function RecreatePage() {
   const [reelUrl, setReelUrl] = useState(initialUrl)
   const [lookup, setLookup] = useState(null)
   const [lookupLoading, setLookupLoading] = useState(false)
-  const [sourceFrame, setSourceFrame] = useState(null) // data URL or attachment URL
-  const [showScrubber, setShowScrubber] = useState(false)
+  // Two slots: start (subject far) → end (subject close). End is optional;
+  // if provided, it becomes Kling's tail_image and gives Wan a second
+  // identity anchor for when the face fills more of the frame.
+  const [frames, setFrames] = useState({ start: null, end: null })
+  const [scrubberOpen, setScrubberOpen] = useState({ start: false, end: false })
+  const [framesSaving, setFramesSaving] = useState({ start: false, end: false })
+  const [frameErrors, setFrameErrors] = useState({ start: '', end: '' })
+  // Backward-compat alias — most downstream logic still uses sourceFrame for start.
+  const sourceFrame = frames.start
+  const setSourceFrame = (v) => setFrames(prev => ({ ...prev, start: typeof v === 'function' ? v(prev.start) : v }))
+  const showScrubber = scrubberOpen.start
+  const setShowScrubber = (v) => setScrubberOpen(prev => ({ ...prev, start: typeof v === 'function' ? v(prev.start) : v }))
   const [allCreators, setAllCreators] = useState([])
   const [selectedCreator, setSelectedCreator] = useState(initialCreatorId)
   const [klingPrompt, setKlingPrompt] = useState('')
@@ -194,22 +204,12 @@ export default function RecreatePage() {
   // Toggle for sending source frame as image[0] to anchor exact composition
   const [preserveScene, setPreserveScene] = useState(false)
 
-  // Frame persistence — saves the picked frame to Dropbox so refreshes
-  // hydrate the same frame instead of forcing a re-pick.
-  const [savingFrame, setSavingFrame] = useState(false)
-  const [frameError, setFrameError] = useState('')
-
-  const persistFrame = async ({ frameDataUrl, sourceUrl }) => {
-    if (!lookup?.id) {
-      // No Airtable record — just hold in memory (manual upload before lookup hits)
-      if (frameDataUrl) setSourceFrame(frameDataUrl)
-      else if (sourceUrl) setSourceFrame(sourceUrl)
-      return
-    }
-    setSavingFrame(true); setFrameError('')
-    // Optimistic — show the frame immediately while we upload
-    if (frameDataUrl) setSourceFrame(frameDataUrl)
-    else if (sourceUrl) setSourceFrame(sourceUrl)
+  const persistFrame = async ({ slot = 'start', frameDataUrl, sourceUrl }) => {
+    setFrameErrors(prev => ({ ...prev, [slot]: '' }))
+    // Optimistic update — show immediately while we upload
+    setFrames(prev => ({ ...prev, [slot]: frameDataUrl || sourceUrl }))
+    if (!lookup?.id) return
+    setFramesSaving(prev => ({ ...prev, [slot]: true }))
     try {
       const res = await fetch('/api/admin/recreate/save-frame', {
         method: 'POST',
@@ -219,23 +219,29 @@ export default function RecreatePage() {
           sourceUrl: sourceUrl || undefined,
           inspoRecordId: lookup.id,
           shortcode,
+          slot,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Save failed')
-      setSourceFrame(data.url)  // swap the data URL for the stable Dropbox URL
-    } catch (e) { setFrameError(`Saved in memory only — Dropbox save failed: ${e.message}`) }
-    finally { setSavingFrame(false) }
+      setFrames(prev => ({ ...prev, [slot]: data.url }))
+    } catch (e) {
+      setFrameErrors(prev => ({ ...prev, [slot]: `Saved in memory only — Dropbox save failed: ${e.message}` }))
+    } finally {
+      setFramesSaving(prev => ({ ...prev, [slot]: false }))
+    }
   }
 
-  const clearFrame = async () => {
-    setSourceFrame(null); setShowScrubber(false); setFrameError('')
+  const clearFrame = async (slot = 'start') => {
+    setFrames(prev => ({ ...prev, [slot]: null }))
+    setScrubberOpen(prev => ({ ...prev, [slot]: false }))
+    setFrameErrors(prev => ({ ...prev, [slot]: '' }))
     if (!lookup?.id || !shortcode) return
     try {
       await fetch('/api/admin/recreate/save-frame', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inspoRecordId: lookup.id, shortcode }),
+        body: JSON.stringify({ inspoRecordId: lookup.id, shortcode, slot }),
       })
     } catch (e) { console.warn('[recreate] frame clear failed:', e.message) }
   }
@@ -280,29 +286,33 @@ export default function RecreatePage() {
     finally { setExtractingScene(false) }
   }
 
-  // Swap creator into the frame via Wan 2.7 image-edit
-  const [swapTaskId, setSwapTaskId] = useState(null)
-  const [swapResult, setSwapResult] = useState(null) // { url, filename }
-  const [swapError, setSwapError] = useState('')
-  const [swapping, setSwapping] = useState(false)
-  const [swapMeta, setSwapMeta] = useState(null) // { pose, referenceCount }
+  // Swap creator into each frame via Wan 2.7 image-edit. Per-slot state so
+  // start + end can run in parallel for Kling's start/tail bookends.
+  const EMPTY_SLOT = { taskId: null, result: null, error: '', running: false, meta: null }
+  const [swapState, setSwapState] = useState({ start: { ...EMPTY_SLOT }, end: { ...EMPTY_SLOT } })
+  const updateSlot = (slot, patch) => setSwapState(prev => ({ ...prev, [slot]: { ...prev[slot], ...patch } }))
+  // Aliases used by existing UI surface area
+  const swapTaskId = swapState.start.taskId
+  const swapResult = swapState.start.result
+  const swapError = swapState.start.error
+  const swapping = swapState.start.running
+  const swapMeta = swapState.start.meta
 
   // shortcode needs to be available before any effect that depends on it
   const shortcode = useMemo(() => shortcodeFromUrl(reelUrl), [reelUrl])
 
-  const handleSwap = async () => {
-    if (!sourceFrame) { setSwapError('Pick a frame in Step 2 first.'); return }
-    if (!selectedCreator) { setSwapError('Pick a creator in Step 4 first.'); return }
-    if (!scenePrompt.positive) { setSwapError('Run Step 3 to extract the scene prompt first.'); return }
-    setSwapping(true); setSwapError(''); setSwapResult(null); setSwapTaskId(null); setSwapMeta(null)
+  const submitSlotSwap = async (slot, frameUrl) => {
+    updateSlot(slot, { running: true, error: '', result: null, taskId: null, meta: null })
     try {
       const body = {
         creatorId: selectedCreator,
-        shotType: scenePrompt.shotType,
-        shortcode: shortcode || undefined,
+        // End frame is by definition closer-up — force close-up references for
+        // a higher-resolution face anchor when subject fills more of the frame.
+        shotType: slot === 'end' ? 'close-up' : scenePrompt.shotType,
+        shortcode: shortcode ? `${shortcode}-${slot}` : undefined,
         positivePrompt: scenePrompt.positive,
         preserveScene: !!preserveScene,
-        ...(sourceFrame.startsWith('data:') ? { frameDataUrl: sourceFrame } : { frameUrl: sourceFrame }),
+        ...(frameUrl.startsWith('data:') ? { frameDataUrl: frameUrl } : { frameUrl }),
       }
       const res = await fetch('/api/admin/recreate/swap-creator', {
         method: 'POST',
@@ -311,26 +321,39 @@ export default function RecreatePage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Swap submit failed')
-      setSwapTaskId(data.taskId)
-      setSwapMeta({ pose: data.pose, referenceCount: data.referenceCount, referenceFilenames: data.referenceFilenames || [] })
-    } catch (e) { setSwapError(e.message); setSwapping(false) }
+      updateSlot(slot, { taskId: data.taskId, meta: { pose: data.pose, referenceCount: data.referenceCount, referenceFilenames: data.referenceFilenames || [] } })
+    } catch (e) {
+      updateSlot(slot, { error: e.message, running: false })
+    }
   }
 
-  // Rehydrate the latest Wan swap from Dropbox when creator + shortcode
-  // are known. Saves the user from having to re-run Step 5 after a refresh.
+  const handleSwap = async () => {
+    if (!frames.start) { updateSlot('start', { error: 'Pick a start frame in Step 2 first.' }); return }
+    if (!selectedCreator) { updateSlot('start', { error: 'Pick a creator in Step 4 first.' }); return }
+    if (!scenePrompt.positive) { updateSlot('start', { error: 'Run Step 3 to extract the scene prompt first.' }); return }
+    const slots = frames.end ? ['start', 'end'] : ['start']
+    await Promise.all(slots.map(s => submitSlotSwap(s, frames[s])))
+  }
+
+  // Rehydrate latest Wan swap per slot from Dropbox so a refresh doesn't
+  // erase the previous run. Each slot has its own folder ({shortcode}, {shortcode}-end).
   useEffect(() => {
     if (!selectedCreator || !shortcode) return
     let cancelled = false
-    fetch(`/api/admin/recreate/last-swap?creatorId=${encodeURIComponent(selectedCreator)}&shortcode=${encodeURIComponent(shortcode)}`)
-      .then(r => r.json())
-      .then(d => {
-        if (cancelled) return
-        if (d?.output?.url) {
-          // Only set if we don't already have a (possibly fresher) in-memory result
-          setSwapResult(prev => prev || { url: d.output.url, filename: d.output.filename })
-        }
-      })
-      .catch(() => {})
+    const fetchSlot = (slot, slotShortcode) =>
+      fetch(`/api/admin/recreate/last-swap?creatorId=${encodeURIComponent(selectedCreator)}&shortcode=${encodeURIComponent(slotShortcode)}`)
+        .then(r => r.json())
+        .then(d => {
+          if (cancelled) return
+          if (d?.output?.url) {
+            setSwapState(prev => prev[slot].result
+              ? prev
+              : { ...prev, [slot]: { ...prev[slot], result: { url: d.output.url, filename: d.output.filename } } })
+          }
+        })
+        .catch(() => {})
+    fetchSlot('start', shortcode)
+    fetchSlot('end', `${shortcode}-end`)
     return () => { cancelled = true }
   }, [selectedCreator, shortcode])
 
@@ -372,47 +395,51 @@ export default function RecreatePage() {
     finally { setExtractingMotion(false) }
   }
 
-  // Poll swap status
-  useEffect(() => {
-    if (!swapTaskId) return
-    let cancelled = false
-    const startedAt = Date.now()
-    const MAX_MS = 5 * 60 * 1000
-    const poll = async () => {
-      try {
-        if (Date.now() - startedAt > MAX_MS) {
-          setSwapError('Timed out after 5 min — WaveSpeed may be overloaded')
-          setSwapTaskId(null); setSwapping(false); return
+  // Poll swap status — one effect per slot, keyed on its taskId
+  const useSlotPoll = (slot) => {
+    const taskId = swapState[slot].taskId
+    useEffect(() => {
+      if (!taskId) return
+      let cancelled = false
+      const startedAt = Date.now()
+      const MAX_MS = 5 * 60 * 1000
+      const slotShortcode = shortcode ? (slot === 'end' ? `${shortcode}-end` : shortcode) : undefined
+      const poll = async () => {
+        try {
+          if (Date.now() - startedAt > MAX_MS) {
+            updateSlot(slot, { error: 'Timed out after 5 min — WaveSpeed may be overloaded', taskId: null, running: false })
+            return
+          }
+          const res = await fetch('/api/admin/recreate/swap-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskId, creatorId: selectedCreator, shortcode: slotShortcode }),
+          })
+          const data = await res.json()
+          if (cancelled) return
+          if (!res.ok) {
+            updateSlot(slot, { error: data.error || `Poll failed (${res.status})`, taskId: null, running: false })
+            return
+          }
+          if (data.status === 'completed') {
+            updateSlot(slot, { result: { url: data.outputUrl, filename: data.filename }, taskId: null, running: false })
+          } else if (data.status === 'failed') {
+            updateSlot(slot, { error: data.error || 'Generation failed', taskId: null, running: false })
+          } else {
+            setTimeout(poll, 4000)
+          }
+        } catch (e) {
+          if (cancelled) return
+          updateSlot(slot, { error: e.message, taskId: null, running: false })
         }
-        const res = await fetch('/api/admin/recreate/swap-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskId: swapTaskId, creatorId: selectedCreator, shortcode: shortcode || undefined }),
-        })
-        const data = await res.json()
-        if (cancelled) return
-        if (!res.ok) {
-          setSwapError(data.error || `Poll failed (${res.status})`)
-          setSwapTaskId(null); setSwapping(false); return
-        }
-        if (data.status === 'completed') {
-          setSwapResult({ url: data.outputUrl, filename: data.filename })
-          setSwapTaskId(null); setSwapping(false)
-        } else if (data.status === 'failed') {
-          setSwapError(data.error || 'Generation failed')
-          setSwapTaskId(null); setSwapping(false)
-        } else {
-          setTimeout(poll, 4000)
-        }
-      } catch (e) {
-        if (cancelled) return
-        setSwapError(e.message)
-        setSwapTaskId(null); setSwapping(false)
       }
-    }
-    poll()
-    return () => { cancelled = true }
-  }, [swapTaskId, selectedCreator, shortcode])
+      poll()
+      return () => { cancelled = true }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [taskId, selectedCreator, shortcode])
+  }
+  useSlotPoll('start')
+  useSlotPoll('end')
 
   useEffect(() => {
     fetch('/api/admin/palm-creators').then(r => r.json()).then(d => setAllCreators(d.creators || [])).catch(() => {})
@@ -422,8 +449,10 @@ export default function RecreatePage() {
     if (!shortcode) { setLookup(null); return }
     let cancelled = false
     setLookupLoading(true)
-    setSourceFrame(null)
-    setShowScrubber(false)
+    setFrames({ start: null, end: null })
+    setScrubberOpen({ start: false, end: false })
+    setFrameErrors({ start: '', end: '' })
+    setSwapState({ start: { ...EMPTY_SLOT }, end: { ...EMPTY_SLOT } })
     fetch(`/api/admin/recreate/lookup?shortcode=${encodeURIComponent(shortcode)}`)
       .then(r => r.json())
       .then(d => {
@@ -445,7 +474,12 @@ export default function RecreatePage() {
           })
         }
         if (d?.recreateNotes) setUserNotes(d.recreateNotes)
-        if (d?.recreateSourceFrameUrl) setSourceFrame(d.recreateSourceFrameUrl)
+        if (d?.recreateSourceFrameUrl || d?.recreateEndFrameUrl) {
+          setFrames({
+            start: d.recreateSourceFrameUrl || null,
+            end: d.recreateEndFrameUrl || null,
+          })
+        }
       })
       .catch(() => { if (!cancelled) setLookup(null) })
       .finally(() => { if (!cancelled) setLookupLoading(false) })
@@ -514,82 +548,103 @@ export default function RecreatePage() {
         )}
       </StepCard>
 
-      {/* Step 2 — Source Frame */}
-      <StepCard n={2} title="Source Frame">
-        {sourceFrame ? (
-          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={sourceFrame} alt="Source frame" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>
-                {savingFrame ? '⏳ Saving…' : '✓ Frame loaded'}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-                {sourceFrame?.startsWith('data:')
-                  ? 'Saving to Dropbox so it persists across refreshes…'
-                  : 'Saved to Dropbox — this exact frame will hydrate on refresh.'}
-              </div>
-              {frameError && <div style={{ fontSize: '11px', color: '#FFC864' }}>⚠ {frameError}</div>}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={clearFrame} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>Pick another</button>
-                <button onClick={downloadFrame} title="Optional: download a copy" style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-subtle)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', cursor: 'pointer' }}>↓ JPEG</button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div>
-            {/* Default: existing analysis thumbnail */}
-            {lookup?.thumbnail && !showScrubber && (
-              <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '12px' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={lookup.thumbnail} alt="Pipeline thumbnail" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>Frame from analysis</div>
-                  <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>This is the frame the inspo pipeline already pulled. Most of the time this is the one you want.</div>
-                  <button
-                    onClick={() => persistFrame({ sourceUrl: lookup.thumbnail })}
-                    style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 700, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
-                  >
-                    Use this frame
-                  </button>
-                  {lookup.dbRawLink && (
+      {/* Step 2 — Source Frames (start + optional end for Kling tail_image) */}
+      <StepCard n={2} title="Source Frames">
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.5 }}>
+          Pick a <strong>start</strong> frame (subject far) and optionally an <strong>end</strong> frame (subject close).
+          The end frame becomes Kling&apos;s <code>tail_image</code> in Step 7 and gives Wan a second high-fidelity face anchor for when she walks toward camera.
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          {['start', 'end'].map(slot => {
+            const frame = frames[slot]
+            const slotSaving = framesSaving[slot]
+            const slotError = frameErrors[slot]
+            const slotScrubber = scrubberOpen[slot]
+            const showAnalysisThumb = slot === 'start' && lookup?.thumbnail && !slotScrubber
+            const slotLabel = slot === 'start' ? 'Start frame' : 'End frame (optional)'
+            const slotHint = slot === 'start'
+              ? 'Subject is at their starting distance from camera.'
+              : 'Subject closer to camera — face fills more of frame. Used as Kling tail_image.'
+            return (
+              <div key={slot} style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: slot === 'start' ? 'var(--palm-pink)' : 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>
+                  {slotLabel}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '10px', lineHeight: 1.4 }}>
+                  {slotHint}
+                </div>
+                {frame ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={frame} alt={`${slot} frame`} style={{ width: '100%', maxWidth: '160px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
+                    <div style={{ fontSize: '12px', color: '#7DD3A4', fontWeight: 600 }}>
+                      {slotSaving ? '⏳ Saving…' : '✓ Loaded'}
+                    </div>
+                    {slotError && <div style={{ fontSize: '10px', color: '#FFC864' }}>⚠ {slotError}</div>}
                     <button
-                      onClick={() => setShowScrubber(true)}
-                      style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
+                      onClick={() => clearFrame(slot)}
+                      style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
                     >
-                      Pick a different frame from the video
+                      Pick another
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {showAnalysisThumb && (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={lookup.thumbnail} alt="Pipeline thumbnail" style={{ width: '100%', maxWidth: '160px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block', opacity: 0.8 }} />
+                        <button
+                          onClick={() => persistFrame({ slot, sourceUrl: lookup.thumbnail })}
+                          style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 700, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
+                        >
+                          Use analysis frame
+                        </button>
+                      </>
+                    )}
+                    {lookup?.dbRawLink && !slotScrubber && (
+                      <button
+                        onClick={() => setScrubberOpen(prev => ({ ...prev, [slot]: true }))}
+                        style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' }}
+                      >
+                        Scrub video
+                      </button>
+                    )}
+                    {lookup?.dbRawLink && slotScrubber && (
+                      <FrameCapture videoUrl={lookup.dbRawLink} onCapture={dataUrl => persistFrame({ slot, frameDataUrl: dataUrl })} />
+                    )}
+                    {(!lookup || (!lookup.thumbnail && !lookup.dbRawLink)) && (
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={e => {
+                          const file = e.target.files?.[0]; if (!file) return
+                          const reader = new FileReader()
+                          reader.onload = ev => persistFrame({ slot, frameDataUrl: ev.target.result })
+                          reader.readAsDataURL(file)
+                        }}
+                        style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}
+                      />
+                    )}
+                    {!showAnalysisThumb && !lookup?.dbRawLink && lookup && (
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={e => {
+                          const file = e.target.files?.[0]; if (!file) return
+                          const reader = new FileReader()
+                          reader.onload = ev => persistFrame({ slot, frameDataUrl: ev.target.result })
+                          reader.readAsDataURL(file)
+                        }}
+                        style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-
-            {/* Scrubber: only when user opts in */}
-            {lookup?.dbRawLink && showScrubber && (
-              <FrameCapture videoUrl={lookup.dbRawLink} onCapture={dataUrl => persistFrame({ frameDataUrl: dataUrl })} />
-            )}
-
-            {/* Fallback: manual upload */}
-            {(!lookup || (!lookup.thumbnail && !lookup.dbRawLink)) && (
-              <div>
-                <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
-                  {lookup === null && shortcode ? 'Looking up…' : 'No saved frame for this reel. Upload a screenshot manually:'}
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={e => {
-                    const file = e.target.files?.[0]; if (!file) return
-                    const reader = new FileReader()
-                    reader.onload = ev => persistFrame({ frameDataUrl: ev.target.result })
-                    reader.readAsDataURL(file)
-                  }}
-                  style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
-                />
-              </div>
-            )}
-          </div>
-        )}
+            )
+          })}
+        </div>
       </StepCard>
 
       {/* Step 3 — Extract scene prompt with Claude Sonnet */}
@@ -757,31 +812,28 @@ export default function RecreatePage() {
           </div>
         </label>
 
-        <button
-          onClick={handleSwap}
-          disabled={swapping || !sourceFrame || !selectedCreator || !scenePrompt.positive}
-          style={{
-            padding: '8px 14px', fontSize: '12px', fontWeight: 700,
-            background: (!sourceFrame || !selectedCreator || !scenePrompt.positive) ? 'rgba(232, 160, 160, 0.06)' : (swapping ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
-            color: (!sourceFrame || !selectedCreator || !scenePrompt.positive) ? 'var(--foreground-subtle)' : '#060606',
-            border: 'none', borderRadius: '6px',
-            cursor: swapping ? 'wait' : ((!sourceFrame || !selectedCreator || !scenePrompt.positive) ? 'not-allowed' : 'pointer'),
-          }}
-        >
-          {swapping ? '⏳ Wan 2.7 generating… (~30-60s)' : '✨ Generate creator-swapped image'}
-        </button>
-        {swapMeta && (
-          <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--foreground-muted)' }}>
-            <div style={{ fontStyle: 'italic', marginBottom: '4px' }}>
-              Using {swapMeta.referenceCount} {swapMeta.pose} reference photos:
-            </div>
-            {swapMeta.referenceFilenames?.length > 0 && (
-              <ul style={{ margin: 0, paddingLeft: '18px', fontFamily: 'monospace', fontSize: '10px', color: 'var(--foreground-subtle)', lineHeight: 1.6 }}>
-                {swapMeta.referenceFilenames.map((f, i) => <li key={i}>{f}</li>)}
-              </ul>
-            )}
-          </div>
-        )}
+        {(() => {
+          const anyRunning = swapState.start.running || swapState.end.running
+          const disabled = anyRunning || !frames.start || !selectedCreator || !scenePrompt.positive
+          const label = anyRunning
+            ? '⏳ Wan 2.7 generating…'
+            : frames.end
+              ? '✨ Generate (start + end in parallel)'
+              : '✨ Generate creator-swapped image'
+          return (
+            <button
+              onClick={handleSwap}
+              disabled={disabled}
+              style={{
+                padding: '8px 14px', fontSize: '12px', fontWeight: 700,
+                background: disabled && !anyRunning ? 'rgba(232, 160, 160, 0.06)' : (anyRunning ? 'rgba(232,160,160,0.3)' : 'var(--palm-pink)'),
+                color: disabled && !anyRunning ? 'var(--foreground-subtle)' : '#060606',
+                border: 'none', borderRadius: '6px',
+                cursor: anyRunning ? 'wait' : (disabled ? 'not-allowed' : 'pointer'),
+              }}
+            >{label}</button>
+          )
+        })()}
 
         {scenePrompt.positive && (
           <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--foreground-muted)' }}>
@@ -797,31 +849,47 @@ export default function RecreatePage() {
             </select>
           </div>
         )}
-        {swapError && (
-          <div style={{ marginTop: '10px', fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #fecdd3', borderRadius: '6px', padding: '6px 10px' }}>
-            {swapError}
-          </div>
-        )}
-        {swapResult && (
-          <div style={{ marginTop: '14px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-              Result · saved to Dropbox
-            </div>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={swapResult.url} alt="Swapped" style={{ width: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block', cursor: 'zoom-in' }} onClick={() => window.open(swapResult.url, '_blank')} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ fontSize: '12px', color: '#7DD3A4', fontWeight: 600 }}>✓ Saved</div>
-                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{swapResult.filename}</div>
-                <button
-                  onClick={handleSwap}
-                  disabled={swapping}
-                  style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                  {swapping ? '…' : '🔄 Regenerate'}
-                </button>
-              </div>
-            </div>
+        {/* Per-slot result tiles */}
+        {(swapState.start.error || swapState.end.error || swapState.start.result || swapState.end.result || swapState.start.meta || swapState.end.meta) && (
+          <div style={{ marginTop: '14px', display: 'grid', gridTemplateColumns: frames.end ? '1fr 1fr' : '1fr', gap: '12px' }}>
+            {['start', 'end'].filter(s => s === 'start' || frames.end).map(slot => {
+              const s = swapState[slot]
+              return (
+                <div key={slot} style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: slot === 'start' ? 'var(--palm-pink)' : 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                    {slot === 'start' ? 'Start frame swap' : 'End frame swap'}
+                  </div>
+                  {s.meta && (
+                    <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontFamily: 'monospace', marginBottom: '6px' }}>
+                      {s.meta.referenceCount} × {s.meta.pose} refs
+                    </div>
+                  )}
+                  {s.error && (
+                    <div style={{ fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid rgba(232,120,120,0.2)', borderRadius: '6px', padding: '6px 10px', marginBottom: '6px' }}>
+                      {s.error}
+                    </div>
+                  )}
+                  {s.running && !s.result && (
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>⏳ Generating…</div>
+                  )}
+                  {s.result && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.result.url} alt={`${slot} swap`} style={{ width: '100%', maxWidth: '180px', aspectRatio: '9/16', objectFit: 'cover', borderRadius: '8px', display: 'block', cursor: 'zoom-in' }} onClick={() => window.open(s.result.url, '_blank')} />
+                      <div style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 600 }}>✓ Saved</div>
+                      <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{s.result.filename}</div>
+                      <button
+                        onClick={() => submitSlotSwap(slot, frames[slot])}
+                        disabled={s.running}
+                        style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: s.running ? 'wait' : 'pointer' }}
+                      >
+                        {s.running ? '…' : '🔄 Regenerate'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </StepCard>

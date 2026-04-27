@@ -22,8 +22,14 @@ function rawDropboxUrl(url) {
 // Reverse a Dropbox raw shared link back to its team-namespace path so we
 // can delete the underlying file. Shared links don't carry the path; instead
 // we encode the path on save so we always know where to delete from.
-function dropboxPathForShortcode(shortcode, ext) {
-  return `/Palm Ops/Inspo Frames/${shortcode}/source-frame.${ext}`
+function dropboxPathForShortcode(shortcode, ext, slot = 'start') {
+  const stem = slot === 'end' ? 'end-frame' : 'start-frame'
+  return `/Palm Ops/Inspo Frames/${shortcode}/${stem}.${ext}`
+}
+
+const SLOT_FIELDS = {
+  start: 'Recreate Source Frame URL',
+  end: 'Recreate End Frame URL',
 }
 
 async function ensureFolder(accessToken, rootNamespaceId, path) {
@@ -34,14 +40,23 @@ async function ensureFolder(accessToken, rootNamespaceId, path) {
   }
 }
 
-async function nukeAllVariants(accessToken, rootNamespaceId, shortcode) {
-  // Delete all known extensions of source-frame.* so a jpg→png swap doesn't
+async function nukeAllVariants(accessToken, rootNamespaceId, shortcode, slot = 'start') {
+  // Delete all known extensions for this slot so a jpg→png swap doesn't
   // leave an orphan, and the saved URL always points to the current bytes.
   const exts = ['jpg', 'png', 'webp']
-  await Promise.all(exts.map(ext =>
-    deleteDropboxFile(accessToken, rootNamespaceId, dropboxPathForShortcode(shortcode, ext))
-      .catch(() => {})  // not_found is expected for unused extensions
-  ))
+  // Also clean up legacy "source-frame.{ext}" from before the slot rename.
+  const legacyPaths = slot === 'start'
+    ? exts.map(ext => `/Palm Ops/Inspo Frames/${shortcode}/source-frame.${ext}`)
+    : []
+  await Promise.all([
+    ...exts.map(ext =>
+      deleteDropboxFile(accessToken, rootNamespaceId, dropboxPathForShortcode(shortcode, ext, slot))
+        .catch(() => {})
+    ),
+    ...legacyPaths.map(p =>
+      deleteDropboxFile(accessToken, rootNamespaceId, p).catch(() => {})
+    ),
+  ])
 }
 
 // POST — body: { frameDataUrl?, sourceUrl?, inspoRecordId, shortcode }
@@ -55,10 +70,12 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { frameDataUrl, sourceUrl, inspoRecordId, shortcode } = await request.json()
+    const { frameDataUrl, sourceUrl, inspoRecordId, shortcode, slot } = await request.json()
     if (!frameDataUrl && !sourceUrl) return NextResponse.json({ error: 'Missing frameDataUrl or sourceUrl' }, { status: 400 })
     if (!inspoRecordId) return NextResponse.json({ error: 'Missing inspoRecordId' }, { status: 400 })
     if (!shortcode) return NextResponse.json({ error: 'Missing shortcode' }, { status: 400 })
+    const slotKey = slot === 'end' ? 'end' : 'start'
+    const fieldName = SLOT_FIELDS[slotKey]
 
     let buf, safeExt
     if (frameDataUrl) {
@@ -84,15 +101,15 @@ export async function POST(request) {
     await ensureFolder(accessToken, rootNamespaceId, '/Palm Ops/Inspo Frames')
     await ensureFolder(accessToken, rootNamespaceId, `/Palm Ops/Inspo Frames/${shortcode}`)
 
-    await nukeAllVariants(accessToken, rootNamespaceId, shortcode)
+    await nukeAllVariants(accessToken, rootNamespaceId, shortcode, slotKey)
 
-    const dropboxPath = dropboxPathForShortcode(shortcode, safeExt)
+    const dropboxPath = dropboxPathForShortcode(shortcode, safeExt, slotKey)
     await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, buf, { overwrite: true })
     const sharedLink = await createDropboxSharedLink(accessToken, rootNamespaceId, dropboxPath)
     const url = `${rawDropboxUrl(sharedLink)}&t=${Date.now()}`
 
     await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, {
-      'Recreate Source Frame URL': url,
+      [fieldName]: url,
     })
 
     return NextResponse.json({ ok: true, url, path: dropboxPath })
@@ -106,17 +123,18 @@ export async function DELETE(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { inspoRecordId, shortcode } = await request.json()
+    const { inspoRecordId, shortcode, slot } = await request.json()
     if (!inspoRecordId) return NextResponse.json({ error: 'Missing inspoRecordId' }, { status: 400 })
+    const slotKey = slot === 'end' ? 'end' : 'start'
 
     if (shortcode) {
       const accessToken = await getDropboxAccessToken()
       const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
-      await nukeAllVariants(accessToken, rootNamespaceId, shortcode)
+      await nukeAllVariants(accessToken, rootNamespaceId, shortcode, slotKey)
     }
 
     await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, {
-      'Recreate Source Frame URL': '',
+      [SLOT_FIELDS[slotKey]]: '',
     })
 
     return NextResponse.json({ ok: true })
