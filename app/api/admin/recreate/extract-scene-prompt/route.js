@@ -221,14 +221,13 @@ export async function POST(request) {
         const promptField = slotKey === 'end' ? 'Recreate End Scene Prompt' : 'Recreate Scene Prompt'
         const negativeField = slotKey === 'end' ? 'Recreate End Scene Negative' : 'Recreate Scene Negative'
         const shotField = slotKey === 'end' ? 'Recreate End Shot Type' : 'Recreate Shot Type'
+        const notesField = slotKey === 'end' ? 'Recreate End Notes' : 'Recreate Notes'
         const patch = {
           [promptField]: positivePrompt,
           [negativeField]: negativePrompt,
           [shotField]: shotType,
+          [notesField]: finalNotes,
         }
-        // Notes are SHARED across slots — only the start call writes them.
-        // (Both extracts run in parallel; whichever finishes second would clobber otherwise.)
-        if (slotKey === 'start') patch['Recreate Notes'] = finalNotes
         await patchAirtableRecord(INSPIRATION_TABLE, inspoRecordId, patch)
       } catch (e) {
         console.warn('[extract-scene-prompt] Airtable cache write failed:', e.message)

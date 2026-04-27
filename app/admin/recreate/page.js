@@ -209,8 +209,13 @@ export default function RecreatePage() {
     ...prev,
     start: typeof updater === 'function' ? updater(prev.start) : updater,
   }))
-  // Per-reel admin notes injected into Sonnet (not in the system prompt)
-  const [userNotes, setUserNotes] = useState('')
+  // Per-frame admin notes injected into Sonnet. Mostly overlap (room
+  // constants) but each frame has its own quirks (hair direction, body angle,
+  // gaze) so the user can edit either independently.
+  const [notesBySlot, setNotesBySlot] = useState({ start: '', end: '' })
+  // Backward-compat alias for downstream paths that still talk "userNotes"
+  const userNotes = notesBySlot.start
+  const setUserNotes = (v) => setNotesBySlot(prev => ({ ...prev, start: typeof v === 'function' ? v(prev.start) : v }))
   // Toggle for sending source frame as image[0] to anchor exact composition
   const [preserveScene, setPreserveScene] = useState(false)
 
@@ -261,7 +266,8 @@ export default function RecreatePage() {
     if (!frame) return null
     const body = frame.startsWith('data:') ? { frameDataUrl: frame } : { frameUrl: frame }
     if (lookup?.id) body.inspoRecordId = lookup.id
-    if (userNotes?.trim()) body.userNotes = userNotes
+    const slotNotes = notesBySlot[slot]
+    if (slotNotes?.trim()) body.userNotes = slotNotes
     body.slot = slot
     const res = await fetch('/api/admin/recreate/extract-scene-prompt', {
       method: 'POST',
@@ -301,10 +307,14 @@ export default function RecreatePage() {
         }
         return next
       })
-      // Pull the auto-drafted (or user-echoed) notes from the start call;
-      // both calls produce the same notes since they're shared.
-      const startResult = results.find(r => r.slot === 'start')?.data
-      if (startResult?.reelSpecificNotes) setUserNotes(startResult.reelSpecificNotes)
+      // Update notes per slot — each frame gets its own auto-drafted set
+      setNotesBySlot(prev => {
+        const next = { ...prev }
+        for (const { slot, data } of results) {
+          if (data?.reelSpecificNotes) next[slot] = data.reelSpecificNotes
+        }
+        return next
+      })
     } catch (e) { setSceneError(e.message) }
     finally { setExtractingScene(false) }
   }
@@ -505,7 +515,10 @@ export default function RecreatePage() {
             negative: d.recreateMotionNegative || '',
           })
         }
-        if (d?.recreateNotes) setUserNotes(d.recreateNotes)
+        setNotesBySlot({
+          start: d?.recreateNotes || '',
+          end: d?.recreateEndNotes || '',
+        })
         if (d?.recreateSourceFrameUrl || d?.recreateEndFrameUrl) {
           setFrames({
             start: d.recreateSourceFrameUrl || null,
@@ -687,24 +700,33 @@ export default function RecreatePage() {
         </div>
 
         <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Reel-specific notes
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
-              {userNotes ? 'Will be used literally — clear to let Sonnet auto-draft' : 'Sonnet will auto-draft on next extract'}
-            </div>
+          <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+            Reel-specific notes (per frame)
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', fontStyle: 'italic', marginBottom: '6px' }}>
-            Constants of the reel — camera tilt, lighting characteristics, gear placement, hair direction, foot placement, wardrobe specifics. Leave empty for Sonnet to draft from the frame; edit and re-extract to override.
+          <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', fontStyle: 'italic', marginBottom: '8px' }}>
+            Each frame gets its own notes since per-frame quirks (hair direction, body angle, gaze) differ even though room constants overlap. Leave empty → Sonnet drafts from the frame. Edit + re-extract to override.
           </div>
-          <textarea
-            value={userNotes}
-            onChange={e => setUserNotes(e.target.value)}
-            placeholder="(Sonnet will fill this in automatically when you click Extract — or pre-fill manually to override.)"
-            rows={5}
-            style={{ width: '100%', padding: '8px', fontSize: '11px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: frames.end ? '1fr 1fr' : '1fr', gap: '10px' }}>
+            {['start', 'end'].filter(s => s === 'start' || frames.end).map(slot => (
+              <div key={slot}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 700, color: slot === 'start' ? 'var(--palm-pink)' : 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {slot === 'start' ? 'Start frame notes' : 'End frame notes'}
+                  </div>
+                  <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
+                    {notesBySlot[slot] ? 'literal' : 'auto-draft'}
+                  </div>
+                </div>
+                <textarea
+                  value={notesBySlot[slot]}
+                  onChange={e => setNotesBySlot(prev => ({ ...prev, [slot]: e.target.value }))}
+                  placeholder="(Sonnet drafts on Extract — or pre-fill to override.)"
+                  rows={5}
+                  style={{ width: '100%', padding: '8px', fontSize: '10px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--foreground)', resize: 'vertical' }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         <button
