@@ -373,7 +373,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
             flexShrink: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '10px', minHeight: '24px' }}>
             <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Inputs ({inputs.length}/{MAX_INPUTS})
             </div>
@@ -383,7 +383,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
               </div>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 70px)', gridAutoRows: '70px', gap: '5px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 72px)', gridAutoRows: '72px', gap: '5px' }}>
             {inputs.slice(0, MAX_INPUTS).map((att, i) => (
               <div key={att.id} style={{ position: 'relative', borderRadius: '5px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -449,28 +449,61 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
           )}
         </div>
 
-        {/* GALLERY — AI Reference + candidates, to the right of inputs */}
-        {showGallery && (
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                AI Generations
-                {savedCandidates.length > 0 && <span style={{ marginLeft: '6px', textTransform: 'none', color: 'var(--foreground-subtle)' }}>· {savedCandidates.length} candidate{savedCandidates.length === 1 ? '' : 's'}</span>}
-                {inFlight.length > 0 && <span style={{ marginLeft: '6px', textTransform: 'none', color: 'var(--palm-pink)' }}>· {inFlight.length} generating</span>}
+        {/* GALLERY — AI Reference + candidates + inline Generate controls */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '12px', flexWrap: 'wrap', minHeight: '24px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              AI Generations
+              {savedCandidates.length > 0 && <span style={{ marginLeft: '6px', textTransform: 'none', color: 'var(--foreground-subtle)' }}>· {savedCandidates.length} candidate{savedCandidates.length === 1 ? '' : 's'}</span>}
+              {inFlight.length > 0 && <span style={{ marginLeft: '6px', textTransform: 'none', color: 'var(--palm-pink)' }}>· {inFlight.length} generating</span>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <label style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Count</label>
+                <input
+                  type="range"
+                  min={1}
+                  max={4}
+                  step={1}
+                  value={count}
+                  onChange={e => setCount(parseInt(e.target.value, 10))}
+                  disabled={generating}
+                  style={{ width: '70px', accentColor: 'var(--palm-pink)', cursor: generating ? 'not-allowed' : 'pointer' }}
+                />
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground)', minWidth: '12px', textAlign: 'right' }}>{count}</span>
               </div>
+              <button
+                onClick={output ? handleRegenerate : handleGenerate}
+                disabled={!canGenerate}
+                style={{
+                  padding: '5px 12px', fontSize: '11px', fontWeight: 700,
+                  background: canGenerate ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
+                  color: canGenerate ? '#060606' : 'var(--foreground-subtle)',
+                  border: 'none', borderRadius: '5px',
+                  cursor: canGenerate ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {generating ? '⏳' : output ? `🔄 Regenerate${count > 1 ? ` (${count})` : ''}` : `✨ Generate${count > 1 ? ` (${count})` : ''}`}
+              </button>
               {savedCandidates.length > 0 && (
                 <button
                   onClick={handleLockIn}
-                  title="Delete candidates and clear this section"
-                  style={{ padding: '3px 10px', fontSize: '10px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '6px', cursor: 'pointer' }}
+                  title="Delete candidates"
+                  style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, background: 'transparent', color: 'var(--palm-pink)', border: '1px solid var(--palm-pink)', borderRadius: '5px', cursor: 'pointer' }}
                 >
                   🔒 Lock In
                 </button>
               )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 130px))', gap: '8px' }}>
+          </div>
+          {!showGallery ? (
+            <div style={{ minHeight: '226px', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic', padding: '12px', textAlign: 'center' }}>
+              {inputs.length === 0 ? 'Add input photos, then click Generate.' : 'Click Generate to create AI references.'}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 124px)', gridAutoRows: '226px', gap: '8px' }}>
               {output && (
-                <div style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in', border: '2px solid #7DD3A4' }}>
+                <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in', border: '2px solid #7DD3A4' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={output.url}
@@ -484,7 +517,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                 </div>
               )}
               {inFlight.map((t) => (
-                <div key={t.taskId} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
+                <div key={t.taskId} style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
                   {t.status === 'processing' && (
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'var(--foreground-muted)', flexDirection: 'column', gap: '4px' }}>
                       <div style={{ width: '18px', height: '18px', border: '2px solid rgba(232,160,160,0.3)', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
@@ -505,7 +538,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                 </div>
               ))}
               {savedCandidates.map((c) => (
-                <div key={c.id} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
+                <div key={c.id} style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={c.url}
@@ -529,8 +562,8 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* PROMPT (collapsible) */}
@@ -550,39 +583,6 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
           </button>
         )}
       </details>
-
-      {/* CONTROLS — count + generate, right-aligned */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '14px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-            Count
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={4}
-            step={1}
-            value={count}
-            onChange={e => setCount(parseInt(e.target.value, 10))}
-            disabled={generating}
-            style={{ width: '90px', accentColor: 'var(--palm-pink)', cursor: generating ? 'not-allowed' : 'pointer' }}
-          />
-          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)', minWidth: '14px', textAlign: 'right' }}>{count}</span>
-        </div>
-        <button
-          onClick={output ? handleRegenerate : handleGenerate}
-          disabled={!canGenerate}
-          style={{
-            padding: '8px 16px', fontSize: '12px', fontWeight: 700,
-            background: canGenerate ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
-            color: canGenerate ? '#060606' : 'var(--foreground-subtle)',
-            border: 'none', borderRadius: '6px',
-            cursor: canGenerate ? 'pointer' : 'not-allowed',
-          }}
-        >
-          {generating ? '⏳ Generating…' : output ? `🔄 Regenerate ${count > 1 ? `(${count})` : ''}` : `✨ Generate ${count > 1 ? `(${count})` : ''}`}
-        </button>
-      </div>
 
       {generating && (
         <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
