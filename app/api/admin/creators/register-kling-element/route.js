@@ -85,7 +85,6 @@ export async function POST(request) {
       description,
       image: primary.url,
       element_refer_list: remaining.map(att => att.url),
-      tag_list: ['creator', aka.toLowerCase().replace(/\s+/g, '-')],
     }
 
     const task = await submitWaveSpeedTask(KLING_ELEMENTS_MODEL, body)
