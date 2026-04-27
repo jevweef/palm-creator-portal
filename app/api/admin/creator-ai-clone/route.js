@@ -10,6 +10,7 @@ const FIELDS = [
   'AI Conversions Enabled',
   'AI Ref Inputs',
   'AI Ref Front', 'AI Ref Back', 'AI Ref Face',
+  'AI Ref Front Candidates', 'AI Ref Back Candidates', 'AI Ref Face Candidates',
 ]
 
 // Shape the Airtable record for the UI.
@@ -42,9 +43,13 @@ function buildState(record) {
   }
 
   const outputs = {}
+  const candidates = {}
   for (const [key, pose] of Object.entries(POSES)) {
     const att = (f[pose.airtableOutputField] || [])[0] || null
     outputs[key] = att ? { id: att.id, url: att.url, filename: att.filename, width: att.width, height: att.height } : null
+    candidates[key] = (f[pose.airtableCandidatesField] || []).map(a => ({
+      id: a.id, url: a.url, filename: a.filename, width: a.width, height: a.height,
+    }))
   }
 
   return {
@@ -55,6 +60,7 @@ function buildState(record) {
     inputs,
     inputsByPose,
     outputs,
+    candidates,
   }
 }
 
@@ -108,27 +114,34 @@ export async function PATCH(request) {
   }
 }
 
-// DELETE — remove an input attachment.
-// Body: { creatorId, attachmentId }
+// DELETE — remove an input attachment OR a candidate attachment.
+// Body: { creatorId, attachmentId, target?: 'inputs' | 'candidates', pose? }
+// Defaults to 'inputs' for backward compat.
 export async function DELETE(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorId, attachmentId } = await request.json()
+    const { creatorId, attachmentId, target = 'inputs', pose } = await request.json()
     if (!creatorId || !attachmentId) return NextResponse.json({ error: 'Missing creatorId or attachmentId' }, { status: 400 })
+
+    let fieldName = 'AI Ref Inputs'
+    if (target === 'candidates') {
+      if (!pose || !POSES[pose]) return NextResponse.json({ error: 'Missing/invalid pose for candidates delete' }, { status: 400 })
+      fieldName = POSES[pose].airtableCandidatesField
+    }
 
     const records = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
-      fields: ['AI Ref Inputs'],
+      fields: [fieldName],
       maxRecords: 1,
     })
     if (!records.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
 
-    const next = (records[0].fields['AI Ref Inputs'] || [])
+    const next = (records[0].fields[fieldName] || [])
       .filter(att => att.id !== attachmentId)
       .map(att => ({ url: att.url, filename: att.filename }))
 
-    await patchAirtableRecord(PALM_CREATORS, creatorId, { 'AI Ref Inputs': next })
+    await patchAirtableRecord(PALM_CREATORS, creatorId, { [fieldName]: next })
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[creator-ai-clone] DELETE error:', err)

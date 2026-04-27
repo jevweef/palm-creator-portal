@@ -57,20 +57,25 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
   const output = state.outputs[pose]
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(null) // { current, total, name }
+  const [uploadProgress, setUploadProgress] = useState(null)
   const [generating, setGenerating] = useState(false)
-  // candidates: [{ taskId, status: 'processing'|'completed'|'failed', outputUrl?, error? }]
-  const [candidates, setCandidates] = useState([])
+  // inFlight: in-progress task IDs (component state — for showing spinners
+  // while WaveSpeed is still working). Once each task completes, the saved
+  // candidate appears in `state.candidates[pose]` from Airtable.
+  const [inFlight, setInFlight] = useState([]) // [{ taskId, status, error? }]
   const [count, setCount] = useState(1)
-  const [approving, setApproving] = useState(false)
+  const [approving, setApproving] = useState(null) // url being approved
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
-  // Poll each in-flight candidate independently. Stops when none are processing.
+  const savedCandidates = state.candidates?.[pose] || []
+
+  // Poll each in-flight task. On completion the server saves to Dropbox +
+  // Airtable Candidates field, so we trigger an onRefresh to pick up the
+  // new saved candidate, and remove the task from inFlight.
   useEffect(() => {
-    if (!candidates.length) return
-    const inflight = candidates.filter(c => c.status === 'processing')
-    if (!inflight.length) return
+    const processing = inFlight.filter(t => t.status === 'processing')
+    if (!processing.length) return
     let cancelled = false
 
     const pollOne = async (taskId) => {
@@ -78,38 +83,40 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
         const res = await fetch('/api/admin/creator-ai-clone/poll', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskId }),
+          body: JSON.stringify({ taskId, creatorId, pose }),
         })
         const data = await res.json()
         if (cancelled) return
         if (!res.ok) {
-          setCandidates(prev => prev.map(c => c.taskId === taskId ? { ...c, status: 'failed', error: data.error || `${res.status}` } : c))
+          setInFlight(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'failed', error: data.error || `${res.status}` } : t))
           return
         }
         if (data.status === 'completed') {
-          setCandidates(prev => prev.map(c => c.taskId === taskId ? { ...c, status: 'completed', outputUrl: data.outputUrl } : c))
+          // Saved to Airtable. Refresh state to pick it up, then drop from inFlight.
+          await onRefresh()
+          setInFlight(prev => prev.filter(t => t.taskId !== taskId))
         } else if (data.status === 'failed') {
-          setCandidates(prev => prev.map(c => c.taskId === taskId ? { ...c, status: 'failed', error: data.error } : c))
+          setInFlight(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'failed', error: data.error } : t))
         } else {
           setTimeout(() => pollOne(taskId), 4000)
         }
       } catch (e) {
         if (cancelled) return
-        setCandidates(prev => prev.map(c => c.taskId === taskId ? { ...c, status: 'failed', error: e.message } : c))
+        setInFlight(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'failed', error: e.message } : t))
       }
     }
 
-    inflight.forEach(c => pollOne(c.taskId))
+    processing.forEach(t => pollOne(t.taskId))
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidates.map(c => c.taskId).join(',')])
+  }, [inFlight.map(t => `${t.taskId}:${t.status}`).join(',')])
 
-  // When all candidates are done, flip generating off
+  // When no tasks are still processing, flip generating off
   useEffect(() => {
-    if (!candidates.length) return
-    const inflight = candidates.filter(c => c.status === 'processing')
-    if (inflight.length === 0) setGenerating(false)
-  }, [candidates])
+    if (!generating) return
+    const processing = inFlight.filter(t => t.status === 'processing')
+    if (processing.length === 0) setGenerating(false)
+  }, [inFlight, generating])
 
   // Direct browser → Dropbox upload. Bypasses Vercel's 4.5MB body limit
   // entirely (server never sees the file bytes). Photos go up at full
@@ -220,7 +227,6 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
   const handleGenerate = async () => {
     setError('')
     setGenerating(true)
-    setCandidates([]) // wipe any previous candidate set
     try {
       const res = await fetch('/api/admin/creator-ai-clone/generate', {
         method: 'POST',
@@ -229,7 +235,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generate failed')
-      setCandidates(data.taskIds.map(id => ({ taskId: id, status: 'processing' })))
+      setInFlight(prev => [...prev, ...data.taskIds.map(id => ({ taskId: id, status: 'processing' }))])
     } catch (e) { setError(e.message); setGenerating(false) }
   }
 
@@ -238,7 +244,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
   const handleRegenerate = () => handleGenerate()
 
   const handleApprove = async (outputUrl) => {
-    setApproving(true)
+    setApproving(outputUrl)
     setError('')
     try {
       const res = await fetch('/api/admin/creator-ai-clone/approve', {
@@ -248,10 +254,23 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Approve failed')
-      setCandidates([])
       await onRefresh()
     } catch (e) { setError(e.message) }
-    finally { setApproving(false) }
+    finally { setApproving(null) }
+  }
+
+  const handleDeleteCandidate = async (attachmentId) => {
+    setError('')
+    try {
+      const res = await fetch('/api/admin/creator-ai-clone', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, attachmentId, target: 'candidates', pose }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Delete failed')
+      await onRefresh()
+    } catch (e) { setError(e.message) }
   }
 
   const [resyncing, setResyncing] = useState(false)
@@ -307,7 +326,7 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
       </div>
 
       {/* Body — inputs (left) + output/candidates (right when present) */}
-      <div style={{ display: 'grid', gridTemplateColumns: (output || candidates.length) ? 'minmax(0, 1fr) minmax(220px, 320px)' : 'minmax(0, 1fr)', gap: '14px', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: (output || savedCandidates.length || inFlight.length) ? 'minmax(0, 1fr) minmax(220px, 320px)' : 'minmax(0, 1fr)', gap: '14px', alignItems: 'start' }}>
         {/* Inputs */}
         <div
           {...dragHandlers}
@@ -399,79 +418,93 @@ function PoseCard({ creatorId, pose, state, prompts, onPromptChange, onRefresh, 
           )}
         </div>
 
-        {/* Right column: candidates (taking precedence) OR approved output */}
-        {candidates.length > 0 ? (
+        {/* Right column: approved output (top) + candidates gallery (bottom) */}
+        {(output || savedCandidates.length > 0 || inFlight.length > 0) ? (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Candidates ({candidates.filter(c => c.status === 'completed').length}/{candidates.length})
+            {output && (
+              <div style={{ marginBottom: savedCandidates.length || inFlight.length ? '12px' : 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    AI Reference
+                  </div>
+                  <button
+                    onClick={handleResync}
+                    disabled={resyncing}
+                    title="Re-fetch from Dropbox"
+                    style={{ padding: '2px 6px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: resyncing ? 'wait' : 'pointer' }}
+                  >
+                    {resyncing ? '…' : '🔁 Sync'}
+                  </button>
+                </div>
+                <div style={{ position: 'relative', aspectRatio: '9/16', maxHeight: '320px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={output.url}
+                    alt={output.filename}
+                    onClick={() => onZoom(output.url)}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                </div>
               </div>
-              <button
-                onClick={() => setCandidates([])}
-                style={{ padding: '2px 6px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}
-              >Clear</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: candidates.length === 1 ? '1fr' : 'repeat(2, 1fr)', gap: '6px' }}>
-              {candidates.map((c) => (
-                <div key={c.taskId} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
-                  {c.status === 'processing' && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--foreground-muted)', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ width: '20px', height: '20px', border: '2px solid rgba(232,160,160,0.3)', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
-                      <span>Generating…</span>
+            )}
+
+            {(savedCandidates.length > 0 || inFlight.length > 0) && (
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                  Candidates ({savedCandidates.length}{inFlight.length ? ` + ${inFlight.length} generating` : ''})
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                  {/* In-flight tasks: spinners */}
+                  {inFlight.map((t) => (
+                    <div key={t.taskId} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
+                      {t.status === 'processing' && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--foreground-muted)', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ width: '20px', height: '20px', border: '2px solid rgba(232,160,160,0.3)', borderTopColor: 'var(--palm-pink)', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
+                          <span>Generating…</span>
+                        </div>
+                      )}
+                      {t.status === 'failed' && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#E87878', textAlign: 'center', padding: '6px' }}>
+                          <div>
+                            <div>✕ {t.error || 'Failed'}</div>
+                            <button
+                              onClick={() => setInFlight(prev => prev.filter(x => x.taskId !== t.taskId))}
+                              style={{ marginTop: '4px', padding: '2px 6px', fontSize: '9px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer' }}
+                            >Dismiss</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {c.status === 'failed' && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#E87878', textAlign: 'center', padding: '6px' }}>
-                      ✕ {c.error || 'Failed'}
-                    </div>
-                  )}
-                  {c.status === 'completed' && c.outputUrl && (
-                    <>
+                  ))}
+
+                  {/* Saved candidates: persisted in Dropbox + Airtable */}
+                  {savedCandidates.map((c) => (
+                    <div key={c.id} style={{ position: 'relative', aspectRatio: '9/16', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={c.outputUrl}
-                        alt="candidate"
-                        onClick={() => onZoom(c.outputUrl)}
+                        src={c.url}
+                        alt={c.filename}
+                        onClick={() => onZoom(c.url)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
                       />
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleApprove(c.outputUrl) }}
-                        disabled={approving}
-                        title="Approve this one as the reference"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteCandidate(c.id) }}
+                        title="Delete this candidate"
+                        style={{ position: 'absolute', top: '4px', right: '4px', width: '18px', height: '18px', fontSize: '11px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', lineHeight: 1, padding: 0 }}
+                      >×</button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleApprove(c.url) }}
+                        disabled={!!approving}
+                        title="Approve as the reference"
                         style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', padding: '4px 6px', fontSize: '10px', fontWeight: 700, background: 'var(--palm-pink)', color: '#060606', border: 'none', borderRadius: '4px', cursor: approving ? 'wait' : 'pointer' }}
                       >
-                        {approving ? '…' : '✓ Approve'}
+                        {approving === c.url ? '…' : '✓ Approve'}
                       </button>
-                    </>
-                  )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        ) : output ? (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                AI Reference
               </div>
-              <button
-                onClick={handleResync}
-                disabled={resyncing}
-                title="Re-fetch from Dropbox (use if the displayed image looks stale)"
-                style={{ padding: '2px 6px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: resyncing ? 'wait' : 'pointer' }}
-              >
-                {resyncing ? '…' : '🔁 Sync'}
-              </button>
-            </div>
-            <div style={{ position: 'relative', aspectRatio: '9/16', maxHeight: '320px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', cursor: 'zoom-in' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={output.url}
-                alt={output.filename}
-                onClick={() => onZoom(output.url)}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              />
-            </div>
+            )}
           </div>
         ) : null}
       </div>
