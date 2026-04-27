@@ -970,6 +970,7 @@ export default function PostsPage() {
   // ready, admin clicks "Send to Grid" to move it off the prep list into
   // the Grid Planner for scheduling + sending.
   const filter = 'Prepping'
+  const [creatorFilter, setCreatorFilter] = useState('all')
   const [telegramModal, setTelegramModal] = useState(null)
   const [toast, setToast] = useState(null)
   const [logModal, setLogModal] = useState(false)
@@ -999,13 +1000,34 @@ export default function PostsPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const posts = data?.posts || []
-  const filtered = posts.filter(p => matchesFilter(p, filter))
+  const allPrepping = posts.filter(p => matchesFilter(p, filter))
+  const filtered = creatorFilter === 'all'
+    ? allPrepping
+    : allPrepping.filter(p => p.creator?.id === creatorFilter)
+
+  // Build creator dropdown options from whoever has prepping posts
+  const creatorOptions = (() => {
+    const m = new Map()
+    for (const p of allPrepping) {
+      if (p.creator?.id && !m.has(p.creator.id)) {
+        m.set(p.creator.id, p.creator.name || '(unnamed)')
+      }
+    }
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  })()
 
   return (
     <div style={{ color: 'var(--foreground)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value)}
+            style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 500, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '7px', cursor: 'pointer', outline: 'none' }}>
+            <option value="all">All creators</option>
+            {creatorOptions.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
           <button onClick={() => setLogModal(true)} style={{ background: 'rgba(125, 211, 164, 0.08)', border: '1px solid transparent', color: '#7DD3A4', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
             + Log Historical Post
           </button>
@@ -1017,7 +1039,11 @@ export default function PostsPage() {
 
       {/* Header — Post Prep is prepping-only, no filter tabs */}
       <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '24px' }}>
-        {filtered.length} post{filtered.length !== 1 && 's'} to prep · Use <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>Send to Grid</span> when ready
+        {filtered.length} post{filtered.length !== 1 && 's'} to prep
+        {creatorFilter !== 'all' && allPrepping.length !== filtered.length && (
+          <span> · filtered from {allPrepping.length}</span>
+        )}
+        {' '}· Use <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>Send to Grid</span> when ready
       </div>
 
       {loading && <div style={{ color: 'var(--foreground-muted)', textAlign: 'center', padding: '60px' }}>Loading...</div>}

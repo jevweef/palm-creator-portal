@@ -1829,6 +1829,7 @@ function ForReview({ showToast }) {
   const [updating, setUpdating] = useState(null)
   const [revisionTask, setRevisionTask] = useState(null)
   const [page, setPage] = useState(0)
+  const [creatorFilter, setCreatorFilter] = useState('all')
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -1889,28 +1890,54 @@ function ForReview({ showToast }) {
     return <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px 0' }}>Loading review queue...</div>
   }
 
+  // Build creator dropdown options from whoever has tasks in the queue
+  const creatorOptions = (() => {
+    const m = new Map()
+    for (const t of tasks) {
+      if (t.creator?.id && !m.has(t.creator.id)) {
+        m.set(t.creator.id, t.creator.name || '(unnamed)')
+      }
+    }
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  })()
+  const filteredTasks = creatorFilter === 'all'
+    ? tasks
+    : tasks.filter(t => t.creator?.id === creatorFilter)
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: 0 }}>
-          {tasks.length} edit{tasks.length !== 1 ? 's' : ''} waiting for your review
+          {filteredTasks.length} edit{filteredTasks.length !== 1 ? 's' : ''} waiting for your review
+          {creatorFilter !== 'all' && tasks.length !== filteredTasks.length && (
+            <span style={{ marginLeft: '6px' }}>· filtered from {tasks.length}</span>
+          )}
         </p>
-        <button onClick={fetchTasks}
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
-          Refresh
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <select value={creatorFilter} onChange={e => { setCreatorFilter(e.target.value); setPage(0) }}
+            style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 500, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '7px', cursor: 'pointer', outline: 'none' }}>
+            <option value="all">All creators</option>
+            {creatorOptions.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
+          <button onClick={fetchTasks}
+            style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {tasks.length === 0 ? (
+      {filteredTasks.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          No edits waiting for review.
+          {creatorFilter === 'all' ? 'No edits waiting for review.' : 'No edits from this creator waiting for review.'}
         </div>
       ) : (() => {
         // Paginate to REVIEW_PAGE_SIZE per page; clamp the page if approvals
         // dropped tasks from later pages and we're now past the end.
-        const totalPages = Math.max(1, Math.ceil(tasks.length / REVIEW_PAGE_SIZE))
+        const totalPages = Math.max(1, Math.ceil(filteredTasks.length / REVIEW_PAGE_SIZE))
         const safePage = Math.min(page, totalPages - 1)
-        const pagedTasks = tasks.slice(safePage * REVIEW_PAGE_SIZE, (safePage + 1) * REVIEW_PAGE_SIZE)
+        const pagedTasks = filteredTasks.slice(safePage * REVIEW_PAGE_SIZE, (safePage + 1) * REVIEW_PAGE_SIZE)
         return (<>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
           {pagedTasks.map(task => {
