@@ -66,12 +66,16 @@ export async function POST(request) {
       seed: -1,
     }
 
+    console.log(`[swap-creator] Sending to Wan 2.7 — ${referenceUrls.length} ${poseConfig.fileLabel} photos for ${aka}:`)
+    refInputs.forEach((att, i) => console.log(`  ${i + 1}. ${att.filename}`))
+
     const task = await submitWaveSpeedTask(WAN_MODEL, body)
     return NextResponse.json({
       ok: true,
       taskId: task.id,
       referenceCount: referenceUrls.length,
       pose: poseKey,
+      referenceFilenames: refInputs.map(att => att.filename),
     })
   } catch (err) {
     console.error('[recreate/swap-creator] error:', err)

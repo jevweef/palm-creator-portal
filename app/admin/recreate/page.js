@@ -246,7 +246,7 @@ export default function RecreatePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Swap submit failed')
       setSwapTaskId(data.taskId)
-      setSwapMeta({ pose: data.pose, referenceCount: data.referenceCount })
+      setSwapMeta({ pose: data.pose, referenceCount: data.referenceCount, referenceFilenames: data.referenceFilenames || [] })
     } catch (e) { setSwapError(e.message); setSwapping(false) }
   }
 
@@ -532,9 +532,9 @@ export default function RecreatePage() {
       {/* Step 5 — Swap Creator into the Frame via Wan 2.7 (API) */}
       <StepCard n={5} title="Swap Creator into the Frame (Wan 2.7)" status={swapResult ? null : 'auto'}>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
-          Sends the source frame + {creator ? <strong style={{ color: 'var(--foreground)' }}>{creator.aka || creator.name}&apos;s</strong> : 'the creator\'s'} reference input photos
+          Sends only {creator ? <strong style={{ color: 'var(--foreground)' }}>{creator.aka || creator.name}&apos;s</strong> : 'the creator\'s'} reference input photos
           (auto-picked: <strong style={{ color: 'var(--foreground)' }}>{scenePrompt.shotType ? (scenePrompt.shotType === 'close-up' ? 'Close Up Face' : scenePrompt.shotType === 'back' ? 'Back View' : 'Front View') : 'pending Step 3'}</strong>)
-          to Wan 2.7 image-edit. Result loads inline.
+          + the scene prompt to Wan 2.7. The source frame stays with Sonnet — never sent to Wan.
         </div>
         <button
           onClick={handleSwap}
@@ -549,9 +549,31 @@ export default function RecreatePage() {
         >
           {swapping ? '⏳ Wan 2.7 generating… (~30-60s)' : '✨ Generate creator-swapped image'}
         </button>
-        {swapMeta && swapping && (
-          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
-            Using {swapMeta.referenceCount} {swapMeta.pose} reference photos.
+        {swapMeta && (
+          <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--foreground-muted)' }}>
+            <div style={{ fontStyle: 'italic', marginBottom: '4px' }}>
+              Using {swapMeta.referenceCount} {swapMeta.pose} reference photos:
+            </div>
+            {swapMeta.referenceFilenames?.length > 0 && (
+              <ul style={{ margin: 0, paddingLeft: '18px', fontFamily: 'monospace', fontSize: '10px', color: 'var(--foreground-subtle)', lineHeight: 1.6 }}>
+                {swapMeta.referenceFilenames.map((f, i) => <li key={i}>{f}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {scenePrompt.positive && (
+          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--foreground-muted)' }}>
+            <label>Override shot type:</label>
+            <select
+              value={scenePrompt.shotType}
+              onChange={e => setScenePrompt(s => ({ ...s, shotType: e.target.value }))}
+              style={{ padding: '3px 8px', fontSize: '11px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: 'var(--foreground)' }}
+            >
+              <option value="close-up">close-up → Close Up Face inputs</option>
+              <option value="front">front → Front View inputs</option>
+              <option value="back">back → Back View inputs</option>
+            </select>
           </div>
         )}
         {swapError && (
