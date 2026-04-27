@@ -30,18 +30,20 @@ positivePrompt rules:
 - MUST start with this exact phrase: "Exact same woman as in the reference images,"
   This is the identity anchor that tells Wan 2.7 to use the reference photos for face/hair/body/skin. Without it the model defaults to a generic woman.
 - One paragraph, copy-paste ready
-- Hyper-realistic raw iPhone photo, shot on iPhone camera, ultra detailed, professional, sharp focus, natural skin texture, minimal editing, no cinematic look, 9:16, 4K
+- Hyper-realistic raw iPhone photo, shot on iPhone camera, ultra detailed, sharp focus, natural skin texture, minimal editing, no cinematic look, 9:16, 4K
 - Describe clothing precisely (garment type, color, fit, brand if visible on tag/waistband only, NOT printed graphics)
 - Describe action / pose / hand position / what subject is holding
 - Describe whether it's selfie / mirror selfie / tripod static / handheld / over-the-shoulder
 - Describe setting in detail (location, surfaces, furniture, decor visible)
 - Describe lighting (natural daylight, soft, even, harsh sunlight, indoor warm, etc.)
-- Describe vibe (candid, social-media lifestyle, casual at-home, etc.)
+- CAPTURE THE REALISM OF THE SPACE — this is critical. AI image models default to staged magazine-style perfection, which makes the result look fake. Aggressively describe lived-in details that are actually visible: unmade bed, wrinkled sheets, scattered clothing, items on the floor, partially open closet, visible ring light or tripod, slightly drawn curtains, half-empty water bottle, makeup on the dresser, charging cables, etc. If the room is genuinely tidy, say "ordinary room, no styling" — but never default to clean/polished if the inspo shows otherwise.
+- Describe vibe in plain terms: "casual at-home, filming in her own bedroom, not styled" beats "elegant lifestyle photography". Use words like "candid", "lived-in", "real apartment", "everyday", "Tuesday afternoon" rather than "luxurious", "elegant", "magazine".
 - DO NOT describe the subject's physical features (hair, face, body, skin, age, ethnicity, makeup) — those come from the reference photos via the anchor phrase
 
 negativePrompt rules:
 - Comma-separated tokens, copy-paste ready
 - Always include: cartoon, anime, illustration, painting, CGI, 3D render, plastic skin, airbrushed, beauty filter, cinematic lighting, studio lighting, blurry, low resolution, jpeg artifacts, watermark, text, logo, deformed face, asymmetric eyes, extra fingers, missing fingers, distorted hands, malformed hands, extra limbs, broken anatomy, mannequin, AI artifacts, uncanny valley, double face, multiple people, child, underage features, nudity, censor bars
+- ALWAYS include lived-in / authenticity blockers (counter Wan 2.7's magazine-style bias): magazine photo, magazine-style, staged, professionally styled, interior design photography, hotel suite, real estate listing, perfectly tidy, spotless, showroom, polished, immaculate, decorator-styled, professionally lit interior, glossy lifestyle photo, perfectly made bed, hospital corners, perfectly arranged, retouched, glossy magazine
 - Add framing-specific blockers based on the shot type — e.g. if NOT a mirror selfie, add: mirror selfie, mirror reflection, phone in hand, holding a smartphone, selfie pose. If NOT a back shot, add: rear view, back to camera. Etc.
 - If subject is holding a specific object (hairbrush, cup), add: multiple {object}s, two {object}s
 - If clothing is specific (e.g. white t-shirt), add competing clothing: black shirt, dress, jacket, coat`
@@ -125,8 +127,8 @@ export async function POST(request) {
       }, { status: 500 })
     }
 
-    const { shotType, negativePrompt } = toolUse.input
-    let { positivePrompt } = toolUse.input
+    const { shotType } = toolUse.input
+    let { positivePrompt, negativePrompt } = toolUse.input
     if (!shotType || !positivePrompt || !negativePrompt) {
       return NextResponse.json({ error: 'Tool input missing required fields', raw: toolUse.input }, { status: 500 })
     }
