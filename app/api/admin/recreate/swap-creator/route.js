@@ -8,7 +8,9 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const PALM_CREATORS = 'Palm Creators'
-const WAN_MODEL = 'alibaba/wan-2.7/image-edit'
+// Pro tier produces noticeably better skin/hair detail than standard.
+// $0.075/run vs $0.03 — worth it given output feeds the rest of the pipeline.
+const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 
 // shotType → pose key in POSES → AI Ref Inputs filename prefix
 const SHOT_TO_POSE = { 'close-up': 'face', 'front': 'front', 'back': 'back' }
@@ -145,7 +147,8 @@ export async function POST(request) {
       promptForWan = `${finalPrompt}\n\nNegative prompt: ${negativePrompt.trim()}`
     }
 
-    const body = { images, prompt: promptForWan, size: '1080*1920', seed: -1 }
+    // Max within Wan 2.7 Pro's 2048-per-side envelope, maintains 9:16
+    const body = { images, prompt: promptForWan, size: '1152*2048', seed: -1 }
 
     console.log(`[swap-creator] Sending to Wan 2.7 — mode=${mode}, ${images.length} input images for ${aka}:`)
     referenceFilenames.forEach((f, i) => console.log(`  ${i + 1}. ${f}`))
