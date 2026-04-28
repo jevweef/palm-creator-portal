@@ -410,7 +410,7 @@ function PhotoCard({ photo, view, pending, onToggle, onClick }) {
             {formatDate(photo.createdTime)}
           </div>
           <button
-            onClick={onToggle}
+            onClick={(e) => { e.stopPropagation(); onToggle?.() }}
             disabled={pending}
             style={{
               padding: '8px 10px',
@@ -429,6 +429,7 @@ function PhotoCard({ photo, view, pending, onToggle, onClick }) {
             href={photo.dropboxLink}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             style={{
               padding: '6px 10px',
               background: 'rgba(255,255,255,0.08)',
@@ -446,6 +447,266 @@ function PhotoCard({ photo, view, pending, onToggle, onClick }) {
       )}
     </div>
   )
+}
+
+function PhotoModal({ photos, photoId, view, pending, onClose, onNavigate, onToggle }) {
+  const idx = photos.findIndex(p => p.id === photoId)
+  const photo = idx >= 0 ? photos[idx] : null
+  const prevPhoto = idx > 0 ? photos[idx - 1] : null
+  const nextPhoto = idx >= 0 && idx < photos.length - 1 ? photos[idx + 1] : null
+
+  // Image source priority same as the card. CDN > Airtable thumb > raw Dropbox.
+  // For the modal we prefer thumbFull (largest Airtable variant) when no CDN
+  // URL exists, since the modal renders bigger than the card.
+  const imgSrc = photo?.cdnUrl || photo?.thumbFull || photo?.thumbLarge || rawDropboxUrl(photo?.dropboxLink)
+
+  // Keyboard nav: Esc closes, ←/→ flip photos.
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      } else if (e.key === 'ArrowLeft' && prevPhoto) {
+        e.preventDefault()
+        onNavigate(prevPhoto.id)
+      } else if (e.key === 'ArrowRight' && nextPhoto) {
+        e.preventDefault()
+        onNavigate(nextPhoto.id)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, onNavigate, prevPhoto, nextPhoto])
+
+  if (!photo) return null
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.92)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'stretch',
+        justifyContent: 'center',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          display: 'flex',
+          width: '100%',
+          height: '100%',
+          maxWidth: '100vw',
+        }}
+      >
+        {/* Left: photo + overlay nav */}
+        <div style={{ flex: '1 1 auto', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={photo.id}
+            src={imgSrc}
+            alt={photo.name}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+          />
+
+          {/* Prev nav — overlay on left edge */}
+          {prevPhoto && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate(prevPhoto.id) }}
+              aria-label="Previous photo"
+              style={navOverlayStyle('left')}
+            >
+              ‹
+            </button>
+          )}
+
+          {/* Next nav — overlay on right edge */}
+          {nextPhoto && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate(nextPhoto.id) }}
+              aria-label="Next photo"
+              style={navOverlayStyle('right')}
+            >
+              ›
+            </button>
+          )}
+
+          {/* Close button — top-right of image area, also visible if right pane scrolls */}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              position: 'absolute',
+              top: 16,
+              left: 16,
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.6)',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,0.15)',
+              fontSize: 20,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ✕
+          </button>
+
+          {/* Position indicator */}
+          <div style={{
+            position: 'absolute',
+            top: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '6px 14px',
+            background: 'rgba(0,0,0,0.6)',
+            color: 'rgba(255,255,255,0.85)',
+            borderRadius: '999px',
+            fontSize: 12,
+            border: '1px solid rgba(255,255,255,0.1)',
+          }}>
+            {idx + 1} / {photos.length}
+          </div>
+        </div>
+
+        {/* Right: action panel */}
+        <div style={{
+          width: '340px',
+          flexShrink: 0,
+          background: '#0a0a0a',
+          borderLeft: '1px solid rgba(255,255,255,0.08)',
+          padding: '24px 22px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '18px',
+          overflowY: 'auto',
+        }}>
+          <div>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)', marginBottom: 6 }}>
+              Photo
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--foreground)', wordBreak: 'break-all', lineHeight: 1.4 }}>
+              {photo.name}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)', marginBottom: 6 }}>
+              Uploaded
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
+              {formatDate(photo.createdTime)}
+            </div>
+          </div>
+
+          {photo.usedAt && (
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)', marginBottom: 6 }}>
+                Marked Used
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
+                {formatDate(photo.usedAt)}
+              </div>
+            </div>
+          )}
+
+          {photo.pipelineStatus && (
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)', marginBottom: 6 }}>
+                Status
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+                {photo.pipelineStatus}
+              </div>
+            </div>
+          )}
+
+          <div style={{ flex: 1 }} />
+
+          {/* Big primary action — Use / Restore. Auto-advances to next photo
+              after success, so the chat manager can chain through the queue
+              without leaving the modal. */}
+          <button
+            onClick={() => onToggle(photo)}
+            disabled={pending}
+            style={{
+              padding: '14px 16px',
+              background: view === 'available' ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)',
+              color: view === 'available' ? '#060606' : 'white',
+              border: view === 'available' ? 'none' : '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: pending ? 'wait' : 'pointer',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {pending ? 'Saving...' : view === 'available' ? 'Use this photo' : 'Restore to Available'}
+          </button>
+
+          <a
+            href={photo.dropboxLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: '10px 12px',
+              background: 'rgba(255,255,255,0.04)',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 500,
+              textAlign: 'center',
+              textDecoration: 'none',
+            }}
+          >
+            Open original in Dropbox ↗
+          </a>
+
+          <div style={{ fontSize: '10px', color: 'var(--foreground-subtle, #555)', textAlign: 'center', marginTop: 4, lineHeight: 1.5 }}>
+            ← / → to navigate · Esc to close
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function navOverlayStyle(side) {
+  return {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    [side]: 16,
+    width: 56,
+    height: 56,
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.55)',
+    color: 'white',
+    border: '1px solid rgba(255,255,255,0.18)',
+    fontSize: 32,
+    fontWeight: 300,
+    lineHeight: 1,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    backdropFilter: 'blur(6px)',
+    transition: 'all 0.15s ease',
+  }
 }
 
 function Pager({ page, totalPages, onChange }) {
