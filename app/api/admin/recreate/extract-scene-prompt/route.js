@@ -30,7 +30,11 @@ positivePrompt rules:
 - MUST start with this exact phrase: "Exact same woman as in the reference images,"
   This is the identity anchor that tells Wan 2.7 to use the reference photos for face/hair/body/skin.
 - One paragraph, copy-paste ready.
-- Hyper-realistic raw iPhone photo, shot on iPhone camera, ultra detailed, sharp focus, natural skin texture, minimal editing, no cinematic look, 9:16, 4K.
+- End with this exact tail structure: "[real lens cue], [named light source], [specific skin vocab], [vibe], 9:16."
+  Examples:
+  • "iPhone 15 Pro 26mm equivalent at f/1.78, natural window daylight diffused through sheer curtains, visible pores, fine peach-fuzz, slight freckles, unretouched skin, documentary candid lifestyle vibe, 9:16."
+  • "50mm prime lens at f/1.8, warm bedside lamp on her right plus cool window backlight, visible pores, slight skin imperfections, off-the-cuff Tuesday afternoon vibe, 9:16."
+  Real lens names ("50mm prime f/1.8", "iPhone 15 Pro 26mm equivalent") outperform generic "raw iPhone photo". Named light sources ("natural window daylight diffused through sheer curtains", "overhead fluorescent", "dim bedside lamp") outperform "studio lighting" / "soft light". Specific skin vocab (pores, peach-fuzz, freckles, unretouched) outperforms generic "natural skin texture".
 
 GOAL: describe the inspo so faithfully that everything except the woman's identity is reproduced. Outfit, pose, gaze, expression, hair direction (even mid-motion), framing, lighting, room, and the room's REALISM LEVEL must all match what's actually in the inspo. Don't add details the inspo doesn't show. Don't remove details that are clearly there.
 
@@ -70,7 +74,7 @@ VIBE — plain language matching the inspo. "Candid lifestyle", "casual at-home"
 
 BANNED ADJECTIVES — Wan 2.7 reads these as "make it look like a magazine" no matter what's in the negatives. NEVER use any of these words anywhere in the positive prompt: "modern", "minimal", "minimally decorated", "minimalist", "clean", "tidy", "sleek", "pristine", "polished", "stylish", "chic", "elegant", "refined", "curated", "well-appointed", "luxurious", "sophisticated", "aesthetic", "designed", "decorator". Describe the room by what's actually in it (specific furniture, specific objects, specific surfaces) — not by how nice it looks. "White desk with a Bluetooth speaker on it, wall-mounted TV, bed with pink gingham sheets" beats "modern, clean, minimally decorated bedroom".
 
-REALISM CUES — instead of stacking realism words at the end ("hyper-realistic, ultra detailed, sharp focus, natural skin texture, minimal editing, no cinematic look, 9:16, 4K"), use a SHORTER tail: "raw iPhone photo, natural skin pores and texture, no retouching, no beauty filter, 9:16". Long realism stacks read as compensation and Wan ignores them — short and specific lands harder.
+REALISM TAIL — see the positivePrompt rules above for the canonical tail structure (lens + light + skin vocab + vibe). Critical: do NOT include "no X" phrases in the positive prompt ("no smoothing", "no retouching", "no beauty filter", "no cinematic look", "minimal editing"). Models read "no X" as content tokens and end up evoking X. Use only POSITIVE descriptions ("visible pores", "unretouched skin", "documentary candid") — never negation.
 
 DO NOT describe the subject's physical features (hair length, hair color, eye color, face shape, body type, skin tone, ethnicity, age, makeup style). Those come from the reference photos via the identity anchor. EXCEPTION: hair POSITION / direction / motion state IS required when present ("hair falling forward over her left shoulder", "hair caught mid-whip toward the right side of frame") — that's pose data, not identity.
 
