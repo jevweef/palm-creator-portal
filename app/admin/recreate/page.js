@@ -1351,7 +1351,7 @@ export default function RecreatePage() {
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', width: 'fit-content' }}>
           {[
             { id: 'pro', label: 'Standard · V3.0 Pro', cost: '~$1.12 / 10s', desc: '1 ref + element + audio mux' },
-            { id: 'production', label: 'Production · O3 4K', cost: '~$4.20 / 10s', desc: '4 refs + element + 4K + native audio' },
+            { id: 'production', label: 'Production · O3 4K', cost: '~$4.20 / 10s', desc: '4 direct refs + element + inspo as ref video + 4K + native audio' },
           ].map(opt => (
             <button
               key={opt.id}
