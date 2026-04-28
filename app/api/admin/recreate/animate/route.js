@@ -54,12 +54,17 @@ export async function POST(request) {
     try {
       const records = await fetchAirtableRecords(PALM_CREATORS, {
         filterByFormula: `RECORD_ID() = '${creatorId}'`,
-        fields: ['Kling Element ID'],
+        fields: ['Kling Element ID', 'AKA'],
         maxRecords: 1,
       })
       const elementId = records[0]?.fields?.['Kling Element ID']
+      const aka = records[0]?.fields?.['AKA'] || ''
       if (elementId) {
-        body.element_list = [elementId]
+        // element_list expects objects with element_id + element_name. The
+        // name must match what we used during registration so the prompt
+        // can reference it naturally. We register with snake_case lowercase.
+        const elementName = aka.replace(/\s+/g, '_').toLowerCase()
+        body.element_list = [{ element_id: elementId, element_name: elementName }]
         usedElementId = elementId
       }
     } catch (e) {
