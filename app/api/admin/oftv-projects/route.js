@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30
 
 const PROJECTS_TABLE = 'tbl7DTdRooCsAns7j'
 
