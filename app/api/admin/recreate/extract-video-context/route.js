@@ -4,7 +4,9 @@ import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+// Gemini 3.1 Pro analyzing a video can run 60-180s. Bumped from 60s to
+// 300s (Vercel Pro plan max) to avoid FUNCTION_INVOCATION_TIMEOUT.
+export const maxDuration = 300
 
 const GEMINI_MODEL = 'gemini-3.1-pro-preview'
 // Gemini default samples video at 1 FPS — for 10-15s reels that's 10-15
