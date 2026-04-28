@@ -125,7 +125,8 @@ export async function POST(request) {
       const refCount = images.length - 1
       const refRange = refCount === 1 ? 'Figure 2' : `Figures 2 through ${1 + refCount}`
       finalPrompt =
-        `Replace the woman in Figure 1 with the woman shown in ${refRange}. Match her face, body, body proportions, hair, and skin to ${refRange}. Keep the pose, wardrobe, lighting, scene, and camera angle of Figure 1 unchanged.\n\n` +
+        `Replace the woman in Figure 1 with the woman shown in ${refRange}. Her face, body, body shape, body proportions (build, bust size, hip-to-waist ratio, shoulder width, height), hair, and skin tone all come from ${refRange} — NOT from Figure 1. The original woman in Figure 1 is fully replaced; her body and proportions are NOT preserved.\n\n` +
+        `Keep from Figure 1: the room/scene, lighting, camera framing and angle, and the woman's pose (where her hands are, head angle, weight distribution). The wardrobe's TYPE, COLOR, and STYLE stay the same as Figure 1, but the wardrobe should RESIZE and adapt to fit the new body's proportions naturally.\n\n` +
         `Scene details: ${positivePrompt}`
     } else {
       // Subject-only mode (current default) — only creator references
