@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useBackdropDismiss } from '@/lib/useBackdropDismiss'
 
 const STATUS_STYLES = {
   'Awaiting Upload': { bg: 'rgba(156, 163, 175, 0.08)', color: '#9ca3af' },
@@ -50,6 +51,8 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
   const [previewSrc, setPreviewSrc] = useState('')
   const [previewKind, setPreviewKind] = useState('project') // 'project' | 'asset' | 'final'
   const [deletingFinalPath, setDeletingFinalPath] = useState('')
+  const dismiss = useBackdropDismiss(onClose, () => !saving)
+  const dismissPreview = useBackdropDismiss(() => setPreviewFile(null))
 
   useEffect(() => {
     fetch(`/api/creator/oftv-projects/${project.id}?includeFiles=1`)
@@ -150,7 +153,7 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}
+      {...dismiss}
     >
       <div style={{
         background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '760px',
@@ -409,7 +412,7 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
       {previewFile && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm"
-          onClick={e => e.target === e.currentTarget && setPreviewFile(null)}
+          {...dismissPreview}
         >
           <div style={{ width: '100%', maxWidth: '900px', maxHeight: '92vh', margin: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#fff' }}>
