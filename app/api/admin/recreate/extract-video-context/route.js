@@ -1,14 +1,5 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
-import Anthropic from '@anthropic-ai/sdk'
-import ffmpegStatic from 'ffmpeg-static'
-import ffmpeg from 'fluent-ffmpeg'
-import { writeFile, unlink, readFile } from 'fs/promises'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { randomBytes } from 'crypto'
-
-ffmpeg.setFfmpegPath(ffmpegStatic)
 
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 
@@ -16,78 +7,11 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const GEMINI_MODEL = 'gemini-2.5-flash'
-const SONNET_MODEL = 'claude-sonnet-4-6'
-
-// Extract a frame at a specific timestamp via ffmpeg. Returns a buffer.
-async function extractFrame(videoPath, timestamp, outPath) {
-  return new Promise((resolve, reject) => {
-    ffmpeg(videoPath)
-      .inputOptions([`-ss ${timestamp}`])
-      .outputOptions(['-frames:v 1', '-q:v 2'])
-      .save(outPath)
-      .on('end', () => resolve())
-      .on('error', err => reject(new Error(`ffmpeg frame extract failed: ${err.message}`)))
-  })
-}
-
-// Sonnet pass: compare two stills, return cameraMotion enum.
-// Triggered AFTER Gemini's video analysis to verify camera-motion detection
-// since Gemini's video sampling can miss subtle continuous dolly motion.
-async function detectCameraMotionFromStills(firstFrameB64, lastFrameB64, mediaType) {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const tool = {
-    name: 'submit_camera_motion',
-    description: 'Submit the detected camera motion from comparing the first and last frame of a video clip.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        cameraMotion: {
-          type: 'string',
-          enum: ['locked', 'dolly_back', 'dolly_forward', 'pan_left', 'pan_right', 'slider', 'handheld_drift'],
-        },
-        reasoning: {
-          type: 'string',
-          description: 'One sentence explaining the comparison: subject scale change, framing shift, etc.',
-        },
-        subjectScaleChange: {
-          type: 'string',
-          enum: ['smaller', 'larger', 'same'],
-          description: 'Did the subject get smaller (further away), larger (closer), or stay the same size between the two frames?',
-        },
-      },
-      required: ['cameraMotion', 'reasoning', 'subjectScaleChange'],
-    },
-  }
-  const sys = `You are comparing the FIRST frame and LAST frame of a short video clip to determine camera motion. The two images are labeled "FIRST" and "LAST" in the order presented.
-
-Procedure:
-1. Look at the subject in both frames. Estimate what % of the frame's height the subject occupies in each.
-2. If the subject is clearly SMALLER in the LAST frame than the FIRST → camera dollied AWAY from the subject (dolly_back).
-3. If the subject is clearly LARGER in the LAST frame → camera dollied TOWARD the subject (dolly_forward).
-4. If subject scale is essentially the same, check horizontal position drift → pan_left / pan_right / slider / handheld_drift / locked.
-
-Even subtle scale differences count. A subject occupying 60% in FIRST and 50% in LAST is dolly_back. Use the submit_camera_motion tool.`
-
-  const res = await anthropic.messages.create({
-    model: SONNET_MODEL,
-    max_tokens: 500,
-    system: sys,
-    tools: [tool],
-    tool_choice: { type: 'tool', name: 'submit_camera_motion' },
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'text', text: 'FIRST frame:' },
-        { type: 'image', source: { type: 'base64', media_type: mediaType, data: firstFrameB64 } },
-        { type: 'text', text: 'LAST frame:' },
-        { type: 'image', source: { type: 'base64', media_type: mediaType, data: lastFrameB64 } },
-        { type: 'text', text: 'Compare the two frames and submit the cameraMotion via the tool.' },
-      ],
-    }],
-  })
-  const toolUse = res.content.find(b => b.type === 'tool_use')
-  return toolUse?.input || null
-}
+// Gemini default samples video at 1 FPS — for 10-15s reels that's 10-15
+// frames total, which is too coarse to detect subtle continuous dolly
+// motion (camera pull-back where subject scale shrinks gradually). Bump
+// to 4 FPS = 40-60 frames per reel. Still very cheap (~$0.003 per call).
+const VIDEO_FPS = 4
 
 const SYSTEM_INSTRUCTION = `You watch a short Instagram reel and produce TWO outputs in a single tool call:
 
@@ -183,7 +107,10 @@ export async function POST(request) {
       contents: [{
         role: 'user',
         parts: [
-          { inlineData: { mimeType, data: base64Video } },
+          {
+            inlineData: { mimeType, data: base64Video },
+            videoMetadata: { fps: VIDEO_FPS },
+          },
           { text: 'Analyze this reel and produce the cross-frame video context summary. Use the submit_video_context tool.' },
         ],
       }],
@@ -262,59 +189,11 @@ export async function POST(request) {
     }
 
     const { videoContext, motionPrompt, motionNegative, hasSpokenDialogue } = fnCall.args || {}
-    let { cameraMotion } = fnCall.args || {}
+    const { cameraMotion } = fnCall.args || {}
     if (!videoContext || !motionPrompt || !motionNegative) {
       return NextResponse.json({ error: 'Tool input missing required fields', raw: fnCall.args }, { status: 500 })
     }
 
-    // Sonnet camera-motion verification: extract first + last frame, compare
-    // them as stills with explicit subject-scale comparison. Gemini watching
-    // the full video samples frames at intervals and misses subtle continuous
-    // dolly motion. Two-frame comparison is far more reliable for this.
-    let cameraMotionVerification = null
-    try {
-      const tmp = tmpdir()
-      const stamp = Date.now()
-      const rand = randomBytes(4).toString('hex')
-      const videoPath = join(tmp, `vctx-${stamp}-${rand}.mp4`)
-      const firstPath = join(tmp, `first-${stamp}-${rand}.jpg`)
-      const lastPath = join(tmp, `last-${stamp}-${rand}.jpg`)
-      await writeFile(videoPath, buf)
-
-      // Probe duration via ffmpeg metadata; fallback to sampling at known offsets
-      const duration = await new Promise((resolve) => {
-        ffmpeg.ffprobe(videoPath, (err, data) => {
-          if (err || !data?.format?.duration) return resolve(null)
-          resolve(data.format.duration)
-        })
-      })
-      const firstTs = 0.3
-      const lastTs = duration ? Math.max(firstTs + 1, duration - 0.5) : 8
-
-      await extractFrame(videoPath, firstTs, firstPath)
-      await extractFrame(videoPath, lastTs, lastPath)
-      const [firstBuf, lastBuf] = await Promise.all([readFile(firstPath), readFile(lastPath)])
-
-      const verification = await detectCameraMotionFromStills(
-        firstBuf.toString('base64'),
-        lastBuf.toString('base64'),
-        'image/jpeg'
-      )
-      if (verification?.cameraMotion) {
-        cameraMotionVerification = verification
-        // Sonnet's two-frame comparison wins over Gemini's video sample
-        cameraMotion = verification.cameraMotion
-      }
-
-      await Promise.all([
-        unlink(videoPath).catch(() => {}),
-        unlink(firstPath).catch(() => {}),
-        unlink(lastPath).catch(() => {}),
-      ])
-    } catch (e) {
-      console.warn('[extract-video-context] camera motion verification failed:', e.message)
-      // Fall back to Gemini's pick if verification fails
-    }
 
     // Force the camera-motion phrase in the motion prompt to match Gemini's
     // structured cameraMotion enum. Without this, Gemini sometimes commits to
@@ -385,7 +264,6 @@ export async function POST(request) {
       motionNegative: finalNegative,
       hasSpokenDialogue: hasSpokenDialogue ?? null,
       cameraMotion: cameraMotion || null,
-      cameraMotionVerification,
     })
   } catch (err) {
     console.error('[recreate/extract-video-context] error:', err)
