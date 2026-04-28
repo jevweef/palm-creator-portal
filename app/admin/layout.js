@@ -33,6 +33,7 @@ const ADMIN_NAV = [
     { key: 'internal', label: 'Palm Internal' },
     { key: 'team', label: 'Chat Team Report' },
   ]},
+  { href: '/admin/chat-wall', label: 'Chat Wall', icon: '🖼️' },
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
   { href: '/admin/invoicing', label: 'Invoicing', icon: '💸', children: [
     { key: 'invoices', label: 'Invoices' },
@@ -46,14 +47,19 @@ const EDITOR_NAV = [
   { href: '/inspo', label: 'Inspo Board', icon: '🎬' },
 ]
 
+const CHAT_MANAGER_NAV = [
+  { href: '/admin/chat-wall', label: 'Chat Wall', icon: '🖼️' },
+]
+
 export default function AdminLayout({ children }) {
   const { user, isLoaded } = useUser()
   const router = useRouter()
   const pathname = usePathname()
 
   const role = user?.publicMetadata?.role
-  const isAdmin = role === 'admin'
+  const isAdmin = role === 'admin' || role === 'super_admin'
   const isEditor = role === 'editor'
+  const isChatManager = role === 'chat_manager'
 
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
@@ -65,16 +71,20 @@ export default function AdminLayout({ children }) {
 
   useEffect(() => {
     if (!isLoaded) return
-    if (!isAdmin && !isEditor) {
+    if (!isAdmin && !isEditor && !isChatManager) {
       router.replace('/dashboard')
     }
     if (isEditor) {
       router.replace('/editor')
     }
-  }, [isLoaded, user, router, pathname, isAdmin, isEditor])
+    // chat_manager: only allow /admin/chat-wall, redirect anything else
+    if (isChatManager && !pathname?.startsWith('/admin/chat-wall')) {
+      router.replace('/admin/chat-wall')
+    }
+  }, [isLoaded, user, router, pathname, isAdmin, isEditor, isChatManager])
 
   // Early returns AFTER all hooks
-  if (!isLoaded || (!isAdmin && !isEditor)) {
+  if (!isLoaded || (!isAdmin && !isEditor && !isChatManager)) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading...</div>
@@ -82,7 +92,7 @@ export default function AdminLayout({ children }) {
     )
   }
 
-  const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
+  const NAV_ITEMS = isAdmin ? ADMIN_NAV : isChatManager ? CHAT_MANAGER_NAV : EDITOR_NAV
 
   return (
     <div className="admin-shell" style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>
@@ -145,7 +155,7 @@ export default function AdminLayout({ children }) {
           </span>
         </button>
         <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>
-          {isAdmin ? 'Admin' : 'Editor'}
+          {isAdmin ? 'Admin' : isChatManager ? 'Chat Manager' : 'Editor'}
         </div>
       </div>
 
@@ -164,7 +174,7 @@ export default function AdminLayout({ children }) {
         background: 'rgba(10, 10, 10, 0.95)',
       }}>
         <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {isAdmin ? 'Admin' : 'Editor'}
+          {isAdmin ? 'Admin' : isChatManager ? 'Chat Manager' : 'Editor'}
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
           {NAV_ITEMS.map(item => {
