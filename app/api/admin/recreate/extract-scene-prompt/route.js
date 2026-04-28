@@ -217,12 +217,15 @@ export async function POST(request) {
     // Enforce the "Exact same woman..." identity anchor prefix. Without
     // this phrase, Wan 2.7 ignores the reference photos for face/hair/body
     // and produces a generic woman in the scene.
-    const ANCHOR = 'Exact same woman as in the reference images,'
-    if (!positivePrompt.toLowerCase().startsWith(ANCHOR.toLowerCase())) {
+    // Check is punctuation-insensitive — Sonnet may end with comma OR period
+    // depending on the descriptor style. Don't double-prepend either way.
+    const ANCHOR_BARE = 'exact same woman as in the reference images'
+    const startsWithAnchor = positivePrompt.toLowerCase().startsWith(ANCHOR_BARE)
+    if (!startsWithAnchor) {
       // Drop any leading "A young woman..." style intro that Sonnet may have
       // led with, then prepend the anchor.
       const trimmed = positivePrompt.replace(/^(?:a |the )?(young\s+)?woman[^,.]*[,.]\s*/i, '').trim()
-      positivePrompt = `${ANCHOR} ${trimmed.charAt(0).toLowerCase() + trimmed.slice(1)}`
+      positivePrompt = `Exact same woman as in the reference images. ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`
     }
 
     // The notes that "won": user-supplied if provided, otherwise Sonnet's draft.
