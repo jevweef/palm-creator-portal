@@ -614,9 +614,10 @@ function PostCard({ post, onRefresh, onSend }) {
     }
   }
 
-  // Send to Grid — flip Post Status to 'Staged' so it leaves the Prepping filter
-  // on this page but still shows up in Grid Planner (which doesn't filter by status).
-  // Admin stays on Post Prep; the card just disappears from the list on refresh.
+  // Send to Grid — save the in-progress edits (caption / hashtags / platform /
+  // schedule / thumbnail) AND flip Status to 'Staged' in one PATCH so we don't
+  // require a separate Save click. Without this, Send to Grid was only writing
+  // Status and silently discarding any caption typed in the textarea.
   const [sendingToGrid, setSendingToGrid] = useState(false)
   const handleSendToGrid = async () => {
     if (sendingToGrid) return
@@ -627,7 +628,14 @@ function PostCard({ post, onRefresh, onSend }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           postId: post.id,
-          fields: { 'Status': 'Staged' },
+          fields: {
+            'Caption': caption,
+            'Hashtags': hashtags,
+            'Platform': platforms,
+            ...(scheduledDate ? { 'Scheduled Date': etLocalToUTC(scheduledDate) } : {}),
+            ...(thumbnailUrl && thumbnailUrl !== savedThumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }] } : {}),
+            'Status': 'Staged',
+          },
           typecast: true,
         }),
       })
