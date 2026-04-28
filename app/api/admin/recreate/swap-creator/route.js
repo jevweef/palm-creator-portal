@@ -147,8 +147,10 @@ export async function POST(request) {
       promptForWan = `${finalPrompt}\n\nNegative prompt: ${negativePrompt.trim()}`
     }
 
-    // Wan 2.7 Image Edit Pro range is 512-4096 per side. Max 9:16 = 2304x4096.
-    const body = { images, prompt: promptForWan, size: '2304*4096', seed: -1 }
+    // Wan 2.7 Image Edit Pro: per-dimension range 512-4096, BUT the i2i
+    // (with reference images) total-pixel cap is 4,194,304 (2K). 9:16 max
+    // safely under that = 1440x2560 (3.7M px).
+    const body = { images, prompt: promptForWan, size: '1440*2560', seed: -1 }
 
     console.log(`[swap-creator] Sending to Wan 2.7 — mode=${mode}, ${images.length} input images for ${aka}:`)
     referenceFilenames.forEach((f, i) => console.log(`  ${i + 1}. ${f}`))
