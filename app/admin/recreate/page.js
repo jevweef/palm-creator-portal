@@ -437,14 +437,17 @@ export default function RecreatePage() {
   const [extractingMotion, setExtractingMotion] = useState(false)
   const [motionError, setMotionError] = useState('')
 
-  // Step 7 — Kling V3.0 Pro image-to-video, with original-audio mux post-process
+  // Step 7 — Kling animate. Two quality tiers:
+  //   pro       — V3.0 Pro image-to-video, ~$1.12/10s, single ref + element_list, mux audio
+  //   production — O3 4K Reference-to-Video, ~$4.20/10s, 4 refs + element + reference video, native audio
   const [animateState, setAnimateState] = useState({
     taskId: null,
     result: null,        // { url, filename, muxed, muxNote }
     error: '',
     running: false,
-    duration: 10,        // 5 or 10
-    audioOffset: 0,      // seconds to skip at start of inspo audio
+    duration: 10,        // 1-15
+    audioOffset: 0,      // seconds to skip at start of inspo audio (pro mode only)
+    quality: 'pro',      // 'pro' | 'production'
   })
 
   // Critique (Gemini analysis of the animated output)
@@ -513,10 +516,12 @@ export default function RecreatePage() {
           creatorId: selectedCreator,
           shortcode,
           startUrl: startSwap,
-          endUrl: endSwap || undefined,
+          endUrl: animateState.quality === 'pro' ? (endSwap || undefined) : undefined,
           motionPrompt: motionPrompt.positive,
           motionNegative: motionPrompt.negative,
           duration: animateState.duration,
+          quality: animateState.quality,
+          inspoVideoUrl: animateState.quality === 'production' ? lookup?.dbRawLink : undefined,
         }),
       })
       const data = await res.json()
@@ -548,6 +553,7 @@ export default function RecreatePage() {
             shortcode: shortcode || undefined,
             inspoVideoUrl: lookup?.dbRawLink || undefined,
             audioOffset: animateState.audioOffset,
+            quality: animateState.quality,
           }),
         })
         const data = await res.json()
@@ -1341,6 +1347,31 @@ export default function RecreatePage() {
           Then muxes the inspo&apos;s original audio onto the silent Kling output (Kling&apos;s built-in sound is unreliable for trending music).
         </div>
 
+        {/* Quality toggle */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', width: 'fit-content' }}>
+          {[
+            { id: 'pro', label: 'Standard · V3.0 Pro', cost: '~$1.12 / 10s', desc: '1 ref + element + audio mux' },
+            { id: 'production', label: 'Production · O3 4K', cost: '~$4.20 / 10s', desc: '4 refs + element + 4K + native audio' },
+          ].map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => setAnimateState(s => ({ ...s, quality: opt.id }))}
+              disabled={animateState.running}
+              style={{
+                padding: '8px 12px', fontSize: '11px', fontWeight: 700, borderRadius: '6px',
+                border: 'none', cursor: animateState.running ? 'wait' : 'pointer',
+                background: animateState.quality === opt.id ? 'var(--palm-pink)' : 'transparent',
+                color: animateState.quality === opt.id ? '#060606' : 'var(--foreground-muted)',
+                textAlign: 'left', minWidth: '180px',
+              }}
+            >
+              <div>{opt.label}</div>
+              <div style={{ fontSize: '9px', fontWeight: 500, opacity: 0.8, marginTop: '2px' }}>{opt.cost}</div>
+              <div style={{ fontSize: '9px', fontWeight: 500, opacity: 0.7 }}>{opt.desc}</div>
+            </button>
+          ))}
+        </div>
+
         {/* Controls row */}
         <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1362,22 +1393,29 @@ export default function RecreatePage() {
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
-            <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>Audio offset</label>
-            <input
-              type="range"
-              min={0}
-              max={20}
-              step={0.5}
-              value={animateState.audioOffset}
-              onChange={e => setAnimateState(s => ({ ...s, audioOffset: Number(e.target.value) }))}
-              disabled={animateState.running}
-              style={{ flex: 1, accentColor: 'var(--palm-pink)' }}
-            />
-            <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontVariantNumeric: 'tabular-nums', minWidth: '36px', textAlign: 'right' }}>
-              {animateState.audioOffset.toFixed(1)}s
-            </span>
-          </div>
+          {animateState.quality === 'pro' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>Audio offset</label>
+              <input
+                type="range"
+                min={0}
+                max={20}
+                step={0.5}
+                value={animateState.audioOffset}
+                onChange={e => setAnimateState(s => ({ ...s, audioOffset: Number(e.target.value) }))}
+                disabled={animateState.running}
+                style={{ flex: 1, accentColor: 'var(--palm-pink)' }}
+              />
+              <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontVariantNumeric: 'tabular-nums', minWidth: '36px', textAlign: 'right' }}>
+                {animateState.audioOffset.toFixed(1)}s
+              </span>
+            </div>
+          )}
+          {animateState.quality === 'production' && (
+            <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
+              Production mode uses inspo as motion+audio reference natively — no offset needed.
+            </div>
+          )}
         </div>
 
         <button

@@ -67,8 +67,11 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { taskId, creatorId, shortcode, inspoVideoUrl, audioOffset } = await request.json()
+    const { taskId, creatorId, shortcode, inspoVideoUrl, audioOffset, quality } = await request.json()
     if (!taskId) return NextResponse.json({ error: 'Missing taskId' }, { status: 400 })
+    // Production mode (O3 4K Reference-to-Video) preserves audio natively
+    // when keep_original_sound is true — no need to mux.
+    const skipMux = quality === 'production'
 
     const task = await pollWaveSpeedTask(taskId)
     if (task.status !== 'completed') {
@@ -111,9 +114,13 @@ export async function POST(request) {
       if (!klingRes.ok) throw new Error(`Kling video fetch failed (${klingRes.status})`)
       await writeFile(klingPath, Buffer.from(await klingRes.arrayBuffer()))
 
-      // Try to fetch inspo audio source. If no inspoVideoUrl provided or
-      // fetch fails, fall back to muxless upload (silent video).
-      if (inspoVideoUrl) {
+      if (skipMux) {
+        // O3 4K Reference-to-Video already includes audio from the reference
+        // video via keep_original_sound. Skip the ffmpeg pass entirely.
+        muxed = false
+        muxNote = ''
+      } else if (inspoVideoUrl) {
+        // V3.0 Pro path — Kling output is silent, mux the inspo audio onto it.
         const inspoRes = await fetch(inspoVideoUrl)
         if (!inspoRes.ok) throw new Error(`Inspo video fetch failed (${inspoRes.status})`)
         await writeFile(inspoPath, Buffer.from(await inspoRes.arrayBuffer()))

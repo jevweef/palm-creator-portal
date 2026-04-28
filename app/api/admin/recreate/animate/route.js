@@ -5,79 +5,111 @@ import { submitWaveSpeedTask } from '@/lib/wavespeed'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const KLING_MODEL = 'kwaivgi/kling-v3.0-pro/image-to-video'
+const KLING_PRO_MODEL = 'kwaivgi/kling-v3.0-pro/image-to-video'
+const KLING_4K_MODEL = 'kwaivgi/kling-video-o3-4k/reference-to-video'
 const PALM_CREATORS = 'Palm Creators'
 
 // POST — body: {
 //   creatorId, shortcode,
-//   startUrl,           // start frame swap output (Kling image input)
-//   endUrl?,            // end frame swap output (Kling tail_image input) — optional
-//   motionPrompt,       // from Step 6 (Gemini)
+//   startUrl,           // start frame swap output
+//   endUrl?,            // end frame swap output (only used in pro mode as tail_image)
+//   motionPrompt,
 //   motionNegative?,
-//   duration?           // 5 or 10 (Kling V3.0 Pro caps at 10)
+//   duration?,          // 1-15s
+//   quality?,           // 'pro' (V3.0 Pro, ~$1.12/10s) or 'production' (O3 4K Reference-to-Video, ~$4.20/10s)
+//   inspoVideoUrl?,     // used as motion driver when quality='production'
+//   extraRefUrls?,      // optional extra face refs for production mode
 // }
-// Returns: { ok, taskId, durationRequested }
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorId, shortcode, startUrl, endUrl, motionPrompt, motionNegative, duration } = await request.json()
+    const { creatorId, shortcode, startUrl, endUrl, motionPrompt, motionNegative, duration, quality, inspoVideoUrl, extraRefUrls } = await request.json()
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
     if (!startUrl) return NextResponse.json({ error: 'Missing startUrl (start frame swap output)' }, { status: 400 })
     if (!motionPrompt) return NextResponse.json({ error: 'Missing motionPrompt (run Step 6 first)' }, { status: 400 })
 
-    // Kling V3.0 Pro accepts integer durations 1-15. Default to 10.
     const parsedDur = Number(duration)
     const dur = Number.isFinite(parsedDur) && parsedDur >= 1 && parsedDur <= 15
       ? Math.round(parsedDur)
       : 10
-    const body = {
-      image: startUrl,
-      prompt: motionPrompt,
-      negative_prompt: motionNegative || '',
-      duration: dur,
-      // 0.7 = tighter prompt adherence than the 0.5 default. Kling otherwise
-      // improvises based on its trending-reel priors (talking heads, hair
-      // flips, performance energy) — we want it to follow the prompt.
-      cfg_scale: 0.7,
-      // Mux original inspo audio post-process in animate-status — Kling's
-      // built-in sound is unreliable for trending music / specific voices.
-      sound: false,
-    }
-    if (endUrl) body.tail_image = endUrl
 
-    // If the creator has a registered Kling Element, pass it as element_list
-    // so Kling locks identity from ALL reference angles (face close-ups +
-    // front-body) instead of just the start frame. Major lever for face
-    // consistency across the animation.
-    let usedElementId = null
+    // Look up creator's Kling Element + AKA + AI Ref Inputs for both paths.
+    let elementId = null
+    let aka = ''
+    let aiRefInputs = []
     try {
       const records = await fetchAirtableRecords(PALM_CREATORS, {
         filterByFormula: `RECORD_ID() = '${creatorId}'`,
-        fields: ['Kling Element ID', 'AKA'],
+        fields: ['Kling Element ID', 'AKA', 'AI Ref Inputs', 'AI Ref Face', 'AI Ref Front'],
         maxRecords: 1,
       })
-      const elementId = records[0]?.fields?.['Kling Element ID']
-      const aka = records[0]?.fields?.['AKA'] || ''
-      if (elementId) {
-        // element_list expects objects with element_id + element_name. The
-        // name must match what we used during registration so the prompt
-        // can reference it naturally. We register with snake_case lowercase.
-        const elementName = aka.replace(/\s+/g, '_').toLowerCase()
-        body.element_list = [{ element_id: elementId, element_name: elementName }]
-        usedElementId = elementId
-      }
+      elementId = records[0]?.fields?.['Kling Element ID'] || null
+      aka = records[0]?.fields?.['AKA'] || ''
+      aiRefInputs = records[0]?.fields?.['AI Ref Inputs'] || []
     } catch (e) {
-      console.warn('[animate] could not look up Kling Element ID:', e.message)
+      console.warn('[animate] could not look up creator metadata:', e.message)
+    }
+    const elementName = aka.replace(/\s+/g, '_').toLowerCase()
+    const elementListObj = elementId ? [{ element_id: elementId, element_name: elementName }] : null
+
+    const isProduction = quality === 'production'
+
+    let model, body
+    if (isProduction) {
+      // O3 4K Reference-to-Video. Cap: 4 images when reference video is
+      // provided, 7 without. We always use the inspo video for motion guidance,
+      // so cap is 4. Slot 1 = start swap (face anchor in correct pose), slots
+      // 2-4 = additional face refs from creator's AI Ref Inputs.
+      model = KLING_4K_MODEL
+      // Slot 1: start swap (face in correct pose). Slots 2-4: top face
+      // close-ups from AI Ref Inputs to give Kling more identity anchors.
+      const images = [startUrl]
+      const faceInputs = aiRefInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
+      for (const att of faceInputs) {
+        if (images.length >= 4) break
+        if (att.url) images.push(att.url)
+      }
+      // Allow client-supplied extras to override/append
+      if (Array.isArray(extraRefUrls)) {
+        for (const url of extraRefUrls) {
+          if (url && images.length < 4 && !images.includes(url)) images.push(url)
+        }
+      }
+      body = {
+        images,
+        prompt: motionPrompt,
+        duration: dur,
+        aspect_ratio: '9:16',
+        keep_original_sound: true,
+      }
+      if (inspoVideoUrl) body.video = inspoVideoUrl
+      if (elementListObj) body.element_list = elementListObj
+    } else {
+      // V3.0 Pro image-to-video (current path)
+      model = KLING_PRO_MODEL
+      body = {
+        image: startUrl,
+        prompt: motionPrompt,
+        negative_prompt: motionNegative || '',
+        duration: dur,
+        cfg_scale: 0.7,
+        sound: false,
+      }
+      if (endUrl) body.tail_image = endUrl
+      if (elementListObj) body.element_list = elementListObj
     }
 
-    const task = await submitWaveSpeedTask(KLING_MODEL, body)
+    const task = await submitWaveSpeedTask(model, body)
     return NextResponse.json({
       ok: true,
       taskId: task.id,
       durationRequested: dur,
-      hasEndFrame: !!endUrl,
-      usedElementId,
+      quality: isProduction ? 'production' : 'pro',
+      model,
+      hasEndFrame: !isProduction && !!endUrl,
+      usedElementId: elementId,
+      refImageCount: isProduction ? body.images.length : 1,
     })
   } catch (err) {
     console.error('[recreate/animate] error:', err)
