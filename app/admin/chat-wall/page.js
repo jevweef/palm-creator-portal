@@ -313,10 +313,11 @@ function PhotoCard({ photo, view, pending, onToggle }) {
     return () => io.disconnect()
   }, [inView])
 
-  // Prefer Airtable's auto-resized thumbnail (~512px) over the full-resolution
-  // Dropbox file. Fall back to raw Dropbox link if the asset has no thumbnail
-  // attachment (older imports may not have one).
-  const imgSrc = photo.thumbLarge || photo.thumbFull || rawDropboxUrl(photo.dropboxLink)
+  // Source priority for the thumbnail:
+  // 1. Cloudflare Images CDN (fastest — global edge, ~50ms) when backfilled
+  // 2. Airtable auto-thumbnail (medium — Airtable CDN, ~500px)
+  // 3. Raw Dropbox file (slowest, full-res — fallback only)
+  const imgSrc = photo.cdnUrl || photo.thumbLarge || photo.thumbFull || rawDropboxUrl(photo.dropboxLink)
 
   return (
     <div

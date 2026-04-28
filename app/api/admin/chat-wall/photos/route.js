@@ -48,6 +48,7 @@ export async function GET(request) {
         'File Extension',
         'Pipeline Status',
         'Thumbnail',
+        'CDN URL',
         'Used By Chat Manager At',
         'Used By Chat Manager',
       ],
@@ -78,6 +79,9 @@ export async function GET(request) {
         id: a.id,
         name: a.fields['Asset Name'] || '',
         dropboxLink: a.fields['Dropbox Shared Link'] || '',
+        // Highest-priority source for browse views: Cloudflare Images CDN.
+        // Set by scripts/backfill-cf-images.mjs (per-creator, opt-in for now).
+        cdnUrl: a.fields['CDN URL'] || null,
         thumbSmall: thumbnails.small?.url || null,
         thumbLarge: thumbnails.large?.url || null,
         thumbFull: thumbnails.full?.url || thumbAttachment?.url || null,
