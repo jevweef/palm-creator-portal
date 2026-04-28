@@ -147,8 +147,8 @@ export async function POST(request) {
       promptForWan = `${finalPrompt}\n\nNegative prompt: ${negativePrompt.trim()}`
     }
 
-    // Max within Wan 2.7 Pro's 2048-per-side envelope, maintains 9:16
-    const body = { images, prompt: promptForWan, size: '1152*2048', seed: -1 }
+    // Wan 2.7 Image Edit Pro range is 512-4096 per side. Max 9:16 = 2304x4096.
+    const body = { images, prompt: promptForWan, size: '2304*4096', seed: -1 }
 
     console.log(`[swap-creator] Sending to Wan 2.7 — mode=${mode}, ${images.length} input images for ${aka}:`)
     referenceFilenames.forEach((f, i) => console.log(`  ${i + 1}. ${f}`))
