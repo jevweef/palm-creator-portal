@@ -138,14 +138,10 @@ export async function POST(request) {
       referenceFilenames = refInputs.map(att => att.filename)
     }
 
-    // Append "Negative prompt:" inline. Wan 2.7 image-edit doesn't have a
-    // formal negative_prompt parameter, but some image models parse this
-    // convention. Worst case Wan ignores it; best case it suppresses
-    // unwanted aesthetics (plastic skin, magazine vibe, etc.).
-    let promptForWan = finalPrompt
-    if (negativePrompt && negativePrompt.trim()) {
-      promptForWan = `${finalPrompt}\n\nNegative prompt: ${negativePrompt.trim()}`
-    }
+    // Don't append the negative prompt inline — Wan reads "Negative prompt:
+    // plastic skin..." as content tokens (same problem as "no X" phrases),
+    // produces artifacts. Wan handles negation via positive descriptions only.
+    const promptForWan = finalPrompt
 
     // Wan 2.7 Image Edit Pro: per-dimension range 512-4096, BUT the i2i
     // (with reference images) total-pixel cap is 4,194,304 (2K). 9:16 max
