@@ -8,13 +8,20 @@ const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 
 // GET /api/admin/chat-wall/creators
 // Returns active Palm Creators (Ops) joined with Chat Team from HQ Creators.
-// Used by the chat manager UI to filter creators by A / B team.
+// Real chat managers are auto-scoped to their assigned team via
+// publicMetadata.chatTeam ("A" | "B"). Admins see everyone (so the View-As
+// preview is useful and they can spot-check both teams).
 export async function GET() {
+  let user
   try {
-    await requireAdminOrChatManager()
+    user = await requireAdminOrChatManager()
   } catch (e) {
     return e
   }
+
+  const role = user?.publicMetadata?.role
+  const isRealChatManager = role === 'chat_manager'
+  const userTeam = (user?.publicMetadata?.chatTeam || '').toString().toUpperCase()
 
   try {
     // Active Ops creators
@@ -53,7 +60,29 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ creators })
+    // Real chat managers only see creators on their team. If their metadata
+    // is missing chatTeam, they see no creators (fail closed) — admin must
+    // set it in Clerk before they can use the page.
+    let scopedCreators = creators
+    if (isRealChatManager) {
+      if (!userTeam) {
+        scopedCreators = []
+      } else {
+        scopedCreators = creators.filter(c => (c.chatTeam || '').toUpperCase().startsWith(userTeam))
+      }
+    }
+
+    return NextResponse.json({
+      creators: scopedCreators,
+      // Echo the caller's role + assigned team so the UI can decide whether
+      // to render the team-filter pills (admin previewing) or hide them
+      // (real chat manager — already scoped server-side).
+      viewer: {
+        role: role || null,
+        chatTeam: userTeam || null,
+        isRealChatManager,
+      },
+    })
   } catch (err) {
     console.error('[chat-wall/creators] GET error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

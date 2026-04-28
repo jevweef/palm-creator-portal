@@ -92,7 +92,16 @@ export default function AdminLayout({ children }) {
     )
   }
 
-  const NAV_ITEMS = isAdmin ? ADMIN_NAV : isChatManager ? CHAT_MANAGER_NAV : EDITOR_NAV
+  // When anyone is on the Chat Wall page, show only the chat-manager sidebar.
+  // This makes "View As Chat Manager" match the real chat manager experience
+  // even when the underlying user is an admin.
+  const isOnChatWall = pathname?.startsWith('/admin/chat-wall')
+  const NAV_ITEMS = isOnChatWall
+    ? CHAT_MANAGER_NAV
+    : isAdmin ? ADMIN_NAV : isChatManager ? CHAT_MANAGER_NAV : EDITOR_NAV
+  const sectionLabel = isOnChatWall
+    ? 'Chat Manager'
+    : isAdmin ? 'Admin' : isChatManager ? 'Chat Manager' : 'Editor'
 
   return (
     <div className="admin-shell" style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>
@@ -155,7 +164,7 @@ export default function AdminLayout({ children }) {
           </span>
         </button>
         <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>
-          {isAdmin ? 'Admin' : isChatManager ? 'Chat Manager' : 'Editor'}
+          {sectionLabel}
         </div>
       </div>
 
@@ -174,7 +183,7 @@ export default function AdminLayout({ children }) {
         background: 'rgba(10, 10, 10, 0.95)',
       }}>
         <div style={{ padding: '0 16px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {isAdmin ? 'Admin' : isChatManager ? 'Chat Manager' : 'Editor'}
+          {sectionLabel}
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
           {NAV_ITEMS.map(item => {

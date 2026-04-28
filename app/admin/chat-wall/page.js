@@ -19,6 +19,7 @@ export default function ChatWallPage() {
 
   const [creators, setCreators] = useState([])
   const [creatorsLoading, setCreatorsLoading] = useState(true)
+  const [viewer, setViewer] = useState({ role: null, chatTeam: null, isRealChatManager: false })
   const [team, setTeam] = useState(searchParams.get('team') || 'All')
   const [creatorId, setCreatorId] = useState(searchParams.get('creator') || '')
   const [view, setView] = useState(searchParams.get('view') || 'available')
@@ -39,6 +40,7 @@ export default function ChatWallPage() {
       .then(data => {
         if (cancelled) return
         setCreators(data.creators || [])
+        if (data.viewer) setViewer(data.viewer)
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setCreatorsLoading(false) })
@@ -140,19 +142,32 @@ export default function ChatWallPage() {
         </p>
       </div>
 
-      {/* Team filter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-        <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)' }}>Team</span>
-        {TEAMS.map(t => (
-          <button
-            key={t}
-            onClick={() => { setTeam(t); setPage(0) }}
-            style={pillStyle(team === t)}
-          >
-            {t === 'All' ? 'All' : `Team ${t}`}
-          </button>
-        ))}
-      </div>
+      {/* Team filter — only for admins previewing. Real chat managers are
+          server-scoped to their assigned team and don't see the toggle. */}
+      {!viewer.isRealChatManager && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)' }}>Team</span>
+          {TEAMS.map(t => (
+            <button
+              key={t}
+              onClick={() => { setTeam(t); setPage(0) }}
+              style={pillStyle(team === t)}
+            >
+              {t === 'All' ? 'All' : `Team ${t}`}
+            </button>
+          ))}
+        </div>
+      )}
+      {viewer.isRealChatManager && viewer.chatTeam && (
+        <div style={{ marginBottom: '12px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
+          Showing your assigned creators · <span style={{ color: 'var(--palm-pink)' }}>Team {viewer.chatTeam}</span>
+        </div>
+      )}
+      {viewer.isRealChatManager && !viewer.chatTeam && (
+        <div style={{ marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(255, 100, 100, 0.08)', border: '1px solid rgba(255, 100, 100, 0.2)', fontSize: '12px', color: '#ffb4b4' }}>
+          Your account isn&apos;t tagged with a chat team yet. Ask an admin to set <code>chatTeam</code> in your Clerk metadata.
+        </div>
+      )}
 
       {/* Creator picker */}
       <div style={{ marginBottom: '20px' }}>

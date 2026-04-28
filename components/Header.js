@@ -14,6 +14,7 @@ export default function Header() {
   const isEditor = role === 'editor'
   const isEditorPath = pathname?.startsWith('/editor')
   const isCreatorPath = pathname?.startsWith('/creator')
+  const isChatWallPath = pathname?.startsWith('/admin/chat-wall')
   const creatorIdFromPath = isCreatorPath ? pathname?.split('/')?.[2] : null
   const hqIdFromUrl = searchParams?.get('hqId')
 
@@ -86,7 +87,11 @@ export default function Header() {
           </span>
         </Link>
         <nav className="header-nav" style={{ display: 'flex', gap: '28px' }}>
-          {(isEditor || isEditorPath) ? (
+          {isChatWallPath ? (
+            <span style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--palm-pink)' }}>
+              Chat Wall
+            </span>
+          ) : (isEditor || isEditorPath) ? (
             <>
               <Link href="/editor" style={linkStyle(pathname === '/editor')}>Editor Queue</Link>
               <Link href="/editor/inspo" style={linkStyle(pathname?.startsWith('/editor/inspo'))}>Inspo Board</Link>
