@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { useBackdropDismiss } from '@/lib/useBackdropDismiss'
+import { useToast } from '@/lib/useToast'
+import { useConfirm } from '@/lib/useConfirm'
 
 const STATUS_STYLES = {
   'Awaiting Upload': { bg: 'rgba(156, 163, 175, 0.08)', color: '#9ca3af', label: 'Awaiting Upload' },
@@ -60,7 +62,7 @@ function StatusPill({ status }) {
   )
 }
 
-function EditingPreferencesCard({ creatorOpsId }) {
+function EditingPreferencesCard({ creatorOpsId, confirm, toast }) {
   const [prefs, setPrefs] = useState('')
   const [original, setOriginal] = useState('')
   const [loading, setLoading] = useState(true)
@@ -109,16 +111,28 @@ function EditingPreferencesCard({ creatorOpsId }) {
   }
 
   const deleteAsset = async (asset) => {
-    if (!confirm(`Delete "${asset.name}" from your brand assets?\n\nThis removes the file from Dropbox permanently. The editor will no longer have it.`)) return
-    if (!confirm(`Really delete "${asset.name}"? There is NO undo.`)) return
+    const ok = await confirm({
+      title: `Delete "${asset.name}"?`,
+      message: 'This removes the file from your brand assets folder in Dropbox permanently. The editor will no longer have it.',
+      confirmLabel: 'Delete',
+      destructive: true,
+      requireDoubleConfirm: true,
+      doubleConfirmTitle: `Really delete "${asset.name}"?`,
+      doubleConfirmMessage: 'There is no undo.',
+    })
+    if (!ok) return
     setDeletingAsset(asset.path)
     try {
       const res = await fetch(
         `/api/creator/long-form-prefs/asset?creatorOpsId=${creatorOpsId}&path=${encodeURIComponent(asset.path)}`,
         { method: 'DELETE' }
       )
-      if (res.ok) setAssets(prev => prev.filter(a => a.path !== asset.path))
-      else alert('Delete failed')
+      if (res.ok) {
+        setAssets(prev => prev.filter(a => a.path !== asset.path))
+        toast('Asset deleted', 'success')
+      } else {
+        toast('Delete failed', 'error')
+      }
     } finally {
       setDeletingAsset('')
     }
@@ -507,7 +521,7 @@ function NewProjectModal({ creatorOpsId, onClose, onCreated }) {
   )
 }
 
-function ProjectDetail({ project, onClose, onRefresh }) {
+function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
   const [refreshing, setRefreshing] = useState(false)
   const [files, setFiles] = useState(null)
   const dismiss = useBackdropDismiss(onClose)
@@ -515,13 +529,16 @@ function ProjectDetail({ project, onClose, onRefresh }) {
   const [deletingPath, setDeletingPath] = useState('')
 
   const deleteFile = async (file) => {
-    const ok = confirm(
-      `Delete "${file.name}" permanently?\n\nThis will remove the file from the Dropbox folder. The editor will no longer see it. This cannot be undone.\n\nClick OK to delete, or Cancel to keep it.`
-    )
+    const ok = await confirm({
+      title: `Delete "${file.name}"?`,
+      message: 'This removes the file from your Dropbox project folder. The editor will no longer see it.',
+      confirmLabel: 'Delete',
+      destructive: true,
+      requireDoubleConfirm: true,
+      doubleConfirmTitle: `Really delete "${file.name}"?`,
+      doubleConfirmMessage: 'There is no undo.',
+    })
     if (!ok) return
-    // Second confirm for extra safety
-    const ok2 = confirm(`Really delete "${file.name}"? There is NO undo.`)
-    if (!ok2) return
 
     setDeletingPath(file.path)
     try {
@@ -531,8 +548,9 @@ function ProjectDetail({ project, onClose, onRefresh }) {
       )
       if (!res.ok) {
         const err = await res.json()
-        alert(`Delete failed: ${err.error || 'Unknown error'}`)
+        toast(`Delete failed: ${err.error || 'Unknown error'}`, 'error')
       } else {
+        toast('File deleted', 'success')
         setFiles(prev => (prev || []).filter(f => f.path !== file.path))
         fetch(`/api/creator/oftv-projects/${project.id}/sync`, { method: 'POST' }).then(() => onRefresh())
       }
@@ -756,12 +774,16 @@ function ProjectDetail({ project, onClose, onRefresh }) {
   )
 }
 
-function ProjectRow({ project, onClick, onDelete }) {
-  const handleDelete = (e) => {
+function ProjectRow({ project, onClick, onDelete, confirm }) {
+  const handleDelete = async (e) => {
     e.stopPropagation()
-    if (confirm(`Delete project "${project.projectName}"? The Dropbox folder and its files will stay in Dropbox, but the project record and upload link will be removed.`)) {
-      onDelete(project.id)
-    }
+    const ok = await confirm({
+      title: `Delete project "${project.projectName}"?`,
+      message: 'The Dropbox folder and its files will stay in Dropbox. The project record and upload link will be removed from the portal.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    })
+    if (ok) onDelete(project.id)
   }
   return (
     <Card onClick={onClick}>
@@ -811,6 +833,8 @@ export default function LongFormPage() {
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [detail, setDetail] = useState(null)
+  const { toast, ToastViewport } = useToast()
+  const { confirm, ConfirmDialog } = useConfirm()
 
   const load = useCallback(async () => {
     if (!creatorOpsId) return
@@ -864,7 +888,7 @@ export default function LongFormPage() {
         </button>
       </div>
 
-      <EditingPreferencesCard creatorOpsId={creatorOpsId} />
+      <EditingPreferencesCard creatorOpsId={creatorOpsId} confirm={confirm} toast={toast} />
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--foreground-muted)' }}>
@@ -884,14 +908,16 @@ export default function LongFormPage() {
             <ProjectRow
               key={p.id}
               project={p}
+              confirm={confirm}
               onClick={() => setDetail(p)}
               onDelete={async (id) => {
                 const res = await fetch(`/api/creator/oftv-projects/${id}`, { method: 'DELETE' })
                 if (res.ok) {
                   setProjects(prev => prev.filter(x => x.id !== id))
                   if (detail?.id === id) setDetail(null)
+                  toast('Project deleted', 'success')
                 } else {
-                  alert((await res.json()).error || 'Delete failed')
+                  toast((await res.json()).error || 'Delete failed', 'error')
                 }
               }}
             />
@@ -907,7 +933,11 @@ export default function LongFormPage() {
             setShowNew(false)
             setProjects(prev => [p, ...prev])
             setDetail(p)
-            if (warning) alert(warning)
+            if (warning) {
+              toast(warning, 'warning', { duration: 8000 })
+            } else {
+              toast('Project created', 'success')
+            }
           }}
         />
       )}
@@ -917,8 +947,13 @@ export default function LongFormPage() {
           project={detail}
           onClose={() => setDetail(null)}
           onRefresh={refreshDetail}
+          confirm={confirm}
+          toast={toast}
         />
       )}
+
+      <ToastViewport />
+      <ConfirmDialog />
     </div>
   )
 }
