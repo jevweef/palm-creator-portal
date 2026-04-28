@@ -114,11 +114,18 @@ export async function POST(request) {
       referenceFilenames = ['(source frame)', ...refInputs.slice(0, 8).map(att => att.filename)]
 
       // Wrap the prompt with explicit edit instruction. The first image is
-      // the canvas; images 2-9 are identity references.
+      // the canvas; images 2-9 are FULL CHARACTER references — face, body,
+      // hair, proportions all come from those, not from image 1.
+      //
+      // Critical: tell Wan explicitly to swap body proportions too, not just
+      // face. Default behavior keeps the original creator's body shape with
+      // a face-only swap, which produces a chimera. We want full character
+      // replacement: take her body from refs, only the pose/scene/wardrobe
+      // come from image 1.
       finalPrompt =
-        `Edit the first image. Replace ONLY the woman's identity (face, hair, body, skin) with the woman shown in the other reference images. ` +
-        `Preserve EVERYTHING ELSE from the first image exactly: the scene, room, furniture, lighting (including direction and quality), camera framing, camera tilt, subject's exact pose and motion state, foot placement, hand positions, head turn, gaze direction, facial expression, hair direction/motion, clothing, and any small imperfections (rumples in bedding, used objects, etc.). Do not "tidy up" or "improve" the scene — match it as-is.\n\n` +
-        `Detailed scene description (for guidance only — image 1 is the source of truth): ${positivePrompt}`
+        `Edit the first image. Fully replace the woman with the woman shown in the other reference images. Replace HER ENTIRE BODY: face, hair (color, length, texture, styling from the refs), body shape and proportions (build, height ratio, hip-to-waist ratio, bust size, shoulder width, arm/leg shape), skin tone and texture. The reference woman's body must fully take over — do NOT keep the original woman's body silhouette, proportions, or shape.\n\n` +
+        `Keep from the first image: the room/scene, lighting (direction and quality), camera framing and tilt, the woman's POSE (where her hands are, head angle, weight distribution, foot placement), wardrobe items (what she's wearing — but the wardrobe should fit and drape correctly on the new body), facial expression, gaze direction, hair direction/motion, and any small imperfections (rumples in bedding, used objects). Do not "tidy up" the scene.\n\n` +
+        `Detailed scene description (image 1 is the source of truth for scene/pose; the reference images are the source of truth for body/identity): ${positivePrompt}`
     } else {
       // Subject-only mode (current default) — only creator references
       const creatorRefUrls = refInputs.slice(0, 9).map(att => att.url)
