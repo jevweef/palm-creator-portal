@@ -430,6 +430,21 @@ export default function RecreatePage() {
         .catch(() => {})
     fetchSlot('start', shortcode)
     fetchSlot('end', `${shortcode}-end`)
+
+    // Also rehydrate the latest animated video (Step 7) — previously this
+    // got lost on refresh.
+    fetch(`/api/admin/recreate/last-animate?creatorId=${encodeURIComponent(selectedCreator)}&shortcode=${encodeURIComponent(shortcode)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        if (d?.output?.url) {
+          setAnimateState(prev => prev.result
+            ? prev
+            : { ...prev, result: { url: d.output.url, filename: d.output.filename, muxed: true } })
+        }
+      })
+      .catch(() => {})
+
     return () => { cancelled = true }
   }, [selectedCreator, shortcode])
 
