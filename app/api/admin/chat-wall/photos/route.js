@@ -4,7 +4,11 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { requireAdminOrChatManager, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 
-const PAGE_SIZE = 40
+const DEFAULT_PAGE_SIZE = 40
+// What the client is allowed to choose from. ALLOWED_PAGE_SIZES doubles as a
+// safety check — anything not in this list falls back to the default, so a
+// malformed pageSize URL param can't blow up payload size.
+const ALLOWED_PAGE_SIZES = [25, 40, 50, 100, 200]
 
 const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tiff', 'tif']
 const imageExtRegex = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i
@@ -32,6 +36,12 @@ export async function GET(request) {
   const creatorId = searchParams.get('creatorId')
   const view = searchParams.get('view') === 'used' ? 'used' : 'available'
   const page = Math.max(0, parseInt(searchParams.get('page') || '0', 10))
+
+  // Page size is client-controlled but clamped to ALLOWED_PAGE_SIZES.
+  const requestedPageSize = parseInt(searchParams.get('pageSize') || '', 10)
+  const pageSize = ALLOWED_PAGE_SIZES.includes(requestedPageSize)
+    ? requestedPageSize
+    : DEFAULT_PAGE_SIZE
 
   if (!creatorId) {
     return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
@@ -81,8 +91,8 @@ export async function GET(request) {
     filtered.sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0))
 
     const total = filtered.length
-    const start = page * PAGE_SIZE
-    const slice = filtered.slice(start, start + PAGE_SIZE)
+    const start = page * pageSize
+    const slice = filtered.slice(start, start + pageSize)
 
     const photos = slice.map(a => {
       // Prefer the Airtable-generated thumbnail (auto-resized ~512px) over the
@@ -110,9 +120,9 @@ export async function GET(request) {
     return NextResponse.json({
       photos,
       page,
-      pageSize: PAGE_SIZE,
+      pageSize: pageSize,
       total,
-      totalPages: Math.ceil(total / PAGE_SIZE),
+      totalPages: Math.ceil(total / pageSize),
       availableCount,
       usedCount,
     })

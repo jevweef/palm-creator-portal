@@ -45,6 +45,9 @@ const SKIP_CONFIRM_KEY = 'chatWall.skipUseConfirm'
 
 const TEAMS = ['All', 'A', 'B']
 const VIEWS = ['available', 'used']
+const PAGE_SIZES = [25, 40, 50, 100, 200]
+const DEFAULT_PAGE_SIZE = 40
+const PAGE_SIZE_KEY = 'chatWall.pageSize'
 
 export default function ChatWallPage() {
   const router = useRouter()
@@ -58,6 +61,9 @@ export default function ChatWallPage() {
   const [creatorId, setCreatorId] = useState(searchParams.get('creator') || '')
   const [view, setView] = useState(searchParams.get('view') || 'available')
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '0', 10))
+  // Page size is sticky across sessions via localStorage. URL param wins on
+  // initial load if explicitly set (lets you share a link with N=100, etc).
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   const [photos, setPhotos] = useState([])
   const [photosLoading, setPhotosLoading] = useState(false)
@@ -70,6 +76,20 @@ export default function ChatWallPage() {
   // Asset waiting on the Use & Download confirmation. Only set when going
   // available → used (Restore skips confirmation since it's reversible).
   const [confirmAsset, setConfirmAsset] = useState(null)
+
+  // Hydrate sticky page size from localStorage / URL on mount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const fromUrl = parseInt(searchParams.get('pageSize') || '', 10)
+    if (PAGE_SIZES.includes(fromUrl)) {
+      setPageSize(fromUrl)
+      return
+    }
+    const stored = parseInt(window.localStorage.getItem(PAGE_SIZE_KEY) || '', 10)
+    if (PAGE_SIZES.includes(stored)) setPageSize(stored)
+    // Only run on first mount — subsequent changes flow through the dropdown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Load creators once
   useEffect(() => {
@@ -123,7 +143,7 @@ export default function ChatWallPage() {
       return
     }
     setPhotosLoading(true)
-    const params = new URLSearchParams({ creatorId, view, page: String(page) })
+    const params = new URLSearchParams({ creatorId, view, page: String(page), pageSize: String(pageSize) })
     fetch(`/api/admin/chat-wall/photos?${params}`)
       .then(r => r.json())
       .then(data => {
@@ -139,7 +159,7 @@ export default function ChatWallPage() {
         setTotalPages(0)
       })
       .finally(() => setPhotosLoading(false))
-  }, [creatorId, view, page])
+  }, [creatorId, view, page, pageSize])
 
   useEffect(() => { loadPhotos() }, [loadPhotos])
 
@@ -323,13 +343,45 @@ export default function ChatWallPage() {
 
       {/* Header above grid */}
       {creatorId && !photosLoading && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
             {selectedCreator?.aka || selectedCreator?.name} · {total} {view === 'used' ? 'used' : 'available'} {total === 1 ? 'photo' : 'photos'}
           </div>
-          {totalPages > 1 && (
-            <Pager page={page} totalPages={totalPages} onChange={setPage} />
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            {/* Page size — sticky per browser via localStorage. Resets to
+                page 0 on change so the user doesn't end up past the new
+                last page. */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
+              <span style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '10px' }}>Per page</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const next = parseInt(e.target.value, 10)
+                  setPageSize(next)
+                  setPage(0)
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.setItem(PAGE_SIZE_KEY, String(next))
+                  }
+                }}
+                style={{
+                  background: '#0f0f0f',
+                  border: '1px solid var(--card-border, rgba(255,255,255,0.08))',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  color: 'var(--foreground)',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+              >
+                {PAGE_SIZES.map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+            {totalPages > 1 && (
+              <Pager page={page} totalPages={totalPages} onChange={setPage} />
+            )}
+          </div>
         </div>
       )}
 
