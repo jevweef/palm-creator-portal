@@ -46,12 +46,23 @@ Example videoContext output:
 - iPhone + ring light tripod stays in same position bottom-right entire time.
 
 —————————————————————————
-motionPrompt format (one paragraph, copy-paste ready for Kling V3.0 4K):
-- Start with camera framing: "Selfie shot of...", "Mirror selfie of...", "Static shot of...", "Tripod static shot of...", "Handheld shot of...", etc.
-- Describe the subject as "an american girl" (or other accent if clearly different) — keep generic.
-- Describe the literal action / motion beat by beat (walks into frame from left, brushes hair, glances at camera, mouths along to audio, body weight shifts onto right hip, etc.). Keep it leaner when start AND end frame anchors are present (text should describe the TRANSITION, not re-imagine the bookends).
-- If she speaks audibly, include the EXACT spoken quote: she said "..."
-- The motionPrompt's last segment will be set automatically based on your separate cameraMotion enum (see below). Do NOT include "Static camera, no movement" in the motionPrompt — leave camera direction out, just describe action and audio constraints; the server will append the camera descriptor from your cameraMotion choice.
+motionPrompt format — CRITICAL STRUCTURE for Kling realism. Multiple Kling-specific prompt guides converge on this exact structure:
+
+[Shot type] of [subject + action], [real lens cue], [named light source], [specific skin/realism vocab], [mood/film vibe].
+
+Camera and style cues belong at the END, not buried mid-prompt. Real lens names ("50mm prime f/1.8", "iPhone 15 Pro 26mm equivalent") outperform abstract terms ("cinematic", "raw photo"). Real light source names ("natural window daylight diffused through sheer curtains", "overhead fluorescent", "dim bedside lamp") outperform "studio lighting" / "soft light".
+
+Specific structure:
+1. Shot type: "Tripod static shot of...", "Selfie shot of...", "Handheld shot of...". Camera-direction/motion phrase will be auto-inserted by the server based on your cameraMotion enum (DO NOT include any camera direction in the prompt body).
+2. Subject: "an american girl" (or other accent if obvious) — keep generic, no body/hair/face descriptors (those come from reference images).
+3. Action: literal beat-by-beat (walks into frame from left, brushes hair, glances at camera, weight shifts onto right hip). Keep concise.
+4. If she speaks audibly: include EXACT spoken quote: she said "...".
+5. Real lens cue: ONE of "50mm prime lens at f/1.8", "Shot on Canon 5D Mark IV, 50mm f/1.4", "iPhone 15 Pro, 26mm equivalent, f/1.78", "vertical 9:16 raw video". Pick based on whether the inspo looks pro-camera or phone-shot.
+6. Named light source: pull from the actual inspo (e.g. "natural window daylight diffused through sheer curtains", "warm bedside lamp on her right", "afternoon golden hour light through blinds", "overhead fluorescent kitchen light"). Avoid "studio lighting", "cinematic lighting", "soft lighting".
+7. Skin/realism vocab: "visible pores, fine peach-fuzz, slight freckles, unretouched skin, subtle skin imperfections" — pick 3-4 of these. Do NOT use "no smoothing", "no beauty filter", "no retouching" in the positive — Kling reads "no X" as content tokens, not negation.
+8. Mood/vibe: "documentary candid lifestyle vibe", "Tuesday afternoon at home", "off-the-cuff moment". One short phrase.
+
+Camera direction line: do NOT include — server appends from cameraMotion enum.
 
 cameraMotion field — REQUIRED, single enum value. CRITICAL: do not default to "locked" just because you see a tripod. Tripod-mounted cameras can dolly, pan, slide. Use this exact procedure:
 
@@ -72,7 +83,13 @@ Subject scale is the most reliable signal. Even subtle pull-backs (subject 60% o
 - Add voice direction at the end: "american accent" (or other)
 - No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
 
-motionNegative format — comma-separated tokens preventing common Kling failure modes plus framing-specific blockers based on the video. Always include: cartoon, anime, illustration, painting, CGI, 3D render, plastic skin, airbrushed, beauty filter, cinematic lighting, studio lighting, blurry, low resolution, jpeg artifacts, watermark, text, logo, deformed face, asymmetric eyes, extra fingers, missing fingers, distorted hands, malformed hands, extra limbs, broken anatomy, mannequin, AI artifacts, uncanny valley, double face, multiple people, child, underage features, nudity, censor bars, scene cut, jump cut, transition, multiple shots. If video is tripod-static, also add: mirror selfie, mirror reflection, phone in hand, holding a smartphone, selfie pose.
+motionNegative format — KEEP IT SHORT. Multiple Kling guides explicitly warn that long negatives flatten the output and cause stiffness/plastic look. Output 6-8 tokens max, comma-separated. The server adds skin and talking blockers automatically — your job is just the high-impact terms specific to this reel:
+
+Pick 6-8 from: plastic skin, waxy skin, beauty filter, airbrushed, CGI render, morphing face, sliding feet, talking mouth, mirror selfie, phone in hand, scene cut, jump cut, multiple shots, deformed face.
+
+Add framing-specific blockers when relevant: if NOT a mirror selfie, include "mirror selfie, mirror reflection". If subject doesn't speak, include "talking mouth". If single-clip continuous, include "scene cut, jump cut".
+
+Do NOT include long lists of generic anti-AI tokens (cartoon, anime, painting, etc.). Those dilute signal.
 
 hasSpokenDialogue — boolean. true ONLY if the subject is clearly speaking, mouthing words, or lip-syncing audibly in the video. false if the audio is just music with no spoken vocals from the subject (her mouth is closed or making non-speech expressions). This drives whether we add aggressive "no talking" negatives downstream — Kling defaults to making subjects talk, so silent reels need explicit blockers.`
 
@@ -238,23 +255,36 @@ export async function POST(request) {
       }
     }
 
-    // Always inject skin-texture emphasis into the motion prompt tail —
-    // Kling otherwise defaults to glamour/smooth skin from its training bias.
-    // Adding these phrases as positives + reinforcing in negatives nudges
-    // it toward pore-level detail.
-    const SKIN_POSITIVES = 'natural skin pores visible throughout, real skin texture preserved, no smoothing, no retouching, no beauty filter'
-    if (!finalMotionPrompt.toLowerCase().includes('natural skin pores')) {
-      finalMotionPrompt = `${finalMotionPrompt} ${SKIN_POSITIVES}.`
+    // Per Kling-specific prompt guides: do NOT inject "no smoothing/no
+    // beauty filter" into the positive (Kling reads "no X" as content
+    // tokens). Skin realism comes from positive vocabulary (pores, peach-
+    // fuzz, freckles) which Gemini handles in its prompt structure, plus
+    // a short, focused negative.
+    //
+    // Keep the negative under ~10 tokens. Long lists flatten output and
+    // increase plasticity per multiple Kling guides. Server adds only the
+    // most-impactful blockers.
+    const TALKING_BLOCKERS = 'talking mouth, lip sync, mouth opening, speaking'
+    const SKIN_BLOCKERS = 'plastic skin, waxy skin, beauty filter, airbrushed'
+    let finalNegative = motionNegative
+    // Prepend skin blockers if not already present
+    if (!/plastic skin/i.test(finalNegative)) {
+      finalNegative = `${SKIN_BLOCKERS}, ${finalNegative}`
     }
-
-    // If the subject is silent in the inspo, prepend aggressive "no talking"
-    // blockers — Kling otherwise defaults to lip-syncing creators.
-    const TALKING_BLOCKERS = 'talking, lip sync, lip syncing, mouth open, mouth opening, singing, vocalizing, speaking, mouth movement, lip movement, screaming, yelling, performing, exaggerated facial expressions'
-    const SKIN_BLOCKERS = 'AI smoothing, glamour skin, soft-focus skin, perfect complexion, magazine skin, retouched skin, doll skin, mannequin skin'
-    const baseNegative = `${SKIN_BLOCKERS}, ${motionNegative}`
-    const finalNegative = hasSpokenDialogue === false
-      ? `${TALKING_BLOCKERS}, ${baseNegative}`
-      : baseNegative
+    // Prepend talking blockers when subject is silent
+    if (hasSpokenDialogue === false && !/talking mouth/i.test(finalNegative)) {
+      finalNegative = `${TALKING_BLOCKERS}, ${finalNegative}`
+    }
+    // Final cleanup: dedupe tokens, cap to ~12 unique tokens
+    const seen = new Set()
+    const trimmed = finalNegative.split(',').map(s => s.trim()).filter(t => {
+      if (!t) return false
+      const key = t.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    }).slice(0, 12)
+    finalNegative = trimmed.join(', ')
 
     if (inspoRecordId) {
       try {
