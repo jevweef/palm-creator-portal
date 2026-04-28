@@ -278,37 +278,79 @@ export default function ChatWallPage() {
         </div>
       )}
 
-      {/* Creator picker */}
+      {/* Creator picker — button grid. Each button shows the creator's
+          name + photo count. Clicking selects them. Active button is
+          highlighted in pink. Creators with 0 photos are filtered out by
+          the API so we never render empty buttons. */}
       <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)', marginBottom: '6px' }}>
+        <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)', marginBottom: '8px' }}>
           Creator
         </label>
-        <select
-          value={creatorId}
-          onChange={e => { setCreatorId(e.target.value); setPage(0) }}
-          disabled={creatorsLoading}
-          style={{
-            background: '#0f0f0f',
-            border: '1px solid var(--card-border, rgba(255,255,255,0.08))',
-            borderRadius: '8px',
-            padding: '10px 14px',
-            color: 'var(--foreground)',
-            fontSize: '14px',
-            minWidth: '300px',
-            cursor: creatorsLoading ? 'wait' : 'pointer',
-          }}
-        >
-          <option value="">{creatorsLoading ? 'Loading creators...' : 'Select a creator'}</option>
-          {visibleCreators.map(c => (
-            <option key={c.id} value={c.id}>
-              {c.aka || c.name}{c.chatTeam ? ` · Team ${c.chatTeam}` : ''}
-            </option>
-          ))}
-        </select>
-        {visibleCreators.length === 0 && !creatorsLoading && (
-          <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '6px' }}>
-            No creators found{team !== 'All' ? ` for Team ${team}` : ''}.
-          </p>
+        {creatorsLoading ? (
+          <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Loading creators...</div>
+        ) : visibleCreators.length === 0 ? (
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+            No creators with photos{team !== 'All' ? ` on Team ${team}` : ''}.
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: '10px',
+          }}>
+            {visibleCreators.map(c => {
+              const active = creatorId === c.id
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => { setCreatorId(c.id); setPage(0) }}
+                  style={{
+                    padding: '14px 16px',
+                    background: active ? 'rgba(232, 160, 160, 0.12)' : '#0f0f0f',
+                    border: `1px solid ${active ? 'var(--palm-pink)' : 'var(--card-border, rgba(255,255,255,0.08))'}`,
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) e.currentTarget.style.borderColor = 'rgba(232, 160, 160, 0.4)'
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) e.currentTarget.style.borderColor = 'var(--card-border, rgba(255,255,255,0.08))'
+                  }}
+                >
+                  <span style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: active ? 'var(--palm-pink)' : 'var(--foreground)',
+                  }}>
+                    {c.aka || c.name}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {c.photoCount} {c.photoCount === 1 ? 'photo' : 'photos'}
+                    {c.chatTeam && (
+                      <span style={{
+                        padding: '1px 6px',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        borderRadius: '999px',
+                        background: 'rgba(255,255,255,0.06)',
+                        color: 'var(--foreground-muted)',
+                      }}>
+                        Team {(c.chatTeam || '').replace(/\s*Team$/i, '').trim()}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         )}
       </div>
 

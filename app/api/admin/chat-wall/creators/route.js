@@ -6,6 +6,19 @@ import { requireAdminOrChatManager, fetchAirtableRecords } from '@/lib/adminAuth
 const HQ_BASE = 'appL7c4Wtotpz07KS'
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 
+const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tiff', 'tif']
+const IMAGE_RE = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i
+
+const getLinkedIds = (val) => (val || []).map(c => typeof c === 'string' ? c : c?.id).filter(Boolean)
+const getSelectName = (val) => (typeof val === 'string' ? val : val?.name || '').toLowerCase()
+
+function isImageAsset(fields) {
+  const ext = (fields['File Extension'] || '').toLowerCase()
+  const link = fields['Dropbox Shared Link'] || ''
+  const type = getSelectName(fields['Asset Type'])
+  return IMAGE_EXTS.includes(ext) || IMAGE_RE.test(link) || type === 'photo' || type === 'image'
+}
+
 // GET /api/admin/chat-wall/creators
 // Returns active Palm Creators (Ops) joined with Chat Team from HQ Creators.
 // Real chat managers are auto-scoped to their assigned team via
@@ -24,12 +37,30 @@ export async function GET() {
   const userTeam = (user?.publicMetadata?.chatTeam || '').toString().toUpperCase()
 
   try {
-    // Active Ops creators
-    const opsRecords = await fetchAirtableRecords('Palm Creators', {
-      filterByFormula: `OR({Status} = 'Active', {Status} = 'Onboarding')`,
-      fields: ['Creator', 'AKA', 'Status', 'HQ Record ID'],
-      sort: [{ field: 'Creator', direction: 'asc' }],
-    })
+    // Active Ops creators + photo counts in parallel. Photo count is needed
+    // so we can hide creators with 0 photos from the picker — chat manager
+    // shouldn't see empty buttons.
+    const [opsRecords, photoAssets] = await Promise.all([
+      fetchAirtableRecords('Palm Creators', {
+        filterByFormula: `OR({Status} = 'Active', {Status} = 'Onboarding')`,
+        fields: ['Creator', 'AKA', 'Status', 'HQ Record ID'],
+        sort: [{ field: 'Creator', direction: 'asc' }],
+      }),
+      fetchAirtableRecords('Assets', {
+        filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()))`,
+        fields: ['Palm Creators', 'Asset Type', 'File Extension', 'Dropbox Shared Link'],
+      }),
+    ])
+
+    // Tally photos per creator. Filter out non-image assets (e.g. PDFs that
+    // slipped through the Asset Type narrowing).
+    const photoCountByCreator = {}
+    for (const a of photoAssets) {
+      if (!isImageAsset(a.fields || {})) continue
+      for (const cId of getLinkedIds(a.fields?.['Palm Creators'])) {
+        photoCountByCreator[cId] = (photoCountByCreator[cId] || 0) + 1
+      }
+    }
 
     const creators = opsRecords.map(r => ({
       id: r.id,
@@ -38,6 +69,7 @@ export async function GET() {
       aka: r.fields?.AKA || '',
       status: typeof r.fields?.Status === 'string' ? r.fields.Status : (r.fields?.Status?.name || ''),
       chatTeam: null,
+      photoCount: photoCountByCreator[r.id] || 0,
     }))
 
     // Pull Chat Team for each from HQ
@@ -60,15 +92,20 @@ export async function GET() {
       }
     }
 
+    // Hide creators with 0 photos — empty buttons confuse the chat manager.
+    // Their record stays visible everywhere else; this is just a UX filter
+    // on the chat-wall picker.
+    const withPhotos = creators.filter(c => c.photoCount > 0)
+
     // Real chat managers only see creators on their team. If their metadata
     // is missing chatTeam, they see no creators (fail closed) — admin must
     // set it in Clerk before they can use the page.
-    let scopedCreators = creators
+    let scopedCreators = withPhotos
     if (isRealChatManager) {
       if (!userTeam) {
         scopedCreators = []
       } else {
-        scopedCreators = creators.filter(c => (c.chatTeam || '').toUpperCase().startsWith(userTeam))
+        scopedCreators = withPhotos.filter(c => (c.chatTeam || '').toUpperCase().startsWith(userTeam))
       }
     }
 
