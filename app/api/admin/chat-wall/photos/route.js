@@ -68,6 +68,7 @@ export async function GET(request) {
         'CDN URL',
         'Used By Chat Manager At',
         'Used By Chat Manager',
+        'Used By Chat Manager For',
       ],
     })
 
@@ -100,6 +101,10 @@ export async function GET(request) {
       // Thumbnail attachment exists for this asset.
       const thumbAttachment = (a.fields['Thumbnail'] || [])[0]
       const thumbnails = thumbAttachment?.thumbnails || {}
+      // singleSelect can come back as string (PAT default) or {name} (older
+      // SDK paths). Normalize to plain string so the UI doesn't have to.
+      const usedForRaw = a.fields['Used By Chat Manager For']
+      const usedFor = typeof usedForRaw === 'string' ? usedForRaw : (usedForRaw?.name || null)
       return {
         id: a.id,
         name: a.fields['Asset Name'] || '',
@@ -114,6 +119,7 @@ export async function GET(request) {
         fileExtension: a.fields['File Extension'] || '',
         createdTime: a.createdTime,
         usedAt: a.fields['Used By Chat Manager At'] || null,
+        usedFor, // 'Wall Post' | 'Mass Message' | null
       }
     })
 
@@ -133,8 +139,12 @@ export async function GET(request) {
 }
 
 // PATCH /api/admin/chat-wall/photos
-// Body: { assetId, used: boolean }
-// Toggle the chat manager "used" flag. Setting used=false clears both fields (restore).
+// Body: { assetId, used: boolean, usedFor?: 'wall' | 'mm' }
+// Toggle the chat manager "used" flag. When used=true, usedFor is required —
+// stores the surface (Wall Post or Mass Message) so we can badge it later.
+// Setting used=false clears all three fields (restore).
+const USED_FOR_MAP = { wall: 'Wall Post', mm: 'Mass Message' }
+
 export async function PATCH(request) {
   try {
     await requireAdminOrChatManager()
@@ -142,18 +152,27 @@ export async function PATCH(request) {
 
   try {
     const { userId } = auth()
-    const { assetId, used } = await request.json()
+    const { assetId, used, usedFor } = await request.json()
     if (!assetId) return NextResponse.json({ error: 'assetId required' }, { status: 400 })
 
-    const fields = used
-      ? {
-          'Used By Chat Manager At': new Date().toISOString(),
-          'Used By Chat Manager': userId || '',
-        }
-      : {
-          'Used By Chat Manager At': null,
-          'Used By Chat Manager': '',
-        }
+    let fields
+    if (used) {
+      const surfaceLabel = USED_FOR_MAP[usedFor]
+      if (!surfaceLabel) {
+        return NextResponse.json({ error: 'usedFor must be "wall" or "mm"' }, { status: 400 })
+      }
+      fields = {
+        'Used By Chat Manager At': new Date().toISOString(),
+        'Used By Chat Manager': userId || '',
+        'Used By Chat Manager For': surfaceLabel,
+      }
+    } else {
+      fields = {
+        'Used By Chat Manager At': null,
+        'Used By Chat Manager': '',
+        'Used By Chat Manager For': null,
+      }
+    }
 
     await patchAirtableRecord('Assets', assetId, fields)
     return NextResponse.json({ ok: true })

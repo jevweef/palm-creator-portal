@@ -35,7 +35,10 @@ function triggerDownload(asset) {
   setTimeout(() => a.remove(), 500)
 }
 
-const SKIP_CONFIRM_KEY = 'chatWall.skipUseConfirm'
+// Note: we used to have a "Don't show this again" preference (SKIP_CONFIRM_KEY)
+// that bypassed the confirm modal. Removed when "Use" became a real choice
+// between Wall Post / Mass Message — the modal isn't a yes/no anymore, it's
+// the only way to pick which surface, so it always needs to show.
 
 // Chat Wall — chat manager photo library.
 // - Pick a creator (filtered by Chat Team A / B / All)
@@ -163,26 +166,20 @@ export default function ChatWallPage() {
 
   useEffect(() => { loadPhotos() }, [loadPhotos])
 
-  // Public entry point — handles both directions. Marking as Used routes
-  // through the confirmation modal first (unless the user dismissed it),
-  // then commits via commitToggle. Restore goes straight through.
+  // Public entry point. Marking Used always routes through the confirmation
+  // modal — the modal is where the chat manager picks Wall Post vs Mass
+  // Message, so it's required, not skippable. Restore goes straight through.
   const togglePhoto = (asset, makeUsed, opts = {}) => {
     if (makeUsed) {
-      // localStorage is browser-only; window guard for SSR safety.
-      const skip = typeof window !== 'undefined' && window.localStorage.getItem(SKIP_CONFIRM_KEY) === '1'
-      if (skip) {
-        return commitToggle(asset, true, opts)
-      }
-      // Stash advance flag so the confirm handler knows whether to chain.
       setConfirmAsset({ asset, advance: !!opts.advance })
       return
     }
     return commitToggle(asset, false, opts)
   }
 
-  // Actual server call + optimistic UI + auto-download. Only call this from
-  // togglePhoto or the confirmation modal — never directly from the UI.
-  const commitToggle = async (asset, makeUsed, { advance = false } = {}) => {
+  // Actual server call + optimistic UI + auto-download. usedFor must be
+  // 'wall' or 'mm' when makeUsed=true.
+  const commitToggle = async (asset, makeUsed, { advance = false, usedFor = null } = {}) => {
     setPendingIds(prev => new Set(prev).add(asset.id))
 
     if (makeUsed) triggerDownload(asset)
@@ -208,10 +205,13 @@ export default function ChatWallPage() {
     }
 
     try {
+      const body = makeUsed
+        ? { assetId: asset.id, used: true, usedFor }
+        : { assetId: asset.id, used: false }
       const res = await fetch('/api/admin/chat-wall/photos', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: asset.id, used: makeUsed }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error(await res.text())
       loadPhotos()
@@ -244,10 +244,10 @@ export default function ChatWallPage() {
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
           Chat Wall
         </h1>
-        <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 0', maxWidth: '640px' }}>
-          Browse a creator&apos;s full photo library. Click <strong>Use</strong> when you post one to the wall —
-          it&apos;ll disappear from Available so you don&apos;t reuse it. Switch to <strong>Used</strong> to see what
-          you&apos;ve already used (and restore any if you need to).
+        <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 0', maxWidth: '680px' }}>
+          Browse a creator&apos;s full photo library. Click any photo, pick <strong>Wall Post</strong> or <strong>Mass Message</strong>,
+          and we&apos;ll mark it with that label, remove it from Available, and download the original. Switch to <strong>Used</strong> to
+          see what&apos;s been used (badged <span style={{ background: 'var(--palm-pink)', color: '#060606', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>WP</span> or <span style={{ background: '#7aa9ff', color: '#060606', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>MM</span>) and restore if needed.
         </p>
       </div>
 
@@ -424,19 +424,17 @@ export default function ChatWallPage() {
         />
       )}
 
-      {/* Use & Download confirmation. Layered above PhotoModal when both are
-          open. Dismissed permanently if user checks "Don't show again". */}
+      {/* Use & Download confirmation. Two CTAs — "Wall Post" or "Mass
+          Message" — so the chat manager labels what the photo is being
+          used for. Both download the file. */}
       {confirmAsset && (
         <UseConfirmModal
           asset={confirmAsset.asset}
           onCancel={() => setConfirmAsset(null)}
-          onConfirm={(skipNextTime) => {
-            if (skipNextTime && typeof window !== 'undefined') {
-              window.localStorage.setItem(SKIP_CONFIRM_KEY, '1')
-            }
+          onConfirm={(usedFor) => {
             const { asset, advance } = confirmAsset
             setConfirmAsset(null)
-            commitToggle(asset, true, { advance })
+            commitToggle(asset, true, { advance, usedFor })
           }}
         />
       )}
@@ -521,6 +519,25 @@ function PhotoCard({ photo, view, pending, onToggle, onClick }) {
             transition: 'opacity 0.2s ease',
           }}
         />
+      )}
+
+      {/* Usage badge — only shown in Used view. WP = pink, MM = blue. */}
+      {view === 'used' && photo.usedFor && (
+        <div style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          padding: '3px 8px',
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.06em',
+          color: '#060606',
+          background: photo.usedFor === 'Mass Message' ? '#7aa9ff' : 'var(--palm-pink)',
+          borderRadius: '999px',
+          textTransform: 'uppercase',
+        }}>
+          {photo.usedFor === 'Mass Message' ? 'MM' : 'WP'}
+        </div>
       )}
 
       {/* Hover overlay with action */}
@@ -748,10 +765,26 @@ function PhotoModal({ photos, photoId, view, pending, onClose, onNavigate, onTog
           {photo.usedAt && (
             <div>
               <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--foreground-muted)', marginBottom: 6 }}>
-                Marked Used
+                Used For
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
-                {formatDate(photo.usedAt)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {photo.usedFor && (
+                  <span style={{
+                    padding: '3px 10px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    color: '#060606',
+                    background: photo.usedFor === 'Mass Message' ? '#7aa9ff' : 'var(--palm-pink)',
+                    borderRadius: '999px',
+                    textTransform: 'uppercase',
+                  }}>
+                    {photo.usedFor === 'Mass Message' ? 'MM' : 'WP'}
+                  </span>
+                )}
+                <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+                  {formatDate(photo.usedAt)}
+                </span>
               </div>
             </div>
           )}
@@ -819,23 +852,26 @@ function PhotoModal({ photos, photoId, view, pending, onClose, onNavigate, onTog
 }
 
 function UseConfirmModal({ asset, onCancel, onConfirm }) {
-  const [skipNextTime, setSkipNextTime] = useState(false)
-
-  // Keyboard: Esc cancels, Enter confirms. Lets the chat manager rip
-  // through their queue without ever touching the mouse.
+  // Keyboard shortcuts: Esc cancels, W picks Wall Post, M picks Mass Message.
+  // Letting power users fly through their queue without the mouse.
   useEffect(() => {
     function onKey(e) {
+      // Skip if user is typing in an input
+      if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA') return
       if (e.key === 'Escape') {
         e.preventDefault()
         onCancel()
-      } else if (e.key === 'Enter') {
+      } else if (e.key === 'w' || e.key === 'W') {
         e.preventDefault()
-        onConfirm(skipNextTime)
+        onConfirm('wall')
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault()
+        onConfirm('mm')
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel, onConfirm, skipNextTime])
+  }, [onCancel, onConfirm])
 
   const imgSrc = asset.cdnUrl || asset.thumbLarge || asset.thumbFull || rawDropboxUrl(asset.dropboxLink)
 
@@ -861,7 +897,7 @@ function UseConfirmModal({ asset, onCancel, onConfirm }) {
           border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 16,
           padding: 24,
-          maxWidth: 420,
+          maxWidth: 460,
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -871,10 +907,10 @@ function UseConfirmModal({ asset, onCancel, onConfirm }) {
       >
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)' }}>
-            Use this photo?
+            What is this for?
           </div>
           <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 6, lineHeight: 1.5 }}>
-            We&apos;ll mark it as used and download the original to your computer so you can post it to the wall.
+            Pick where you&apos;re posting it. We&apos;ll mark the photo with that label, remove it from Available, and download the original to your computer.
           </div>
         </div>
 
@@ -912,55 +948,67 @@ function UseConfirmModal({ asset, onCancel, onConfirm }) {
           </div>
         </div>
 
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          fontSize: 12,
-          color: 'var(--foreground-muted)',
-          cursor: 'pointer',
-          userSelect: 'none',
-        }}>
-          <input
-            type="checkbox"
-            checked={skipNextTime}
-            onChange={(e) => setSkipNextTime(e.target.checked)}
-            style={{ accentColor: 'var(--palm-pink)', width: 16, height: 16, cursor: 'pointer' }}
-          />
-          Don&apos;t show this again
-        </label>
+        {/* Two primary CTAs — pink palm color for Wall Post, blue for MM,
+            matching the singleSelect colors in Airtable. */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <button
+            onClick={() => onConfirm('wall')}
+            autoFocus
+            style={{
+              padding: '14px 16px',
+              background: 'var(--palm-pink)',
+              border: 'none',
+              borderRadius: 10,
+              color: '#060606',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <span>Wall Post</span>
+            <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>press W</span>
+          </button>
+          <button
+            onClick={() => onConfirm('mm')}
+            style={{
+              padding: '14px 16px',
+              background: '#7aa9ff',
+              border: 'none',
+              borderRadius: 10,
+              color: '#060606',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <span>Mass Message</span>
+            <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>press M</span>
+          </button>
+        </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={onCancel}
             style={{
-              padding: '10px 16px',
+              padding: '8px 14px',
               background: 'transparent',
               border: '1px solid rgba(255,255,255,0.12)',
               borderRadius: 8,
               color: 'var(--foreground-muted)',
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 500,
               cursor: 'pointer',
             }}
           >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(skipNextTime)}
-            autoFocus
-            style={{
-              padding: '10px 18px',
-              background: 'var(--palm-pink)',
-              border: 'none',
-              borderRadius: 8,
-              color: '#060606',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            Use & Download
+            Cancel (Esc)
           </button>
         </div>
       </div>
