@@ -83,13 +83,24 @@ Subject scale is the most reliable signal. Even subtle pull-backs (subject 60% o
 - Add voice direction at the end: "american accent" (or other)
 - No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
 
-motionNegative format — KEEP IT SHORT. Multiple Kling guides explicitly warn that long negatives flatten the output and cause stiffness/plastic look. Output 6-8 tokens max, comma-separated. The server adds skin and talking blockers automatically — your job is just the high-impact terms specific to this reel:
+motionNegative format — comma-separated tokens. Two categories matter:
 
-Pick 6-8 from: plastic skin, waxy skin, beauty filter, airbrushed, CGI render, morphing face, sliding feet, talking mouth, mirror selfie, phone in hand, scene cut, jump cut, multiple shots, deformed face.
+ANTI-FAILURE-MODE TOKENS (keep these — they guard against known Kling/AI breakdowns and DO help):
+- Quality: low quality, blurry, soft focus, jpeg artifacts, oversharpen, oversaturated, chromatic aberration, lens distortion
+- Anatomy errors: bad anatomy, deformed body, broken limbs, extra limbs, missing limbs, extra fingers, fused fingers, long neck, distorted face, asymmetrical eyes, bad proportions, bad hands, bad feet, duplicated body parts
+- Motion errors: motion freeze, unnatural stillness, stiff pose, unnatural pose, unrealistic flexibility
+- Composition errors: floating objects, depth errors, incorrect perspective, background blur errors, cloning artifacts
+- Style mismatch: cartoon, anime, CGI render, 3D render, illustration
 
-Add framing-specific blockers when relevant: if NOT a mirror selfie, include "mirror selfie, mirror reflection". If subject doesn't speak, include "talking mouth". If single-clip continuous, include "scene cut, jump cut".
+ANTI-AESTHETIC TOKENS (use sparingly — too many dilutes signal):
+- Pick 2-3 max from: plastic skin, waxy skin, beauty filter, doll-like, mannequin, fake muscles, exaggerated curves
 
-Do NOT include long lists of generic anti-AI tokens (cartoon, anime, painting, etc.). Those dilute signal.
+FRAMING-SPECIFIC TOKENS (add only when relevant):
+- If NOT a mirror selfie: mirror selfie, mirror reflection, phone in hand
+- If subject doesn't speak: talking mouth, lip sync
+- If single-clip continuous: scene cut, jump cut, multiple shots
+
+Output ~25-35 tokens total. The server adds skin and talking blockers automatically.
 
 hasSpokenDialogue — boolean. true ONLY if the subject is clearly speaking, mouthing words, or lip-syncing audibly in the video. false if the audio is just music with no spoken vocals from the subject (her mouth is closed or making non-speech expressions). This drives whether we add aggressive "no talking" negatives downstream — Kling defaults to making subjects talk, so silent reels need explicit blockers.`
 
@@ -275,7 +286,9 @@ export async function POST(request) {
     if (hasSpokenDialogue === false && !/talking mouth/i.test(finalNegative)) {
       finalNegative = `${TALKING_BLOCKERS}, ${finalNegative}`
     }
-    // Final cleanup: dedupe tokens, cap to ~12 unique tokens
+    // Final cleanup: dedupe tokens, cap to ~40 unique tokens (covers
+    // the comprehensive anti-failure-mode list + a few aesthetic blockers
+    // without bloating into hundreds of tokens that would flatten output)
     const seen = new Set()
     const trimmed = finalNegative.split(',').map(s => s.trim()).filter(t => {
       if (!t) return false
@@ -283,7 +296,7 @@ export async function POST(request) {
       if (seen.has(key)) return false
       seen.add(key)
       return true
-    }).slice(0, 12)
+    }).slice(0, 40)
     finalNegative = trimmed.join(', ')
 
     if (inspoRecordId) {
