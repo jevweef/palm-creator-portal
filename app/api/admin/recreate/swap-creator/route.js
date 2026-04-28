@@ -122,19 +122,18 @@ export async function POST(request) {
       // Per the verbatim examples on wavespeed.ai/models/alibaba/wan-2.7/image-edit
       // and replicate.com/wan-video/wan-2.7-image, the documented pattern is
       // 1-2 short sentences with explicit Change/Keep clauses.
+      // Universal prompt structure per consultant feedback. Itemized feature
+      // lists were overwhelming Wan and producing worse swaps. Holistic
+      // "match references for identity, match image 1 for everything else"
+      // works better — Wan uses its trained identity understanding instead
+      // of trying to balance 45 individual feature attributes.
       const refCount = images.length - 1
-      const refRange = refCount === 1 ? 'Figure 2' : `Figures 2 through ${1 + refCount}`
+      const refRange = refCount === 1 ? 'image 2' : `images 2 to ${1 + refCount}`
       finalPrompt =
-        `Replace the woman in Figure 1 with the woman shown in ${refRange}.\n\n` +
-        `FROM ${refRange.toUpperCase()} (the woman to render), take ALL of these features exactly as shown:\n` +
-        `• Face: face shape, eye shape and color, eyebrow shape, nose shape, lip shape and fullness, jawline, cheekbones, chin, ear shape\n` +
-        `• Hair: exact color and highlights, length, texture (straight/wavy/curly), styling, hairline\n` +
-        `• Body type: overall build (slim/athletic/curvy as shown in references — match exactly)\n` +
-        `• Body proportions: ribcage width, bust size and shape, waist circumference, hip width, hip-to-waist ratio, shoulder width, arm shape and length, leg shape and length, overall height-to-width ratio\n` +
-        `• Skin: skin tone, undertone, natural texture, any visible freckles or moles, body hair pattern\n\n` +
-        `Do NOT inherit any of these features from the woman in Figure 1. The body proportions and silhouette of Figure 1's original woman are NOT preserved.\n\n` +
-        `KEEP from Figure 1 only: the room/scene, lighting (direction and quality), camera framing and angle, the woman's pose (hand positions, head angle, weight distribution, foot placement), her gaze direction and facial expression. The wardrobe's TYPE, COLOR, and STYLE stay the same, but the wardrobe RESIZES to fit the new body naturally.\n\n` +
-        `Scene details: ${positivePrompt}`
+        `Use image 1 as the primary reference and recreate the scene exactly: match the pose, body positioning, camera angle, framing, composition, perspective, background, environment, lighting, shadows, and depth of field precisely. Replicate the same outfit, clothing details, fabric, colors, and styling exactly as in image 1. Preserve all scene elements and realism.\n\n` +
+        `Replace the person with the model from ${refRange}. Maintain consistent identity using those references — face, skin tone, hair, features. Ensure the body shape strictly matches the reference images from ${refRange}. Natural anatomy and proportions, realistic posture and alignment with the original pose. Seamless blending of the model into the recreated scene.\n\n` +
+        `Scene context: ${positivePrompt}\n\n` +
+        `Hyper realistic, ultra detailed, natural skin texture, true-to-life colors, raw iPhone camera style, slight handheld feel, subtle motion blur where appropriate, no text overlay.`
     } else {
       // Subject-only mode (current default) — only creator references
       const creatorRefUrls = refInputs.slice(0, 9).map(att => att.url)

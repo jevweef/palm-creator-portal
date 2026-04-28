@@ -26,18 +26,14 @@ shotType rules (for picking the right reference photo set):
 - "front" — three-quarter or full body view from the front
 - "back" — subject's back is to the camera
 
-positivePrompt rules:
-- MUST start with this exact phrase: "Exact same woman as in the reference images."
-  This is the identity anchor that tells Wan 2.7 to use the reference photos for face/hair/body/skin.
-- Output as DISTINCT DESCRIPTORS separated by periods, NOT a single run-on sentence. Wan 2.7's reasoning layer processes each element more accurately when they're clearly separated. Each major element gets its own short sentence/clause:
-    Subject. Pose. Wardrobe. Hair. Gaze/Expression. Framing. Camera setup. Lighting. Vibe. Realism tail.
-- One short clause per descriptor. Avoid stacking modifiers in one giant sentence.
-- End with this exact tail structure: "[real lens cue], [named light source], [specific skin vocab], [vibe], [quality boosters], 9:16."
-  Examples:
-  • "iPhone 15 Pro 26mm equivalent at f/1.78, natural window daylight diffused through sheer curtains, visible pores, fine peach-fuzz, slight freckles, unretouched skin, documentary candid lifestyle vibe, hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic, 9:16."
-  • "50mm prime lens at f/1.8, warm bedside lamp on her right plus cool window backlight, visible pores, slight skin imperfections, off-the-cuff Tuesday afternoon vibe, hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic, 9:16."
-  Real lens names ("50mm prime f/1.8", "iPhone 15 Pro 26mm equivalent") outperform generic "raw iPhone photo". Named light sources ("natural window daylight diffused through sheer curtains", "overhead fluorescent", "dim bedside lamp") outperform "studio lighting" / "soft light". Specific skin vocab (pores, peach-fuzz, freckles, unretouched) outperforms generic "natural skin texture".
-- Quality booster tail (always include verbatim at the end before 9:16): "hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic". These are Wan-specific quality magic words that appear in the AI Super Clone reference generation prompts and consistently improve output fidelity.
+positivePrompt rules — KEEP IT SHORT (1-3 sentences max, ~40-80 words):
+- The Wan wrapper handles all the structural instructions (preserve image 1 / replace person / quality tail). Your job is just a SHORT scene description that helps Wan understand the moment.
+- Do NOT include realism tail, lens cues, lighting brand names, quality boosters ("hyper realistic", "8k", etc.), or aspect ratio ("9:16") — those are in the wrapper now.
+- Do NOT itemize features (face shape / eye shape / nose shape / etc.) — overwhelms Wan and makes worse swaps. Keep it holistic.
+- DO mention: pose, action, wardrobe-in-one-phrase, gaze, expression, framing, lighting in plain language.
+- Example good output:
+  "Close-up shot, head and chest in frame, right hand raised lifting damp hair, gaze off-camera to her left, lips slightly parted, wearing a black smooth-cup bra, soft cool window daylight from behind, candid at-home morning vibe."
+- That's the whole positive prompt. ~40 words. Anything more is dilution.
 
 GOAL: describe the inspo so faithfully that everything except the woman's identity is reproduced. Outfit, pose, gaze, expression, hair direction (even mid-motion), framing, lighting, room, and the room's REALISM LEVEL must all match what's actually in the inspo. Don't add details the inspo doesn't show. Don't remove details that are clearly there.
 
@@ -77,7 +73,7 @@ VIBE — plain language matching the inspo. "Candid lifestyle", "casual at-home"
 
 BANNED ADJECTIVES — Wan 2.7 reads these as "make it look like a magazine" no matter what's in the negatives. NEVER use any of these words anywhere in the positive prompt: "modern", "minimal", "minimally decorated", "minimalist", "clean", "tidy", "sleek", "pristine", "polished", "stylish", "chic", "elegant", "refined", "curated", "well-appointed", "luxurious", "sophisticated", "aesthetic", "designed", "decorator". Describe the room by what's actually in it (specific furniture, specific objects, specific surfaces) — not by how nice it looks. "White desk with a Bluetooth speaker on it, wall-mounted TV, bed with pink gingham sheets" beats "modern, clean, minimally decorated bedroom".
 
-REALISM TAIL — see the positivePrompt rules above for the canonical tail structure (lens + light + skin vocab + vibe).
+REALISM TAIL — do NOT include in your positive prompt. The Wan wrapper handles realism vocabulary universally. Your scene description stays focused on the actual scene content.
 
 ABSOLUTE BAN ON NEGATION IN POSITIVE PROMPT — this is the most important rule. The model reads "no X", "not X", and "without X" as content tokens evoking X. Therefore:
 
