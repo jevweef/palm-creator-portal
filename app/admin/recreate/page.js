@@ -213,10 +213,10 @@ export default function RecreatePage() {
       }
       if (!data?.videoContext) throw new Error('No videoContext in response')
       setVideoContext(data.videoContext)
-      // Same call now also returns Kling motion prompt — auto-fill Step 6
-      // (only if user hasn't manually edited it; check by current state).
+      // Always overwrite Step 6 with the fresh motion prompt — re-analyze
+      // wouldn't be useful if it didn't actually update what's downstream.
       if (data.motionPrompt && data.motionNegative) {
-        setMotionPrompt(prev => prev.positive ? prev : { positive: data.motionPrompt, negative: data.motionNegative })
+        setMotionPrompt({ positive: data.motionPrompt, negative: data.motionNegative })
       }
     } catch (e) { setVideoContextError(e.message) }
     finally { setVideoContextLoading(false) }
@@ -578,6 +578,10 @@ export default function RecreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animateState.taskId, selectedCreator, shortcode, lookup?.dbRawLink])
 
+  // Step 6 Regenerate now goes through the same merged endpoint as Step 2.5
+  // — single source of truth, Gemini 3.1 Pro, with cameraMotion enum +
+  // canonical phrase override. The legacy extract-motion-prompt was on
+  // gemini-2.5-flash and missed subtle dolly motion.
   const handleExtractMotion = async () => {
     if (!lookup?.dbRawLink) {
       setMotionError('No video URL found for this reel — needs to be in the Inspiration pipeline.')
@@ -585,28 +589,7 @@ export default function RecreatePage() {
     }
     setExtractingMotion(true); setMotionError('')
     try {
-      const res = await fetch('/api/admin/recreate/extract-motion-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoUrl: lookup.dbRawLink,
-          // Cache result on Airtable so refresh doesn't re-run Gemini
-          inspoRecordId: lookup.id,
-        }),
-      })
-      const text = await res.text()
-      let data
-      try { data = JSON.parse(text) } catch { data = null }
-      if (!res.ok) {
-        if (!data) {
-          throw new Error(text
-            ? `Server error (${res.status}): ${text.slice(0, 300)}`
-            : `Server returned no body (${res.status}). Likely a function timeout. Try again.`)
-        }
-        throw new Error(data.error || 'Motion extraction failed')
-      }
-      if (!data) throw new Error('Unexpected response shape (no JSON body)')
-      setMotionPrompt({ positive: data.positivePrompt, negative: data.negativePrompt })
+      await handleExtractVideoContext({ force: true })
     } catch (e) { setMotionError(e.message) }
     finally { setExtractingMotion(false) }
   }
