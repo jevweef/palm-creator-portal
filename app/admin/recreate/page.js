@@ -1265,22 +1265,39 @@ export default function RecreatePage() {
                         slider: 'Smooth slider move with gentle parallax',
                         handheld_drift: 'Subtle hand-held drift, natural micro-movements',
                       }
+                      // Order matters — longer patterns must match before shorter ones
+                      // so "Tripod static shot of" doesn't get partially stripped to "Tripod".
                       const STRIP = [
-                        /static camera,\s*no movement/gi,
-                        /static shot of/gi,
-                        /tripod static shot of/gi,
-                        /camera (slowly )?dollies (backward|forward|in|out|back)[^.,]*/gi,
-                        /slow pan (left|right)[^.,]*/gi,
-                        /smooth slider move[^.]*/gi,
-                        /(subtle )?hand-?held (drift|movement)[^,.]*/gi,
-                        /camera fixed on tripod[^,.]*/gi,
+                        /tripod[\s-]?(mounted|static)?[\s,]*shot of\s*/gi,
+                        /static shot of\s*/gi,
+                        /handheld shot of\s*/gi,
+                        /selfie shot of\s*/gi,
+                        /static camera[,\s]+no movement[,\s]*/gi,
+                        /no camera movement[,\s]*/gi,
+                        /camera fixed on tripod[^,.]*[,\s]*/gi,
+                        /tripod[\s-]?mounted[^,.]*[,\s]*/gi,
+                        /^tripod[,.\s]+/gi,
+                        /camera (slowly )?dollies (backward|forward|in|out|back)[^.,]*[,\s]*/gi,
+                        /smooth pull-back motion[,\s]*/gi,
+                        /smooth push-in motion[,\s]*/gi,
+                        /slow pan (left|right)[^.,]*[,\s]*/gi,
+                        /smooth horizontal camera move[,\s]*/gi,
+                        /smooth slider move[^.]*[,\s]*/gi,
+                        /gentle parallax[,\s]*/gi,
+                        /(subtle )?hand-?held (drift|movement)[^,.]*[,\s]*/gi,
+                        /natural micro-movements[,\s]*/gi,
                       ]
                       const phrase = PHRASES[choice]
                       setMotionPrompt(s => {
                         let next = s.positive
                         for (const re of STRIP) next = next.replace(re, '')
-                        next = next.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim()
-                        next = next.replace(/^,\s*/, '')
+                        // Aggressive cleanup — collapse multiple commas/periods/spaces
+                        next = next.replace(/[.,]\s*[.,]+/g, ',')         // ". ," or ", ," → ","
+                          .replace(/,\s*,/g, ',')
+                          .replace(/\s+/g, ' ')
+                          .replace(/^[\s,.]+/, '')                        // leading punctuation
+                          .replace(/\s+([.,])/g, '$1')                    // " ." → "."
+                          .trim()
                         // Insert before "no phone visible / no cuts" if present, else append
                         if (/no phone visible|no cuts/i.test(next)) {
                           next = next.replace(/(no phone visible|no cuts)/i, `${phrase}, $1`)
