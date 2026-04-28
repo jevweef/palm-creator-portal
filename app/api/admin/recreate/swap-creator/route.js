@@ -115,17 +115,25 @@ export async function POST(request) {
       images = [resolvedFrameUrl, ...creatorRefUrls]
       referenceFilenames = ['(source frame)', ...refInputs.slice(0, 8).map(att => att.filename)]
 
-      // Wan 2.7 prefers distinct descriptors over run-on text and the
-      // explicit "Change X / Keep Y" pattern with "image 1, image 2..."
-      // notation per the WaveSpeed/RunComfy docs.
+      // Wan 2.7 image-edit canonical format per WaveSpeed docs:
+      //   "Figure 1" = canvas, "Figures 2-N" = character references
+      //   Short Change/Keep instruction sentences (NOT long paragraphs)
       //
-      // image 1 = inspo frame (canvas — keep its scene/pose/wardrobe)
-      // images 2-9 = creator references (take her face/body/hair from these)
+      // Per the verbatim examples on wavespeed.ai/models/alibaba/wan-2.7/image-edit
+      // and replicate.com/wan-video/wan-2.7-image, the documented pattern is
+      // 1-2 short sentences with explicit Change/Keep clauses.
       const refCount = images.length - 1
+      const refRange = refCount === 1 ? 'Figure 2' : `Figures 2 through ${1 + refCount}`
       finalPrompt =
-        `Image 1 is the canvas. Images 2-${1 + refCount} are character references for the woman.\n\n` +
-        `CHANGE in image 1: replace the woman's face, hair (color/length/texture/styling), body shape, body proportions (build, hip-to-waist ratio, bust size, shoulder width, arm/leg shape), and skin tone — match these to the woman in images 2-${1 + refCount}. The reference woman's full body must take over — do not preserve image 1's original silhouette or proportions.\n\n` +
-        `KEEP from image 1: the room/scene. The lighting. The camera framing and angle. The woman's pose (hand positions, head angle, weight distribution, foot placement). Her wardrobe (the clothing items, fitted to the new body). Her facial expression and gaze direction. Hair direction and motion. Small imperfections in the scene.\n\n` +
+        `Replace the woman in Figure 1 with the woman shown in ${refRange}.\n\n` +
+        `FROM ${refRange.toUpperCase()} (the woman to render), take ALL of these features exactly as shown:\n` +
+        `• Face: face shape, eye shape and color, eyebrow shape, nose shape, lip shape and fullness, jawline, cheekbones, chin, ear shape\n` +
+        `• Hair: exact color and highlights, length, texture (straight/wavy/curly), styling, hairline\n` +
+        `• Body type: overall build (slim/athletic/curvy as shown in references — match exactly)\n` +
+        `• Body proportions: ribcage width, bust size and shape, waist circumference, hip width, hip-to-waist ratio, shoulder width, arm shape and length, leg shape and length, overall height-to-width ratio\n` +
+        `• Skin: skin tone, undertone, natural texture, any visible freckles or moles, body hair pattern\n\n` +
+        `Do NOT inherit any of these features from the woman in Figure 1. The body proportions and silhouette of Figure 1's original woman are NOT preserved.\n\n` +
+        `KEEP from Figure 1 only: the room/scene, lighting (direction and quality), camera framing and angle, the woman's pose (hand positions, head angle, weight distribution, foot placement), her gaze direction and facial expression. The wardrobe's TYPE, COLOR, and STYLE stay the same, but the wardrobe RESIZES to fit the new body naturally.\n\n` +
         `Scene details: ${positivePrompt}`
     } else {
       // Subject-only mode (current default) — only creator references
@@ -142,10 +150,10 @@ export async function POST(request) {
     // produces artifacts. Wan handles negation via positive descriptions only.
     const promptForWan = finalPrompt
 
-    // Wan 2.7 Image Edit Pro: per-dimension range 512-4096, BUT the i2i
-    // (with reference images) total-pixel cap is 4,194,304 (2K). 9:16 max
-    // safely under that = 1440x2560 (3.7M px).
-    const body = { images, prompt: promptForWan, size: '1440*2560', seed: -1 }
+    // Match the AI Super Clone reference photo resolution (1080x1920) to
+    // avoid scale-mismatch artifacts. Pro model still gives a cleaner render
+    // at this resolution than the Standard model would.
+    const body = { images, prompt: promptForWan, size: '1080*1920', seed: -1 }
 
     console.log(`[swap-creator] Sending to Wan 2.7 — mode=${mode}, ${images.length} input images for ${aka}:`)
     referenceFilenames.forEach((f, i) => console.log(`  ${i + 1}. ${f}`))
@@ -158,6 +166,9 @@ export async function POST(request) {
       pose: poseKey,
       mode,
       referenceFilenames,
+      // Surface the actual prompt sent to Wan for transparency — includes the
+      // full wrapper (FROM/KEEP/Scene structure) prepended to Sonnet's positive.
+      promptSent: promptForWan,
     })
   } catch (err) {
     console.error('[recreate/swap-creator] error:', err)

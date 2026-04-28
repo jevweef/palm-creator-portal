@@ -32,11 +32,12 @@ positivePrompt rules:
 - Output as DISTINCT DESCRIPTORS separated by periods, NOT a single run-on sentence. Wan 2.7's reasoning layer processes each element more accurately when they're clearly separated. Each major element gets its own short sentence/clause:
     Subject. Pose. Wardrobe. Hair. Gaze/Expression. Framing. Camera setup. Lighting. Vibe. Realism tail.
 - One short clause per descriptor. Avoid stacking modifiers in one giant sentence.
-- End with this exact tail structure: "[real lens cue], [named light source], [specific skin vocab], [vibe], 9:16."
+- End with this exact tail structure: "[real lens cue], [named light source], [specific skin vocab], [vibe], [quality boosters], 9:16."
   Examples:
-  • "iPhone 15 Pro 26mm equivalent at f/1.78, natural window daylight diffused through sheer curtains, visible pores, fine peach-fuzz, slight freckles, unretouched skin, documentary candid lifestyle vibe, 9:16."
-  • "50mm prime lens at f/1.8, warm bedside lamp on her right plus cool window backlight, visible pores, slight skin imperfections, off-the-cuff Tuesday afternoon vibe, 9:16."
+  • "iPhone 15 Pro 26mm equivalent at f/1.78, natural window daylight diffused through sheer curtains, visible pores, fine peach-fuzz, slight freckles, unretouched skin, documentary candid lifestyle vibe, hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic, 9:16."
+  • "50mm prime lens at f/1.8, warm bedside lamp on her right plus cool window backlight, visible pores, slight skin imperfections, off-the-cuff Tuesday afternoon vibe, hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic, 9:16."
   Real lens names ("50mm prime f/1.8", "iPhone 15 Pro 26mm equivalent") outperform generic "raw iPhone photo". Named light sources ("natural window daylight diffused through sheer curtains", "overhead fluorescent", "dim bedside lamp") outperform "studio lighting" / "soft light". Specific skin vocab (pores, peach-fuzz, freckles, unretouched) outperforms generic "natural skin texture".
+- Quality booster tail (always include verbatim at the end before 9:16): "hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic". These are Wan-specific quality magic words that appear in the AI Super Clone reference generation prompts and consistently improve output fidelity.
 
 GOAL: describe the inspo so faithfully that everything except the woman's identity is reproduced. Outfit, pose, gaze, expression, hair direction (even mid-motion), framing, lighting, room, and the room's REALISM LEVEL must all match what's actually in the inspo. Don't add details the inspo doesn't show. Don't remove details that are clearly there.
 
@@ -76,7 +77,23 @@ VIBE — plain language matching the inspo. "Candid lifestyle", "casual at-home"
 
 BANNED ADJECTIVES — Wan 2.7 reads these as "make it look like a magazine" no matter what's in the negatives. NEVER use any of these words anywhere in the positive prompt: "modern", "minimal", "minimally decorated", "minimalist", "clean", "tidy", "sleek", "pristine", "polished", "stylish", "chic", "elegant", "refined", "curated", "well-appointed", "luxurious", "sophisticated", "aesthetic", "designed", "decorator". Describe the room by what's actually in it (specific furniture, specific objects, specific surfaces) — not by how nice it looks. "White desk with a Bluetooth speaker on it, wall-mounted TV, bed with pink gingham sheets" beats "modern, clean, minimally decorated bedroom".
 
-REALISM TAIL — see the positivePrompt rules above for the canonical tail structure (lens + light + skin vocab + vibe). Critical: do NOT include "no X" phrases in the positive prompt ("no smoothing", "no retouching", "no beauty filter", "no cinematic look", "minimal editing"). Models read "no X" as content tokens and end up evoking X. Use only POSITIVE descriptions ("visible pores", "unretouched skin", "documentary candid") — never negation.
+REALISM TAIL — see the positivePrompt rules above for the canonical tail structure (lens + light + skin vocab + vibe).
+
+ABSOLUTE BAN ON NEGATION IN POSITIVE PROMPT — this is the most important rule. The model reads "no X", "not X", and "without X" as content tokens evoking X. Therefore:
+
+NEVER write phrases like:
+- "no smile" → write "neutral expression" or "lips relaxed"
+- "no shadows on face" → write "evenly lit face" or "soft flat light"
+- "no warm lamps", "no ring light" → just describe the actual light positively
+- "not looking at the lens", "not facing camera" → write "gaze averted to her left" or "looking off to the side"
+- "not fully dry or styled" → write "damp, naturally tousled"
+- "no other garments visible" → write "wearing only [the specific item]"
+- "no makeup" → write "bare-faced" or "natural skin"
+- "no jewelry" → just don't mention jewelry
+
+Forbidden tokens at the start of any phrase: "no ", "not ", "without ", "minus ".
+
+If you find yourself wanting to negate, REPHRASE as a positive description of what IS there. Every clause must describe something present in the scene, never something absent.
 
 DO NOT describe the subject's physical features (hair length, hair color, eye color, face shape, body type, skin tone, ethnicity, age, makeup style). Those come from the reference photos via the identity anchor. EXCEPTION: hair POSITION / direction / motion state IS required when present ("hair falling forward over her left shoulder", "hair caught mid-whip toward the right side of frame") — that's pose data, not identity.
 
@@ -217,13 +234,37 @@ export async function POST(request) {
     // Enforce the "Exact same woman..." identity anchor prefix. Without
     // this phrase, Wan 2.7 ignores the reference photos for face/hair/body
     // and produces a generic woman in the scene.
-    const ANCHOR = 'Exact same woman as in the reference images,'
-    if (!positivePrompt.toLowerCase().startsWith(ANCHOR.toLowerCase())) {
+    // Check is punctuation-insensitive — Sonnet may end with comma OR period
+    // depending on the descriptor style. Don't double-prepend either way.
+    const ANCHOR_BARE = 'exact same woman as in the reference images'
+    const startsWithAnchor = positivePrompt.toLowerCase().startsWith(ANCHOR_BARE)
+    if (!startsWithAnchor) {
       // Drop any leading "A young woman..." style intro that Sonnet may have
       // led with, then prepend the anchor.
       const trimmed = positivePrompt.replace(/^(?:a |the )?(young\s+)?woman[^,.]*[,.]\s*/i, '').trim()
-      positivePrompt = `${ANCHOR} ${trimmed.charAt(0).toLowerCase() + trimmed.slice(1)}`
+      positivePrompt = `Exact same woman as in the reference images. ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`
     }
+
+    // Server-side safety net: strip "no X" / "not X" / "without X" phrases
+    // that Sonnet keeps slipping in despite the ban. These get read as
+    // content tokens by Wan and evoke the very thing being negated.
+    // Strips up to a comma or period boundary.
+    const NEGATION_PATTERNS = [
+      /\b(?:no|not|never|without)\s+[\w-]+(?:\s+[\w-]+){0,5}?(?=[,.]|\s+(?:and|or|but)\b)/gi,
+      // Also catch trailing "no X" at end of sentence (no following comma/period)
+      /\b(?:no|not|never|without)\s+[\w-]+(?:\s+[\w-]+){0,3}?$/gi,
+    ]
+    let cleaned = positivePrompt
+    for (const re of NEGATION_PATTERNS) cleaned = cleaned.replace(re, '')
+    // Cleanup: doubled commas, leading/trailing whitespace, orphan punctuation
+    cleaned = cleaned
+      .replace(/[,\s]+,/g, ',')        // doubled commas
+      .replace(/\s+/g, ' ')            // collapse spaces
+      .replace(/,\s*\./g, '.')         // ", ." → "."
+      .replace(/\.\s*,/g, '.')         // ". ," → "."
+      .replace(/,\s*$/g, '')           // trailing comma
+      .trim()
+    positivePrompt = cleaned
 
     // The notes that "won": user-supplied if provided, otherwise Sonnet's draft.
     const finalNotes = userNotes?.trim() || (reelSpecificNotes || '')
