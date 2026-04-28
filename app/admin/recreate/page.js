@@ -1498,7 +1498,7 @@ export default function RecreatePage() {
                 disabled={critiqueLoading}
                 style={{ padding: '4px 10px', fontSize: '10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: critiqueLoading ? 'wait' : 'pointer' }}
               >
-                {critiqueLoading ? '⏳ Analyzing…' : '🔍 Critique with Gemini'}
+                {critiqueLoading ? '⏳ Analyzing…' : '🔍 Critique with Sonnet'}
               </button>
             </div>
             {critiqueError && (
