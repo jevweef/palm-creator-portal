@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
+import { useBackdropDismiss } from '@/lib/useBackdropDismiss'
 
 const STATUS_STYLES = {
   'Awaiting Upload': { bg: 'rgba(156, 163, 175, 0.08)', color: '#9ca3af', label: 'Awaiting Upload' },
@@ -290,6 +291,7 @@ function EditingPreferencesCard({ creatorOpsId }) {
 
 function AssetPreviewModal({ creatorOpsId, asset, onClose }) {
   const [src, setSrc] = useState('')
+  const dismiss = useBackdropDismiss(onClose)
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -309,7 +311,7 @@ function AssetPreviewModal({ creatorOpsId, asset, onClose }) {
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}
+      {...dismiss}
     >
       <div style={{ width: '100%', maxWidth: '900px', maxHeight: '92vh', margin: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#fff' }}>
@@ -335,6 +337,7 @@ function AssetPreviewModal({ creatorOpsId, asset, onClose }) {
 function VideoPreviewModal({ projectId, file, onClose }) {
   const [src, setSrc] = useState('')
   const [err, setErr] = useState('')
+  const dismiss = useBackdropDismiss(onClose)
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -358,7 +361,7 @@ function VideoPreviewModal({ projectId, file, onClose }) {
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}
+      {...dismiss}
     >
       <div style={{ width: '100%', maxWidth: '900px', maxHeight: '92vh', margin: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--foreground)' }}>
@@ -391,6 +394,7 @@ function NewProjectModal({ creatorOpsId, onClose, onCreated }) {
   const [instructions, setInstructions] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [err, setErr] = useState('')
+  const dismiss = useBackdropDismiss(onClose, () => !submitting)
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -420,7 +424,7 @@ function NewProjectModal({ creatorOpsId, onClose, onCreated }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && !submitting && onClose()}
+      {...dismiss}
     >
       <div style={{
         background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '560px',
@@ -506,6 +510,7 @@ function NewProjectModal({ creatorOpsId, onClose, onCreated }) {
 function ProjectDetail({ project, onClose, onRefresh }) {
   const [refreshing, setRefreshing] = useState(false)
   const [files, setFiles] = useState(null)
+  const dismiss = useBackdropDismiss(onClose)
   const [previewFile, setPreviewFile] = useState(null)
   const [deletingPath, setDeletingPath] = useState('')
 
@@ -576,7 +581,7 @@ function ProjectDetail({ project, onClose, onRefresh }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}
+      {...dismiss}
     >
       <div style={{
         background: 'var(--card-bg-solid)', borderRadius: '20px', width: '100%', maxWidth: '720px',
