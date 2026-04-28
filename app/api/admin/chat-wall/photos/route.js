@@ -38,49 +38,31 @@ export async function GET(request) {
   }
 
   try {
-    // Fast path: walk the creator's `Assets` backlink to fetch ONLY their
-    // records, instead of scanning the entire Assets table (was 3-5s on a
-    // base with thousands of assets). The Palm Creators record has a
-    // multipleRecordLinks field "Assets" that contains every linked asset
-    // id — we read that, then batch-fetch those specific records by ID via
-    // OR(RECORD_ID()=…) which Airtable can short-circuit on its index.
-    const headers = { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' }
-    const OPS_BASE = 'applLIT2t83plMqNx'
-
-    const creatorRes = await fetch(
-      `https://api.airtable.com/v0/${OPS_BASE}/Palm%20Creators/${creatorId}?fields[]=Assets`,
-      { headers, cache: 'no-store' }
-    )
-    if (!creatorRes.ok) {
-      const text = await creatorRes.text()
-      throw new Error(`Airtable creator fetch ${creatorRes.status}: ${text}`)
-    }
-    const creatorData = await creatorRes.json()
-    const linkedAssetIds = (creatorData?.fields?.Assets || []).map(v => typeof v === 'string' ? v : v?.id).filter(Boolean)
-
-    let assets = []
-    if (linkedAssetIds.length > 0) {
-      // OR(RECORD_ID()='recX',RECORD_ID()='recY',…) — chunk to keep URLs sane.
-      // Airtable accepts long URLs but we chunk at 80 IDs to be safe (~2400 chars).
-      const fields = [
-        'Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type',
-        'File Extension', 'Pipeline Status', 'Thumbnail', 'CDN URL',
-        'Used By Chat Manager At', 'Used By Chat Manager',
-      ]
-      const CHUNK = 80
-      const chunks = []
-      for (let i = 0; i < linkedAssetIds.length; i += CHUNK) {
-        chunks.push(linkedAssetIds.slice(i, i + CHUNK))
-      }
-      const results = await Promise.all(chunks.map(chunk => {
-        const formula = `OR(${chunk.map(id => `RECORD_ID()='${id}'`).join(',')})`
-        return fetchAirtableRecords('Assets', { filterByFormula: formula, fields })
-      }))
-      assets = results.flat()
-    }
+    // Note: we scan the Assets table because Airtable formulas can't filter
+    // multipleRecordLinks by ID (ARRAYJOIN returns names, not IDs). Tried
+    // walking the creator's Assets backlink + chunked OR(RECORD_ID()=…)
+    // batches but Sunny's backlink had 4006 IDs (every asset ever linked,
+    // including reels/posts), which blew through rate limits and was slower
+    // than the scan. The scan stays — narrowed by Asset Type when possible
+    // to cut payload.
+    const assets = await fetchAirtableRecords('Assets', {
+      filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()))`,
+      fields: [
+        'Asset Name',
+        'Dropbox Shared Link',
+        'Palm Creators',
+        'Asset Type',
+        'File Extension',
+        'Pipeline Status',
+        'Thumbnail',
+        'CDN URL',
+        'Used By Chat Manager At',
+        'Used By Chat Manager',
+      ],
+    })
 
     const photoAssets = assets.filter(a => {
-      if (!a.fields?.['Dropbox Shared Link']) return false
+      if (!getLinkedIds(a.fields?.['Palm Creators']).includes(creatorId)) return false
       return isImageAsset(a)
     })
 
