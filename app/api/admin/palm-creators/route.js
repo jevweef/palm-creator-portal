@@ -9,7 +9,7 @@ export async function GET() {
 
     const opsRecords = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `OR({Status} = 'Active', {Status} = 'Onboarding')`,
-      fields: ['Creator', 'AKA', 'Status', 'HQ Record ID', 'Profile Analysis Status'],
+      fields: ['Creator', 'AKA', 'Status', 'HQ Record ID', 'Profile Analysis Status', 'AI Conversions Enabled'],
       sort: [{ field: 'Creator', direction: 'asc' }],
     })
 
@@ -20,6 +20,7 @@ export async function GET() {
       aka: r.fields?.AKA || '',
       status: r.fields?.Status?.name || r.fields?.Status || '',
       profileAnalysisStatus: r.fields?.['Profile Analysis Status'] || 'Not Started',
+      aiConversionsEnabled: !!r.fields?.['AI Conversions Enabled'],
     }))
 
     // Fetch Management Start Date from HQ Creators table

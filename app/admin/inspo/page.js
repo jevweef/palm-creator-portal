@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
-import AdminPipeline from '@/app/admin/page'
+import AdminPipeline from './PipelineControl'
 import AdminSources from '@/app/admin/sources/page'
 import AdminReview from '@/app/admin/review/page'
 import AdminImport from '@/app/admin/import/page'

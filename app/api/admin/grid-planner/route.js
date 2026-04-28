@@ -9,6 +9,32 @@ import { requireAdmin, requireAdminOrSocialMedia, fetchAirtableRecords, patchAir
 // next open slot on an account when an instance gets dragged onto the grid.
 const SLOT_HOURS_ET = [11, 19]
 
+// Build the Thumbnail field value for a cloned Post. Prefers Asset.Thumbnail
+// (the original upload — bytes are stable, attachment isn't constantly
+// re-cloned) over the source Post's Thumbnail (which is itself a clone whose
+// signed URL can rotate or hit a flaky CDN node mid-fetch, producing broken
+// bytes). Always passes filename:'thumbnail.jpg' so Airtable stores the
+// attachment with a known content type — without an extension some browsers
+// mis-handle the served bytes and the cell renders broken.
+async function buildClonedThumbnail(assetId, srcThumbnail) {
+  if (assetId) {
+    try {
+      const assetRecs = await fetchAirtableRecords('Assets', {
+        filterByFormula: `RECORD_ID()='${assetId}'`,
+        fields: ['Thumbnail'],
+      })
+      const assetThumb = assetRecs[0]?.fields?.Thumbnail
+      if (assetThumb?.length) {
+        return assetThumb.map(a => ({ url: a.url, filename: 'thumbnail.jpg' }))
+      }
+    } catch {}
+  }
+  if (srcThumbnail?.length) {
+    return srcThumbnail.map(a => ({ url: a.url, filename: 'thumbnail.jpg' }))
+  }
+  return null
+}
+
 function etToUTC(etDateStr, etHour) {
   const [year, month, day] = etDateStr.split('-').map(Number)
   const noonUTC = new Date(Date.UTC(year, month - 1, day, 12))
@@ -470,6 +496,7 @@ export async function PATCH(request) {
         const seed = siblings.find(s => (s.fields?.Task || []).includes(taskId))
         if (!seed) return NextResponse.json({ error: 'No sibling post found for task' }, { status: 404 })
         const src = seed.fields || {}
+        const thumbField = await buildClonedThumbnail((src.Asset || [])[0], src.Thumbnail)
         const fields = {
           'Post Name': src['Post Name'] || '',
           ...(src.Creator ? { 'Creator': src.Creator } : {}),
@@ -480,7 +507,7 @@ export async function PATCH(request) {
           ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
           ...(src.Caption ? { 'Caption': src.Caption } : {}),
           ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
-          ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
+          ...(thumbField ? { 'Thumbnail': thumbField } : {}),
           'Scheduled Date': FAR_FUTURE,
         }
         const created = await createAirtableRecord('Posts', fields)
@@ -607,6 +634,7 @@ export async function POST(request) {
             updates.push({ postId: reuse.id, accountId: acc.id, scheduledDate: nextSlot, reused: true })
           } else {
             // Clone from sibling
+            const thumbField = await buildClonedThumbnail((src.Asset || [])[0], src.Thumbnail)
             const fields = {
               'Post Name': src['Post Name'] || '',
               ...(src.Creator ? { 'Creator': src.Creator } : {}),
@@ -617,7 +645,7 @@ export async function POST(request) {
               ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
               ...(src.Caption ? { 'Caption': src.Caption } : {}),
               ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
-              ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
+              ...(thumbField ? { 'Thumbnail': thumbField } : {}),
               'Scheduled Date': nextSlot,
             }
             const created = await createAirtableRecord('Posts', fields)
@@ -666,7 +694,10 @@ export async function POST(request) {
       ...(src['Scheduled Date'] ? {} : { 'Scheduled Date': makeStaggered(0) }),
     })
 
-    // 2. Clone the post for each remaining account with staggered times
+    // 2. Clone the post for each remaining account with staggered times.
+    // Pre-resolve the thumbnail field once so we don't re-fetch the Asset
+    // record N times — bytes are stable, only the destination Account changes.
+    const thumbField = await buildClonedThumbnail((src.Asset || [])[0], src.Thumbnail)
     const clones = []
     for (let i = 1; i < accountIds.length; i++) {
       const accId = accountIds[i]
@@ -680,7 +711,7 @@ export async function POST(request) {
         ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
         ...(src.Caption ? { 'Caption': src.Caption } : {}),
         ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
-        ...(src.Thumbnail?.length ? { 'Thumbnail': src.Thumbnail.map(a => ({ url: a.url })) } : {}),
+        ...(thumbField ? { 'Thumbnail': thumbField } : {}),
         'Scheduled Date': makeStaggered(i),
       }
       const created = await createAirtableRecord('Posts', fields)
