@@ -80,16 +80,6 @@ async function fetchVideoBuffer(videoUrl) {
   return Buffer.from(await res.arrayBuffer())
 }
 
-async function getDuration(videoPath) {
-  return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(videoPath, (err, data) => {
-      if (err) return reject(err)
-      const dur = data?.format?.duration
-      resolve(Number.isFinite(dur) ? dur : 10)
-    })
-  })
-}
-
 async function extractFrame(videoPath, timestamp, outPath) {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
@@ -115,23 +105,32 @@ export async function POST(request) {
     const { videoUrl, inspoRecordId } = await request.json()
     if (!videoUrl) return NextResponse.json({ error: 'Missing videoUrl' }, { status: 400 })
 
-    // Download video, extract evenly-spaced frames
+    // Download video, extract frames at fixed offsets (no ffprobe needed —
+    // ffmpeg-static doesn't include ffprobe, and adding it requires extra
+    // build config). Fixed offsets cover typical 5-15s reels well; ffmpeg
+    // gracefully handles requests past video end (returns last frame).
     const buf = await fetchVideoBuffer(videoUrl)
     await writeFile(videoPath, buf)
-    const duration = await getDuration(videoPath)
 
-    // Sample at evenly-spaced offsets, with small margin from start/end
-    const margin = Math.min(0.3, duration * 0.05)
-    const usableDuration = duration - 2 * margin
-    const stepSize = usableDuration / (FRAMES_TO_SAMPLE - 1)
+    // 8 offsets distributed across 0.3s → 14s. Covers reels up to ~15s.
+    // Shorter reels get clustered samples toward end (last frame repeats).
+    const FIXED_OFFSETS = [0.3, 1.5, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0]
     const frames = []
     for (let i = 0; i < FRAMES_TO_SAMPLE; i++) {
-      const ts = margin + i * stepSize
+      const ts = FIXED_OFFSETS[i]
       const fp = join(tmp, `frame-${stamp}-${rand}-${i}.jpg`)
       framePaths.push(fp)
-      await extractFrame(videoPath, ts, fp)
-      const data = await readFile(fp)
-      frames.push({ timestamp: ts, data: data.toString('base64') })
+      try {
+        await extractFrame(videoPath, ts, fp)
+        const data = await readFile(fp)
+        frames.push({ timestamp: ts, data: data.toString('base64') })
+      } catch (e) {
+        // If a timestamp is past video end, ffmpeg may fail — skip that frame
+        console.warn(`[extract-video-context] frame ${i} at ${ts}s skipped:`, e.message)
+      }
+    }
+    if (frames.length < 3) {
+      throw new Error('Failed to extract enough frames from video')
     }
 
     // Build content array — text labels interleaved with frames
