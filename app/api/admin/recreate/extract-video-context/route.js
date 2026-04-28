@@ -83,24 +83,27 @@ Subject scale is the most reliable signal. Even subtle pull-backs (subject 60% o
 - Add voice direction at the end: "american accent" (or other)
 - No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
 
-motionNegative format — comma-separated tokens. Two categories matter:
+motionNegative format — comma-separated tokens. Goal is HIGH-SIGNAL tokens only. Each token competes for model attention; junk tokens dilute. Output ~18-22 tokens total.
 
-ANTI-FAILURE-MODE TOKENS (keep these — they guard against known Kling/AI breakdowns and DO help):
-- Quality: low quality, blurry, soft focus, jpeg artifacts, oversharpen, oversaturated, chromatic aberration, lens distortion
-- Anatomy errors: bad anatomy, deformed body, broken limbs, extra limbs, missing limbs, extra fingers, fused fingers, long neck, distorted face, asymmetrical eyes, bad proportions, bad hands, bad feet, duplicated body parts
-- Motion errors: motion freeze, unnatural stillness, stiff pose, unnatural pose, unrealistic flexibility
-- Composition errors: floating objects, depth errors, incorrect perspective, background blur errors, cloning artifacts
-- Style mismatch: cartoon, anime, CGI render, 3D render, illustration
+INCLUDE these (real failure modes the model actively avoids when prompted):
+- Anatomy errors: extra fingers, fused fingers, missing limbs, extra limbs, broken limbs, deformed body, distorted face, asymmetrical eyes, bad anatomy, bad proportions, long neck
+- Motion errors: motion freeze, stiff pose, unnatural stillness
+- Hard quality fails: low quality, jpeg artifacts, blurry, cloning artifacts, duplicated body parts
+- Hard content fails: watermark, text, logo
+- Plastic-skin blockers (PICK MAX 3 — more dilutes): plastic skin, waxy skin, doll-like, mannequin
 
-ANTI-AESTHETIC TOKENS (use sparingly — too many dilutes signal):
-- Pick 2-3 max from: plastic skin, waxy skin, beauty filter, doll-like, mannequin, fake muscles, exaggerated curves
+EXCLUDE these (waste budget or fight realism):
+- Don't include: cartoon, anime, illustration, painting, 3D render, CGI render — won't happen with our pipeline
+- Don't include: chromatic aberration, lens distortion, soft focus — real iPhone footage has these, fighting them suppresses authentic camera look
+- Don't include: harsh shadows, flat lighting, bad lighting, overexposed, underexposed, oversaturated, oversharpen, overprocessed — too vague, suppress dramatic lighting we may want
+- Don't include: floating objects, depth errors, incorrect perspective, background blur errors, glitch, artifacts, noisy image — too vague
+- Don't include: beauty filter, glamour skin, soft-focus skin, magazine skin, retouched skin — pick ONE plastic-skin term, multiple variations dilute
+- Don't include: exaggerated curves, fake muscles, unrealistic flexibility — anatomy errors above already cover
 
-FRAMING-SPECIFIC TOKENS (add only when relevant):
-- If NOT a mirror selfie: mirror selfie, mirror reflection, phone in hand
-- If subject doesn't speak: talking mouth, lip sync
-- If single-clip continuous: scene cut, jump cut, multiple shots
-
-Output ~25-35 tokens total. The server adds skin and talking blockers automatically.
+FRAMING-SPECIFIC (add only when applicable, 3-5 tokens):
+- If NOT a mirror selfie: add "mirror selfie, mirror reflection, phone in hand"
+- If subject doesn't speak: add "talking mouth, lip sync"
+- If single-clip continuous: add "scene cut, jump cut"
 
 hasSpokenDialogue — boolean. true ONLY if the subject is clearly speaking, mouthing words, or lip-syncing audibly in the video. false if the audio is just music with no spoken vocals from the subject (her mouth is closed or making non-speech expressions). This drives whether we add aggressive "no talking" negatives downstream — Kling defaults to making subjects talk, so silent reels need explicit blockers.`
 
@@ -286,9 +289,9 @@ export async function POST(request) {
     if (hasSpokenDialogue === false && !/talking mouth/i.test(finalNegative)) {
       finalNegative = `${TALKING_BLOCKERS}, ${finalNegative}`
     }
-    // Final cleanup: dedupe tokens, cap to ~40 unique tokens (covers
-    // the comprehensive anti-failure-mode list + a few aesthetic blockers
-    // without bloating into hundreds of tokens that would flatten output)
+    // Final cleanup: dedupe tokens, cap to ~28 unique tokens.
+    // Targets ~18-22 from Gemini + 4-6 framing-specific + skin/talking
+    // blockers from server. Beyond ~28 we're back into the dilution zone.
     const seen = new Set()
     const trimmed = finalNegative.split(',').map(s => s.trim()).filter(t => {
       if (!t) return false
@@ -296,7 +299,7 @@ export async function POST(request) {
       if (seen.has(key)) return false
       seen.add(key)
       return true
-    }).slice(0, 40)
+    }).slice(0, 28)
     finalNegative = trimmed.join(', ')
 
     if (inspoRecordId) {
