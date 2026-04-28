@@ -12,21 +12,30 @@ function rawDropboxUrl(url) {
   return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
 
-// Force a browser download of the original file. Dropbox's ?dl=1 sets
-// Content-Disposition: attachment so the browser saves the file instead of
-// opening it. We use a hidden iframe rather than window.open or anchor.click
-// to avoid popup blockers and avoid leaving a blank tab open.
+// Force a browser download of the original file via Dropbox's ?dl=1 URL.
+// Dropbox returns Content-Disposition: attachment for ?dl=1, so the browser
+// downloads instead of navigating. Using a synthetic anchor click (with
+// target=_blank as a fallback) — iframes get blocked as cross-origin in
+// modern browsers and silently fail.
 function triggerDownload(asset) {
   if (!asset?.dropboxLink) return
-  const clean = asset.dropboxLink.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '').replace(/[?&]dl=1/, '')
+  const clean = asset.dropboxLink
+    .replace(/[?&]dl=0/, '')
+    .replace(/[?&]raw=1/, '')
+    .replace(/[?&]dl=1/, '')
   const dlUrl = clean + (clean.includes('?') ? '&dl=1' : '?dl=1')
-  const iframe = document.createElement('iframe')
-  iframe.style.display = 'none'
-  iframe.src = dlUrl
-  document.body.appendChild(iframe)
-  // Clean up after the browser has had time to start the download.
-  setTimeout(() => iframe.remove(), 8000)
+  const a = document.createElement('a')
+  a.href = dlUrl
+  a.download = asset.name || ''
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => a.remove(), 500)
 }
+
+const SKIP_CONFIRM_KEY = 'chatWall.skipUseConfirm'
 
 // Chat Wall — chat manager photo library.
 // - Pick a creator (filtered by Chat Team A / B / All)
@@ -58,6 +67,9 @@ export default function ChatWallPage() {
   const [usedCount, setUsedCount] = useState(0)
   const [pendingIds, setPendingIds] = useState(new Set())
   const [modalPhotoId, setModalPhotoId] = useState(null)
+  // Asset waiting on the Use & Download confirmation. Only set when going
+  // available → used (Restore skips confirmation since it's reversible).
+  const [confirmAsset, setConfirmAsset] = useState(null)
 
   // Load creators once
   useEffect(() => {
@@ -131,13 +143,28 @@ export default function ChatWallPage() {
 
   useEffect(() => { loadPhotos() }, [loadPhotos])
 
-  const togglePhoto = async (asset, makeUsed, { advance = false } = {}) => {
+  // Public entry point — handles both directions. Marking as Used routes
+  // through the confirmation modal first (unless the user dismissed it),
+  // then commits via commitToggle. Restore goes straight through.
+  const togglePhoto = (asset, makeUsed, opts = {}) => {
+    if (makeUsed) {
+      // localStorage is browser-only; window guard for SSR safety.
+      const skip = typeof window !== 'undefined' && window.localStorage.getItem(SKIP_CONFIRM_KEY) === '1'
+      if (skip) {
+        return commitToggle(asset, true, opts)
+      }
+      // Stash advance flag so the confirm handler knows whether to chain.
+      setConfirmAsset({ asset, advance: !!opts.advance })
+      return
+    }
+    return commitToggle(asset, false, opts)
+  }
+
+  // Actual server call + optimistic UI + auto-download. Only call this from
+  // togglePhoto or the confirmation modal — never directly from the UI.
+  const commitToggle = async (asset, makeUsed, { advance = false } = {}) => {
     setPendingIds(prev => new Set(prev).add(asset.id))
 
-    // If marking as used, also kick off a browser download immediately so
-    // the chat manager has the file ready to upload to OF wall. Dropbox's
-    // ?dl=1 forces Content-Disposition: attachment, which the browser will
-    // honor as a real download instead of opening the image in a new tab.
     if (makeUsed) triggerDownload(asset)
 
     // If the modal is open on this photo and we're auto-advancing, jump to
@@ -167,11 +194,9 @@ export default function ChatWallPage() {
         body: JSON.stringify({ assetId: asset.id, used: makeUsed }),
       })
       if (!res.ok) throw new Error(await res.text())
-      // Refresh totals/pagination after a beat
       loadPhotos()
     } catch (err) {
       console.error('Toggle failed:', err)
-      // Reload to get truthful state
       loadPhotos()
       alert('Failed to update. Try again.')
     } finally {
@@ -344,6 +369,23 @@ export default function ChatWallPage() {
           onClose={() => setModalPhotoId(null)}
           onNavigate={(id) => setModalPhotoId(id)}
           onToggle={(asset) => togglePhoto(asset, view === 'available', { advance: true })}
+        />
+      )}
+
+      {/* Use & Download confirmation. Layered above PhotoModal when both are
+          open. Dismissed permanently if user checks "Don't show again". */}
+      {confirmAsset && (
+        <UseConfirmModal
+          asset={confirmAsset.asset}
+          onCancel={() => setConfirmAsset(null)}
+          onConfirm={(skipNextTime) => {
+            if (skipNextTime && typeof window !== 'undefined') {
+              window.localStorage.setItem(SKIP_CONFIRM_KEY, '1')
+            }
+            const { asset, advance } = confirmAsset
+            setConfirmAsset(null)
+            commitToggle(asset, true, { advance })
+          }}
         />
       )}
 
@@ -718,6 +760,156 @@ function PhotoModal({ photos, photoId, view, pending, onClose, onNavigate, onTog
           <div style={{ fontSize: '10px', color: 'var(--foreground-subtle, #555)', textAlign: 'center', marginTop: 4, lineHeight: 1.5 }}>
             ← / → to navigate · Esc to close
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function UseConfirmModal({ asset, onCancel, onConfirm }) {
+  const [skipNextTime, setSkipNextTime] = useState(false)
+
+  // Keyboard: Esc cancels, Enter confirms. Lets the chat manager rip
+  // through their queue without ever touching the mouse.
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCancel()
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        onConfirm(skipNextTime)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel, onConfirm, skipNextTime])
+
+  const imgSrc = asset.cdnUrl || asset.thumbLarge || asset.thumbFull || rawDropboxUrl(asset.dropboxLink)
+
+  return (
+    <div
+      onClick={onCancel}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.85)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#0f0f0f',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 16,
+          padding: 24,
+          maxWidth: 420,
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 18,
+          boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)' }}>
+            Use this photo?
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 6, lineHeight: 1.5 }}>
+            We&apos;ll mark it as used and download the original to your computer so you can post it to the wall.
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          gap: 12,
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 10,
+          padding: 12,
+          alignItems: 'center',
+        }}>
+          {imgSrc && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imgSrc}
+              alt={asset.name}
+              style={{
+                width: 60,
+                height: 80,
+                objectFit: 'cover',
+                borderRadius: 6,
+                flexShrink: 0,
+                background: '#0a0a0a',
+              }}
+            />
+          )}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 12, color: 'var(--foreground)', wordBreak: 'break-all', lineHeight: 1.4 }}>
+              {asset.name}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>
+              {formatDate(asset.createdTime)}
+            </div>
+          </div>
+        </div>
+
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: 12,
+          color: 'var(--foreground-muted)',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}>
+          <input
+            type="checkbox"
+            checked={skipNextTime}
+            onChange={(e) => setSkipNextTime(e.target.checked)}
+            style={{ accentColor: 'var(--palm-pink)', width: 16, height: 16, cursor: 'pointer' }}
+          />
+          Don&apos;t show this again
+        </label>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '10px 16px',
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 8,
+              color: 'var(--foreground-muted)',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(skipNextTime)}
+            autoFocus
+            style={{
+              padding: '10px 18px',
+              background: 'var(--palm-pink)',
+              border: 'none',
+              borderRadius: 8,
+              color: '#060606',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Use & Download
+          </button>
         </div>
       </div>
     </div>
