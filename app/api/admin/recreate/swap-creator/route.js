@@ -166,6 +166,9 @@ export async function POST(request) {
       pose: poseKey,
       mode,
       referenceFilenames,
+      // Surface the actual prompt sent to Wan for transparency — includes the
+      // full wrapper (FROM/KEEP/Scene structure) prepended to Sonnet's positive.
+      promptSent: promptForWan,
     })
   } catch (err) {
     console.error('[recreate/swap-creator] error:', err)

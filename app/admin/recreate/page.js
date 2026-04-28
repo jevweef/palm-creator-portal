@@ -396,7 +396,7 @@ export default function RecreatePage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Swap submit failed')
-      updateSlot(slot, { taskId: data.taskId, meta: { pose: data.pose, referenceCount: data.referenceCount, referenceFilenames: data.referenceFilenames || [] } })
+      updateSlot(slot, { taskId: data.taskId, meta: { pose: data.pose, referenceCount: data.referenceCount, referenceFilenames: data.referenceFilenames || [], promptSent: data.promptSent || '' } })
     } catch (e) {
       updateSlot(slot, { error: e.message, running: false })
     }
@@ -1169,6 +1169,16 @@ export default function RecreatePage() {
                     <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontFamily: 'monospace', marginBottom: '6px' }}>
                       {s.meta.referenceCount} × {s.meta.pose} refs
                     </div>
+                  )}
+                  {s.meta?.promptSent && (
+                    <details style={{ marginBottom: '6px' }}>
+                      <summary style={{ fontSize: '10px', color: 'var(--foreground-muted)', cursor: 'pointer', userSelect: 'none' }}>
+                        ▶ Show actual prompt sent to Wan
+                      </summary>
+                      <pre style={{ marginTop: '4px', padding: '8px', fontSize: '9px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', color: 'var(--foreground-muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '300px', overflow: 'auto' }}>
+                        {s.meta.promptSent}
+                      </pre>
+                    </details>
                   )}
                   {s.error && (
                     <div style={{ fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid rgba(232,120,120,0.2)', borderRadius: '6px', padding: '6px 10px', marginBottom: '6px' }}>
