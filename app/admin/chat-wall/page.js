@@ -3,6 +3,15 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 
+// Dropbox shared links return an HTML preview page when used as <img src>.
+// Appending ?raw=1 (or replacing dl=0) makes Dropbox serve the raw file bytes.
+// Same trick the editor uses (rawDropboxUrl in EditorDashboard.js).
+function rawDropboxUrl(url) {
+  if (!url) return ''
+  const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
+  return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
+}
+
 // Chat Wall — chat manager photo library.
 // - Pick a creator (filtered by Chat Team A / B / All)
 // - Browse all photos for that creator, paginated 40 per page, newest first
@@ -294,7 +303,7 @@ function PhotoCard({ photo, view, pending, onToggle }) {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={photo.dropboxLink}
+        src={rawDropboxUrl(photo.dropboxLink)}
         alt={photo.name}
         loading="lazy"
         style={{
