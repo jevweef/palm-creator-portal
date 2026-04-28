@@ -27,9 +27,11 @@ shotType rules (for picking the right reference photo set):
 - "back" — subject's back is to the camera
 
 positivePrompt rules:
-- MUST start with this exact phrase: "Exact same woman as in the reference images,"
+- MUST start with this exact phrase: "Exact same woman as in the reference images."
   This is the identity anchor that tells Wan 2.7 to use the reference photos for face/hair/body/skin.
-- One paragraph, copy-paste ready.
+- Output as DISTINCT DESCRIPTORS separated by periods, NOT a single run-on sentence. Wan 2.7's reasoning layer processes each element more accurately when they're clearly separated. Each major element gets its own short sentence/clause:
+    Subject. Pose. Wardrobe. Hair. Gaze/Expression. Framing. Camera setup. Lighting. Vibe. Realism tail.
+- One short clause per descriptor. Avoid stacking modifiers in one giant sentence.
 - End with this exact tail structure: "[real lens cue], [named light source], [specific skin vocab], [vibe], 9:16."
   Examples:
   • "iPhone 15 Pro 26mm equivalent at f/1.78, natural window daylight diffused through sheer curtains, visible pores, fine peach-fuzz, slight freckles, unretouched skin, documentary candid lifestyle vibe, 9:16."
