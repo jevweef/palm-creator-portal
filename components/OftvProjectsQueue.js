@@ -440,13 +440,33 @@ export default function OftvProjectsQueue({ showToast }) {
   const [statusFilter, setStatusFilter] = useState('active')
 
   const load = useCallback(async () => {
+    setLoading(true)
+    // Run independently so a failure in one doesn't strand the other (and so
+    // a thrown JSON-parse / network error never traps loading=true forever).
+    const settle = (label, p) => p.then(
+      r => ({ ok: true, label, value: r }),
+      e => ({ ok: false, label, error: e })
+    )
     const [pRes, cRes] = await Promise.all([
-      fetch('/api/admin/oftv-projects'),
-      fetch('/api/admin/palm-creators'),
+      settle('projects', fetch('/api/admin/oftv-projects')),
+      settle('creators', fetch('/api/admin/palm-creators')),
     ])
-    if (pRes.ok) setProjects((await pRes.json()).projects || [])
-    if (cRes.ok) setCreators((await cRes.json()).creators || [])
-    setLoading(false)
+    try {
+      if (pRes.ok && pRes.value.ok) {
+        setProjects((await pRes.value.json()).projects || [])
+      } else if (!pRes.ok) {
+        console.warn('[OftvProjectsQueue] projects fetch failed:', pRes.error?.message)
+      }
+      if (cRes.ok && cRes.value.ok) {
+        setCreators((await cRes.value.json()).creators || [])
+      } else if (!cRes.ok) {
+        console.warn('[OftvProjectsQueue] creators fetch failed:', cRes.error?.message)
+      }
+    } catch (err) {
+      console.warn('[OftvProjectsQueue] parse error:', err.message)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
