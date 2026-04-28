@@ -38,25 +38,58 @@ export async function GET(request) {
   }
 
   try {
-    const assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: `NOT({Dropbox Shared Link}='')`,
-      fields: [
-        'Asset Name',
-        'Dropbox Shared Link',
-        'Palm Creators',
-        'Asset Type',
-        'File Extension',
-        'Pipeline Status',
-        'Thumbnail',
-        'CDN URL',
-        'Used By Chat Manager At',
-        'Used By Chat Manager',
-      ],
+    // Fast path: walk the creator's `Assets` backlink to fetch ONLY their
+    // records, instead of scanning the entire Assets table (was 3-5s on a
+    // base with thousands of assets). The Palm Creators record has a
+    // multipleRecordLinks field "Assets" that contains every linked asset
+    // id — we read that, then batch-fetch those specific records by ID via
+    // OR(RECORD_ID()=…) which Airtable can short-circuit on its index.
+    const headers = { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' }
+    const OPS_BASE = 'applLIT2t83plMqNx'
+
+    const creatorRes = await fetch(
+      `https://api.airtable.com/v0/${OPS_BASE}/Palm%20Creators/${creatorId}?fields[]=Assets`,
+      { headers, cache: 'no-store' }
+    )
+    if (!creatorRes.ok) {
+      const text = await creatorRes.text()
+      throw new Error(`Airtable creator fetch ${creatorRes.status}: ${text}`)
+    }
+    const creatorData = await creatorRes.json()
+    const linkedAssetIds = (creatorData?.fields?.Assets || []).map(v => typeof v === 'string' ? v : v?.id).filter(Boolean)
+
+    let assets = []
+    if (linkedAssetIds.length > 0) {
+      // OR(RECORD_ID()='recX',RECORD_ID()='recY',…) — chunk to keep URLs sane.
+      // Airtable accepts long URLs but we chunk at 80 IDs to be safe (~2400 chars).
+      const fields = [
+        'Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type',
+        'File Extension', 'Pipeline Status', 'Thumbnail', 'CDN URL',
+        'Used By Chat Manager At', 'Used By Chat Manager',
+      ]
+      const CHUNK = 80
+      const chunks = []
+      for (let i = 0; i < linkedAssetIds.length; i += CHUNK) {
+        chunks.push(linkedAssetIds.slice(i, i + CHUNK))
+      }
+      const results = await Promise.all(chunks.map(chunk => {
+        const formula = `OR(${chunk.map(id => `RECORD_ID()='${id}'`).join(',')})`
+        return fetchAirtableRecords('Assets', { filterByFormula: formula, fields })
+      }))
+      assets = results.flat()
+    }
+
+    const photoAssets = assets.filter(a => {
+      if (!a.fields?.['Dropbox Shared Link']) return false
+      return isImageAsset(a)
     })
 
-    const filtered = assets.filter(a => {
-      if (!getLinkedIds(a.fields?.['Palm Creators']).includes(creatorId)) return false
-      if (!isImageAsset(a)) return false
+    // Counts for both tabs — drives the badge on each tab so they stay
+    // consistent when the user switches views.
+    const availableCount = photoAssets.filter(a => !a.fields?.['Used By Chat Manager At']).length
+    const usedCount = photoAssets.length - availableCount
+
+    const filtered = photoAssets.filter(a => {
       const usedAt = a.fields?.['Used By Chat Manager At']
       if (view === 'used') return !!usedAt
       return !usedAt
@@ -98,6 +131,8 @@ export async function GET(request) {
       pageSize: PAGE_SIZE,
       total,
       totalPages: Math.ceil(total / PAGE_SIZE),
+      availableCount,
+      usedCount,
     })
   } catch (err) {
     console.error('[chat-wall/photos] GET error:', err)

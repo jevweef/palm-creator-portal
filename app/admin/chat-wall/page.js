@@ -12,6 +12,22 @@ function rawDropboxUrl(url) {
   return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
 
+// Force a browser download of the original file. Dropbox's ?dl=1 sets
+// Content-Disposition: attachment so the browser saves the file instead of
+// opening it. We use a hidden iframe rather than window.open or anchor.click
+// to avoid popup blockers and avoid leaving a blank tab open.
+function triggerDownload(asset) {
+  if (!asset?.dropboxLink) return
+  const clean = asset.dropboxLink.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '').replace(/[?&]dl=1/, '')
+  const dlUrl = clean + (clean.includes('?') ? '&dl=1' : '?dl=1')
+  const iframe = document.createElement('iframe')
+  iframe.style.display = 'none'
+  iframe.src = dlUrl
+  document.body.appendChild(iframe)
+  // Clean up after the browser has had time to start the download.
+  setTimeout(() => iframe.remove(), 8000)
+}
+
 // Chat Wall — chat manager photo library.
 // - Pick a creator (filtered by Chat Team A / B / All)
 // - Browse all photos for that creator, paginated 40 per page, newest first
@@ -38,6 +54,8 @@ export default function ChatWallPage() {
   const [photosLoading, setPhotosLoading] = useState(false)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
+  const [availableCount, setAvailableCount] = useState(0)
+  const [usedCount, setUsedCount] = useState(0)
   const [pendingIds, setPendingIds] = useState(new Set())
   const [modalPhotoId, setModalPhotoId] = useState(null)
 
@@ -88,6 +106,8 @@ export default function ChatWallPage() {
       setPhotos([])
       setTotal(0)
       setTotalPages(0)
+      setAvailableCount(0)
+      setUsedCount(0)
       return
     }
     setPhotosLoading(true)
@@ -98,6 +118,8 @@ export default function ChatWallPage() {
         setPhotos(data.photos || [])
         setTotal(data.total || 0)
         setTotalPages(data.totalPages || 0)
+        if (typeof data.availableCount === 'number') setAvailableCount(data.availableCount)
+        if (typeof data.usedCount === 'number') setUsedCount(data.usedCount)
       })
       .catch(() => {
         setPhotos([])
@@ -112,6 +134,12 @@ export default function ChatWallPage() {
   const togglePhoto = async (asset, makeUsed, { advance = false } = {}) => {
     setPendingIds(prev => new Set(prev).add(asset.id))
 
+    // If marking as used, also kick off a browser download immediately so
+    // the chat manager has the file ready to upload to OF wall. Dropbox's
+    // ?dl=1 forces Content-Disposition: attachment, which the browser will
+    // honor as a real download instead of opening the image in a new tab.
+    if (makeUsed) triggerDownload(asset)
+
     // If the modal is open on this photo and we're auto-advancing, jump to
     // the next photo BEFORE removing the current one — feels snappier and
     // prevents a flash of "no modal" between toggle and next.
@@ -121,9 +149,17 @@ export default function ChatWallPage() {
       setModalPhotoId(next ? next.id : null)
     }
 
-    // Optimistic remove from current view
+    // Optimistic: remove from current view, update both tab counts.
     setPhotos(prev => prev.filter(p => p.id !== asset.id))
     setTotal(t => Math.max(0, t - 1))
+    if (makeUsed) {
+      setAvailableCount(c => Math.max(0, c - 1))
+      setUsedCount(c => c + 1)
+    } else {
+      setUsedCount(c => Math.max(0, c - 1))
+      setAvailableCount(c => c + 1)
+    }
+
     try {
       const res = await fetch('/api/admin/chat-wall/photos', {
         method: 'PATCH',
@@ -231,28 +267,32 @@ export default function ChatWallPage() {
         )}
       </div>
 
-      {/* View tabs (Available / Used) */}
+      {/* View tabs (Available / Used) — counts shown on BOTH tabs so
+          switching never glitches. Updated optimistically on toggle. */}
       {creatorId && (
         <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid var(--card-border, rgba(255,255,255,0.06))' }}>
-          {VIEWS.map(v => (
-            <button
-              key={v}
-              onClick={() => { setView(v); setPage(0) }}
-              style={{
-                padding: '8px 14px',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: view === v ? '2px solid var(--palm-pink)' : '2px solid transparent',
-                color: view === v ? 'var(--palm-pink)' : 'var(--foreground-muted)',
-                fontSize: '13px',
-                fontWeight: view === v ? 600 : 400,
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-              }}
-            >
-              {v} {view === v && total > 0 ? `(${total})` : ''}
-            </button>
-          ))}
+          {VIEWS.map(v => {
+            const count = v === 'available' ? availableCount : usedCount
+            return (
+              <button
+                key={v}
+                onClick={() => { setView(v); setPage(0) }}
+                style={{
+                  padding: '8px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: view === v ? '2px solid var(--palm-pink)' : '2px solid transparent',
+                  color: view === v ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+                  fontSize: '13px',
+                  fontWeight: view === v ? 600 : 400,
+                  cursor: 'pointer',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {v} ({count})
+              </button>
+            )
+          })}
         </div>
       )}
 
