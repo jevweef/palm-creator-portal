@@ -1398,7 +1398,7 @@ export default function RecreatePage() {
 
         {animateState.usedElementId && (
           <div style={{ marginTop: '8px', fontSize: '10px', color: '#7DD3A4' }}>
-            ✓ Using registered Kling Element <span style={{ fontFamily: 'monospace', color: 'var(--foreground-muted)' }}>{animateState.usedElementId}</span> — identity locked from creator&apos;s 12 reference angles
+            ✓ Using registered Kling Element <span style={{ fontFamily: 'monospace', color: 'var(--foreground-muted)' }}>{animateState.usedElementId}</span> — identity locked from multiple reference angles
           </div>
         )}
         {animateState.taskId && !animateState.usedElementId && animateState.running && (
