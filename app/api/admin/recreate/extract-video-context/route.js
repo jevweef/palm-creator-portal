@@ -135,10 +135,10 @@ export async function POST(request) {
 
     // Build content array — text labels interleaved with frames
     const content = [
-      { type: 'text', text: `Analyzing ${FRAMES_TO_SAMPLE} evenly-spaced frames from a ${duration.toFixed(1)}s reel. Frames are in chronological order:` },
+      { type: 'text', text: `Analyzing ${frames.length} frames from an Instagram reel, in chronological order:` },
     ]
     for (let i = 0; i < frames.length; i++) {
-      content.push({ type: 'text', text: `Frame ${i + 1}/${FRAMES_TO_SAMPLE} (≈${frames[i].timestamp.toFixed(1)}s):` })
+      content.push({ type: 'text', text: `Frame ${i + 1}/${frames.length} (≈${frames[i].timestamp.toFixed(1)}s):` })
       content.push({
         type: 'image',
         source: { type: 'base64', media_type: 'image/jpeg', data: frames[i].data },
