@@ -1350,8 +1350,9 @@ export default function RecreatePage() {
         {/* Quality toggle */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', width: 'fit-content' }}>
           {[
-            { id: 'pro', label: 'Standard · V3.0 Pro', cost: '~$1.12 / 10s', desc: '1 ref + element + audio mux' },
-            { id: 'production', label: 'Production · O3 4K', cost: '~$4.20 / 10s', desc: '4 direct refs + element + inspo as ref video + 4K + native audio' },
+            { id: 'pro', label: 'Standard · V3.0 Pro', cost: '~$1.12 / 10s', desc: '1080p · 1 ref + element + tail frame' },
+            { id: '4k', label: 'HD+ · V3.0 4K', cost: '~$4.20 / 10s', desc: '4K · same as Standard, sharper skin/hair' },
+            { id: 'production', label: 'Production · O3 4K', cost: '~$4.20 / 10s', desc: '4K · 4 refs + inspo as ref video + native audio (no tail)' },
           ].map(opt => (
             <button
               key={opt.id}
@@ -1393,7 +1394,7 @@ export default function RecreatePage() {
               </span>
             )}
           </div>
-          {animateState.quality === 'pro' && (
+          {(animateState.quality === 'pro' || animateState.quality === '4k') && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
               <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>Audio offset</label>
               <input

@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const KLING_PRO_MODEL = 'kwaivgi/kling-v3.0-pro/image-to-video'
-const KLING_4K_MODEL = 'kwaivgi/kling-video-o3-4k/reference-to-video'
+const KLING_V3_4K_MODEL = 'kwaivgi/kling-v3.0-4k/image-to-video'
+const KLING_O3_4K_MODEL = 'kwaivgi/kling-video-o3-4k/reference-to-video'
 const PALM_CREATORS = 'Palm Creators'
 
 // POST — body: {
@@ -54,6 +55,7 @@ export async function POST(request) {
     const elementListObj = elementId ? [{ element_id: elementId, element_name: elementName }] : null
 
     const isProduction = quality === 'production'
+    const is4k = quality === '4k'
 
     let model, body
     if (isProduction) {
@@ -61,7 +63,7 @@ export async function POST(request) {
       // provided, 7 without. We always use the inspo video for motion guidance,
       // so cap is 4. Slot 1 = start swap (face anchor in correct pose), slots
       // 2-4 = additional face refs from creator's AI Ref Inputs.
-      model = KLING_4K_MODEL
+      model = KLING_O3_4K_MODEL
       // Slot 1: start swap (face in correct pose). Slots 2-4: top face
       // close-ups from AI Ref Inputs to give Kling more identity anchors.
       const images = [startUrl]
@@ -86,8 +88,10 @@ export async function POST(request) {
       if (inspoVideoUrl) body.video = inspoVideoUrl
       if (elementListObj) body.element_list = elementListObj
     } else {
-      // V3.0 Pro image-to-video (current path)
-      model = KLING_PRO_MODEL
+      // V3.0 Pro image-to-video (Standard) OR V3.0 4K image-to-video (HD+).
+      // Identical parameters; only the model path differs. 4K renders at
+      // higher resolution for less plastic skin / sharper hair texture.
+      model = is4k ? KLING_V3_4K_MODEL : KLING_PRO_MODEL
       body = {
         image: startUrl,
         prompt: motionPrompt,
