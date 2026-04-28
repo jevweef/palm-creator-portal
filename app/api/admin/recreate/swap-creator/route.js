@@ -125,8 +125,15 @@ export async function POST(request) {
       const refCount = images.length - 1
       const refRange = refCount === 1 ? 'Figure 2' : `Figures 2 through ${1 + refCount}`
       finalPrompt =
-        `Replace the woman in Figure 1 with the woman shown in ${refRange}. Her face, body, body shape, body proportions (build, bust size, hip-to-waist ratio, shoulder width, height), hair, and skin tone all come from ${refRange} — NOT from Figure 1. The original woman in Figure 1 is fully replaced; her body and proportions are NOT preserved.\n\n` +
-        `Keep from Figure 1: the room/scene, lighting, camera framing and angle, and the woman's pose (where her hands are, head angle, weight distribution). The wardrobe's TYPE, COLOR, and STYLE stay the same as Figure 1, but the wardrobe should RESIZE and adapt to fit the new body's proportions naturally.\n\n` +
+        `Replace the woman in Figure 1 with the woman shown in ${refRange}.\n\n` +
+        `FROM ${refRange.toUpperCase()} (the woman to render), take ALL of these features exactly as shown:\n` +
+        `• Face: face shape, eye shape and color, eyebrow shape, nose shape, lip shape and fullness, jawline, cheekbones, chin, ear shape\n` +
+        `• Hair: exact color and highlights, length, texture (straight/wavy/curly), styling, hairline\n` +
+        `• Body type: overall build (slim/athletic/curvy as shown in references — match exactly)\n` +
+        `• Body proportions: ribcage width, bust size and shape, waist circumference, hip width, hip-to-waist ratio, shoulder width, arm shape and length, leg shape and length, overall height-to-width ratio\n` +
+        `• Skin: skin tone, undertone, natural texture, any visible freckles or moles, body hair pattern\n\n` +
+        `Do NOT inherit any of these features from the woman in Figure 1. The body proportions and silhouette of Figure 1's original woman are NOT preserved.\n\n` +
+        `KEEP from Figure 1 only: the room/scene, lighting (direction and quality), camera framing and angle, the woman's pose (hand positions, head angle, weight distribution, foot placement), her gaze direction and facial expression. The wardrobe's TYPE, COLOR, and STYLE stay the same, but the wardrobe RESIZES to fit the new body naturally.\n\n` +
         `Scene details: ${positivePrompt}`
     } else {
       // Subject-only mode (current default) — only creator references
