@@ -1,237 +1,194 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
+import Anthropic from '@anthropic-ai/sdk'
+import ffmpegStatic from 'ffmpeg-static'
+import ffmpeg from 'fluent-ffmpeg'
+import { writeFile, unlink, readFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { randomBytes } from 'crypto'
+
+ffmpeg.setFfmpegPath(ffmpegStatic)
 
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 
 export const dynamic = 'force-dynamic'
-// Gemini 3.1 Pro analyzing a video can run 60-180s. Bumped from 60s to
-// 300s (Vercel Pro plan max) to avoid FUNCTION_INVOCATION_TIMEOUT.
-export const maxDuration = 300
+// Sonnet on 8 frames is much faster than Gemini on full video. 60s buffer.
+export const maxDuration = 120
 
-const GEMINI_MODEL = 'gemini-3.1-pro-preview'
-// Gemini default is 1 FPS — too coarse to detect subtle dolly motion.
-// 4 FPS was working but doubled latency on longer reels. 2 FPS is the
-// middle ground: still catches gradual scale changes across 20-30 frames
-// while keeping latency manageable.
-const VIDEO_FPS = 2
+const SONNET_MODEL = 'claude-sonnet-4-6'
+const FRAMES_TO_SAMPLE = 8
 
-const SYSTEM_INSTRUCTION = `You watch a short Instagram reel and produce TWO outputs in a single tool call:
+const SYSTEM_INSTRUCTION = `You are analyzing a short Instagram reel by examining ${FRAMES_TO_SAMPLE} evenly-spaced frames from it (in chronological order). Produce all fields via the submit_video_context tool.
 
-1. videoContext — a compact bullet-list summary that will be injected into a separate per-frame analysis pass (Claude Sonnet). Sonnet sees ONE still image at a time and can't tell what's happening across the timeline. Give it the cross-frame context it can't derive from a single frame.
+Outputs:
 
-2. motionPrompt + motionNegative — a Kling V3.0 4K image-to-video prompt that will be used to animate a still image into a video matching this reel's motion.
-
-—————————————————————————
-videoContext format:
-
-Output via the submit_video_context tool. Keep it tight — 6-10 short bullet lines, each starting with "- ".
-
-Cover ONLY the things Sonnet can't see from a still:
-- Beat-by-beat action (what happens 0:00 → 0:01 → 0:02 ...). Brief — one phrase per beat.
-- Cross-frame props/wardrobe/object continuity (e.g. "she removes her white underwear and uses it to tie her hair at 0:06" — Sonnet looking at the end frame would otherwise mistake the underwear-as-hair-tie for a regular fabric tie).
+1. videoContext — 6-10 short bullet lines starting with "- " covering beat-by-beat action and cross-frame details a per-frame analyzer would miss. Cover:
+- Beat-by-beat action (frame 1 → frame 8). Brief.
+- Cross-frame props/wardrobe/object continuity (e.g. "she removes her white underwear and uses it to tie her hair around frame 5").
 - Things that change across the video (clothing changes, hair styling changes, prop introductions, prop removals).
-- Setting reveals only visible at certain moments (e.g. "ring light blinks on at 0:03 — visible in some frames, not others").
-- Audio cues that affect framing (lip sync timing, voiceover content if relevant to action).
+- Setting reveals only visible at certain moments.
 
-Do NOT include:
-- Physical character traits (hair color, body type, age, ethnicity, makeup) — those come from reference images.
-- Generic scene description that's already obvious in any frame (e.g. "she's in a bedroom").
-- Camera-direction jargon, fantasy language, mood adjectives.
+Do NOT include physical character traits (hair color, body type, age, ethnicity, makeup) — those come from reference images.
 
-Example videoContext output:
-- 0:00–0:01: subject walks into frame from the right, full body framing.
-- 0:01–0:03: stops in front of a desk, hair flips back as she turns.
-- 0:03–0:04: removes white cotton underwear from under her oversized blue shirt.
-- 0:04–0:06: uses the underwear as a hair tie, ties hair into a low ponytail.
-- 0:06–end: turns toward camera, glances back over shoulder. Camera stays static on tripod.
-- Wardrobe is constant: oversized light blue button-up shirt, fully buttoned, worn as dress.
-- iPhone + ring light tripod stays in same position bottom-right entire time.
-
-—————————————————————————
-motionPrompt format — CRITICAL STRUCTURE for Kling realism. Multiple Kling-specific prompt guides converge on this exact structure:
+2. motionPrompt — one paragraph, copy-paste ready for Kling V3.0 4K image-to-video. Structure:
 
 [Shot type] of [subject + action], [real lens cue], [named light source], [specific skin/realism vocab], [mood/film vibe].
 
 Camera and style cues belong at the END, not buried mid-prompt. Real lens names ("50mm prime f/1.8", "iPhone 15 Pro 26mm equivalent") outperform abstract terms ("cinematic", "raw photo"). Real light source names ("natural window daylight diffused through sheer curtains", "overhead fluorescent", "dim bedside lamp") outperform "studio lighting" / "soft light".
 
 Specific structure:
-1. Shot type: "Tripod static shot of...", "Selfie shot of...", "Handheld shot of...". Camera-direction/motion phrase will be auto-inserted by the server based on your cameraMotion enum (DO NOT include any camera direction in the prompt body).
-2. Subject: "an american girl" (or other accent if obvious) — keep generic, no body/hair/face descriptors (those come from reference images).
-3. Action: literal beat-by-beat (walks into frame from left, brushes hair, glances at camera, weight shifts onto right hip). Keep concise.
-4. If she speaks audibly: include EXACT spoken quote: she said "...".
-5. Real lens cue: ONE of "50mm prime lens at f/1.8", "Shot on Canon 5D Mark IV, 50mm f/1.4", "iPhone 15 Pro, 26mm equivalent, f/1.78", "vertical 9:16 raw video". Pick based on whether the inspo looks pro-camera or phone-shot.
-6. Named light source: pull from the actual inspo (e.g. "natural window daylight diffused through sheer curtains", "warm bedside lamp on her right", "afternoon golden hour light through blinds", "overhead fluorescent kitchen light"). Avoid "studio lighting", "cinematic lighting", "soft lighting".
-7. Skin/realism vocab: "visible pores, fine peach-fuzz, slight freckles, unretouched skin, subtle skin imperfections" — pick 3-4 of these. Do NOT use "no smoothing", "no beauty filter", "no retouching" in the positive — Kling reads "no X" as content tokens, not negation.
-8. Mood/vibe: "documentary candid lifestyle vibe", "Tuesday afternoon at home", "off-the-cuff moment". One short phrase.
+- Shot type: "Tripod static shot of...", "Selfie shot of...", "Handheld shot of...". Camera-direction phrase will be auto-inserted by the server based on your cameraMotion enum (DO NOT include any camera direction).
+- Subject: "an american girl" (or other accent if obvious) — keep generic, no body/hair/face descriptors.
+- Action: literal beat-by-beat (walks into frame from left, brushes hair, glances at camera, weight shifts onto right hip). Keep concise.
+- If she speaks audibly: include EXACT spoken quote: she said "...".
+- Real lens cue: "50mm prime lens at f/1.8", "iPhone 15 Pro, 26mm equivalent, f/1.78", "vertical 9:16 raw video".
+- Named light source: pull from the actual reel.
+- Skin/realism vocab: "visible pores, fine peach-fuzz, slight freckles, unretouched skin, subtle skin imperfections" — pick 3-4. Do NOT use "no smoothing" / "no beauty filter" — Kling reads "no X" as content tokens.
+- Mood/vibe: "documentary candid lifestyle vibe", "Tuesday afternoon at home". One short phrase.
 
-Camera direction line: do NOT include — server appends from cameraMotion enum.
-
-cameraMotion field — REQUIRED, single enum value. CRITICAL: do not default to "locked" just because you see a tripod. Tripod-mounted cameras can dolly, pan, slide. Use this exact procedure:
-
-STEP 1 — Watch the FIRST 0.5 seconds and the LAST 0.5 seconds of the video.
-STEP 2 — Compare the SUBJECT SCALE (how much of the frame the subject occupies):
-    - Subject occupies the SAME % of frame at start and end → likely "locked"
-    - Subject is SMALLER at the end (further away) → "dolly_back" (camera pulled away from subject)
-    - Subject is LARGER at the end (closer) → "dolly_forward" (camera pushed in toward subject)
-STEP 3 — If subject scale is identical, check horizontal background drift:
-    - Background scrolls right-to-left across timeline → "pan_right" (camera panned right, world moved left)
-    - Background scrolls left-to-right → "pan_left"
-    - Smooth lateral motion with parallax depth → "slider"
-STEP 4 — If none of the above clearly apply but the framing has subtle wobble → "handheld_drift"
-STEP 5 — Only return "locked" if you are confident the framing did not change at all.
-
-Subject scale is the most reliable signal. Even subtle pull-backs (subject 60% of frame at start → 50% at end) count as "dolly_back" — write it down. Tripod-on-wheels content is common in OF reels; assume motion is possible until you've checked subject scale specifically.
-- Add constraints when relevant: "no phone visible" if it's a tripod shot, "no cuts" for single-clip, etc.
-- Add voice direction at the end: "american accent" (or other)
-- No cinematic language. No fantasy words. No camera-direction jargon. No body-shape descriptors.
-
-motionNegative format — comma-separated tokens. Goal is HIGH-SIGNAL tokens only. Each token competes for model attention; junk tokens dilute. Output ~18-22 tokens total.
-
-INCLUDE these (real failure modes the model actively avoids when prompted):
+3. motionNegative — comma-separated tokens. ~18-22 tokens. Pick from:
 - Anatomy errors: extra fingers, fused fingers, missing limbs, extra limbs, broken limbs, deformed body, distorted face, asymmetrical eyes, bad anatomy, bad proportions, long neck
 - Motion errors: motion freeze, stiff pose, unnatural stillness
 - Hard quality fails: low quality, jpeg artifacts, blurry, cloning artifacts, duplicated body parts
 - Hard content fails: watermark, text, logo
-- Plastic-skin blockers (PICK MAX 3 — more dilutes): plastic skin, waxy skin, doll-like, mannequin
+- Plastic-skin blockers (PICK MAX 3): plastic skin, waxy skin, doll-like, mannequin
 
-EXCLUDE these (waste budget or fight realism):
-- Don't include: cartoon, anime, illustration, painting, 3D render, CGI render — won't happen with our pipeline
-- Don't include: chromatic aberration, lens distortion, soft focus — real iPhone footage has these, fighting them suppresses authentic camera look
-- Don't include: harsh shadows, flat lighting, bad lighting, overexposed, underexposed, oversaturated, oversharpen, overprocessed — too vague, suppress dramatic lighting we may want
-- Don't include: floating objects, depth errors, incorrect perspective, background blur errors, glitch, artifacts, noisy image — too vague
-- Don't include: beauty filter, glamour skin, soft-focus skin, magazine skin, retouched skin — pick ONE plastic-skin term, multiple variations dilute
-- Don't include: exaggerated curves, fake muscles, unrealistic flexibility — anatomy errors above already cover
+EXCLUDE these (waste budget or fight realism): cartoon, anime, illustration, 3D render, CGI, chromatic aberration, lens distortion, soft focus, harsh shadows, flat lighting, overexposed, underexposed, oversaturated, oversharpen, glitch, noisy image, exaggerated curves, fake muscles, beauty filter, glamour skin, magazine skin.
 
-FRAMING-SPECIFIC (add only when applicable, 3-5 tokens):
+Framing-specific (add only when applicable):
 - If NOT a mirror selfie: add "mirror selfie, mirror reflection, phone in hand"
 - If subject doesn't speak: add "talking mouth, lip sync"
 - If single-clip continuous: add "scene cut, jump cut"
 
-hasSpokenDialogue — boolean. true ONLY if the subject is clearly speaking, mouthing words, or lip-syncing audibly in the video. false if the audio is just music with no spoken vocals from the subject (her mouth is closed or making non-speech expressions). This drives whether we add aggressive "no talking" negatives downstream — Kling defaults to making subjects talk, so silent reels need explicit blockers.`
+4. hasSpokenDialogue — boolean. true ONLY if mouth movements across frames clearly show speaking/lip-syncing. False if her mouth stays mostly closed or only minor expression changes.
+
+5. cameraMotion — REQUIRED enum. Compare subject scale across frames:
+- "locked" — subject occupies same % of frame across all 8 frames
+- "dolly_back" — subject is smaller in later frames (camera pulled away)
+- "dolly_forward" — subject is larger in later frames (camera pushed in)
+- "pan_left" — background scrolls left to right (camera panned right)
+- "pan_right" — background scrolls right to left (camera panned left)
+- "slider" — smooth lateral motion with parallax depth
+- "handheld_drift" — subtle wobble that doesn't feel deliberate
+
+Default to subject-scale comparison first. Even SUBTLE scale change counts as dolly. Only return "locked" if you're confident framing didn't change at all.`
 
 async function fetchVideoBuffer(videoUrl) {
   const res = await fetch(videoUrl, { redirect: 'follow' })
   if (!res.ok) throw new Error(`Video fetch failed: ${res.status}`)
-  const buf = Buffer.from(await res.arrayBuffer())
-  if (buf.length > 18 * 1024 * 1024) {
-    throw new Error(`Video too large (${(buf.length / 1024 / 1024).toFixed(1)}MB). Limit is ~18MB inline.`)
-  }
-  return buf
+  return Buffer.from(await res.arrayBuffer())
+}
+
+async function getDuration(videoPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(videoPath, (err, data) => {
+      if (err) return reject(err)
+      const dur = data?.format?.duration
+      resolve(Number.isFinite(dur) ? dur : 10)
+    })
+  })
+}
+
+async function extractFrame(videoPath, timestamp, outPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(videoPath)
+      .inputOptions([`-ss ${timestamp}`])
+      .outputOptions(['-frames:v 1', '-q:v 3', '-vf', 'scale=720:-2'])
+      .save(outPath)
+      .on('end', () => resolve())
+      .on('error', err => reject(new Error(`ffmpeg frame extract failed: ${err.message}`)))
+  })
 }
 
 // POST — body: { videoUrl, inspoRecordId? }
-// Returns: { ok, videoContext }
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
+
+  const tmp = tmpdir()
+  const stamp = Date.now()
+  const rand = randomBytes(4).toString('hex')
+  const videoPath = join(tmp, `vctx-${stamp}-${rand}.mp4`)
+  const framePaths = []
 
   try {
     const { videoUrl, inspoRecordId } = await request.json()
     if (!videoUrl) return NextResponse.json({ error: 'Missing videoUrl' }, { status: 400 })
 
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY is not set' }, { status: 500 })
-
+    // Download video, extract evenly-spaced frames
     const buf = await fetchVideoBuffer(videoUrl)
-    const base64Video = buf.toString('base64')
-    const mimeType = videoUrl.toLowerCase().includes('.mov') ? 'video/quicktime' : 'video/mp4'
+    await writeFile(videoPath, buf)
+    const duration = await getDuration(videoPath)
 
-    const requestBody = {
-      systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-      contents: [{
-        role: 'user',
-        parts: [
-          {
-            inlineData: { mimeType, data: base64Video },
-            videoMetadata: { fps: VIDEO_FPS },
+    // Sample at evenly-spaced offsets, with small margin from start/end
+    const margin = Math.min(0.3, duration * 0.05)
+    const usableDuration = duration - 2 * margin
+    const stepSize = usableDuration / (FRAMES_TO_SAMPLE - 1)
+    const frames = []
+    for (let i = 0; i < FRAMES_TO_SAMPLE; i++) {
+      const ts = margin + i * stepSize
+      const fp = join(tmp, `frame-${stamp}-${rand}-${i}.jpg`)
+      framePaths.push(fp)
+      await extractFrame(videoPath, ts, fp)
+      const data = await readFile(fp)
+      frames.push({ timestamp: ts, data: data.toString('base64') })
+    }
+
+    // Build content array — text labels interleaved with frames
+    const content = [
+      { type: 'text', text: `Analyzing ${FRAMES_TO_SAMPLE} evenly-spaced frames from a ${duration.toFixed(1)}s reel. Frames are in chronological order:` },
+    ]
+    for (let i = 0; i < frames.length; i++) {
+      content.push({ type: 'text', text: `Frame ${i + 1}/${FRAMES_TO_SAMPLE} (≈${frames[i].timestamp.toFixed(1)}s):` })
+      content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/jpeg', data: frames[i].data },
+      })
+    }
+    content.push({ type: 'text', text: 'Now produce all fields via the submit_video_context tool.' })
+
+    // Sonnet structured output via tool use
+    const tool = {
+      name: 'submit_video_context',
+      description: 'Submit cross-frame video context, motion prompt, negative, dialogue flag, camera motion.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          videoContext: { type: 'string' },
+          motionPrompt: { type: 'string' },
+          motionNegative: { type: 'string' },
+          hasSpokenDialogue: { type: 'boolean' },
+          cameraMotion: {
+            type: 'string',
+            enum: ['locked', 'dolly_back', 'dolly_forward', 'pan_left', 'pan_right', 'slider', 'handheld_drift'],
           },
-          { text: 'Analyze this reel and produce the cross-frame video context summary. Use the submit_video_context tool.' },
-        ],
-      }],
-      tools: [{
-        functionDeclarations: [{
-          name: 'submit_video_context',
-          description: 'Submit BOTH the cross-frame video context summary AND the Kling V3.0 motion prompt for this reel in a single call.',
-          parameters: {
-            type: 'object',
-            properties: {
-              videoContext: {
-                type: 'string',
-                description: '6-10 bullet lines starting with "- " covering beat-by-beat action and cross-frame details a per-frame analyzer would miss.',
-              },
-              motionPrompt: {
-                type: 'string',
-                description: 'One-paragraph Kling V3.0 motion prompt describing the action / motion / camera behavior. Generic subject ("an american girl"), exact spoken quote if any, motion descriptors at the end.',
-              },
-              motionNegative: {
-                type: 'string',
-                description: 'Comma-separated negative prompt tokens for Kling V3.0 with framing-specific blockers based on the video.',
-              },
-              hasSpokenDialogue: {
-                type: 'boolean',
-                description: 'True if subject is speaking/mouthing words audibly. False if audio is just music with no vocals from the subject. Drives auto-blockers for talking when false.',
-              },
-              cameraMotion: {
-                type: 'string',
-                enum: ['locked', 'dolly_back', 'dolly_forward', 'pan_left', 'pan_right', 'slider', 'handheld_drift'],
-                description: 'REQUIRED. Determined by comparing subject scale at start vs end of video. Do NOT default to locked — tripods can dolly. See system prompt for the step-by-step procedure.',
-              },
-            },
-            required: ['videoContext', 'motionPrompt', 'motionNegative', 'hasSpokenDialogue', 'cameraMotion'],
-          },
-        }],
-      }],
-      toolConfig: {
-        functionCallingConfig: { mode: 'ANY', allowedFunctionNames: ['submit_video_context'] },
+        },
+        required: ['videoContext', 'motionPrompt', 'motionNegative', 'hasSpokenDialogue', 'cameraMotion'],
       },
     }
 
-    // Retry on transient 429/503 (Gemini "high demand" / quota spikes).
-    // Exponential backoff with jitter; 3 attempts total.
-    let res, data
-    const MAX_ATTEMPTS = 3
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) }
-      )
-      data = await res.json()
-      if (res.ok) break
-      const isTransient = res.status === 429 || res.status === 503 ||
-        /UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(data?.error?.message || '')
-      if (!isTransient || attempt === MAX_ATTEMPTS) break
-      const delay = (2 ** attempt) * 1000 + Math.random() * 500
-      await new Promise(r => setTimeout(r, delay))
-    }
-    if (!res.ok) {
-      console.error('[extract-video-context] Gemini error:', data)
-      const msg = data?.error?.message || `Gemini ${res.status}`
-      const friendly = /UNAVAILABLE|overload|high demand/i.test(msg)
-        ? `Gemini overloaded after ${MAX_ATTEMPTS} retries — try the Run now button again in a minute.`
-        : msg
-      return NextResponse.json({ error: friendly }, { status: 500 })
-    }
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const claudeRes = await anthropic.messages.create({
+      model: SONNET_MODEL,
+      max_tokens: 2000,
+      system: SYSTEM_INSTRUCTION,
+      tools: [tool],
+      tool_choice: { type: 'tool', name: 'submit_video_context' },
+      messages: [{ role: 'user', content }],
+    })
 
-    const candidates = data.candidates || []
-    const parts = candidates[0]?.content?.parts || []
-    const fnCall = parts.find(p => p.functionCall)?.functionCall
-    if (!fnCall || fnCall.name !== 'submit_video_context') {
+    const toolUse = claudeRes.content.find(b => b.type === 'tool_use')
+    if (!toolUse?.input) {
       return NextResponse.json({
-        error: 'Gemini did not call the tool',
-        raw: candidates[0]?.content,
+        error: `Sonnet did not call the tool (stop: ${claudeRes.stop_reason})`,
+        raw: claudeRes.content,
       }, { status: 500 })
     }
 
-    const { videoContext, motionPrompt, motionNegative, hasSpokenDialogue } = fnCall.args || {}
-    const { cameraMotion } = fnCall.args || {}
-    if (!videoContext || !motionPrompt || !motionNegative) {
-      return NextResponse.json({ error: 'Tool input missing required fields', raw: fnCall.args }, { status: 500 })
-    }
+    const { videoContext, motionPrompt, motionNegative, hasSpokenDialogue, cameraMotion } = toolUse.input
 
-
-    // Force the camera-motion phrase in the motion prompt to match Gemini's
-    // structured cameraMotion enum. Without this, Gemini sometimes commits to
-    // "dolly_back" in the enum but still writes "Static camera" in the prompt
-    // body — Kling reads the prompt text, not our structured field.
+    // Server-side override: force the canonical camera-motion phrase into the
+    // motion prompt body based on the structured cameraMotion enum.
     const CAMERA_PHRASES = {
       locked: 'Static camera, no movement',
       dolly_back: 'Camera slowly dollies backward, smooth pull-back motion',
@@ -244,8 +201,6 @@ export async function POST(request) {
     const cameraPhrase = CAMERA_PHRASES[cameraMotion] || ''
     let finalMotionPrompt = motionPrompt
     if (cameraPhrase) {
-      // Strip any existing camera-motion phrase Gemini may have included
-      // (case-insensitive, common variants), then append the canonical one.
       const stripPatterns = [
         /static camera,\s*no movement/gi,
         /static shot/gi,
@@ -257,52 +212,30 @@ export async function POST(request) {
         /camera fixed on tripod[^,.]*/gi,
       ]
       for (const re of stripPatterns) finalMotionPrompt = finalMotionPrompt.replace(re, '')
-      // Clean up doubled commas/spaces from the strips
       finalMotionPrompt = finalMotionPrompt.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim()
-      // Insert the canonical camera phrase before "no phone visible" / "no cuts"
-      // / final segments if present, otherwise append to the end.
       if (/no phone visible|no cuts/i.test(finalMotionPrompt)) {
-        finalMotionPrompt = finalMotionPrompt.replace(
-          /(no phone visible|no cuts)/i,
-          `${cameraPhrase}, $1`
-        )
+        finalMotionPrompt = finalMotionPrompt.replace(/(no phone visible|no cuts)/i, `${cameraPhrase}, $1`)
       } else {
         finalMotionPrompt = `${finalMotionPrompt} ${cameraPhrase}.`
       }
     }
 
-    // Per Kling-specific prompt guides: do NOT inject "no smoothing/no
-    // beauty filter" into the positive (Kling reads "no X" as content
-    // tokens). Skin realism comes from positive vocabulary (pores, peach-
-    // fuzz, freckles) which Gemini handles in its prompt structure, plus
-    // a short, focused negative.
-    //
-    // Keep the negative under ~10 tokens. Long lists flatten output and
-    // increase plasticity per multiple Kling guides. Server adds only the
-    // most-impactful blockers.
+    // Negative cleanup + auto-blockers
     const TALKING_BLOCKERS = 'talking mouth, lip sync, mouth opening, speaking'
     const SKIN_BLOCKERS = 'plastic skin, waxy skin, beauty filter, airbrushed'
     let finalNegative = motionNegative
-    // Prepend skin blockers if not already present
-    if (!/plastic skin/i.test(finalNegative)) {
-      finalNegative = `${SKIN_BLOCKERS}, ${finalNegative}`
-    }
-    // Prepend talking blockers when subject is silent
+    if (!/plastic skin/i.test(finalNegative)) finalNegative = `${SKIN_BLOCKERS}, ${finalNegative}`
     if (hasSpokenDialogue === false && !/talking mouth/i.test(finalNegative)) {
       finalNegative = `${TALKING_BLOCKERS}, ${finalNegative}`
     }
-    // Final cleanup: dedupe tokens, cap to ~28 unique tokens.
-    // Targets ~18-22 from Gemini + 4-6 framing-specific + skin/talking
-    // blockers from server. Beyond ~28 we're back into the dilution zone.
     const seen = new Set()
-    const trimmed = finalNegative.split(',').map(s => s.trim()).filter(t => {
+    finalNegative = finalNegative.split(',').map(s => s.trim()).filter(t => {
       if (!t) return false
-      const key = t.toLowerCase()
-      if (seen.has(key)) return false
-      seen.add(key)
+      const k = t.toLowerCase()
+      if (seen.has(k)) return false
+      seen.add(k)
       return true
-    }).slice(0, 28)
-    finalNegative = trimmed.join(', ')
+    }).slice(0, 28).join(', ')
 
     if (inspoRecordId) {
       try {
@@ -326,6 +259,10 @@ export async function POST(request) {
     })
   } catch (err) {
     console.error('[recreate/extract-video-context] error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Unknown error' }, { status: 500 })
+  } finally {
+    // Cleanup temp files
+    await unlink(videoPath).catch(() => {})
+    await Promise.all(framePaths.map(p => unlink(p).catch(() => {})))
   }
 }
