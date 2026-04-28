@@ -76,7 +76,23 @@ VIBE — plain language matching the inspo. "Candid lifestyle", "casual at-home"
 
 BANNED ADJECTIVES — Wan 2.7 reads these as "make it look like a magazine" no matter what's in the negatives. NEVER use any of these words anywhere in the positive prompt: "modern", "minimal", "minimally decorated", "minimalist", "clean", "tidy", "sleek", "pristine", "polished", "stylish", "chic", "elegant", "refined", "curated", "well-appointed", "luxurious", "sophisticated", "aesthetic", "designed", "decorator". Describe the room by what's actually in it (specific furniture, specific objects, specific surfaces) — not by how nice it looks. "White desk with a Bluetooth speaker on it, wall-mounted TV, bed with pink gingham sheets" beats "modern, clean, minimally decorated bedroom".
 
-REALISM TAIL — see the positivePrompt rules above for the canonical tail structure (lens + light + skin vocab + vibe). Critical: do NOT include "no X" phrases in the positive prompt ("no smoothing", "no retouching", "no beauty filter", "no cinematic look", "minimal editing"). Models read "no X" as content tokens and end up evoking X. Use only POSITIVE descriptions ("visible pores", "unretouched skin", "documentary candid") — never negation.
+REALISM TAIL — see the positivePrompt rules above for the canonical tail structure (lens + light + skin vocab + vibe).
+
+ABSOLUTE BAN ON NEGATION IN POSITIVE PROMPT — this is the most important rule. The model reads "no X", "not X", and "without X" as content tokens evoking X. Therefore:
+
+NEVER write phrases like:
+- "no smile" → write "neutral expression" or "lips relaxed"
+- "no shadows on face" → write "evenly lit face" or "soft flat light"
+- "no warm lamps", "no ring light" → just describe the actual light positively
+- "not looking at the lens", "not facing camera" → write "gaze averted to her left" or "looking off to the side"
+- "not fully dry or styled" → write "damp, naturally tousled"
+- "no other garments visible" → write "wearing only [the specific item]"
+- "no makeup" → write "bare-faced" or "natural skin"
+- "no jewelry" → just don't mention jewelry
+
+Forbidden tokens at the start of any phrase: "no ", "not ", "without ", "minus ".
+
+If you find yourself wanting to negate, REPHRASE as a positive description of what IS there. Every clause must describe something present in the scene, never something absent.
 
 DO NOT describe the subject's physical features (hair length, hair color, eye color, face shape, body type, skin tone, ethnicity, age, makeup style). Those come from the reference photos via the identity anchor. EXCEPTION: hair POSITION / direction / motion state IS required when present ("hair falling forward over her left shoulder", "hair caught mid-whip toward the right side of frame") — that's pose data, not identity.
 
