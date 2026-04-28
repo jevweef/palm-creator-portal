@@ -39,6 +39,7 @@ export default function ChatWallPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [pendingIds, setPendingIds] = useState(new Set())
+  const [modalPhotoId, setModalPhotoId] = useState(null)
 
   // Load creators once
   useEffect(() => {
@@ -108,8 +109,18 @@ export default function ChatWallPage() {
 
   useEffect(() => { loadPhotos() }, [loadPhotos])
 
-  const togglePhoto = async (asset, makeUsed) => {
+  const togglePhoto = async (asset, makeUsed, { advance = false } = {}) => {
     setPendingIds(prev => new Set(prev).add(asset.id))
+
+    // If the modal is open on this photo and we're auto-advancing, jump to
+    // the next photo BEFORE removing the current one — feels snappier and
+    // prevents a flash of "no modal" between toggle and next.
+    if (advance && modalPhotoId === asset.id) {
+      const idx = photos.findIndex(p => p.id === asset.id)
+      const next = idx >= 0 && idx < photos.length - 1 ? photos[idx + 1] : null
+      setModalPhotoId(next ? next.id : null)
+    }
+
     // Optimistic remove from current view
     setPhotos(prev => prev.filter(p => p.id !== asset.id))
     setTotal(t => Math.max(0, t - 1))
@@ -135,6 +146,14 @@ export default function ChatWallPage() {
       })
     }
   }
+
+  // Close the modal if its photo got removed (e.g. server reload returned a
+  // shorter list) and never re-appeared.
+  useEffect(() => {
+    if (modalPhotoId && !photos.find(p => p.id === modalPhotoId)) {
+      setModalPhotoId(null)
+    }
+  }, [photos, modalPhotoId])
 
   const selectedCreator = creators.find(c => c.id === creatorId)
 
@@ -269,9 +288,23 @@ export default function ChatWallPage() {
               view={view}
               pending={pendingIds.has(p.id)}
               onToggle={() => togglePhoto(p, view === 'available')}
+              onClick={() => setModalPhotoId(p.id)}
             />
           ))}
         </div>
+      )}
+
+      {/* Fullscreen modal — split layout, prev/next overlay nav */}
+      {modalPhotoId && (
+        <PhotoModal
+          photos={photos}
+          photoId={modalPhotoId}
+          view={view}
+          pending={pendingIds.has(modalPhotoId)}
+          onClose={() => setModalPhotoId(null)}
+          onNavigate={(id) => setModalPhotoId(id)}
+          onToggle={(asset) => togglePhoto(asset, view === 'available', { advance: true })}
+        />
       )}
 
       {/* Footer pager */}
@@ -284,7 +317,7 @@ export default function ChatWallPage() {
   )
 }
 
-function PhotoCard({ photo, view, pending, onToggle }) {
+function PhotoCard({ photo, view, pending, onToggle, onClick }) {
   const [hovered, setHovered] = useState(false)
   const [inView, setInView] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -324,6 +357,7 @@ function PhotoCard({ photo, view, pending, onToggle }) {
       ref={cardRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => { if (!pending) onClick?.() }}
       style={{
         position: 'relative',
         aspectRatio: '3/4',
@@ -333,6 +367,7 @@ function PhotoCard({ photo, view, pending, onToggle }) {
         border: '1px solid var(--card-border, rgba(255,255,255,0.06))',
         opacity: pending ? 0.5 : 1,
         transition: 'opacity 0.2s ease',
+        cursor: pending ? 'wait' : 'pointer',
       }}
     >
       {inView && (
