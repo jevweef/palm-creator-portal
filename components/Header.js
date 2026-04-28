@@ -3,6 +3,7 @@
 import { UserButton, useUser } from '@clerk/nextjs'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 
 export default function Header() {
   const pathname = usePathname()
@@ -14,7 +15,31 @@ export default function Header() {
   const isEditorPath = pathname?.startsWith('/editor')
   const isCreatorPath = pathname?.startsWith('/creator')
   const creatorIdFromPath = isCreatorPath ? pathname?.split('/')?.[2] : null
-  const hqId = searchParams?.get('hqId')
+  const hqIdFromUrl = searchParams?.get('hqId')
+
+  // When admin navigates between /creator/[id]/* subpages, an internal link
+  // can drop ?hqId=. Without that param, the destination page falls back to
+  // the admin's own clerk metadata and shows the wrong creator. Look up the
+  // linked HQ id from the Ops record so cross-page nav links always carry it.
+  const [hqIdFromOps, setHqIdFromOps] = useState(null)
+  useEffect(() => {
+    if (!isCreatorPath || !creatorIdFromPath) { setHqIdFromOps(null); return }
+    if (hqIdFromUrl) { setHqIdFromOps(null); return }
+    // Real creators viewing their own page have hqId in clerk metadata —
+    // no need to fetch.
+    if (user?.publicMetadata?.airtableOpsId === creatorIdFromPath) {
+      setHqIdFromOps(user.publicMetadata?.airtableHqId || null)
+      return
+    }
+    let cancelled = false
+    fetch(`/api/creator/hq-lookup?opsId=${creatorIdFromPath}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setHqIdFromOps(d?.hqId || null) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isCreatorPath, creatorIdFromPath, hqIdFromUrl, user?.publicMetadata?.airtableOpsId, user?.publicMetadata?.airtableHqId])
+
+  const hqId = hqIdFromUrl || hqIdFromOps
   const hqSuffix = hqId ? `?hqId=${hqId}` : ''
 
   if (pathname?.startsWith('/sign-') || pathname?.startsWith('/onboarding')) return null

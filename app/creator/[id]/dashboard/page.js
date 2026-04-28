@@ -286,14 +286,52 @@ export default function CreatorDashboard() {
   // id from URL param is the opsId
   const creatorOpsId = params?.id
 
-  // hqId: prefer searchParam (admin preview), then Clerk metadata — no hardcoded fallback
+  // hqId resolution order:
+  //   1) ?hqId= in URL (admin preview, intentional override)
+  //   2) Linked HQ Creator on the Ops record (resolves admin "view as" even
+  //      if an internal link dropped the query param)
+  //   3) signed-in user's clerk metadata (real creator viewing their own page)
   const hqIdFromParam = searchParams.get('hqId')
   const hqIdFromClerk = user?.publicMetadata?.airtableHqId
-  const hqId = hqIdFromParam || hqIdFromClerk || null
+  const ownsThisCreator = user?.publicMetadata?.airtableOpsId === creatorOpsId
+  const [hqIdFromOps, setHqIdFromOps] = useState(null)
+  const hqId = hqIdFromParam || hqIdFromOps || (ownsThisCreator ? hqIdFromClerk : null) || null
 
-  // inspo board path for this creator
+  // If we have no param and aren't viewing our own creator (admin "view as"),
+  // look up the linked HQ id from the Ops record so we don't fall through to
+  // the admin's own clerk metadata (which would load the wrong creator).
+  useEffect(() => {
+    if (hqIdFromParam || hqIdFromOps || ownsThisCreator) return
+    if (!creatorOpsId) return
+    let cancelled = false
+    fetch(`/api/creator/hq-lookup?opsId=${creatorOpsId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d?.hqId) setHqIdFromOps(d.hqId) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [creatorOpsId, hqIdFromParam, hqIdFromOps, ownsThisCreator])
+
+  // Carry hqId through every internal link so admin "view as" doesn't silently
+  // fall back to the admin's own clerk metadata (which would point to a
+  // different creator and load the wrong dashboard data). Use the resolved
+  // hqId (param OR ops-record lookup) — NOT clerk metadata — so admins keep
+  // viewing the correct creator across page navigations.
+  const linkHqId = hqIdFromParam || hqIdFromOps || null
+  const hqSuffix = linkHqId ? `?hqId=${linkHqId}` : ''
+
+  // Base paths (no query). Use withQuery() to attach params so hqId travels
+  // alongside any other query string (e.g. ?sort=, ?tab=).
   const inspoPath = `/creator/${creatorOpsId}/inspo`
-  const vaultPath = `/creator/${creatorOpsId}/vault`
+  const vaultPath = `/creator/${creatorOpsId}/vault${hqSuffix}`
+  const longFormPath = `/creator/${creatorOpsId}/long-form${hqSuffix}`
+  const myContentPath = `/creator/${creatorOpsId}/my-content`
+  const withQuery = (path, params = {}) => {
+    const qs = new URLSearchParams()
+    if (linkHqId) qs.set('hqId', linkHqId)
+    for (const [k, v] of Object.entries(params)) if (v != null) qs.set(k, v)
+    const s = qs.toString()
+    return s ? `${path}?${s}` : path
+  }
 
   const [creatorProfile, setCreatorProfile] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -422,7 +460,7 @@ export default function CreatorDashboard() {
                 ].map(s => (
                   <a
                     key={s.key}
-                    href={`${inspoPath}?sort=${s.key}`}
+                    href={withQuery(inspoPath, { sort: s.key })}
                     className="card-hover"
                     style={{
                       flex: 1, minWidth: '70px', textDecoration: 'none',
@@ -448,11 +486,11 @@ export default function CreatorDashboard() {
                 <div style={{ borderTop: '1px solid transparent', padding: '12px 20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{stripLabel}</span>
-                    <a href={`${inspoPath}?sort=${stripSort}`} style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
+                    <a href={withQuery(inspoPath, { sort: stripSort })} style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: `repeat(${topReels.length}, 1fr)`, gap: '6px' }}>
                     {topReels.map(r => (
-                      <a key={r.id} href={`${inspoPath}?sort=${stripSort}`} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: 'rgba(232, 160, 160, 0.04)', display: 'block' }}>
+                      <a key={r.id} href={withQuery(inspoPath, { sort: stripSort })} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: 'rgba(232, 160, 160, 0.04)', display: 'block' }}>
                         {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </a>
                     ))}
@@ -468,7 +506,7 @@ export default function CreatorDashboard() {
               {uploads?.socialUploadUrl && (
                 <ActionCard href={uploads.socialUploadUrl} icon="📱" title="Upload Social" subtitle="Dropbox" />
               )}
-              <ActionCard href={`/creator/${creatorOpsId}/long-form`} icon="🎬" title="Long-Form Projects" subtitle="OFTV / YouTube" />
+              <ActionCard href={longFormPath} icon="🎬" title="Long-Form Projects" subtitle="OFTV / YouTube" />
               <ActionCard href={vaultPath} icon="🔐" title="OF Vault Upload" subtitle="OnlyFans" />
             </div>
 
@@ -645,7 +683,7 @@ export default function CreatorDashboard() {
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <Label>My Content</Label>
-              <a href="/my-content" style={{ color: 'var(--palm-pink)', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
+              <a href={myContentPath} style={{ color: 'var(--palm-pink)', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
                 View All →
               </a>
             </div>
@@ -685,7 +723,7 @@ export default function CreatorDashboard() {
                 <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Saved Inspo</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {savedOnly.slice(0, 8).map((reel) => (
-                    <a key={reel.id} href="/my-content?tab=saved" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
+                    <a key={reel.id} href={withQuery(myContentPath, { tab: 'saved' })} className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
                       <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)', overflow: 'hidden' }}>
                         {reel.thumbnail ? (
                           <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -712,7 +750,7 @@ export default function CreatorDashboard() {
                 <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>In Editing</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                   {pipeline.editing.slice(0, 4).map((item) => (
-                    <a key={item.assetId} href="/my-content?tab=editing" className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
+                    <a key={item.assetId} href={withQuery(myContentPath, { tab: 'editing' })} className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
                       <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)', overflow: 'hidden' }}>
                         {item.inspoThumbnail ? (
                           <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
