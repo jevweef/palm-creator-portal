@@ -7,6 +7,7 @@ export const maxDuration = 60
 
 const KLING_PRO_MODEL = 'kwaivgi/kling-v3.0-pro/image-to-video'
 const KLING_V3_4K_MODEL = 'kwaivgi/kling-v3.0-4k/image-to-video'
+const KLING_O3_STD_REF_MODEL = 'kwaivgi/kling-video-o3-std/reference-to-video'
 const KLING_O3_4K_MODEL = 'kwaivgi/kling-video-o3-4k/reference-to-video'
 const PALM_CREATORS = 'Palm Creators'
 
@@ -54,16 +55,18 @@ export async function POST(request) {
     const elementName = aka.replace(/\s+/g, '_').toLowerCase()
     const elementListObj = elementId ? [{ element_id: elementId, element_name: elementName }] : null
 
-    const isProduction = quality === 'production'
-    const is4k = quality === '4k'
+    const isProduction = quality === 'production'      // O3 4K Reference-to-Video
+    const isMultiRef = quality === 'multi_ref'         // O3 Std Reference-to-Video (1080p)
+    const is4k = quality === '4k'                      // V3.0 4K image-to-video
+    const useRefVideo = isProduction || isMultiRef
 
     let model, body
-    if (isProduction) {
-      // O3 4K Reference-to-Video. Cap: 4 images when reference video is
+    if (useRefVideo) {
+      // O3 Reference-to-Video models. Cap: 4 images when reference video is
       // provided, 7 without. We always use the inspo video for motion guidance,
       // so cap is 4. Slot 1 = start swap (face anchor in correct pose), slots
       // 2-4 = additional face refs from creator's AI Ref Inputs.
-      model = KLING_O3_4K_MODEL
+      model = isProduction ? KLING_O3_4K_MODEL : KLING_O3_STD_REF_MODEL
       // Slot 1: start swap (face in correct pose). Slots 2-4: top face
       // close-ups from AI Ref Inputs to give Kling more identity anchors.
       const images = [startUrl]
@@ -109,11 +112,11 @@ export async function POST(request) {
       ok: true,
       taskId: task.id,
       durationRequested: dur,
-      quality: isProduction ? 'production' : 'pro',
+      quality: quality || 'pro',
       model,
-      hasEndFrame: !isProduction && !!endUrl,
+      hasEndFrame: !useRefVideo && !!endUrl,
       usedElementId: elementId,
-      refImageCount: isProduction ? body.images.length : 1,
+      refImageCount: useRefVideo ? body.images.length : 1,
     })
   } catch (err) {
     console.error('[recreate/animate] error:', err)

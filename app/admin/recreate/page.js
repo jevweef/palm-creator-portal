@@ -1351,6 +1351,7 @@ export default function RecreatePage() {
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', width: 'fit-content' }}>
           {[
             { id: 'pro', label: 'Standard · V3.0 Pro', cost: '~$1.12 / 10s', desc: '1080p · 1 ref + element + tail frame' },
+            { id: 'multi_ref', label: 'Multi-Ref · O3 Std', cost: '~$1.26 / 10s', desc: '1080p · 4 refs + inspo as ref video + native audio (no tail)' },
             { id: '4k', label: 'HD+ · V3.0 4K', cost: '~$4.20 / 10s', desc: '4K · same as Standard, sharper skin/hair' },
             { id: 'production', label: 'Production · O3 4K', cost: '~$4.20 / 10s', desc: '4K · 4 refs + inspo as ref video + native audio (no tail)' },
           ].map(opt => (
@@ -1412,9 +1413,9 @@ export default function RecreatePage() {
               </span>
             </div>
           )}
-          {animateState.quality === 'production' && (
+          {(animateState.quality === 'production' || animateState.quality === 'multi_ref') && (
             <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>
-              Production mode uses inspo as motion+audio reference natively — no offset needed.
+              This mode uses inspo as motion+audio reference natively — no offset needed.
             </div>
           )}
         </div>

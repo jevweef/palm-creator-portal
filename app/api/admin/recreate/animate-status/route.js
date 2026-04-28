@@ -69,9 +69,9 @@ export async function POST(request) {
   try {
     const { taskId, creatorId, shortcode, inspoVideoUrl, audioOffset, quality } = await request.json()
     if (!taskId) return NextResponse.json({ error: 'Missing taskId' }, { status: 400 })
-    // Production mode (O3 4K Reference-to-Video) preserves audio natively
-    // when keep_original_sound is true — no need to mux.
-    const skipMux = quality === 'production'
+    // O3 Reference-to-Video models (production + multi_ref) preserve audio
+    // natively via keep_original_sound — no mux step needed.
+    const skipMux = quality === 'production' || quality === 'multi_ref'
 
     const task = await pollWaveSpeedTask(taskId)
     if (task.status !== 'completed') {
