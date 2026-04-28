@@ -6,7 +6,7 @@ const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const GEMINI_MODEL = 'gemini-2.5-flash'
+const GEMINI_MODEL = 'gemini-3-pro'
 // Gemini default samples video at 1 FPS — for 10-15s reels that's 10-15
 // frames total, which is too coarse to detect subtle continuous dolly
 // motion (camera pull-back where subject scale shrinks gradually). Bump
