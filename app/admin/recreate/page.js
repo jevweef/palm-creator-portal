@@ -385,6 +385,7 @@ export default function RecreatePage() {
         shotType: slotPrompt.shotType || (slot === 'end' ? 'close-up' : 'front'),
         shortcode: shortcode ? `${shortcode}-${slot}` : undefined,
         positivePrompt: slotPrompt.positive,
+        negativePrompt: slotPrompt.negative,
         preserveScene: !!preserveScene,
         ...(frameUrl.startsWith('data:') ? { frameDataUrl: frameUrl } : { frameUrl }),
       }

@@ -46,7 +46,7 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorId, shotType, positivePrompt, preserveScene, frameUrl, frameDataUrl, shortcode } = await request.json()
+    const { creatorId, shotType, positivePrompt, negativePrompt, preserveScene, frameUrl, frameDataUrl, shortcode } = await request.json()
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
     if (!positivePrompt) return NextResponse.json({ error: 'Missing positivePrompt' }, { status: 400 })
     if (preserveScene && !frameUrl && !frameDataUrl) {
@@ -136,7 +136,16 @@ export async function POST(request) {
       referenceFilenames = refInputs.map(att => att.filename)
     }
 
-    const body = { images, prompt: finalPrompt, size: '1080*1920', seed: -1 }
+    // Append "Negative prompt:" inline. Wan 2.7 image-edit doesn't have a
+    // formal negative_prompt parameter, but some image models parse this
+    // convention. Worst case Wan ignores it; best case it suppresses
+    // unwanted aesthetics (plastic skin, magazine vibe, etc.).
+    let promptForWan = finalPrompt
+    if (negativePrompt && negativePrompt.trim()) {
+      promptForWan = `${finalPrompt}\n\nNegative prompt: ${negativePrompt.trim()}`
+    }
+
+    const body = { images, prompt: promptForWan, size: '1080*1920', seed: -1 }
 
     console.log(`[swap-creator] Sending to Wan 2.7 — mode=${mode}, ${images.length} input images for ${aka}:`)
     referenceFilenames.forEach((f, i) => console.log(`  ${i + 1}. ${f}`))
