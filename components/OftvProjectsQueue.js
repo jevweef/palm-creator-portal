@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useBackdropDismiss } from '@/lib/useBackdropDismiss'
+import { useToast } from '@/lib/useToast'
+import { useConfirm } from '@/lib/useConfirm'
 
 const STATUS_STYLES = {
   'Awaiting Upload': { bg: 'rgba(156, 163, 175, 0.08)', color: '#9ca3af' },
@@ -37,7 +39,7 @@ function StatusPill({ status }) {
   )
 }
 
-function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
+function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, confirm, toast }) {
   const [editorNotes, setEditorNotes] = useState(project.editorNotes || '')
   const [editedFileLink, setEditedFileLink] = useState(project.editedFileLink || '')
   const [status, setStatus] = useState(project.status || 'Awaiting Upload')
@@ -99,13 +101,25 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast }) {
   }, [previewFile, previewKind, project.id, creatorId])
 
   const deleteFinal = async (file) => {
-    if (!confirm(`Delete final cut "${file.name}"?\n\nThis removes the file from Dropbox permanently.`)) return
-    if (!confirm(`Really delete "${file.name}"? No undo.`)) return
+    const ok = await confirm({
+      title: `Delete final cut "${file.name}"?`,
+      message: 'This removes the file from Dropbox permanently.',
+      confirmLabel: 'Delete',
+      destructive: true,
+      requireDoubleConfirm: true,
+      doubleConfirmTitle: `Really delete "${file.name}"?`,
+      doubleConfirmMessage: 'There is no undo.',
+    })
+    if (!ok) return
     setDeletingFinalPath(file.path)
     try {
       const res = await fetch(`/api/admin/oftv-projects/${project.id}/final?path=${encodeURIComponent(file.path)}`, { method: 'DELETE' })
-      if (res.ok) setFinalFiles(prev => prev.filter(f => f.path !== file.path))
-      else alert('Delete failed')
+      if (res.ok) {
+        setFinalFiles(prev => prev.filter(f => f.path !== file.path))
+        toast?.('Final deleted', 'success')
+      } else {
+        toast?.('Delete failed', 'error')
+      }
     } finally {
       setDeletingFinalPath('')
     }
@@ -441,6 +455,8 @@ export default function OftvProjectsQueue({ showToast }) {
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState(null)
   const [statusFilter, setStatusFilter] = useState('active')
+  const { toast, ToastViewport } = useToast()
+  const { confirm, ConfirmDialog } = useConfirm()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -562,6 +578,8 @@ export default function OftvProjectsQueue({ showToast }) {
           project={detail}
           creatorName={detail.creatorName}
           showToast={showToast}
+          confirm={confirm}
+          toast={toast}
           onClose={() => setDetail(null)}
           onUpdate={(updated) => {
             setProjects(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))
@@ -569,6 +587,9 @@ export default function OftvProjectsQueue({ showToast }) {
           }}
         />
       )}
+
+      <ToastViewport />
+      <ConfirmDialog />
     </div>
   )
 }
