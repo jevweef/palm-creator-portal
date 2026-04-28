@@ -12,9 +12,10 @@
  *
  * Usage:
  *   cd ~/palm-creator-portal
- *   node --env-file=.env.local scripts/backfill-cf-images.mjs sunny
+ *   node --env-file=.env.local scripts/backfill-cf-images.mjs sunny     # one creator
+ *   node --env-file=.env.local scripts/backfill-cf-images.mjs --all     # everyone Active or Onboarding
  *
- * Pass any substring of the creator's name or AKA. Will pick the first match.
+ * Pass any substring of the creator's name or AKA, or --all. Will pick the first match.
  */
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID
@@ -42,8 +43,9 @@ if (!AIRTABLE_PAT) {
 }
 
 const creatorQuery = (process.argv[2] || '').trim()
+const ALL_MODE = creatorQuery === '--all'
 if (!creatorQuery) {
-  die('Usage: node --env-file=.env.local scripts/backfill-cf-images.mjs <creator name or aka>')
+  die('Usage: node --env-file=.env.local scripts/backfill-cf-images.mjs <creator name | --all>')
 }
 
 const airtableHeaders = {
@@ -143,34 +145,97 @@ function buildDeliveryUrl(imageId, variant = 'public') {
   return `https://imagedelivery.net/${HASH}/${imageId}/${variant}`
 }
 
+// ─── Per-creator backfill ──────────────────────────────────────────────────
+
+async function backfillCreator(creator, allAssets) {
+  const creatorId = creator.id
+  const creatorName = creator.fields.AKA || creator.fields.Creator
+
+  const photos = allAssets.filter(a => {
+    if (!getLinkedIds(a.fields['Palm Creators']).includes(creatorId)) return false
+    return isImageAsset(a.fields)
+  })
+
+  const todo = photos.filter(a => !a.fields['CDN URL'])
+  const skipping = photos.length - todo.length
+
+  console.log(`\n─── ${creatorName} (${creatorId}) ───`)
+  console.log(`  ${photos.length} photo(s) total · ${skipping} already on CDN · ${todo.length} to upload`)
+
+  if (todo.length === 0) return { creatorName, uploaded: 0, failed: 0, skipped: skipping }
+
+  let uploaded = 0
+  let failed = 0
+  let i = 0
+
+  for (const asset of todo) {
+    i++
+    const name = asset.fields['Asset Name'] || asset.id
+    const sourceUrl = rawDropboxUrl(asset.fields['Dropbox Shared Link'])
+    process.stdout.write(`  [${i}/${todo.length}] ${name.slice(0, 56).padEnd(56)} `)
+
+    try {
+      const { id, alreadyExisted } = await uploadToCloudflareByUrl(sourceUrl, asset.id)
+      const cdnUrl = buildDeliveryUrl(id, 'public')
+      await airtablePatch(ASSETS, asset.id, {
+        'CDN URL': cdnUrl,
+        'CDN Image ID': id,
+      })
+      uploaded++
+      console.log(alreadyExisted ? '✓ (existed)' : '✓')
+    } catch (err) {
+      failed++
+      console.log(`✗ ${err.message}`)
+    }
+  }
+
+  return { creatorName, uploaded, failed, skipped: skipping }
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`\nLooking up creator matching "${creatorQuery}"...`)
-
+  console.log(`\nFetching creators...`)
   const allCreators = await airtableFetchAll(PALM_CREATORS, {
     fields: ['Creator', 'AKA', 'Status'],
   })
-  const q = creatorQuery.toLowerCase()
-  const matches = allCreators.filter(r => {
-    const name = (r.fields?.Creator || '').toLowerCase()
-    const aka = (r.fields?.AKA || '').toLowerCase()
-    return name.includes(q) || aka.includes(q)
-  })
 
-  if (matches.length === 0) die(`No creator found matching "${creatorQuery}"`)
-  if (matches.length > 1) {
-    console.log(`Multiple matches:`)
-    matches.forEach(m => console.log(`  ${m.id}  ${m.fields.AKA || m.fields.Creator}`))
-    die('Be more specific.')
+  let creatorsToProcess = []
+
+  if (ALL_MODE) {
+    // Active + Onboarding only — skip paused/old creators
+    creatorsToProcess = allCreators.filter(r => {
+      const status = typeof r.fields?.Status === 'string'
+        ? r.fields.Status
+        : (r.fields?.Status?.name || '')
+      return status === 'Active' || status === 'Onboarding'
+    })
+    creatorsToProcess.sort((a, b) => {
+      const an = (a.fields.AKA || a.fields.Creator || '').toLowerCase()
+      const bn = (b.fields.AKA || b.fields.Creator || '').toLowerCase()
+      return an.localeCompare(bn)
+    })
+    console.log(`✓ Found ${creatorsToProcess.length} active/onboarding creator(s)`)
+  } else {
+    const q = creatorQuery.toLowerCase()
+    const matches = allCreators.filter(r => {
+      const name = (r.fields?.Creator || '').toLowerCase()
+      const aka = (r.fields?.AKA || '').toLowerCase()
+      return name.includes(q) || aka.includes(q)
+    })
+    if (matches.length === 0) die(`No creator found matching "${creatorQuery}"`)
+    if (matches.length > 1) {
+      console.log(`Multiple matches:`)
+      matches.forEach(m => console.log(`  ${m.id}  ${m.fields.AKA || m.fields.Creator}`))
+      die('Be more specific.')
+    }
+    creatorsToProcess = matches
+    console.log(`✓ Creator: ${creatorsToProcess[0].fields.AKA || creatorsToProcess[0].fields.Creator}`)
   }
 
-  const creator = matches[0]
-  const creatorId = creator.id
-  const creatorName = creator.fields.AKA || creator.fields.Creator
-  console.log(`✓ Creator: ${creatorName} (${creatorId})\n`)
-
-  console.log(`Fetching all assets...`)
+  // Fetch the asset table once and reuse across all creators — Assets
+  // table scan is the slow part, no point repeating it per creator.
+  console.log(`\nFetching all assets (one-time scan)...`)
   const allAssets = await airtableFetchAll(ASSETS, {
     filterByFormula: `NOT({Dropbox Shared Link}='')`,
     fields: [
@@ -183,53 +248,38 @@ async function main() {
       'CDN Image ID',
     ],
   })
+  console.log(`✓ Fetched ${allAssets.length} asset(s) total`)
 
-  const photos = allAssets.filter(a => {
-    if (!getLinkedIds(a.fields['Palm Creators']).includes(creatorId)) return false
-    return isImageAsset(a.fields)
-  })
-
-  const todo = photos.filter(a => !a.fields['CDN URL'])
-  const skipping = photos.length - todo.length
-
-  console.log(`Found ${photos.length} photo(s) for ${creatorName}.`)
-  if (skipping > 0) console.log(`  ${skipping} already have CDN URL — skipping.`)
-  console.log(`  ${todo.length} to upload.\n`)
-
-  if (todo.length === 0) {
-    console.log('Nothing to do.')
-    return
-  }
-
-  let uploaded = 0
-  let failed = 0
-  let i = 0
-
-  for (const asset of todo) {
-    i++
-    const name = asset.fields['Asset Name'] || asset.id
-    const sourceUrl = rawDropboxUrl(asset.fields['Dropbox Shared Link'])
-    process.stdout.write(`[${i}/${todo.length}] ${name.slice(0, 60).padEnd(60)} `)
-
+  const summary = []
+  for (const creator of creatorsToProcess) {
     try {
-      const { id, alreadyExisted } = await uploadToCloudflareByUrl(sourceUrl, asset.id)
-      const cdnUrl = buildDeliveryUrl(id, 'public')
-      await airtablePatch(ASSETS, asset.id, {
-        'CDN URL': cdnUrl,
-        'CDN Image ID': id,
-      })
-      uploaded++
-      console.log(alreadyExisted ? '✓ (existed)' : '✓ uploaded')
+      const result = await backfillCreator(creator, allAssets)
+      summary.push(result)
     } catch (err) {
-      failed++
-      console.log(`✗ ${err.message}`)
+      console.error(`  ✗ Fatal error for creator: ${err.message}`)
+      summary.push({
+        creatorName: creator.fields.AKA || creator.fields.Creator,
+        uploaded: 0,
+        failed: -1,
+        skipped: 0,
+      })
     }
   }
 
-  console.log(`\n─────────────────────────────`)
-  console.log(`✓ Uploaded: ${uploaded}`)
-  console.log(`✗ Failed:   ${failed}`)
-  console.log(`Total:      ${todo.length}`)
+  // ─── Summary ─────────────────────────────────────────────────────────────
+  console.log(`\n═════════════════════════════`)
+  console.log(`Backfill complete.\n`)
+  let totalUp = 0, totalFail = 0, totalSkip = 0
+  for (const s of summary) {
+    const prefix = s.failed === -1 ? '✗' : s.failed > 0 ? '!' : '✓'
+    console.log(`  ${prefix} ${s.creatorName.padEnd(24)} uploaded ${s.uploaded}, skipped ${s.skipped}${s.failed > 0 ? `, failed ${s.failed}` : ''}`)
+    totalUp += s.uploaded
+    totalSkip += s.skipped
+    if (s.failed > 0) totalFail += s.failed
+  }
+  console.log(`\n  Total uploaded: ${totalUp}`)
+  console.log(`  Total skipped:  ${totalSkip}`)
+  console.log(`  Total failed:   ${totalFail}`)
 }
 
 main().catch(err => {
