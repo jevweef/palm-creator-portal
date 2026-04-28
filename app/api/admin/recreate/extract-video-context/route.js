@@ -9,11 +9,11 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const GEMINI_MODEL = 'gemini-3.1-pro-preview'
-// Gemini default samples video at 1 FPS — for 10-15s reels that's 10-15
-// frames total, which is too coarse to detect subtle continuous dolly
-// motion (camera pull-back where subject scale shrinks gradually). Bump
-// to 4 FPS = 40-60 frames per reel. Still very cheap (~$0.003 per call).
-const VIDEO_FPS = 4
+// Gemini default is 1 FPS — too coarse to detect subtle dolly motion.
+// 4 FPS was working but doubled latency on longer reels. 2 FPS is the
+// middle ground: still catches gradual scale changes across 20-30 frames
+// while keeping latency manageable.
+const VIDEO_FPS = 2
 
 const SYSTEM_INSTRUCTION = `You watch a short Instagram reel and produce TWO outputs in a single tool call:
 
