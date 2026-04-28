@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 
 // Dropbox shared links return an HTML preview page when used as <img src>.
@@ -286,8 +286,41 @@ export default function ChatWallPage() {
 
 function PhotoCard({ photo, view, pending, onToggle }) {
   const [hovered, setHovered] = useState(false)
+  const [inView, setInView] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const cardRef = useRef(null)
+
+  // Only mount the <img> when the card scrolls within ~600px of viewport.
+  // More aggressive than native loading="lazy" — keeps the page light when
+  // browsing 100+ photos at once.
+  useEffect(() => {
+    if (inView) return
+    const el = cardRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      entries => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setInView(true)
+            io.disconnect()
+            break
+          }
+        }
+      },
+      { rootMargin: '600px 0px' }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [inView])
+
+  // Prefer Airtable's auto-resized thumbnail (~512px) over the full-resolution
+  // Dropbox file. Fall back to raw Dropbox link if the asset has no thumbnail
+  // attachment (older imports may not have one).
+  const imgSrc = photo.thumbLarge || photo.thumbFull || rawDropboxUrl(photo.dropboxLink)
+
   return (
     <div
+      ref={cardRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -301,18 +334,24 @@ function PhotoCard({ photo, view, pending, onToggle }) {
         transition: 'opacity 0.2s ease',
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={rawDropboxUrl(photo.dropboxLink)}
-        alt={photo.name}
-        loading="lazy"
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          display: 'block',
-        }}
-      />
+      {inView && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imgSrc}
+          alt={photo.name}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
+        />
+      )}
 
       {/* Hover overlay with action */}
       {(hovered || pending) && (

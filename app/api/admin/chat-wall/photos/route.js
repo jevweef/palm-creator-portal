@@ -47,6 +47,7 @@ export async function GET(request) {
         'Asset Type',
         'File Extension',
         'Pipeline Status',
+        'Thumbnail',
         'Used By Chat Manager At',
         'Used By Chat Manager',
       ],
@@ -67,15 +68,25 @@ export async function GET(request) {
     const start = page * PAGE_SIZE
     const slice = filtered.slice(start, start + PAGE_SIZE)
 
-    const photos = slice.map(a => ({
-      id: a.id,
-      name: a.fields['Asset Name'] || '',
-      dropboxLink: a.fields['Dropbox Shared Link'] || '',
-      pipelineStatus: a.fields['Pipeline Status'] || '',
-      fileExtension: a.fields['File Extension'] || '',
-      createdTime: a.createdTime,
-      usedAt: a.fields['Used By Chat Manager At'] || null,
-    }))
+    const photos = slice.map(a => {
+      // Prefer the Airtable-generated thumbnail (auto-resized ~512px) over the
+      // full-resolution Dropbox file. Falls back to the Dropbox link when no
+      // Thumbnail attachment exists for this asset.
+      const thumbAttachment = (a.fields['Thumbnail'] || [])[0]
+      const thumbnails = thumbAttachment?.thumbnails || {}
+      return {
+        id: a.id,
+        name: a.fields['Asset Name'] || '',
+        dropboxLink: a.fields['Dropbox Shared Link'] || '',
+        thumbSmall: thumbnails.small?.url || null,
+        thumbLarge: thumbnails.large?.url || null,
+        thumbFull: thumbnails.full?.url || thumbAttachment?.url || null,
+        pipelineStatus: a.fields['Pipeline Status'] || '',
+        fileExtension: a.fields['File Extension'] || '',
+        createdTime: a.createdTime,
+        usedAt: a.fields['Used By Chat Manager At'] || null,
+      }
+    })
 
     return NextResponse.json({
       photos,
