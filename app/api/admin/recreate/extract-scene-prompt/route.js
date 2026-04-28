@@ -60,7 +60,7 @@ FRAMING / COMPOSITION — exactly as the inspo shows:
   * CAMERA TILT (Dutch angle): if the inspo's horizon is not perfectly level — e.g. ceiling line tilts down to one side, floor tilts up — call out the tilt explicitly: "camera tilted ~5° clockwise (right edge sits lower than left edge)" or "slight Dutch angle, ceiling slopes downward to the right". Phone-on-tripod content often has this. Wan defaults to perfectly level, so silence here = perfectly level result.
   * What's visible at each frame edge ("bed visible on left edge", "TV on right wall behind subject", "rug filling lower third")
 
-CAMERA SETUP — selfie | mirror selfie | tripod static | handheld | over-the-shoulder | someone else filming.
+CAMERA SETUP — selfie | mirror selfie | tripod | handheld | over-the-shoulder | someone else filming. CRITICAL: do NOT make MOTION claims about the camera ("static", "no movement", "fully still", "tripod static throughout"). You are looking at ONE frame — you can't see whether the camera moves across the timeline. Camera motion belongs to the Gemini video pass (cameraMotion enum), not this per-frame analysis. Just describe the SETUP (tripod, handheld, selfie) without claiming whether it's static or moving.
 
 LIGHTING — natural daylight, soft, even, harsh sunlight, indoor warm, golden hour, ring light visible, etc. — match the inspo.
 
@@ -86,7 +86,8 @@ negativePrompt rules:
 - If subject is holding a specific object (hairbrush, cup), add: multiple {object}s, two {object}s.
 - If clothing is specific (e.g. white t-shirt), add competing clothing: black shirt, dress, jacket, coat.
 
-reelSpecificNotes rules — ALWAYS POPULATE THIS FIELD:
+reelSpecificNotes rules — ALWAYS POPULATE THIS FIELD. IMPORTANT: do NOT include camera-motion claims ("static", "no movement", "fully still", "tripod static throughout") — you are looking at one frame, you cannot see whether the camera moves across the timeline. Camera motion is determined by the Gemini video pass and added to the motion prompt separately. Your notes should describe what's visible in THIS frame only (pose, hair state, wardrobe, gear placement, lighting characteristics, framing).
+
 - A SHORT bullet list (4-8 lines starting with "- ") of frame-specific quirks an AI image generator is likely to miss or get wrong about THIS particular reel.
 - These are constants of the reel: camera tilt, lighting characteristics, gear placement, pose specifics, hair direction, foot placement, wardrobe specifics.
 - Examples:
