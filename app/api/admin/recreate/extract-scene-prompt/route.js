@@ -32,11 +32,12 @@ positivePrompt rules:
 - Output as DISTINCT DESCRIPTORS separated by periods, NOT a single run-on sentence. Wan 2.7's reasoning layer processes each element more accurately when they're clearly separated. Each major element gets its own short sentence/clause:
     Subject. Pose. Wardrobe. Hair. Gaze/Expression. Framing. Camera setup. Lighting. Vibe. Realism tail.
 - One short clause per descriptor. Avoid stacking modifiers in one giant sentence.
-- End with this exact tail structure: "[real lens cue], [named light source], [specific skin vocab], [vibe], 9:16."
+- End with this exact tail structure: "[real lens cue], [named light source], [specific skin vocab], [vibe], [quality boosters], 9:16."
   Examples:
-  • "iPhone 15 Pro 26mm equivalent at f/1.78, natural window daylight diffused through sheer curtains, visible pores, fine peach-fuzz, slight freckles, unretouched skin, documentary candid lifestyle vibe, 9:16."
-  • "50mm prime lens at f/1.8, warm bedside lamp on her right plus cool window backlight, visible pores, slight skin imperfections, off-the-cuff Tuesday afternoon vibe, 9:16."
+  • "iPhone 15 Pro 26mm equivalent at f/1.78, natural window daylight diffused through sheer curtains, visible pores, fine peach-fuzz, slight freckles, unretouched skin, documentary candid lifestyle vibe, hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic, 9:16."
+  • "50mm prime lens at f/1.8, warm bedside lamp on her right plus cool window backlight, visible pores, slight skin imperfections, off-the-cuff Tuesday afternoon vibe, hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic, 9:16."
   Real lens names ("50mm prime f/1.8", "iPhone 15 Pro 26mm equivalent") outperform generic "raw iPhone photo". Named light sources ("natural window daylight diffused through sheer curtains", "overhead fluorescent", "dim bedside lamp") outperform "studio lighting" / "soft light". Specific skin vocab (pores, peach-fuzz, freckles, unretouched) outperforms generic "natural skin texture".
+- Quality booster tail (always include verbatim at the end before 9:16): "hyper realistic photography, ultra detailed skin texture, best quality, 8k, sharp focus, photorealistic". These are Wan-specific quality magic words that appear in the AI Super Clone reference generation prompts and consistently improve output fidelity.
 
 GOAL: describe the inspo so faithfully that everything except the woman's identity is reproduced. Outfit, pose, gaze, expression, hair direction (even mid-motion), framing, lighting, room, and the room's REALISM LEVEL must all match what's actually in the inspo. Don't add details the inspo doesn't show. Don't remove details that are clearly there.
 
