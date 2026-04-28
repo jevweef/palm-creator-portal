@@ -245,6 +245,27 @@ export async function POST(request) {
       positivePrompt = `Exact same woman as in the reference images. ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`
     }
 
+    // Server-side safety net: strip "no X" / "not X" / "without X" phrases
+    // that Sonnet keeps slipping in despite the ban. These get read as
+    // content tokens by Wan and evoke the very thing being negated.
+    // Strips up to a comma or period boundary.
+    const NEGATION_PATTERNS = [
+      /\b(?:no|not|never|without)\s+[\w-]+(?:\s+[\w-]+){0,5}?(?=[,.]|\s+(?:and|or|but)\b)/gi,
+      // Also catch trailing "no X" at end of sentence (no following comma/period)
+      /\b(?:no|not|never|without)\s+[\w-]+(?:\s+[\w-]+){0,3}?$/gi,
+    ]
+    let cleaned = positivePrompt
+    for (const re of NEGATION_PATTERNS) cleaned = cleaned.replace(re, '')
+    // Cleanup: doubled commas, leading/trailing whitespace, orphan punctuation
+    cleaned = cleaned
+      .replace(/[,\s]+,/g, ',')        // doubled commas
+      .replace(/\s+/g, ' ')            // collapse spaces
+      .replace(/,\s*\./g, '.')         // ", ." → "."
+      .replace(/\.\s*,/g, '.')         // ". ," → "."
+      .replace(/,\s*$/g, '')           // trailing comma
+      .trim()
+    positivePrompt = cleaned
+
     // The notes that "won": user-supplied if provided, otherwise Sonnet's draft.
     const finalNotes = userNotes?.trim() || (reelSpecificNotes || '')
 
