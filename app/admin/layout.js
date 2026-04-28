@@ -139,7 +139,8 @@ export default function AdminLayout({ children }) {
         }
       `}</style>
 
-      {/* Mobile top bar — only visible on mobile */}
+      {/* Mobile top bar — hidden on chat-wall (no nav to expose). */}
+      {!isOnChatWall && (
       <div className="admin-mobile-bar" style={{
         display: 'none',
         position: 'sticky', top: 0, zIndex: 220,
@@ -167,14 +168,20 @@ export default function AdminLayout({ children }) {
           {sectionLabel}
         </div>
       </div>
+      )}
 
-      {/* Backdrop (mobile only) */}
+      {/* Backdrop (mobile only) — also hidden on chat-wall since no sidebar */}
+      {!isOnChatWall && (
       <div
         className={`admin-sidebar-backdrop${mobileNavOpen ? ' open' : ''}`}
         onClick={() => setMobileNavOpen(false)}
       />
+      )}
 
-      {/* Sidebar */}
+      {/* Sidebar — hidden on chat-wall. The chat-manager experience is a
+          single-page workspace; no nav clutter until we add more features
+          to that role. */}
+      {!isOnChatWall && (
       <aside className={`admin-sidebar${mobileNavOpen ? ' open' : ''}`} style={{
         width: '180px',
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
@@ -243,9 +250,18 @@ export default function AdminLayout({ children }) {
           })}
         </nav>
       </aside>
+      )}
 
-      {/* Main content */}
-      <main className="admin-main" style={{ flex: 1, padding: '24px 32px', minWidth: 0, overflowX: 'hidden', overflowY: 'auto' }}>
+      {/* Main content. On chat-wall it takes the full viewport since there's
+          no sidebar; we add a max-width to keep line lengths readable. */}
+      <main className="admin-main" style={{
+        flex: 1,
+        padding: '24px 32px',
+        minWidth: 0,
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        ...(isOnChatWall ? { maxWidth: '1400px', margin: '0 auto', width: '100%' } : {}),
+      }}>
         {children}
       </main>
     </div>

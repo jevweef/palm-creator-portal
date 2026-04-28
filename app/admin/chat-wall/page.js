@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 
 // Dropbox shared links return an HTML preview page when used as <img src>.
 // Appending ?raw=1 (or replacing dl=0) makes Dropbox serve the raw file bytes.
@@ -56,6 +57,10 @@ export default function ChatWallPage() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { user } = useUser()
+  const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'there'
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   const [creators, setCreators] = useState([])
   const [creatorsLoading, setCreatorsLoading] = useState(true)
@@ -240,8 +245,13 @@ export default function ChatWallPage() {
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      <div style={{ marginBottom: '8px' }}>
+        <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>{greeting}, </span>
+        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>{firstName}</span>
+      </div>
+
       <div style={{ marginBottom: '16px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
+        <h1 style={{ fontSize: '26px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
           Chat Wall
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 0', maxWidth: '680px' }}>
