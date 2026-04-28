@@ -608,12 +608,12 @@ export default function RecreatePage() {
       if (!taskId) return
       let cancelled = false
       const startedAt = Date.now()
-      const MAX_MS = 5 * 60 * 1000
+      const MAX_MS = 10 * 60 * 1000  // Wan 2.7 Pro at 4K can take 5-8 min
       const slotShortcode = shortcode ? (slot === 'end' ? `${shortcode}-end` : shortcode) : undefined
       const poll = async () => {
         try {
           if (Date.now() - startedAt > MAX_MS) {
-            updateSlot(slot, { error: 'Timed out after 5 min — WaveSpeed may be overloaded', taskId: null, running: false })
+            updateSlot(slot, { error: 'Timed out after 10 min — WaveSpeed may be overloaded', taskId: null, running: false })
             return
           }
           const res = await fetch('/api/admin/recreate/swap-status', {
