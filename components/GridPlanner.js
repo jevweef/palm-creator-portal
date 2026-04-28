@@ -1199,6 +1199,14 @@ export default function GridPlanner({ smmMode = false } = {}) {
           setPosts(prev => prev.map(pp => pp.id === p.id ? { ...pp, status: 'Send Failed' } : pp))
         }
         setBulkProgress(prev => prev ? { ...prev, okCount, failCount, lastError } : prev)
+        // Pace sends to stay under Telegram's 20-msg/min per-chat limit. Each
+        // post is a sendMediaGroup (video + thumbnail) = 2 messages, so ~6s of
+        // spacing keeps us at exactly 20/min and avoids the burst-then-stall
+        // pattern where 5-6 fly through then everything sits in a 60s+ retry
+        // sleep. Skip the wait after the last post.
+        if (i < accountQueue.length - 1) {
+          await new Promise(r => setTimeout(r, 6000))
+        }
       }
       setBulkProgress(prev => prev ? { ...prev, status: 'done' } : prev)
       // Leave the final state visible for 8s, then clear

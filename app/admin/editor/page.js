@@ -2042,6 +2042,45 @@ function ForReview({ showToast }) {
                     </div>
                   )}
 
+                  {/* Prior revision feedback — only present on resubmissions.
+                      Reverse-chronological so the most recent request is at top. */}
+                  {task.revisionHistory?.length > 0 && (
+                    <div style={{ background: 'rgba(232, 120, 120, 0.04)', border: '1px solid rgba(232, 120, 120, 0.18)', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ fontSize: '10px', color: '#E87878', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Prior revision request{task.revisionHistory.length > 1 ? `s · ${task.revisionHistory.length}` : ''}
+                      </div>
+                      {[...task.revisionHistory].reverse().map((entry, i, arr) => {
+                        const dateLabel = entry.date
+                          ? new Date(entry.date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
+                          : ''
+                        const isLatest = i === 0
+                        return (
+                          <div key={i} style={{ paddingTop: i > 0 ? '8px' : 0, borderTop: i > 0 ? '1px solid rgba(232, 120, 120, 0.12)' : 'none' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                              {isLatest && arr.length > 1 && (
+                                <span style={{ fontSize: '9px', fontWeight: 700, color: '#E87878', background: 'rgba(232, 120, 120, 0.12)', padding: '1px 6px', borderRadius: '3px', letterSpacing: '0.06em' }}>LATEST</span>
+                              )}
+                              {dateLabel && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{dateLabel}</span>}
+                            </div>
+                            {entry.feedback && (
+                              <div style={{ fontSize: '12px', color: '#E87878', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{entry.feedback}</div>
+                            )}
+                            {entry.screenshots?.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                                {entry.screenshots.map((url, j) => (
+                                  <a key={j} href={url} target="_blank" rel="noopener noreferrer">
+                                    <img src={url} alt={`Screenshot ${j + 1}`}
+                                      style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(232, 120, 120, 0.25)' }} />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
                   {/* Inspo details toggle */}
                   {task.inspo.notes && (
                     <>

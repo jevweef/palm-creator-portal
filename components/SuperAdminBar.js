@@ -22,7 +22,8 @@ export default function SuperAdminBar() {
   // Determine active tab from pathname
   const isCreatorTab = pathname?.startsWith('/creator')
   const isEditorTab = pathname?.startsWith('/editor')
-  const isAdminTab = !isCreatorTab && !isEditorTab
+  const isChatManagerTab = pathname?.startsWith('/admin/chat-wall')
+  const isAdminTab = !isCreatorTab && !isEditorTab && !isChatManagerTab
 
   // Fetch creators for picker, then reconcile with stored selection
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function SuperAdminBar() {
 
   const handleAdminTab = () => router.push('/admin/dashboard')
   const handleEditorTab = () => router.push('/editor')
+  const handleChatManagerTab = () => router.push('/admin/chat-wall')
   const handleCreatorSelect = (creator) => {
     setSelectedCreator(creator)
     localStorage.setItem('superadmin_creator', JSON.stringify(creator))
@@ -104,6 +106,7 @@ export default function SuperAdminBar() {
 
       <button style={tabStyle(isAdminTab)} onClick={handleAdminTab}>Admin</button>
       <button style={tabStyle(isEditorTab)} onClick={handleEditorTab}>Editor</button>
+      <button style={tabStyle(isChatManagerTab)} onClick={handleChatManagerTab}>Chat Manager</button>
 
       {/* Creator tab with dropdown */}
       <div ref={dropdownRef} style={{ position: 'relative' }}>
