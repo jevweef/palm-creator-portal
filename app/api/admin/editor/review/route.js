@@ -18,6 +18,7 @@ export async function GET() {
       fields: [
         'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
         'Creator Notes', 'Editor Notes', 'Completed At', 'Admin Review Status',
+        'Revision History',
       ],
     })
 
@@ -55,12 +56,23 @@ export async function GET() {
       const creator = creatorId ? (creatorMap[creatorId] || {}) : {}
       const inspo = inspoId ? (inspoMap[inspoId] || {}) : {}
 
+      // Parse Revision History — JSON array of {date, feedback, screenshots}
+      // entries, oldest first. Empty array if first submission. Keep most
+      // recent last so the UI can render reverse-chronologically and have the
+      // latest request on top.
+      let revisionHistory = []
+      const histRaw = (f['Revision History'] || '').trim()
+      if (histRaw) {
+        try { revisionHistory = JSON.parse(histRaw) } catch {}
+      }
+
       return {
         id: t.id,
         name: f.Name || '',
         editorNotes: f['Editor Notes'] || '',
         creatorNotes: f['Creator Notes'] || '',
         completedAt: f['Completed At'] || null,
+        revisionHistory,
         creator: { id: creatorId, name: creator.AKA || creator.Creator || '' },
         asset: {
           id: assetId,

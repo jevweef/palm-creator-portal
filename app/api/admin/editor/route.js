@@ -367,6 +367,31 @@ export async function PATCH(request) {
       if (adminScreenshotUrls?.length) {
         taskUpdate['Admin Screenshots'] = adminScreenshotUrls.map(url => ({ url }))
       }
+
+      // Append this revision request to the task's Revision History so the
+      // admin can see all prior feedback when reviewing a resubmission.
+      // Active Admin Feedback gets cleared when the editor resubmits, but
+      // Revision History is append-only and survives.
+      try {
+        const existingRaw = (tasks[0].fields?.['Revision History'] || '').trim()
+        const history = existingRaw ? JSON.parse(existingRaw) : []
+        history.push({
+          date: new Date().toISOString(),
+          feedback: adminFeedback || '',
+          screenshots: adminScreenshotUrls || [],
+        })
+        taskUpdate['Revision History'] = JSON.stringify(history)
+      } catch (e) {
+        // Corrupt history JSON — start fresh with just this entry rather
+        // than blocking the revision request.
+        console.warn(`[Editor] Could not parse Revision History for ${taskId}, starting fresh:`, e.message)
+        taskUpdate['Revision History'] = JSON.stringify([{
+          date: new Date().toISOString(),
+          feedback: adminFeedback || '',
+          screenshots: adminScreenshotUrls || [],
+        }])
+      }
+
       await patchAirtableRecord('Tasks', taskId, taskUpdate)
       if (assetId) {
         await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'In Editing' })
