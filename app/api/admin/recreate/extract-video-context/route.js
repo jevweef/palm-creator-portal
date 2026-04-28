@@ -238,12 +238,23 @@ export async function POST(request) {
       }
     }
 
+    // Always inject skin-texture emphasis into the motion prompt tail —
+    // Kling otherwise defaults to glamour/smooth skin from its training bias.
+    // Adding these phrases as positives + reinforcing in negatives nudges
+    // it toward pore-level detail.
+    const SKIN_POSITIVES = 'natural skin pores visible throughout, real skin texture preserved, no smoothing, no retouching, no beauty filter'
+    if (!finalMotionPrompt.toLowerCase().includes('natural skin pores')) {
+      finalMotionPrompt = `${finalMotionPrompt} ${SKIN_POSITIVES}.`
+    }
+
     // If the subject is silent in the inspo, prepend aggressive "no talking"
     // blockers — Kling otherwise defaults to lip-syncing creators.
     const TALKING_BLOCKERS = 'talking, lip sync, lip syncing, mouth open, mouth opening, singing, vocalizing, speaking, mouth movement, lip movement, screaming, yelling, performing, exaggerated facial expressions'
+    const SKIN_BLOCKERS = 'AI smoothing, glamour skin, soft-focus skin, perfect complexion, magazine skin, retouched skin, doll skin, mannequin skin'
+    const baseNegative = `${SKIN_BLOCKERS}, ${motionNegative}`
     const finalNegative = hasSpokenDialogue === false
-      ? `${TALKING_BLOCKERS}, ${motionNegative}`
-      : motionNegative
+      ? `${TALKING_BLOCKERS}, ${baseNegative}`
+      : baseNegative
 
     if (inspoRecordId) {
       try {
