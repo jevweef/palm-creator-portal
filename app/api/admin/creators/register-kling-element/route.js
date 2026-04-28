@@ -29,27 +29,31 @@ export async function POST(request) {
     if (!aka) return NextResponse.json({ error: 'Creator missing AKA' }, { status: 400 })
 
     // Prefer the locked-in AI-generated references (clean, identity-locked,
-    // pre-approved) over the raw input photos. Order matters — face is the
-    // primary anchor for Kling Element identity locking.
+    // pre-approved) over the raw input photos. Face is the primary anchor.
+    // Kling Element supports up to 4 refs (1 primary + 3 additional) — we
+    // pack the 4th slot with one raw face close-up so all 4 slots are used.
     const faceRef = (records[0].fields['AI Ref Face'] || [])[0]
     const frontRef = (records[0].fields['AI Ref Front'] || [])[0]
     const backRef = (records[0].fields['AI Ref Back'] || [])[0]
+    const allInputs = records[0].fields['AI Ref Inputs'] || []
+    const rawFaceInputs = allInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
+    const rawFrontInputs = allInputs.filter(att => /^Front View input_/i.test(att.filename || ''))
+    const rawBackInputs = allInputs.filter(att => /^Back View input_/i.test(att.filename || ''))
 
+    // Build a 4-slot pack: 3 locked AI refs + 1 best-available raw face shot.
     let refs = [faceRef, frontRef, backRef].filter(Boolean)
+    const extraFaceCandidate = rawFaceInputs[0]
+    if (extraFaceCandidate && refs.length < 4) refs.push(extraFaceCandidate)
 
-    // Fallback to the raw inputs if the locked outputs aren't available yet
+    // Fallback when the AI references aren't locked yet — use raw inputs only.
     if (refs.length === 0) {
-      const allInputs = records[0].fields['AI Ref Inputs'] || []
-      const faceInputs = allInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
-      const frontInputs = allInputs.filter(att => /^Front View input_/i.test(att.filename || ''))
-      const backInputs = allInputs.filter(att => /^Back View input_/i.test(att.filename || ''))
-      if (faceInputs.length === 0 && frontInputs.length === 0 && backInputs.length === 0) {
+      if (rawFaceInputs.length === 0 && rawFrontInputs.length === 0 && rawBackInputs.length === 0) {
         return NextResponse.json({ error: 'No AI references found on creator. Lock in the AI Super Clone references first.' }, { status: 400 })
       }
       refs = [
-        ...faceInputs.slice(0, 4),
-        ...frontInputs.slice(0, Math.max(0, 4 - faceInputs.length)),
-        ...backInputs.slice(0, Math.max(0, 4 - faceInputs.length - frontInputs.length)),
+        ...rawFaceInputs.slice(0, 4),
+        ...rawFrontInputs.slice(0, Math.max(0, 4 - rawFaceInputs.length)),
+        ...rawBackInputs.slice(0, Math.max(0, 4 - rawFaceInputs.length - rawFrontInputs.length)),
       ].slice(0, 4)
     }
     refs = refs.slice(0, 4)
