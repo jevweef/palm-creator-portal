@@ -6,11 +6,19 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
-import { mirrorAssetToCloudflare, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
+import {
+  mirrorAssetToCloudflare,
+  mirrorInspirationToCloudflare,
+  isCloudflareImagesConfigured,
+} from '@/lib/cloudflareImages'
 
-// How many assets to process per cron invocation. Stays under Vercel's
-// 60s function timeout while making meaningful progress.
+// How many records to mirror per cron invocation. Both Assets and Inspiration
+// share the budget — 40 total in 60s leaves headroom under Vercel's timeout
+// even at the ~1/sec CF API rate. Splitting the budget evenly keeps either
+// table from starving the other when both have backlogs.
 const MAX_PER_RUN = 40
+const ASSETS_PER_RUN = 25
+const INSPIRATION_PER_RUN = MAX_PER_RUN - ASSETS_PER_RUN
 
 /**
  * GET /api/cron/mirror-cloudflare
@@ -54,20 +62,26 @@ export async function GET(request) {
     // Server-side narrow filter so we don't pull thousands of unrelated
     // records over the wire. Photo / Image / blank Asset Type, must have a
     // Dropbox link, and CDN URL must be empty.
-    const candidates = await fetchAirtableRecords('Assets', {
-      filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()),{CDN URL}='')`,
-      fields: [
-        'Asset Name',
-        'Dropbox Shared Link',
-        'Asset Type',
-        'File Extension',
-        'CDN URL',
-      ],
-    })
+    const [assetCandidates, inspoCandidates] = await Promise.all([
+      fetchAirtableRecords('Assets', {
+        filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()),{CDN URL}='')`,
+        fields: [
+          'Asset Name',
+          'Dropbox Shared Link',
+          'Asset Type',
+          'File Extension',
+          'CDN URL',
+        ],
+      }),
+      fetchAirtableRecords('Inspiration', {
+        filterByFormula: `AND(NOT({Thumbnail}=''),{CDN URL}='')`,
+        fields: ['Title', 'Thumbnail', 'CDN URL'],
+      }),
+    ])
 
     // Mirror serially — keeps it predictable under CF rate limits and lets
-    // a single failure not poison the whole batch. Stop at MAX_PER_RUN.
-    for (const asset of candidates.slice(0, MAX_PER_RUN)) {
+    // a single failure not poison the whole batch. Stop at the per-table cap.
+    for (const asset of assetCandidates.slice(0, ASSETS_PER_RUN)) {
       processed++
       try {
         const result = await mirrorAssetToCloudflare(asset)
@@ -75,20 +89,39 @@ export async function GET(request) {
         else if (result.skipped) skipped++
         else {
           failed++
-          errors.push({ id: asset.id, name: asset.fields?.['Asset Name'] || '', error: result.error })
+          errors.push({ id: asset.id, table: 'Assets', name: asset.fields?.['Asset Name'] || '', error: result.error })
         }
       } catch (err) {
         failed++
-        errors.push({ id: asset.id, name: asset.fields?.['Asset Name'] || '', error: err.message })
+        errors.push({ id: asset.id, table: 'Assets', name: asset.fields?.['Asset Name'] || '', error: err.message })
       }
     }
 
-    const remaining = Math.max(0, candidates.length - MAX_PER_RUN)
+    for (const record of inspoCandidates.slice(0, INSPIRATION_PER_RUN)) {
+      processed++
+      try {
+        const result = await mirrorInspirationToCloudflare(record)
+        if (result.ok && !result.skipped) succeeded++
+        else if (result.skipped) skipped++
+        else {
+          failed++
+          errors.push({ id: record.id, table: 'Inspiration', name: record.fields?.Title || '', error: result.error })
+        }
+      } catch (err) {
+        failed++
+        errors.push({ id: record.id, table: 'Inspiration', name: record.fields?.Title || '', error: err.message })
+      }
+    }
+
+    const remainingAssets = Math.max(0, assetCandidates.length - ASSETS_PER_RUN)
+    const remainingInspo = Math.max(0, inspoCandidates.length - INSPIRATION_PER_RUN)
+    const remaining = remainingAssets + remainingInspo
     const elapsed = Math.round((Date.now() - startedAt) / 1000)
 
     console.log(
       `[cron/mirror-cloudflare] processed=${processed} succeeded=${succeeded} ` +
-      `skipped=${skipped} failed=${failed} remaining=${remaining} elapsed=${elapsed}s`
+      `skipped=${skipped} failed=${failed} remaining=${remaining} ` +
+      `(assets=${remainingAssets}, inspo=${remainingInspo}) elapsed=${elapsed}s`
     )
 
     return NextResponse.json({
@@ -98,6 +131,8 @@ export async function GET(request) {
       skipped,
       failed,
       remaining,
+      remainingAssets,
+      remainingInspo,
       elapsed,
       errors: errors.slice(0, 10), // truncate so the response stays small in logs
     })
