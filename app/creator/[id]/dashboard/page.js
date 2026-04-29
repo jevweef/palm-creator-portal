@@ -491,7 +491,7 @@ export default function CreatorDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: `repeat(${topReels.length}, 1fr)`, gap: '6px' }}>
                     {topReels.map(r => (
                       <a key={r.id} href={withQuery(inspoPath, { sort: stripSort })} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: 'rgba(232, 160, 160, 0.04)', display: 'block' }}>
-                        {r.thumbnail && <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                        {(r.cdnUrl || r.thumbnail) && <img src={r.cdnUrl || r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </a>
                     ))}
                   </div>
@@ -725,8 +725,8 @@ export default function CreatorDashboard() {
                   {savedOnly.slice(0, 8).map((reel) => (
                     <a key={reel.id} href={withQuery(myContentPath, { tab: 'saved' })} className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
                       <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)', overflow: 'hidden' }}>
-                        {reel.thumbnail ? (
-                          <img src={reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {(reel.cdnUrl || reel.thumbnail) ? (
+                          <img src={reel.cdnUrl || reel.thumbnail} alt={reel.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontSize: '20px' }}>🎬</div>
                         )}
@@ -752,8 +752,8 @@ export default function CreatorDashboard() {
                   {pipeline.editing.slice(0, 4).map((item) => (
                     <a key={item.assetId} href={withQuery(myContentPath, { tab: 'editing' })} className="thumb-hover" style={{ textDecoration: 'none', display: 'block', borderRadius: '10px', overflow: 'hidden', background: 'var(--card-bg-solid)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', transition: '0.3s cubic-bezier(0, 0, 0.5, 1)' }}>
                       <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)', overflow: 'hidden' }}>
-                        {item.inspoThumbnail ? (
-                          <img src={item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {(item.inspoCdnUrl || item.inspoThumbnail) ? (
+                          <img src={item.inspoCdnUrl || item.inspoThumbnail} alt={item.inspoTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontSize: '20px' }}>✂️</div>
                         )}

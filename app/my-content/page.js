@@ -62,9 +62,9 @@ function PipelineCard({ item, onClick }) {
             preload="metadata"
             style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
           />
-        ) : item.inspoThumbnail ? (
+        ) : (item.inspoCdnUrl || item.inspoThumbnail) ? (
           <img
-            src={item.inspoThumbnail}
+            src={item.inspoCdnUrl || item.inspoThumbnail}
             alt={item.inspoTitle}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -189,8 +189,8 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
             <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
               {inspoUrl ? (
                 <video src={inspoUrl} controls playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : item.inspoThumbnail ? (
-                <img src={item.inspoThumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (item.inspoCdnUrl || item.inspoThumbnail) ? (
+                <img src={item.inspoCdnUrl || item.inspoThumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px' }}>No inspo</div>
               )}
