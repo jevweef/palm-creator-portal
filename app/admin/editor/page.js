@@ -2039,10 +2039,19 @@ function ForReview({ showToast }) {
                     accentBg="linear-gradient(135deg, rgba(125, 211, 164, 0.06), rgba(125, 211, 164, 0.02))"
                   />
 
-                  {/* INSPO clip — show thumbnail, click to open in modal */}
+                  {/* INSPO clip — autoplay-mute Stream iframe when mirrored,
+                      else click-to-modal play button on the thumbnail. */}
                   {hasInspo && (
                     <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
-                      {inspoVideoUrl ? (
+                      {task.inspo.streamUid ? (
+                        <button onClick={() => setVideoModal({ streamUid: task.inspo.streamUid })}
+                          style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                          title="Play inspo">
+                          <iframe src={buildStreamIframeUrl(task.inspo.streamUid, { autoplay: true, muted: true, loop: true, controls: false, preload: 'metadata' })}
+                            allow="autoplay"
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }} />
+                        </button>
+                      ) : inspoVideoUrl ? (
                         <button onClick={() => setVideoModal({ url: task.inspo.dbShareLink })}
                           style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Play inspo">

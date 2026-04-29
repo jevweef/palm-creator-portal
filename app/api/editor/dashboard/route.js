@@ -116,7 +116,7 @@ export async function GET() {
       fetchByIds('Inspiration', allInspoIds, {
         fields: [
           'Title', 'Notes', 'Tags', 'Film Format', 'Content link',
-          'Thumbnail', 'CDN URL', 'Username', 'DB Share Link', 'On-Screen Text',
+          'Thumbnail', 'CDN URL', 'Username', 'DB Share Link', 'Stream UID', 'On-Screen Text',
         ],
       }),
     ])
@@ -207,6 +207,7 @@ export async function GET() {
           cdnUrl: inspo['CDN URL'] || null,
           username: inspo.Username || '',
           dbShareLink: inspo['DB Share Link'] || '',
+          streamUid: inspo['Stream UID'] || null,
           onScreenText: inspo['On-Screen Text'] || '',
         },
       })

@@ -1444,6 +1444,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   rawUrl={inspoRawUrl}
                   fallbackThumb={inspo.thumbnail || ''}
                   cdnUrl={inspo.cdnUrl || null}
+                  streamUid={inspo.streamUid || null}
                   accentColor="#E88FAC"
                 />
               </>
@@ -2624,14 +2625,17 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
 
         {hasInspo && (
           <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
-            {inspoVideoUrl ? (
+            {task.inspo?.streamUid ? (
+              <iframe src={buildStreamIframeUrl(task.inspo.streamUid, { autoplay: true, muted: true, loop: true, controls: false })}
+                allow="autoplay" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} />
+            ) : inspoVideoUrl ? (
               <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                 onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
             ) : (task.inspo?.cdnUrl || task.inspo?.thumbnail) ? (
               <img src={cdnUrlAtSize(task.inspo.cdnUrl, 600) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
             ) : null}
-            <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
+            <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600, pointerEvents: 'none' }}>INSPO</div>
           </div>
         )}
 

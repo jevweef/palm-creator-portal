@@ -188,7 +188,11 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Inspo</div>
             <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
-              {inspoUrl ? (
+              {item.inspoStreamUid ? (
+                <iframe src={buildStreamIframeUrl(item.inspoStreamUid, { autoplay: false, controls: true })}
+                  allow="autoplay; fullscreen" allowFullScreen
+                  style={{ width: '100%', height: '100%', border: 'none' }} />
+              ) : inspoUrl ? (
                 <video src={inspoUrl} controls playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (item.inspoCdnUrl || item.inspoThumbnail) ? (
                 <img src={cdnUrlAtSize(item.inspoCdnUrl, 800) || item.inspoThumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

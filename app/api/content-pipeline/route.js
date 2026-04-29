@@ -84,7 +84,7 @@ export async function GET(request) {
     })
     ;['Title', 'Thumbnail', 'CDN URL', 'Tags', 'Username', 'Views', 'Likes', 'Comments',
       'Shares', 'Content link', 'Engagement Score', 'Notes', 'On-Screen Text',
-      'Film Format', 'Saved By', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code',
+      'Film Format', 'Saved By', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'Stream UID',
       'Creator Posted Date', 'Transcript', 'Suggested Tags',
     ].forEach((f) => inspoParams.append('fields[]', f))
 
@@ -159,6 +159,7 @@ export async function GET(request) {
           dbShareLink: r.fields['DB Share Link'] || '',
           dbRawLink: r.fields['DB Raw = 1'] || '',
           dbEmbedCode: r.fields['DB Embed Code'] || '',
+          streamUid: r.fields['Stream UID'] || null,
           transcript: r.fields['Transcript'] || '',
           creatorPostedDate: r.fields['Creator Posted Date'] || '',
         }
@@ -202,6 +203,7 @@ export async function GET(request) {
         inspoTags: inspoRecord?.fields['Tags'] || [],
         inspoUsername: inspoRecord?.fields['Username'] || '',
         inspoDbShareLink: inspoRecord?.fields['DB Share Link'] || '',
+        inspoStreamUid: inspoRecord?.fields['Stream UID'] || null,
         inspoNotes: inspoRecord?.fields['Notes'] || '',
       }
 
