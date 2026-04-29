@@ -715,9 +715,22 @@ export default function GridPlanner({ smmMode = false } = {}) {
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Failed to load')
       setAccounts(d.accounts || [])
-      setPosts(d.posts || [])
+      const freshPosts = d.posts || []
+      setPosts(freshPosts)
       setUnassignedGroups(d.unassignedGroups || [])
       setSelectedCreatorMeta(d.selectedCreator || null)
+      // CRITICAL: when the modal is open and we just refetched, fold the
+      // server's fresh fields (Airtable CDN thumbnail URL especially) into
+      // detailPost. Without this, the modal keeps showing the optimistic
+      // Dropbox dl URL forever — `dl.dropboxusercontent.com` 302-redirects
+      // and doesn't render in <video poster> reliably, so the user sees a
+      // black modal even after Airtable has ingested the new image.
+      setDetailPost(d2 => {
+        if (!d2) return d2
+        const fresh = freshPosts.find(p => p.id === d2.post.id)
+        if (!fresh) return d2
+        return { ...d2, post: { ...d2.post, ...fresh } }
+      })
     } catch (e) {
       setError(e.message)
     } finally {
