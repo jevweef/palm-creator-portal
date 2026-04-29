@@ -44,10 +44,22 @@ function Card({ children, style, onClick }) {
   )
 }
 
-function StatusPill({ status }) {
+// Ordinal helper for draft labels: 1 → First, 2 → Second, 3 → Third…
+const ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth']
+function ordinal(n) {
+  return ORDINALS[n - 1] || `${n}th`
+}
+
+function StatusPill({ status, revisionCount = 0 }) {
   const s = STATUS_STYLES[status] || STATUS_STYLES['Awaiting Upload']
   // Pulse if this status needs the creator's attention (Sent to Creator).
   const shouldPulse = s.urgent === 'creator'
+  // On the creator's view, "Sent to Creator" reads more naturally as
+  // "View First Draft" / "View Second Draft". Each round-trip through
+  // Creator Revision bumps Revision Count, so draft number is rev+1.
+  const label = (status === STATUSES.SENT_TO_CREATOR)
+    ? `View ${ordinal((revisionCount || 0) + 1)} Draft`
+    : s.label
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -60,7 +72,7 @@ function StatusPill({ status }) {
           animation: 'palmStatusPulse 1.4s ease-in-out infinite',
         }} />
       )}
-      {s.label}
+      {label}
       {shouldPulse && (
         <style>{`@keyframes palmStatusPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }`}</style>
       )}
@@ -694,7 +706,7 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.projectName}</h2>
-              <StatusPill status={project.status} />
+              <StatusPill status={project.status} revisionCount={project.revisionCount} />
             </div>
             <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
               Created {fmtDate(project.createdAt)}
@@ -705,6 +717,153 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* ─── Creator Review Surface ───────────────────────────────────
+              Shows when the admin has approved a final cut and is now
+              waiting on the creator to either approve-close or request
+              changes. Also shows the approved cut once Approved (read-only)
+              and the prior feedback during Creator Revision (so they can
+              see what they asked for). */}
+          {showsFinalCut && finalFiles.length > 0 && (
+            <div style={{
+              padding: '16px',
+              borderRadius: '14px',
+              background: project.status === STATUSES.SENT_TO_CREATOR
+                ? 'linear-gradient(135deg, rgba(120, 200, 220, 0.08), rgba(120, 200, 220, 0.02))'
+                : project.status === STATUSES.APPROVED
+                ? 'rgba(125, 211, 164, 0.06)'
+                : 'rgba(232, 160, 200, 0.06)',
+              border: project.status === STATUSES.SENT_TO_CREATOR
+                ? '1px solid rgba(120, 200, 220, 0.30)'
+                : project.status === STATUSES.APPROVED
+                ? '1px solid rgba(125, 211, 164, 0.25)'
+                : '1px solid rgba(232, 160, 200, 0.25)',
+            }}>
+              <div style={{
+                fontSize: '11px', fontWeight: 700,
+                color: project.status === STATUSES.SENT_TO_CREATOR ? '#78D4E8'
+                  : project.status === STATUSES.APPROVED ? '#7DD3A4'
+                  : '#E8A0C8',
+                textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px',
+              }}>
+                {project.status === STATUSES.SENT_TO_CREATOR && '🎬 Your Final Cut Is Ready'}
+                {project.status === STATUSES.APPROVED && '✓ Approved'}
+                {project.status === STATUSES.CREATOR_REVISION && '⏳ Editor Working on Your Feedback'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '14px' }}>
+                {project.status === STATUSES.SENT_TO_CREATOR && 'Watch the cut below, then either approve to close out the project, or request changes.'}
+                {project.status === STATUSES.APPROVED && 'You\'ve approved this project. The final cut stays here for reference.'}
+                {project.status === STATUSES.CREATOR_REVISION && 'The editor is incorporating your notes — you\'ll get a new cut to review soon.'}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
+                {finalFiles.map((f, i) => {
+                  const isVideo = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name)
+                  return (
+                    <div
+                      key={i}
+                      onClick={isVideo ? () => setFinalPreviewFile(f) : undefined}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                        padding: '10px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px',
+                        cursor: isVideo ? 'pointer' : 'default',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '14px' }}>🎞️</span>
+                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+                        <span>{fmtSize(f.size)}</span>
+                        {isVideo && <span style={{ color: 'var(--palm-pink)' }}>▶ Watch</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Approve / Request Changes — only when admin sent over */}
+              {project.status === STATUSES.SENT_TO_CREATOR && !showRevisionInput && (
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={approveAndClose}
+                    disabled={reviewing}
+                    style={{
+                      padding: '11px 22px', fontSize: '13px', fontWeight: 600,
+                      background: '#7DD3A4', color: '#1a1a1a', border: 'none', borderRadius: '9999px',
+                      cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.5 : 1,
+                    }}
+                  >✓ Approve & Close</button>
+                  <button
+                    onClick={() => setShowRevisionInput(true)}
+                    disabled={reviewing}
+                    style={{
+                      padding: '11px 18px', fontSize: '13px', fontWeight: 600,
+                      background: 'transparent', color: 'var(--palm-pink)',
+                      border: '1px solid rgba(232, 160, 160, 0.35)', borderRadius: '9999px',
+                      cursor: reviewing ? 'not-allowed' : 'pointer',
+                    }}
+                  >Request Changes</button>
+                </div>
+              )}
+              {project.status === STATUSES.SENT_TO_CREATOR && showRevisionInput && (
+                <div>
+                  <textarea
+                    value={revisionFeedback}
+                    onChange={e => setRevisionFeedback(e.target.value)}
+                    placeholder="What needs to change? Be as specific as you can — timestamps, sections, vibe notes — anything that helps the editor."
+                    rows={4}
+                    style={{
+                      width: '100%', padding: '10px 12px', fontSize: '13px',
+                      background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
+                      resize: 'vertical', fontFamily: 'inherit', marginBottom: '10px',
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={requestRevision}
+                      disabled={reviewing || !revisionFeedback.trim()}
+                      style={{
+                        padding: '10px 20px', fontSize: '13px', fontWeight: 600,
+                        background: 'var(--palm-pink)', color: '#1a1a1a', border: 'none', borderRadius: '9999px',
+                        cursor: (reviewing || !revisionFeedback.trim()) ? 'not-allowed' : 'pointer',
+                        opacity: (reviewing || !revisionFeedback.trim()) ? 0.5 : 1,
+                      }}
+                    >{reviewing ? 'Sending…' : 'Send Feedback'}</button>
+                    <button
+                      onClick={() => { setShowRevisionInput(false); setRevisionFeedback('') }}
+                      disabled={reviewing}
+                      style={{
+                        padding: '10px 18px', fontSize: '13px', fontWeight: 600,
+                        background: 'transparent', color: 'var(--foreground-muted)',
+                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9999px',
+                        cursor: 'pointer',
+                      }}
+                    >Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Show prior feedback during Creator Revision */}
+              {project.status === STATUSES.CREATOR_REVISION && project.creatorFeedback && (
+                <div style={{ marginTop: '6px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0C8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                    Your notes
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', padding: '10px 12px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
+                    {project.creatorFeedback}
+                  </div>
+                </div>
+              )}
+
+              {project.status === STATUSES.APPROVED && project.approvedAt && (
+                <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>
+                  Approved {fmtDate(project.approvedAt)}
+                </div>
+              )}
+            </div>
+          )}
+
           {project.instructions && (
             <div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Instructions</div>
@@ -883,152 +1042,6 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
             </div>
           )}
 
-          {/* ─── Creator Review Surface ───────────────────────────────────
-              Shows when the admin has approved a final cut and is now
-              waiting on the creator to either approve-close or request
-              changes. Also shows the approved cut once Approved (read-only)
-              and the prior feedback during Creator Revision (so they can
-              see what they asked for). */}
-          {showsFinalCut && finalFiles.length > 0 && (
-            <div style={{
-              padding: '16px',
-              borderRadius: '14px',
-              background: project.status === STATUSES.SENT_TO_CREATOR
-                ? 'linear-gradient(135deg, rgba(120, 200, 220, 0.08), rgba(120, 200, 220, 0.02))'
-                : project.status === STATUSES.APPROVED
-                ? 'rgba(125, 211, 164, 0.06)'
-                : 'rgba(232, 160, 200, 0.06)',
-              border: project.status === STATUSES.SENT_TO_CREATOR
-                ? '1px solid rgba(120, 200, 220, 0.30)'
-                : project.status === STATUSES.APPROVED
-                ? '1px solid rgba(125, 211, 164, 0.25)'
-                : '1px solid rgba(232, 160, 200, 0.25)',
-            }}>
-              <div style={{
-                fontSize: '11px', fontWeight: 700,
-                color: project.status === STATUSES.SENT_TO_CREATOR ? '#78D4E8'
-                  : project.status === STATUSES.APPROVED ? '#7DD3A4'
-                  : '#E8A0C8',
-                textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px',
-              }}>
-                {project.status === STATUSES.SENT_TO_CREATOR && '🎬 Your Final Cut Is Ready'}
-                {project.status === STATUSES.APPROVED && '✓ Approved'}
-                {project.status === STATUSES.CREATOR_REVISION && '⏳ Editor Working on Your Feedback'}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '14px' }}>
-                {project.status === STATUSES.SENT_TO_CREATOR && 'Watch the cut below, then either approve to close out the project, or request changes.'}
-                {project.status === STATUSES.APPROVED && 'You\'ve approved this project. The final cut stays here for reference.'}
-                {project.status === STATUSES.CREATOR_REVISION && 'The editor is incorporating your notes — you\'ll get a new cut to review soon.'}
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-                {finalFiles.map((f, i) => {
-                  const isVideo = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name)
-                  return (
-                    <div
-                      key={i}
-                      onClick={isVideo ? () => setFinalPreviewFile(f) : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                        padding: '10px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px',
-                        cursor: isVideo ? 'pointer' : 'default',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '14px' }}>🎞️</span>
-                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
-                        <span>{fmtSize(f.size)}</span>
-                        {isVideo && <span style={{ color: 'var(--palm-pink)' }}>▶ Watch</span>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Approve / Request Changes — only when admin sent over */}
-              {project.status === STATUSES.SENT_TO_CREATOR && !showRevisionInput && (
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={approveAndClose}
-                    disabled={reviewing}
-                    style={{
-                      padding: '11px 22px', fontSize: '13px', fontWeight: 600,
-                      background: '#7DD3A4', color: '#1a1a1a', border: 'none', borderRadius: '9999px',
-                      cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.5 : 1,
-                    }}
-                  >✓ Approve & Close</button>
-                  <button
-                    onClick={() => setShowRevisionInput(true)}
-                    disabled={reviewing}
-                    style={{
-                      padding: '11px 18px', fontSize: '13px', fontWeight: 600,
-                      background: 'transparent', color: 'var(--palm-pink)',
-                      border: '1px solid rgba(232, 160, 160, 0.35)', borderRadius: '9999px',
-                      cursor: reviewing ? 'not-allowed' : 'pointer',
-                    }}
-                  >Request Changes</button>
-                </div>
-              )}
-              {project.status === STATUSES.SENT_TO_CREATOR && showRevisionInput && (
-                <div>
-                  <textarea
-                    value={revisionFeedback}
-                    onChange={e => setRevisionFeedback(e.target.value)}
-                    placeholder="What needs to change? Be as specific as you can — timestamps, sections, vibe notes — anything that helps the editor."
-                    rows={4}
-                    style={{
-                      width: '100%', padding: '10px 12px', fontSize: '13px',
-                      background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
-                      resize: 'vertical', fontFamily: 'inherit', marginBottom: '10px',
-                    }}
-                  />
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={requestRevision}
-                      disabled={reviewing || !revisionFeedback.trim()}
-                      style={{
-                        padding: '10px 20px', fontSize: '13px', fontWeight: 600,
-                        background: 'var(--palm-pink)', color: '#1a1a1a', border: 'none', borderRadius: '9999px',
-                        cursor: (reviewing || !revisionFeedback.trim()) ? 'not-allowed' : 'pointer',
-                        opacity: (reviewing || !revisionFeedback.trim()) ? 0.5 : 1,
-                      }}
-                    >{reviewing ? 'Sending…' : 'Send Feedback'}</button>
-                    <button
-                      onClick={() => { setShowRevisionInput(false); setRevisionFeedback('') }}
-                      disabled={reviewing}
-                      style={{
-                        padding: '10px 18px', fontSize: '13px', fontWeight: 600,
-                        background: 'transparent', color: 'var(--foreground-muted)',
-                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9999px',
-                        cursor: 'pointer',
-                      }}
-                    >Cancel</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Show prior feedback during Creator Revision */}
-              {project.status === STATUSES.CREATOR_REVISION && project.creatorFeedback && (
-                <div style={{ marginTop: '6px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0C8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                    Your notes
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', padding: '10px 12px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
-                    {project.creatorFeedback}
-                  </div>
-                </div>
-              )}
-
-              {project.status === STATUSES.APPROVED && project.approvedAt && (
-                <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>
-                  Approved {fmtDate(project.approvedAt)}
-                </div>
-              )}
-            </div>
-          )}
 
           {finalPreviewFile && (
             <div
@@ -1075,7 +1088,7 @@ function ProjectRow({ project, onClick, onDelete, confirm }) {
             <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {project.projectName}
             </h3>
-            <StatusPill status={project.status} />
+            <StatusPill status={project.status} revisionCount={project.revisionCount} />
           </div>
           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
             {project.fileCount > 0
