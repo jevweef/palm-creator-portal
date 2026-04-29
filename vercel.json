@@ -14,11 +14,11 @@
     },
     {
       "path": "/api/cron/generate-invoices",
-      "schedule": "0 23 1 * *"
+      "schedule": "1 0 1 * *"
     },
     {
       "path": "/api/cron/generate-invoices",
-      "schedule": "0 23 15 * *"
+      "schedule": "1 0 15 * *"
     }
   ]
 }
