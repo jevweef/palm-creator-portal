@@ -46,6 +46,11 @@ const args = process.argv.slice(2)
 const limitIdx = args.indexOf('--limit')
 const LIMIT = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : null
 const NO_WAIT = args.includes('--no-wait')
+// --all skips the active-task scope filter and processes every video Asset
+// in the base (linked to any creator, even past or archived). Useful for the
+// initial library-wide backfill; the active-task default is for routine
+// catch-up runs.
+const ALL_VIDEOS = args.includes('--all')
 
 const airtableHeaders = {
   Authorization: `Bearer ${AIRTABLE_PAT}`,
@@ -118,26 +123,39 @@ async function streamPoll(uid, { intervalMs = 4000, timeoutMs = 300_000 } = {}) 
 }
 
 async function main() {
-  // Find tasks in the live editing pipeline. Status = 'In Progress' (in editing),
-  // or Status = 'Done' with Admin Review Status in Pending Review / Approved
-  // / Needs Revision (in review or post-prep). Skip far history.
-  console.log('\nFetching active tasks (in editing / in review / post prep)...')
-  const tasks = await airtableFetchAll(TASKS, {
-    filterByFormula: `OR({Status}='In Progress',AND({Status}='Done',OR({Admin Review Status}='Pending Review',{Admin Review Status}='Approved',{Admin Review Status}='Needs Revision')))`,
-    fields: ['Name', 'Status', 'Asset', 'Admin Review Status'],
-  })
-  const assetIds = [...new Set(tasks.flatMap(t => t.fields?.Asset || []).filter(Boolean))]
-  console.log(`✓ ${tasks.length} active task(s), ${assetIds.length} unique asset(s)`)
+  let allAssets
 
-  if (!assetIds.length) { console.log('\nNothing to do.'); return }
+  if (ALL_VIDEOS) {
+    // --all: process every video Asset in the base, not just active tasks.
+    // Used for the initial library-wide backfill once we know the active-
+    // task scope works.
+    console.log('\nFetching every video Asset (--all mode)...')
+    allAssets = await airtableFetchAll(ASSETS, {
+      filterByFormula: `AND({Asset Type}='Video',OR(NOT({Edited File Link}=''),NOT({Dropbox Shared Link}='')))`,
+      fields: ['Asset Name', 'Asset Type', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
+    })
+    console.log(`✓ ${allAssets.length} video asset(s) in base`)
+  } else {
+    // Find tasks in the live editing pipeline. Status = 'In Progress' (in editing),
+    // or Status = 'Done' with Admin Review Status in Pending Review / Approved
+    // / Needs Revision (in review or post-prep). Skip far history.
+    console.log('\nFetching active tasks (in editing / in review / post prep)...')
+    const tasks = await airtableFetchAll(TASKS, {
+      filterByFormula: `OR({Status}='In Progress',AND({Status}='Done',OR({Admin Review Status}='Pending Review',{Admin Review Status}='Approved',{Admin Review Status}='Needs Revision')))`,
+      fields: ['Name', 'Status', 'Asset', 'Admin Review Status'],
+    })
+    const assetIds = [...new Set(tasks.flatMap(t => t.fields?.Asset || []).filter(Boolean))]
+    console.log(`✓ ${tasks.length} active task(s), ${assetIds.length} unique asset(s)`)
 
-  // Pull the asset records for those tasks
-  console.log('Fetching asset records...')
-  const recordIdFormula = `OR(${assetIds.map(id => `RECORD_ID()='${id}'`).join(',')})`
-  const allAssets = await airtableFetchAll(ASSETS, {
-    filterByFormula: recordIdFormula,
-    fields: ['Asset Name', 'Asset Type', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
-  })
+    if (!assetIds.length) { console.log('\nNothing to do.'); return }
+
+    console.log('Fetching asset records...')
+    const recordIdFormula = `OR(${assetIds.map(id => `RECORD_ID()='${id}'`).join(',')})`
+    allAssets = await airtableFetchAll(ASSETS, {
+      filterByFormula: recordIdFormula,
+      fields: ['Asset Name', 'Asset Type', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
+    })
+  }
 
   // Filter to videos that have at least one missing Stream ID
   const isVideo = a => {
