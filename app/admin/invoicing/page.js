@@ -512,6 +512,12 @@ export default function InvoicingPage() {
   const [statusFilter, setStatusFilter] = useState('all') // all | draft | sent | paid
   const [loadedPeriods, setLoadedPeriods] = useState(new Set()) // period keys whose full records are loaded
   const [periodLoading, setPeriodLoading] = useState(null) // period key currently loading
+  // Generate-invoices flow (replaces Airtable scheduled automation)
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generateLoading, setGenerateLoading] = useState(false)
+  const [generatePreview, setGeneratePreview] = useState(null) // dryRun result
+  const [generateResult, setGenerateResult] = useState(null) // real-run result
+  const [generateError, setGenerateError] = useState(null)
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'invoices')
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
@@ -595,6 +601,48 @@ export default function InvoicingPage() {
     } catch (e) { console.error(e) }
     finally { setSavingId(null) }
   }, [])
+
+  // Generate-invoices handlers
+  const openGenerate = useCallback(async () => {
+    setGenerateOpen(true)
+    setGenerateLoading(true)
+    setGenerateError(null)
+    setGeneratePreview(null)
+    setGenerateResult(null)
+    try {
+      const res = await fetch('/api/cron/generate-invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Dry run failed')
+      setGeneratePreview(data)
+    } catch (e) { setGenerateError(e.message) }
+    finally { setGenerateLoading(false) }
+  }, [])
+
+  const confirmGenerate = useCallback(async () => {
+    if (!generatePreview) return
+    setGenerateLoading(true)
+    setGenerateError(null)
+    try {
+      const res = await fetch('/api/cron/generate-invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodStart: generatePreview.period.start,
+          periodEnd: generatePreview.period.end,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Generation failed')
+      setGenerateResult(data)
+      // Refresh invoices list so new rows appear
+      load()
+    } catch (e) { setGenerateError(e.message) }
+    finally { setGenerateLoading(false) }
+  }, [generatePreview, load])
 
   // Bulk status update — mark all records for a creator as Sent/Paid
   const handleBulkStatus = useCallback(async (recordIds, status) => {
@@ -737,8 +785,14 @@ export default function InvoicingPage() {
               </button>
             )
           })}
+          <button onClick={openGenerate} style={{
+            marginLeft: 'auto', background: 'rgba(232, 160, 160, 0.06)', border: '1px solid #E88FAC',
+            borderRadius: '6px', color: 'var(--palm-pink)', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+          }} title="Create placeholder invoices for the most recent pay period">
+            + Generate invoices
+          </button>
           <button onClick={load} style={{
-            marginLeft: 'auto', background: 'transparent', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+            background: 'transparent', border: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
             borderRadius: '6px', color: 'var(--foreground-muted)', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
           }}>
             ↺
@@ -820,6 +874,124 @@ export default function InvoicingPage() {
         </div>
       )}
       </div>)}
+
+      {/* Generate-invoices modal */}
+      {generateOpen && (
+        <div onClick={() => !generateLoading && setGenerateOpen(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '12px',
+            padding: '24px', width: 'min(560px, 92vw)', maxHeight: '85vh', overflow: 'auto',
+            color: 'var(--foreground)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>
+                {generateResult ? 'Done' : 'Generate invoices'}
+              </h2>
+              <button onClick={() => setGenerateOpen(false)} disabled={generateLoading} style={{
+                background: 'none', border: 'none', color: '#999', fontSize: '20px', cursor: 'pointer',
+              }}>×</button>
+            </div>
+
+            {generateError && (
+              <div style={{ padding: '10px 14px', background: '#2d1515', border: '1px solid #5c2020',
+                borderRadius: '8px', fontSize: '13px', color: '#f87171', marginBottom: '14px' }}>
+                {generateError}
+              </div>
+            )}
+
+            {generateLoading && !generatePreview && (
+              <div style={{ color: '#9ca3af', fontSize: '13px' }}>Checking what needs to be created…</div>
+            )}
+
+            {/* Preview state — show what would happen, ask for confirmation */}
+            {generatePreview && !generateResult && (
+              <>
+                <div style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '14px' }}>
+                  Pay period <strong style={{ color: 'var(--foreground)' }}>
+                    {generatePreview.period.start} → {generatePreview.period.end}
+                  </strong>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                  <KPI label="Active accounts" value={generatePreview.totalActiveAccounts} />
+                  <KPI label="Will create" value={generatePreview.details.created.length} accent="#7DD3A4" />
+                  <KPI label="Will skip" value={generatePreview.details.skipped.length} accent="#9ca3af" />
+                </div>
+                {generatePreview.details.created.length > 0 && (
+                  <DetailList title="To be created" items={generatePreview.details.created.map(c =>
+                    `${c.accountName} — ${(c.commission * 100).toFixed(0)}% commission`
+                  )} />
+                )}
+                {generatePreview.details.skipped.length > 0 && (
+                  <DetailList title="Skipped" items={generatePreview.details.skipped.map(s =>
+                    `${s.accountName} — ${s.reason}`
+                  )} muted />
+                )}
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button onClick={() => setGenerateOpen(false)} disabled={generateLoading} style={{
+                    background: 'transparent', border: '1px solid #333', color: '#aaa',
+                    padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer',
+                  }}>Cancel</button>
+                  <button onClick={confirmGenerate} disabled={generateLoading || generatePreview.details.created.length === 0} style={{
+                    background: 'var(--palm-pink)', border: 'none', color: '#1a1a1a',
+                    padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
+                    cursor: generateLoading ? 'wait' : 'pointer',
+                    opacity: generatePreview.details.created.length === 0 ? 0.5 : 1,
+                  }}>
+                    {generateLoading ? 'Creating…' : `Create ${generatePreview.details.created.length} invoice${generatePreview.details.created.length === 1 ? '' : 's'}`}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Result state — confirmation of what was actually created */}
+            {generateResult && (
+              <>
+                <div style={{ padding: '14px', background: '#0f2618', border: '1px solid #1f4d2f',
+                  borderRadius: '8px', fontSize: '13px', color: '#7DD3A4', marginBottom: '14px' }}>
+                  Created {generateResult.createdCount} invoice{generateResult.createdCount === 1 ? '' : 's'} for {generateResult.period.start} → {generateResult.period.end}.
+                </div>
+                {generateResult.details.created.length > 0 && (
+                  <DetailList title="Created" items={generateResult.details.created.map(c => c.accountName)} />
+                )}
+                {generateResult.details.skipped.length > 0 && (
+                  <DetailList title="Skipped" items={generateResult.details.skipped.map(s =>
+                    `${s.accountName} — ${s.reason}`
+                  )} muted />
+                )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button onClick={() => setGenerateOpen(false)} style={{
+                    background: 'var(--palm-pink)', border: 'none', color: '#1a1a1a',
+                    padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                  }}>Done</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function KPI({ label, value, accent }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '10px 12px' }}>
+      <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+      <div style={{ fontSize: '22px', fontWeight: 700, color: accent || 'var(--foreground)', marginTop: '2px' }}>{value}</div>
+    </div>
+  )
+}
+
+function DetailList({ title, items, muted }) {
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>{title}</div>
+      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: muted ? '#9ca3af' : 'var(--foreground)', lineHeight: 1.7 }}>
+        {items.map((it, i) => <li key={i}>{it}</li>)}
+      </ul>
     </div>
   )
 }
