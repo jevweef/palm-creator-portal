@@ -242,7 +242,39 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
+  // Probed dimensions of the selected file. We probe client-side via a hidden
+  // <video> element so we can block submission of oversized exports BEFORE
+  // anything hits Dropbox. IG Reels max usable resolution is 1080×1920;
+  // anything bigger (HEVC 4K phone exports, 1440×2560, etc.) silently won't
+  // appear in the IG Reel picker on Android, so we hard-block here.
+  // null = not probed yet, { w, h } = probed.
+  const [dims, setDims] = useState(null)
   const fileRef = useRef(null)
+
+  const MAX_W = 1080
+  const MAX_H = 1920
+  const isOversized = dims && (dims.w > MAX_W || dims.h > MAX_H)
+
+  // Probe dimensions whenever a file is selected. Uses a throwaway <video>
+  // element + URL.createObjectURL so the file never leaves the browser.
+  const handleFileSelect = (f) => {
+    setFile(f)
+    setDims(null)
+    setError('')
+    if (!f) return
+    const url = URL.createObjectURL(f)
+    const v = document.createElement('video')
+    v.preload = 'metadata'
+    v.onloadedmetadata = () => {
+      setDims({ w: v.videoWidth, h: v.videoHeight })
+      URL.revokeObjectURL(url)
+    }
+    v.onerror = () => {
+      setDims({ w: 0, h: 0 }) // unknown — let it through, server will probe
+      URL.revokeObjectURL(url)
+    }
+    v.src = url
+  }
 
   const handleSubmit = async () => {
     if (!file) return
@@ -335,29 +367,42 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
 
         <div
           onClick={() => fileRef.current?.click()}
-          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f) }}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFileSelect(f) }}
           onDragOver={e => e.preventDefault()}
           style={{
-            border: `2px dashed ${file ? '#7DD3A4' : 'var(--card-border)'}`, borderRadius: '10px',
+            border: `2px dashed ${isOversized ? '#E87878' : file ? '#7DD3A4' : 'var(--card-border)'}`, borderRadius: '10px',
             padding: '28px', textAlign: 'center', cursor: 'pointer',
-            background: file ? 'rgba(125, 211, 164, 0.08)' : 'transparent',
+            background: isOversized ? 'rgba(232, 120, 120, 0.08)' : file ? 'rgba(125, 211, 164, 0.08)' : 'transparent',
           }}
         >
           {file ? (
             <>
-              <div style={{ fontSize: '13px', color: '#7DD3A4', fontWeight: 600 }}>{file.name}</div>
+              <div style={{ fontSize: '13px', color: isOversized ? '#E87878' : '#7DD3A4', fontWeight: 600 }}>{file.name}</div>
               <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
-                {(file.size / 1024 / 1024).toFixed(1)} MB · click to change
+                {(file.size / 1024 / 1024).toFixed(1)} MB
+                {dims && dims.w > 0 && (
+                  <> · <strong style={{ color: isOversized ? '#E87878' : '#7DD3A4' }}>{dims.w}×{dims.h}</strong></>
+                )}
+                {' · click to change'}
               </div>
             </>
           ) : (
             <>
               <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Drop video here or click to browse</div>
-              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>MP4, MOV</div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>MP4, MOV · max 1080×1920</div>
             </>
           )}
-          <input ref={fileRef} type="file" accept="video/*,.mp4,.mov" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+          <input ref={fileRef} type="file" accept="video/*,.mp4,.mov" onChange={e => handleFileSelect(e.target.files?.[0] || null)} style={{ display: 'none' }} />
         </div>
+        {isOversized && (
+          <div style={{
+            marginTop: '10px', padding: '10px 12px', borderRadius: '8px',
+            background: 'rgba(232, 120, 120, 0.10)', border: '1px solid rgba(232, 120, 120, 0.3)',
+            fontSize: '12px', color: '#E87878', lineHeight: 1.5,
+          }}>
+            <strong>Video is too large.</strong> Maximum allowed is <strong>1080×1920</strong> (vertical 9:16). Yours is {dims.w}×{dims.h}. Re-export from your editor at 1080×1920 H.264 and upload again — Instagram Reels won&apos;t accept anything bigger.
+          </div>
+        )}
 
         <textarea
           value={notes}
@@ -380,14 +425,15 @@ export function SubmitModal({ task, creatorName, creatorId, isRevision, onClose,
             style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: 'var(--card-border)' }}>
             Cancel
           </button>
-          <button onClick={handleSubmit} disabled={!file || uploading}
+          <button onClick={handleSubmit} disabled={!file || uploading || isOversized}
+            title={isOversized ? `Video must be 1080×1920 or smaller (yours is ${dims.w}×${dims.h}). Re-export and try again.` : ''}
             style={{
               padding: '9px 22px', border: 'none', borderRadius: '8px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 600,
-              cursor: !file || uploading ? 'not-allowed' : 'pointer',
-              background: !file || uploading ? 'var(--card-border)' : isRevision ? '#E87878' : 'var(--palm-pink)',
-              opacity: uploading ? 0.6 : 1,
+              cursor: !file || uploading || isOversized ? 'not-allowed' : 'pointer',
+              background: !file || uploading || isOversized ? 'var(--card-border)' : isRevision ? '#E87878' : 'var(--palm-pink)',
+              opacity: uploading || isOversized ? 0.6 : 1,
             }}>
-            {uploading ? 'Uploading...' : isRevision ? 'Submit Revision' : 'Submit for Review'}
+            {uploading ? 'Uploading...' : isOversized ? 'Too Large' : isRevision ? 'Submit Revision' : 'Submit for Review'}
           </button>
         </div>
       </div>
@@ -1112,12 +1158,39 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const [editorTab, setEditorTab] = useState('upload') // 'upload' | 'asis'
   const [uploadUrl, setUploadUrl] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
+  const [uploadDims, setUploadDims] = useState(null) // { w, h } once probed
   const [uploadProgress, setUploadProgress] = useState('')
   const [uploadError, setUploadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveErr, setSaveErr] = useState('')
   const [saved, setSaved] = useState(false)
   const fileInputRef = useRef(null)
+
+  // Block uploads bigger than 1080×1920 — IG Reels won't accept anything
+  // larger and Android's IG reel picker silently filters them out. Probe
+  // dimensions client-side so the editor can re-export before the upload
+  // ever leaves their browser.
+  const MAX_W = 1080
+  const MAX_H = 1920
+  const isUploadOversized = uploadDims && (uploadDims.w > MAX_W || uploadDims.h > MAX_H)
+  const handleUploadFileSelect = (f) => {
+    setUploadFile(f)
+    setUploadDims(null)
+    setUploadError('')
+    if (!f) return
+    const url = URL.createObjectURL(f)
+    const v = document.createElement('video')
+    v.preload = 'metadata'
+    v.onloadedmetadata = () => {
+      setUploadDims({ w: v.videoWidth, h: v.videoHeight })
+      URL.revokeObjectURL(url)
+    }
+    v.onerror = () => {
+      setUploadDims({ w: 0, h: 0 })
+      URL.revokeObjectURL(url)
+    }
+    v.src = url
+  }
 
   const inspo = task?.inspo || clip?.inspo || {}
   const assetLink = task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || clip?.dropboxLink || ''
@@ -1436,25 +1509,40 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                     {/* Drag-and-drop zone */}
                     <div
                       onDragOver={e => e.preventDefault()}
-                      onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setUploadFile(f) }}
+                      onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleUploadFileSelect(f) }}
                       onClick={() => fileInputRef.current?.click()}
-                      style={{ border: `2px dashed ${uploadFile ? 'var(--palm-pink)' : 'var(--card-border)'}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: 'var(--background)', transition: 'border-color 0.2s' }}
+                      style={{ border: `2px dashed ${isUploadOversized ? '#E87878' : uploadFile ? 'var(--palm-pink)' : 'var(--card-border)'}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: isUploadOversized ? 'rgba(232, 120, 120, 0.06)' : 'var(--background)', transition: 'border-color 0.2s' }}
                     >
                       <input ref={fileInputRef} type="file" accept="video/*,.mov,.mp4,.m4v" style={{ display: 'none' }}
-                        onChange={e => { const f = e.target.files?.[0]; if (f) setUploadFile(f) }} />
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadFileSelect(f) }} />
                       {uploadFile ? (
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--palm-pink)' }}>{uploadFile.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>{(uploadFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: isUploadOversized ? '#E87878' : 'var(--palm-pink)' }}>{uploadFile.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
+                            {(uploadFile.size / 1024 / 1024).toFixed(1)} MB
+                            {uploadDims && uploadDims.w > 0 && (
+                              <> · <strong style={{ color: isUploadOversized ? '#E87878' : '#7DD3A4' }}>{uploadDims.w}×{uploadDims.h}</strong></>
+                            )}
+                            {' — click to change'}
+                          </div>
                         </div>
                       ) : (
                         <div>
                           <div style={{ fontSize: '24px', marginBottom: '6px' }}>⬆</div>
                           <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Drop video here or click to browse</div>
-                          <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>MP4, MOV supported</div>
+                          <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '4px' }}>MP4, MOV · max 1080×1920</div>
                         </div>
                       )}
                     </div>
+                    {isUploadOversized && (
+                      <div style={{
+                        padding: '10px 12px', borderRadius: '8px',
+                        background: 'rgba(232, 120, 120, 0.10)', border: '1px solid rgba(232, 120, 120, 0.3)',
+                        fontSize: '12px', color: '#E87878', lineHeight: 1.5,
+                      }}>
+                        <strong>Video is too large.</strong> Max allowed is <strong>1080×1920</strong> (vertical 9:16). Yours is {uploadDims.w}×{uploadDims.h}. Re-export at 1080×1920 H.264 — IG Reels won&apos;t accept anything bigger.
+                      </div>
+                    )}
 
                     {/* Or paste link */}
                     <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', textAlign: 'center' }}>— or paste a Dropbox link —</div>
@@ -1468,9 +1556,10 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
                     <button
                       onClick={() => uploadFile ? handleFileUpload(uploadFile) : handleSave(uploadUrl)}
-                      disabled={saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress}
-                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#7DD3A4' : 'var(--palm-pink)', border: `1px solid ${saved ? 'rgba(125, 211, 164, 0.2)' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) ? 0.5 : 1 }}>
-                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : (isNeedsRevision ? 'Resubmit Revision ↑' : 'Save & Submit ↑')}
+                      disabled={saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress || isUploadOversized}
+                      title={isUploadOversized ? `Video must be 1080×1920 or smaller (yours is ${uploadDims.w}×${uploadDims.h}). Re-export and try again.` : ''}
+                      style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#7DD3A4' : 'var(--palm-pink)', border: `1px solid ${saved ? 'rgba(125, 211, 164, 0.2)' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress || isUploadOversized) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) || isUploadOversized ? 0.5 : 1 }}>
+                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : isUploadOversized ? 'Too Large' : (isNeedsRevision ? 'Resubmit Revision ↑' : 'Save & Submit ↑')}
                     </button>
                   </div>
                 )}
