@@ -89,7 +89,7 @@ export default function Header() {
         <nav className="header-nav" style={{ display: 'flex', gap: '28px' }}>
           {isChatWallPath ? (
             <span style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--palm-pink)' }}>
-              Chat Wall
+              Photo Library
             </span>
           ) : (isEditor || isEditorPath) ? (
             <>

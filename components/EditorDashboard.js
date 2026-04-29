@@ -460,8 +460,8 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
       {/* Thumbnail strip: inspo → creator clip */}
       <div style={{ display: 'flex', height: '155px', background: 'var(--background)' }}>
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {task.inspo.thumbnail ? (
-            <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
+            <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '11px' }}>No thumbnail</div>
           )}
@@ -1398,6 +1398,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   link={inspoLink}
                   rawUrl={inspoRawUrl}
                   fallbackThumb={inspo.thumbnail || ''}
+                  cdnUrl={inspo.cdnUrl || null}
                   accentColor="#E88FAC"
                 />
               </>
@@ -1671,19 +1672,19 @@ function SlotThumbnail({ slot }) {
 
   if (slot.type === 'done') {
     const editedUrl = task?.asset?.editedFileLink ? rawDropboxUrl(task.asset.editedFileLink) : ''
-    const thumb = task?.asset?.cdnUrl || task?.asset?.thumbnail || task?.inspo?.thumbnail || ''
+    const thumb = task?.asset?.cdnUrl || task?.asset?.thumbnail || task?.inspo?.cdnUrl || task?.inspo?.thumbnail || ''
     if (editedUrl) return <video className={cls} src={editedUrl} muted playsInline style={{ ...style, opacity: 0.7 }} />
     if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, opacity: 0.6 }} />
     return null
   }
 
   if (slot.type === 'inspoClip') {
-    const thumb = clip?.cdnUrl || clip?.thumbnail || clip?.inspo?.thumbnail || ''
+    const thumb = clip?.cdnUrl || clip?.thumbnail || clip?.inspo?.cdnUrl || clip?.inspo?.thumbnail || ''
     return thumb ? <img className={cls} src={thumb} alt="" style={style} /> : null
   }
 
   // toDo or inProgress
-  const thumb = task?.inspo?.thumbnail || task?.asset?.cdnUrl || task?.asset?.thumbnail || ''
+  const thumb = task?.inspo?.cdnUrl || task?.inspo?.thumbnail || task?.asset?.cdnUrl || task?.asset?.thumbnail || ''
   const rawClipUrl = !thumb ? rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '') : ''
   if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, ...(task?.adminReviewStatus === 'Needs Revision' ? { border: '1px solid #fecaca' } : {}) }} />
   if (rawClipUrl) return <video className={cls} src={rawClipUrl} muted playsInline style={style} />
@@ -2500,7 +2501,7 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
   const editedFileLink = task.asset?.editedFileLink || ''
   const editUrl = rawDropboxUrl(editedFileLink)
   const inspoVideoUrl = task.inspo?.dbShareLink ? rawDropboxUrl(task.inspo.dbShareLink) : ''
-  const hasInspo = !!(inspoVideoUrl || task.inspo?.thumbnail)
+  const hasInspo = !!(inspoVideoUrl || task.inspo?.cdnUrl || task.inspo?.thumbnail)
 
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -2546,8 +2547,8 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
               <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                 onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-            ) : task.inspo?.thumbnail ? (
-              <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+            ) : (task.inspo?.cdnUrl || task.inspo?.thumbnail) ? (
+              <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
             ) : null}
             <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
           </div>

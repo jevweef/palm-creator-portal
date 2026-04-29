@@ -39,7 +39,7 @@ export async function GET() {
       }) : [],
       inspoIds.length ? fetchAirtableRecords('Inspiration', {
         filterByFormula: recordIdFormula(inspoIds),
-        fields: ['Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail', 'Username', 'DB Share Link', 'On-Screen Text'],
+        fields: ['Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail', 'CDN URL', 'Username', 'DB Share Link', 'On-Screen Text'],
       }) : [],
     ])
 
@@ -89,6 +89,7 @@ export async function GET() {
           tags: inspo.Tags || [],
           contentLink: inspo['Content link'] || '',
           thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
+          cdnUrl: inspo['CDN URL'] || null,
           username: inspo.Username || '',
           onScreenText: inspo['On-Screen Text'] || '',
           dbShareLink: inspo['DB Share Link'] || '',

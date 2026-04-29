@@ -197,7 +197,7 @@ export async function GET() {
       inspoIds.length ? fetchAirtableRecords('Inspiration', {
         filterByFormula: recordIdFormula(inspoIds),
         fields: [
-          'Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail',
+          'Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail', 'CDN URL',
           'Username', 'Audio Type', 'DB Share Link', 'Rating', 'On-Screen Text', 'Transcript',
           'Identified Song', 'Identified Song Data',
         ],
@@ -250,6 +250,7 @@ export async function GET() {
           filmFormat: inspo['Film Format'] || [],
           contentLink: inspo['Content link'] || '',
           thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
+          cdnUrl: inspo['CDN URL'] || null,
           username: inspo.Username || '',
           audioType: inspo['Audio Type'] || '',
           dbShareLink: inspo['DB Share Link'] || '',

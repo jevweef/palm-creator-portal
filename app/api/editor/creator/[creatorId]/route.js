@@ -85,7 +85,7 @@ export async function GET(request, { params }) {
         ],
       }),
       fetchByIds('Inspiration', inspoIds, {
-        fields: ['Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail', 'Username', 'DB Share Link', 'On-Screen Text'],
+        fields: ['Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail', 'CDN URL', 'Username', 'DB Share Link', 'On-Screen Text'],
       }),
     ])
 
@@ -129,6 +129,7 @@ export async function GET(request, { params }) {
           contentLink: inspo['Content link'] || '',
           dbShareLink: inspo['DB Share Link'] || '',
           thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
+          cdnUrl: inspo['CDN URL'] || null,
           username: inspo.Username || '',
           onScreenText: inspo['On-Screen Text'] || '',
         },
@@ -163,6 +164,7 @@ export async function GET(request, { params }) {
           id: inspoId || null,
           title: inspo.Title || '',
           thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
+          cdnUrl: inspo['CDN URL'] || null,
           username: inspo.Username || '',
           contentLink: inspo['Content link'] || '',
           onScreenText: inspo['On-Screen Text'] || '',

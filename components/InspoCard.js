@@ -39,9 +39,9 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
     >
       {/* Thumbnail */}
       <div className="relative aspect-[9/16] bg-[rgba(232,160,160,0.06)] overflow-hidden">
-        {record.thumbnail && !imgError ? (
+        {(record.cdnUrl || record.thumbnail) && !imgError ? (
           <img
-            src={record.thumbnail}
+            src={record.cdnUrl || record.thumbnail}
             alt={record.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={() => setImgError(true)}

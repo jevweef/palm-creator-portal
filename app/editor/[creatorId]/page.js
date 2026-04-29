@@ -53,8 +53,8 @@ function TaskRow({ task, type }) {
   return (
     <div style={{ background: m.bg, border: 'none', borderRadius: '18px', padding: '12px 16px', boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-        {task.inspo?.thumbnail && (
-          <img src={task.inspo.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
+        {(task.inspo?.cdnUrl || task.inspo?.thumbnail) && (
+          <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -121,7 +121,7 @@ function TaskRow({ task, type }) {
 
 function CompactThumbCard({ task, type }) {
   const m = STATUS_META[type]
-  const thumb = task.inspo?.thumbnail || task.asset?.cdnUrl || task.asset?.thumbnail || ''
+  const thumb = task.inspo?.cdnUrl || task.inspo?.thumbnail || task.asset?.cdnUrl || task.asset?.thumbnail || ''
   const title = task.inspo?.title || task.name || 'Untitled'
   return (
     <div style={{ background: m.bg, border: 'none', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center' }}>

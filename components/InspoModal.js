@@ -178,8 +178,8 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 muted
                 loop
               />
-            ) : record.thumbnail ? (
-              <img src={record.thumbnail} alt={record.title} className="w-full md:h-full object-cover" />
+            ) : (record.cdnUrl || record.thumbnail) ? (
+              <img src={record.cdnUrl || record.thumbnail} alt={record.title} className="w-full md:h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-[#D4A0B0]">
                 <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
