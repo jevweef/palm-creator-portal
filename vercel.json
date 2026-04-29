@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/mirror-cloudflare",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/mirror-video-frames",
+      "schedule": "0 * * * *"
     }
   ]
 }
