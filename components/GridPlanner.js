@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { rawDropboxUrl, isVideo } from './EditorDashboard'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
+import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 
 const SELECTED_CREATOR_STORAGE_KEY = 'gridplanner:selectedCreatorId'
 
@@ -1841,9 +1842,20 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
         <div style={{ padding: '0 20px', position: 'relative' }}>
           <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             {(() => {
+              const streamUid = post.asset?.streamEditId || post.asset?.streamRawId
               const videoLink = post.asset?.editedFileLink || post.assetEditedFileLink
               const videoSrc = videoLink && isVideo(videoLink) ? rawDropboxUrl(videoLink) : null
               const posterSrc = localThumb || post.thumbnail
+              if (streamUid) {
+                // CF Stream iframe — first frame from the edge in <500ms.
+                return (
+                  <iframe
+                    src={buildStreamIframeUrl(streamUid, { autoplay: false, controls: true, poster: posterSrc || undefined })}
+                    allow="autoplay; fullscreen" allowFullScreen
+                    style={{ width: '100%', height: '100%', border: 'none', background: '#000' }}
+                  />
+                )
+              }
               if (videoSrc) {
                 return (
                   <video

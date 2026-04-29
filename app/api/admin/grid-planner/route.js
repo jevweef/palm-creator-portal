@@ -286,7 +286,7 @@ export async function GET(request) {
     if (assetIds.length) {
       const assets = await fetchAirtableRecords('Assets', {
         filterByFormula: `OR(${assetIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
-        fields: ['Asset Name', 'Thumbnail', 'CDN URL', 'Edited File Link', 'Dropbox Shared Link'],
+        fields: ['Asset Name', 'Thumbnail', 'CDN URL', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
       })
       for (const a of assets) assetMap[a.id] = a.fields || {}
     }
@@ -359,10 +359,13 @@ export async function GET(request) {
         platform: f.Platform || [],
         caption: f.Caption || '',
         hashtags: f.Hashtags || '',
-        // Asset details needed when sending to Telegram from the grid
+        // Asset details needed when sending to Telegram from the grid + the
+        // CF Stream UIDs so the post detail modal can play from edge.
         asset: assetId ? {
           id: assetId,
           editedFileLink: asset['Edited File Link'] || '',
+          streamEditId: asset['Stream Edit ID'] || null,
+          streamRawId: asset['Stream Raw ID'] || null,
         } : null,
         // Thumbnail URL from the Post's attachment (not the .thumbnails.large
         // preview) — Telegram send expects the full Dropbox/Airtable URL.

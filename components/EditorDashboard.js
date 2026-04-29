@@ -2557,6 +2557,41 @@ function BufferOverview({ creators }) {
 // so the editor sees both their original submission and their source clip
 // side-by-side without leaving the tab.
 
+/**
+ * One cell of the RAW / EDIT strip on a RevisionCard. Prefers Cloudflare
+ * Stream when the asset has a UID — autoplay-muted-loop iframe with
+ * pointer-events:none so the wrapper button captures clicks. Falls back
+ * to a Dropbox <video> autoplay when there's no UID yet.
+ */
+function RevisionStripCell({ streamUid, videoSrc, posterCdnUrl, onOpenVideo, label, labelColor, emptyText }) {
+  const playable = streamUid || videoSrc
+  return (
+    <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
+      {playable ? (
+        <>
+          {streamUid ? (
+            <iframe
+              src={buildStreamIframeUrl(streamUid, { autoplay: true, muted: true, loop: true, controls: false, preload: 'metadata' })}
+              allow="autoplay"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+            />
+          ) : (
+            <video src={videoSrc} autoPlay muted loop playsInline preload="metadata"
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+          )}
+          <button onClick={onOpenVideo}
+            style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
+            ⛶
+          </button>
+        </>
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-subtle)', fontSize: '11px' }}>{emptyText}</div>
+      )}
+      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: labelColor, fontWeight: 600, pointerEvents: 'none' }}>{label}</div>
+    </div>
+  )
+}
+
 function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
   const [expanded, setExpanded] = useState(false)
   const fmtDate = task.completedAt
@@ -2572,26 +2607,20 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
 
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* Video strip — RAW | INSPO | EDIT
-          Edited clip lives on the right edge across every editor view so the
-          editor sees the version they need to fix in a consistent spot. */}
+      {/* Video strip — RAW | INSPO | EDIT.
+          Each cell prefers a Cloudflare Stream iframe (instant edge playback,
+          autoplays muted/looped) over a Dropbox <video>. Clicking opens the
+          fullscreen modal in the parent which can also use Stream. */}
       <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
-        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
-          {rawClipUrl ? (
-            <>
-              <video src={rawClipUrl} autoPlay muted loop playsInline preload="metadata"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
-                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-              <button onClick={() => onOpenVideo(rawClipPrimary)}
-                style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
-                ⛶
-              </button>
-            </>
-          ) : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-subtle)', fontSize: '11px' }}>No raw clip</div>
-          )}
-          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#78B4E8', fontWeight: 600 }}>RAW</div>
-        </div>
+        <RevisionStripCell
+          streamUid={task.asset?.streamRawId}
+          videoSrc={rawClipUrl}
+          posterCdnUrl={task.asset?.cdnUrl}
+          onOpenVideo={() => onOpenVideo(task.asset?.streamRawId ? { streamUid: task.asset.streamRawId } : { url: rawClipPrimary })}
+          label="RAW"
+          labelColor="#78B4E8"
+          emptyText="No raw clip"
+        />
 
         {hasInspo && (
           <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
@@ -2606,22 +2635,15 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
           </div>
         )}
 
-        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
-          {editUrl ? (
-            <>
-              <video src={editUrl} autoPlay muted loop playsInline preload="metadata"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
-                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-              <button onClick={() => onOpenVideo(editedFileLink)}
-                style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
-                ⛶
-              </button>
-            </>
-          ) : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-subtle)', fontSize: '11px' }}>No edit yet</div>
-          )}
-          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#7DD3A4', fontWeight: 600 }}>EDIT</div>
-        </div>
+        <RevisionStripCell
+          streamUid={task.asset?.streamEditId}
+          videoSrc={editUrl}
+          posterCdnUrl={task.asset?.cdnUrl}
+          onOpenVideo={() => onOpenVideo(task.asset?.streamEditId ? { streamUid: task.asset.streamEditId } : { url: editedFileLink })}
+          label="EDIT"
+          labelColor="#7DD3A4"
+          emptyText="No edit yet"
+        />
       </div>
 
       {/* Body */}
@@ -2821,7 +2843,7 @@ export function EditorRevisionsView() {
               key={task.id}
               task={task}
               onUploadRevision={() => setSubmitModal({ task, isRevision: true })}
-              onOpenVideo={(url) => setVideoModal(url)}
+              onOpenVideo={(payload) => setVideoModal(payload)}
             />
           ))}
         </div>
@@ -2841,9 +2863,18 @@ export function EditorRevisionsView() {
       {videoModal && (
         <div onClick={() => setVideoModal(null)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
-          <video src={rawDropboxUrl(videoModal)} controls autoPlay
-            onClick={e => e.stopPropagation()}
-            style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '12px', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
+          {videoModal.streamUid ? (
+            // CF Stream iframe — first frame in <500ms vs multi-second on Dropbox.
+            <div onClick={e => e.stopPropagation()} style={{ width: '90vw', maxWidth: '480px', aspectRatio: '9/16', maxHeight: '85vh', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}>
+              <iframe src={buildStreamIframeUrl(videoModal.streamUid, { autoplay: true, controls: true })}
+                allow="autoplay; fullscreen" allowFullScreen
+                style={{ width: '100%', height: '100%', border: 'none' }} />
+            </div>
+          ) : videoModal.url ? (
+            <video src={rawDropboxUrl(videoModal.url)} controls autoPlay
+              onClick={e => e.stopPropagation()}
+              style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '12px', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
+          ) : null}
           <button onClick={() => setVideoModal(null)}
             style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--foreground)', fontSize: '20px', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer' }}>
             ×

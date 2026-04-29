@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
+import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 
 const PLATFORMS = ['Instagram Reel', 'Instagram Story', 'TikTok', 'YouTube Shorts', 'X', 'OFTV']
 const STATUS_COLORS = {
@@ -196,12 +197,20 @@ function TelegramModal({ post, onClose, onSent }) {
           </div>
         )}
 
-        {/* Video + Thumbnail side by side */}
+        {/* Video + Thumbnail side by side. Prefers Cloudflare Stream iframe
+            (autoplays muted/looped, instant from edge) over a Dropbox <video>
+            that takes 5-10s to first frame. Stream's first segment is a
+            sub-200ms fetch so the modal feels live the moment it opens. */}
         {editedFileLink && (
           <div style={{ display: 'grid', gridTemplateColumns: thumbRawUrl ? '1fr 1fr' : '1fr', gap: '8px' }}>
             <div style={{ background: 'rgba(232, 160, 160, 0.04)', borderRadius: '8px', overflow: 'hidden', aspectRatio: '9/16', border: '1px solid transparent' }}>
-              <video src={videoRawUrl} muted loop autoPlay playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              {post.asset?.streamEditId ? (
+                <iframe src={buildStreamIframeUrl(post.asset.streamEditId, { autoplay: true, muted: true, loop: true, controls: false })}
+                  allow="autoplay" style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+              ) : (
+                <video src={videoRawUrl} muted loop autoPlay playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              )}
             </div>
             {thumbRawUrl && (
               <div style={{ background: 'rgba(232, 160, 160, 0.04)', borderRadius: '8px', overflow: 'hidden', aspectRatio: '9/16', border: '1px solid transparent' }}>
