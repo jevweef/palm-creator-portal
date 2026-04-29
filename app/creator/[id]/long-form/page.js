@@ -552,6 +552,9 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
   const [finalFiles, setFinalFiles] = useState([])
   const [finalPreviewFile, setFinalPreviewFile] = useState(null)
   const [finalPreviewSrc, setFinalPreviewSrc] = useState('')
+  // Pre-loaded streaming src for the latest final file so the creator
+  // can play it inline without an extra click.
+  const [latestFinalSrc, setLatestFinalSrc] = useState('')
   const [showRevisionInput, setShowRevisionInput] = useState(false)
   const [revisionFeedback, setRevisionFeedback] = useState('')
   const [reviewing, setReviewing] = useState(false)
@@ -564,12 +567,29 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
   )
 
   useEffect(() => {
-    if (!showsFinalCut) { setFinalFiles([]); return }
+    if (!showsFinalCut) { setFinalFiles([]); setLatestFinalSrc(''); return }
     fetch(`/api/creator/oftv-projects/${project.id}/final`)
       .then(r => r.json())
       .then(d => setFinalFiles(d.files || []))
       .catch(() => setFinalFiles([]))
   }, [project.id, showsFinalCut])
+
+  // Pre-load streaming temp link for the latest final cut so the inline
+  // player works the moment the modal opens — no "click to watch" friction.
+  // finalFiles is sorted newest-first by the API.
+  useEffect(() => {
+    const latest = finalFiles[0]
+    if (!latest || !/\.(mp4|mov|webm|mkv|m4v)$/i.test(latest.name)) {
+      setLatestFinalSrc('')
+      return
+    }
+    let cancelled = false
+    fetch(`/api/creator/oftv-projects/${project.id}/final?path=${encodeURIComponent(latest.path)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setLatestFinalSrc(d.link || '') })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [finalFiles, project.id])
 
   useEffect(() => {
     if (!finalPreviewFile) { setFinalPreviewSrc(''); return }
@@ -755,31 +775,115 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
                 {project.status === STATUSES.CREATOR_REVISION && 'The editor is incorporating your notes — you\'ll get a new cut to review soon.'}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-                {finalFiles.map((f, i) => {
-                  const isVideo = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name)
-                  return (
-                    <div
-                      key={i}
-                      onClick={isVideo ? () => setFinalPreviewFile(f) : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                        padding: '10px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px',
-                        cursor: isVideo ? 'pointer' : 'default',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '14px' }}>🎞️</span>
-                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
-                        <span>{fmtSize(f.size)}</span>
-                        {isVideo && <span style={{ color: 'var(--palm-pink)' }}>▶ Watch</span>}
-                      </div>
+              {/* Inline player for the latest final cut — no click-to-open
+                  modal friction. If for some reason the temp link hasn't
+                  loaded yet (or the file is non-video) fall back to the
+                  click-to-preview row from before. */}
+              {finalFiles[0] && /\.(mp4|mov|webm|mkv|m4v)$/i.test(finalFiles[0].name) ? (
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '240px' }}>
+                    {latestFinalSrc ? (
+                      <video
+                        key={latestFinalSrc}
+                        src={latestFinalSrc}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        style={{ width: '100%', maxHeight: '60vh', background: '#000' }}
+                      />
+                    ) : (
+                      <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', padding: '40px' }}>Loading video…</div>
+                    )}
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: '10px', flexWrap: 'wrap', marginTop: '10px',
+                    fontSize: '11px', color: 'var(--foreground-subtle)',
+                  }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                      🎞️ {finalFiles[0].name} · {fmtSize(finalFiles[0].size)}
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                      {latestFinalSrc && (
+                        <a
+                          href={latestFinalSrc}
+                          download={finalFiles[0].name}
+                          style={{
+                            padding: '5px 12px', fontSize: '11px', fontWeight: 600,
+                            background: 'rgba(120, 200, 220, 0.10)', color: '#78D4E8',
+                            border: '1px solid rgba(120, 200, 220, 0.25)', borderRadius: '9999px',
+                            textDecoration: 'none', whiteSpace: 'nowrap',
+                          }}
+                        >⬇ Download</a>
+                      )}
+                      {project.folderLink && (
+                        <a
+                          href={project.folderLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            padding: '5px 12px', fontSize: '11px', fontWeight: 600,
+                            background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-muted)',
+                            border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9999px',
+                            textDecoration: 'none', whiteSpace: 'nowrap',
+                          }}
+                        >📁 Open in Dropbox</a>
+                      )}
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                  {/* If revisions have stacked up, show prior drafts as a small
+                      collapsible list below the latest one. */}
+                  {finalFiles.length > 1 && (
+                    <details style={{ marginTop: '10px' }}>
+                      <summary style={{ fontSize: '11px', color: 'var(--foreground-subtle)', cursor: 'pointer' }}>
+                        {finalFiles.length - 1} earlier {finalFiles.length === 2 ? 'draft' : 'drafts'}
+                      </summary>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+                        {finalFiles.slice(1).map((f, i) => (
+                          <div
+                            key={i}
+                            onClick={() => setFinalPreviewFile(f)}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '8px 12px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px',
+                              cursor: 'pointer', fontSize: '11px',
+                            }}
+                          >
+                            <span style={{ color: 'var(--foreground-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                            <span style={{ color: 'var(--palm-pink)', flexShrink: 0, marginLeft: '10px' }}>▶ Watch</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
+                  {finalFiles.map((f, i) => {
+                    const isVideo = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name)
+                    return (
+                      <div
+                        key={i}
+                        onClick={isVideo ? () => setFinalPreviewFile(f) : undefined}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                          padding: '10px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px',
+                          cursor: isVideo ? 'pointer' : 'default',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                          <span style={{ fontSize: '14px' }}>🎞️</span>
+                          <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+                          <span>{fmtSize(f.size)}</span>
+                          {isVideo && <span style={{ color: 'var(--palm-pink)' }}>▶ Watch</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
 
               {/* Approve / Request Changes — only when admin sent over */}
               {project.status === STATUSES.SENT_TO_CREATOR && !showRevisionInput && (
