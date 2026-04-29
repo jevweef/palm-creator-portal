@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import CaptionSuggestions from '@/components/CaptionSuggestions'
+import { cdnUrlAtSize } from '@/lib/cdnImage'
 
 // ─── Lazy-loaded Creator DNA Modal ────────────────────────────────────────────
 
@@ -130,7 +131,7 @@ export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) 
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
   const photoFile = forcePhoto || isPhoto(link)
-  const imgSrc = asset.cdnUrl || asset.thumbnail || (photoFile && rawUrl) || ''
+  const imgSrc = cdnUrlAtSize(asset.cdnUrl, 480) || asset.thumbnail || (photoFile && rawUrl) || ''
 
   return (
     <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -490,7 +491,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
       <div style={{ display: 'flex', height: '155px', background: 'var(--background)' }}>
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
-            <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={cdnUrlAtSize(task.inspo.cdnUrl, 400) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '11px' }}>No thumbnail</div>
           )}
@@ -506,7 +507,7 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
             <a href={task.asset.dropboxLinks?.[0] || task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
               style={{ display: 'block', width: '100%', height: '100%', textDecoration: 'none' }}>
               {(task.asset.cdnUrl || task.asset.thumbnail) ? (
-                <img src={task.asset.cdnUrl || task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={cdnUrlAtSize(task.asset.cdnUrl, 400) || task.asset.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(125, 211, 164, 0.08)', gap: '4px' }}>
                   <svg style={{ width: '24px', height: '24px', color: '#7DD3A4' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -805,9 +806,9 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, cdnUrl, accentColor = 
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
             onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
         ) : photoSrc ? (
-          <img src={cdnUrl || photoSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={cdnUrlAtSize(cdnUrl, 800) || photoSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (cdnUrl || fallbackThumb) ? (
-          <img src={cdnUrl || fallbackThumb} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={cdnUrlAtSize(cdnUrl, 800) || fallbackThumb} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '32px' }}>&#127916;</div>
         )}
@@ -1711,20 +1712,28 @@ function SlotThumbnail({ slot }) {
     color: 'rgba(255,255,255,0.35)', fontSize: '20px',
   }
 
+  // 64px on screen → fetch a tiny w=200 variant (CF retina-aware). Drops
+  // each slot thumb from ~110KB to ~5KB. With 5 creators × 6 slots that's
+  // 600KB instead of 13MB on first paint.
+  const sized = (cdn, fallback) => cdnUrlAtSize(cdn, 200) || fallback || ''
+
   if (slot.type === 'done') {
-    const thumb = task?.asset?.cdnUrl || task?.asset?.thumbnail || task?.inspo?.cdnUrl || task?.inspo?.thumbnail || ''
+    const thumb = sized(task?.asset?.cdnUrl, task?.asset?.thumbnail)
+      || sized(task?.inspo?.cdnUrl, task?.inspo?.thumbnail)
     if (thumb) return <img className={cls} src={thumb} alt="" loading="lazy" decoding="async" style={{ ...style, opacity: 0.6 }} />
     return <div className={cls} style={{ ...placeholderStyle, opacity: 0.45 }}>▶</div>
   }
 
   if (slot.type === 'inspoClip') {
-    const thumb = clip?.cdnUrl || clip?.thumbnail || clip?.inspo?.cdnUrl || clip?.inspo?.thumbnail || ''
+    const thumb = sized(clip?.cdnUrl, clip?.thumbnail)
+      || sized(clip?.inspo?.cdnUrl, clip?.inspo?.thumbnail)
     if (thumb) return <img className={cls} src={thumb} alt="" loading="lazy" decoding="async" style={style} />
     return <div className={cls} style={placeholderStyle}>▶</div>
   }
 
   // toDo or inProgress
-  const thumb = task?.inspo?.cdnUrl || task?.inspo?.thumbnail || task?.asset?.cdnUrl || task?.asset?.thumbnail || ''
+  const thumb = sized(task?.inspo?.cdnUrl, task?.inspo?.thumbnail)
+    || sized(task?.asset?.cdnUrl, task?.asset?.thumbnail)
   if (thumb) return <img className={cls} src={thumb} alt="" loading="lazy" decoding="async" style={{ ...style, ...(task?.adminReviewStatus === 'Needs Revision' ? { border: '1px solid #fecaca' } : {}) }} />
   return null
 }
@@ -2586,7 +2595,7 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                 onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
             ) : (task.inspo?.cdnUrl || task.inspo?.thumbnail) ? (
-              <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+              <img src={cdnUrlAtSize(task.inspo.cdnUrl, 600) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
             ) : null}
             <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
           </div>

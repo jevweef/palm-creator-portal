@@ -9,6 +9,7 @@ import LongFormUpload from '@/components/LongFormUpload'
 import OftvProjectsQueue from '@/components/OftvProjectsQueue'
 import GridPlanner from '@/components/GridPlanner'
 import CaptionSuggestions from '@/components/CaptionSuggestions'
+import { cdnUrlAtSize } from '@/lib/cdnImage'
 
 function formatSlot(isoDate) {
   const label = getSlotLabel(isoDate)
@@ -569,7 +570,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
         {/* Inspo thumbnail */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
-            <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={cdnUrlAtSize(task.inspo.cdnUrl, 400) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '12px' }}>No thumbnail</div>
           )}
@@ -588,7 +589,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
           {(task.asset.cdnUrl || task.asset.thumbnail) ? (
             <a href={task.asset.dropboxLink || '#'} target={task.asset.dropboxLink ? '_blank' : undefined} rel="noopener noreferrer"
               style={{ display: 'block', width: '100%', height: '100%' }}>
-              <img src={task.asset.cdnUrl || task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={cdnUrlAtSize(task.asset.cdnUrl, 400) || task.asset.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </a>
           ) : task.asset.dropboxLink ? (
             <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
@@ -1161,7 +1162,7 @@ function UnreviewedLibrary({ showToast }) {
                   </div>
                 )}
                 <CaptionSuggestions
-                  thumbnailUrl={asset.cdnUrl || asset.thumbnail}
+                  thumbnailUrl={cdnUrlAtSize(asset.cdnUrl, 400) || asset.thumbnail}
                   videoUrl={(asset.dropboxLinks?.[0] || asset.dropboxLink || '').replace(/([?&])dl=[01]/, '$1raw=1')}
                   creatorId={asset.creator?.id}
                 />
@@ -1993,13 +1994,13 @@ function ForReview({ showToast }) {
                           style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Play inspo">
                           {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
-                            <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" loading="lazy" decoding="async"
+                            <img src={cdnUrlAtSize(task.inspo.cdnUrl, 400) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async"
                               style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                           ) : null}
                           <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
                         </button>
                       ) : (task.inspo.cdnUrl || task.inspo.thumbnail) ? (
-                        <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                        <img src={cdnUrlAtSize(task.inspo.cdnUrl, 400) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                       ) : null}
                       <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600, pointerEvents: 'none' }}>INSPO</div>
                     </div>
@@ -2309,7 +2310,7 @@ function SubmissionsFeed({ showToast }) {
                       {/* Thumbnail */}
                       <div style={{ width: '48px', height: '64px', borderRadius: '6px', overflow: 'hidden', background: 'var(--background)', flexShrink: 0 }}>
                         {(s.asset?.cdnUrl || s.asset?.thumbnail || s.inspo?.cdnUrl || s.inspo?.thumbnail) && (
-                          <img src={s.asset?.cdnUrl || s.asset?.thumbnail || s.inspo?.cdnUrl || s.inspo?.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={cdnUrlAtSize(s.asset?.cdnUrl, 200) || s.asset?.thumbnail || cdnUrlAtSize(s.inspo?.cdnUrl, 200) || s.inspo?.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         )}
                       </div>
                       {/* Info */}

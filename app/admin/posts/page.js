@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { cdnUrlAtSize } from '@/lib/cdnImage'
 
 const PLATFORMS = ['Instagram Reel', 'Instagram Story', 'TikTok', 'YouTube Shorts', 'X', 'OFTV']
 const STATUS_COLORS = {
@@ -284,7 +285,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
             {isHeicPhoto ? (
               <HeicImage src={preview.dropboxLink} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
             ) : (
-              <img src={preview.cdnUrl || rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+              <img src={cdnUrlAtSize(preview.cdnUrl, 1200) || rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
             )}
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
@@ -352,7 +353,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
                         {heic ? (
                           <HeicImage src={photo.dropboxLink} alt={photo.name} style={cellStyle} />
                         ) : (
-                          <img src={photo.cdnUrl || rawUrl} alt={photo.name} loading="lazy" style={cellStyle} />
+                          <img src={cdnUrlAtSize(photo.cdnUrl, 300) || rawUrl} alt={photo.name} loading="lazy" decoding="async" style={cellStyle} />
                         )}
                       </div>
                     )
@@ -660,7 +661,7 @@ function PostCard({ post, onRefresh, onSend }) {
             // to grind the admin posts list to a halt on first load.
             (thumbnailUrl || post.asset?.cdnUrl) ? (
               <>
-                <img src={thumbnailUrl || post.asset?.cdnUrl} alt="" loading="lazy" decoding="async"
+                <img src={thumbnailUrl || cdnUrlAtSize(post.asset?.cdnUrl, 600)} alt="" loading="lazy" decoding="async"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.45)', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '18px', marginLeft: '3px' }}>▶</span>
@@ -670,7 +671,7 @@ function PostCard({ post, onRefresh, onSend }) {
               <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(120, 180, 232, 0.04))', color: 'rgba(255,255,255,0.4)', fontSize: '32px' }}>▶</div>
             )
           ) : (
-            <img src={post.asset?.cdnUrl || rawUrl} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={cdnUrlAtSize(post.asset?.cdnUrl, 600) || rawUrl} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           )
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>

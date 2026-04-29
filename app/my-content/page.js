@@ -4,6 +4,7 @@ import { useUser } from '@clerk/nextjs'
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { tagStyle } from '@/lib/tagStyle'
+import { cdnUrlAtSize } from '@/lib/cdnImage'
 import QuotaBar from '@/components/QuotaBar'
 import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
@@ -50,7 +51,7 @@ function PipelineCard({ item, onClick }) {
       <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)', position: 'relative' }}>
         {(item.cdnUrl || item.assetThumbnail || item.inspoCdnUrl || item.inspoThumbnail) ? (
           <img
-            src={item.cdnUrl || item.assetThumbnail || item.inspoCdnUrl || item.inspoThumbnail}
+            src={cdnUrlAtSize(item.cdnUrl, 480) || item.assetThumbnail || cdnUrlAtSize(item.inspoCdnUrl, 480) || item.inspoThumbnail}
             alt={item.inspoTitle}
             loading="lazy"
             decoding="async"
@@ -182,7 +183,7 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
               {inspoUrl ? (
                 <video src={inspoUrl} controls playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (item.inspoCdnUrl || item.inspoThumbnail) ? (
-                <img src={item.inspoCdnUrl || item.inspoThumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={cdnUrlAtSize(item.inspoCdnUrl, 800) || item.inspoThumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px' }}>No inspo</div>
               )}
