@@ -1905,13 +1905,20 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
                 )
               }
               if (videoSrc) {
+                // preload="metadata" fetches the first frame and the browser
+                // uses THAT as the poster instead of our explicit poster
+                // attribute — making custom thumbnails invisible on videos
+                // whose first frame is black (most camera-roll exports).
+                // preload="none" keeps the poster visible until the user
+                // hits play. Trade-off: video doesn't pre-buffer, but for
+                // a planning modal that's the right call.
                 return (
                   <video
                     src={videoSrc}
                     poster={posterSrc || undefined}
                     controls
                     playsInline
-                    preload="metadata"
+                    preload="none"
                     style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
                   />
                 )
