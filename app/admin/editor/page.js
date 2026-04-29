@@ -2523,7 +2523,7 @@ export default function EditorQueue() {
       {activeSection === 'postprep' && <PostsPage />}
       {activeSection === 'grid' && <GridPlanner />}
       {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
-      {activeSection === 'oftv' && <OftvProjectsQueue showToast={showToast} />}
+      {activeSection === 'oftv' && <OftvProjectsQueue showToast={showToast} role="admin" />}
       {activeSection === 'longform' && <LongFormUpload showToast={showToast} />}
 
       {/* Toast */}

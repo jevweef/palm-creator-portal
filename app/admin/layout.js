@@ -65,6 +65,23 @@ export default function AdminLayout({ children }) {
   const activeTab = searchParams.get('tab')
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  // Sidebar badge counts — pings the user when a role-relevant queue has
+  // items waiting. Right now only OFTV (Final Submitted = needs admin review).
+  // Pattern is reusable for Inspo Review, Post Prep, etc. as we go.
+  const [navCounts, setNavCounts] = useState({ oftvReview: 0 })
+  useEffect(() => {
+    if (!isAdmin) return
+    let cancelled = false
+    const tick = () => {
+      fetch('/api/admin/oftv-projects?status=Final%20Submitted')
+        .then(r => r.ok ? r.json() : { projects: [] })
+        .then(d => { if (!cancelled) setNavCounts(c => ({ ...c, oftvReview: (d.projects || []).length })) })
+        .catch(() => {})
+    }
+    tick()
+    const id = setInterval(tick, 30000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [isAdmin])
 
   // Close mobile nav on route change
   useEffect(() => { setMobileNavOpen(false) }, [pathname, activeTab])
@@ -106,6 +123,14 @@ export default function AdminLayout({ children }) {
     <div className="admin-shell" style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>
       {/* Mobile-only styles — desktop untouched */}
       <style>{`
+        @keyframes palmNavBadgePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(232, 120, 120, 0.6); }
+          50%      { box-shadow: 0 0 0 6px rgba(232, 120, 120, 0); }
+        }
+        @keyframes palmNavDotPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50%      { transform: scale(1.5); opacity: 0.5; }
+        }
         @media (max-width: 768px) {
           .admin-shell { display: block !important; }
           .admin-sidebar {
@@ -217,18 +242,31 @@ export default function AdminLayout({ children }) {
                   }}
                 >
                   <span>{item.icon}</span>
-                  {item.label}
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {/* Parent-level pulse dot — surfaces nested counts so the
+                      admin notices even from a different section. */}
+                  {item.href === '/admin/editor' && navCounts.oftvReview > 0 && !isActive && (
+                    <span style={{
+                      width: '7px', height: '7px', borderRadius: '50%',
+                      background: '#E87878', flexShrink: 0,
+                      animation: 'palmNavDotPulse 1.4s ease-in-out infinite',
+                    }} />
+                  )}
                 </Link>
                 {/* Sub-items */}
                 {isActive && item.children && (
                   <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     {item.children.map(child => {
                       const isChildActive = activeTab === child.key || (!activeTab && child === item.children[0])
+                      // Count badges on specific sub-items. Currently only
+                      // OFTV — extend by mapping more keys to navCounts.
+                      const childCount = (item.href === '/admin/editor' && child.key === 'oftv') ? navCounts.oftvReview : 0
                       return (
                         <Link
                           key={child.key}
                           href={`${item.href}?tab=${child.key}`}
                           style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px',
                             padding: '5px 16px 5px 42px',
                             fontSize: '11px',
                             fontWeight: isChildActive ? 600 : 400,
@@ -238,7 +276,20 @@ export default function AdminLayout({ children }) {
                             background: isChildActive ? 'rgba(232, 160, 160, 0.04)' : 'transparent',
                           }}
                         >
-                          {child.label}
+                          <span>{child.label}</span>
+                          {childCount > 0 && (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              minWidth: '18px', height: '16px', padding: '0 5px',
+                              borderRadius: '9999px',
+                              background: '#E87878', color: '#fff',
+                              fontSize: '10px', fontWeight: 700,
+                              boxShadow: '0 0 0 0 rgba(232, 120, 120, 0.6)',
+                              animation: 'palmNavBadgePulse 1.6s ease-in-out infinite',
+                            }}>
+                              {childCount}
+                            </span>
+                          )}
                         </Link>
                       )
                     })}

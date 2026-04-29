@@ -4,16 +4,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { useBackdropDismiss } from '@/lib/useBackdropDismiss'
 import { useToast } from '@/lib/useToast'
 import { useConfirm } from '@/lib/useConfirm'
-
-const STATUS_STYLES = {
-  'Awaiting Upload': { bg: 'rgba(156, 163, 175, 0.08)', color: '#9ca3af' },
-  'Files Uploaded':  { bg: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8' },
-  'In Editing':      { bg: 'rgba(232, 200, 120, 0.08)', color: '#E8C878' },
-  'Needs Revision':  { bg: 'rgba(232, 168, 120, 0.08)', color: '#E8A878' },
-  'Delivered':       { bg: 'rgba(125, 211, 164, 0.08)', color: '#4ade80' },
-  'Archived':        { bg: 'rgba(156, 163, 175, 0.06)', color: '#6b7280' },
-}
-const STATUS_ORDER = ['Files Uploaded', 'In Editing', 'Needs Revision', 'Awaiting Upload', 'Delivered', 'Archived']
+import {
+  STATUSES,
+  STATUS_STYLES,
+  ALL_STATUSES,
+  ACTIVE_STATUSES,
+  getBucketsForRole,
+} from '@/lib/oftvWorkflow'
 
 function fmtSize(bytes) {
   if (!bytes) return '0 B'
@@ -29,22 +26,39 @@ function fmtDate(iso) {
   return isNaN(d) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, pulse = false }) {
   const s = STATUS_STYLES[status] || STATUS_STYLES['Awaiting Upload']
+  const shouldPulse = pulse || s.urgent === true
   return (
     <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
       fontSize: '10px', fontWeight: 600, padding: '3px 10px', borderRadius: '9999px',
       background: s.bg, color: s.color, whiteSpace: 'nowrap',
-    }}>{status}</span>
+    }}>
+      {shouldPulse && (
+        <span style={{
+          width: '6px', height: '6px', borderRadius: '50%', background: s.color,
+          animation: 'palmStatusPulse 1.4s ease-in-out infinite',
+        }} />
+      )}
+      {s.label || status}
+      {shouldPulse && (
+        <style>{`@keyframes palmStatusPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }`}</style>
+      )}
+    </span>
   )
 }
 
-function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, confirm, toast }) {
+function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, confirm, toast, role }) {
+  const isAdmin = role === 'admin'
   const [editorNotes, setEditorNotes] = useState(project.editorNotes || '')
   const [editedFileLink, setEditedFileLink] = useState(project.editedFileLink || '')
   const [status, setStatus] = useState(project.status || 'Awaiting Upload')
   const [assignedEditor, setAssignedEditor] = useState(project.assignedEditor || '')
   const [saving, setSaving] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
+  const [showRejectInput, setShowRejectInput] = useState(false)
+  const [rejectNotes, setRejectNotes] = useState('')
   const [files, setFiles] = useState(null)
   const [assets, setAssets] = useState([])
   const [finalFiles, setFinalFiles] = useState([])
@@ -149,6 +163,47 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
       showToast?.(e.message, true)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const approveFinal = async () => {
+    const ok = await confirm({
+      title: 'Approve and send to creator?',
+      message: `${creatorName || 'The creator'} will see this final cut on their dashboard and can mark it complete or request changes.`,
+      confirmLabel: 'Approve & Send',
+    })
+    if (!ok) return
+    setReviewing(true)
+    try {
+      const res = await fetch(`/api/admin/oftv-projects/${project.id}/approve`, { method: 'POST' })
+      if (!res.ok) throw new Error((await res.json()).error || 'Approve failed')
+      toast?.('Sent to creator', 'success')
+      onUpdate({ ...project, status: STATUSES.SENT_TO_CREATOR })
+      setStatus(STATUSES.SENT_TO_CREATOR)
+    } catch (e) {
+      toast?.(e.message || 'Approve failed', 'error')
+    } finally {
+      setReviewing(false)
+    }
+  }
+
+  const sendBack = async () => {
+    setReviewing(true)
+    try {
+      const res = await fetch(`/api/admin/oftv-projects/${project.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: rejectNotes.trim() }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Send back failed')
+      toast?.('Sent back to editor', 'success')
+      onUpdate({ ...project, status: STATUSES.ADMIN_REVISION, adminRevisionNotes: rejectNotes.trim() })
+      setStatus(STATUSES.ADMIN_REVISION)
+      setShowRejectInput(false)
+    } catch (e) {
+      toast?.(e.message || 'Send back failed', 'error')
+    } finally {
+      setReviewing(false)
     }
   }
 
@@ -300,7 +355,7 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
                 width: '100%', padding: '10px 12px', fontSize: '13px',
                 background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
               }}>
-                {['Awaiting Upload', 'Files Uploaded', 'In Editing', 'Needs Revision', 'Delivered', 'Archived'].map(s => (
+                {ALL_STATUSES.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -398,6 +453,148 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
                 })}
               </div>
             )}
+
+            {/* ─── Admin Review Panel ─────────────────────────────────────
+                Shows when status is Final Submitted. Admin reviews the
+                final cut and either approves it (sends to creator) or
+                kicks it back to the editor with optional notes. */}
+            {isAdmin && project.status === STATUSES.FINAL_SUBMITTED && finalFiles.length > 0 && (
+              <div style={{
+                marginTop: '12px',
+                padding: '14px',
+                borderRadius: '10px',
+                background: 'rgba(232, 120, 120, 0.06)',
+                border: '1px solid rgba(232, 120, 120, 0.20)',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#E87878', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                  ⚠️ Awaiting your review
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
+                  Review the final cut above. Approve to send to {creatorName || 'the creator'}, or send back with notes for the editor.
+                </div>
+                {!showRejectInput ? (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={approveFinal}
+                      disabled={reviewing}
+                      style={{
+                        padding: '9px 18px', fontSize: '12px', fontWeight: 600,
+                        background: '#7DD3A4', color: '#1a1a1a', border: 'none', borderRadius: '9999px',
+                        cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.5 : 1,
+                      }}
+                    >✓ Approve & Send to Creator</button>
+                    <button
+                      onClick={() => setShowRejectInput(true)}
+                      disabled={reviewing}
+                      style={{
+                        padding: '9px 16px', fontSize: '12px', fontWeight: 600,
+                        background: 'transparent', color: '#E8A878',
+                        border: '1px solid rgba(232, 168, 120, 0.35)', borderRadius: '9999px',
+                        cursor: reviewing ? 'not-allowed' : 'pointer',
+                      }}
+                    >Send Back to Editor</button>
+                  </div>
+                ) : (
+                  <div>
+                    <textarea
+                      value={rejectNotes}
+                      onChange={e => setRejectNotes(e.target.value)}
+                      placeholder="Optional — what needs to change? (Leave blank if you already told the editor in chat.)"
+                      rows={3}
+                      style={{
+                        width: '100%', padding: '10px 12px', fontSize: '12px',
+                        background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '8px', color: 'var(--foreground)', outline: 'none',
+                        resize: 'vertical', fontFamily: 'inherit', marginBottom: '8px',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={sendBack}
+                        disabled={reviewing}
+                        style={{
+                          padding: '8px 16px', fontSize: '12px', fontWeight: 600,
+                          background: '#E8A878', color: '#1a1a1a', border: 'none', borderRadius: '9999px',
+                          cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.5 : 1,
+                        }}
+                      >{reviewing ? 'Sending…' : 'Send Back'}</button>
+                      <button
+                        onClick={() => { setShowRejectInput(false); setRejectNotes('') }}
+                        disabled={reviewing}
+                        style={{
+                          padding: '8px 16px', fontSize: '12px', fontWeight: 600,
+                          background: 'transparent', color: 'var(--foreground-muted)',
+                          border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9999px',
+                          cursor: 'pointer',
+                        }}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Status banners for non-actionable states */}
+            {project.status === STATUSES.SENT_TO_CREATOR && (
+              <div style={{
+                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(120, 200, 220, 0.06)', border: '1px solid rgba(120, 200, 220, 0.20)',
+                fontSize: '12px', color: 'var(--foreground)',
+              }}>
+                <strong style={{ color: '#78D4E8' }}>Sent to creator</strong> — waiting for {creatorName || 'them'} to approve or request changes.
+                {project.sentToCreatorAt && <span style={{ color: 'var(--foreground-muted)' }}> · Sent {fmtDate(project.sentToCreatorAt)}</span>}
+              </div>
+            )}
+            {project.status === STATUSES.APPROVED && (
+              <div style={{
+                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(125, 211, 164, 0.06)', border: '1px solid rgba(125, 211, 164, 0.20)',
+                fontSize: '12px', color: 'var(--foreground)',
+              }}>
+                <strong style={{ color: '#7DD3A4' }}>✓ Approved by creator</strong>
+                {project.approvedAt && <span style={{ color: 'var(--foreground-muted)' }}> · {fmtDate(project.approvedAt)}</span>}
+              </div>
+            )}
+
+            {/* Show last creator feedback so editor can act on it */}
+            {project.status === STATUSES.CREATOR_REVISION && project.creatorFeedback && (
+              <div style={{
+                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(232, 160, 200, 0.06)', border: '1px solid rgba(232, 160, 200, 0.20)',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0C8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                  Creator's revision notes
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  {project.creatorFeedback}
+                </div>
+                {project.creatorFeedbackAt && (
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+                    Submitted {fmtDate(project.creatorFeedbackAt)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Show last admin revision notes so editor can act on it */}
+            {project.status === STATUSES.ADMIN_REVISION && project.adminRevisionNotes && (
+              <div style={{
+                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(232, 168, 120, 0.06)', border: '1px solid rgba(232, 168, 120, 0.20)',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A878', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                  Admin's notes for revision
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  {project.adminRevisionNotes}
+                </div>
+                {project.reviewedBy && (
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+                    From {project.reviewedBy}{project.adminReviewedAt ? ` · ${fmtDate(project.adminReviewedAt)}` : ''}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -449,7 +646,7 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
   )
 }
 
-export default function OftvProjectsQueue({ showToast }) {
+export default function OftvProjectsQueue({ showToast, role = 'admin' }) {
   const [projects, setProjects] = useState([])
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
@@ -457,6 +654,7 @@ export default function OftvProjectsQueue({ showToast }) {
   const [statusFilter, setStatusFilter] = useState('active')
   const { toast, ToastViewport } = useToast()
   const { confirm, ConfirmDialog } = useConfirm()
+  const buckets = getBucketsForRole(role)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -494,14 +692,18 @@ export default function OftvProjectsQueue({ showToast }) {
 
   const filtered = projects.filter(p => {
     if (statusFilter === 'all') return true
-    if (statusFilter === 'active') return p.status !== 'Delivered' && p.status !== 'Archived'
+    if (statusFilter === 'active') return ACTIVE_STATUSES.includes(p.status)
     return p.status === statusFilter
   })
 
-  const grouped = STATUS_ORDER.map(status => ({
-    status,
-    items: filtered.filter(p => p.status === status),
-  })).filter(g => g.items.length > 0)
+  // Group projects into role-aware buckets. Each project can only land in
+  // one bucket — the first matching set wins (review > inflight > done).
+  const grouped = buckets
+    .map(bucket => ({
+      ...bucket,
+      items: filtered.filter(p => bucket.statuses.includes(p.status)),
+    }))
+    .filter(g => g.items.length > 0)
 
   return (
     <div>
@@ -519,11 +721,9 @@ export default function OftvProjectsQueue({ showToast }) {
         }}>
           <option value="active">Active only</option>
           <option value="all">All</option>
-          <option value="Awaiting Upload">Awaiting Upload</option>
-          <option value="Files Uploaded">Files Uploaded</option>
-          <option value="In Editing">In Editing</option>
-          <option value="Needs Revision">Needs Revision</option>
-          <option value="Delivered">Delivered</option>
+          {ALL_STATUSES.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
         </select>
       </div>
 
@@ -534,10 +734,24 @@ export default function OftvProjectsQueue({ showToast }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {grouped.map(group => (
-            <div key={group.status}>
+            <div key={group.key} style={group.urgent ? {
+              padding: '16px',
+              borderRadius: '14px',
+              background: 'rgba(232, 120, 120, 0.04)',
+              border: '1px solid rgba(232, 120, 120, 0.20)',
+            } : undefined}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                <StatusPill status={group.status} />
-                <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>{group.items.length}</span>
+                <span style={{
+                  fontSize: '12px', fontWeight: 700,
+                  color: group.urgent ? '#E87878' : 'var(--foreground)',
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>{group.label}</span>
+                <span style={{
+                  fontSize: '11px', fontWeight: 600,
+                  padding: '2px 8px', borderRadius: '9999px',
+                  background: group.urgent ? 'rgba(232, 120, 120, 0.15)' : 'rgba(255,255,255,0.06)',
+                  color: group.urgent ? '#E87878' : 'var(--foreground-muted)',
+                }}>{group.items.length}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {group.items.map(p => {
@@ -580,6 +794,7 @@ export default function OftvProjectsQueue({ showToast }) {
           showToast={showToast}
           confirm={confirm}
           toast={toast}
+          role={role}
           onClose={() => setDetail(null)}
           onUpdate={(updated) => {
             setProjects(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))
