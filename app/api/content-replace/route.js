@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile } from '@/lib/dropbox'
+import { triggerAssetMirror } from '@/lib/triggerMirror'
+import { deleteImage } from '@/lib/cloudflareImages'
+import { deleteStreamVideo } from '@/lib/cloudflareStream'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OPS_BASE = 'applLIT2t83plMqNx'
@@ -93,7 +96,17 @@ export async function POST(request) {
       }
     }
 
-    // Update asset record with new files
+    // Tear down old CF mirrors — the new file invalidates them. Best-effort;
+    // orphaned Stream/Images entries cost pennies and the cron won't re-pick
+    // them up after we clear the fields below.
+    const oldCdnImageId = asset.fields?.['CDN Image ID']
+    const oldStreamRawId = asset.fields?.['Stream Raw ID']
+    const oldStreamEditId = asset.fields?.['Stream Edit ID']
+    if (oldCdnImageId) deleteImage(oldCdnImageId).catch(() => {})
+    if (oldStreamRawId) deleteStreamVideo(oldStreamRawId).catch(() => {})
+    if (oldStreamEditId) deleteStreamVideo(oldStreamEditId).catch(() => {})
+
+    // Update asset record with new files (clear CF fields so re-mirror runs)
     const updateRes = await fetch(
       `https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`,
       {
@@ -108,6 +121,10 @@ export async function POST(request) {
             'Dropbox Shared Link': uploadedFiles.map(f => f.sharedLink).filter(Boolean).join('\n') || '',
             'Dropbox Path (Current)': uploadedFiles.map(f => f.path).filter(Boolean).join('\n') || '',
             'Thumbnail': [], // Clear old thumbnail before re-uploading
+            'CDN URL': '',
+            'CDN Image ID': '',
+            'Stream Raw ID': '',
+            'Stream Edit ID': '',
           },
         }),
       }
@@ -164,6 +181,8 @@ export async function POST(request) {
         console.warn('[content-replace] Task update failed:', err.message)
       }
     }
+
+    triggerAssetMirror(assetId)
 
     return NextResponse.json({
       status: 'success',
