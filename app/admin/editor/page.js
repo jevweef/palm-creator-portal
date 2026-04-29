@@ -568,8 +568,8 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
       <div style={{ display: 'flex', height: '200px', background: 'var(--background)' }}>
         {/* Inspo thumbnail */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {task.inspo.thumbnail ? (
-            <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
+            <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '12px' }}>No thumbnail</div>
           )}
@@ -585,10 +585,10 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
 
         {/* Creator clip */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {task.asset.thumbnail ? (
+          {(task.asset.cdnUrl || task.asset.thumbnail) ? (
             <a href={task.asset.dropboxLink || '#'} target={task.asset.dropboxLink ? '_blank' : undefined} rel="noopener noreferrer"
               style={{ display: 'block', width: '100%', height: '100%' }}>
-              <img src={task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={task.asset.cdnUrl || task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </a>
           ) : task.asset.dropboxLink ? (
             <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
@@ -1161,7 +1161,7 @@ function UnreviewedLibrary({ showToast }) {
                   </div>
                 )}
                 <CaptionSuggestions
-                  thumbnailUrl={asset.thumbnail}
+                  thumbnailUrl={asset.cdnUrl || asset.thumbnail}
                   videoUrl={(asset.dropboxLinks?.[0] || asset.dropboxLink || '').replace(/([?&])dl=[01]/, '$1raw=1')}
                   creatorId={asset.creator?.id}
                 />
@@ -1950,7 +1950,7 @@ function ForReview({ showToast }) {
             const rawClipUrl = toRawUrl((task.asset.dropboxLink || '').split('\n').filter(Boolean)[0] || '')
             const editUrl = task.asset.editedFileLink ? task.asset.editedFileLink.replace(/([?&])dl=[01]/, '$1raw=1') : ''
             const inspoVideoUrl = task.inspo.dbShareLink ? toRawUrl(task.inspo.dbShareLink) : ''
-            const hasInspo = !!(inspoVideoUrl || task.inspo.thumbnail)
+            const hasInspo = !!(inspoVideoUrl || task.inspo.cdnUrl || task.inspo.thumbnail)
 
             return (
               <div key={task.id} style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden' }}>
@@ -2000,8 +2000,8 @@ function ForReview({ showToast }) {
                         <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
                           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                           onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-                      ) : task.inspo.thumbnail ? (
-                        <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                      ) : (task.inspo.cdnUrl || task.inspo.thumbnail) ? (
+                        <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                       ) : null}
                       <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
                     </div>
@@ -2310,8 +2310,8 @@ function SubmissionsFeed({ showToast }) {
                     <div key={s.id} style={{ background: 'var(--card-bg-solid)', borderRadius: '12px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                       {/* Thumbnail */}
                       <div style={{ width: '48px', height: '64px', borderRadius: '6px', overflow: 'hidden', background: 'var(--background)', flexShrink: 0 }}>
-                        {(s.asset?.thumbnail || s.inspo?.thumbnail) && (
-                          <img src={s.asset?.thumbnail || s.inspo?.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {(s.asset?.cdnUrl || s.asset?.thumbnail || s.inspo?.cdnUrl || s.inspo?.thumbnail) && (
+                          <img src={s.asset?.cdnUrl || s.asset?.thumbnail || s.inspo?.cdnUrl || s.inspo?.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         )}
                       </div>
                       {/* Info */}

@@ -17,7 +17,7 @@ export async function GET() {
       filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK()), {Source Type}!='Inspo Upload')",
       fields: [
         'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
-        'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Palm Creators',
+        'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Palm Creators',
         'Upload Week', 'Created Time',
       ],
     })
@@ -58,6 +58,7 @@ export async function GET() {
         dropboxPath: f['Dropbox Path (Current)'] || '',
         creatorNotes: f['Creator Notes'] || '',
         thumbnail: f.Thumbnail?.[0]?.thumbnails?.large?.url || f.Thumbnail?.[0]?.url || '',
+        cdnUrl: f['CDN URL'] || null,
         uploadWeek: f['Upload Week'] || '',
         createdTime: a.createdTime || '',
         creator: {

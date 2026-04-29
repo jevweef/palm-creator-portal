@@ -286,7 +286,7 @@ export async function GET(request) {
     if (assetIds.length) {
       const assets = await fetchAirtableRecords('Assets', {
         filterByFormula: `OR(${assetIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
-        fields: ['Asset Name', 'Thumbnail', 'Edited File Link', 'Dropbox Shared Link'],
+        fields: ['Asset Name', 'Thumbnail', 'CDN URL', 'Edited File Link', 'Dropbox Shared Link'],
       })
       for (const a of assets) assetMap[a.id] = a.fields || {}
     }
@@ -335,7 +335,13 @@ export async function GET(request) {
       const pickImage = (atts) => (atts || []).find(a => a?.type?.startsWith('image/'))
       const postImg = pickImage(f.Thumbnail)
       const assetImg = pickImage(asset.Thumbnail)
-      const thumb = (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
+      // Prefer Cloudflare-mirrored asset photo (~50ms edge serve) over Airtable
+      // attachment thumbnails, then fall back to whichever Airtable URL exists.
+      // Only photos have CDN URLs — for video posts cdnUrl is null and the
+      // Airtable-generated poster is used.
+      const cdnUrl = asset['CDN URL'] || ''
+      const thumb = cdnUrl ||
+        (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
         (assetImg?.thumbnails?.large?.url) || (assetImg?.url) || ''
       const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0
       const accountId = (f.Account || [])[0] || null

@@ -108,9 +108,9 @@ export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) 
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
             onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
         ) : photoFile && rawUrl ? (
-          <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : asset.thumbnail ? (
-          <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={asset.cdnUrl || rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (asset.cdnUrl || asset.thumbnail) ? (
+          <img src={asset.cdnUrl || asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '28px' }}>&#127916;</div>
         )}
@@ -460,8 +460,8 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
       {/* Thumbnail strip: inspo → creator clip */}
       <div style={{ display: 'flex', height: '155px', background: 'var(--background)' }}>
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {task.inspo.thumbnail ? (
-            <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
+            <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '11px' }}>No thumbnail</div>
           )}
@@ -476,8 +476,8 @@ export function TaskCard({ task, type, creatorName, onAction, updating }) {
           {task.asset.dropboxLink ? (
             <a href={task.asset.dropboxLinks?.[0] || task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
               style={{ display: 'block', width: '100%', height: '100%', textDecoration: 'none' }}>
-              {task.asset.thumbnail ? (
-                <img src={task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {(task.asset.cdnUrl || task.asset.thumbnail) ? (
+                <img src={task.asset.cdnUrl || task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(125, 211, 164, 0.08)', gap: '4px' }}>
                   <svg style={{ width: '24px', height: '24px', color: '#7DD3A4' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -746,7 +746,7 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
 
 // ─── Task Detail Modal ─────────────────────────────────────────────────────────
 
-function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }) {
+function MediaPanel({ label, link, rawUrl, fallbackThumb, cdnUrl, accentColor = '#999' }) {
   const videoSrc = rawUrl && isVideo(link) ? rawUrl : null
   const photoSrc = rawUrl && isPhoto(link) ? rawUrl : null
   const [copied, setCopied] = useState(false)
@@ -776,9 +776,9 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, accentColor = '#999' }
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
             onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
         ) : photoSrc ? (
-          <img src={photoSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : fallbackThumb ? (
-          <img src={fallbackThumb} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={cdnUrl || photoSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (cdnUrl || fallbackThumb) ? (
+          <img src={cdnUrl || fallbackThumb} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '32px' }}>&#127916;</div>
         )}
@@ -1371,6 +1371,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   link={editedLink}
                   rawUrl={editedRawUrl}
                   fallbackThumb={task?.asset?.thumbnail || ''}
+                  cdnUrl={task?.asset?.cdnUrl || null}
                   accentColor="#E88FAC"
                 />
                 <MediaPanel
@@ -1378,6 +1379,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   link={assetLink}
                   rawUrl={assetRawUrl}
                   fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
+                  cdnUrl={task?.asset?.cdnUrl || clip?.cdnUrl || null}
                   accentColor="#999"
                 />
               </>
@@ -1388,6 +1390,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   link={assetLink}
                   rawUrl={assetRawUrl}
                   fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
+                  cdnUrl={task?.asset?.cdnUrl || clip?.cdnUrl || null}
                   accentColor="#22c55e"
                 />
                 <MediaPanel
@@ -1395,6 +1398,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   link={inspoLink}
                   rawUrl={inspoRawUrl}
                   fallbackThumb={inspo.thumbnail || ''}
+                  cdnUrl={inspo.cdnUrl || null}
                   accentColor="#E88FAC"
                 />
               </>
@@ -1668,19 +1672,19 @@ function SlotThumbnail({ slot }) {
 
   if (slot.type === 'done') {
     const editedUrl = task?.asset?.editedFileLink ? rawDropboxUrl(task.asset.editedFileLink) : ''
-    const thumb = task?.asset?.thumbnail || task?.inspo?.thumbnail || ''
+    const thumb = task?.asset?.cdnUrl || task?.asset?.thumbnail || task?.inspo?.cdnUrl || task?.inspo?.thumbnail || ''
     if (editedUrl) return <video className={cls} src={editedUrl} muted playsInline style={{ ...style, opacity: 0.7 }} />
     if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, opacity: 0.6 }} />
     return null
   }
 
   if (slot.type === 'inspoClip') {
-    const thumb = clip?.thumbnail || clip?.inspo?.thumbnail || ''
+    const thumb = clip?.cdnUrl || clip?.thumbnail || clip?.inspo?.cdnUrl || clip?.inspo?.thumbnail || ''
     return thumb ? <img className={cls} src={thumb} alt="" style={style} /> : null
   }
 
   // toDo or inProgress
-  const thumb = task?.inspo?.thumbnail || task?.asset?.thumbnail || ''
+  const thumb = task?.inspo?.cdnUrl || task?.inspo?.thumbnail || task?.asset?.cdnUrl || task?.asset?.thumbnail || ''
   const rawClipUrl = !thumb ? rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '') : ''
   if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, ...(task?.adminReviewStatus === 'Needs Revision' ? { border: '1px solid #fecaca' } : {}) }} />
   if (rawClipUrl) return <video className={cls} src={rawClipUrl} muted playsInline style={style} />
@@ -2497,7 +2501,7 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
   const editedFileLink = task.asset?.editedFileLink || ''
   const editUrl = rawDropboxUrl(editedFileLink)
   const inspoVideoUrl = task.inspo?.dbShareLink ? rawDropboxUrl(task.inspo.dbShareLink) : ''
-  const hasInspo = !!(inspoVideoUrl || task.inspo?.thumbnail)
+  const hasInspo = !!(inspoVideoUrl || task.inspo?.cdnUrl || task.inspo?.thumbnail)
 
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -2543,8 +2547,8 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
               <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
                 onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-            ) : task.inspo?.thumbnail ? (
-              <img src={task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+            ) : (task.inspo?.cdnUrl || task.inspo?.thumbnail) ? (
+              <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
             ) : null}
             <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
           </div>

@@ -252,7 +252,7 @@ export default function ChatWallPage() {
 
       <div style={{ marginBottom: '16px' }}>
         <h1 style={{ fontSize: '26px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
-          Chat Wall
+          Social Media Photo Library
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 0', maxWidth: '680px' }}>
           Browse a creator&apos;s full photo library. Click any photo, pick <strong>Wall Post</strong> or <strong>Mass Message</strong>,

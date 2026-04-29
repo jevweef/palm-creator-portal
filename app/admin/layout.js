@@ -33,7 +33,7 @@ const ADMIN_NAV = [
     { key: 'internal', label: 'Palm Internal' },
     { key: 'team', label: 'Chat Team Report' },
   ]},
-  { href: '/admin/chat-wall', label: 'Chat Wall', icon: '🖼️' },
+  { href: '/admin/chat-wall', label: 'Photo Library', icon: '🖼️' },
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
   { href: '/admin/invoicing', label: 'Invoicing', icon: '💸', children: [
     { key: 'invoices', label: 'Invoices' },
@@ -48,7 +48,7 @@ const EDITOR_NAV = [
 ]
 
 const CHAT_MANAGER_NAV = [
-  { href: '/admin/chat-wall', label: 'Chat Wall', icon: '🖼️' },
+  { href: '/admin/chat-wall', label: 'Photo Library', icon: '🖼️' },
 ]
 
 export default function AdminLayout({ children }) {

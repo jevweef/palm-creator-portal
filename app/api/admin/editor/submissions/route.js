@@ -56,8 +56,8 @@ export async function GET() {
 
     const [creators, assets, inspos] = await Promise.all([
       fetchByIds('Palm Creators', creatorIds, ['Creator', 'AKA']),
-      fetchByIds('Assets', assetIds, ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail']),
-      fetchByIds('Inspiration', inspoIds, ['Title', 'Thumbnail']),
+      fetchByIds('Assets', assetIds, ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail', 'CDN URL']),
+      fetchByIds('Inspiration', inspoIds, ['Title', 'Thumbnail', 'CDN URL']),
     ])
 
     const creatorMap = Object.fromEntries(creators.map(r => [r.id, r.fields]))
@@ -99,11 +99,13 @@ export async function GET() {
             editedFileLink: asset?.['Edited File Link'] || '',
             dropboxLink: asset?.['Dropbox Shared Link'] || '',
             thumbnail: asset?.Thumbnail?.[0]?.thumbnails?.large?.url || asset?.Thumbnail?.[0]?.url || '',
+            cdnUrl: asset?.['CDN URL'] || null,
           } : null,
           inspo: inspoId ? {
             id: inspoId,
             title: inspo?.Title || '',
             thumbnail: inspo?.Thumbnail?.[0]?.thumbnails?.large?.url || inspo?.Thumbnail?.[0]?.url || '',
+            cdnUrl: inspo?.['CDN URL'] || null,
           } : null,
         }
       })

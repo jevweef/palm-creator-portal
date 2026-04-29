@@ -31,7 +31,7 @@ export async function GET() {
     const [assetRecords, creatorRecords, inspoRecords] = await Promise.all([
       assetIds.length ? fetchAirtableRecords('Assets', {
         filterByFormula: recordIdFormula(assetIds),
-        fields: ['Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Edited File Link', 'Thumbnail', 'Palm Creators'],
+        fields: ['Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Edited File Link', 'Thumbnail', 'CDN URL', 'Palm Creators'],
       }) : [],
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
         filterByFormula: recordIdFormula(creatorIds),
@@ -39,7 +39,7 @@ export async function GET() {
       }) : [],
       inspoIds.length ? fetchAirtableRecords('Inspiration', {
         filterByFormula: recordIdFormula(inspoIds),
-        fields: ['Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail', 'Username', 'DB Share Link', 'On-Screen Text'],
+        fields: ['Title', 'Notes', 'Tags', 'Film Format', 'Content link', 'Thumbnail', 'CDN URL', 'Username', 'DB Share Link', 'On-Screen Text'],
       }) : [],
     ])
 
@@ -80,6 +80,7 @@ export async function GET() {
           editedFileLink: asset['Edited File Link'] || '',
           dropboxLink: asset['Dropbox Shared Link'] || '',
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
+          cdnUrl: asset['CDN URL'] || null,
         },
         inspo: {
           id: inspoId,
@@ -88,6 +89,7 @@ export async function GET() {
           tags: inspo.Tags || [],
           contentLink: inspo['Content link'] || '',
           thumbnail: inspo.Thumbnail?.[0]?.thumbnails?.large?.url || inspo.Thumbnail?.[0]?.url || '',
+          cdnUrl: inspo['CDN URL'] || null,
           username: inspo.Username || '',
           onScreenText: inspo['On-Screen Text'] || '',
           dbShareLink: inspo['DB Share Link'] || '',
