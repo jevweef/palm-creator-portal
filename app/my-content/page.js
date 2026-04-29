@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { tagStyle } from '@/lib/tagStyle'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
+import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 import QuotaBar from '@/components/QuotaBar'
 import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
@@ -165,12 +166,19 @@ function PipelineDetailModal({ item, onClose, onReplace }) {
           </div>
         </div>
 
-        {/* Two videos side by side */}
+        {/* Two videos side by side. Prefer Cloudflare Stream iframe when the
+            asset has a Stream UID — instant playback from the edge instead of
+            multi-second Dropbox loads. Fall back to <video src=Dropbox> only
+            when no Stream UID exists yet (rare after the backfill). */}
         <div style={{ display: 'flex', gap: '16px', padding: '20px 24px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--palm-pink)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>My Clip</div>
             <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
-              {clipUrl ? (
+              {(item.streamEditId || item.streamRawId) ? (
+                <iframe src={buildStreamIframeUrl(item.streamEditId || item.streamRawId, { autoplay: false, controls: true })}
+                  allow="autoplay; fullscreen" allowFullScreen
+                  style={{ width: '100%', height: '100%', border: 'none' }} />
+              ) : clipUrl ? (
                 <video src={clipUrl} controls playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px' }}>No clip</div>

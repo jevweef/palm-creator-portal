@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import CaptionSuggestions from '@/components/CaptionSuggestions'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
+import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 
 // ─── Lazy-loaded Creator DNA Modal ────────────────────────────────────────────
 
@@ -776,9 +777,10 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
 
 // ─── Task Detail Modal ─────────────────────────────────────────────────────────
 
-function MediaPanel({ label, link, rawUrl, fallbackThumb, cdnUrl, accentColor = '#999' }) {
+function MediaPanel({ label, link, rawUrl, fallbackThumb, cdnUrl, streamUid, accentColor = '#999' }) {
   const videoSrc = rawUrl && isVideo(link) ? rawUrl : null
   const photoSrc = rawUrl && isPhoto(link) ? rawUrl : null
+  const streamSrc = streamUid && isVideo(link) ? buildStreamIframeUrl(streamUid, { autoplay: true, muted: true, loop: true, controls: false }) : null
   const [copied, setCopied] = useState(false)
 
   const filename = (() => {
@@ -801,7 +803,14 @@ function MediaPanel({ label, link, rawUrl, fallbackThumb, cdnUrl, accentColor = 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
       <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
       <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', background: 'var(--background)', aspectRatio: '9/16', flex: 1 }}>
-        {videoSrc ? (
+        {streamSrc ? (
+          // CF Stream iframe — instant first frame from the edge. Muted+looped
+          // matches the previous Dropbox <video> autoplay behavior. Keeps
+          // pointer-events on so the player's own click-to-play / fullscreen
+          // controls are reachable inside the modal.
+          <iframe src={streamSrc} allow="autoplay; fullscreen" allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+        ) : videoSrc ? (
           <video src={videoSrc} autoPlay muted loop playsInline preload="metadata"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
             onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
@@ -1405,6 +1414,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   rawUrl={assetRawUrl}
                   fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
                   cdnUrl={task?.asset?.cdnUrl || clip?.cdnUrl || null}
+                  streamUid={task?.asset?.streamRawId || clip?.streamRawId || null}
                   accentColor="#999"
                 />
                 <MediaPanel
@@ -1413,6 +1423,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   rawUrl={editedRawUrl}
                   fallbackThumb={task?.asset?.thumbnail || ''}
                   cdnUrl={task?.asset?.cdnUrl || null}
+                  streamUid={task?.asset?.streamEditId || null}
                   accentColor="#E88FAC"
                 />
               </>
@@ -1424,6 +1435,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   rawUrl={assetRawUrl}
                   fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
                   cdnUrl={task?.asset?.cdnUrl || clip?.cdnUrl || null}
+                  streamUid={task?.asset?.streamRawId || clip?.streamRawId || null}
                   accentColor="#22c55e"
                 />
                 <MediaPanel

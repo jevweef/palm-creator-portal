@@ -91,7 +91,8 @@ export async function GET(request) {
     const assetParams = new URLSearchParams()
     ;['Asset Name', 'Palm Creators', 'Inspiration Source', 'Pipeline Status',
       'Creator Notes', 'Upload Week', 'Source Type', 'Dropbox Shared Link',
-      'Dropbox Path (Current)', 'Asset Type', 'Thumbnail', 'CDN URL',
+      'Edited File Link', 'Dropbox Path (Current)', 'Asset Type',
+      'Thumbnail', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID',
     ].forEach((f) => assetParams.append('fields[]', f))
 
     const [inspoRecords, assetRecords, creatorRes] = await Promise.all([
@@ -188,7 +189,10 @@ export async function GET(request) {
         pipelineStatus: status || 'Uploaded',
         creatorNotes: a.fields['Creator Notes'] || '',
         dropboxLink: a.fields['Dropbox Shared Link'] || '',
+        editedFileLink: a.fields['Edited File Link'] || '',
         cdnUrl: a.fields['CDN URL'] || null,
+        streamEditId: a.fields['Stream Edit ID'] || null,
+        streamRawId: a.fields['Stream Raw ID'] || null,
         // Creator's uploaded clip thumbnail (what the card should show)
         assetThumbnail: assetThumb && assetThumb.length > 0 ? assetThumb[0].url : null,
         inspoId: inspoSourceIds[0] || null,
