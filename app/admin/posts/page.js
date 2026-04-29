@@ -563,6 +563,32 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
   )
 }
 
+// Audio-on, controls modal — same pattern admin For Review uses. Click any
+// PostCard video cell to open this. Prefers CF Stream iframe, falls back to
+// a Dropbox <video> for assets that haven't been mirrored to Stream yet.
+function PostVideoModal({ streamUid, url, onClose }) {
+  const streamSrc = streamUid ? buildStreamIframeUrl(streamUid, { autoplay: true, controls: true }) : null
+  const dropboxRaw = url ? rawDropboxUrl(url) : null
+  return (
+    <div onClick={e => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ position: 'relative', maxHeight: '90vh', maxWidth: '420px', width: '100%', aspectRatio: '9/16' }}>
+        {streamSrc ? (
+          <iframe src={streamSrc} allow="autoplay; fullscreen" allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none', borderRadius: '10px', background: '#000' }} />
+        ) : dropboxRaw ? (
+          <video src={dropboxRaw} controls autoPlay playsInline
+            style={{ width: '100%', maxHeight: '90vh', borderRadius: '10px', display: 'block', background: '#000' }} />
+        ) : null}
+        <button onClick={onClose}
+          style={{ position: 'absolute', top: '-14px', right: '-14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '50%', width: '32px', height: '32px', color: 'var(--foreground)', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          ×
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function PostCard({ post, onRefresh, onSend }) {
   const [editing, setEditing] = useState(false)
   const [caption, setCaption] = useState(post.caption)
@@ -572,6 +598,7 @@ function PostCard({ post, onRefresh, onSend }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
+  const [videoModal, setVideoModal] = useState(null)
   // Track the ORIGINAL URL that came from the saved Post record — so we can
   // detect whether the user actually changed the thumbnail this session, and
   // skip rewriting Airtable's own attachment URL back to itself (which corrupts
@@ -661,29 +688,38 @@ function PostCard({ post, onRefresh, onSend }) {
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
       {/* Left — video cell at 9:16. Prefers Cloudflare Stream iframe (cheap
-          to mount, autoplays muted/looped from the edge) so the editor sees
-          the actual edit playing. Falls back to a static thumbnail + play
-          glyph for assets that haven't been mirrored yet. Direct Dropbox
-          <video> is the last resort — kept off this list since dozens of
-          them brought the page to a halt before. */}
+          to mount, autoplays muted/looped from the edge) so the admin sees
+          the edit looping silently in the grid. Click the cell to open the
+          PostVideoModal with audio + controls — same affordance the For
+          Review queue uses. iframe gets pointer-events:none so the click
+          reaches the wrapping <button>. */}
       <div style={{ width: '300px', flexShrink: 0, background: 'rgba(232, 160, 160, 0.04)', position: 'relative', aspectRatio: '9/16' }}>
         {hasFile ? (
           isVideo(post.asset.editedFileLink) ? (
-            post.asset?.streamEditId ? (
-              <iframe src={buildStreamIframeUrl(post.asset.streamEditId, { autoplay: true, muted: true, loop: true, controls: false })}
-                allow="autoplay" loading="lazy"
-                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
-            ) : (thumbnailUrl || post.asset?.cdnUrl) ? (
-              <>
-                <img src={thumbnailUrl || cdnUrlAtSize(post.asset?.cdnUrl, 600)} alt="" loading="lazy" decoding="async"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.45)', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '18px', marginLeft: '3px' }}>▶</span>
-                </div>
-              </>
-            ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(120, 180, 232, 0.04))', color: 'rgba(255,255,255,0.4)', fontSize: '32px' }}>▶</div>
-            )
+            <button
+              onClick={() => {
+                if (post.asset?.streamEditId) setVideoModal({ streamUid: post.asset.streamEditId })
+                else if (post.asset?.editedFileLink) setVideoModal({ url: post.asset.editedFileLink })
+              }}
+              style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              title="Play with audio"
+            >
+              {post.asset?.streamEditId ? (
+                <iframe src={buildStreamIframeUrl(post.asset.streamEditId, { autoplay: true, muted: true, loop: true, controls: false })}
+                  allow="autoplay" loading="lazy"
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }} />
+              ) : (thumbnailUrl || post.asset?.cdnUrl) ? (
+                <>
+                  <img src={thumbnailUrl || cdnUrlAtSize(post.asset?.cdnUrl, 600)} alt="" loading="lazy" decoding="async"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.45)', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '18px', marginLeft: '3px' }}>▶</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(120, 180, 232, 0.04))', color: 'rgba(255,255,255,0.4)', fontSize: '32px' }}>▶</div>
+              )}
+            </button>
           ) : (
             <img src={cdnUrlAtSize(post.asset?.cdnUrl, 600) || rawUrl} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           )
@@ -798,6 +834,14 @@ function PostCard({ post, onRefresh, onSend }) {
             </div>
           </div>
         </div>
+
+        {videoModal && (
+          <PostVideoModal
+            streamUid={videoModal.streamUid}
+            url={videoModal.url}
+            onClose={() => setVideoModal(null)}
+          />
+        )}
 
         {showFramePicker && (
           <VideoFramePicker
