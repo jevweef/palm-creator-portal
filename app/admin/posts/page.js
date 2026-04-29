@@ -742,7 +742,7 @@ function PostCard({ post, onRefresh, onSend }) {
     // Locked to 9:16 video height (300×533) so the card doesn't grow/shrink
     // when fields collapse-expand or the Save button shows up. The user said
     // "everything to be more sturdy" — a fixed height is the cheapest way.
-    <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row', height: '533px' }}>
+    <div id={`post-card-${post.id}`} style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row', height: '533px' }}>
 
       {/* Left — video cell at 9:16. Prefers Cloudflare Stream iframe (cheap
           to mount, autoplays muted/looped from the edge) so the admin sees
@@ -1199,6 +1199,26 @@ export default function PostsPage() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Deep-link from Grid Planner: `?focusPost=recXXX` scrolls the matching
+  // card into view and pulses a highlight ring around it. Lets the admin
+  // jump straight from a grid cell into Post Prep with the right card open.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const focusId = params.get('focusPost')
+    if (!focusId || !data) return
+    // Wait one tick for cards to render
+    const t = setTimeout(() => {
+      const el = document.getElementById(`post-card-${focusId}`)
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.style.boxShadow = '0 0 0 3px var(--palm-pink)'
+      el.style.transition = 'box-shadow 0.4s ease'
+      setTimeout(() => { el.style.boxShadow = '' }, 3000)
+    }, 200)
+    return () => clearTimeout(t)
+  }, [data])
   // Silent variant for child callers — cards passed onRefresh trigger a
   // background refetch without the loading flash.
   const silentRefresh = useCallback(() => fetchData({ silent: true }), [fetchData])

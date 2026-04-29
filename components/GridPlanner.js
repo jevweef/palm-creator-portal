@@ -2169,6 +2169,32 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
               ↺ To Prepping
             </button>
           )}
+          {/* Always-available escape hatch: open this exact post in Post Prep
+              to edit thumbnail / caption / etc in the full Post Prep UI.
+              Flips status to Prepping if needed, then navigates. */}
+          {!isScraped && post.id?.startsWith('rec') && !post.telegramSentAt && !post.postedAt && (
+            <button
+              onClick={async () => {
+                try {
+                  if (post.status !== 'Prepping') {
+                    await fetch('/api/admin/grid-planner', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'setStatus', postId: post.id, status: 'Prepping' }),
+                    })
+                  }
+                } catch {} finally {
+                  window.location.href = `/admin/posts?focusPost=${post.id}`
+                }
+              }}
+              title="Open this post in Post Prep (full edit UI)"
+              style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
+                background: 'rgba(232, 160, 160, 0.10)', color: 'var(--palm-pink)',
+                border: '1px solid rgba(232, 160, 160, 0.3)', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              ✎ Edit in Post Prep
+            </button>
+          )}
           {smmMode && !isScraped ? (
             <button
               onClick={() => onMarkScheduled?.(!post.smmScheduled)}
