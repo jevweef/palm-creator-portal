@@ -67,6 +67,7 @@ export async function POST(_request, { params }) {
     event: 'admin_approved',
     creator: aka,
     projectName: record.fields?.['Project Name'],
+    projectId: id,
   }).catch(() => {})
 
   return NextResponse.json({ ok: true, status: STATUSES.SENT_TO_CREATOR })

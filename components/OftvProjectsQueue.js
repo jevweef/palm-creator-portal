@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useBackdropDismiss } from '@/lib/useBackdropDismiss'
 import { useToast } from '@/lib/useToast'
 import { useConfirm } from '@/lib/useConfirm'
@@ -49,6 +50,44 @@ function StatusPill({ status, pulse = false }) {
   )
 }
 
+/**
+ * Tiny status chip for the admin queue card. Shows where the editor is
+ * in their pickup loop — "Not seen" / "Seen" / "Started". Three states
+ * keep the at-a-glance scan fast: anything that's "Not seen" longer than
+ * expected is the row that needs nudging.
+ */
+function EditorPickupChip({ acknowledgedAt, startedAt, acknowledgedBy }) {
+  let label, color, bg
+  if (startedAt) {
+    label = '🎬 Started'
+    color = '#7DD3A4'
+    bg = 'rgba(125, 211, 164, 0.10)'
+  } else if (acknowledgedAt) {
+    label = `👀 Seen${acknowledgedBy ? ` · ${acknowledgedBy.split(' ')[0]}` : ''}`
+    color = '#E8C878'
+    bg = 'rgba(232, 200, 120, 0.10)'
+  } else {
+    label = '✗ Not seen'
+    color = '#9ca3af'
+    bg = 'rgba(156, 163, 175, 0.08)'
+  }
+  return (
+    <span
+      title={
+        startedAt ? `Editor downloaded files on ${new Date(startedAt).toLocaleString()}` :
+        acknowledgedAt ? `Editor opened on ${new Date(acknowledgedAt).toLocaleString()}` :
+        'Editor has not opened this project yet'
+      }
+      style={{
+        fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '9999px',
+        background: bg, color, whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </span>
+  )
+}
+
 function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, confirm, toast, role }) {
   const isAdmin = role === 'admin'
   const [editorNotes, setEditorNotes] = useState(project.editorNotes || '')
@@ -59,6 +98,8 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
   const [reviewing, setReviewing] = useState(false)
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectNotes, setRejectNotes] = useState('')
+  const [filesExpanded, setFilesExpanded] = useState(false)
+  const COLLAPSED_FILE_COUNT = 5
   const [files, setFiles] = useState(null)
   const [assets, setAssets] = useState([])
   const [finalFiles, setFinalFiles] = useState([])
@@ -75,6 +116,24 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
       .then(r => r.json())
       .then(d => setFiles(d.project?.files || []))
       .catch(() => setFiles([]))
+  }, [project.id])
+
+  // First-touch acknowledgement — fires once when the modal opens.
+  // Endpoint is idempotent on the server side (only writes if empty), so
+  // re-firing doesn't hurt. We don't await it; nothing in the UI depends
+  // on the response.
+  useEffect(() => {
+    fetch(`/api/admin/oftv-projects/${project.id}/acknowledge`, { method: 'POST' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.acknowledgedAt && !project.editorAcknowledgedAt) {
+          // Reflect locally so the admin sees the badge update immediately
+          // without needing a queue refresh.
+          onUpdate?.({ id: project.id, editorAcknowledgedAt: d.acknowledgedAt })
+        }
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id])
 
   const creatorId = (project.creatorIds || [])[0]
@@ -185,6 +244,34 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
     } finally {
       setReviewing(false)
     }
+  }
+
+  // Editor clicks "Download from Dropbox" → log the start, flip status to
+  // In Editing if applicable, then open Dropbox in a new tab. We open in
+  // an explicit window.open() instead of the <a> default so we can guarantee
+  // the API call lands before the new tab steals focus on slow connections.
+  const handleDropboxDownload = (e) => {
+    e.preventDefault()
+    if (project.folderLink) {
+      // Open immediately — popup blockers fire only on async user gestures,
+      // and we want to keep this as direct as possible. The API call below
+      // races but is fire-and-forget.
+      window.open(project.folderLink, '_blank', 'noopener,noreferrer')
+    }
+    fetch(`/api/admin/oftv-projects/${project.id}/start`, { method: 'POST' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.flippedStatus) {
+          onUpdate?.({ id: project.id, status: STATUSES.IN_EDITING, editorStartedAt: new Date().toISOString() })
+          setStatus(STATUSES.IN_EDITING)
+          toast?.('Status → In Editing', 'success')
+        } else if (!project.editorStartedAt) {
+          // Started but status was already past Files Uploaded — still log
+          // the timestamp locally if it wasn't there yet.
+          onUpdate?.({ id: project.id, editorStartedAt: new Date().toISOString() })
+        }
+      })
+      .catch(() => {})
   }
 
   const sendBack = async () => {
@@ -300,48 +387,103 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
             </div>
           )}
 
+          {/* Source files — prominent download CTA up top, then a
+              collapsed preview list. With 60+ raw clips per project, the
+              modal would be unusable if every file expanded by default. */}
           {files && files.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                Uploaded Files ({files.length})
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Source Files ({files.length})
+                </div>
+                {project.folderLink && (
+                  <a
+                    href={project.folderLink}
+                    onClick={handleDropboxDownload}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      padding: '7px 14px', fontSize: '12px', fontWeight: 600,
+                      borderRadius: '9999px', textDecoration: 'none',
+                      background: 'rgba(120, 180, 232, 0.10)', color: '#78B4E8',
+                      border: '1px solid rgba(120, 180, 232, 0.25)',
+                    }}
+                  >
+                    ⬇ Download from Dropbox
+                  </a>
+                )}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {files.map((f, i) => {
-                  const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
-                  const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
-                    : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
-                  return (
-                    <div
-                      key={i}
-                      onClick={isMedia ? () => { setPreviewKind('project'); setPreviewFile(f) } : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                        padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
-                        cursor: isMedia ? 'pointer' : 'default',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '14px' }}>{icon}</span>
-                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
-                        <span>{fmtSize(f.size)}</span>
-                        {isMedia && <span style={{ color: '#E8A0A0' }}>▶</span>}
-                      </div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '8px' }}>
+                Click the Dropbox link above to download everything as a zip, or click any file below to preview.
+              </div>
+
+              {(() => {
+                const visibleFiles = filesExpanded ? files : files.slice(0, COLLAPSED_FILE_COUNT)
+                const hiddenCount = files.length - visibleFiles.length
+                return (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {visibleFiles.map((f, i) => {
+                        const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
+                        const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
+                          : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
+                        return (
+                          <div
+                            key={i}
+                            onClick={isMedia ? () => { setPreviewKind('project'); setPreviewFile(f) } : undefined}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                              padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
+                              cursor: isMedia ? 'pointer' : 'default',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                              <span style={{ fontSize: '14px' }}>{icon}</span>
+                              <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+                              <span>{fmtSize(f.size)}</span>
+                              {isMedia && <span style={{ color: '#E8A0A0' }}>▶</span>}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
-              </div>
+                    {hiddenCount > 0 && (
+                      <button
+                        onClick={() => setFilesExpanded(true)}
+                        style={{
+                          marginTop: '8px', width: '100%',
+                          padding: '8px 14px', fontSize: '12px', fontWeight: 600,
+                          background: 'rgba(255,255,255,0.03)', color: 'var(--foreground-muted)',
+                          border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Show all {files.length} files
+                      </button>
+                    )}
+                    {filesExpanded && files.length > COLLAPSED_FILE_COUNT && (
+                      <button
+                        onClick={() => setFilesExpanded(false)}
+                        style={{
+                          marginTop: '8px', width: '100%',
+                          padding: '6px 14px', fontSize: '11px', fontWeight: 600,
+                          background: 'transparent', color: 'var(--foreground-subtle)',
+                          border: 'none', cursor: 'pointer',
+                        }}
+                      >
+                        Collapse
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            {project.folderLink && (
-              <a href={project.folderLink} target="_blank" rel="noopener noreferrer" style={{
-                padding: '8px 14px', fontSize: '12px', fontWeight: 600, borderRadius: '9999px',
-                background: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8', textDecoration: 'none',
-              }}>📁 Open source folder in Dropbox</a>
-            )}
             <button onClick={syncFiles} style={{
               padding: '8px 14px', fontSize: '12px', fontWeight: 600, borderRadius: '9999px',
               background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer',
@@ -656,6 +798,13 @@ export default function OftvProjectsQueue({ showToast, role = 'admin' }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const buckets = getBucketsForRole(role)
 
+  // Deep-linking: Telegram notifications send /editor?tab=oftv&project=recXXX
+  // so the editor (or admin) can jump straight to the project that needs
+  // attention. Auto-open it once projects + creators have loaded.
+  const searchParams = useSearchParams()
+  const targetProjectId = searchParams?.get('project') || null
+  const [autoOpenedFor, setAutoOpenedFor] = useState(null)
+
   const load = useCallback(async () => {
     setLoading(true)
     // Run independently so a failure in one doesn't strand the other (and so
@@ -689,6 +838,19 @@ export default function OftvProjectsQueue({ showToast, role = 'admin' }) {
   useEffect(() => { load() }, [load])
 
   const creatorNameById = Object.fromEntries(creators.map(c => [c.id, c.aka || c.name || '']))
+
+  // Auto-open the deep-linked project once load completes. Only fires once
+  // per id so closing the modal doesn't immediately reopen it.
+  useEffect(() => {
+    if (!targetProjectId || autoOpenedFor === targetProjectId || loading) return
+    const match = projects.find(p => p.id === targetProjectId)
+    if (match) {
+      const creatorName = creatorNameById[(match.creatorIds || [])[0]] || '—'
+      setDetail({ ...match, creatorName })
+      setAutoOpenedFor(targetProjectId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetProjectId, projects, loading])
 
   const filtered = projects.filter(p => {
     if (statusFilter === 'all') return true
@@ -756,6 +918,14 @@ export default function OftvProjectsQueue({ showToast, role = 'admin' }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {group.items.map(p => {
                   const creatorName = creatorNameById[(p.creatorIds || [])[0]] || '—'
+                  // Editor pickup chip: only meaningful before Final Submitted —
+                  // after that, "started" is implied by the deliverable.
+                  const showsPickup = (
+                    p.status === STATUSES.FILES_UPLOADED ||
+                    p.status === STATUSES.IN_EDITING ||
+                    p.status === STATUSES.ADMIN_REVISION ||
+                    p.status === STATUSES.CREATOR_REVISION
+                  )
                   return (
                     <div
                       key={p.id}
@@ -767,9 +937,16 @@ export default function OftvProjectsQueue({ showToast, role = 'admin' }) {
                       }}
                     >
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{p.projectName}</span>
                           <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{creatorName}</span>
+                          {showsPickup && (role === 'admin') && (
+                            <EditorPickupChip
+                              acknowledgedAt={p.editorAcknowledgedAt}
+                              startedAt={p.editorStartedAt}
+                              acknowledgedBy={p.editorAcknowledgedBy}
+                            />
+                          )}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>
                           {p.fileCount > 0 ? `${p.fileCount} file${p.fileCount === 1 ? '' : 's'} · ${fmtSize(p.totalSize)}` : 'No files yet'}

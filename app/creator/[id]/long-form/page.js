@@ -533,6 +533,8 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
   const dismiss = useBackdropDismiss(onClose)
   const [previewFile, setPreviewFile] = useState(null)
   const [deletingPath, setDeletingPath] = useState('')
+  const [filesExpanded, setFilesExpanded] = useState(false)
+  const COLLAPSED_FILE_COUNT = 5
 
   // Final cut review state — only relevant when admin has sent the cut over.
   const [finalFiles, setFinalFiles] = useState([])
@@ -769,7 +771,7 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
             ) : (
               <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {files.map((f, i) => {
+                  {(filesExpanded ? files : files.slice(0, COLLAPSED_FILE_COUNT)).map((f, i) => {
                     const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
                     const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
                       : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
@@ -816,6 +818,35 @@ function ProjectDetail({ project, onClose, onRefresh, confirm, toast }) {
                     )
                   })}
                 </div>
+                {/* Collapsed by default when there are more than COLLAPSED_FILE_COUNT files —
+                    creators routinely upload 60+ raw clips per long-form project. */}
+                {!filesExpanded && files.length > COLLAPSED_FILE_COUNT && (
+                  <button
+                    onClick={() => setFilesExpanded(true)}
+                    style={{
+                      marginTop: '8px', width: '100%',
+                      padding: '8px 14px', fontSize: '12px', fontWeight: 600,
+                      background: 'rgba(255,255,255,0.03)', color: 'var(--foreground-muted)',
+                      border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Show all {files.length} files
+                  </button>
+                )}
+                {filesExpanded && files.length > COLLAPSED_FILE_COUNT && (
+                  <button
+                    onClick={() => setFilesExpanded(false)}
+                    style={{
+                      marginTop: '8px', width: '100%',
+                      padding: '6px 14px', fontSize: '11px', fontWeight: 600,
+                      background: 'transparent', color: 'var(--foreground-subtle)',
+                      border: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    Collapse
+                  </button>
+                )}
                 {previewFile && (
                   <VideoPreviewModal
                     projectId={project.id}

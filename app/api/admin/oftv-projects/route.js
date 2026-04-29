@@ -62,6 +62,10 @@ export async function GET(request) {
       creatorFeedbackAt: f['Creator Feedback At'] || null,
       approvedAt: f['Approved At'] || null,
       revisionCount: f['Revision Count'] || 0,
+      // Editor pickup tracking
+      editorAcknowledgedAt: f['Editor Acknowledged At'] || null,
+      editorAcknowledgedBy: f['Editor Acknowledged By'] || '',
+      editorStartedAt: f['Editor Started At'] || null,
     }
   })
 

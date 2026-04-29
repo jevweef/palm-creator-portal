@@ -90,6 +90,7 @@ export async function syncProject(id) {
       event: 'files_uploaded',
       creator: aka,
       projectName: record.fields?.['Project Name'],
+      projectId: id,
       fileCount: count,
     }).catch(() => {})
   }

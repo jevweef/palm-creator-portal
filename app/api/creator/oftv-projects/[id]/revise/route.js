@@ -78,6 +78,7 @@ export async function POST(request, { params }) {
     event: 'creator_revision_requested',
     creator: aka,
     projectName: record.fields?.['Project Name'],
+    projectId: id,
     assignedEditor: record.fields?.['Assigned Editor'],
     notes: feedback,
     revisionCount: prevCount + 1,

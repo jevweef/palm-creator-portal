@@ -87,6 +87,7 @@ export async function POST(_request, { params }) {
       event: 'files_uploaded',
       creator: aka,
       projectName: record.fields?.['Project Name'],
+      projectId: id,
       fileCount: count,
     }).catch(() => {})
   }

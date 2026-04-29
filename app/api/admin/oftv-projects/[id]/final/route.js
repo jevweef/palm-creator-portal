@@ -168,6 +168,7 @@ export async function GET(request, { params }) {
           event: 'final_submitted',
           creator: aka,
           projectName: record.fields?.['Project Name'],
+          projectId: record.id,
           assignedEditor: record.fields?.['Assigned Editor'],
           revisionCount: prevCount, // already-bumped count from prior kick-back
         }).catch(() => {})

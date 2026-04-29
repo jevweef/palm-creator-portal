@@ -68,6 +68,7 @@ export async function POST(_request, { params }) {
     event: 'creator_approved',
     creator: aka,
     projectName: record.fields?.['Project Name'],
+    projectId: id,
     revisionCount: record.fields?.['Revision Count'] || 0,
   }).catch(() => {})
 
