@@ -1576,20 +1576,25 @@ export default function GridPlanner({ smmMode = false } = {}) {
               loadCreator(selectedCreatorId)
             }
           }}
-          onThumbnailReplaced={(postId, newUrl) => {
-            // Optimistic: drop the new URL on the post so the grid cell flips
-            // immediately. The Dropbox URL itself doesn't render in <img> reliably,
-            // so we also refetch from Airtable — Airtable re-hosts attachments
-            // on its CDN and that URL works everywhere.
-            setPosts(ps => ps.map(p => p.id === postId ? { ...p, thumbnail: newUrl, thumbnailUrl: newUrl } : p))
-            setDetailPost(d => d && d.post.id === postId
+          onThumbnailReplaced={(postId, newUrl, allUpdatedIds) => {
+            // Optimistic: drop the new URL on EVERY sibling Post (not just
+            // the one in the open modal). The (3) badge on a card means the
+            // same Asset/Task fans out into 3 IG-account-specific Posts —
+            // the user expects all 3 cells to flip, not just one.
+            const ids = new Set(allUpdatedIds || [postId])
+            setPosts(ps => ps.map(p => ids.has(p.id) ? { ...p, thumbnail: newUrl, thumbnailUrl: newUrl } : p))
+            setDetailPost(d => d && ids.has(d.post.id)
               ? { ...d, post: { ...d.post, thumbnail: newUrl, thumbnailUrl: newUrl } }
               : d
             )
-            showToast('Thumbnail updated')
-            // Airtable needs ~3-5s to ingest the source URL into its CDN. Refetch
-            // after that so the post object gets the Airtable-hosted URL.
-            setTimeout(() => loadCreator(selectedCreatorId), 4000)
+            const n = ids.size
+            showToast(n > 1 ? `Thumbnail updated on ${n} instances` : 'Thumbnail updated')
+            // Airtable needs ~3-5s to ingest the source URL into its CDN.
+            // First refetch at 5s, second at 12s as a safety net — sometimes
+            // ingestion runs slow and the first refetch returns null and
+            // wipes the optimistic update.
+            setTimeout(() => loadCreator(selectedCreatorId), 5000)
+            setTimeout(() => loadCreator(selectedCreatorId), 12000)
           }}
           smmMode={smmMode}
           onMarkScheduled={async (scheduled) => {
@@ -1768,7 +1773,10 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Thumbnail upload failed')
-      onThumbnailReplaced?.(post.id, data.url)
+      // Server returns every Post.id that got updated (all sibling instances
+      // sharing the same Task). Hand that list back so the parent can flip
+      // every cell — not just the one in the open modal.
+      onThumbnailReplaced?.(post.id, data.url, data.postIds || [post.id])
     } catch (e) {
       alert(`Could not replace thumbnail: ${e.message}`)
       setLocalThumb(null)
