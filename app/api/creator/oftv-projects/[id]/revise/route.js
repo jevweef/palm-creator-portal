@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { STATUSES } from '@/lib/oftvWorkflow'
+import { notifyOftv, lookupCreatorAka } from '@/lib/oftvTelegram'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -70,5 +71,17 @@ export async function POST(request, { params }) {
   if (!patchRes.ok) {
     return NextResponse.json({ error: 'Patch failed', detail: await patchRes.text() }, { status: 500 })
   }
+
+  const creatorOpsId = (record.fields?.['Creator'] || [])[0]
+  const aka = await lookupCreatorAka(creatorOpsId)
+  notifyOftv({
+    event: 'creator_revision_requested',
+    creator: aka,
+    projectName: record.fields?.['Project Name'],
+    assignedEditor: record.fields?.['Assigned Editor'],
+    notes: feedback,
+    revisionCount: prevCount + 1,
+  }).catch(() => {})
+
   return NextResponse.json({ ok: true, status: STATUSES.CREATOR_REVISION })
 }
