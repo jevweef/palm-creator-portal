@@ -9,6 +9,23 @@ import { requireAdmin, requireAdminOrSocialMedia, fetchAirtableRecords, patchAir
 // next open slot on an account when an instance gets dragged onto the grid.
 const SLOT_HOURS_ET = [11, 19]
 
+// Run an array of thunks at most N at a time with a small delay between
+// batches. Airtable's REST API enforces 5 req/sec per base — bursting past
+// that returns 429 RATE_LIMIT_REACHED and the user sees a red error banner.
+// Used for normalization + scrape-match PATCHes which can fire 10–30 writes
+// on a single grid GET when the queue rebalances.
+async function runThrottled(thunks, batchSize = 4, gapMs = 1100) {
+  const results = []
+  for (let i = 0; i < thunks.length; i += batchSize) {
+    const batch = thunks.slice(i, i + batchSize)
+    results.push(...(await Promise.all(batch.map(t => t()))))
+    if (i + batchSize < thunks.length) {
+      await new Promise(r => setTimeout(r, gapMs))
+    }
+  }
+  return results
+}
+
 // Build the Thumbnail field value for a cloned Post. Prefers Asset.Thumbnail
 // (the original upload — bytes are stable, attachment isn't constantly
 // re-cloned) over the source Post's Thumbnail (which is itself a clone whose
@@ -72,7 +89,11 @@ async function normalizeAccountQueue(accountId, allPostsForCreator) {
     const p = queue[i]
     const desired = slots[i]
     if (p.fields?.['Scheduled Date'] !== desired) {
-      patches.push(patchAirtableRecord('Posts', p.id, { 'Scheduled Date': desired }))
+      // Return as a thunk so the caller can throttle batches under
+      // Airtable's 5 req/sec limit. Calling patchAirtableRecord eagerly
+      // here fires the request immediately and bursts past the cap.
+      const postId = p.id
+      patches.push(() => patchAirtableRecord('Posts', postId, { 'Scheduled Date': desired }))
       p.fields['Scheduled Date'] = desired
     }
   }
@@ -228,7 +249,7 @@ export async function GET(request) {
       creatorAccounts.map(acc => normalizeAccountQueue(acc.id, posts))
     )).flat()
     if (normPatches.length) {
-      await Promise.all(normPatches)
+      await runThrottled(normPatches)
     }
 
     // Match scraped Live posts back to existing Sent Posts so the grid shows
@@ -283,9 +304,12 @@ export async function GET(request) {
         const live = scrapedAsc[i]
         const drift = Math.abs(new Date(live.postedAt) - new Date(post.fields['Scheduled Date']))
         if (drift > FIVE_DAYS_MS) continue
-        matchPatches.push(patchAirtableRecord('Posts', post.id, {
-          'Post Link': live.url,
-          'Posted At': live.postedAt,
+        const postId = post.id
+        const liveUrl = live.url
+        const livePostedAt = live.postedAt
+        matchPatches.push(() => patchAirtableRecord('Posts', postId, {
+          'Post Link': liveUrl,
+          'Posted At': livePostedAt,
         }))
         // Mutate in-place so this GET's response already reflects the match
         post.fields['Post Link'] = live.url
@@ -295,7 +319,7 @@ export async function GET(request) {
     }
     if (matchPatches.length) {
       console.log(`[Grid Planner] Matched ${matchPatches.length} scraped post${matchPatches.length !== 1 ? 's' : ''} to existing Sent records`)
-      await Promise.all(matchPatches)
+      await runThrottled(matchPatches)
     }
 
     // Pull asset thumbnails (fallback when Post doesn't have its own thumb yet)
