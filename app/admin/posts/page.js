@@ -284,7 +284,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
             {isHeicPhoto ? (
               <HeicImage src={preview.dropboxLink} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
             ) : (
-              <img src={rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+              <img src={preview.cdnUrl || rawUrl} alt={preview.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
             )}
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
@@ -352,7 +352,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
                         {heic ? (
                           <HeicImage src={photo.dropboxLink} alt={photo.name} style={cellStyle} />
                         ) : (
-                          <img src={rawUrl} alt={photo.name} loading="lazy" style={cellStyle} />
+                          <img src={photo.cdnUrl || rawUrl} alt={photo.name} loading="lazy" style={cellStyle} />
                         )}
                       </div>
                     )
@@ -658,7 +658,7 @@ function PostCard({ post, onRefresh, onSend }) {
               style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
               onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
           ) : (
-            <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={post.asset?.cdnUrl || rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           )
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>
