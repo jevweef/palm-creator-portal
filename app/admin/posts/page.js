@@ -390,7 +390,7 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
   )
 }
 
-function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
+function VideoFramePicker({ videoUrl, streamUid, postId, onCapture, onClose }) {
   const videoRef = useRef(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
@@ -398,13 +398,40 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
   const [capturedUrl, setCapturedUrl] = useState(null)
   const [error, setError] = useState('')
 
-  // Proxy the Dropbox URL through our own origin so we can set
-  // crossOrigin="anonymous" on the <video> and capture frames via canvas.
-  // The proxy adds CORS headers and forwards Range requests for seeking.
-  // Frame colors come out right because the browser's native HDR→SDR
-  // tonemapping kicks in and canvas.drawImage reads exactly what's shown.
+  // Two playback modes, picked at mount based on whether the asset has been
+  // mirrored to Cloudflare Stream:
+  //   • Stream mode — preview is a CF poster image at the chosen timestamp.
+  //     Scrubbing = single CDN image fetch per seek (snappy). Capture is
+  //     the same JPEG fetched as a blob, no canvas / ffmpeg.
+  //   • Dropbox mode (legacy fallback) — proxied <video> with canvas capture.
+  //     Slow because every seek triggers a Range request through our proxy.
+  const useStream = !!streamUid
+
+  // Stream poster URL at the current scrub time. CF generates JPEGs on
+  // demand at any timestamp; the URL is GET-cacheable so subsequent visits
+  // to the same time are instant.
+  const posterUrl = useStream
+    ? `https://customer-s6evvwyakoxbda2u.cloudflarestream.com/${streamUid}/thumbnails/thumbnail.jpg?time=${currentTime.toFixed(2)}s&height=1920&fit=crop`
+    : null
+
+  // Dropbox-mode fallback only. Proxied for canvas CORS, ignored in Stream
+  // mode (we don't load any video bytes — duration comes from CF API).
   const rawUrl = rawDropboxUrl(videoUrl)
   const proxiedUrl = `/api/admin/video-proxy?url=${encodeURIComponent(rawUrl)}`
+
+  // In Stream mode, fetch duration once from CF API. In Dropbox mode the
+  // <video onLoadedMetadata> handler below sets it.
+  useEffect(() => {
+    if (!useStream) return
+    let cancelled = false
+    fetch(`/api/admin/cf-stream/info?uid=${encodeURIComponent(streamUid)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!cancelled && d?.duration) setDuration(d.duration)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [useStream, streamUid])
 
   const handleScrub = (e) => {
     const t = parseFloat(e.target.value)
@@ -437,22 +464,32 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
     setError('')
     try {
       let blob = null
-      // Client-side canvas first — colors match what was just displayed
-      const promise = clientCapture()
-      if (promise) {
-        try { blob = await promise }
-        catch (e) { console.warn('[Frame] client capture failed, trying server:', e.message) }
-      }
-      // Server ffmpeg fallback (last-resort; colors may be off on HDR input)
-      if (!blob) {
-        const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoUrl, timestamp: currentTime }),
-        })
-        const frameData = await frameRes.json()
-        if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
-        blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+
+      // Stream mode: just fetch the same poster URL the user is looking at.
+      // CF already generated the JPEG when they scrubbed there, so this is
+      // typically a cache hit. Bigger/sharper variant for the actual save.
+      if (useStream) {
+        const captureUrl = `https://customer-s6evvwyakoxbda2u.cloudflarestream.com/${streamUid}/thumbnails/thumbnail.jpg?time=${currentTime.toFixed(2)}s&height=1920&fit=crop`
+        const res = await fetch(captureUrl)
+        if (!res.ok) throw new Error(`CF poster ${res.status}`)
+        blob = await res.blob()
+      } else {
+        // Dropbox mode — client-side canvas first, server ffmpeg as fallback
+        const promise = clientCapture()
+        if (promise) {
+          try { blob = await promise }
+          catch (e) { console.warn('[Frame] client capture failed, trying server:', e.message) }
+        }
+        if (!blob) {
+          const frameRes = await fetch('/api/admin/posts/thumbnail/frame', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ videoUrl, timestamp: currentTime }),
+          })
+          const frameData = await frameRes.json()
+          if (!frameRes.ok) throw new Error(frameData.error || 'Frame extraction failed')
+          blob = new Blob([Uint8Array.from(atob(frameData.jpeg), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+        }
       }
 
       // Upload the JPEG to Dropbox via the existing thumbnail endpoint
@@ -518,19 +555,30 @@ function VideoFramePicker({ videoUrl, postId, onCapture, onClose }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '20px' }}>×</button>
         </div>
 
-        {/* Video preview */}
-        <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '9/16', overflow: 'hidden' }}>
-          <video
-            ref={videoRef}
-            src={proxiedUrl}
-            crossOrigin="anonymous"
-            muted
-            playsInline
-            preload="metadata"
-            onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
-            onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
+        {/* Preview pane — Stream mode renders an <img> at the chosen
+            timestamp (each scrub = one CF CDN image fetch, snappy). Dropbox
+            mode keeps the legacy <video> with proxied source for canvas
+            capture. */}
+        <div style={{ background: 'rgba(232, 160, 160, 0.04)', aspectRatio: '9/16', overflow: 'hidden', position: 'relative' }}>
+          {useStream ? (
+            <img
+              src={posterUrl}
+              alt={`frame at ${currentTime.toFixed(2)}s`}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              src={proxiedUrl}
+              crossOrigin="anonymous"
+              muted
+              playsInline
+              preload="metadata"
+              onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+              onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          )}
         </div>
 
         {/* Scrubber + capture */}
@@ -915,6 +963,7 @@ function PostCard({ post, onRefresh, onSend }) {
         {showFramePicker && (
           <VideoFramePicker
             videoUrl={sourceVideoUrl}
+            streamUid={post.asset?.streamRawId || null}
             postId={post.id}
             onCapture={(url) => {
               setThumbnailUrl(url)
