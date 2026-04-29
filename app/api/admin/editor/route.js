@@ -187,7 +187,7 @@ export async function GET() {
         filterByFormula: recordIdFormula(assetIds),
         fields: [
           'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Dropbox Path (Current)',
-          'Creator Notes', 'Source Type', 'Thumbnail',
+          'Creator Notes', 'Source Type', 'Thumbnail', 'CDN URL',
         ],
       }) : [],
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
@@ -239,6 +239,7 @@ export async function GET() {
           creatorNotes: asset['Creator Notes'] || '',
           sourceType: asset['Source Type'] || '',
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
+          cdnUrl: asset['CDN URL'] || null,
           dropboxPath: asset['Dropbox Path (Current)'] || '',
         },
         inspo: {

@@ -67,7 +67,7 @@ export async function GET() {
         filterByFormula: `AND({Pipeline Status}='Uploaded', NOT({Inspiration Source}=''))`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Dropbox Path (Current)',
-          'Creator Notes', 'Thumbnail', 'Palm Creators', 'Upload Week', 'Inspiration Source',
+          'Creator Notes', 'Thumbnail', 'CDN URL', 'Palm Creators', 'Upload Week', 'Inspiration Source',
         ],
       }).then(assets => assets.filter(a => {
         const creatorId = (a.fields?.['Palm Creators'] || [])[0]
@@ -106,7 +106,7 @@ export async function GET() {
       fetchByIds('Assets', taskAssetIds, {
         fields: [
           'Asset Name', 'Pipeline Status', 'Source Type', 'Dropbox Shared Link',
-          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Edited File Link',
+          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Edited File Link',
         ],
       }),
       fetchByIds('Inspiration', allInspoIds, {
@@ -176,6 +176,7 @@ export async function GET() {
           dropboxPath: asset['Dropbox Path (Current)'] || '',
           creatorNotes: asset['Creator Notes'] || '',
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
+          cdnUrl: asset['CDN URL'] || null,
           editedFileLink: asset['Edited File Link'] || '',
         },
         inspo: {
@@ -212,6 +213,7 @@ export async function GET() {
         dropboxPath: asset.fields?.['Dropbox Path (Current)'] || '',
         creatorNotes: asset.fields?.['Creator Notes'] || '',
         thumbnail: asset.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || asset.fields?.Thumbnail?.[0]?.url || '',
+        cdnUrl: asset.fields?.['CDN URL'] || null,
         uploadWeek: asset.fields?.['Upload Week'] || '',
         inspo: {
           id: inspoId,

@@ -585,10 +585,10 @@ function TaskCard({ task, expanded, onToggleExpand, onStartEditing, onSubmit, up
 
         {/* Creator clip */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {task.asset.thumbnail ? (
+          {(task.asset.cdnUrl || task.asset.thumbnail) ? (
             <a href={task.asset.dropboxLink || '#'} target={task.asset.dropboxLink ? '_blank' : undefined} rel="noopener noreferrer"
               style={{ display: 'block', width: '100%', height: '100%' }}>
-              <img src={task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={task.asset.cdnUrl || task.asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </a>
           ) : task.asset.dropboxLink ? (
             <a href={task.asset.dropboxLink} target="_blank" rel="noopener noreferrer"
@@ -1161,7 +1161,7 @@ function UnreviewedLibrary({ showToast }) {
                   </div>
                 )}
                 <CaptionSuggestions
-                  thumbnailUrl={asset.thumbnail}
+                  thumbnailUrl={asset.cdnUrl || asset.thumbnail}
                   videoUrl={(asset.dropboxLinks?.[0] || asset.dropboxLink || '').replace(/([?&])dl=[01]/, '$1raw=1')}
                   creatorId={asset.creator?.id}
                 />
@@ -2311,7 +2311,7 @@ function SubmissionsFeed({ showToast }) {
                       {/* Thumbnail */}
                       <div style={{ width: '48px', height: '64px', borderRadius: '6px', overflow: 'hidden', background: 'var(--background)', flexShrink: 0 }}>
                         {(s.asset?.thumbnail || s.inspo?.thumbnail) && (
-                          <img src={s.asset?.thumbnail || s.inspo?.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={s.asset?.cdnUrl || s.asset?.thumbnail || s.inspo?.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         )}
                       </div>
                       {/* Info */}

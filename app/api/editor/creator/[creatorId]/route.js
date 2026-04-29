@@ -52,7 +52,7 @@ export async function GET(request, { params }) {
         filterByFormula: `AND({Pipeline Status}='Uploaded',{Dropbox Parent Folder}='${unreviewedFolderPath}')`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
-          'Dropbox Path (Current)', 'Dropbox Parent Folder', 'Creator Notes', 'Thumbnail', 'Upload Week',
+          'Dropbox Path (Current)', 'Dropbox Parent Folder', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Upload Week',
         ],
       }) : [],
       // Inspo-linked assets: fetch by Source Type, then filter in-memory by creator ID
@@ -61,7 +61,7 @@ export async function GET(request, { params }) {
         filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}='Inspo Upload',NOT({Inspiration Source}=''))`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Asset Type', 'Dropbox Shared Link', 'Dropbox Path (Current)',
-          'Creator Notes', 'Thumbnail', 'Upload Week', 'Inspiration Source', 'Palm Creators',
+          'Creator Notes', 'Thumbnail', 'CDN URL', 'Upload Week', 'Inspiration Source', 'Palm Creators',
         ],
       }),
       fetchAirtableRecords('Posts', {
@@ -81,7 +81,7 @@ export async function GET(request, { params }) {
       fetchByIds('Assets', assetIds, {
         fields: [
           'Asset Name', 'Pipeline Status', 'Dropbox Shared Link',
-          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'Edited File Link',
+          'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Edited File Link',
         ],
       }),
       fetchByIds('Inspiration', inspoIds, {
@@ -118,6 +118,7 @@ export async function GET(request, { params }) {
           dropboxLink: asset['Dropbox Shared Link'] || '',
           dropboxLinks: (asset['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
+          cdnUrl: asset['CDN URL'] || null,
           editedFileLink: asset['Edited File Link'] || '',
         },
         inspo: {
@@ -156,6 +157,7 @@ export async function GET(request, { params }) {
         dropboxLink: a.fields?.['Dropbox Shared Link'] || '',
         dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
         thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
+        cdnUrl: a.fields?.['CDN URL'] || null,
         creatorNotes: a.fields?.['Creator Notes'] || '',
         inspo: {
           id: inspoId || null,
@@ -179,6 +181,7 @@ export async function GET(request, { params }) {
         dropboxLink: a.fields?.['Dropbox Shared Link'] || '',
         dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
         thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
+        cdnUrl: a.fields?.['CDN URL'] || null,
         creatorNotes: a.fields?.['Creator Notes'] || '',
         uploadWeek: a.fields?.['Upload Week'] || '',
         createdAt: a.createdTime || '',

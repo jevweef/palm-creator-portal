@@ -121,7 +121,7 @@ function TaskRow({ task, type }) {
 
 function CompactThumbCard({ task, type }) {
   const m = STATUS_META[type]
-  const thumb = task.inspo?.thumbnail || task.asset?.thumbnail || ''
+  const thumb = task.inspo?.thumbnail || task.asset?.cdnUrl || task.asset?.thumbnail || ''
   const title = task.inspo?.title || task.name || 'Untitled'
   return (
     <div style={{ background: m.bg, border: 'none', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -187,8 +187,8 @@ function CollapsibleColumn({ sectionKey, items }) {
 function InspoClipRow({ clip }) {
   return (
     <div style={{ background: 'rgba(232, 200, 120, 0.06)', border: '1px solid transparent', borderRadius: '18px', padding: '12px 16px', boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)', display: 'flex', gap: '12px', alignItems: 'center' }}>
-      {(clip.thumbnail || clip.inspo?.thumbnail) && (
-        <img src={clip.thumbnail || clip.inspo?.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
+      {(clip.cdnUrl || clip.thumbnail || clip.inspo?.thumbnail) && (
+        <img src={clip.cdnUrl || clip.thumbnail || clip.inspo?.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -249,9 +249,9 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
             onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
         ) : photoFile && rawUrl ? (
-          <img src={rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : asset.thumbnail ? (
-          <img src={asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={asset.cdnUrl || rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (asset.cdnUrl || asset.thumbnail) ? (
+          <img src={asset.cdnUrl || asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '28px' }}>&#127916;</div>
         )}
