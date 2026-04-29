@@ -20,7 +20,7 @@ function isImageAsset(fields) {
   return IMAGE_EXTS.includes(ext) || IMAGE_RE.test(link) || type === 'photo' || type === 'image'
 }
 
-// GET /api/admin/chat-wall/creators
+// GET /api/photo-library/creators
 //
 // Returns active Palm Creators (Ops) joined with Chat Team from HQ Creators.
 //

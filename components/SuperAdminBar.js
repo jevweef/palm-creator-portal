@@ -28,7 +28,7 @@ export default function SuperAdminBar() {
   // Determine active tab from pathname
   const isCreatorTab = pathname?.startsWith('/creator')
   const isEditorTab = pathname?.startsWith('/editor')
-  const isChatManagerTab = pathname?.startsWith('/admin/chat-wall')
+  const isChatManagerTab = pathname?.startsWith('/photo-library')
   const isAdminTab = !isCreatorTab && !isEditorTab && !isChatManagerTab
 
   // Fetch creators for picker, then reconcile with stored selection
@@ -87,7 +87,7 @@ export default function SuperAdminBar() {
   const ensureChatManagersLoaded = async () => {
     if (chatManagersLoaded) return
     try {
-      const res = await fetch('/api/admin/chat-wall/list-chat-managers')
+      const res = await fetch('/api/photo-library/list-chat-managers')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setChatManagers(data.users || [])
@@ -123,7 +123,7 @@ export default function SuperAdminBar() {
     }
     setSelectedChatManager(cm)
     setChatMgrDropdownOpen(false)
-    router.push('/admin/chat-wall')
+    router.push('/photo-library')
   }
   const handleClearChatManager = () => {
     if (typeof window !== 'undefined') {
@@ -131,7 +131,7 @@ export default function SuperAdminBar() {
     }
     setSelectedChatManager(null)
     setChatMgrDropdownOpen(false)
-    router.push('/admin/chat-wall')
+    router.push('/photo-library')
   }
   const handleCreatorSelect = (creator) => {
     setSelectedCreator(creator)

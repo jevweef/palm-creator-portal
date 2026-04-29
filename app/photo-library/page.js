@@ -138,8 +138,8 @@ export default function ChatWallPage() {
     let cancelled = false
     setCreatorsLoading(true)
     const url = viewAsUserId
-      ? `/api/admin/chat-wall/creators?viewAsUserId=${encodeURIComponent(viewAsUserId)}`
-      : '/api/admin/chat-wall/creators'
+      ? `/api/photo-library/creators?viewAsUserId=${encodeURIComponent(viewAsUserId)}`
+      : '/api/photo-library/creators'
     fetch(url)
       .then(r => r.json())
       .then(data => {
@@ -189,7 +189,7 @@ export default function ChatWallPage() {
     }
     setPhotosLoading(true)
     const params = new URLSearchParams({ creatorId, view, page: String(page), pageSize: String(pageSize) })
-    fetch(`/api/admin/chat-wall/photos?${params}`)
+    fetch(`/api/photo-library/photos?${params}`)
       .then(r => r.json())
       .then(data => {
         setPhotos(data.photos || [])
@@ -250,7 +250,7 @@ export default function ChatWallPage() {
       const body = makeUsed
         ? { assetId: asset.id, used: true, usedFor }
         : { assetId: asset.id, used: false }
-      const res = await fetch('/api/admin/chat-wall/photos', {
+      const res = await fetch('/api/photo-library/photos', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -281,7 +281,7 @@ export default function ChatWallPage() {
   const selectedCreator = creators.find(c => c.id === creatorId)
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+    <div>
       <div style={{ marginBottom: '8px' }}>
         <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>{greeting}, </span>
         <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>{firstName}</span>

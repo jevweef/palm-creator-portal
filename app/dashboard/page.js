@@ -21,6 +21,10 @@ export default function DashboardRedirect() {
       router.replace('/admin/editor')
       return
     }
+    if (role === 'chat_manager') {
+      router.replace('/photo-library')
+      return
+    }
     if (!hqId) {
       setChecking(false)
       return

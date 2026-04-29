@@ -13,10 +13,12 @@ export default function Home() {
 
     const role = user?.publicMetadata?.role
 
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'super_admin') {
       router.replace('/admin/dashboard')
     } else if (role === 'editor') {
       router.replace('/admin/editor')
+    } else if (role === 'chat_manager') {
+      router.replace('/photo-library')
     } else {
       router.replace('/dashboard')
     }
