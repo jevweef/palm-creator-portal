@@ -1673,8 +1673,12 @@ function SlotThumbnail({ slot }) {
   if (slot.type === 'done') {
     const editedUrl = task?.asset?.editedFileLink ? rawDropboxUrl(task.asset.editedFileLink) : ''
     const thumb = task?.asset?.cdnUrl || task?.asset?.thumbnail || task?.inspo?.cdnUrl || task?.inspo?.thumbnail || ''
-    if (editedUrl) return <video className={cls} src={editedUrl} muted playsInline style={{ ...style, opacity: 0.7 }} />
+    // Prefer a static image over the edited <video> element. The video is a
+    // raw Dropbox URL — without CF Stream it shows nothing until metadata
+    // downloads, leaving the slot blank for seconds. A CF/Airtable image
+    // (usually the inspo thumb) renders instantly.
     if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, opacity: 0.6 }} />
+    if (editedUrl) return <video className={cls} src={editedUrl} muted playsInline preload="metadata" style={{ ...style, opacity: 0.7 }} />
     return null
   }
 
