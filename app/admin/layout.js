@@ -39,7 +39,10 @@ const ADMIN_NAV = [
     { key: 'invoices', label: 'Invoices' },
     { key: 'upload', label: 'Raw Data Upload' },
   ]},
-  { href: '/admin/inbox', label: 'Inbox', icon: '📥' },
+  { href: '/admin/inbox', label: 'Inbox', icon: '📥', children: [
+    { key: 'tasks', label: 'Tasks' },
+    { key: 'chats', label: 'Chats' },
+  ]},
   { href: '/admin/help', label: 'Help', icon: '❓' },
 ]
 

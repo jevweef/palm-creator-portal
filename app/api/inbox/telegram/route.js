@@ -29,9 +29,59 @@ import {
   patchAirtableRecord,
   createAirtableRecord,
 } from '@/lib/adminAuth'
+import { fetchHqRecords } from '@/lib/hqAirtable'
 
 const CHATS_TABLE = 'Telegram Chats'
 const MESSAGES_TABLE = 'Telegram Messages'
+const HQ_CREATORS_TABLE = 'Creators'
+
+// Match titles like "PALM x SUNNY", "Palm × Taby", "PALM x Gracey", etc.
+// Captures the creator name in group 1. Trailing words (e.g. "PALM x SUNNY VIP")
+// are tolerated — we take the first word after the x and look it up.
+const PALM_X_PATTERN = /^\s*PALM\s*[x×]\s*([A-Za-z][A-Za-z0-9'’\-]+)/i
+
+// In-memory cache of creator lookups (resets on cold start).
+// Avoids hitting HQ Airtable on every message in an established chat.
+const creatorCache = new Map() // key: lower-case AKA → { hqId, aka }
+
+async function lookupCreatorByAka(rawName) {
+  if (!rawName) return null
+  const key = rawName.trim().toLowerCase()
+  if (creatorCache.has(key)) return creatorCache.get(key)
+
+  // Try AKA exact match first, then fall back to Creator (full name) starts-with.
+  const escaped = key.replace(/'/g, "\\'")
+  const formula = `OR(LOWER({AKA}) = '${escaped}', LOWER(LEFT({Creator}, ${key.length})) = '${escaped}')`
+  try {
+    const records = await fetchHqRecords(HQ_CREATORS_TABLE, {
+      filterByFormula: formula,
+      maxRecords: 1,
+      fields: ['Creator', 'AKA'],
+    })
+    const r = records[0]
+    if (!r) {
+      creatorCache.set(key, null)
+      return null
+    }
+    const result = {
+      hqId: r.id,
+      aka: r.fields?.AKA || r.fields?.Creator || rawName,
+    }
+    creatorCache.set(key, result)
+    return result
+  } catch (err) {
+    console.error('[telegram-heartbeat] creator lookup failed', err)
+    return null // Soft fail — chat still gets created, just without creator mapping
+  }
+}
+
+// Parse "PALM x SUNNY" → "SUNNY" → look up in HQ Creators → return {hqId, aka}
+async function autoMapCreator(chatTitle) {
+  if (!chatTitle) return null
+  const match = chatTitle.match(PALM_X_PATTERN)
+  if (!match) return null
+  return lookupCreatorByAka(match[1])
+}
 
 // Returns the message object from any Telegram update shape we care about.
 // Telegram sends: message, edited_message, channel_post, edited_channel_post.
@@ -144,16 +194,18 @@ export async function POST(request) {
     let chatRecord = await findChatRecord(chatIdStr)
 
     if (!chatRecord) {
-      // Default to Watching: if you added the bot, you want it tracked.
-      // Use Ignore / Ignore Forever to mute noisy groups after the fact.
+      // Default to Watching + auto-map creator from "PALM x [NAME]" pattern.
+      const title = chat.title || chat.username || buildSenderName(chat) || chatIdStr
+      const creator = await autoMapCreator(title)
       const created = await createAirtableRecord(CHATS_TABLE, {
         'Chat ID': chatIdStr,
-        Title: chat.title || chat.username || buildSenderName(chat) || chatIdStr,
+        Title: title,
         Type: chat.type || 'group',
         Status: 'Watching',
         'First Seen': sentAtIso,
         'Last Message At': sentAtIso,
         'Message Count': 1,
+        ...(creator ? { 'Creator AKA': creator.aka, 'Creator HQ ID': creator.hqId } : {}),
       })
       chatRecord = created
     }

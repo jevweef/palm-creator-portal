@@ -1,11 +1,12 @@
 'use client'
 
-// /admin/inbox — manage which Telegram chats are being watched by the
-// heartbeat bot (@palmmanage_bot). v1: just opt-in / opt-out per chat,
-// plus a setup status panel. v2 will add the message feed + AI task
-// extraction.
+// /admin/inbox — Tasks tab (extracted commitments) + Chats tab (manage which
+// Telegram chats the heartbeat bot is watching).
+//
+// Tab convention: ?tab=tasks (default) or ?tab=chats. Sidebar reads same.
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 const BOT_DEEP_LINK = 'https://t.me/palmmanage_bot?startgroup=true'
 
@@ -25,8 +26,6 @@ function timeAgo(iso) {
   if (day < 30) return `${day}d ago`
   return new Date(iso).toLocaleDateString()
 }
-
-// ─── small UI bits ───────────────────────────────────────────────────
 
 const card = {
   background: 'rgba(255, 255, 255, 0.02)',
@@ -52,7 +51,7 @@ function StatusPill({ ok, label }) {
   )
 }
 
-function Btn({ children, onClick, variant = 'default', disabled }) {
+function Btn({ children, onClick, variant = 'default', disabled, size = 'md' }) {
   const variants = {
     default: { background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)' },
     primary: { background: 'var(--palm-pink)', color: '#060606', border: '1px solid var(--palm-pink)' },
@@ -60,14 +59,19 @@ function Btn({ children, onClick, variant = 'default', disabled }) {
     warn:    { background: 'rgba(232, 200, 120, 0.12)', color: '#E8C878', border: '1px solid rgba(232, 200, 120, 0.3)' },
     danger:  { background: 'rgba(232, 120, 120, 0.12)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)' },
   }
+  const sizes = {
+    sm: { padding: '4px 10px', fontSize: '11px' },
+    md: { padding: '6px 14px', fontSize: '12px' },
+  }
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       style={{
         ...variants[variant],
-        padding: '6px 14px', borderRadius: '8px',
-        fontSize: '12px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
+        ...sizes[size],
+        borderRadius: '8px', fontWeight: 600,
+        cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         transition: '0.15s ease',
       }}
@@ -77,11 +81,206 @@ function Btn({ children, onClick, variant = 'default', disabled }) {
   )
 }
 
-// ─── Chat row ────────────────────────────────────────────────────────
+// ─── Tasks tab ───────────────────────────────────────────────────────
+
+const URGENCY_COLOR = {
+  Now: '#E87878',
+  Soon: '#E8B878',
+  Later: '#9aa0a6',
+}
+
+const OWNER_COLOR = {
+  Evan: '#C8A0E8',
+  Josh: '#7AC9E8',
+  Other: '#9aa0a6',
+}
+
+function TaskCard({ task, onUpdate }) {
+  const [busy, setBusy] = useState(false)
+
+  async function setStatus(status) {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/inbox/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        alert(`Failed: ${j.error || res.statusText}`)
+        return
+      }
+      onUpdate()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{
+      ...card,
+      marginBottom: '12px', padding: '16px 20px',
+      borderLeft: `3px solid ${OWNER_COLOR[task.owner] || OWNER_COLOR.Other}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
+            <span style={{
+              fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+              padding: '2px 8px', borderRadius: '4px',
+              color: OWNER_COLOR[task.owner], background: 'rgba(255,255,255,0.04)',
+            }}>
+              {task.owner}
+            </span>
+            {task.creatorAka && (
+              <span style={{
+                fontSize: '10px', fontWeight: 600, letterSpacing: '0.04em',
+                padding: '2px 8px', borderRadius: '4px',
+                color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.08)',
+              }}>
+                {task.creatorAka}
+              </span>
+            )}
+            <span style={{
+              fontSize: '10px', fontWeight: 600,
+              padding: '2px 8px', borderRadius: '4px',
+              color: URGENCY_COLOR[task.urgency] || URGENCY_COLOR.Soon,
+              background: 'rgba(255,255,255,0.03)',
+            }}>
+              {task.urgency}
+            </span>
+            <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
+              {timeAgo(task.detectedAt)}
+            </span>
+          </div>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
+            {task.task}
+          </div>
+          {task.sourceQuote && (
+            <div style={{
+              fontSize: '12px', color: 'var(--foreground-muted)',
+              fontStyle: 'italic', borderLeft: '2px solid rgba(255,255,255,0.08)',
+              paddingLeft: '10px', marginTop: '8px',
+            }}>
+              "{task.sourceQuote}"
+              {task.ownerUsername && (
+                <span style={{ marginLeft: '8px', fontStyle: 'normal', opacity: 0.6 }}>
+                  — @{task.ownerUsername}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+          <Btn variant="success" size="sm" onClick={() => setStatus('Done')} disabled={busy}>Done</Btn>
+          <Btn size="sm" onClick={() => setStatus('Snoozed')} disabled={busy}>Snooze</Btn>
+          <Btn variant="danger" size="sm" onClick={() => setStatus('Dismissed')} disabled={busy}>Dismiss</Btn>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TasksTab() {
+  const [tasks, setTasks] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [ownerFilter, setOwnerFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('Open')
+  const [extractBusy, setExtractBusy] = useState(false)
+
+  async function refresh() {
+    try {
+      const params = new URLSearchParams()
+      params.set('status', statusFilter)
+      if (ownerFilter !== 'all') params.set('owner', ownerFilter)
+      const res = await fetch(`/api/admin/inbox/tasks?${params}`).then(r => r.json())
+      setTasks(res.tasks || [])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    refresh()
+    const id = setInterval(refresh, 30000)
+    return () => clearInterval(id)
+  }, [ownerFilter, statusFilter])
+
+  async function runExtractionNow() {
+    setExtractBusy(true)
+    try {
+      // Bypass cron auth: this endpoint requires the bearer header. We'll
+      // hit it via a small admin proxy that injects CRON_SECRET server-side.
+      // For now, use a "force" admin endpoint at /api/admin/inbox/extract-now.
+      const res = await fetch('/api/admin/inbox/extract-now', { method: 'POST' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Extract failed: ${j.error || res.statusText}`)
+      } else {
+        alert(`Extracted ${j.stats?.tasksCreated || 0} task(s) from ${j.stats?.chatsProcessed || 0} chat(s).`)
+        refresh()
+      }
+    } finally {
+      setExtractBusy(false)
+    }
+  }
+
+  const filterBtn = (label, value, current, set) => (
+    <button
+      onClick={() => set(value)}
+      style={{
+        padding: '4px 10px', borderRadius: '6px',
+        fontSize: '11px', fontWeight: 600,
+        background: current === value ? 'rgba(232, 160, 160, 0.12)' : 'rgba(255,255,255,0.03)',
+        color: current === value ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+        border: `1px solid ${current === value ? 'rgba(232, 160, 160, 0.3)' : 'rgba(255,255,255,0.06)'}`,
+        cursor: 'pointer', transition: '0.15s ease',
+      }}
+    >{label}</button>
+  )
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', alignSelf: 'center', marginRight: '4px' }}>Owner:</span>
+          {filterBtn('All', 'all', ownerFilter, setOwnerFilter)}
+          {filterBtn('Evan', 'Evan', ownerFilter, setOwnerFilter)}
+          {filterBtn('Josh', 'Josh', ownerFilter, setOwnerFilter)}
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', alignSelf: 'center', marginLeft: '12px', marginRight: '4px' }}>Status:</span>
+          {filterBtn('Open', 'Open', statusFilter, setStatusFilter)}
+          {filterBtn('Done', 'Done', statusFilter, setStatusFilter)}
+          {filterBtn('Snoozed', 'Snoozed', statusFilter, setStatusFilter)}
+          {filterBtn('Dismissed', 'Dismissed', statusFilter, setStatusFilter)}
+        </div>
+        <Btn variant="primary" size="sm" onClick={runExtractionNow} disabled={extractBusy}>
+          {extractBusy ? 'Extracting…' : 'Extract Now'}
+        </Btn>
+      </div>
+
+      {loading ? (
+        <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>Loading tasks…</div>
+      ) : tasks.length === 0 ? (
+        <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--foreground-muted)', marginBottom: '8px' }}>
+            No {statusFilter.toLowerCase()} tasks{ownerFilter !== 'all' ? ` for ${ownerFilter}` : ''}.
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+            Tasks are extracted from your watched Telegram chats every 5 min. Hit "Extract Now" to run it immediately.
+          </div>
+        </div>
+      ) : (
+        tasks.map(t => <TaskCard key={t.id} task={t} onUpdate={refresh} />)
+      )}
+    </div>
+  )
+}
+
+// ─── Chats tab (existing UI) ─────────────────────────────────────────
 
 function ChatRow({ chat, onUpdate }) {
   const [busy, setBusy] = useState(false)
-
   async function setStatus(status) {
     setBusy(true)
     try {
@@ -96,57 +295,50 @@ function ChatRow({ chat, onUpdate }) {
         return
       }
       onUpdate()
-    } finally {
-      setBusy(false)
-    }
+    } finally { setBusy(false) }
   }
 
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '16px',
-      padding: '12px 16px',
-      borderRadius: '10px',
+      padding: '12px 16px', borderRadius: '10px',
       background: 'rgba(255, 255, 255, 0.02)',
       border: '1px solid rgba(255, 255, 255, 0.05)',
       marginBottom: '8px',
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '2px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {chat.title}
+          {chat.creatorAka && (
+            <span style={{
+              fontSize: '10px', fontWeight: 600, letterSpacing: '0.04em',
+              padding: '2px 6px', borderRadius: '4px',
+              color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.08)',
+            }}>
+              {chat.creatorAka}
+            </span>
+          )}
         </div>
         <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', gap: '12px' }}>
-          <span>{chat.type}</span>
-          <span>·</span>
-          <span>{chat.messageCount} msgs</span>
-          <span>·</span>
+          <span>{chat.type}</span><span>·</span>
+          <span>{chat.messageCount} msgs</span><span>·</span>
           <span>last {timeAgo(chat.lastMessageAt)}</span>
         </div>
       </div>
       <div style={{ display: 'flex', gap: '6px' }}>
-        {chat.status !== 'Watching' && (
-          <Btn variant="success" onClick={() => setStatus('Watching')} disabled={busy}>Watch</Btn>
-        )}
-        {chat.status !== 'Ignored' && chat.status !== 'Ignored Forever' && (
-          <Btn variant="warn" onClick={() => setStatus('Ignored')} disabled={busy}>Ignore</Btn>
-        )}
-        {chat.status !== 'Ignored Forever' && (
-          <Btn variant="danger" onClick={() => setStatus('Ignored Forever')} disabled={busy}>Ignore Forever</Btn>
-        )}
-        {chat.status === 'Ignored' || chat.status === 'Ignored Forever' ? (
-          <Btn onClick={() => setStatus('Pending Review')} disabled={busy}>Reset</Btn>
-        ) : null}
+        {chat.status !== 'Watching' && <Btn variant="success" onClick={() => setStatus('Watching')} disabled={busy}>Watch</Btn>}
+        {chat.status !== 'Ignored' && chat.status !== 'Ignored Forever' && <Btn variant="warn" onClick={() => setStatus('Ignored')} disabled={busy}>Ignore</Btn>}
+        {chat.status !== 'Ignored Forever' && <Btn variant="danger" onClick={() => setStatus('Ignored Forever')} disabled={busy}>Ignore Forever</Btn>}
+        {(chat.status === 'Ignored' || chat.status === 'Ignored Forever') && <Btn onClick={() => setStatus('Watching')} disabled={busy}>Reset</Btn>}
       </div>
     </div>
   )
 }
 
-// ─── Page ────────────────────────────────────────────────────────────
-
-export default function InboxAdminPage() {
+function ChatsTab() {
   const [status, setStatus] = useState(null)
   const [chats, setChats] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
   async function refresh() {
     try {
@@ -156,9 +348,6 @@ export default function InboxAdminPage() {
       ])
       setStatus(s)
       setChats(c.chats || [])
-      setError(null)
-    } catch (err) {
-      setError(err.message)
     } finally {
       setLoading(false)
     }
@@ -166,7 +355,6 @@ export default function InboxAdminPage() {
 
   useEffect(() => {
     refresh()
-    // Light polling so new chats appear without manual refresh
     const id = setInterval(refresh, 10000)
     return () => clearInterval(id)
   }, [])
@@ -183,27 +371,14 @@ export default function InboxAdminPage() {
     refresh()
   }
 
-  const pending = chats.filter(c => c.status === 'Pending Review')
+  if (loading) return <div style={{ color: 'var(--foreground-muted)' }}>Loading chats…</div>
+
   const watching = chats.filter(c => c.status === 'Watching')
   const ignored = chats.filter(c => c.status === 'Ignored' || c.status === 'Ignored Forever')
-
-  if (loading) {
-    return <div style={{ color: 'var(--foreground-muted)' }}>Loading inbox…</div>
-  }
+  const pending = chats.filter(c => c.status === 'Pending Review')
 
   return (
-    <div style={{ maxWidth: '900px' }}>
-      <div style={{ marginBottom: '28px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '6px', color: 'var(--foreground)' }}>
-          Inbox
-        </h1>
-        <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
-          The Palm Management bot is reading messages from chats it's added to.
-          Pick which ones the heartbeat should track.
-        </p>
-      </div>
-
-      {/* Setup status */}
+    <div>
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
           <div>
@@ -231,7 +406,6 @@ export default function InboxAdminPage() {
         )}
       </div>
 
-      {/* Add bot */}
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
           <div>
@@ -240,51 +414,35 @@ export default function InboxAdminPage() {
               Tap on your phone — Telegram opens a "select group" picker.
             </div>
           </div>
-          <a
-            href={BOT_DEEP_LINK}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              padding: '8px 16px', borderRadius: '8px',
-              background: 'var(--palm-pink)', color: '#060606',
-              fontSize: '12px', fontWeight: 700,
-              textDecoration: 'none', whiteSpace: 'nowrap',
-            }}
-          >
-            + Add Bot to Group
-          </a>
+          <a href={BOT_DEEP_LINK} target="_blank" rel="noreferrer" style={{
+            padding: '8px 16px', borderRadius: '8px', background: 'var(--palm-pink)', color: '#060606',
+            fontSize: '12px', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap',
+          }}>+ Add Bot to Group</a>
         </div>
       </div>
 
-      {/* Pending Review */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Pending Review ({pending.length})
-        </div>
-        {pending.length === 0 ? (
-          <div style={{ ...card, color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center', padding: '24px' }}>
-            No new chats waiting. Add the bot to a group to see it here.
+      {pending.length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Pending Review ({pending.length})
           </div>
-        ) : (
-          pending.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} />)
-        )}
-      </div>
+          {pending.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} />)}
+        </div>
+      )}
 
-      {/* Watching */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Watching ({watching.length})
         </div>
         {watching.length === 0 ? (
           <div style={{ ...card, color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center', padding: '24px' }}>
-            Nothing being tracked yet.
+            Nothing being tracked yet. Add the bot to a group above.
           </div>
         ) : (
           watching.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} />)
         )}
       </div>
 
-      {/* Ignored (collapsible) */}
       {ignored.length > 0 && (
         <details style={{ marginBottom: '24px' }}>
           <summary style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
@@ -295,12 +453,30 @@ export default function InboxAdminPage() {
           </div>
         </details>
       )}
+    </div>
+  )
+}
 
-      {error && (
-        <div style={{ ...card, borderColor: 'rgba(232, 120, 120, 0.3)', color: '#E87878' }}>
-          Error: {error}
-        </div>
-      )}
+// ─── Page shell ──────────────────────────────────────────────────────
+
+export default function InboxAdminPage() {
+  const searchParams = useSearchParams()
+  const tab = searchParams.get('tab') || 'tasks'
+
+  return (
+    <div style={{ maxWidth: '900px' }}>
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '6px', color: 'var(--foreground)' }}>
+          Inbox
+        </h1>
+        <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+          {tab === 'tasks'
+            ? 'Action items extracted from your Telegram conversations. Things you or Josh said you’d do.'
+            : 'Manage which Telegram chats the heartbeat bot is watching.'}
+        </p>
+      </div>
+
+      {tab === 'chats' ? <ChatsTab /> : <TasksTab />}
     </div>
   )
 }
