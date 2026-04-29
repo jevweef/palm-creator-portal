@@ -1130,7 +1130,12 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   // editor's upload UI so they can re-submit. Treat them like an inProgress
   // task for action rendering.
   const isNeedsRevision = task?.adminReviewStatus === 'Needs Revision'
-  const showUploadUI = slot.type === 'inProgress' || isNeedsRevision
+  // Pending-review tasks: editor wants to swap the file before admin reviews.
+  // Hidden behind a "Replace edit" button so the upload UI doesn't show by
+  // default on something that's already submitted.
+  const isInReview = slot.type === 'done' && task?.adminReviewStatus === 'Pending Review'
+  const [replacingInReview, setReplacingInReview] = useState(false)
+  const showUploadUI = slot.type === 'inProgress' || isNeedsRevision || (isInReview && replacingInReview)
   const [starting, setStarting] = useState(false)
   const [startErr, setStartErr] = useState('')
 
@@ -1479,11 +1484,38 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                 {updating ? 'Starting...' : 'Start Editing →'}
               </button>
             )}
+            {/* In-review tasks: show a "Replace edit" trigger that flips the
+                upload UI on. Saved exports use the same /api/editor/save-edit
+                path which overwrites Edited File Link + bumps Completed At so
+                the admin's For Review queue picks up the new version. */}
+            {isInReview && !replacingInReview && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ padding: '11px', textAlign: 'center', fontSize: '12px', color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.08)', border: '1px solid transparent', borderRadius: '8px' }}>
+                  ✓ Submitted · Awaiting admin review
+                </div>
+                <button onClick={() => setReplacingInReview(true)}
+                  style={{ width: '100%', padding: '9px', fontSize: '12px', fontWeight: 600, background: 'var(--background)', color: 'var(--foreground-muted)', border: '1px solid var(--card-border)', borderRadius: '8px', cursor: 'pointer' }}>
+                  ↻ Replace this edit
+                </button>
+              </div>
+            )}
+
             {showUploadUI && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {isNeedsRevision && (
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#E87878', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                     Re-upload revision
+                  </div>
+                )}
+                {isInReview && replacingInReview && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--palm-pink)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Replace submitted edit
+                    </div>
+                    <button onClick={() => setReplacingInReview(false)}
+                      style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
+                      Cancel
+                    </button>
                   </div>
                 )}
                 {/* AI Caption Suggestions — brainstorm, copy to your editor of choice */}
@@ -1559,7 +1591,7 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                       disabled={saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress || isUploadOversized}
                       title={isUploadOversized ? `Video must be 1080×1920 or smaller (yours is ${uploadDims.w}×${uploadDims.h}). Re-export and try again.` : ''}
                       style={{ width: '100%', padding: '11px', fontSize: '13px', fontWeight: 700, background: saved ? 'rgba(125, 211, 164, 0.08)' : 'rgba(232, 160, 160, 0.05)', color: saved ? '#7DD3A4' : 'var(--palm-pink)', border: `1px solid ${saved ? 'rgba(125, 211, 164, 0.2)' : 'var(--palm-pink)'}`, borderRadius: '8px', cursor: (saving || saved || (!uploadFile && !uploadUrl.trim()) || !!uploadProgress || isUploadOversized) ? 'not-allowed' : 'pointer', opacity: (!uploadFile && !uploadUrl.trim() && !saved) || isUploadOversized ? 0.5 : 1 }}>
-                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : isUploadOversized ? 'Too Large' : (isNeedsRevision ? 'Resubmit Revision ↑' : 'Save & Submit ↑')}
+                      {saved ? 'Saved ✓' : saving || uploadProgress ? 'Uploading...' : isUploadOversized ? 'Too Large' : (isNeedsRevision ? 'Resubmit Revision ↑' : (isInReview ? 'Replace & Resubmit ↑' : 'Save & Submit ↑'))}
                     </button>
                   </div>
                 )}
