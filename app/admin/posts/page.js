@@ -660,15 +660,20 @@ function PostCard({ post, onRefresh, onSend }) {
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
-      {/* Left — video poster at 9:16 (actual video plays in TelegramModal on Send) */}
+      {/* Left — video cell at 9:16. Prefers Cloudflare Stream iframe (cheap
+          to mount, autoplays muted/looped from the edge) so the editor sees
+          the actual edit playing. Falls back to a static thumbnail + play
+          glyph for assets that haven't been mirrored yet. Direct Dropbox
+          <video> is the last resort — kept off this list since dozens of
+          them brought the page to a halt before. */}
       <div style={{ width: '300px', flexShrink: 0, background: 'rgba(232, 160, 160, 0.04)', position: 'relative', aspectRatio: '9/16' }}>
         {hasFile ? (
           isVideo(post.asset.editedFileLink) ? (
-            // Prefer the post's chosen Thumbnail (Airtable CDN, fast) over
-            // mounting a <video> that streams from Dropbox. The page may
-            // render dozens of these — a single <video> per card was enough
-            // to grind the admin posts list to a halt on first load.
-            (thumbnailUrl || post.asset?.cdnUrl) ? (
+            post.asset?.streamEditId ? (
+              <iframe src={buildStreamIframeUrl(post.asset.streamEditId, { autoplay: true, muted: true, loop: true, controls: false })}
+                allow="autoplay" loading="lazy"
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+            ) : (thumbnailUrl || post.asset?.cdnUrl) ? (
               <>
                 <img src={thumbnailUrl || cdnUrlAtSize(post.asset?.cdnUrl, 600)} alt="" loading="lazy" decoding="async"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
