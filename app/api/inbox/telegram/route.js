@@ -144,11 +144,13 @@ export async function POST(request) {
     let chatRecord = await findChatRecord(chatIdStr)
 
     if (!chatRecord) {
+      // Default to Watching: if you added the bot, you want it tracked.
+      // Use Ignore / Ignore Forever to mute noisy groups after the fact.
       const created = await createAirtableRecord(CHATS_TABLE, {
         'Chat ID': chatIdStr,
         Title: chat.title || chat.username || buildSenderName(chat) || chatIdStr,
         Type: chat.type || 'group',
-        Status: 'Pending Review',
+        Status: 'Watching',
         'First Seen': sentAtIso,
         'Last Message At': sentAtIso,
         'Message Count': 1,
