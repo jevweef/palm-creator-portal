@@ -1964,7 +1964,11 @@ function ForReview({ showToast }) {
                       <button onClick={() => setVideoModal(task.asset.dropboxLink.split('\n').filter(Boolean)[0])}
                         style={{ position: 'absolute', inset: 0, padding: 0, background: 'linear-gradient(135deg, rgba(120, 180, 232, 0.06), rgba(120, 180, 232, 0.02))', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         title="Play raw clip">
-                        <span style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
+                        {task.asset.cdnUrl && (
+                          <img src={cdnUrlAtSize(task.asset.cdnUrl, 400)} alt="" loading="lazy" decoding="async"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                        )}
+                        <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
                       </button>
                     ) : (
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No raw clip</div>
@@ -1978,7 +1982,11 @@ function ForReview({ showToast }) {
                       <button onClick={() => setVideoModal(task.asset.editedFileLink)}
                         style={{ position: 'absolute', inset: 0, padding: 0, background: 'linear-gradient(135deg, rgba(125, 211, 164, 0.06), rgba(125, 211, 164, 0.02))', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         title="Play edit">
-                        <span style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
+                        {task.asset.cdnUrl && (
+                          <img src={cdnUrlAtSize(task.asset.cdnUrl, 400)} alt="" loading="lazy" decoding="async"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                        )}
+                        <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
                       </button>
                     ) : (
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No edit yet</div>

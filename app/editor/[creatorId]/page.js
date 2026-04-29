@@ -224,7 +224,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
   const photoFile = forcePhoto || isPhoto(link)
-  const imgSrc = asset.cdnUrl || asset.thumbnail || (photoFile && rawUrl) || ''
+  const imgSrc = cdnUrlAtSize(asset.cdnUrl, 480) || asset.thumbnail || (photoFile && rawUrl) || ''
 
   const handleStart = async () => {
     setStarting(true)
