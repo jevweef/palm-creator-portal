@@ -14,7 +14,7 @@ export default function Header() {
   const isEditor = role === 'editor'
   const isEditorPath = pathname?.startsWith('/editor')
   const isCreatorPath = pathname?.startsWith('/creator')
-  const isChatWallPath = pathname?.startsWith('/admin/chat-wall')
+  const isChatWallPath = pathname?.startsWith('/photo-library')
   const creatorIdFromPath = isCreatorPath ? pathname?.split('/')?.[2] : null
   const hqIdFromUrl = searchParams?.get('hqId')
 

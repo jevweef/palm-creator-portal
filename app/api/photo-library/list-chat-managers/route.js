@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
 import { requireAdmin } from '@/lib/adminAuth'
 
-// GET /api/admin/chat-wall/list-chat-managers
+// GET /api/photo-library/list-chat-managers
 //
 // Admin-only. Returns every Clerk user whose publicMetadata.role is
 // 'chat_manager', so the admin's "View As" bar can list them and

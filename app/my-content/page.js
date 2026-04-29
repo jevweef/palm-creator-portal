@@ -47,27 +47,19 @@ function PipelineCard({ item, onClick }) {
       onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' } }}
       onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' } }}
     >
-      <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)' }}>
-        {(item.cdnUrl || item.assetThumbnail) ? (
+      <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)', position: 'relative' }}>
+        {(item.cdnUrl || item.assetThumbnail || item.inspoCdnUrl || item.inspoThumbnail) ? (
           <img
-            src={item.cdnUrl || item.assetThumbnail}
+            src={item.cdnUrl || item.assetThumbnail || item.inspoCdnUrl || item.inspoThumbnail}
             alt={item.inspoTitle}
+            loading="lazy"
+            decoding="async"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : clipUrl ? (
-          <video
-            src={clipUrl}
-            muted
-            playsInline
-            preload="metadata"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
-          />
-        ) : (item.inspoCdnUrl || item.inspoThumbnail) ? (
-          <img
-            src={item.inspoCdnUrl || item.inspoThumbnail}
-            alt={item.inspoTitle}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+          // Card view: never mount the actual <video>. The clip plays in the
+          // detail modal that opens on click. Show a play-icon placeholder.
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(120, 180, 232, 0.04))', color: 'rgba(255,255,255,0.4)', fontSize: '32px' }}>▶</div>
         ) : null}
       </div>
       <div style={{ padding: '14px' }}>

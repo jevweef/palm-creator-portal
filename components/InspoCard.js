@@ -43,6 +43,8 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
           <img
             src={record.cdnUrl || record.thumbnail}
             alt={record.title}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={() => setImgError(true)}
           />

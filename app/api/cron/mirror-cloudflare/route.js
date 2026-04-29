@@ -64,12 +64,20 @@ export async function GET(request) {
     // Dropbox link, and CDN URL must be empty.
     const [assetCandidates, inspoCandidates] = await Promise.all([
       fetchAirtableRecords('Assets', {
-        filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()),{CDN URL}='')`,
+        // Photos: mirror the Dropbox file directly (need link, no Thumbnail
+        //   required — uploadImageByUrl pulls bytes from Dropbox).
+        // Videos: mirror the Airtable-generated poster frame (need Thumbnail
+        //   attachment, no Dropbox Shared Link required — even orphan-linked
+        //   videos can have a poster on CF). Both populate the same CDN URL
+        //   field so the browse-side `<img src={asset.cdnUrl || ...}>`
+        //   pattern works uniformly.
+        filterByFormula: `AND({CDN URL}='',OR(AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK())),AND({Asset Type}='Video',NOT({Thumbnail}=''))))`,
         fields: [
           'Asset Name',
           'Dropbox Shared Link',
           'Asset Type',
           'File Extension',
+          'Thumbnail',
           'CDN URL',
         ],
       }),

@@ -33,7 +33,7 @@ const ADMIN_NAV = [
     { key: 'internal', label: 'Palm Internal' },
     { key: 'team', label: 'Chat Team Report' },
   ]},
-  { href: '/admin/chat-wall', label: 'Photo Library', icon: '🖼️' },
+  { href: '/photo-library', label: 'Photo Library', icon: '🖼️' },
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
   { href: '/admin/invoicing', label: 'Invoicing', icon: '💸', children: [
     { key: 'invoices', label: 'Invoices' },
@@ -48,7 +48,7 @@ const EDITOR_NAV = [
 ]
 
 const CHAT_MANAGER_NAV = [
-  { href: '/admin/chat-wall', label: 'Photo Library', icon: '🖼️' },
+  { href: '/photo-library', label: 'Photo Library', icon: '🖼️' },
 ]
 
 export default function AdminLayout({ children }) {
@@ -77,14 +77,18 @@ export default function AdminLayout({ children }) {
     if (isEditor) {
       router.replace('/editor')
     }
-    // chat_manager: only allow /admin/chat-wall, redirect anything else
-    if (isChatManager && !pathname?.startsWith('/admin/chat-wall')) {
-      router.replace('/admin/chat-wall')
+    // chat_manager should never see /admin/* — bounce to /photo-library.
+    // The layout's role check below also catches this, but redirecting in
+    // the effect avoids a flash of the loading state.
+    if (isChatManager) {
+      router.replace('/photo-library')
     }
   }, [isLoaded, user, router, pathname, isAdmin, isEditor, isChatManager])
 
-  // Early returns AFTER all hooks
-  if (!isLoaded || (!isAdmin && !isEditor && !isChatManager)) {
+  // Early returns AFTER all hooks. Chat managers never render the admin
+  // layout — they're redirected above. This block catches anyone else
+  // without a permitted role.
+  if (!isLoaded || (!isAdmin && !isEditor)) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading...</div>
@@ -92,16 +96,11 @@ export default function AdminLayout({ children }) {
     )
   }
 
-  // When anyone is on the Chat Wall page, show only the chat-manager sidebar.
-  // This makes "View As Chat Manager" match the real chat manager experience
-  // even when the underlying user is an admin.
-  const isOnChatWall = pathname?.startsWith('/admin/chat-wall')
-  const NAV_ITEMS = isOnChatWall
-    ? CHAT_MANAGER_NAV
-    : isAdmin ? ADMIN_NAV : isChatManager ? CHAT_MANAGER_NAV : EDITOR_NAV
-  const sectionLabel = isOnChatWall
-    ? 'Chat Manager'
-    : isAdmin ? 'Admin' : isChatManager ? 'Chat Manager' : 'Editor'
+  const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
+  const sectionLabel = isAdmin ? 'Admin' : 'Editor'
+  // Kept for backwards-compatible main-content centering on the deleted
+  // legacy /admin/chat-wall path. Always false now since the page moved.
+  const isOnChatWall = false
 
   return (
     <div className="admin-shell" style={{ display: 'flex', minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>

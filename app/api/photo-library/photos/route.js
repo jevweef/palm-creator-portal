@@ -23,7 +23,7 @@ const isImageAsset = (a) => {
   return imageExts.includes(ext) || imageExtRegex.test(link) || type === 'photo' || type === 'image'
 }
 
-// GET /api/admin/chat-wall/photos?creatorId=...&view=available|used&page=0
+// GET /api/photo-library/photos?creatorId=...&view=available|used&page=0
 // Returns paginated photos for a creator. Photo only, sorted by createdTime desc.
 // view=available — not yet marked used by chat manager (default)
 // view=used      — already toggled used (for restore view)
@@ -138,7 +138,7 @@ export async function GET(request) {
   }
 }
 
-// PATCH /api/admin/chat-wall/photos
+// PATCH /api/photo-library/photos
 // Body: { assetId, used: boolean, usedFor?: 'wall' | 'mm' }
 // Toggle the chat manager "used" flag. When used=true, usedFor is required —
 // stores the surface (Wall Post or Mass Message) so we can badge it later.
