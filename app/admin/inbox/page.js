@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useToast } from '@/lib/useToast'
 
 const BOT_DEEP_LINK = 'https://t.me/palmmanage_bot?startgroup=true'
 
@@ -95,7 +96,7 @@ const OWNER_COLOR = {
   Other: '#9aa0a6',
 }
 
-function TaskCard({ task, onUpdate }) {
+function TaskCard({ task, onUpdate, toast }) {
   const [busy, setBusy] = useState(false)
 
   async function setStatus(status) {
@@ -108,9 +109,10 @@ function TaskCard({ task, onUpdate }) {
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        alert(`Failed: ${j.error || res.statusText}`)
+        toast(`Failed: ${j.error || res.statusText}`, 'error')
         return
       }
+      toast(`Marked ${status.toLowerCase()}`, 'success')
       onUpdate()
     } finally {
       setBusy(false)
@@ -182,7 +184,7 @@ function TaskCard({ task, onUpdate }) {
   )
 }
 
-function TasksTab() {
+function TasksTab({ toast }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [ownerFilter, setOwnerFilter] = useState('all')
@@ -210,15 +212,22 @@ function TasksTab() {
   async function runExtractionNow() {
     setExtractBusy(true)
     try {
-      // Bypass cron auth: this endpoint requires the bearer header. We'll
-      // hit it via a small admin proxy that injects CRON_SECRET server-side.
-      // For now, use a "force" admin endpoint at /api/admin/inbox/extract-now.
       const res = await fetch('/api/admin/inbox/extract-now', { method: 'POST' })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(`Extract failed: ${j.error || res.statusText}`)
+        toast(`Extract failed: ${j.error || res.statusText}`, 'error')
       } else {
-        alert(`Extracted ${j.stats?.tasksCreated || 0} task(s) from ${j.stats?.chatsProcessed || 0} chat(s).`)
+        const created = j.stats?.tasksCreated || 0
+        const chats = j.stats?.chatsProcessed || 0
+        const scanned = j.stats?.messagesScanned || 0
+        toast(
+          created > 0
+            ? `Extracted ${created} task${created === 1 ? '' : 's'} from ${chats} chat${chats === 1 ? '' : 's'}`
+            : scanned === 0
+              ? 'No new messages to scan'
+              : `Scanned ${scanned} message${scanned === 1 ? '' : 's'} across ${chats} chat${chats === 1 ? '' : 's'} — nothing actionable`,
+          created > 0 ? 'success' : 'info'
+        )
         refresh()
       }
     } finally {
@@ -271,7 +280,7 @@ function TasksTab() {
           </div>
         </div>
       ) : (
-        tasks.map(t => <TaskCard key={t.id} task={t} onUpdate={refresh} />)
+        tasks.map(t => <TaskCard key={t.id} task={t} onUpdate={refresh} toast={toast} />)
       )}
     </div>
   )
@@ -279,7 +288,7 @@ function TasksTab() {
 
 // ─── Chats tab (existing UI) ─────────────────────────────────────────
 
-function ChatRow({ chat, onUpdate }) {
+function ChatRow({ chat, onUpdate, toast }) {
   const [busy, setBusy] = useState(false)
   async function setStatus(status) {
     setBusy(true)
@@ -291,9 +300,10 @@ function ChatRow({ chat, onUpdate }) {
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        alert(`Failed to update: ${j.error || res.statusText}`)
+        toast(`Failed to update: ${j.error || res.statusText}`, 'error')
         return
       }
+      toast(`${chat.title}: ${status.toLowerCase()}`, 'success')
       onUpdate()
     } finally { setBusy(false) }
   }
@@ -335,7 +345,7 @@ function ChatRow({ chat, onUpdate }) {
   )
 }
 
-function ChatsTab() {
+function ChatsTab({ toast }) {
   const [status, setStatus] = useState(null)
   const [chats, setChats] = useState([])
   const [loading, setLoading] = useState(true)
@@ -360,14 +370,17 @@ function ChatsTab() {
   }, [])
 
   async function registerWebhook() {
-    if (!confirm('Register the webhook with Telegram? (Safe to run multiple times.)')) return
     const res = await fetch('/api/admin/inbox/register-webhook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: window.location.origin }),
     })
-    const j = await res.json()
-    alert(res.ok ? `Webhook registered: ${j.webhookUrl}` : `Failed: ${j.error || res.statusText}`)
+    const j = await res.json().catch(() => ({}))
+    if (res.ok) {
+      toast('Webhook re-registered', 'success')
+    } else {
+      toast(`Failed: ${j.error || res.statusText}`, 'error')
+    }
     refresh()
   }
 
@@ -426,7 +439,7 @@ function ChatsTab() {
           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Pending Review ({pending.length})
           </div>
-          {pending.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} />)}
+          {pending.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} />)}
         </div>
       )}
 
@@ -439,7 +452,7 @@ function ChatsTab() {
             Nothing being tracked yet. Add the bot to a group above.
           </div>
         ) : (
-          watching.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} />)
+          watching.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} />)
         )}
       </div>
 
@@ -449,7 +462,7 @@ function ChatsTab() {
             Ignored ({ignored.length})
           </summary>
           <div style={{ marginTop: '10px' }}>
-            {ignored.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} />)}
+            {ignored.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} />)}
           </div>
         </details>
       )}
@@ -462,6 +475,7 @@ function ChatsTab() {
 export default function InboxAdminPage() {
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'tasks'
+  const { toast, ToastViewport } = useToast()
 
   return (
     <div style={{ maxWidth: '900px' }}>
@@ -476,7 +490,8 @@ export default function InboxAdminPage() {
         </p>
       </div>
 
-      {tab === 'chats' ? <ChatsTab /> : <TasksTab />}
+      {tab === 'chats' ? <ChatsTab toast={toast} /> : <TasksTab toast={toast} />}
+      <ToastViewport />
     </div>
   )
 }
