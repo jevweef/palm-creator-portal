@@ -223,6 +223,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
   const photoFile = forcePhoto || isPhoto(link)
+  const imgSrc = asset.cdnUrl || asset.thumbnail || (photoFile && rawUrl) || ''
 
   const handleStart = async () => {
     setStarting(true)
@@ -244,16 +245,17 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
   return (
     <div style={{ background: 'var(--background)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ background: 'var(--background)', position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '260px', overflow: 'hidden' }}>
-        {videoFile && rawUrl ? (
-          <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
-            onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-        ) : photoFile && rawUrl ? (
-          <img src={asset.cdnUrl || rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : (asset.cdnUrl || asset.thumbnail) ? (
-          <img src={asset.cdnUrl || asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {imgSrc ? (
+          <img src={imgSrc} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : videoFile ? (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(120, 180, 232, 0.04))', color: 'rgba(255,255,255,0.4)', fontSize: '28px' }}>▶</div>
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '28px' }}>&#127916;</div>
+        )}
+        {videoFile && imgSrc && (
+          <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.55)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '10px', marginLeft: '2px' }}>▶</span>
+          </div>
         )}
         {asset.uploadWeek && (
           <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: 'var(--foreground-muted)', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>

@@ -1957,53 +1957,51 @@ function ForReview({ showToast }) {
                 {/* Video strip — RAW | EDIT | INSPO */}
                 <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
 
-                  {/* RAW clip */}
+                  {/* RAW clip — click ⛶ to play in modal */}
                   <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
                     {rawClipUrl ? (
-                      <>
-                        <video src={rawClipUrl} autoPlay muted loop playsInline preload="metadata"
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
-                          onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-                        <button onClick={() => setVideoModal(task.asset.dropboxLink.split('\n').filter(Boolean)[0])}
-                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
-                          ⛶
-                        </button>
-                      </>
+                      <button onClick={() => setVideoModal(task.asset.dropboxLink.split('\n').filter(Boolean)[0])}
+                        style={{ position: 'absolute', inset: 0, padding: 0, background: 'linear-gradient(135deg, rgba(120, 180, 232, 0.06), rgba(120, 180, 232, 0.02))', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Play raw clip">
+                        <span style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
+                      </button>
                     ) : (
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No raw clip</div>
                     )}
-                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#78B4E8', fontWeight: 600 }}>RAW</div>
+                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#78B4E8', fontWeight: 600, pointerEvents: 'none' }}>RAW</div>
                   </div>
 
-                  {/* EDIT clip */}
+                  {/* EDIT clip — click ⛶ to play in modal */}
                   <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
                     {editUrl ? (
-                      <>
-                        <video src={editUrl} autoPlay muted loop playsInline preload="metadata"
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
-                          onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-                        <button onClick={() => setVideoModal(task.asset.editedFileLink)}
-                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', cursor: 'pointer' }}>
-                          ⛶
-                        </button>
-                      </>
+                      <button onClick={() => setVideoModal(task.asset.editedFileLink)}
+                        style={{ position: 'absolute', inset: 0, padding: 0, background: 'linear-gradient(135deg, rgba(125, 211, 164, 0.06), rgba(125, 211, 164, 0.02))', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Play edit">
+                        <span style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
+                      </button>
                     ) : (
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No edit yet</div>
                     )}
-                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#7DD3A4', fontWeight: 600 }}>EDIT</div>
+                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#7DD3A4', fontWeight: 600, pointerEvents: 'none' }}>EDIT</div>
                   </div>
 
-                  {/* INSPO clip — only if available */}
+                  {/* INSPO clip — show thumbnail, click to open in modal */}
                   {hasInspo && (
                     <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
                       {inspoVideoUrl ? (
-                        <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
-                          onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+                        <button onClick={() => setVideoModal(task.inspo.dbShareLink)}
+                          style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Play inspo">
+                          {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
+                            <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" loading="lazy" decoding="async"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                          ) : null}
+                          <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
+                        </button>
                       ) : (task.inspo.cdnUrl || task.inspo.thumbnail) ? (
-                        <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                        <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                       ) : null}
-                      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
+                      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600, pointerEvents: 'none' }}>INSPO</div>
                     </div>
                   )}
                 </div>

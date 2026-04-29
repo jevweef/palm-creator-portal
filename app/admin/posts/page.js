@@ -650,15 +650,27 @@ function PostCard({ post, onRefresh, onSend }) {
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
-      {/* Left — video at 9:16 */}
+      {/* Left — video poster at 9:16 (actual video plays in TelegramModal on Send) */}
       <div style={{ width: '300px', flexShrink: 0, background: 'rgba(232, 160, 160, 0.04)', position: 'relative', aspectRatio: '9/16' }}>
         {hasFile ? (
           isVideo(post.asset.editedFileLink) ? (
-            <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
-              onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+            // Prefer the post's chosen Thumbnail (Airtable CDN, fast) over
+            // mounting a <video> that streams from Dropbox. The page may
+            // render dozens of these — a single <video> per card was enough
+            // to grind the admin posts list to a halt on first load.
+            (thumbnailUrl || post.asset?.cdnUrl) ? (
+              <>
+                <img src={thumbnailUrl || post.asset?.cdnUrl} alt="" loading="lazy" decoding="async"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.45)', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '18px', marginLeft: '3px' }}>▶</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(120, 180, 232, 0.04))', color: 'rgba(255,255,255,0.4)', fontSize: '32px' }}>▶</div>
+            )
           ) : (
-            <img src={post.asset?.cdnUrl || rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={post.asset?.cdnUrl || rawUrl} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           )
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>

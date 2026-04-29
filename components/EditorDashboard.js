@@ -84,6 +84,37 @@ function CreatorDnaModal({ creatorId, creatorName, onClose }) {
 
 // ─── Library helpers ───────────────────────────────────────────────────────────
 
+// Used on every card that COULD show a video but shouldn't load one in a list
+// view. The actual video plays inside whatever modal the card opens. Same
+// reason we don't render <video> autoplays in the grid: each one kicks off
+// a Dropbox metadata fetch that turns the page into molasses.
+function PlayBadge() {
+  return (
+    <div style={{
+      position: 'absolute', bottom: '6px', left: '6px',
+      background: 'rgba(0,0,0,0.55)', borderRadius: '50%',
+      width: '24px', height: '24px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      pointerEvents: 'none',
+    }}>
+      <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '10px', marginLeft: '2px' }}>▶</span>
+    </div>
+  )
+}
+
+function VideoPlaceholder() {
+  return (
+    <div style={{
+      width: '100%', height: '100%',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(120, 180, 232, 0.04))',
+      color: 'rgba(255,255,255,0.4)', fontSize: '28px',
+    }}>
+      ▶
+    </div>
+  )
+}
+
 export function rawDropboxUrl(url) {
   if (!url) return ''
   const clean = url.replace(/[?&]dl=0/, '').replace(/[?&]raw=1/, '')
@@ -99,21 +130,19 @@ export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) 
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
   const photoFile = forcePhoto || isPhoto(link)
+  const imgSrc = asset.cdnUrl || asset.thumbnail || (photoFile && rawUrl) || ''
 
   return (
     <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '3/4', maxHeight: '320px', overflow: 'hidden', background: 'var(--background)' }}>
-        {videoFile && rawUrl ? (
-          <video src={rawUrl} autoPlay muted loop playsInline preload="metadata"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
-            onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-        ) : photoFile && rawUrl ? (
-          <img src={asset.cdnUrl || rawUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : (asset.cdnUrl || asset.thumbnail) ? (
-          <img src={asset.cdnUrl || asset.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {imgSrc ? (
+          <img src={imgSrc} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : videoFile ? (
+          <VideoPlaceholder />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card-border)', fontSize: '28px' }}>&#127916;</div>
         )}
+        {videoFile && imgSrc && <PlayBadge />}
         {asset.uploadWeek && (
           <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'rgba(0,0,0,0.75)', color: 'var(--foreground-muted)', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
             {asset.uploadWeek}
@@ -1670,28 +1699,33 @@ function SlotThumbnail({ slot }) {
 
   if (slot.type === 'empty') return null
 
+  // Slot thumbnails are list-view only — the actual video plays in the task
+  // modal that opens on click. We never render a <video> here: each one would
+  // hit Dropbox for metadata, and a column of 6+ slots × 5 creators turns the
+  // editor admin page into a Dropbox-saturating mess. Show the static image
+  // (already CF-fast) or a placeholder.
+  const placeholderStyle = {
+    ...style,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(120, 180, 232, 0.04))',
+    color: 'rgba(255,255,255,0.35)', fontSize: '20px',
+  }
+
   if (slot.type === 'done') {
-    const editedUrl = task?.asset?.editedFileLink ? rawDropboxUrl(task.asset.editedFileLink) : ''
     const thumb = task?.asset?.cdnUrl || task?.asset?.thumbnail || task?.inspo?.cdnUrl || task?.inspo?.thumbnail || ''
-    // Prefer a static image over the edited <video> element. The video is a
-    // raw Dropbox URL — without CF Stream it shows nothing until metadata
-    // downloads, leaving the slot blank for seconds. A CF/Airtable image
-    // (usually the inspo thumb) renders instantly.
-    if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, opacity: 0.6 }} />
-    if (editedUrl) return <video className={cls} src={editedUrl} muted playsInline preload="metadata" style={{ ...style, opacity: 0.7 }} />
-    return null
+    if (thumb) return <img className={cls} src={thumb} alt="" loading="lazy" decoding="async" style={{ ...style, opacity: 0.6 }} />
+    return <div className={cls} style={{ ...placeholderStyle, opacity: 0.45 }}>▶</div>
   }
 
   if (slot.type === 'inspoClip') {
     const thumb = clip?.cdnUrl || clip?.thumbnail || clip?.inspo?.cdnUrl || clip?.inspo?.thumbnail || ''
-    return thumb ? <img className={cls} src={thumb} alt="" style={style} /> : null
+    if (thumb) return <img className={cls} src={thumb} alt="" loading="lazy" decoding="async" style={style} />
+    return <div className={cls} style={placeholderStyle}>▶</div>
   }
 
   // toDo or inProgress
   const thumb = task?.inspo?.cdnUrl || task?.inspo?.thumbnail || task?.asset?.cdnUrl || task?.asset?.thumbnail || ''
-  const rawClipUrl = !thumb ? rawDropboxUrl(task?.asset?.dropboxLinks?.[0] || task?.asset?.dropboxLink || '') : ''
-  if (thumb) return <img className={cls} src={thumb} alt="" style={{ ...style, ...(task?.adminReviewStatus === 'Needs Revision' ? { border: '1px solid #fecaca' } : {}) }} />
-  if (rawClipUrl) return <video className={cls} src={rawClipUrl} muted playsInline style={style} />
+  if (thumb) return <img className={cls} src={thumb} alt="" loading="lazy" decoding="async" style={{ ...style, ...(task?.adminReviewStatus === 'Needs Revision' ? { border: '1px solid #fecaca' } : {}) }} />
   return null
 }
 
