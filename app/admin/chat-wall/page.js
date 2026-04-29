@@ -64,7 +64,12 @@ export default function ChatWallPage() {
 
   const [creators, setCreators] = useState([])
   const [creatorsLoading, setCreatorsLoading] = useState(true)
-  const [viewer, setViewer] = useState({ role: null, chatTeam: null, isRealChatManager: false })
+  const [viewer, setViewer] = useState({ role: null, chatTeam: null, isRealChatManager: false, impersonatingUserId: null })
+  // When an admin uses "View As [chat manager]" in the SuperAdminBar, the
+  // selection lives in localStorage. Read it on mount and pass to the API
+  // as viewAsUserId so the page renders exactly as that user would see it.
+  const [viewAsUserId, setViewAsUserId] = useState(null)
+  const [viewAsName, setViewAsName] = useState(null)
   const [team, setTeam] = useState(searchParams.get('team') || 'All')
   const [creatorId, setCreatorId] = useState(searchParams.get('creator') || '')
   const [view, setView] = useState(searchParams.get('view') || 'available')
@@ -85,6 +90,34 @@ export default function ChatWallPage() {
   // available → used (Restore skips confirmation since it's reversible).
   const [confirmAsset, setConfirmAsset] = useState(null)
 
+  // Hydrate "View As [chat manager]" selection from localStorage. Polled
+  // here (not just on mount) so changes from SuperAdminBar take effect
+  // without a hard refresh.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    function read() {
+      try {
+        const raw = window.localStorage.getItem('superadmin_chatManager')
+        if (!raw) {
+          setViewAsUserId(null)
+          setViewAsName(null)
+          return
+        }
+        const parsed = JSON.parse(raw)
+        setViewAsUserId(parsed?.id || null)
+        setViewAsName(parsed?.firstName || parsed?.fullName || parsed?.email || null)
+      } catch {
+        setViewAsUserId(null)
+        setViewAsName(null)
+      }
+    }
+    read()
+    // Listen for cross-tab changes too
+    const onStorage = (e) => { if (e.key === 'superadmin_chatManager') read() }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   // Hydrate sticky page size from localStorage / URL on mount.
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -99,11 +132,15 @@ export default function ChatWallPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Load creators once
+  // Load creators. Re-runs when viewAsUserId changes so admin can swap
+  // between impersonations without refreshing.
   useEffect(() => {
     let cancelled = false
     setCreatorsLoading(true)
-    fetch('/api/admin/chat-wall/creators')
+    const url = viewAsUserId
+      ? `/api/admin/chat-wall/creators?viewAsUserId=${encodeURIComponent(viewAsUserId)}`
+      : '/api/admin/chat-wall/creators'
+    fetch(url)
       .then(r => r.json())
       .then(data => {
         if (cancelled) return
@@ -113,7 +150,7 @@ export default function ChatWallPage() {
       .catch(() => {})
       .finally(() => { if (!cancelled) setCreatorsLoading(false) })
     return () => { cancelled = true }
-  }, [])
+  }, [viewAsUserId])
 
   // Filter creators by selected team
   const visibleCreators = useMemo(() => {
@@ -277,9 +314,53 @@ export default function ChatWallPage() {
           ))}
         </div>
       )}
-      {viewer.isRealChatManager && viewer.chatTeam && (
+      {viewer.isRealChatManager && viewer.chatTeam && !viewer.impersonatingUserId && (
         <div style={{ marginBottom: '12px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
           Showing your assigned creators · <span style={{ color: 'var(--palm-pink)' }}>Team {viewer.chatTeam}</span>
+        </div>
+      )}
+      {/* Impersonation banner — shown to admins who selected a specific
+          chat manager from the View As bar. Lets them confirm whose view
+          they're seeing and clear it inline. */}
+      {viewer.impersonatingUserId && (
+        <div style={{
+          marginBottom: '12px',
+          padding: '10px 14px',
+          borderRadius: '8px',
+          background: 'rgba(232, 160, 160, 0.08)',
+          border: '1px solid rgba(232, 160, 160, 0.25)',
+          fontSize: '12px',
+          color: 'var(--foreground-muted)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '12px',
+          flexWrap: 'wrap',
+        }}>
+          <span>
+            Viewing as <span style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>{viewAsName || 'chat manager'}</span>
+            {viewer.chatTeam ? <> · Team {viewer.chatTeam}</> : null}
+          </span>
+          <button
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.localStorage.removeItem('superadmin_chatManager')
+              }
+              setViewAsUserId(null)
+              setViewAsName(null)
+            }}
+            style={{
+              padding: '4px 10px',
+              fontSize: '11px',
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '6px',
+              color: 'var(--foreground-muted)',
+              cursor: 'pointer',
+            }}
+          >
+            Stop impersonating
+          </button>
         </div>
       )}
       {viewer.isRealChatManager && !viewer.chatTeam && (

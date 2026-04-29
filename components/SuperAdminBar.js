@@ -14,6 +14,12 @@ export default function SuperAdminBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectedCreator, setSelectedCreator] = useState(null)
   const dropdownRef = useRef(null)
+  // Chat-manager impersonation list (lazy-loaded once on first hover).
+  const [chatManagers, setChatManagers] = useState([])
+  const [chatManagersLoaded, setChatManagersLoaded] = useState(false)
+  const [chatMgrDropdownOpen, setChatMgrDropdownOpen] = useState(false)
+  const [selectedChatManager, setSelectedChatManager] = useState(null)
+  const chatMgrDropdownRef = useRef(null)
 
   const email = user?.primaryEmailAddress?.emailAddress
   const role = user?.publicMetadata?.role
@@ -57,10 +63,40 @@ export default function SuperAdminBar() {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false)
       }
+      if (chatMgrDropdownRef.current && !chatMgrDropdownRef.current.contains(e.target)) {
+        setChatMgrDropdownOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  // Hydrate the selected chat manager from localStorage on mount, so the
+  // selection survives refreshes the same way Creator does.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const stored = window.localStorage.getItem('superadmin_chatManager')
+      if (stored) setSelectedChatManager(JSON.parse(stored))
+    } catch {}
+  }, [])
+
+  // Lazy-load the chat manager list. Triggered when the dropdown opens
+  // (or before, on tab hover) so the cost of one Clerk API call only
+  // happens for super admins who actually use the impersonation feature.
+  const ensureChatManagersLoaded = async () => {
+    if (chatManagersLoaded) return
+    try {
+      const res = await fetch('/api/admin/chat-wall/list-chat-managers')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setChatManagers(data.users || [])
+    } catch (err) {
+      console.warn('[SuperAdminBar] failed to load chat managers:', err)
+    } finally {
+      setChatManagersLoaded(true)
+    }
+  }
 
   if (!isSuperAdmin || pathname?.startsWith('/onboarding')) return null
 
@@ -80,7 +116,23 @@ export default function SuperAdminBar() {
 
   const handleAdminTab = () => router.push('/admin/dashboard')
   const handleEditorTab = () => router.push('/editor')
-  const handleChatManagerTab = () => router.push('/admin/chat-wall')
+
+  const handleChatManagerSelect = (cm) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('superadmin_chatManager', JSON.stringify(cm))
+    }
+    setSelectedChatManager(cm)
+    setChatMgrDropdownOpen(false)
+    router.push('/admin/chat-wall')
+  }
+  const handleClearChatManager = () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('superadmin_chatManager')
+    }
+    setSelectedChatManager(null)
+    setChatMgrDropdownOpen(false)
+    router.push('/admin/chat-wall')
+  }
   const handleCreatorSelect = (creator) => {
     setSelectedCreator(creator)
     localStorage.setItem('superadmin_creator', JSON.stringify(creator))
@@ -106,7 +158,106 @@ export default function SuperAdminBar() {
 
       <button style={tabStyle(isAdminTab)} onClick={handleAdminTab}>Admin</button>
       <button style={tabStyle(isEditorTab)} onClick={handleEditorTab}>Editor</button>
-      <button style={tabStyle(isChatManagerTab)} onClick={handleChatManagerTab}>Chat Manager</button>
+
+      {/* Chat Manager tab — clicking opens a dropdown with every chat
+          manager user from Clerk so the admin can impersonate a specific
+          one (and see exactly what that user sees, scoped to their team).
+          "Anyone (admin view)" clears the selection and goes back to
+          unscoped admin browsing. */}
+      <div ref={chatMgrDropdownRef} style={{ position: 'relative' }}>
+        <button
+          onMouseEnter={ensureChatManagersLoaded}
+          onClick={() => {
+            ensureChatManagersLoaded()
+            setChatMgrDropdownOpen(o => !o)
+          }}
+          style={{
+            ...tabStyle(isChatManagerTab),
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          Chat Manager
+          {selectedChatManager && (
+            <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', opacity: 0.8 }}>
+              · {selectedChatManager.firstName || selectedChatManager.fullName || 'user'}
+            </span>
+          )}
+          <span style={{ fontSize: '9px', opacity: 0.6 }}>▾</span>
+        </button>
+
+        {chatMgrDropdownOpen && (
+          <div style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            background: '#0a0a0a',
+            border: '1px solid var(--card-border)',
+            borderRadius: '12px',
+            minWidth: '240px',
+            zIndex: 1000,
+            overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(20px)',
+          }}>
+            <button
+              onClick={handleClearChatManager}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '10px 16px',
+                textAlign: 'left',
+                background: !selectedChatManager ? 'rgba(232, 160, 160, 0.08)' : 'transparent',
+                border: 'none',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                color: !selectedChatManager ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+                fontSize: '12px',
+                fontStyle: 'italic',
+                cursor: 'pointer',
+              }}
+            >
+              Anyone (admin view)
+            </button>
+            {!chatManagersLoaded && (
+              <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--foreground-muted)' }}>Loading...</div>
+            )}
+            {chatManagersLoaded && chatManagers.length === 0 && (
+              <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                No chat manager users yet.
+              </div>
+            )}
+            {chatManagers.map(cm => (
+              <button
+                key={cm.id}
+                onClick={() => handleChatManagerSelect(cm)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '10px 16px',
+                  textAlign: 'left',
+                  background: selectedChatManager?.id === cm.id ? 'rgba(232, 160, 160, 0.08)' : 'transparent',
+                  border: 'none',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  color: selectedChatManager?.id === cm.id ? 'var(--palm-pink)' : 'var(--foreground)',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s var(--ease-stripe)',
+                }}
+                onMouseEnter={e => { if (selectedChatManager?.id !== cm.id) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                onMouseLeave={e => { if (selectedChatManager?.id !== cm.id) e.currentTarget.style.background = 'transparent' }}
+              >
+                {cm.fullName || cm.email}
+                {cm.chatTeam && (
+                  <span style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginLeft: '8px' }}>
+                    · {cm.chatTeam}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Creator tab with dropdown */}
       <div ref={dropdownRef} style={{ position: 'relative' }}>
