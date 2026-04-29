@@ -66,6 +66,38 @@ function relativeTime(iso) {
   return `${days}d ago`
 }
 
+// Downscale a user-picked image File to fit inside maxW × maxH, preserving
+// aspect ratio, and re-encode as JPEG. Used by Replace Thumbnail to keep
+// the upload under Vercel's 4.5MB body cap (iPhone HEIC/JPEG routinely
+// hits 5–8MB straight from the camera roll). Returns a Blob.
+async function resizeImageForUpload(file, maxW = 1080, maxH = 1920, quality = 0.85) {
+  // Already small enough? Skip the canvas roundtrip and ship as-is.
+  if (file.size < 2 * 1024 * 1024 && /jpe?g$/i.test(file.type)) return file
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error('Image decode failed (HEIC not supported — pick a JPEG/PNG)'))
+      i.src = url
+    })
+    let { width: w, height: h } = img
+    const scale = Math.min(1, maxW / w, maxH / h)
+    w = Math.round(w * scale)
+    h = Math.round(h * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0, w, h)
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Encode failed')), 'image/jpeg', quality)
+    })
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEnd, onDrop, onCellClick }) {
   const handle = account?.handle || account?.name || ''
   const profile = account?.scrapedProfile
@@ -1765,17 +1797,25 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
       const previewUrl = URL.createObjectURL(file)
       setLocalThumb(previewUrl)
 
+      // Resize client-side before upload. Vercel's serverless function body
+      // limit is 4.5MB and iPhone photos (3–8MB HEIC/JPEG) routinely blow
+      // past it — server returns 413 "Request Entity Too Large" as plain
+      // text and the parse-as-JSON crashes. Plus thumbnails only ever
+      // render at ≤1080×1920 anyway, so anything larger is wasted bytes.
+      const resized = await resizeImageForUpload(file, 1080, 1920, 0.85)
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', resized, 'thumbnail.jpg')
       const res = await fetch(`/api/admin/grid-planner/post-thumbnail/${post.id}`, {
         method: 'POST',
         body: fd,
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Thumbnail upload failed')
-      // Server returns every Post.id that got updated (all sibling instances
-      // sharing the same Task). Hand that list back so the parent can flip
-      // every cell — not just the one in the open modal.
+      // Server may return non-JSON on infra errors (e.g. Vercel 413, 504).
+      // Read once as text, then try to parse — gives a useful message either
+      // way instead of "Unexpected token 'R', 'Request En'... is not valid JSON".
+      const raw = await res.text()
+      let data = {}
+      try { data = JSON.parse(raw) } catch { data = { error: raw.slice(0, 200) } }
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`)
       onThumbnailReplaced?.(post.id, data.url, data.postIds || [post.id])
     } catch (e) {
       alert(`Could not replace thumbnail: ${e.message}`)
