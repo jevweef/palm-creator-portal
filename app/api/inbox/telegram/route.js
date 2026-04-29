@@ -201,6 +201,7 @@ export async function POST(request) {
         'Chat ID': chatIdStr,
         Title: title,
         Type: chat.type || 'group',
+        Source: 'telegram',
         Status: 'Watching',
         'First Seen': sentAtIso,
         'Last Message At': sentAtIso,
@@ -247,7 +248,7 @@ export async function POST(request) {
         'Raw JSON': safeRawJson(update),
       })
     } else {
-      await createAirtableRecord(MESSAGES_TABLE, messageFields)
+      await createAirtableRecord(MESSAGES_TABLE, { ...messageFields, Source: 'telegram' })
     }
 
     // 5. Bump the chat's last-message timestamp + count (skip on edits to

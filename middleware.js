@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin/mirror-asset(.*)',
   '/api/admin/mirror-inspiration(.*)',
   '/api/inbox/telegram(.*)',
+  '/api/inbox/imessage(.*)',
   '/demo(.*)',
 ])
 

@@ -170,12 +170,19 @@ export async function GET(request) {
     for (const [chatId, msgs] of byChat) {
       const chatRecord = chatById.get(chatId)
       if (!chatRecord) continue
-      if (chatRecord.fields?.Status !== 'Watching') {
-        // Chat was set to Ignored after messages came in. Mark them processed
-        // so they don't keep getting picked up forever. We just don't extract.
+      const chatStatus = chatRecord.fields?.Status
+      if (chatStatus === 'Ignored' || chatStatus === 'Ignored Forever') {
+        // Chat was muted after messages came in. Mark them processed so they
+        // don't keep getting picked up forever. We don't extract.
         msgs.forEach(m => messageIdsToMark.push(m.id))
         continue
       }
+      if (chatStatus === 'Pending Review') {
+        // iMessage chats await admin opt-in. Don't extract AND don't mark
+        // processed — we want backfill once user clicks Watch.
+        continue
+      }
+      // chatStatus === 'Watching' — proceed.
 
       // Cap per-chat to keep prompts under control. Take the most recent N.
       const recent = msgs.slice(-MAX_MESSAGES_PER_CHAT)
