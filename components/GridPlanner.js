@@ -98,6 +98,54 @@ async function resizeImageForUpload(file, maxW = 1080, maxH = 1920, quality = 0.
   }
 }
 
+// Modal video preview that ALWAYS shows the thumbnail explicitly. The
+// browser's <video poster> attribute is unreliable: preload="metadata"
+// silently swaps the poster for the video's actual first frame, and any
+// transient URL flake leaves the modal black with just a play icon. We
+// render an <img> overlay that we fully control — click to dismiss and
+// play the video. posterSrc updates flow through immediately because
+// it's a real <img src> with React's standard reconciliation.
+function VideoWithThumb({ videoSrc, posterSrc }) {
+  const [playing, setPlaying] = useState(false)
+  if (!playing) {
+    return (
+      <div
+        onClick={() => setPlaying(true)}
+        style={{ width: '100%', height: '100%', position: 'relative', cursor: 'pointer', background: '#000' }}
+      >
+        {posterSrc && (
+          <img
+            src={posterSrc}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+          />
+        )}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '50%',
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: '24px',
+          }}>▶</div>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <video
+      src={videoSrc}
+      controls
+      autoPlay
+      playsInline
+      style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+    />
+  )
+}
+
 function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEnd, onDrop, onCellClick }) {
   const handle = account?.handle || account?.name || ''
   const profile = account?.scrapedProfile
@@ -421,8 +469,15 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // problem as the tray — Airtable attachment URLs can rotate and source URLs
 // can die. Swap to the placeholder if the image won't load.
 function CellThumb({ post, style, status }) {
+  const src = cdnUrlAtSize(post.thumbnail, 240)
+  // Sticky failed state was the root cause of "thumbnail won't update" —
+  // once an <img> failed (e.g. transient Airtable CDN miss, optimistic
+  // Dropbox dl URL that 302-redirects), the cell stayed on the fallback
+  // icon forever even after src changed to a working URL. Reset on every
+  // new src so the next render always re-attempts the load.
   const [failed, setFailed] = useState(false)
-  if (failed) {
+  useEffect(() => { setFailed(false) }, [src])
+  if (failed || !src) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
         {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
@@ -431,7 +486,7 @@ function CellThumb({ post, style, status }) {
   }
   return (
     <img
-      src={cdnUrlAtSize(post.thumbnail, 240)}
+      src={src}
       alt=""
       loading="lazy"
       decoding="async"
@@ -448,7 +503,10 @@ function CellThumb({ post, style, status }) {
 // links can become invalid). When the <img> fails to load, swap to the
 // UNPREPPED placeholder so the cell doesn't show a broken-image icon.
 function TrayThumb({ sample }) {
+  const src = cdnUrlAtSize(sample.thumbnail, 240)
   const [failed, setFailed] = useState(false)
+  // Reset failed state when src changes — same fix as CellThumb above.
+  useEffect(() => { setFailed(false) }, [src])
   if (!sample.thumbnail || failed) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '20px', gap: '2px', pointerEvents: 'none' }}>
@@ -1816,6 +1874,22 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
       // text and the parse-as-JSON crashes. Plus thumbnails only ever
       // render at ≤1080×1920 anyway, so anything larger is wasted bytes.
       const resized = await resizeImageForUpload(file, 1080, 1920, 0.85)
+      // Convert resized blob to a base64 data URL for the OPTIMISTIC preview.
+      // Why not the Dropbox URL we get back from the server? Because
+      // dl.dropboxusercontent.com 302-redirects through CDN hops that <img>
+      // tags don't always follow — onError fires, the cell goes to its
+      // fallback icon, and the user sees "thumbnail not updating". A
+      // data: URL renders natively with no network and zero failure modes,
+      // and gets replaced by the Airtable CDN URL when loadCreator refetches.
+      const dataUrl = await new Promise((resolve) => {
+        const r = new FileReader()
+        r.onloadend = () => resolve(r.result)
+        r.readAsDataURL(resized)
+      })
+      // Show this in the modal immediately too (overrides the video poster
+      // and any post.thumbnail reads).
+      setLocalThumb(dataUrl)
+
       const fd = new FormData()
       fd.append('file', resized, 'thumbnail.jpg')
       const res = await fetch(`/api/admin/grid-planner/post-thumbnail/${post.id}`, {
@@ -1829,7 +1903,11 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
       let data = {}
       try { data = JSON.parse(raw) } catch { data = { error: raw.slice(0, 200) } }
       if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`)
-      onThumbnailReplaced?.(post.id, data.url, data.postIds || [post.id])
+      // Hand the data: URL to the parent — that's what flows into the
+      // queue cells. Server's Dropbox URL is irrelevant for display; we
+      // only care about it for Airtable's ingest, which already happened
+      // in the route. Airtable's own CDN URL replaces it on refetch.
+      onThumbnailReplaced?.(post.id, dataUrl, data.postIds || [post.id])
     } catch (e) {
       alert(`Could not replace thumbnail: ${e.message}`)
       setLocalThumb(null)
@@ -1918,23 +1996,14 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
                 )
               }
               if (videoSrc) {
-                // preload="metadata" fetches the first frame and the browser
-                // uses THAT as the poster instead of our explicit poster
-                // attribute — making custom thumbnails invisible on videos
-                // whose first frame is black (most camera-roll exports).
-                // preload="none" keeps the poster visible until the user
-                // hits play. Trade-off: video doesn't pre-buffer, but for
-                // a planning modal that's the right call.
-                return (
-                  <video
-                    src={videoSrc}
-                    poster={posterSrc || undefined}
-                    controls
-                    playsInline
-                    preload="none"
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
-                  />
-                )
+                // Render the thumbnail as an explicit <img> overlay on top
+                // of the video. The browser's <video poster> behavior is
+                // unreliable — preload="metadata" overrides it with the
+                // video's first frame, and preload="none" still doesn't
+                // guarantee the poster renders if the URL is flaky. An
+                // <img> we control always renders. Click the overlay to
+                // dismiss and play the video.
+                return <VideoWithThumb videoSrc={videoSrc} posterSrc={posterSrc} />
               }
               if (posterSrc) {
                 return <img src={posterSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
