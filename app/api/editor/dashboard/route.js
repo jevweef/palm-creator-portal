@@ -74,9 +74,12 @@ export async function GET() {
         return creatorId && creatorIdSet.has(creatorId)
       })),
       // Posts from last 14 days + all future — drives buffer + calendar coloring + telegram sent
+      // Thumbnail is the frame admins pick during post-prep; we surface it on
+      // the slot card so done-but-not-yet-on-CF video tasks have something
+      // visible to render.
       fetchAirtableRecords('Posts', {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(TODAY(), -14, 'days'))`,
-        fields: ['Creator', 'Scheduled Date', 'Task', 'Asset', 'Telegram Sent At'],
+        fields: ['Creator', 'Scheduled Date', 'Task', 'Asset', 'Telegram Sent At', 'Thumbnail'],
       }),
     ])
 
@@ -120,9 +123,13 @@ export async function GET() {
     const assetMap = Object.fromEntries(taskAssets.map(r => [r.id, r.fields]))
     const inspoMap = Object.fromEntries(inspoRecords.map(r => [r.id, r.fields]))
 
-    // Build taskId → telegramSentAt map from posts
+    // Build taskId → telegramSentAt / scheduledDate / postThumbnail maps from posts.
+    // postThumbnail = first valid Airtable image attachment URL (the frame
+    // admin picked during prep). Skip text/html attachments — Make.com URL
+    // ingests sometimes land as broken HTML pages instead of bytes.
     const taskTelegramMap = {}
     const taskScheduledDateMap = {}
+    const taskPostThumbnailMap = {}
     for (const post of allPosts) {
       const sentAt = post.fields?.['Telegram Sent At']
       const scheduledDate = post.fields?.['Scheduled Date']
@@ -130,6 +137,12 @@ export async function GET() {
       if (!taskId) continue
       if (sentAt) taskTelegramMap[taskId] = sentAt
       if (scheduledDate) taskScheduledDateMap[taskId] = scheduledDate
+      if (!taskPostThumbnailMap[taskId]) {
+        const attachments = post.fields?.Thumbnail || []
+        const validImg = attachments.find(a => a?.type?.startsWith('image/'))
+        const url = validImg?.thumbnails?.large?.url || validImg?.url
+        if (url) taskPostThumbnailMap[taskId] = url
+      }
     }
 
     const tasksByCreator = {}
@@ -167,6 +180,7 @@ export async function GET() {
         etSlotDate: toETDateStr(task.fields?.['Completed At'] || ''),
         telegramSentAt: taskTelegramMap[task.id] || null,
         postScheduledDate: taskScheduledDateMap[task.id] || null,
+        postThumbnail: taskPostThumbnailMap[task.id] || null,
         asset: {
           id: assetId,
           name: asset['Asset Name'] || '',

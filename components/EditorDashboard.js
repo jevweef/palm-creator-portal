@@ -1718,7 +1718,12 @@ function SlotThumbnail({ slot }) {
   const sized = (cdn, fallback) => cdnUrlAtSize(cdn, 200) || fallback || ''
 
   if (slot.type === 'done') {
+    // Done video tasks usually have no asset.cdnUrl (no source thumbnail
+    // for video files). Fall through to the post's own Thumbnail (the frame
+    // admin picked during post prep) before settling for the inspo thumb,
+    // since the post thumbnail directly represents this specific edit.
     const thumb = sized(task?.asset?.cdnUrl, task?.asset?.thumbnail)
+      || task?.postThumbnail
       || sized(task?.inspo?.cdnUrl, task?.inspo?.thumbnail)
     if (thumb) return <img className={cls} src={thumb} alt="" loading="lazy" decoding="async" style={{ ...style, opacity: 0.6 }} />
     return <div className={cls} style={{ ...placeholderStyle, opacity: 0.45 }}>▶</div>
