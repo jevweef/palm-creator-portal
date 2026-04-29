@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { tagStyle } from '@/lib/tagStyle'
+import { cdnUrlAtSize } from '@/lib/cdnImage'
 
 function formatNum(n) {
   if (!n || n < 0) return null
@@ -41,7 +42,7 @@ export default function InspoCard({ record, grade, onClick, isSaved, onSave }) {
       <div className="relative aspect-[9/16] bg-[rgba(232,160,160,0.06)] overflow-hidden">
         {(record.cdnUrl || record.thumbnail) && !imgError ? (
           <img
-            src={record.cdnUrl || record.thumbnail}
+            src={cdnUrlAtSize(record.cdnUrl, 600) || record.thumbnail}
             alt={record.title}
             loading="lazy"
             decoding="async"

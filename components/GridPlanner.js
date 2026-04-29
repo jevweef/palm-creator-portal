@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { rawDropboxUrl, isVideo } from './EditorDashboard'
+import { cdnUrlAtSize } from '@/lib/cdnImage'
 
 const SELECTED_CREATOR_STORAGE_KEY = 'gridplanner:selectedCreatorId'
 
@@ -397,8 +398,10 @@ function CellThumb({ post, style, status }) {
   }
   return (
     <img
-      src={post.thumbnail}
+      src={cdnUrlAtSize(post.thumbnail, 240)}
       alt=""
+      loading="lazy"
+      decoding="async"
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
       onError={() => setFailed(true)}
@@ -423,8 +426,10 @@ function TrayThumb({ sample }) {
   }
   return (
     <img
-      src={sample.thumbnail}
+      src={cdnUrlAtSize(sample.thumbnail, 240)}
       alt=""
+      loading="lazy"
+      decoding="async"
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
       onError={() => setFailed(true)}

@@ -99,7 +99,7 @@ export default function EditorDashboardPage() {
 
         {activeTab === 'dashboard' && <EditorDashboardContent />}
         {activeTab === 'revisions' && <EditorRevisionsView />}
-        {activeTab === 'oftv' && <OftvProjectsQueue showToast={showToast} />}
+        {activeTab === 'oftv' && <OftvProjectsQueue showToast={showToast} role="editor" />}
         {activeTab === 'longform' && <LongFormUpload showToast={showToast} />}
 
         {toast && (

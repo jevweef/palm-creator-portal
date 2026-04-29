@@ -5,6 +5,7 @@ import {
   getDropboxRootNamespaceId,
   listDropboxFolder,
 } from '@/lib/dropbox'
+import { notifyOftv, lookupCreatorAka } from '@/lib/oftvTelegram'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -79,6 +80,19 @@ export async function syncProject(id) {
   )
   if (!patchRes.ok) {
     return NextResponse.json({ error: 'Airtable patch failed', detail: await patchRes.text() }, { status: 500 })
+  }
+
+  // Notify on the Awaiting Upload → Files Uploaded edge only.
+  if (patch['Status'] === 'Files Uploaded') {
+    const creatorOpsId = (record.fields?.['Creator'] || [])[0]
+    const aka = await lookupCreatorAka(creatorOpsId)
+    notifyOftv({
+      event: 'files_uploaded',
+      creator: aka,
+      projectName: record.fields?.['Project Name'],
+      projectId: id,
+      fileCount: count,
+    }).catch(() => {})
   }
 
   return NextResponse.json({

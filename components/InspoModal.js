@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef, useMemo } from 'react'
 import DOMPurify from 'dompurify'
 import { useUser } from '@clerk/nextjs'
 import { tagStyle } from '@/lib/tagStyle'
+import { cdnUrlAtSize } from '@/lib/cdnImage'
 
 function gradeColor(grade) {
   if (!grade) return '#ccc'
@@ -179,7 +180,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 loop
               />
             ) : (record.cdnUrl || record.thumbnail) ? (
-              <img src={record.cdnUrl || record.thumbnail} alt={record.title} className="w-full md:h-full object-cover" />
+              <img src={cdnUrlAtSize(record.cdnUrl, 1200) || record.thumbnail} alt={record.title} className="w-full md:h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-[#D4A0B0]">
                 <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">

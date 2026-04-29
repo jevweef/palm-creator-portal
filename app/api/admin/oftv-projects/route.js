@@ -52,6 +52,20 @@ export async function GET(request) {
       editedFileLink: f['Edited File Link'] || '',
       adminFeedback: f['Admin Feedback'] || '',
       createdAt: f['Created At'] || null,
+      // Workflow / approval fields
+      adminRevisionNotes: f['Admin Revision Notes'] || '',
+      adminReviewedAt: f['Admin Reviewed At'] || null,
+      reviewedBy: f['Reviewed By'] || '',
+      sentToCreatorAt: f['Sent to Creator At'] || null,
+      finalSubmittedAt: f['Final Submitted At'] || null,
+      creatorFeedback: f['Creator Feedback'] || '',
+      creatorFeedbackAt: f['Creator Feedback At'] || null,
+      approvedAt: f['Approved At'] || null,
+      revisionCount: f['Revision Count'] || 0,
+      // Editor pickup tracking
+      editorAcknowledgedAt: f['Editor Acknowledged At'] || null,
+      editorAcknowledgedBy: f['Editor Acknowledged By'] || '',
+      editorStartedAt: f['Editor Started At'] || null,
     }
   })
 

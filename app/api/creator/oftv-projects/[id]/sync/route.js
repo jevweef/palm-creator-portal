@@ -5,6 +5,7 @@ import {
   getDropboxRootNamespaceId,
   listDropboxFolder,
 } from '@/lib/dropbox'
+import { notifyOftv, lookupCreatorAka } from '@/lib/oftvTelegram'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -75,6 +76,21 @@ export async function POST(_request, { params }) {
       body: JSON.stringify({ typecast: true, fields: patch }),
     }
   )
+
+  // Notify the editing team only on the Awaiting Upload → Files Uploaded
+  // edge so we don't spam them every time the page polls. Subsequent
+  // uploads (creator adds extra clips later) just bump File Count silently.
+  if (patch['Status'] === 'Files Uploaded') {
+    const creatorOpsId = (record.fields?.['Creator'] || [])[0]
+    const aka = await lookupCreatorAka(creatorOpsId)
+    notifyOftv({
+      event: 'files_uploaded',
+      creator: aka,
+      projectName: record.fields?.['Project Name'],
+      projectId: id,
+      fileCount: count,
+    }).catch(() => {})
+  }
 
   return NextResponse.json({
     ok: true,

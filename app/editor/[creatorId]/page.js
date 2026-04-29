@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { cdnUrlAtSize } from '@/lib/cdnImage'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ function TaskRow({ task, type }) {
     <div style={{ background: m.bg, border: 'none', borderRadius: '18px', padding: '12px 16px', boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
         {(task.inspo?.cdnUrl || task.inspo?.thumbnail) && (
-          <img src={task.inspo.cdnUrl || task.inspo.thumbnail} alt="" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
+          <img src={cdnUrlAtSize(task.inspo.cdnUrl, 150) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '44px', height: '44px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }} />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -121,7 +122,7 @@ function TaskRow({ task, type }) {
 
 function CompactThumbCard({ task, type }) {
   const m = STATUS_META[type]
-  const thumb = task.inspo?.cdnUrl || task.inspo?.thumbnail || task.asset?.cdnUrl || task.asset?.thumbnail || ''
+  const thumb = cdnUrlAtSize(task.inspo?.cdnUrl, 150) || task.inspo?.thumbnail || cdnUrlAtSize(task.asset?.cdnUrl, 150) || task.asset?.thumbnail || ''
   const title = task.inspo?.title || task.name || 'Untitled'
   return (
     <div style={{ background: m.bg, border: 'none', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -223,7 +224,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
   const photoFile = forcePhoto || isPhoto(link)
-  const imgSrc = asset.cdnUrl || asset.thumbnail || (photoFile && rawUrl) || ''
+  const imgSrc = cdnUrlAtSize(asset.cdnUrl, 480) || asset.thumbnail || (photoFile && rawUrl) || ''
 
   const handleStart = async () => {
     setStarting(true)

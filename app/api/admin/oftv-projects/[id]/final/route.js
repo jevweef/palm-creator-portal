@@ -9,6 +9,8 @@ import {
   deleteDropboxPath,
 } from '@/lib/dropbox'
 import { createDropboxFileRequest } from '@/lib/dropboxFileRequests'
+import { STATUSES, STATUSES_THAT_AUTO_FLIP_TO_FINAL } from '@/lib/oftvWorkflow'
+import { notifyOftv, lookupCreatorAka } from '@/lib/oftvTelegram'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -133,10 +135,55 @@ export async function GET(request, { params }) {
     console.warn('[oftv/final] list failed:', err.message)
   }
 
+  // Auto-flip status when a fresh final cut shows up. We only flip from
+  // editor-active states — never from Sent to Creator or Approved (admin
+  // already approved an earlier cut). If the editor needs to send a new
+  // version after creator approval, they can manually re-open via revision.
+  const currentStatus = record.fields?.['Status'] || ''
+  let statusFlipped = false
+  if (files.length > 0 && STATUSES_THAT_AUTO_FLIP_TO_FINAL.includes(currentStatus)) {
+    const newest = files[0]?.modified || new Date().toISOString()
+    const lastSubmittedAt = record.fields?.['Final Submitted At'] || null
+    // Only flip if there's a new file modified after the last submission,
+    // OR we're moving from a non-Final-Submitted state for the first time.
+    if (!lastSubmittedAt || newest > lastSubmittedAt) {
+      const prevCount = record.fields?.['Revision Count'] || 0
+      const wasRevision = currentStatus === STATUSES.ADMIN_REVISION || currentStatus === STATUSES.CREATOR_REVISION
+      const updates = {
+        'Status': STATUSES.FINAL_SUBMITTED,
+        'Final Submitted At': newest,
+      }
+      // Coming from a revision state means this submission addresses prior
+      // feedback — don't double-count (revision counter was already bumped
+      // when the kick-back happened).
+      try {
+        await patchProject(record.id, updates)
+        statusFlipped = true
+        // Fire-and-forget Telegram ping. Editor just delivered a cut →
+        // admin needs to look. wasRevision adds the "(revision N)" tag
+        // so the editor + admin both see in chat that this is a redo.
+        const creatorOpsId = (record.fields?.['Creator'] || [])[0]
+        const aka = await lookupCreatorAka(creatorOpsId)
+        notifyOftv({
+          event: 'final_submitted',
+          creator: aka,
+          projectName: record.fields?.['Project Name'],
+          projectId: record.id,
+          assignedEditor: record.fields?.['Assigned Editor'],
+          revisionCount: prevCount, // already-bumped count from prior kick-back
+        }).catch(() => {})
+      } catch (err) {
+        console.warn('[oftv/final] auto-flip failed:', err.message)
+      }
+    }
+  }
+
   return NextResponse.json({
     folderPath: setup.folderPath,
     fileRequestUrl: setup.fileRequestUrl,
     files,
+    statusFlipped,
+    currentStatus: statusFlipped ? STATUSES.FINAL_SUBMITTED : currentStatus,
   })
 }
 

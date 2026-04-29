@@ -325,17 +325,51 @@ function AlertPill({ alert }) {
       icon: '+',
       label: `${alert.creator ? alert.creator + ': ' : ''}OFTV project${alert.fileCount > 0 ? ` (${alert.fileCount} file${alert.fileCount === 1 ? '' : 's'})` : ''}`,
     },
+    new_oftv_final_delivered: {
+      color: '#E87878',
+      bg: 'rgba(232, 120, 120, 0.10)',
+      icon: '!',
+      label: `${alert.creator ? alert.creator + ': ' : ''}New edit ready to review · ${alert.projectName}${alert.revisionCount > 0 ? ` (rev ${alert.revisionCount})` : ''}`,
+      pulse: true,
+      href: `/admin/editor?tab=oftv&project=${alert.projectId}`,
+    },
   }
   const c = config[alert.type] || { color: 'var(--foreground-muted)', bg: 'rgba(255,255,255,0.03)', icon: '?', label: alert.type }
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: '6px',
-      padding: '3px 10px', borderRadius: '6px', fontSize: '11px',
-      fontWeight: 600, color: c.color, background: c.bg,
-    }}>
-      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+  const inner = (
+    <>
+      <span style={{
+        width: '6px', height: '6px', borderRadius: '50%',
+        background: c.color, flexShrink: 0,
+        ...(c.pulse ? { animation: 'palmAlertPulse 1.4s ease-in-out infinite' } : {}),
+      }} />
       {c.label}
-    </span>
+    </>
+  )
+  const baseStyle = {
+    display: 'inline-flex', alignItems: 'center', gap: '6px',
+    padding: '3px 10px', borderRadius: '6px', fontSize: '11px',
+    fontWeight: 600, color: c.color, background: c.bg,
+    ...(c.pulse ? { boxShadow: `0 0 0 0 ${c.color}` } : {}),
+  }
+  if (c.href) {
+    return (
+      <>
+        <a href={c.href} style={{ ...baseStyle, textDecoration: 'none' }}>
+          {inner}
+        </a>
+        {c.pulse && (
+          <style>{`@keyframes palmAlertPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }`}</style>
+        )}
+      </>
+    )
+  }
+  return (
+    <>
+      <span style={baseStyle}>{inner}</span>
+      {c.pulse && (
+        <style>{`@keyframes palmAlertPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }`}</style>
+      )}
+    </>
   )
 }
 

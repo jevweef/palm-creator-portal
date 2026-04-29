@@ -3,6 +3,22 @@
     {
       "path": "/api/cron/mirror-cloudflare",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/mirror-video-frames",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/mirror-stream",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/generate-invoices",
+      "schedule": "1 0 1 * *"
+    },
+    {
+      "path": "/api/cron/generate-invoices",
+      "schedule": "1 0 15 * *"
     }
   ]
 }

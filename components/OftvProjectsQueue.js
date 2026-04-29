@@ -1,19 +1,17 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useBackdropDismiss } from '@/lib/useBackdropDismiss'
 import { useToast } from '@/lib/useToast'
 import { useConfirm } from '@/lib/useConfirm'
-
-const STATUS_STYLES = {
-  'Awaiting Upload': { bg: 'rgba(156, 163, 175, 0.08)', color: '#9ca3af' },
-  'Files Uploaded':  { bg: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8' },
-  'In Editing':      { bg: 'rgba(232, 200, 120, 0.08)', color: '#E8C878' },
-  'Needs Revision':  { bg: 'rgba(232, 168, 120, 0.08)', color: '#E8A878' },
-  'Delivered':       { bg: 'rgba(125, 211, 164, 0.08)', color: '#4ade80' },
-  'Archived':        { bg: 'rgba(156, 163, 175, 0.06)', color: '#6b7280' },
-}
-const STATUS_ORDER = ['Files Uploaded', 'In Editing', 'Needs Revision', 'Awaiting Upload', 'Delivered', 'Archived']
+import {
+  STATUSES,
+  STATUS_STYLES,
+  ALL_STATUSES,
+  ACTIVE_STATUSES,
+  getBucketsForRole,
+} from '@/lib/oftvWorkflow'
 
 function fmtSize(bytes) {
   if (!bytes) return '0 B'
@@ -29,22 +27,79 @@ function fmtDate(iso) {
   return isNaN(d) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, pulse = false }) {
   const s = STATUS_STYLES[status] || STATUS_STYLES['Awaiting Upload']
+  const shouldPulse = pulse || s.urgent === true
   return (
     <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
       fontSize: '10px', fontWeight: 600, padding: '3px 10px', borderRadius: '9999px',
       background: s.bg, color: s.color, whiteSpace: 'nowrap',
-    }}>{status}</span>
+    }}>
+      {shouldPulse && (
+        <span style={{
+          width: '6px', height: '6px', borderRadius: '50%', background: s.color,
+          animation: 'palmStatusPulse 1.4s ease-in-out infinite',
+        }} />
+      )}
+      {s.label || status}
+      {shouldPulse && (
+        <style>{`@keyframes palmStatusPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }`}</style>
+      )}
+    </span>
   )
 }
 
-function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, confirm, toast }) {
+/**
+ * Tiny status chip for the admin queue card. Shows where the editor is
+ * in their pickup loop — "Not seen" / "Seen" / "Started". Three states
+ * keep the at-a-glance scan fast: anything that's "Not seen" longer than
+ * expected is the row that needs nudging.
+ */
+function EditorPickupChip({ acknowledgedAt, startedAt, acknowledgedBy }) {
+  let label, color, bg
+  if (startedAt) {
+    label = '🎬 Started'
+    color = '#7DD3A4'
+    bg = 'rgba(125, 211, 164, 0.10)'
+  } else if (acknowledgedAt) {
+    label = `👀 Seen${acknowledgedBy ? ` · ${acknowledgedBy.split(' ')[0]}` : ''}`
+    color = '#E8C878'
+    bg = 'rgba(232, 200, 120, 0.10)'
+  } else {
+    label = '✗ Not seen'
+    color = '#9ca3af'
+    bg = 'rgba(156, 163, 175, 0.08)'
+  }
+  return (
+    <span
+      title={
+        startedAt ? `Editor downloaded files on ${new Date(startedAt).toLocaleString()}` :
+        acknowledgedAt ? `Editor opened on ${new Date(acknowledgedAt).toLocaleString()}` :
+        'Editor has not opened this project yet'
+      }
+      style={{
+        fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '9999px',
+        background: bg, color, whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </span>
+  )
+}
+
+function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, confirm, toast, role }) {
+  const isAdmin = role === 'admin'
   const [editorNotes, setEditorNotes] = useState(project.editorNotes || '')
   const [editedFileLink, setEditedFileLink] = useState(project.editedFileLink || '')
   const [status, setStatus] = useState(project.status || 'Awaiting Upload')
   const [assignedEditor, setAssignedEditor] = useState(project.assignedEditor || '')
   const [saving, setSaving] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
+  const [showRejectInput, setShowRejectInput] = useState(false)
+  const [rejectNotes, setRejectNotes] = useState('')
+  const [filesExpanded, setFilesExpanded] = useState(false)
+  const COLLAPSED_FILE_COUNT = 5
   const [files, setFiles] = useState(null)
   const [assets, setAssets] = useState([])
   const [finalFiles, setFinalFiles] = useState([])
@@ -61,6 +116,24 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
       .then(r => r.json())
       .then(d => setFiles(d.project?.files || []))
       .catch(() => setFiles([]))
+  }, [project.id])
+
+  // First-touch acknowledgement — fires once when the modal opens.
+  // Endpoint is idempotent on the server side (only writes if empty), so
+  // re-firing doesn't hurt. We don't await it; nothing in the UI depends
+  // on the response.
+  useEffect(() => {
+    fetch(`/api/admin/oftv-projects/${project.id}/acknowledge`, { method: 'POST' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.acknowledgedAt && !project.editorAcknowledgedAt) {
+          // Reflect locally so the admin sees the badge update immediately
+          // without needing a queue refresh.
+          onUpdate?.({ id: project.id, editorAcknowledgedAt: d.acknowledgedAt })
+        }
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id])
 
   const creatorId = (project.creatorIds || [])[0]
@@ -149,6 +222,75 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
       showToast?.(e.message, true)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const approveFinal = async () => {
+    const ok = await confirm({
+      title: 'Approve and send to creator?',
+      message: `${creatorName || 'The creator'} will see this final cut on their dashboard and can mark it complete or request changes.`,
+      confirmLabel: 'Approve & Send',
+    })
+    if (!ok) return
+    setReviewing(true)
+    try {
+      const res = await fetch(`/api/admin/oftv-projects/${project.id}/approve`, { method: 'POST' })
+      if (!res.ok) throw new Error((await res.json()).error || 'Approve failed')
+      toast?.('Sent to creator', 'success')
+      onUpdate({ ...project, status: STATUSES.SENT_TO_CREATOR })
+      setStatus(STATUSES.SENT_TO_CREATOR)
+    } catch (e) {
+      toast?.(e.message || 'Approve failed', 'error')
+    } finally {
+      setReviewing(false)
+    }
+  }
+
+  // Editor clicks "Download from Dropbox" → log the start, flip status to
+  // In Editing if applicable, then open Dropbox in a new tab. We open in
+  // an explicit window.open() instead of the <a> default so we can guarantee
+  // the API call lands before the new tab steals focus on slow connections.
+  const handleDropboxDownload = (e) => {
+    e.preventDefault()
+    if (project.folderLink) {
+      // Open immediately — popup blockers fire only on async user gestures,
+      // and we want to keep this as direct as possible. The API call below
+      // races but is fire-and-forget.
+      window.open(project.folderLink, '_blank', 'noopener,noreferrer')
+    }
+    fetch(`/api/admin/oftv-projects/${project.id}/start`, { method: 'POST' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.flippedStatus) {
+          onUpdate?.({ id: project.id, status: STATUSES.IN_EDITING, editorStartedAt: new Date().toISOString() })
+          setStatus(STATUSES.IN_EDITING)
+          toast?.('Status → In Editing', 'success')
+        } else if (!project.editorStartedAt) {
+          // Started but status was already past Files Uploaded — still log
+          // the timestamp locally if it wasn't there yet.
+          onUpdate?.({ id: project.id, editorStartedAt: new Date().toISOString() })
+        }
+      })
+      .catch(() => {})
+  }
+
+  const sendBack = async () => {
+    setReviewing(true)
+    try {
+      const res = await fetch(`/api/admin/oftv-projects/${project.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: rejectNotes.trim() }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Send back failed')
+      toast?.('Sent back to editor', 'success')
+      onUpdate({ ...project, status: STATUSES.ADMIN_REVISION, adminRevisionNotes: rejectNotes.trim() })
+      setStatus(STATUSES.ADMIN_REVISION)
+      setShowRejectInput(false)
+    } catch (e) {
+      toast?.(e.message || 'Send back failed', 'error')
+    } finally {
+      setReviewing(false)
     }
   }
 
@@ -245,48 +387,103 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
             </div>
           )}
 
+          {/* Source files — prominent download CTA up top, then a
+              collapsed preview list. With 60+ raw clips per project, the
+              modal would be unusable if every file expanded by default. */}
           {files && files.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                Uploaded Files ({files.length})
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Source Files ({files.length})
+                </div>
+                {project.folderLink && (
+                  <a
+                    href={project.folderLink}
+                    onClick={handleDropboxDownload}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      padding: '7px 14px', fontSize: '12px', fontWeight: 600,
+                      borderRadius: '9999px', textDecoration: 'none',
+                      background: 'rgba(120, 180, 232, 0.10)', color: '#78B4E8',
+                      border: '1px solid rgba(120, 180, 232, 0.25)',
+                    }}
+                  >
+                    ⬇ Download from Dropbox
+                  </a>
+                )}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {files.map((f, i) => {
-                  const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
-                  const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
-                    : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
-                  return (
-                    <div
-                      key={i}
-                      onClick={isMedia ? () => { setPreviewKind('project'); setPreviewFile(f) } : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                        padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
-                        cursor: isMedia ? 'pointer' : 'default',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '14px' }}>{icon}</span>
-                        <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
-                        <span>{fmtSize(f.size)}</span>
-                        {isMedia && <span style={{ color: '#E8A0A0' }}>▶</span>}
-                      </div>
+              <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '8px' }}>
+                Click the Dropbox link above to download everything as a zip, or click any file below to preview.
+              </div>
+
+              {(() => {
+                const visibleFiles = filesExpanded ? files : files.slice(0, COLLAPSED_FILE_COUNT)
+                const hiddenCount = files.length - visibleFiles.length
+                return (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {visibleFiles.map((f, i) => {
+                        const isMedia = /\.(mp4|mov|webm|mkv|m4v|jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
+                        const icon = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name) ? '🎞️'
+                          : /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name) ? '🖼️' : '📄'
+                        return (
+                          <div
+                            key={i}
+                            onClick={isMedia ? () => { setPreviewKind('project'); setPreviewFile(f) } : undefined}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                              padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
+                              cursor: isMedia ? 'pointer' : 'default',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                              <span style={{ fontSize: '14px' }}>{icon}</span>
+                              <span style={{ fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+                              <span>{fmtSize(f.size)}</span>
+                              {isMedia && <span style={{ color: '#E8A0A0' }}>▶</span>}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
-              </div>
+                    {hiddenCount > 0 && (
+                      <button
+                        onClick={() => setFilesExpanded(true)}
+                        style={{
+                          marginTop: '8px', width: '100%',
+                          padding: '8px 14px', fontSize: '12px', fontWeight: 600,
+                          background: 'rgba(255,255,255,0.03)', color: 'var(--foreground-muted)',
+                          border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Show all {files.length} files
+                      </button>
+                    )}
+                    {filesExpanded && files.length > COLLAPSED_FILE_COUNT && (
+                      <button
+                        onClick={() => setFilesExpanded(false)}
+                        style={{
+                          marginTop: '8px', width: '100%',
+                          padding: '6px 14px', fontSize: '11px', fontWeight: 600,
+                          background: 'transparent', color: 'var(--foreground-subtle)',
+                          border: 'none', cursor: 'pointer',
+                        }}
+                      >
+                        Collapse
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            {project.folderLink && (
-              <a href={project.folderLink} target="_blank" rel="noopener noreferrer" style={{
-                padding: '8px 14px', fontSize: '12px', fontWeight: 600, borderRadius: '9999px',
-                background: 'rgba(120, 180, 232, 0.08)', color: '#78B4E8', textDecoration: 'none',
-              }}>📁 Open source folder in Dropbox</a>
-            )}
             <button onClick={syncFiles} style={{
               padding: '8px 14px', fontSize: '12px', fontWeight: 600, borderRadius: '9999px',
               background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer',
@@ -300,7 +497,7 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
                 width: '100%', padding: '10px 12px', fontSize: '13px',
                 background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
               }}>
-                {['Awaiting Upload', 'Files Uploaded', 'In Editing', 'Needs Revision', 'Delivered', 'Archived'].map(s => (
+                {ALL_STATUSES.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -398,6 +595,148 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
                 })}
               </div>
             )}
+
+            {/* ─── Admin Review Panel ─────────────────────────────────────
+                Shows when status is Final Submitted. Admin reviews the
+                final cut and either approves it (sends to creator) or
+                kicks it back to the editor with optional notes. */}
+            {isAdmin && project.status === STATUSES.FINAL_SUBMITTED && finalFiles.length > 0 && (
+              <div style={{
+                marginTop: '12px',
+                padding: '14px',
+                borderRadius: '10px',
+                background: 'rgba(232, 120, 120, 0.06)',
+                border: '1px solid rgba(232, 120, 120, 0.20)',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#E87878', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                  ⚠️ Awaiting your review
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
+                  Review the final cut above. Approve to send to {creatorName || 'the creator'}, or send back with notes for the editor.
+                </div>
+                {!showRejectInput ? (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={approveFinal}
+                      disabled={reviewing}
+                      style={{
+                        padding: '9px 18px', fontSize: '12px', fontWeight: 600,
+                        background: '#7DD3A4', color: '#1a1a1a', border: 'none', borderRadius: '9999px',
+                        cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.5 : 1,
+                      }}
+                    >✓ Approve & Send to Creator</button>
+                    <button
+                      onClick={() => setShowRejectInput(true)}
+                      disabled={reviewing}
+                      style={{
+                        padding: '9px 16px', fontSize: '12px', fontWeight: 600,
+                        background: 'transparent', color: '#E8A878',
+                        border: '1px solid rgba(232, 168, 120, 0.35)', borderRadius: '9999px',
+                        cursor: reviewing ? 'not-allowed' : 'pointer',
+                      }}
+                    >Send Back to Editor</button>
+                  </div>
+                ) : (
+                  <div>
+                    <textarea
+                      value={rejectNotes}
+                      onChange={e => setRejectNotes(e.target.value)}
+                      placeholder="Optional — what needs to change? (Leave blank if you already told the editor in chat.)"
+                      rows={3}
+                      style={{
+                        width: '100%', padding: '10px 12px', fontSize: '12px',
+                        background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '8px', color: 'var(--foreground)', outline: 'none',
+                        resize: 'vertical', fontFamily: 'inherit', marginBottom: '8px',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={sendBack}
+                        disabled={reviewing}
+                        style={{
+                          padding: '8px 16px', fontSize: '12px', fontWeight: 600,
+                          background: '#E8A878', color: '#1a1a1a', border: 'none', borderRadius: '9999px',
+                          cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.5 : 1,
+                        }}
+                      >{reviewing ? 'Sending…' : 'Send Back'}</button>
+                      <button
+                        onClick={() => { setShowRejectInput(false); setRejectNotes('') }}
+                        disabled={reviewing}
+                        style={{
+                          padding: '8px 16px', fontSize: '12px', fontWeight: 600,
+                          background: 'transparent', color: 'var(--foreground-muted)',
+                          border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9999px',
+                          cursor: 'pointer',
+                        }}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Status banners for non-actionable states */}
+            {project.status === STATUSES.SENT_TO_CREATOR && (
+              <div style={{
+                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(120, 200, 220, 0.06)', border: '1px solid rgba(120, 200, 220, 0.20)',
+                fontSize: '12px', color: 'var(--foreground)',
+              }}>
+                <strong style={{ color: '#78D4E8' }}>Sent to creator</strong> — waiting for {creatorName || 'them'} to approve or request changes.
+                {project.sentToCreatorAt && <span style={{ color: 'var(--foreground-muted)' }}> · Sent {fmtDate(project.sentToCreatorAt)}</span>}
+              </div>
+            )}
+            {project.status === STATUSES.APPROVED && (
+              <div style={{
+                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(125, 211, 164, 0.06)', border: '1px solid rgba(125, 211, 164, 0.20)',
+                fontSize: '12px', color: 'var(--foreground)',
+              }}>
+                <strong style={{ color: '#7DD3A4' }}>✓ Approved by creator</strong>
+                {project.approvedAt && <span style={{ color: 'var(--foreground-muted)' }}> · {fmtDate(project.approvedAt)}</span>}
+              </div>
+            )}
+
+            {/* Show last creator feedback so editor can act on it */}
+            {project.status === STATUSES.CREATOR_REVISION && project.creatorFeedback && (
+              <div style={{
+                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(232, 160, 200, 0.06)', border: '1px solid rgba(232, 160, 200, 0.20)',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0C8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                  Creator's revision notes
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  {project.creatorFeedback}
+                </div>
+                {project.creatorFeedbackAt && (
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+                    Submitted {fmtDate(project.creatorFeedbackAt)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Show last admin revision notes so editor can act on it */}
+            {project.status === STATUSES.ADMIN_REVISION && project.adminRevisionNotes && (
+              <div style={{
+                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(232, 168, 120, 0.06)', border: '1px solid rgba(232, 168, 120, 0.20)',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A878', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                  Admin's notes for revision
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  {project.adminRevisionNotes}
+                </div>
+                {project.reviewedBy && (
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+                    From {project.reviewedBy}{project.adminReviewedAt ? ` · ${fmtDate(project.adminReviewedAt)}` : ''}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -449,7 +788,7 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
   )
 }
 
-export default function OftvProjectsQueue({ showToast }) {
+export default function OftvProjectsQueue({ showToast, role = 'admin' }) {
   const [projects, setProjects] = useState([])
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
@@ -457,6 +796,14 @@ export default function OftvProjectsQueue({ showToast }) {
   const [statusFilter, setStatusFilter] = useState('active')
   const { toast, ToastViewport } = useToast()
   const { confirm, ConfirmDialog } = useConfirm()
+  const buckets = getBucketsForRole(role)
+
+  // Deep-linking: Telegram notifications send /editor?tab=oftv&project=recXXX
+  // so the editor (or admin) can jump straight to the project that needs
+  // attention. Auto-open it once projects + creators have loaded.
+  const searchParams = useSearchParams()
+  const targetProjectId = searchParams?.get('project') || null
+  const [autoOpenedFor, setAutoOpenedFor] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -492,16 +839,33 @@ export default function OftvProjectsQueue({ showToast }) {
 
   const creatorNameById = Object.fromEntries(creators.map(c => [c.id, c.aka || c.name || '']))
 
+  // Auto-open the deep-linked project once load completes. Only fires once
+  // per id so closing the modal doesn't immediately reopen it.
+  useEffect(() => {
+    if (!targetProjectId || autoOpenedFor === targetProjectId || loading) return
+    const match = projects.find(p => p.id === targetProjectId)
+    if (match) {
+      const creatorName = creatorNameById[(match.creatorIds || [])[0]] || '—'
+      setDetail({ ...match, creatorName })
+      setAutoOpenedFor(targetProjectId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetProjectId, projects, loading])
+
   const filtered = projects.filter(p => {
     if (statusFilter === 'all') return true
-    if (statusFilter === 'active') return p.status !== 'Delivered' && p.status !== 'Archived'
+    if (statusFilter === 'active') return ACTIVE_STATUSES.includes(p.status)
     return p.status === statusFilter
   })
 
-  const grouped = STATUS_ORDER.map(status => ({
-    status,
-    items: filtered.filter(p => p.status === status),
-  })).filter(g => g.items.length > 0)
+  // Group projects into role-aware buckets. Each project can only land in
+  // one bucket — the first matching set wins (review > inflight > done).
+  const grouped = buckets
+    .map(bucket => ({
+      ...bucket,
+      items: filtered.filter(p => bucket.statuses.includes(p.status)),
+    }))
+    .filter(g => g.items.length > 0)
 
   return (
     <div>
@@ -519,11 +883,9 @@ export default function OftvProjectsQueue({ showToast }) {
         }}>
           <option value="active">Active only</option>
           <option value="all">All</option>
-          <option value="Awaiting Upload">Awaiting Upload</option>
-          <option value="Files Uploaded">Files Uploaded</option>
-          <option value="In Editing">In Editing</option>
-          <option value="Needs Revision">Needs Revision</option>
-          <option value="Delivered">Delivered</option>
+          {ALL_STATUSES.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
         </select>
       </div>
 
@@ -534,14 +896,36 @@ export default function OftvProjectsQueue({ showToast }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {grouped.map(group => (
-            <div key={group.status}>
+            <div key={group.key} style={group.urgent ? {
+              padding: '16px',
+              borderRadius: '14px',
+              background: 'rgba(232, 120, 120, 0.04)',
+              border: '1px solid rgba(232, 120, 120, 0.20)',
+            } : undefined}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                <StatusPill status={group.status} />
-                <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>{group.items.length}</span>
+                <span style={{
+                  fontSize: '12px', fontWeight: 700,
+                  color: group.urgent ? '#E87878' : 'var(--foreground)',
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>{group.label}</span>
+                <span style={{
+                  fontSize: '11px', fontWeight: 600,
+                  padding: '2px 8px', borderRadius: '9999px',
+                  background: group.urgent ? 'rgba(232, 120, 120, 0.15)' : 'rgba(255,255,255,0.06)',
+                  color: group.urgent ? '#E87878' : 'var(--foreground-muted)',
+                }}>{group.items.length}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {group.items.map(p => {
                   const creatorName = creatorNameById[(p.creatorIds || [])[0]] || '—'
+                  // Editor pickup chip: only meaningful before Final Submitted —
+                  // after that, "started" is implied by the deliverable.
+                  const showsPickup = (
+                    p.status === STATUSES.FILES_UPLOADED ||
+                    p.status === STATUSES.IN_EDITING ||
+                    p.status === STATUSES.ADMIN_REVISION ||
+                    p.status === STATUSES.CREATOR_REVISION
+                  )
                   return (
                     <div
                       key={p.id}
@@ -553,9 +937,16 @@ export default function OftvProjectsQueue({ showToast }) {
                       }}
                     >
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{p.projectName}</span>
                           <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{creatorName}</span>
+                          {showsPickup && (role === 'admin') && (
+                            <EditorPickupChip
+                              acknowledgedAt={p.editorAcknowledgedAt}
+                              startedAt={p.editorStartedAt}
+                              acknowledgedBy={p.editorAcknowledgedBy}
+                            />
+                          )}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>
                           {p.fileCount > 0 ? `${p.fileCount} file${p.fileCount === 1 ? '' : 's'} · ${fmtSize(p.totalSize)}` : 'No files yet'}
@@ -580,6 +971,7 @@ export default function OftvProjectsQueue({ showToast }) {
           showToast={showToast}
           confirm={confirm}
           toast={toast}
+          role={role}
           onClose={() => setDetail(null)}
           onUpdate={(updated) => {
             setProjects(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))

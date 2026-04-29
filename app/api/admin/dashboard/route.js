@@ -482,10 +482,12 @@ export async function GET() {
       }
     }
 
-    // New long-form / OFTV projects (last 7 days)
+    // OFTV alerts:
+    //   - new_oftv_project       — new creator project (last 7 days)
+    //   - new_oftv_final_delivered — editor just submitted a final cut, needs admin review (URGENT)
     try {
       const oftvRecords = await fetchAirtableRecords('tbl7DTdRooCsAns7j', {
-        filterByFormula: `IS_AFTER({Created At}, DATEADD(NOW(), -7, 'days'))`,
+        filterByFormula: `OR(IS_AFTER({Created At}, DATEADD(NOW(), -7, 'days')), {Status}='Final Submitted')`,
         sort: [{ field: 'Created At', direction: 'desc' }],
       })
       const creatorNamesById = {}
@@ -495,15 +497,35 @@ export async function GET() {
       for (const r of oftvRecords) {
         const f = r.fields || {}
         const creatorId = (f['Creator'] || [])[0]
-        alerts.push({
-          type: 'new_oftv_project',
+        const status = f['Status'] || 'Awaiting Upload'
+        const baseAlert = {
           projectId: r.id,
           projectName: f['Project Name'] || 'Untitled',
-          status: f['Status'] || 'Awaiting Upload',
+          status,
           fileCount: f['File Count'] || 0,
           creator: creatorNamesById[creatorId] || '',
           createdAt: f['Created At'] || null,
-        })
+        }
+        // Urgent: editor delivered a final cut and admin hasn't reviewed yet.
+        // Only fire if admin hasn't already approved an earlier cut for this same submission.
+        if (status === 'Final Submitted') {
+          alerts.push({
+            ...baseAlert,
+            type: 'new_oftv_final_delivered',
+            finalSubmittedAt: f['Final Submitted At'] || null,
+            revisionCount: f['Revision Count'] || 0,
+            urgent: true,
+          })
+        }
+        // Standard: new project created in the last week (skip if currently
+        // in Final Submitted — already covered by the urgent alert above).
+        const createdAt = f['Created At']
+        if (createdAt && status !== 'Final Submitted') {
+          const ageDays = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
+          if (ageDays <= 7) {
+            alerts.push({ ...baseAlert, type: 'new_oftv_project' })
+          }
+        }
       }
     } catch (err) {
       console.warn('[Admin Dashboard] OFTV alert fetch failed:', err.message)
