@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
+import { clerkClient } from '@clerk/nextjs/server'
 import { requireAdminOrChatManager, fetchAirtableRecords } from '@/lib/adminAuth'
 
 const HQ_BASE = 'appL7c4Wtotpz07KS'
@@ -20,11 +21,20 @@ function isImageAsset(fields) {
 }
 
 // GET /api/admin/chat-wall/creators
+//
 // Returns active Palm Creators (Ops) joined with Chat Team from HQ Creators.
-// Real chat managers are auto-scoped to their assigned team via
-// publicMetadata.chatTeam ("A" | "B"). Admins see everyone (so the View-As
-// preview is useful and they can spot-check both teams).
-export async function GET() {
+//
+// Scoping rules:
+//   - Real chat managers (role === 'chat_manager') are auto-scoped to the
+//     team in their publicMetadata.chatTeam ("A" | "B").
+//   - Admins see everyone by default (handy for spot-checking both teams).
+//   - Admins can pass ?viewAsUserId=<clerkUserId> to impersonate a specific
+//     chat manager — page behaves exactly as that user would see it. We
+//     fetch that user's chatTeam from Clerk and apply identical scoping;
+//     the response's `viewer` block reports isRealChatManager=true so the
+//     UI hides the team filter and shows the "Showing your assigned
+//     creators" banner.
+export async function GET(request) {
   let user
   try {
     user = await requireAdminOrChatManager()
@@ -33,8 +43,32 @@ export async function GET() {
   }
 
   const role = user?.publicMetadata?.role
-  const isRealChatManager = role === 'chat_manager'
-  const userTeam = (user?.publicMetadata?.chatTeam || '').toString().toUpperCase()
+  const realChatManager = role === 'chat_manager'
+  const isAdmin = role === 'admin' || role === 'super_admin'
+
+  // Default scope: caller's own metadata.
+  let isRealChatManager = realChatManager
+  let userTeam = (user?.publicMetadata?.chatTeam || '').toString().toUpperCase()
+
+  // Admin "view as specific chat manager" override.
+  const { searchParams } = new URL(request.url)
+  const viewAsUserId = isAdmin ? searchParams.get('viewAsUserId') : null
+  if (viewAsUserId) {
+    try {
+      const client = await clerkClient()
+      const target = await client.users.getUser(viewAsUserId)
+      const targetRole = target?.publicMetadata?.role
+      const targetTeam = (target?.publicMetadata?.chatTeam || '').toString().toUpperCase()
+      if (targetRole === 'chat_manager') {
+        isRealChatManager = true
+        userTeam = targetTeam
+      }
+      // If the target isn't actually a chat_manager, we silently fall back
+      // to the admin's full view rather than 500-ing.
+    } catch (err) {
+      console.warn('[chat-wall/creators] viewAsUserId lookup failed:', err.message)
+    }
+  }
 
   try {
     // Active Ops creators + photo counts in parallel. Photo count is needed
@@ -117,7 +151,13 @@ export async function GET() {
       viewer: {
         role: role || null,
         chatTeam: userTeam || null,
+        // True when the request is being scoped as a chat_manager — either
+        // the caller is one, OR an admin is impersonating one via
+        // viewAsUserId. The page hides the team filter in either case.
         isRealChatManager,
+        // Tells the page it's currently impersonating, so it can show a
+        // banner like "Viewing as Val (Team B)" instead of just the team.
+        impersonatingUserId: viewAsUserId || null,
       },
     })
   } catch (err) {

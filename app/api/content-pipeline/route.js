@@ -82,7 +82,7 @@ export async function GET(request) {
     const inspoParams = new URLSearchParams({
       filterByFormula: "{Status} = 'Complete'",
     })
-    ;['Title', 'Thumbnail', 'Tags', 'Username', 'Views', 'Likes', 'Comments',
+    ;['Title', 'Thumbnail', 'CDN URL', 'Tags', 'Username', 'Views', 'Likes', 'Comments',
       'Shares', 'Content link', 'Engagement Score', 'Notes', 'On-Screen Text',
       'Film Format', 'Saved By', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code',
       'Creator Posted Date', 'Transcript', 'Suggested Tags',
@@ -142,6 +142,7 @@ export async function GET(request) {
           id: r.id,
           title: r.fields['Title'] || 'Untitled',
           thumbnail: thumb && thumb.length > 0 ? thumb[0].url : null,
+          cdnUrl: r.fields['CDN URL'] || null,
           tags: r.fields['Tags'] || [],
           suggestedTags: r.fields['Suggested Tags'] || [],
           username: r.fields['Username'] || '',
@@ -193,6 +194,7 @@ export async function GET(request) {
         inspoId: inspoSourceIds[0] || null,
         inspoTitle: inspoRecord?.fields['Title'] || '',
         inspoThumbnail: inspoThumb && inspoThumb.length > 0 ? inspoThumb[0].url : null,
+        inspoCdnUrl: inspoRecord?.fields['CDN URL'] || null,
         inspoTags: inspoRecord?.fields['Tags'] || [],
         inspoUsername: inspoRecord?.fields['Username'] || '',
         inspoDbShareLink: inspoRecord?.fields['DB Share Link'] || '',

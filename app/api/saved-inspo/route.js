@@ -43,7 +43,7 @@ export async function GET(request) {
         filterByFormula: "{Status} = 'Complete'",
       })
       // Add fields individually (URLSearchParams doesn't handle arrays well)
-      ;['Title', 'Thumbnail', 'Tags', 'Username', 'Views', 'Likes', 'Content link', 'Engagement Score', 'Notes', 'On-Screen Text', 'Film Format', 'Saved By'].forEach((f) => {
+      ;['Title', 'Thumbnail', 'CDN URL', 'Tags', 'Username', 'Views', 'Likes', 'Content link', 'Engagement Score', 'Notes', 'On-Screen Text', 'Film Format', 'Saved By'].forEach((f) => {
         params.append('fields[]', f)
       })
       if (offset) params.set('offset', offset)
@@ -81,6 +81,7 @@ export async function GET(request) {
         id: r.id,
         title: r.fields['Title'] || 'Untitled',
         thumbnail: thumb && thumb.length > 0 ? thumb[0].url : null,
+        cdnUrl: r.fields['CDN URL'] || null,
         tags: r.fields['Tags'] || [],
         username: r.fields['Username'] || '',
         views: r.fields['Views'] || 0,
