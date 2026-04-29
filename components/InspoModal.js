@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify'
 import { useUser } from '@clerk/nextjs'
 import { tagStyle } from '@/lib/tagStyle'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
+import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 
 function gradeColor(grade) {
   if (!grade) return '#ccc'
@@ -166,9 +167,19 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         {/* Body — on desktop, video drives height; right side is absolute so it can't push taller */}
         <div ref={bodyRef} className="flex flex-col flex-1 min-h-0 overflow-y-auto md:overflow-visible md:relative md:flex-none">
 
-          {/* Video — 9:16 aspect ratio sets the container height on desktop */}
+          {/* Video — 9:16 aspect ratio sets the container height on desktop.
+              Prefer Cloudflare Stream iframe (instant playback from edge) over
+              the legacy embed/Dropbox <video> which can take 5-10s on first
+              load. Falls back cleanly if record hasn't been mirrored yet. */}
           <div className="w-full shrink-0 md:shrink md:w-[280px] bg-black overflow-hidden" style={{aspectRatio:'9/16'}}>
-            {embedHtml ? (
+            {record.streamUid ? (
+              <iframe
+                src={buildStreamIframeUrl(record.streamUid, { autoplay: true, muted: true, loop: true, controls: true })}
+                allow="autoplay; fullscreen" allowFullScreen
+                className="w-full md:h-full"
+                style={{ border: 'none' }}
+              />
+            ) : embedHtml ? (
               <div className="w-full md:h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
               <video

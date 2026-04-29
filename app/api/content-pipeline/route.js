@@ -84,14 +84,15 @@ export async function GET(request) {
     })
     ;['Title', 'Thumbnail', 'CDN URL', 'Tags', 'Username', 'Views', 'Likes', 'Comments',
       'Shares', 'Content link', 'Engagement Score', 'Notes', 'On-Screen Text',
-      'Film Format', 'Saved By', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code',
+      'Film Format', 'Saved By', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'Stream UID',
       'Creator Posted Date', 'Transcript', 'Suggested Tags',
     ].forEach((f) => inspoParams.append('fields[]', f))
 
     const assetParams = new URLSearchParams()
     ;['Asset Name', 'Palm Creators', 'Inspiration Source', 'Pipeline Status',
       'Creator Notes', 'Upload Week', 'Source Type', 'Dropbox Shared Link',
-      'Dropbox Path (Current)', 'Asset Type', 'Thumbnail', 'CDN URL',
+      'Edited File Link', 'Dropbox Path (Current)', 'Asset Type',
+      'Thumbnail', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID',
     ].forEach((f) => assetParams.append('fields[]', f))
 
     const [inspoRecords, assetRecords, creatorRes] = await Promise.all([
@@ -158,6 +159,7 @@ export async function GET(request) {
           dbShareLink: r.fields['DB Share Link'] || '',
           dbRawLink: r.fields['DB Raw = 1'] || '',
           dbEmbedCode: r.fields['DB Embed Code'] || '',
+          streamUid: r.fields['Stream UID'] || null,
           transcript: r.fields['Transcript'] || '',
           creatorPostedDate: r.fields['Creator Posted Date'] || '',
         }
@@ -188,7 +190,10 @@ export async function GET(request) {
         pipelineStatus: status || 'Uploaded',
         creatorNotes: a.fields['Creator Notes'] || '',
         dropboxLink: a.fields['Dropbox Shared Link'] || '',
+        editedFileLink: a.fields['Edited File Link'] || '',
         cdnUrl: a.fields['CDN URL'] || null,
+        streamEditId: a.fields['Stream Edit ID'] || null,
+        streamRawId: a.fields['Stream Raw ID'] || null,
         // Creator's uploaded clip thumbnail (what the card should show)
         assetThumbnail: assetThumb && assetThumb.length > 0 ? assetThumb[0].url : null,
         inspoId: inspoSourceIds[0] || null,
@@ -198,6 +203,7 @@ export async function GET(request) {
         inspoTags: inspoRecord?.fields['Tags'] || [],
         inspoUsername: inspoRecord?.fields['Username'] || '',
         inspoDbShareLink: inspoRecord?.fields['DB Share Link'] || '',
+        inspoStreamUid: inspoRecord?.fields['Stream UID'] || null,
         inspoNotes: inspoRecord?.fields['Notes'] || '',
       }
 

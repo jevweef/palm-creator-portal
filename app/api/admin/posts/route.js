@@ -35,7 +35,7 @@ export async function GET() {
       }) : [],
       assetIds.length ? fetchAirtableRecords('Assets', {
         filterByFormula: recordIdFormula(assetIds),
-        fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail', 'CDN URL', 'Asset Type'],
+        fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail', 'CDN URL', 'Asset Type', 'Stream Edit ID', 'Stream Raw ID'],
       }) : [],
     ])
 
@@ -72,6 +72,8 @@ export async function GET() {
           dropboxLink: asset['Dropbox Shared Link'] || '',
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
           cdnUrl: asset['CDN URL'] || null,
+          streamEditId: asset['Stream Edit ID'] || null,
+          streamRawId: asset['Stream Raw ID'] || null,
           assetType: asset['Asset Type'] || '',
         },
       }

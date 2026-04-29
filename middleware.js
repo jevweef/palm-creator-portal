@@ -11,7 +11,9 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin/promote-handle(.*)',
   '/api/admin/score-reels(.*)',
   '/api/admin/mirror-asset(.*)',
+  '/api/admin/mirror-inspiration(.*)',
   '/api/inbox/telegram(.*)',
+  '/api/inbox/imessage(.*)',
   '/demo(.*)',
 ])
 

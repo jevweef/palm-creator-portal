@@ -61,7 +61,7 @@ async function generateInvoicesForPeriod({ start, end, dryRun = false }) {
   // 1. Active OnlyFans Revenue Accounts (skip Fansly + Paused/Inactive)
   const revenueAccounts = await fetchHqRecords(HQ_REVENUE_ACCOUNTS, {
     filterByFormula: `AND({Status}='Active', {Platform}='OnlyFans')`,
-    fields: ['Account Name', 'Creator', 'Status', 'Platform'],
+    fields: ['Account Name', 'Creator', 'Status', 'Platform', 'Management Start Date'],
   })
 
   // 2. Existing invoices for this period (idempotency check)
@@ -80,21 +80,25 @@ async function generateInvoicesForPeriod({ start, end, dryRun = false }) {
   for (const ra of revenueAccounts) {
     ;(ra.fields['Creator'] || []).forEach(id => creatorIds.add(id))
   }
-  const creatorCommission = new Map()
+  const creatorInfo = new Map() // id → { commission, managementStartDate }
   if (creatorIds.size > 0) {
     const filter = `OR(${[...creatorIds].map(id => `RECORD_ID()='${id}'`).join(',')})`
     const creators = await fetchHqRecords(HQ_CREATORS, {
       filterByFormula: filter,
-      fields: ['Commission %'],
+      fields: ['Commission %', 'Management Start Date'],
     })
     for (const c of creators) {
-      creatorCommission.set(c.id, c.fields['Commission %'])
+      creatorInfo.set(c.id, {
+        commission: c.fields['Commission %'],
+        managementStartDate: c.fields['Management Start Date'] || null,
+      })
     }
   }
 
   // 4. Create one invoice per uncovered active account
   const created = []
   const skipped = []
+  const warnings = [] // partial-period creators — admin needs to adjust earnings
 
   for (const ra of revenueAccounts) {
     const accountName = ra.fields['Account Name']
@@ -107,14 +111,34 @@ async function generateInvoicesForPeriod({ start, end, dryRun = false }) {
       skipped.push({ accountName, reason: 'no Creator linked' })
       continue
     }
-    const commission = creatorCommission.get(creatorId)
+    const info = creatorInfo.get(creatorId) || {}
+    const commission = info.commission
     if (commission == null) {
       skipped.push({ accountName, reason: 'creator has no Commission %' })
       continue
     }
 
+    // Mid-period sign-on clamping. Prefer the Revenue Account's own Management
+    // Start Date if set, otherwise fall back to the Creator's. (Multi-account
+    // creators may have launched a 2nd OF account later than they signed up.)
+    const msd = ra.fields['Management Start Date'] || info.managementStartDate || null
+
+    // If management starts AFTER this period ended, they weren't active for
+    // any of it — skip entirely.
+    if (msd && msd > end) {
+      skipped.push({ accountName, reason: `not yet active (managed from ${msd})` })
+      continue
+    }
+    // If management starts mid-period, still create the invoice (they earned
+    // something during the period) but flag it so admin knows to prorate.
+    let partialPeriodNote = null
+    if (msd && msd > start && msd <= end) {
+      partialPeriodNote = `started mid-period on ${msd} — adjust earnings to cover ${msd} → ${end} only`
+    }
+
     if (dryRun) {
-      created.push({ accountName, creatorId, commission, dryRun: true })
+      created.push({ accountName, creatorId, commission, dryRun: true, partialPeriodNote })
+      if (partialPeriodNote) warnings.push({ accountName, note: partialPeriodNote })
       continue
     }
 
@@ -129,7 +153,8 @@ async function generateInvoicesForPeriod({ start, end, dryRun = false }) {
     }
     try {
       const rec = await createHqRecord(HQ_INVOICES, fields)
-      created.push({ accountName, invoiceId: rec.id, commission })
+      created.push({ accountName, invoiceId: rec.id, commission, partialPeriodNote })
+      if (partialPeriodNote) warnings.push({ accountName, note: partialPeriodNote })
     } catch (err) {
       console.error('[generate-invoices] failed for', accountName, err.message)
       skipped.push({ accountName, reason: err.message })
@@ -141,7 +166,8 @@ async function generateInvoicesForPeriod({ start, end, dryRun = false }) {
     totalActiveAccounts: revenueAccounts.length,
     createdCount: created.length,
     skippedCount: skipped.length,
-    details: { created, skipped },
+    warningCount: warnings.length,
+    details: { created, skipped, warnings },
   }
 }
 

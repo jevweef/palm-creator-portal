@@ -920,9 +920,16 @@ export default function InvoicingPage() {
                   <KPI label="Will skip" value={generatePreview.details.skipped.length} accent="#9ca3af" />
                 </div>
                 {generatePreview.details.created.length > 0 && (
-                  <DetailList title="To be created" items={generatePreview.details.created.map(c =>
-                    `${c.accountName} — ${(c.commission * 100).toFixed(0)}% commission`
-                  )} />
+                  <DetailList title="To be created" items={generatePreview.details.created.map(c => {
+                    const base = `${c.accountName} — ${(c.commission * 100).toFixed(0)}% commission`
+                    return c.partialPeriodNote ? `${base}  ⚠︎ ${c.partialPeriodNote}` : base
+                  })} />
+                )}
+                {generatePreview.details.warnings && generatePreview.details.warnings.length > 0 && (
+                  <div style={{ padding: '10px 14px', background: '#2a2010', border: '1px solid #5c4520',
+                    borderRadius: '8px', fontSize: '12.5px', color: '#E8C878', marginBottom: '14px' }}>
+                    <strong>Partial-period notice:</strong> some creators started mid-period and need their earnings prorated manually after creation.
+                  </div>
                 )}
                 {generatePreview.details.skipped.length > 0 && (
                   <DetailList title="Skipped" items={generatePreview.details.skipped.map(s =>
@@ -954,7 +961,15 @@ export default function InvoicingPage() {
                   Created {generateResult.createdCount} invoice{generateResult.createdCount === 1 ? '' : 's'} for {generateResult.period.start} → {generateResult.period.end}.
                 </div>
                 {generateResult.details.created.length > 0 && (
-                  <DetailList title="Created" items={generateResult.details.created.map(c => c.accountName)} />
+                  <DetailList title="Created" items={generateResult.details.created.map(c =>
+                    c.partialPeriodNote ? `${c.accountName}  ⚠︎ ${c.partialPeriodNote}` : c.accountName
+                  )} />
+                )}
+                {generateResult.details.warnings && generateResult.details.warnings.length > 0 && (
+                  <div style={{ padding: '10px 14px', background: '#2a2010', border: '1px solid #5c4520',
+                    borderRadius: '8px', fontSize: '12.5px', color: '#E8C878', marginBottom: '14px' }}>
+                    <strong>Action needed:</strong> {generateResult.details.warnings.length} creator(s) started mid-period — open each invoice and adjust earnings before sending.
+                  </div>
                 )}
                 {generateResult.details.skipped.length > 0 && (
                   <DetailList title="Skipped" items={generateResult.details.skipped.map(s =>

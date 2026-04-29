@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+launchd plist for the Palm Inbox iMessage daemon.
+
+Install:
+  cp com.palm.inbox.imessage.plist ~/Library/LaunchAgents/
+  # Edit the paths below to match where you put the .py file.
+  launchctl load ~/Library/LaunchAgents/com.palm.inbox.imessage.plist
+
+Uninstall:
+  launchctl unload ~/Library/LaunchAgents/com.palm.inbox.imessage.plist
+  rm ~/Library/LaunchAgents/com.palm.inbox.imessage.plist
+
+Logs:
+  ~/.palm-inbox.log              (the script's own log)
+  ~/Library/Logs/palm-inbox.out  (stdout from launchd)
+  ~/Library/Logs/palm-inbox.err  (stderr from launchd)
+
+KeepAlive=true means launchd restarts the script if it crashes or you log out
+and back in. RunAtLoad=true means it starts as soon as you log in.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.palm.inbox.imessage</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/CHANGE_ME/path/to/imessage_daemon.py</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/CHANGE_ME/Library/Logs/palm-inbox.out</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGE_ME/Library/Logs/palm-inbox.err</string>
+
+    <!-- Throttle: launchd will refuse to restart more than once every 30s.
+         Prevents tight crash loops from frying CPU. -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+</dict>
+</plist>
