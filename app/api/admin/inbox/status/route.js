@@ -5,12 +5,12 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
 
 const CHATS_TABLE = 'Telegram Chats'
 
 export async function GET() {
-  const auth = await requireAdmin()
+  const auth = await requireInboxOwner()
   if (auth instanceof NextResponse) return auth
 
   const token = process.env.TELEGRAM_HEARTBEAT_BOT_TOKEN

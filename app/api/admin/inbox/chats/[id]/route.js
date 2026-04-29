@@ -4,7 +4,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireInboxOwner, patchAirtableRecord } from '@/lib/adminAuth'
 
 const CHATS_TABLE = 'Telegram Chats'
 
@@ -16,7 +16,7 @@ const VALID_STATUSES = new Set([
 ])
 
 export async function PATCH(request, { params }) {
-  const auth = await requireAdmin()
+  const auth = await requireInboxOwner()
   if (auth instanceof NextResponse) return auth
 
   const { id } = params
@@ -43,6 +43,15 @@ export async function PATCH(request, { params }) {
   }
   if (body.notes !== undefined) {
     updates.Notes = String(body.notes).slice(0, 5000)
+  }
+  // Manual creator mapping (used for iMessage chats which don't auto-map,
+  // and for overriding bad PALM x autoresolves on Telegram).
+  // Pass empty string to clear.
+  if (body.creatorAka !== undefined) {
+    updates['Creator AKA'] = String(body.creatorAka || '')
+  }
+  if (body.creatorHqId !== undefined) {
+    updates['Creator HQ ID'] = String(body.creatorHqId || '')
   }
 
   if (Object.keys(updates).length === 0) {

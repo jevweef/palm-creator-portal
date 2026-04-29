@@ -4,12 +4,12 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
 
 const CHATS_TABLE = 'Telegram Chats'
 
 export async function GET() {
-  const auth = await requireAdmin()
+  const auth = await requireInboxOwner()
   if (auth instanceof NextResponse) return auth
 
   try {
@@ -22,10 +22,13 @@ export async function GET() {
       chatId: r.fields?.['Chat ID'] || '',
       title: r.fields?.['Title'] || '(untitled)',
       type: r.fields?.['Type'] || 'group',
+      source: r.fields?.['Source'] || 'telegram',
       status: r.fields?.['Status'] || 'Pending Review',
       firstSeen: r.fields?.['First Seen'] || null,
       lastMessageAt: r.fields?.['Last Message At'] || null,
       messageCount: r.fields?.['Message Count'] || 0,
+      creatorAka: r.fields?.['Creator AKA'] || '',
+      creatorHqId: r.fields?.['Creator HQ ID'] || '',
       notes: r.fields?.['Notes'] || '',
     }))
 

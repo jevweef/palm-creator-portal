@@ -4,7 +4,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireInboxOwner, patchAirtableRecord } from '@/lib/adminAuth'
 
 const TASKS_TABLE = 'Inbox Tasks'
 
@@ -12,7 +12,7 @@ const VALID_STATUSES = new Set(['Open', 'Done', 'Snoozed', 'Dismissed'])
 const VALID_OWNERS = new Set(['Evan', 'Josh', 'Other'])
 
 export async function PATCH(request, { params }) {
-  const auth = await requireAdmin()
+  const auth = await requireInboxOwner()
   if (auth instanceof NextResponse) return auth
 
   const { id } = params

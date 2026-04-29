@@ -7,10 +7,10 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireInboxOwner } from '@/lib/adminAuth'
 
 export async function POST(request) {
-  const auth = await requireAdmin()
+  const auth = await requireInboxOwner()
   if (auth instanceof NextResponse) return auth
 
   const token = process.env.TELEGRAM_HEARTBEAT_BOT_TOKEN
@@ -66,7 +66,7 @@ export async function POST(request) {
 
 // DELETE removes the webhook (useful if you want to pause heartbeat).
 export async function DELETE() {
-  const auth = await requireAdmin()
+  const auth = await requireInboxOwner()
   if (auth instanceof NextResponse) return auth
 
   const token = process.env.TELEGRAM_HEARTBEAT_BOT_TOKEN

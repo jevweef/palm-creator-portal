@@ -102,13 +102,28 @@ async function ingestOne(m) {
       Status: 'Pending Review',
       'First Seen': sentAtIso,
       'Last Message At': sentAtIso,
-      'Message Count': 1,
+      'Message Count': 0, // bumped to 1 by counter logic below
     })
   }
 
   const status = chatRecord.fields?.Status
   if (status === 'Ignored' || status === 'Ignored Forever') {
     return { skipped: 'ignored' }
+  }
+
+  // PRIVACY FENCE: only store message bodies for Watching chats.
+  // Pending Review = chat exists, admin can see it, but message text is not
+  // persisted. Once admin opts in (Watch), future messages land normally.
+  // Historical Pending Review messages are permanently un-stored.
+  if (status === 'Pending Review') {
+    // Bump chat counters so admin can see activity / decide. Don't store body.
+    const currentCount = Number(chatRecord.fields?.['Message Count'] || 0)
+    await patchAirtableRecord(CHATS_TABLE, chatRecord.id, {
+      'Last Message At': sentAtIso,
+      'Message Count': currentCount + 1,
+      ...(m.chatTitle ? { Title: m.chatTitle } : {}),
+    })
+    return { skipped: 'pending-review-no-store' }
   }
 
   // Dedupe.

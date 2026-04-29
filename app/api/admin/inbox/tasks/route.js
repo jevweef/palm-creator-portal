@@ -5,12 +5,12 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
 
 const TASKS_TABLE = 'Inbox Tasks'
 
 export async function GET(request) {
-  const auth = await requireAdmin()
+  const auth = await requireInboxOwner()
   if (auth instanceof NextResponse) return auth
 
   const url = new URL(request.url)

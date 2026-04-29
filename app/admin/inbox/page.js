@@ -7,7 +7,12 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { useToast } from '@/lib/useToast'
+
+// Allowlist mirrors the server-side INBOX_OWNER_EMAILS in lib/adminAuth.js.
+// Server is the source of truth; client check just hides the UI as a courtesy.
+const INBOX_OWNER_EMAILS = ['evan@palm-mgmt.com']
 
 const BOT_DEEP_LINK = 'https://t.me/palmmanage_bot?startgroup=true'
 
@@ -288,25 +293,47 @@ function TasksTab({ toast }) {
 
 // ─── Chats tab (existing UI) ─────────────────────────────────────────
 
-function ChatRow({ chat, onUpdate, toast }) {
+function ChatRow({ chat, onUpdate, toast, creators }) {
   const [busy, setBusy] = useState(false)
-  async function setStatus(status) {
+
+  async function patch(updates) {
     setBusy(true)
     try {
       const res = await fetch(`/api/admin/inbox/chats/${chat.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(updates),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        toast(`Failed to update: ${j.error || res.statusText}`, 'error')
+        toast(`Failed: ${j.error || res.statusText}`, 'error')
         return
       }
-      toast(`${chat.title}: ${status.toLowerCase()}`, 'success')
       onUpdate()
     } finally { setBusy(false) }
   }
+
+  function setStatus(status) {
+    patch({ status }).then(() => toast(`${chat.title}: ${status.toLowerCase()}`, 'success'))
+  }
+
+  function setCreator(aka, hqId) {
+    patch({ creatorAka: aka, creatorHqId: hqId }).then(() =>
+      toast(aka ? `Mapped to ${aka}` : 'Creator cleared', 'success')
+    )
+  }
+
+  function onCreatorChange(e) {
+    const value = e.target.value
+    if (value === '') return setCreator('', '')
+    const [hqId, aka] = value.split('|')
+    setCreator(aka, hqId)
+  }
+
+  // Compute the dropdown value: hqId|aka, or empty
+  const dropdownValue = chat.creatorHqId && chat.creatorAka
+    ? `${chat.creatorHqId}|${chat.creatorAka}`
+    : ''
 
   return (
     <div style={{
@@ -319,20 +346,41 @@ function ChatRow({ chat, onUpdate, toast }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {chat.title}
-          {chat.creatorAka && (
+          {chat.source && (
             <span style={{
-              fontSize: '10px', fontWeight: 600, letterSpacing: '0.04em',
-              padding: '2px 6px', borderRadius: '4px',
-              color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.08)',
+              fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+              padding: '1px 6px', borderRadius: '3px',
+              color: chat.source === 'imessage' ? '#7AC97A' : '#7AC9E8',
+              background: chat.source === 'imessage' ? 'rgba(120, 200, 120, 0.10)' : 'rgba(120, 180, 232, 0.10)',
             }}>
-              {chat.creatorAka}
+              {chat.source === 'imessage' ? 'iMessage' : 'Telegram'}
             </span>
           )}
         </div>
-        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', gap: '12px' }}>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span>{chat.type}</span><span>·</span>
           <span>{chat.messageCount} msgs</span><span>·</span>
           <span>last {timeAgo(chat.lastMessageAt)}</span>
+          <select
+            value={dropdownValue}
+            onChange={onCreatorChange}
+            disabled={busy}
+            style={{
+              marginLeft: '8px', padding: '3px 8px', borderRadius: '6px',
+              fontSize: '11px',
+              background: chat.creatorAka ? 'rgba(232, 160, 160, 0.08)' : 'rgba(255,255,255,0.03)',
+              color: chat.creatorAka ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+              border: `1px solid ${chat.creatorAka ? 'rgba(232, 160, 160, 0.25)' : 'rgba(255,255,255,0.08)'}`,
+              cursor: busy ? 'not-allowed' : 'pointer', outline: 'none',
+            }}
+          >
+            <option value="">— no creator —</option>
+            {(creators || []).map(c => (
+              <option key={c.id} value={`${c.id}|${c.aka}`}>
+                {c.aka || c.creator}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div style={{ display: 'flex', gap: '6px' }}>
@@ -348,16 +396,19 @@ function ChatRow({ chat, onUpdate, toast }) {
 function ChatsTab({ toast }) {
   const [status, setStatus] = useState(null)
   const [chats, setChats] = useState([])
+  const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
 
   async function refresh() {
     try {
-      const [s, c] = await Promise.all([
+      const [s, c, cr] = await Promise.all([
         fetch('/api/admin/inbox/status').then(r => r.json()),
         fetch('/api/admin/inbox/chats').then(r => r.json()),
+        fetch('/api/admin/inbox/creators').then(r => r.json()),
       ])
       setStatus(s)
       setChats(c.chats || [])
+      setCreators(cr.creators || [])
     } finally {
       setLoading(false)
     }
@@ -439,7 +490,7 @@ function ChatsTab({ toast }) {
           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Pending Review ({pending.length})
           </div>
-          {pending.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} />)}
+          {pending.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} creators={creators} />)}
         </div>
       )}
 
@@ -452,7 +503,7 @@ function ChatsTab({ toast }) {
             Nothing being tracked yet. Add the bot to a group above.
           </div>
         ) : (
-          watching.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} />)
+          watching.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} creators={creators} />)
         )}
       </div>
 
@@ -462,7 +513,7 @@ function ChatsTab({ toast }) {
             Ignored ({ignored.length})
           </summary>
           <div style={{ marginTop: '10px' }}>
-            {ignored.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} />)}
+            {ignored.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} creators={creators} />)}
           </div>
         </details>
       )}
@@ -475,7 +526,29 @@ function ChatsTab({ toast }) {
 export default function InboxAdminPage() {
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'tasks'
+  const { user, isLoaded } = useUser()
   const { toast, ToastViewport } = useToast()
+
+  if (!isLoaded) {
+    return <div style={{ color: 'var(--foreground-muted)' }}>Loading…</div>
+  }
+
+  const userEmail = (user?.primaryEmailAddress?.emailAddress || '').toLowerCase()
+  const isOwner = INBOX_OWNER_EMAILS.includes(userEmail)
+
+  if (!isOwner) {
+    return (
+      <div style={{ maxWidth: '500px', marginTop: '60px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
+          Inbox is restricted
+        </h1>
+        <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
+          The Inbox surfaces personal messaging content and is currently limited
+          to a single user. If you need access, ask Evan.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: '900px' }}>
@@ -485,8 +558,8 @@ export default function InboxAdminPage() {
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
           {tab === 'tasks'
-            ? 'Action items extracted from your Telegram conversations. Things you or Josh said you’d do.'
-            : 'Manage which Telegram chats the heartbeat bot is watching.'}
+            ? 'Action items extracted from your conversations. Things you said you’d do.'
+            : 'Manage which chats are being tracked. Map each chat to a creator.'}
         </p>
       </div>
 

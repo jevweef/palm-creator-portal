@@ -39,12 +39,17 @@ const ADMIN_NAV = [
     { key: 'invoices', label: 'Invoices' },
     { key: 'upload', label: 'Raw Data Upload' },
   ]},
-  { href: '/admin/inbox', label: 'Inbox', icon: '📥', children: [
+  { href: '/admin/inbox', label: 'Inbox', icon: '📥', ownerOnly: true, children: [
     { key: 'tasks', label: 'Tasks' },
     { key: 'chats', label: 'Chats' },
   ]},
   { href: '/admin/help', label: 'Help', icon: '❓' },
 ]
+
+// Mirrors lib/adminAuth.js INBOX_OWNER_EMAILS. Server is source of truth;
+// this just hides the sidebar entry as a courtesy. Non-owners hitting
+// /admin/inbox directly get a "restricted" message rendered server-side.
+const OWNER_ONLY_EMAILS = ['evan@palm-mgmt.com']
 
 const EDITOR_NAV = [
   { href: '/editor', label: 'My Dashboard', icon: '✂️' },
@@ -117,7 +122,12 @@ export default function AdminLayout({ children }) {
     )
   }
 
-  const NAV_ITEMS = isAdmin ? ADMIN_NAV : EDITOR_NAV
+  const userEmail = (user?.primaryEmailAddress?.emailAddress || '').toLowerCase()
+  const isInboxOwner = OWNER_ONLY_EMAILS.includes(userEmail)
+  const NAV_ITEMS = (isAdmin ? ADMIN_NAV : EDITOR_NAV).filter(item => {
+    if (item.ownerOnly && !isInboxOwner) return false
+    return true
+  })
   const sectionLabel = isAdmin ? 'Admin' : 'Editor'
   // Kept for backwards-compatible main-content centering on the deleted
   // legacy /admin/chat-wall path. Always false now since the page moved.
