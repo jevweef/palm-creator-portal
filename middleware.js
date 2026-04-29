@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin/apify-callback(.*)',
   '/api/admin/promote-handle(.*)',
   '/api/admin/score-reels(.*)',
+  '/api/admin/mirror-asset(.*)',
   '/api/inbox/telegram(.*)',
   '/demo(.*)',
 ])
