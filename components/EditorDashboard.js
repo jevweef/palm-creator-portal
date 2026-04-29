@@ -1396,14 +1396,9 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
           <div className="editor-task-modal-left" style={{ width: '50%', padding: '20px', borderRight: '1px solid transparent', display: 'flex', gap: '12px', overflow: 'hidden' }}>
             {editedLink ? (
               <>
-                <MediaPanel
-                  label="Submitted Edit"
-                  link={editedLink}
-                  rawUrl={editedRawUrl}
-                  fallbackThumb={task?.asset?.thumbnail || ''}
-                  cdnUrl={task?.asset?.cdnUrl || null}
-                  accentColor="#E88FAC"
-                />
+                {/* Raw on the left, edited on the right — consistent with the
+                    rest of the editor's workflow so the edited version is
+                    always in the same place no matter the task status. */}
                 <MediaPanel
                   label="Raw Clip"
                   link={assetLink}
@@ -1411,6 +1406,14 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   fallbackThumb={task?.asset?.thumbnail || clip?.thumbnail || ''}
                   cdnUrl={task?.asset?.cdnUrl || clip?.cdnUrl || null}
                   accentColor="#999"
+                />
+                <MediaPanel
+                  label="Submitted Edit"
+                  link={editedLink}
+                  rawUrl={editedRawUrl}
+                  fallbackThumb={task?.asset?.thumbnail || ''}
+                  cdnUrl={task?.asset?.cdnUrl || null}
+                  accentColor="#E88FAC"
                 />
               </>
             ) : (
@@ -2557,7 +2560,9 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
 
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* Video strip — RAW | EDIT | INSPO */}
+      {/* Video strip — RAW | INSPO | EDIT
+          Edited clip lives on the right edge across every editor view so the
+          editor sees the version they need to fix in a consistent spot. */}
       <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
         <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
           {rawClipUrl ? (
@@ -2576,6 +2581,19 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
           <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#78B4E8', fontWeight: 600 }}>RAW</div>
         </div>
 
+        {hasInspo && (
+          <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
+            {inspoVideoUrl ? (
+              <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
+                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
+            ) : (task.inspo?.cdnUrl || task.inspo?.thumbnail) ? (
+              <img src={cdnUrlAtSize(task.inspo.cdnUrl, 600) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+            ) : null}
+            <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
+          </div>
+        )}
+
         <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
           {editUrl ? (
             <>
@@ -2592,19 +2610,6 @@ function RevisionCard({ task, onUploadRevision, onOpenVideo }) {
           )}
           <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#7DD3A4', fontWeight: 600 }}>EDIT</div>
         </div>
-
-        {hasInspo && (
-          <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
-            {inspoVideoUrl ? (
-              <video src={inspoVideoUrl} autoPlay muted loop playsInline preload="metadata"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'pointer' }}
-                onClick={e => { e.currentTarget.muted = !e.currentTarget.muted }} />
-            ) : (task.inspo?.cdnUrl || task.inspo?.thumbnail) ? (
-              <img src={cdnUrlAtSize(task.inspo.cdnUrl, 600) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-            ) : null}
-            <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>INSPO</div>
-          </div>
-        )}
       </div>
 
       {/* Body */}
