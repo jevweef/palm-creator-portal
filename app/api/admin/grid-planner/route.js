@@ -242,9 +242,26 @@ export async function GET(request) {
     // duplicate. Idempotent — once matched, the Post has Post Link set, so
     // subsequent GETs skip it.
     const matchPatches = []
+    // Map of post.id → live scrape (used as thumbnail fallback when the matched
+    // Post's own Thumbnail attachment is missing/broken — without this, matched
+    // LIVE cells render as blank black squares because dedup at the client
+    // hides the scrape's rich thumbnail in favor of the now-matched Post.
+    const scrapeFallback = {}
+    // Also: any scrape whose URL appears on an already-matched Post (from a
+    // prior run) — capture those too so old LIVE cells stay populated when the
+    // scrape feed still has the data.
     for (const acc of creatorAccounts) {
       const feed = scrapedMap[acc.id]?.feed || []
       if (!feed.length) continue
+      const feedByUrl = new Map(feed.map(s => [s.url, s]))
+      for (const p of posts) {
+        if (!(p.fields?.Account || []).includes(acc.id)) continue
+        const link = p.fields?.['Post Link']
+        if (link && feedByUrl.has(link)) {
+          const s = feedByUrl.get(link)
+          if (s.thumbnail) scrapeFallback[p.id] = s.thumbnail
+        }
+      }
       const unmatched = posts
         .filter(p =>
           (p.fields?.Account || []).includes(acc.id) &&
@@ -273,6 +290,7 @@ export async function GET(request) {
         // Mutate in-place so this GET's response already reflects the match
         post.fields['Post Link'] = live.url
         post.fields['Posted At'] = live.postedAt
+        if (live.thumbnail) scrapeFallback[post.id] = live.thumbnail
       }
     }
     if (matchPatches.length) {
@@ -342,8 +360,12 @@ export async function GET(request) {
       const cdnUrl = asset['CDN URL'] || ''
       const thumb = cdnUrl ||
         (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
-        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) || ''
-      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0
+        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) ||
+        // Last resort for matched LIVE cells: the IG scrape thumbnail. Without
+        // this, posts whose Post.Thumbnail is missing/broken render as a blank
+        // LIVE cell after the scrape→Sent dedup hides the scrape duplicate.
+        scrapeFallback[p.id] || ''
+      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !scrapeFallback[p.id]
       const accountId = (f.Account || [])[0] || null
       return {
         id: p.id,
