@@ -231,6 +231,55 @@ export async function GET(request) {
       await Promise.all(normPatches)
     }
 
+    // Match scraped Live posts back to existing Sent Posts so the grid shows
+    // ONE cell per reel instead of duplicates (Sent + scraped Live side-by-side
+    // for the same content). Heuristic: per account, sort Sent-but-not-yet-live
+    // Posts by Scheduled Date ASC and the scraped feed by Posted At ASC, match
+    // oldest pairs. Only claim a scrape into a Post when the dates are within
+    // 5 days of each other (avoids manually-posted IG content getting captured
+    // into our pipeline records). Once Post Link is written, the existing
+    // dedup at GridPlanner.PhoneFrame (`postLinks` Set) hides the scraped
+    // duplicate. Idempotent — once matched, the Post has Post Link set, so
+    // subsequent GETs skip it.
+    const matchPatches = []
+    for (const acc of creatorAccounts) {
+      const feed = scrapedMap[acc.id]?.feed || []
+      if (!feed.length) continue
+      const unmatched = posts
+        .filter(p =>
+          (p.fields?.Account || []).includes(acc.id) &&
+          p.fields?.['Telegram Sent At'] &&
+          !p.fields?.['Post Link'] &&
+          !p.fields?.['Posted At']
+        )
+        .sort((a, b) =>
+          new Date(a.fields['Scheduled Date'] || 0) - new Date(b.fields['Scheduled Date'] || 0)
+        )
+      if (!unmatched.length) continue
+      const scrapedAsc = [...feed]
+        .filter(s => s.postedAt && s.url)
+        .sort((a, b) => new Date(a.postedAt) - new Date(b.postedAt))
+      const num = Math.min(unmatched.length, scrapedAsc.length)
+      const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
+      for (let i = 0; i < num; i++) {
+        const post = unmatched[i]
+        const live = scrapedAsc[i]
+        const drift = Math.abs(new Date(live.postedAt) - new Date(post.fields['Scheduled Date']))
+        if (drift > FIVE_DAYS_MS) continue
+        matchPatches.push(patchAirtableRecord('Posts', post.id, {
+          'Post Link': live.url,
+          'Posted At': live.postedAt,
+        }))
+        // Mutate in-place so this GET's response already reflects the match
+        post.fields['Post Link'] = live.url
+        post.fields['Posted At'] = live.postedAt
+      }
+    }
+    if (matchPatches.length) {
+      console.log(`[Grid Planner] Matched ${matchPatches.length} scraped post${matchPatches.length !== 1 ? 's' : ''} to existing Sent records`)
+      await Promise.all(matchPatches)
+    }
+
     // Pull asset thumbnails (fallback when Post doesn't have its own thumb yet)
     const assetIds = [...new Set(posts.flatMap(p => p.fields?.Asset || []).filter(Boolean))]
     const assetMap = {}
