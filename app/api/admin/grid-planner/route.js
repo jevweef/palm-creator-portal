@@ -374,7 +374,15 @@ export async function GET(request) {
       // uploads land in Airtable with type=text/html (URL ingest returned HTML
       // instead of image bytes) — those serve broken icons in the browser. Skip
       // them and fall through to a valid one or to Asset.Thumbnail.
-      const pickImage = (atts) => (atts || []).find(a => a?.type?.startsWith('image/'))
+      // type=image/* is the happy path. But Airtable's URL-ingest is async:
+      // immediately after PATCH the attachment exists but `type` is unset
+      // until ingestion completes (often 5–30s). Fall back to filename
+      // extension matching so freshly-replaced thumbnails render right
+      // away instead of going blank during the ingest window.
+      const pickImage = (atts) => (atts || []).find(a =>
+        a?.type?.startsWith('image/') ||
+        (!a?.type && /\.(jpe?g|png|gif|webp)$/i.test(a?.filename || ''))
+      )
       const postImg = pickImage(f.Thumbnail)
       const assetImg = pickImage(asset.Thumbnail)
       // Prefer Cloudflare-mirrored asset photo (~50ms edge serve) over Airtable
