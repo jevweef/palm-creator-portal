@@ -10,6 +10,7 @@ import OftvProjectsQueue from '@/components/OftvProjectsQueue'
 import GridPlanner from '@/components/GridPlanner'
 import CaptionSuggestions from '@/components/CaptionSuggestions'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
+import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 function formatSlot(isoDate) {
   const label = getSlotLabel(isoDate)
@@ -1803,14 +1804,72 @@ function RevisionModal({ task, onClose, onSubmit }) {
   )
 }
 
-function VideoModal({ url, onClose }) {
-  const rawUrl = url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
+/**
+ * For Review section RAW / EDIT cell. When the asset has a Cloudflare Stream
+ * UID we autoplay a muted, looped iframe in the cell — bringing back the
+ * "videos play in cards" feel the page used to have on Dropbox. Without
+ * Stream we fall back to the static thumbnail + play button (no autoplay
+ * because Dropbox kills perf when 10+ videos load on one page).
+ *
+ * Click the cell → opens VideoModal with audio + controls. We pointer-
+ * events:none the iframe so the wrapper button captures the click.
+ */
+function ReviewClipCell({ streamUid, posterCdnUrl, fallbackUrl, onOpenModal, label, labelColor, accentBg }) {
+  const playable = streamUid || fallbackUrl
+  const handleClick = () => {
+    if (!playable) return
+    onOpenModal(streamUid ? { streamUid } : { url: fallbackUrl })
+  }
+  return (
+    <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
+      {playable ? (
+        <button onClick={handleClick}
+          style={{ position: 'absolute', inset: 0, padding: 0, background: accentBg, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          title={`Play ${label.toLowerCase()}`}>
+          {streamUid ? (
+            // Autoplay-muted in card. Pointer-events:none lets the click reach
+            // the outer button so the modal opens (with audio).
+            <iframe
+              src={buildStreamIframeUrl(streamUid, { autoplay: true, muted: true, loop: true, controls: false, preload: 'metadata' })}
+              allow="autoplay"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+            />
+          ) : posterCdnUrl ? (
+            <img src={cdnUrlAtSize(posterCdnUrl, 400)} alt="" loading="lazy" decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+          ) : null}
+          {/* Play badge only shown when not autoplaying — autoplay needs no hint */}
+          {!streamUid && (
+            <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
+          )}
+        </button>
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No {label.toLowerCase()} yet</div>
+      )}
+      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: labelColor, fontWeight: 600, pointerEvents: 'none' }}>{label}</div>
+    </div>
+  )
+}
+
+// Accepts either a Cloudflare Stream UID (preferred — fast HLS playback via
+// the hosted CF player) or a Dropbox URL (legacy fallback for assets that
+// haven't been mirrored to Stream yet).
+function VideoModal({ streamUid, url, onClose }) {
+  const streamSrc = streamUid ? buildStreamIframeUrl(streamUid, { autoplay: true, controls: true }) : null
+  const dropboxRaw = url
+    ? url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
+    : null
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ position: 'relative', maxHeight: '90vh', maxWidth: '420px', width: '100%' }}>
-        <video src={rawUrl} controls autoPlay playsInline
-          style={{ width: '100%', maxHeight: '90vh', borderRadius: '10px', display: 'block', background: '#000' }} />
+      <div style={{ position: 'relative', maxHeight: '90vh', maxWidth: '420px', width: '100%', aspectRatio: '9/16' }}>
+        {streamSrc ? (
+          <iframe src={streamSrc} allow="autoplay; fullscreen" allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none', borderRadius: '10px', background: '#000' }} />
+        ) : dropboxRaw ? (
+          <video src={dropboxRaw} controls autoPlay playsInline
+            style={{ width: '100%', maxHeight: '90vh', borderRadius: '10px', display: 'block', background: '#000' }} />
+        ) : null}
         <button onClick={onClose}
           style={{ position: 'absolute', top: '-14px', right: '-14px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '50%', width: '32px', height: '32px', color: 'var(--foreground)', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           ×
@@ -1958,47 +2017,33 @@ function ForReview({ showToast }) {
                 {/* Video strip — RAW | EDIT | INSPO */}
                 <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
 
-                  {/* RAW clip — click ⛶ to play in modal */}
-                  <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
-                    {rawClipUrl ? (
-                      <button onClick={() => setVideoModal(task.asset.dropboxLink.split('\n').filter(Boolean)[0])}
-                        style={{ position: 'absolute', inset: 0, padding: 0, background: 'linear-gradient(135deg, rgba(120, 180, 232, 0.06), rgba(120, 180, 232, 0.02))', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title="Play raw clip">
-                        {task.asset.cdnUrl && (
-                          <img src={cdnUrlAtSize(task.asset.cdnUrl, 400)} alt="" loading="lazy" decoding="async"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-                        )}
-                        <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
-                      </button>
-                    ) : (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No raw clip</div>
-                    )}
-                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#78B4E8', fontWeight: 600, pointerEvents: 'none' }}>RAW</div>
-                  </div>
+                  {/* RAW clip — autoplays muted from CF Stream, click for audio modal */}
+                  <ReviewClipCell
+                    streamUid={task.asset.streamRawId}
+                    posterCdnUrl={task.asset.cdnUrl}
+                    fallbackUrl={rawClipUrl ? task.asset.dropboxLink.split('\n').filter(Boolean)[0] : null}
+                    onOpenModal={(payload) => setVideoModal(payload)}
+                    label="RAW"
+                    labelColor="#78B4E8"
+                    accentBg="linear-gradient(135deg, rgba(120, 180, 232, 0.06), rgba(120, 180, 232, 0.02))"
+                  />
 
-                  {/* EDIT clip — click ⛶ to play in modal */}
-                  <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
-                    {editUrl ? (
-                      <button onClick={() => setVideoModal(task.asset.editedFileLink)}
-                        style={{ position: 'absolute', inset: 0, padding: 0, background: 'linear-gradient(135deg, rgba(125, 211, 164, 0.06), rgba(125, 211, 164, 0.02))', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title="Play edit">
-                        {task.asset.cdnUrl && (
-                          <img src={cdnUrlAtSize(task.asset.cdnUrl, 400)} alt="" loading="lazy" decoding="async"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-                        )}
-                        <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
-                      </button>
-                    ) : (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No edit yet</div>
-                    )}
-                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#7DD3A4', fontWeight: 600, pointerEvents: 'none' }}>EDIT</div>
-                  </div>
+                  {/* EDIT clip — autoplays muted from CF Stream, click for audio modal */}
+                  <ReviewClipCell
+                    streamUid={task.asset.streamEditId}
+                    posterCdnUrl={task.asset.cdnUrl}
+                    fallbackUrl={editUrl ? task.asset.editedFileLink : null}
+                    onOpenModal={(payload) => setVideoModal(payload)}
+                    label="EDIT"
+                    labelColor="#7DD3A4"
+                    accentBg="linear-gradient(135deg, rgba(125, 211, 164, 0.06), rgba(125, 211, 164, 0.02))"
+                  />
 
                   {/* INSPO clip — show thumbnail, click to open in modal */}
                   {hasInspo && (
                     <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
                       {inspoVideoUrl ? (
-                        <button onClick={() => setVideoModal(task.inspo.dbShareLink)}
+                        <button onClick={() => setVideoModal({ url: task.inspo.dbShareLink })}
                           style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Play inspo">
                           {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
@@ -2155,7 +2200,7 @@ function ForReview({ showToast }) {
       )}
 
       {videoModal && (
-        <VideoModal url={videoModal} onClose={() => setVideoModal(null)} />
+        <VideoModal streamUid={videoModal.streamUid} url={videoModal.url} onClose={() => setVideoModal(null)} />
       )}
     </div>
   )
@@ -2358,7 +2403,7 @@ function SubmissionsFeed({ showToast }) {
                         </span>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           {editUrl && (
-                            <button onClick={() => setVideoModal(s.asset.editedFileLink)}
+                            <button onClick={() => setVideoModal(s.asset?.streamEditId ? { streamUid: s.asset.streamEditId } : { url: s.asset.editedFileLink })}
                               style={{ padding: '3px 9px', fontSize: '11px', fontWeight: 600, color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.06)', border: '1px solid transparent', borderRadius: '5px', cursor: 'pointer' }}>
                               Watch edit
                             </button>
@@ -2380,7 +2425,7 @@ function SubmissionsFeed({ showToast }) {
         </div>
       )}
 
-      {videoModal && <VideoModal url={videoModal} onClose={() => setVideoModal(null)} />}
+      {videoModal && <VideoModal streamUid={videoModal?.streamUid} url={videoModal?.url} onClose={() => setVideoModal(null)} />}
     </div>
   )
 }

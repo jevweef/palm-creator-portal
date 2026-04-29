@@ -186,8 +186,8 @@ export async function GET() {
       assetIds.length ? fetchAirtableRecords('Assets', {
         filterByFormula: recordIdFormula(assetIds),
         fields: [
-          'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Dropbox Path (Current)',
-          'Creator Notes', 'Source Type', 'Thumbnail', 'CDN URL',
+          'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Edited File Link', 'Dropbox Path (Current)',
+          'Creator Notes', 'Source Type', 'Thumbnail', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID',
         ],
       }) : [],
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
@@ -235,12 +235,14 @@ export async function GET() {
           pipelineStatus: asset['Pipeline Status'] || '',
           dropboxLink: asset['Dropbox Shared Link'] || '',
           dropboxLinks: (asset['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
+          editedFileLink: asset['Edited File Link'] || '',
           dropboxPath: asset['Dropbox Path (Current)'] || '',
           creatorNotes: asset['Creator Notes'] || '',
           sourceType: asset['Source Type'] || '',
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
           cdnUrl: asset['CDN URL'] || null,
-          dropboxPath: asset['Dropbox Path (Current)'] || '',
+          streamEditId: asset['Stream Edit ID'] || null,
+          streamRawId: asset['Stream Raw ID'] || null,
         },
         inspo: {
           id: inspoId,

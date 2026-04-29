@@ -82,6 +82,7 @@ export async function GET(request, { params }) {
         fields: [
           'Asset Name', 'Pipeline Status', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Edited File Link',
+          'Stream Edit ID', 'Stream Raw ID',
         ],
       }),
       fetchByIds('Inspiration', inspoIds, {
@@ -120,6 +121,8 @@ export async function GET(request, { params }) {
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
           cdnUrl: asset['CDN URL'] || null,
           editedFileLink: asset['Edited File Link'] || '',
+          streamEditId: asset['Stream Edit ID'] || null,
+          streamRawId: asset['Stream Raw ID'] || null,
         },
         inspo: {
           id: inspoId || null,
