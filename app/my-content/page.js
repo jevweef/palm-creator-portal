@@ -48,9 +48,9 @@ function PipelineCard({ item, onClick }) {
       onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' } }}
     >
       <div style={{ aspectRatio: '9/16', background: 'rgba(232, 160, 160, 0.04)' }}>
-        {item.assetThumbnail ? (
+        {(item.cdnUrl || item.assetThumbnail) ? (
           <img
-            src={item.assetThumbnail}
+            src={item.cdnUrl || item.assetThumbnail}
             alt={item.inspoTitle}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
