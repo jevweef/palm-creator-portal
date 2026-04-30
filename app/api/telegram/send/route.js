@@ -607,7 +607,14 @@ async function doSend(params) {
 // "Prepping" → "Sending" → "Sent to Telegram" (or "Send Failed") as the
 // background job progresses. UI polls Post status to know when it's done.
 export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  // Internal cron caller bypasses admin auth via x-cron-secret header.
+  // /api/cron/telegram-queue uses this so the queue worker can fire sends
+  // without an admin session. Anything else still requires admin.
+  const cronSecret = request.headers.get('x-cron-secret')
+  const isCronCall = cronSecret && process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET
+  if (!isCronCall) {
+    try { await requireAdmin() } catch (e) { return e }
+  }
 
   try {
     const params = await request.json()
@@ -623,18 +630,25 @@ export async function POST(request) {
       return NextResponse.json({ error: 'TELEGRAM_CHAT_ID not set' }, { status: 500 })
     }
 
-    // Stamp the Post immediately so the UI can show "Sending" without waiting
-    // for the actual Telegram upload to finish. Also save any user-edited
-    // caption/hashtags/platform/date now (rather than after send) so a refresh
-    // during the background job shows the correct data.
+    // Save any user-edited caption/hashtags/platform/date now (rather than
+    // after send) so a refresh during the background job shows the correct
+    // data. Status was previously also patched to 'Sending' here, but that
+    // value is NOT a valid singleSelect option on Posts.Status — every
+    // send was 422-ing the entire PATCH and silently swallowing it. Result:
+    // user edits made on the post weren't persisting on send. Drop the
+    // Status field; UI shows in-flight state via client-side `sending`
+    // tracking instead.
     if (postId) {
-      await patchAirtableRecord('Posts', postId, {
-        'Status': 'Sending',
+      const fields = {
         ...(rawCaption ? { 'Caption': rawCaption } : {}),
         ...(rawHashtags ? { 'Hashtags': rawHashtags } : {}),
         ...(platform?.length ? { 'Platform': platform } : {}),
         ...(scheduledDate ? { 'Scheduled Date': scheduledDate } : {}),
-      }).catch(err => console.warn('[Telegram Send] Pre-send Post update failed:', err.message))
+      }
+      if (Object.keys(fields).length) {
+        await patchAirtableRecord('Posts', postId, fields)
+          .catch(err => console.warn('[Telegram Send] Pre-send Post update failed:', err.message))
+      }
     }
 
     // Two modes:

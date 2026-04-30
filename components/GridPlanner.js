@@ -41,6 +41,10 @@ function postStatus(post) {
   if (post.telegramSentAt) return 'scheduled'
   if (post.status === 'Sending') return 'sending'
   if (post.status === 'Send Failed') return 'failed'
+  // 'Queued for Telegram' = waiting for cron worker. Distinct from regular
+  // queue (which is just "future scheduled, not sent yet") so the user can
+  // see at a glance which posts are committed to send vs still draftable.
+  if (post.status === 'Queued for Telegram') return 'queued'
   return 'queue'
 }
 
@@ -64,6 +68,86 @@ function relativeTime(iso) {
   if (hours < 24) return `${hours}h ago`
   const days = Math.round(hours / 24)
   return `${days}d ago`
+}
+
+// Downscale a user-picked image File to fit inside maxW × maxH, preserving
+// aspect ratio, and re-encode as JPEG. Used by Replace Thumbnail to keep
+// the upload under Vercel's 4.5MB body cap (iPhone HEIC/JPEG routinely
+// hits 5–8MB straight from the camera roll). Returns a Blob.
+async function resizeImageForUpload(file, maxW = 1080, maxH = 1920, quality = 0.85) {
+  // Already small enough? Skip the canvas roundtrip and ship as-is.
+  if (file.size < 2 * 1024 * 1024 && /jpe?g$/i.test(file.type)) return file
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error('Image decode failed (HEIC not supported — pick a JPEG/PNG)'))
+      i.src = url
+    })
+    let { width: w, height: h } = img
+    const scale = Math.min(1, maxW / w, maxH / h)
+    w = Math.round(w * scale)
+    h = Math.round(h * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0, w, h)
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Encode failed')), 'image/jpeg', quality)
+    })
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+// Modal video preview that ALWAYS shows the thumbnail explicitly. The
+// browser's <video poster> attribute is unreliable: preload="metadata"
+// silently swaps the poster for the video's actual first frame, and any
+// transient URL flake leaves the modal black with just a play icon. We
+// render an <img> overlay that we fully control — click to dismiss and
+// play the video. posterSrc updates flow through immediately because
+// it's a real <img src> with React's standard reconciliation.
+function VideoWithThumb({ videoSrc, posterSrc }) {
+  const [playing, setPlaying] = useState(false)
+  if (!playing) {
+    return (
+      <div
+        onClick={() => setPlaying(true)}
+        style={{ width: '100%', height: '100%', position: 'relative', cursor: 'pointer', background: '#000' }}
+      >
+        {posterSrc && (
+          <img
+            src={posterSrc}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+          />
+        )}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '50%',
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: '24px',
+          }}>▶</div>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <video
+      src={videoSrc}
+      controls
+      autoPlay
+      playsInline
+      style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+    />
+  )
 }
 
 function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEnd, onDrop, onCellClick }) {
@@ -300,6 +384,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
   const borderByStatus = {
     queue:     { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
+    queued:    { bg: 'rgba(245, 158, 11, 0.10)', ring: 'rgba(245, 158, 11, 0.5)', badge: '#f59e0b' },
     sending:   { bg: 'rgba(245, 158, 11, 0.10)', ring: 'rgba(245, 158, 11, 0.5)', badge: '#f59e0b' },
     scheduled: { bg: 'rgba(125, 211, 164, 0.06)', ring: 'rgba(125, 211, 164, 0.2)', badge: '#7DD3A4' },
     failed:    { bg: 'rgba(239, 68, 68, 0.10)', ring: 'rgba(239, 68, 68, 0.4)', badge: '#ef4444' },
@@ -389,8 +474,15 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // problem as the tray — Airtable attachment URLs can rotate and source URLs
 // can die. Swap to the placeholder if the image won't load.
 function CellThumb({ post, style, status }) {
+  const src = cdnUrlAtSize(post.thumbnail, 240)
+  // Sticky failed state was the root cause of "thumbnail won't update" —
+  // once an <img> failed (e.g. transient Airtable CDN miss, optimistic
+  // Dropbox dl URL that 302-redirects), the cell stayed on the fallback
+  // icon forever even after src changed to a working URL. Reset on every
+  // new src so the next render always re-attempts the load.
   const [failed, setFailed] = useState(false)
-  if (failed) {
+  useEffect(() => { setFailed(false) }, [src])
+  if (failed || !src) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
         {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
@@ -399,7 +491,7 @@ function CellThumb({ post, style, status }) {
   }
   return (
     <img
-      src={cdnUrlAtSize(post.thumbnail, 240)}
+      src={src}
       alt=""
       loading="lazy"
       decoding="async"
@@ -416,7 +508,10 @@ function CellThumb({ post, style, status }) {
 // links can become invalid). When the <img> fails to load, swap to the
 // UNPREPPED placeholder so the cell doesn't show a broken-image icon.
 function TrayThumb({ sample }) {
+  const src = cdnUrlAtSize(sample.thumbnail, 240)
   const [failed, setFailed] = useState(false)
+  // Reset failed state when src changes — same fix as CellThumb above.
+  useEffect(() => { setFailed(false) }, [src])
   if (!sample.thumbnail || failed) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', color: 'var(--foreground-muted)', fontSize: '20px', gap: '2px', pointerEvents: 'none' }}>
@@ -683,9 +778,22 @@ export default function GridPlanner({ smmMode = false } = {}) {
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Failed to load')
       setAccounts(d.accounts || [])
-      setPosts(d.posts || [])
+      const freshPosts = d.posts || []
+      setPosts(freshPosts)
       setUnassignedGroups(d.unassignedGroups || [])
       setSelectedCreatorMeta(d.selectedCreator || null)
+      // CRITICAL: when the modal is open and we just refetched, fold the
+      // server's fresh fields (Airtable CDN thumbnail URL especially) into
+      // detailPost. Without this, the modal keeps showing the optimistic
+      // Dropbox dl URL forever — `dl.dropboxusercontent.com` 302-redirects
+      // and doesn't render in <video poster> reliably, so the user sees a
+      // black modal even after Airtable has ingested the new image.
+      setDetailPost(d2 => {
+        if (!d2) return d2
+        const fresh = freshPosts.find(p => p.id === d2.post.id)
+        if (!fresh) return d2
+        return { ...d2, post: { ...d2.post, ...fresh } }
+      })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -965,28 +1073,38 @@ export default function GridPlanner({ smmMode = false } = {}) {
     })
   }
   const runBulkSend = async () => {
+    // New flow: enqueue all sendable posts in one bulk Airtable PATCH.
+    // The /api/cron/telegram-queue worker fires every minute, processes
+    // up to 2 queued posts per tick (in Scheduled Date order), retries
+    // failed ones manually only. Replaces the old client-driven serial
+    // loop that died when the user closed the tab or hit Vercel 504s.
     setBulkSending(true)
     try {
-      // Group sendable posts by account, preserve queue order within each.
-      // Then run runAccountBulkSend (serial wait=true) for each account
-      // sequentially. Result: one Telegram upload at a time across the entire
-      // creator. Avoids the parallel-fire rate-limit storm we saw before.
-      const byAccount = {}
-      for (const p of sendablePosts) {
-        if (!byAccount[p.accountId]) byAccount[p.accountId] = []
-        byAccount[p.accountId].push(p)
-      }
-      const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
-      const orderedAccountIds = accounts.map(a => a.id).filter(id => byAccount[id]?.length)
-      for (const accountId of orderedAccountIds) {
-        const account = accountById[accountId]
-        const accountQueue = byAccount[accountId].sort(
-          (a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)
-        )
-        await runAccountBulkSend(accountId, account, accountQueue)
-      }
-      showToast(`Done — sent across ${orderedAccountIds.length} account${orderedAccountIds.length !== 1 ? 's' : ''}`)
+      // Sort all sendable posts globally by Scheduled Date so the cron
+      // sees them in calendar order regardless of which account they're on.
+      // The cron picks oldest-first; we just need a consistent enqueue.
+      const ordered = [...sendablePosts].sort(
+        (a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0)
+      )
+
+      // Bulk enqueue. /api/admin/posts PATCH already fans out Status across
+      // siblings, but each post here is a SPECIFIC instance — we want only
+      // that one record marked Queued (siblings on other accounts may be
+      // sent at different times). Use the dedicated enqueue endpoint that
+      // bypasses the fan-out.
+      const res = await fetch('/api/admin/telegram/enqueue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postIds: ordered.map(p => p.id) }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Enqueue failed')
+
+      showToast(`Queued ${ordered.length} post${ordered.length !== 1 ? 's' : ''} — sending in background (~30s/post). Safe to close tab.`)
+      // Refresh so cells flip to the Queued state immediately.
       await loadCreator(selectedCreatorId)
+    } catch (e) {
+      showToast(`Enqueue failed: ${e.message}`, true)
     } finally {
       setBulkSending(false)
     }
@@ -1576,20 +1694,25 @@ export default function GridPlanner({ smmMode = false } = {}) {
               loadCreator(selectedCreatorId)
             }
           }}
-          onThumbnailReplaced={(postId, newUrl) => {
-            // Optimistic: drop the new URL on the post so the grid cell flips
-            // immediately. The Dropbox URL itself doesn't render in <img> reliably,
-            // so we also refetch from Airtable — Airtable re-hosts attachments
-            // on its CDN and that URL works everywhere.
-            setPosts(ps => ps.map(p => p.id === postId ? { ...p, thumbnail: newUrl, thumbnailUrl: newUrl } : p))
-            setDetailPost(d => d && d.post.id === postId
+          onThumbnailReplaced={(postId, newUrl, allUpdatedIds) => {
+            // Optimistic: drop the new URL on EVERY sibling Post (not just
+            // the one in the open modal). The (3) badge on a card means the
+            // same Asset/Task fans out into 3 IG-account-specific Posts —
+            // the user expects all 3 cells to flip, not just one.
+            const ids = new Set(allUpdatedIds || [postId])
+            setPosts(ps => ps.map(p => ids.has(p.id) ? { ...p, thumbnail: newUrl, thumbnailUrl: newUrl } : p))
+            setDetailPost(d => d && ids.has(d.post.id)
               ? { ...d, post: { ...d.post, thumbnail: newUrl, thumbnailUrl: newUrl } }
               : d
             )
-            showToast('Thumbnail updated')
-            // Airtable needs ~3-5s to ingest the source URL into its CDN. Refetch
-            // after that so the post object gets the Airtable-hosted URL.
-            setTimeout(() => loadCreator(selectedCreatorId), 4000)
+            const n = ids.size
+            showToast(n > 1 ? `Thumbnail updated on ${n} instances` : 'Thumbnail updated')
+            // Airtable needs ~3-5s to ingest the source URL into its CDN.
+            // First refetch at 5s, second at 12s as a safety net — sometimes
+            // ingestion runs slow and the first refetch returns null and
+            // wipes the optimistic update.
+            setTimeout(() => loadCreator(selectedCreatorId), 5000)
+            setTimeout(() => loadCreator(selectedCreatorId), 12000)
           }}
           smmMode={smmMode}
           onMarkScheduled={async (scheduled) => {
@@ -1760,15 +1883,46 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
       const previewUrl = URL.createObjectURL(file)
       setLocalThumb(previewUrl)
 
+      // Resize client-side before upload. Vercel's serverless function body
+      // limit is 4.5MB and iPhone photos (3–8MB HEIC/JPEG) routinely blow
+      // past it — server returns 413 "Request Entity Too Large" as plain
+      // text and the parse-as-JSON crashes. Plus thumbnails only ever
+      // render at ≤1080×1920 anyway, so anything larger is wasted bytes.
+      const resized = await resizeImageForUpload(file, 1080, 1920, 0.85)
+      // Convert resized blob to a base64 data URL for the OPTIMISTIC preview.
+      // Why not the Dropbox URL we get back from the server? Because
+      // dl.dropboxusercontent.com 302-redirects through CDN hops that <img>
+      // tags don't always follow — onError fires, the cell goes to its
+      // fallback icon, and the user sees "thumbnail not updating". A
+      // data: URL renders natively with no network and zero failure modes,
+      // and gets replaced by the Airtable CDN URL when loadCreator refetches.
+      const dataUrl = await new Promise((resolve) => {
+        const r = new FileReader()
+        r.onloadend = () => resolve(r.result)
+        r.readAsDataURL(resized)
+      })
+      // Show this in the modal immediately too (overrides the video poster
+      // and any post.thumbnail reads).
+      setLocalThumb(dataUrl)
+
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', resized, 'thumbnail.jpg')
       const res = await fetch(`/api/admin/grid-planner/post-thumbnail/${post.id}`, {
         method: 'POST',
         body: fd,
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Thumbnail upload failed')
-      onThumbnailReplaced?.(post.id, data.url)
+      // Server may return non-JSON on infra errors (e.g. Vercel 413, 504).
+      // Read once as text, then try to parse — gives a useful message either
+      // way instead of "Unexpected token 'R', 'Request En'... is not valid JSON".
+      const raw = await res.text()
+      let data = {}
+      try { data = JSON.parse(raw) } catch { data = { error: raw.slice(0, 200) } }
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`)
+      // Hand the data: URL to the parent — that's what flows into the
+      // queue cells. Server's Dropbox URL is irrelevant for display; we
+      // only care about it for Airtable's ingest, which already happened
+      // in the route. Airtable's own CDN URL replaces it on refetch.
+      onThumbnailReplaced?.(post.id, dataUrl, data.postIds || [post.id])
     } catch (e) {
       alert(`Could not replace thumbnail: ${e.message}`)
       setLocalThumb(null)
@@ -1857,16 +2011,14 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
                 )
               }
               if (videoSrc) {
-                return (
-                  <video
-                    src={videoSrc}
-                    poster={posterSrc || undefined}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
-                  />
-                )
+                // Render the thumbnail as an explicit <img> overlay on top
+                // of the video. The browser's <video poster> behavior is
+                // unreliable — preload="metadata" overrides it with the
+                // video's first frame, and preload="none" still doesn't
+                // guarantee the poster renders if the URL is flaky. An
+                // <img> we control always renders. Click the overlay to
+                // dismiss and play the video.
+                return <VideoWithThumb videoSrc={videoSrc} posterSrc={posterSrc} />
               }
               if (posterSrc) {
                 return <img src={posterSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -2020,16 +2172,38 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
               ↶ Unassign
             </button>
           )}
-          {/* Send back to Prepping: any non-prepping, non-final post */}
-          {!isScraped && onSendBackToPrepping && post.status !== 'Prepping' && !post.telegramSentAt && !post.postedAt && (
+          {/* "To Prepping" removed — "Edit in Post Prep" below is a strict
+              superset (flips status AND opens the full Post Prep UI). */}
+          {/* Always-available escape hatch: open this exact post in Post Prep
+              to edit thumbnail / caption / etc in the full Post Prep UI.
+              Flips status to Prepping if needed, then navigates. */}
+          {!isScraped && post.id?.startsWith('rec') && !post.telegramSentAt && !post.postedAt && (
             <button
-              onClick={onSendBackToPrepping}
-              title="Move this post back to Prepping status"
+              onClick={async () => {
+                try {
+                  if (post.status !== 'Prepping') {
+                    await fetch('/api/admin/grid-planner', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'setStatus', postId: post.id, status: 'Prepping' }),
+                    })
+                  }
+                } catch {} finally {
+                  // Navigate via the Editor tab so the admin sidebar /
+                  // sub-nav stays visible. Standalone /admin/posts isn't
+                  // in the sidebar — landing there leaves the user with
+                  // no way to navigate. Editor → Post Prep tab renders
+                  // the same PostsPage component and reads ?focusPost=
+                  // to scroll the right card into view.
+                  window.location.href = `/admin/editor?tab=postprep&focusPost=${post.id}`
+                }
+              }}
+              title="Open this post in Post Prep (full edit UI)"
               style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
-                background: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04',
-                border: '1px solid rgba(202, 138, 4, 0.3)', borderRadius: '8px', cursor: 'pointer' }}
+                background: 'rgba(232, 160, 160, 0.10)', color: 'var(--palm-pink)',
+                border: '1px solid rgba(232, 160, 160, 0.3)', borderRadius: '8px', cursor: 'pointer' }}
             >
-              ↺ To Prepping
+              ✎ Edit in Post Prep
             </button>
           )}
           {smmMode && !isScraped ? (

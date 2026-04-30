@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 import { NextResponse } from 'next/server'
-import { requireAdminOrSocialMedia, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdminOrSocialMedia, patchAirtableRecord, fetchAirtableRecords } from '@/lib/adminAuth'
 import {
   getDropboxAccessToken,
   getDropboxRootNamespaceId,
@@ -51,14 +51,54 @@ export async function POST(request, { params }) {
       }
     })()
 
-    // Replace the Thumbnail attachment on the Post. Airtable downloads the
-    // source asynchronously and re-hosts on its CDN; subsequent reads return
-    // the CDN URL.
-    await patchAirtableRecord('Posts', params.postId, {
-      'Thumbnail': [{ url: directUrl, filename: safeName }],
+    // A single Asset/Task fans out into N sibling Post records (one per
+    // managed IG account — typically 3 for Sunny/Taby). Replacing the
+    // thumbnail on one cell while the other two keep the broken/old image
+    // is confusing and useless. So: find every Post sharing this Post's
+    // Task and patch them all in one shot. Also patch the Asset.Thumbnail
+    // so future fan-outs of the same asset start from the new image.
+    const sourceList = await fetchAirtableRecords('Posts', {
+      filterByFormula: `RECORD_ID()='${params.postId}'`,
+      fields: ['Task', 'Asset'],
     })
+    const source = sourceList[0]?.fields || {}
+    const taskId = (source.Task || [])[0] || null
+    const assetId = (source.Asset || [])[0] || null
 
-    return NextResponse.json({ ok: true, url: directUrl })
+    let siblingIds = [params.postId]
+    if (taskId) {
+      const siblings = await fetchAirtableRecords('Posts', {
+        filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+        fields: ['Task'],
+      })
+      const ids = siblings.map(s => s.id).filter(Boolean)
+      if (ids.length) siblingIds = Array.from(new Set([params.postId, ...ids]))
+    }
+
+    // Build an Airtable attachment payload. Critical: filename: 'thumbnail.jpg'
+    // — without an extension Airtable ingests the bytes but the attachment
+    // serves with no content-type and breaks in browsers. Same lesson as
+    // buildClonedThumbnail in grid-planner/route.js.
+    const attachment = [{ url: directUrl, filename: 'thumbnail.jpg' }]
+
+    // Patch all sibling Posts in parallel — this is a small fan-out (≤4
+    // accounts) so it stays well under Airtable's 5 req/sec cap.
+    await Promise.all(siblingIds.map(id =>
+      patchAirtableRecord('Posts', id, { 'Thumbnail': attachment })
+    ))
+
+    // Refresh the source-of-truth on the Asset so future clones via
+    // buildClonedThumbnail start from the new image. Best-effort —
+    // failure here doesn't roll back the Post updates.
+    if (assetId) {
+      try {
+        await patchAirtableRecord('Assets', assetId, { 'Thumbnail': attachment })
+      } catch (e) {
+        console.warn('[post-thumbnail] Asset.Thumbnail update failed:', e.message)
+      }
+    }
+
+    return NextResponse.json({ ok: true, url: directUrl, postIds: siblingIds })
   } catch (err) {
     console.error('[post-thumbnail] error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

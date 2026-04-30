@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
+import { triggerAssetMirror } from '@/lib/triggerMirror'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OPS_BASE = 'applLIT2t83plMqNx'
@@ -147,6 +148,8 @@ export async function POST(request) {
       taskCreated = false
       console.warn('[content-upload] Task creation failed:', await taskRes.text())
     }
+
+    triggerAssetMirror(assetId)
 
     return NextResponse.json({
       status: 'success',

@@ -9,6 +9,23 @@ import { requireAdmin, requireAdminOrSocialMedia, fetchAirtableRecords, patchAir
 // next open slot on an account when an instance gets dragged onto the grid.
 const SLOT_HOURS_ET = [11, 19]
 
+// Run an array of thunks at most N at a time with a small delay between
+// batches. Airtable's REST API enforces 5 req/sec per base — bursting past
+// that returns 429 RATE_LIMIT_REACHED and the user sees a red error banner.
+// Used for normalization + scrape-match PATCHes which can fire 10–30 writes
+// on a single grid GET when the queue rebalances.
+async function runThrottled(thunks, batchSize = 4, gapMs = 1100) {
+  const results = []
+  for (let i = 0; i < thunks.length; i += batchSize) {
+    const batch = thunks.slice(i, i + batchSize)
+    results.push(...(await Promise.all(batch.map(t => t()))))
+    if (i + batchSize < thunks.length) {
+      await new Promise(r => setTimeout(r, gapMs))
+    }
+  }
+  return results
+}
+
 // Build the Thumbnail field value for a cloned Post. Prefers Asset.Thumbnail
 // (the original upload — bytes are stable, attachment isn't constantly
 // re-cloned) over the source Post's Thumbnail (which is itself a clone whose
@@ -72,7 +89,11 @@ async function normalizeAccountQueue(accountId, allPostsForCreator) {
     const p = queue[i]
     const desired = slots[i]
     if (p.fields?.['Scheduled Date'] !== desired) {
-      patches.push(patchAirtableRecord('Posts', p.id, { 'Scheduled Date': desired }))
+      // Return as a thunk so the caller can throttle batches under
+      // Airtable's 5 req/sec limit. Calling patchAirtableRecord eagerly
+      // here fires the request immediately and bursts past the cap.
+      const postId = p.id
+      patches.push(() => patchAirtableRecord('Posts', postId, { 'Scheduled Date': desired }))
       p.fields['Scheduled Date'] = desired
     }
   }
@@ -228,7 +249,7 @@ export async function GET(request) {
       creatorAccounts.map(acc => normalizeAccountQueue(acc.id, posts))
     )).flat()
     if (normPatches.length) {
-      await Promise.all(normPatches)
+      await runThrottled(normPatches)
     }
 
     // Match scraped Live posts back to existing Sent Posts so the grid shows
@@ -242,9 +263,26 @@ export async function GET(request) {
     // duplicate. Idempotent — once matched, the Post has Post Link set, so
     // subsequent GETs skip it.
     const matchPatches = []
+    // Map of post.id → live scrape (used as thumbnail fallback when the matched
+    // Post's own Thumbnail attachment is missing/broken — without this, matched
+    // LIVE cells render as blank black squares because dedup at the client
+    // hides the scrape's rich thumbnail in favor of the now-matched Post.
+    const scrapeFallback = {}
+    // Also: any scrape whose URL appears on an already-matched Post (from a
+    // prior run) — capture those too so old LIVE cells stay populated when the
+    // scrape feed still has the data.
     for (const acc of creatorAccounts) {
       const feed = scrapedMap[acc.id]?.feed || []
       if (!feed.length) continue
+      const feedByUrl = new Map(feed.map(s => [s.url, s]))
+      for (const p of posts) {
+        if (!(p.fields?.Account || []).includes(acc.id)) continue
+        const link = p.fields?.['Post Link']
+        if (link && feedByUrl.has(link)) {
+          const s = feedByUrl.get(link)
+          if (s.thumbnail) scrapeFallback[p.id] = s.thumbnail
+        }
+      }
       const unmatched = posts
         .filter(p =>
           (p.fields?.Account || []).includes(acc.id) &&
@@ -266,18 +304,22 @@ export async function GET(request) {
         const live = scrapedAsc[i]
         const drift = Math.abs(new Date(live.postedAt) - new Date(post.fields['Scheduled Date']))
         if (drift > FIVE_DAYS_MS) continue
-        matchPatches.push(patchAirtableRecord('Posts', post.id, {
-          'Post Link': live.url,
-          'Posted At': live.postedAt,
+        const postId = post.id
+        const liveUrl = live.url
+        const livePostedAt = live.postedAt
+        matchPatches.push(() => patchAirtableRecord('Posts', postId, {
+          'Post Link': liveUrl,
+          'Posted At': livePostedAt,
         }))
         // Mutate in-place so this GET's response already reflects the match
         post.fields['Post Link'] = live.url
         post.fields['Posted At'] = live.postedAt
+        if (live.thumbnail) scrapeFallback[post.id] = live.thumbnail
       }
     }
     if (matchPatches.length) {
       console.log(`[Grid Planner] Matched ${matchPatches.length} scraped post${matchPatches.length !== 1 ? 's' : ''} to existing Sent records`)
-      await Promise.all(matchPatches)
+      await runThrottled(matchPatches)
     }
 
     // Pull asset thumbnails (fallback when Post doesn't have its own thumb yet)
@@ -332,7 +374,15 @@ export async function GET(request) {
       // uploads land in Airtable with type=text/html (URL ingest returned HTML
       // instead of image bytes) — those serve broken icons in the browser. Skip
       // them and fall through to a valid one or to Asset.Thumbnail.
-      const pickImage = (atts) => (atts || []).find(a => a?.type?.startsWith('image/'))
+      // type=image/* is the happy path. But Airtable's URL-ingest is async:
+      // immediately after PATCH the attachment exists but `type` is unset
+      // until ingestion completes (often 5–30s). Fall back to filename
+      // extension matching so freshly-replaced thumbnails render right
+      // away instead of going blank during the ingest window.
+      const pickImage = (atts) => (atts || []).find(a =>
+        a?.type?.startsWith('image/') ||
+        (!a?.type && /\.(jpe?g|png|gif|webp)$/i.test(a?.filename || ''))
+      )
       const postImg = pickImage(f.Thumbnail)
       const assetImg = pickImage(asset.Thumbnail)
       // Prefer Cloudflare-mirrored asset photo (~50ms edge serve) over Airtable
@@ -340,10 +390,20 @@ export async function GET(request) {
       // Only photos have CDN URLs — for video posts cdnUrl is null and the
       // Airtable-generated poster is used.
       const cdnUrl = asset['CDN URL'] || ''
-      const thumb = cdnUrl ||
+      // Post.Thumbnail wins over cdnUrl. The CF mirror is keyed by Asset ID
+      // and was uploaded ONCE when the asset was first created — it does
+      // NOT auto-refresh when Asset.Thumbnail or Post.Thumbnail is replaced
+      // via Replace Thumbnail. Preferring cdnUrl meant every thumbnail
+      // replacement appeared to fail because Cloudflare kept serving the
+      // original bytes. Use Post.Thumbnail (Airtable CDN, ~150ms) which
+      // updates on every save, fall back to cdnUrl only for assets that
+      // never had an explicit Thumbnail replacement.
+      const thumb =
         (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
-        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) || ''
-      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0
+        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) ||
+        cdnUrl ||
+        scrapeFallback[p.id] || ''
+      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !scrapeFallback[p.id]
       const accountId = (f.Account || [])[0] || null
       return {
         id: p.id,
@@ -412,13 +472,41 @@ export async function GET(request) {
         const remaining = accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length
         return remaining > 0
       })
-      .map(g => ({
-        taskId: g.taskId,
-        samplePost: g.samplePost,
-        remaining: accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length,
-        unassignedPostIds: g.unassignedPostIds,
-        assignedAccountIds: [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)),
-      }))
+      .map(g => {
+        // Override samplePost.thumbnail with Asset.Thumbnail when available.
+        // The asset is the single source of truth; sibling Posts can drift
+        // out of sync momentarily during fan-out + Airtable ingest, and
+        // picking any one of them as the tray preview means the user sees
+        // a stale thumbnail until refresh. Asset.Thumbnail is the only
+        // value updated atomically by every Replace Thumbnail flow, so
+        // it's always the most recently saved image.
+        const assetId = g.samplePost.asset?.id
+        const assetThumbObj = assetId ? assetMap[assetId] : null
+        const pickImage = (atts) => (atts || []).find(a =>
+          a?.type?.startsWith('image/') ||
+          (!a?.type && /\.(jpe?g|png|gif|webp)$/i.test(a?.filename || ''))
+        )
+        const assetImg = assetThumbObj ? pickImage(assetThumbObj.Thumbnail) : null
+        const assetCdn = assetThumbObj?.['CDN URL'] || ''
+        // Same preference flip as the cell render: Asset.Thumbnail wins over
+        // CDN. The CF mirror is uploaded once at asset creation and never
+        // refreshes when admin replaces the thumbnail, so preferring it
+        // means the tray keeps showing the original video frame forever.
+        const assetThumbUrl =
+          assetImg?.thumbnails?.large?.url ||
+          assetImg?.url ||
+          assetCdn ||
+          ''
+        return {
+          taskId: g.taskId,
+          samplePost: assetThumbUrl
+            ? { ...g.samplePost, thumbnail: assetThumbUrl }
+            : g.samplePost,
+          remaining: accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length,
+          unassignedPostIds: g.unassignedPostIds,
+          assignedAccountIds: [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)),
+        }
+      })
       // Sort: needs-more-slots first, then by scheduled date
       .sort((a, b) => {
         if (b.remaining !== a.remaining) return b.remaining - a.remaining
@@ -500,8 +588,38 @@ export async function PATCH(request) {
     if (action === 'setStatus') {
       const { postId, status } = body
       if (!postId || !status) return NextResponse.json({ error: 'postId and status required' }, { status: 400 })
-      await patchAirtableRecord('Posts', postId, { 'Status': status })
-      return NextResponse.json({ ok: true })
+      // Fan out: a single Asset/Task fans out into N sibling Post records
+      // (one per managed IG account). When the admin sends a post back to
+      // Prepping (or any other status flip), all siblings should move
+      // together — otherwise you end up with one Prepping + two Staged
+      // copies of the same reel and the grid shows them as separate cards.
+      let targetIds = [postId]
+      try {
+        const sourceList = await fetchAirtableRecords('Posts', {
+          filterByFormula: `RECORD_ID()='${postId}'`,
+          fields: ['Task'],
+        })
+        const taskId = (sourceList[0]?.fields?.Task || [])[0] || null
+        if (taskId) {
+          const siblings = await fetchAirtableRecords('Posts', {
+            filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+            fields: ['Task', 'Telegram Sent At', 'Posted At'],
+          })
+          // Don't drag already-sent or already-live siblings backwards into
+          // Prepping — once it's out, it's out. Only move pre-send siblings.
+          const ids = siblings
+            .filter(s => !s.fields?.['Telegram Sent At'] && !s.fields?.['Posted At'])
+            .map(s => s.id)
+            .filter(Boolean)
+          if (ids.length) targetIds = Array.from(new Set([postId, ...ids]))
+        }
+      } catch (e) {
+        console.warn('[setStatus] sibling lookup failed:', e.message)
+      }
+      await Promise.all(targetIds.map(id =>
+        patchAirtableRecord('Posts', id, { 'Status': status })
+      ))
+      return NextResponse.json({ ok: true, updatedPostIds: targetIds })
     }
 
     // reorder: take an ordered list of post IDs (oldest at index 0, newest
