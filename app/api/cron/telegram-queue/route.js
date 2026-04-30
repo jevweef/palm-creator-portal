@@ -62,7 +62,7 @@ async function processOnePost(postId) {
     }) : [],
     fetchAirtableRecords('Assets', {
       filterByFormula: `RECORD_ID()='${assetId}'`,
-      fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
+      fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
     }),
     accountId ? fetchAirtableRecords('Creator Platform Directory', {
       filterByFormula: `RECORD_ID()='${accountId}'`,
@@ -74,7 +74,12 @@ async function processOnePost(postId) {
   const asset = assetList[0]?.fields || {}
   const account = accountList[0]?.fields || {}
 
-  const editedFileLink = asset['Edited File Link'] || asset['Dropbox Shared Link']
+  // Prefer the pre-compressed file when available — that's the whole point
+  // of the compress-pending-assets cron. Falls back to the raw Edited File
+  // Link only when compression hasn't run yet (the send route handles
+  // ffmpeg inline as a last resort, but that's the slow/flaky path).
+  const compressedLink = asset['Compressed File Link']
+  const editedFileLink = compressedLink || asset['Edited File Link'] || asset['Dropbox Shared Link']
   if (!editedFileLink) throw new Error('Asset has no file link')
 
   const thumbAttachment = (f.Thumbnail || [])[0]
@@ -153,11 +158,14 @@ export async function GET(request) {
       // success and stamps Telegram Sent At, so we don't double-write here.
     } catch (err) {
       results.push({ postId: post.id, error: err.message })
-      // Mark Send Failed so the queue moves on instead of re-trying this
-      // post forever. Operator can manually flip back to Queued to retry.
+      // Mark Send Failed + record the actual error so the operator can see
+      // WHY without digging through logs. Includes a timestamp so a stale
+      // error doesn't look fresh after a manual retry.
+      const stamp = new Date().toISOString().replace('T', ' ').slice(0, 19) + 'Z'
       try {
         await patchAirtableRecord('Posts', post.id, {
           'Status': 'Send Failed',
+          'Send Error': `[${stamp}] ${err.message}`,
         }, { typecast: true })
       } catch (e) {
         console.warn('[telegram-queue] failed to mark Send Failed:', e.message)
