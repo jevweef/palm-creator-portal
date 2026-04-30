@@ -499,21 +499,47 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // can die. Swap to the placeholder if the image won't load.
 function CellThumb({ post, style, status }) {
   // Build the URL chain: primary thumbnail first, then any fallbacks the
-  // server provided (cdnUrl, scrapeFallback). Try each in order on <img>
-  // load failure. Covers the legacy broken-bytes Post.Thumbnail case
-  // where the attachment exists with image/* type but the bytes are
-  // corrupt (clone-of-clone bug from late April).
+  // server provided (sibling Post.Thumbnails, cdnUrl, scrapeFallback).
+  // Try each in order with up to 2 retries per URL. The retries are key
+  // — Airtable's signed-URL CDN (v5.airtableusercontent.com) randomly
+  // returns 502/abort on perfectly valid URLs, especially under burst
+  // load when many cells render at once. Without retries, every refresh
+  // showed a different random pattern of blank cells.
   const candidates = [post.thumbnail, ...(post.thumbnailFallbacks || [])].filter(Boolean)
+  const MAX_RETRIES_PER_URL = 2
   const [idx, setIdx] = useState(0)
-  // Reset to first candidate when the post or its thumbnail changes.
-  useEffect(() => { setIdx(0) }, [post.thumbnail, (post.thumbnailFallbacks || []).join('|')])
-  const src = candidates[idx] ? cdnUrlAtSize(candidates[idx], 240) : null
+  const [retry, setRetry] = useState(0)
+  // Reset to first candidate when the underlying URLs change.
+  useEffect(() => {
+    setIdx(0)
+    setRetry(0)
+  }, [post.thumbnail, (post.thumbnailFallbacks || []).join('|')])
+  const baseSrc = candidates[idx] ? cdnUrlAtSize(candidates[idx], 240) : null
+  // Cache-bust on retry by appending a counter query param. Same bytes,
+  // different URL → browser re-fetches instead of replaying its cached
+  // 'this URL failed' state. Airtable's CDN is more likely to succeed
+  // on retry from a different edge node.
+  const src = baseSrc && retry > 0
+    ? baseSrc + (baseSrc.includes('?') ? '&' : '?') + `_r=${idx}-${retry}`
+    : baseSrc
   if (!src) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
         {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
       </div>
     )
+  }
+  const handleError = () => {
+    if (retry < MAX_RETRIES_PER_URL) {
+      // Retry same URL after a small backoff. Don't await — fire and let
+      // React re-render when state updates.
+      const delay = 300 * (retry + 1) // 300ms, 600ms
+      setTimeout(() => setRetry(r => r + 1), delay)
+    } else {
+      // Exhausted retries on this URL — advance to next candidate.
+      setIdx(i => i + 1)
+      setRetry(0)
+    }
   }
   return (
     <img
@@ -523,7 +549,7 @@ function CellThumb({ post, style, status }) {
       decoding="async"
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
-      onError={() => setIdx(i => i + 1)}
+      onError={handleError}
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
     />
   )
