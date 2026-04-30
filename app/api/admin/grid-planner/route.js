@@ -365,6 +365,29 @@ export async function GET(request) {
     })
 
     // Normalize posts + bucket by account
+    // Build a sibling-thumbnail map BEFORE normalize. For each Task, collect
+    // every sibling Post's Thumbnail URL. We use these as fallbacks across
+    // siblings — when one Post's Thumbnail attachment got corrupted by the
+    // clone-of-clone bug, the OTHER siblings' clones almost always render
+    // fine. So if Palm IG 3's clone is broken bytes, falling back to Palm
+    // IG 1's working clone fixes the blank cell instantly. Asset.Thumbnail
+    // and cdnUrl are still in the chain for cases where ALL siblings broke.
+    const pickImageEarly = (atts) => (atts || []).find(a =>
+      a?.type?.startsWith('image/') ||
+      (!a?.type && /\.(jpe?g|png|gif|webp)$/i.test(a?.filename || ''))
+    )
+    const siblingThumbsByTask = {}
+    for (const p of posts) {
+      const tid = (p.fields?.Task || [])[0]
+      if (!tid) continue
+      const img = pickImageEarly(p.fields?.Thumbnail)
+      if (!img) continue
+      const url = img.thumbnails?.large?.url || img.url
+      if (!url) continue
+      if (!siblingThumbsByTask[tid]) siblingThumbsByTask[tid] = []
+      siblingThumbsByTask[tid].push({ postId: p.id, url })
+    }
+
     const normalized = posts.map(p => {
       const f = p.fields || {}
       const assetId = (f.Asset || [])[0]
@@ -408,7 +431,17 @@ export async function GET(request) {
       // Without this, my recent flip-cdn-to-last-resort change blanked
       // out a bunch of legacy SCHEDULED cells whose Post.Thumbnail
       // attachments had corrupt bytes but cdnUrl was still good.
-      const fallbackThumbs = [cdnUrl, scrapeFallback[p.id]].filter(Boolean)
+      // Fallback chain order:
+      //   1. Sibling Post.Thumbnails (other accounts' clones of the same
+      //      reel) — the OTHER 2 siblings almost always have working clones
+      //      when one breaks. This is the entire reason same-reel cells
+      //      render fine on Palm IG 1+2 but blank on Palm IG 3.
+      //   2. cdnUrl — Cloudflare mirror of the original asset photo
+      //   3. scrapeFallback — IG scrape thumbnail for matched LIVE cells
+      const siblingUrls = (taskId ? (siblingThumbsByTask[taskId] || []) : [])
+        .filter(s => s.postId !== p.id) // don't include our own (already in primary)
+        .map(s => s.url)
+      const fallbackThumbs = [...siblingUrls, cdnUrl, scrapeFallback[p.id]].filter(Boolean)
       const thumb = primaryThumb || fallbackThumbs[0] || ''
       const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !cdnUrl && !scrapeFallback[p.id]
       const accountId = (f.Account || [])[0] || null
