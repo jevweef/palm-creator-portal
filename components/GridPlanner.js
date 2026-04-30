@@ -2174,7 +2174,13 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
                     })
                   }
                 } catch {} finally {
-                  window.location.href = `/admin/posts?focusPost=${post.id}`
+                  // Navigate via the Editor tab so the admin sidebar /
+                  // sub-nav stays visible. Standalone /admin/posts isn't
+                  // in the sidebar — landing there leaves the user with
+                  // no way to navigate. Editor → Post Prep tab renders
+                  // the same PostsPage component and reads ?focusPost=
+                  // to scroll the right card into view.
+                  window.location.href = `/admin/editor?tab=postprep&focusPost=${post.id}`
                 }
               }}
               title="Open this post in Post Prep (full edit UI)"
