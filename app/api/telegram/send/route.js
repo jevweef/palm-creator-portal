@@ -607,7 +607,14 @@ async function doSend(params) {
 // "Prepping" → "Sending" → "Sent to Telegram" (or "Send Failed") as the
 // background job progresses. UI polls Post status to know when it's done.
 export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  // Internal cron caller bypasses admin auth via x-cron-secret header.
+  // /api/cron/telegram-queue uses this so the queue worker can fire sends
+  // without an admin session. Anything else still requires admin.
+  const cronSecret = request.headers.get('x-cron-secret')
+  const isCronCall = cronSecret && process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET
+  if (!isCronCall) {
+    try { await requireAdmin() } catch (e) { return e }
+  }
 
   try {
     const params = await request.json()

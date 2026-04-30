@@ -41,6 +41,10 @@ function postStatus(post) {
   if (post.telegramSentAt) return 'scheduled'
   if (post.status === 'Sending') return 'sending'
   if (post.status === 'Send Failed') return 'failed'
+  // 'Queued for Telegram' = waiting for cron worker. Distinct from regular
+  // queue (which is just "future scheduled, not sent yet") so the user can
+  // see at a glance which posts are committed to send vs still draftable.
+  if (post.status === 'Queued for Telegram') return 'queued'
   return 'queue'
 }
 
@@ -380,6 +384,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 
   const borderByStatus = {
     queue:     { bg: 'rgba(232, 160, 160, 0.05)', ring: 'var(--palm-pink)', badge: 'var(--palm-pink)' },
+    queued:    { bg: 'rgba(245, 158, 11, 0.10)', ring: 'rgba(245, 158, 11, 0.5)', badge: '#f59e0b' },
     sending:   { bg: 'rgba(245, 158, 11, 0.10)', ring: 'rgba(245, 158, 11, 0.5)', badge: '#f59e0b' },
     scheduled: { bg: 'rgba(125, 211, 164, 0.06)', ring: 'rgba(125, 211, 164, 0.2)', badge: '#7DD3A4' },
     failed:    { bg: 'rgba(239, 68, 68, 0.10)', ring: 'rgba(239, 68, 68, 0.4)', badge: '#ef4444' },
@@ -1068,28 +1073,38 @@ export default function GridPlanner({ smmMode = false } = {}) {
     })
   }
   const runBulkSend = async () => {
+    // New flow: enqueue all sendable posts in one bulk Airtable PATCH.
+    // The /api/cron/telegram-queue worker fires every minute, processes
+    // up to 2 queued posts per tick (in Scheduled Date order), retries
+    // failed ones manually only. Replaces the old client-driven serial
+    // loop that died when the user closed the tab or hit Vercel 504s.
     setBulkSending(true)
     try {
-      // Group sendable posts by account, preserve queue order within each.
-      // Then run runAccountBulkSend (serial wait=true) for each account
-      // sequentially. Result: one Telegram upload at a time across the entire
-      // creator. Avoids the parallel-fire rate-limit storm we saw before.
-      const byAccount = {}
-      for (const p of sendablePosts) {
-        if (!byAccount[p.accountId]) byAccount[p.accountId] = []
-        byAccount[p.accountId].push(p)
-      }
-      const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
-      const orderedAccountIds = accounts.map(a => a.id).filter(id => byAccount[id]?.length)
-      for (const accountId of orderedAccountIds) {
-        const account = accountById[accountId]
-        const accountQueue = byAccount[accountId].sort(
-          (a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)
-        )
-        await runAccountBulkSend(accountId, account, accountQueue)
-      }
-      showToast(`Done — sent across ${orderedAccountIds.length} account${orderedAccountIds.length !== 1 ? 's' : ''}`)
+      // Sort all sendable posts globally by Scheduled Date so the cron
+      // sees them in calendar order regardless of which account they're on.
+      // The cron picks oldest-first; we just need a consistent enqueue.
+      const ordered = [...sendablePosts].sort(
+        (a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0)
+      )
+
+      // Bulk enqueue. /api/admin/posts PATCH already fans out Status across
+      // siblings, but each post here is a SPECIFIC instance — we want only
+      // that one record marked Queued (siblings on other accounts may be
+      // sent at different times). Use the dedicated enqueue endpoint that
+      // bypasses the fan-out.
+      const res = await fetch('/api/admin/telegram/enqueue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postIds: ordered.map(p => p.id) }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Enqueue failed')
+
+      showToast(`Queued ${ordered.length} post${ordered.length !== 1 ? 's' : ''} — sending in background (~30s/post). Safe to close tab.`)
+      // Refresh so cells flip to the Queued state immediately.
       await loadCreator(selectedCreatorId)
+    } catch (e) {
+      showToast(`Enqueue failed: ${e.message}`, true)
     } finally {
       setBulkSending(false)
     }
