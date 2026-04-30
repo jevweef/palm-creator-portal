@@ -137,10 +137,18 @@ export async function GET(request, { params }) {
 
   // Auto-flip status when a fresh final cut shows up. We only flip from
   // editor-active states — never from Sent to Creator or Approved (admin
-  // already approved an earlier cut). If the editor needs to send a new
-  // version after creator approval, they can manually re-open via revision.
+  // already approved an earlier cut).
+  //
+  // Routing rule:
+  //   Files Uploaded / In Editing / Admin Revision → Final Submitted
+  //     (admin gate — first delivery + admin-initiated revisions need
+  //      another admin look)
+  //   Creator Revision → Sent to Creator
+  //     (skip admin gate — admin already approved the original concept;
+  //      revisions between editor and creator are theirs to handle)
   const currentStatus = record.fields?.['Status'] || ''
   let statusFlipped = false
+  let flippedTo = null
   if (files.length > 0 && STATUSES_THAT_AUTO_FLIP_TO_FINAL.includes(currentStatus)) {
     const newest = files[0]?.modified || new Date().toISOString()
     const lastSubmittedAt = record.fields?.['Final Submitted At'] || null
@@ -148,29 +156,32 @@ export async function GET(request, { params }) {
     // OR we're moving from a non-Final-Submitted state for the first time.
     if (!lastSubmittedAt || newest > lastSubmittedAt) {
       const prevCount = record.fields?.['Revision Count'] || 0
-      const wasRevision = currentStatus === STATUSES.ADMIN_REVISION || currentStatus === STATUSES.CREATOR_REVISION
+      const fromCreatorRevision = currentStatus === STATUSES.CREATOR_REVISION
+      flippedTo = fromCreatorRevision ? STATUSES.SENT_TO_CREATOR : STATUSES.FINAL_SUBMITTED
+
       const updates = {
-        'Status': STATUSES.FINAL_SUBMITTED,
+        'Status': flippedTo,
         'Final Submitted At': newest,
       }
-      // Coming from a revision state means this submission addresses prior
-      // feedback — don't double-count (revision counter was already bumped
-      // when the kick-back happened).
+      if (fromCreatorRevision) {
+        // Going straight to creator — stamp the timestamp too so the
+        // creator-side UI can show "sent {date}" without admin involvement.
+        updates['Sent to Creator At'] = new Date().toISOString()
+      }
       try {
         await patchProject(record.id, updates)
         statusFlipped = true
-        // Fire-and-forget Telegram ping. Editor just delivered a cut →
-        // admin needs to look. wasRevision adds the "(revision N)" tag
-        // so the editor + admin both see in chat that this is a redo.
         const creatorOpsId = (record.fields?.['Creator'] || [])[0]
         const aka = await lookupCreatorAka(creatorOpsId)
+        // Different events for the two routes — admin awareness only when
+        // bypassing the gate, full admin alert when admin still needs to look.
         notifyOftv({
-          event: 'final_submitted',
+          event: fromCreatorRevision ? 'revised_cut_to_creator' : 'final_submitted',
           creator: aka,
           projectName: record.fields?.['Project Name'],
           projectId: record.id,
           assignedEditor: record.fields?.['Assigned Editor'],
-          revisionCount: prevCount, // already-bumped count from prior kick-back
+          revisionCount: prevCount,
         }).catch(() => {})
       } catch (err) {
         console.warn('[oftv/final] auto-flip failed:', err.message)
@@ -183,7 +194,7 @@ export async function GET(request, { params }) {
     fileRequestUrl: setup.fileRequestUrl,
     files,
     statusFlipped,
-    currentStatus: statusFlipped ? STATUSES.FINAL_SUBMITTED : currentStatus,
+    currentStatus: statusFlipped ? flippedTo : currentStatus,
   })
 }
 
