@@ -9,9 +9,18 @@ export const maxDuration = 300
 import { NextResponse } from 'next/server'
 import { fetchAirtableRecords, patchAirtableRecord, requireAdminOrSocialMedia } from '@/lib/adminAuth'
 
-const OPS_BASE_HOST = process.env.NEXT_PUBLIC_VERCEL_URL
-  || process.env.VERCEL_URL
-  || 'palm-creator-portal-git-dev-evan-5378s-projects.vercel.app'
+// IMPORTANT: never use VERCEL_URL here. That's the per-deployment hash
+// URL (palm-creator-portal-abc123.vercel.app) which has Deployment
+// Protection enabled — the cron's internal POST gets bounced with no
+// useful error, posts silently fail. Always use the production alias
+// (app.palm-mgmt.com) which is publicly addressable.
+//
+// On preview/dev this falls back to the branch alias which IS protected,
+// but the dev flow uses the client-driven drain instead so it doesn't
+// matter. Production cron always hits the prod alias.
+const OPS_BASE_HOST = process.env.VERCEL_ENV === 'production'
+  ? 'app.palm-mgmt.com'
+  : (process.env.VERCEL_BRANCH_URL || 'palm-creator-portal-git-dev-evan-5378s-projects.vercel.app')
 
 const POSTS_PER_TICK = 2
 const GAP_BETWEEN_POSTS_MS = 6000
