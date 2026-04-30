@@ -2157,18 +2157,8 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
               ↶ Unassign
             </button>
           )}
-          {/* Send back to Prepping: any non-prepping, non-final post */}
-          {!isScraped && onSendBackToPrepping && post.status !== 'Prepping' && !post.telegramSentAt && !post.postedAt && (
-            <button
-              onClick={onSendBackToPrepping}
-              title="Move this post back to Prepping status"
-              style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
-                background: 'rgba(202, 138, 4, 0.08)', color: '#ca8a04',
-                border: '1px solid rgba(202, 138, 4, 0.3)', borderRadius: '8px', cursor: 'pointer' }}
-            >
-              ↺ To Prepping
-            </button>
-          )}
+          {/* "To Prepping" removed — "Edit in Post Prep" below is a strict
+              superset (flips status AND opens the full Post Prep UI). */}
           {/* Always-available escape hatch: open this exact post in Post Prep
               to edit thumbnail / caption / etc in the full Post Prep UI.
               Flips status to Prepping if needed, then navigates. */}
