@@ -187,7 +187,26 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   const postLinks = new Set(past.map(p => p.postLink).filter(Boolean))
   const uniqScraped = scrapedCells.filter(s => !postLinks.has(s.postLink))
 
-  const allCells = [...queue, ...past, ...uniqScraped]
+  // Cap each phone-grid display to ~7 rows × 3 cols = 21 cells. Queue
+  // (future-scheduled, drag-droppable) is always preserved in full —
+  // hiding queue items would mean the admin can't see/move what's
+  // coming. The past/live tail gets trimmed: keep only enough recent
+  // cells to fill the remaining row budget. Below that the user can
+  // still see the actual IG feed if they want to scroll up to the live
+  // grid manually.
+  const MAX_CELLS = 21
+  const remaining = Math.max(0, MAX_CELLS - queue.length)
+  // Past + scraped are already each sorted newest-first. Interleave them
+  // by date so we keep the most recent regardless of source.
+  const tail = [...past, ...uniqScraped]
+    .sort((a, b) => {
+      const aDate = new Date(a.scheduledDate || a.telegramSentAt || a.postedAt || 0)
+      const bDate = new Date(b.scheduledDate || b.telegramSentAt || b.postedAt || 0)
+      return bDate - aDate
+    })
+    .slice(0, remaining)
+  const allCells = [...queue, ...tail]
+  const hiddenCount = (past.length + uniqScraped.length) - tail.length
 
   return (
     <div style={{
@@ -372,6 +391,11 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           )
         })}
       </div>
+      {hiddenCount > 0 && (
+        <div style={{ padding: '8px 12px 12px', textAlign: 'center', fontSize: '10px', color: 'var(--foreground-muted)' }}>
+          + {hiddenCount} older post{hiddenCount === 1 ? '' : 's'} hidden
+        </div>
+      )}
     </div>
   )
 }
