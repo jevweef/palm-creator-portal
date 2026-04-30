@@ -474,15 +474,17 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // problem as the tray — Airtable attachment URLs can rotate and source URLs
 // can die. Swap to the placeholder if the image won't load.
 function CellThumb({ post, style, status }) {
-  const src = cdnUrlAtSize(post.thumbnail, 240)
-  // Sticky failed state was the root cause of "thumbnail won't update" —
-  // once an <img> failed (e.g. transient Airtable CDN miss, optimistic
-  // Dropbox dl URL that 302-redirects), the cell stayed on the fallback
-  // icon forever even after src changed to a working URL. Reset on every
-  // new src so the next render always re-attempts the load.
-  const [failed, setFailed] = useState(false)
-  useEffect(() => { setFailed(false) }, [src])
-  if (failed || !src) {
+  // Build the URL chain: primary thumbnail first, then any fallbacks the
+  // server provided (cdnUrl, scrapeFallback). Try each in order on <img>
+  // load failure. Covers the legacy broken-bytes Post.Thumbnail case
+  // where the attachment exists with image/* type but the bytes are
+  // corrupt (clone-of-clone bug from late April).
+  const candidates = [post.thumbnail, ...(post.thumbnailFallbacks || [])].filter(Boolean)
+  const [idx, setIdx] = useState(0)
+  // Reset to first candidate when the post or its thumbnail changes.
+  useEffect(() => { setIdx(0) }, [post.thumbnail, (post.thumbnailFallbacks || []).join('|')])
+  const src = candidates[idx] ? cdnUrlAtSize(candidates[idx], 240) : null
+  if (!src) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
         {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
@@ -497,7 +499,7 @@ function CellThumb({ post, style, status }) {
       decoding="async"
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
-      onError={() => setFailed(true)}
+      onError={() => setIdx(i => i + 1)}
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
     />
   )

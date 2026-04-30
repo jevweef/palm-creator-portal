@@ -398,12 +398,19 @@ export async function GET(request) {
       // original bytes. Use Post.Thumbnail (Airtable CDN, ~150ms) which
       // updates on every save, fall back to cdnUrl only for assets that
       // never had an explicit Thumbnail replacement.
-      const thumb =
+      const primaryThumb =
         (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
-        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) ||
-        cdnUrl ||
-        scrapeFallback[p.id] || ''
-      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !scrapeFallback[p.id]
+        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) || ''
+      // Fallback chain: if the primary thumbnail (Post.Thumbnail or
+      // Asset.Thumbnail) fails to load in the browser — common for old
+      // posts hit by the 2026-04 clone-of-clone broken-bytes bug —
+      // CellThumb tries the cdnUrl next, then the scrape thumbnail.
+      // Without this, my recent flip-cdn-to-last-resort change blanked
+      // out a bunch of legacy SCHEDULED cells whose Post.Thumbnail
+      // attachments had corrupt bytes but cdnUrl was still good.
+      const fallbackThumbs = [cdnUrl, scrapeFallback[p.id]].filter(Boolean)
+      const thumb = primaryThumb || fallbackThumbs[0] || ''
+      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !cdnUrl && !scrapeFallback[p.id]
       const accountId = (f.Account || [])[0] || null
       return {
         id: p.id,
@@ -416,6 +423,10 @@ export async function GET(request) {
         postedAt: f['Posted At'] || null,
         postLink: f['Post Link'] || '',
         thumbnail: thumb,
+        // List of alternate URLs to try if the primary thumbnail fails to
+        // load. Client iterates through them on <img onError>. Covers the
+        // legacy broken-bytes Post.Thumbnail case + scrape thumbnail.
+        thumbnailFallbacks: fallbackThumbs,
         platform: f.Platform || [],
         caption: f.Caption || '',
         hashtags: f.Hashtags || '',
