@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
-import { fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { fetchAirtableRecords, patchAirtableRecord, requireAdminOrSocialMedia } from '@/lib/adminAuth'
 
 const OPS_BASE_HOST = process.env.NEXT_PUBLIC_VERCEL_URL
   || process.env.VERCEL_URL
@@ -108,10 +108,15 @@ async function processOnePost(postId) {
 }
 
 export async function GET(request) {
+  // Accept either Vercel cron auth (production) OR admin auth (so admins
+  // can manually drain the queue from the UI on preview deployments,
+  // where Vercel cron does NOT run — preview deploys never fire cron
+  // jobs, only production does).
   const expectedAuth = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null
   const actualAuth = request.headers.get('authorization')
-  if (expectedAuth && actualAuth !== expectedAuth) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const isCronCall = expectedAuth && actualAuth === expectedAuth
+  if (!isCronCall) {
+    try { await requireAdminOrSocialMedia() } catch (e) { return e }
   }
 
   // Fetch oldest queued posts. Order by Scheduled Date ASC so reels go
