@@ -17,6 +17,12 @@ const isPublicRoute = createRouteMatcher([
   // them and they all return 404. Each cron route enforces its own auth
   // via CRON_SECRET, so this is safe to bypass at the middleware layer.
   '/api/cron(.*)',
+  // Telegram send endpoint is called both by admins (UI) AND by the cron
+  // worker internally (via x-cron-secret header). The route enforces its
+  // own auth: admin session OR cron-secret. Without this exemption the
+  // cron's internal POST gets 404'd by Clerk before the route's own auth
+  // check runs.
+  '/api/telegram/send(.*)',
   '/api/inbox/telegram(.*)',
   '/api/inbox/imessage(.*)',
   '/demo(.*)',
