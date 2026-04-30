@@ -44,11 +44,14 @@ export default function EditorDashboardPage() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  // Long Form Upload tab removed — OFTV Projects covers the long-form
+  // workflow end-to-end now (creator brief, source files, final cut
+  // delivery, revision loops). Keep `longform` route alive in case
+  // anyone has it bookmarked, but no nav entry.
   const TABS = [
     { key: 'dashboard', label: '📋 Dashboard' },
     { key: 'revisions', label: '⚠ Revisions', badge: revisionCount },
     { key: 'oftv', label: '🎬 OFTV Projects' },
-    { key: 'longform', label: '⬆️ Long Form Upload' },
   ]
 
   return (

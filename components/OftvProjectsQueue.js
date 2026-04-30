@@ -51,6 +51,86 @@ function StatusPill({ status, pulse = false }) {
 }
 
 /**
+ * Top-of-modal banner shown only when a project is in a revision state
+ * (Creator Revision or Admin Revision). Hoists the latest delivered cut
+ * + the relevant feedback so the editor sees what they're acting on
+ * without scrolling past briefs and source files.
+ *
+ * Why this exists separately from the inline final-cut display below:
+ * once you're in a revision loop, the brief and source files matter less
+ * than the cut you're revising — the banner makes the actionable thing
+ * the first thing.
+ */
+function RevisionBanner({ project, creatorName, latestFile, latestSrc }) {
+  const isCreatorRev = project.status === STATUSES.CREATOR_REVISION
+  const accent = isCreatorRev ? '#E8A0C8' : '#E8A878'
+  const accentBg = isCreatorRev ? 'rgba(232, 160, 200, 0.06)' : 'rgba(232, 168, 120, 0.06)'
+  const accentBorder = isCreatorRev ? 'rgba(232, 160, 200, 0.25)' : 'rgba(232, 168, 120, 0.25)'
+  const headerName = isCreatorRev ? (creatorName || 'Creator') : 'Admin'
+  const notes = isCreatorRev ? project.creatorFeedback : project.adminRevisionNotes
+  const notesAt = isCreatorRev ? project.creatorFeedbackAt : project.adminReviewedAt
+  const isVideo = latestFile && /\.(mp4|mov|webm|mkv|m4v)$/i.test(latestFile.name)
+
+  return (
+    <div style={{
+      padding: '16px',
+      borderRadius: '14px',
+      background: accentBg,
+      border: `1px solid ${accentBorder}`,
+    }}>
+      <div style={{
+        fontSize: '11px', fontWeight: 700, color: accent,
+        textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px',
+      }}>
+        ✏️ Revision notes from {headerName}
+      </div>
+
+      {/* Inline player for the cut that needs revising. Editor watches the
+          existing version while reading the notes — no click-to-open. */}
+      {latestFile && isVideo && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{
+            background: '#000', borderRadius: '10px', overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px',
+          }}>
+            {latestSrc ? (
+              <video
+                key={latestSrc}
+                src={latestSrc}
+                controls
+                playsInline
+                preload="metadata"
+                style={{ width: '100%', maxHeight: '50vh', background: '#000' }}
+              />
+            ) : (
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', padding: '40px' }}>Loading video…</div>
+            )}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+            🎞️ {latestFile.name}{latestFile.size ? ` · ${fmtSize(latestFile.size)}` : ''}
+          </div>
+        </div>
+      )}
+
+      {/* The actual feedback. Pre-wrap preserves the bullet formatting
+          creators / admins type in (e.g. "- add backing music"). */}
+      <div style={{
+        fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.55,
+        whiteSpace: 'pre-wrap', padding: '12px 14px',
+        background: 'rgba(0,0,0,0.18)', borderRadius: '10px',
+      }}>
+        {notes || '(no notes provided)'}
+      </div>
+      {notesAt && (
+        <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '8px' }}>
+          Sent {fmtDate(notesAt)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * Tiny status chip for the admin queue card. Shows where the editor is
  * in their pickup loop — "Not seen" / "Seen" / "Started". Three states
  * keep the at-a-glance scan fast: anything that's "Not seen" longer than
@@ -100,6 +180,10 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
   const [rejectNotes, setRejectNotes] = useState('')
   const [filesExpanded, setFilesExpanded] = useState(false)
   const COLLAPSED_FILE_COUNT = 5
+  // Pre-loaded streaming src for the latest delivered cut. Used by the
+  // top-of-modal Revision Banner so the editor (or admin) sees the video
+  // immediately when reviewing creator/admin feedback.
+  const [latestFinalSrc, setLatestFinalSrc] = useState('')
   const [files, setFiles] = useState(null)
   const [assets, setAssets] = useState([])
   const [finalFiles, setFinalFiles] = useState([])
@@ -154,6 +238,22 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
       })
       .catch(() => {})
   }, [project.id])
+
+  // Pre-fetch streaming temp link for the latest delivered cut so the
+  // Revision Banner can play inline without click-to-load delay.
+  useEffect(() => {
+    const latest = finalFiles[0]
+    if (!latest || !/\.(mp4|mov|webm|mkv|m4v)$/i.test(latest.name)) {
+      setLatestFinalSrc('')
+      return
+    }
+    let cancelled = false
+    fetch(`/api/admin/oftv-projects/${project.id}/final?path=${encodeURIComponent(latest.path)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setLatestFinalSrc(d.link || '') })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [finalFiles, project.id])
   useEffect(() => { loadFinal() }, [loadFinal])
   useEffect(() => {
     const t = setInterval(loadFinal, 15000)
@@ -330,6 +430,24 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* ─── Revision Banner ─────────────────────────────────────────
+              Only shows when a revision is in flight. Hoists the latest
+              cut + the relevant feedback to the very top of the modal so
+              whoever opens it sees what to act on without scrolling.
+
+              Creator Revision (creator → editor): "Revision notes from {AKA}"
+              Admin Revision (admin → editor):     "Revision notes from admin"
+              No admin gate after creator revision — editor uploads → straight
+              back to creator (handled by the auto-flip in /final). */}
+          {(project.status === STATUSES.CREATOR_REVISION || project.status === STATUSES.ADMIN_REVISION) && (
+            <RevisionBanner
+              project={project}
+              creatorName={creatorName}
+              latestFile={finalFiles[0] || null}
+              latestSrc={latestFinalSrc}
+            />
+          )}
+
           {(project.editingPrefs || assets.length > 0) && (
             <div style={{ background: 'rgba(232, 160, 160, 0.06)', border: '1px solid rgba(232, 160, 160, 0.15)', borderRadius: '12px', padding: '14px 16px' }}>
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0A0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>🎨 Creator's Standing Editing Preferences</div>
@@ -698,45 +816,8 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
               </div>
             )}
 
-            {/* Show last creator feedback so editor can act on it */}
-            {project.status === STATUSES.CREATOR_REVISION && project.creatorFeedback && (
-              <div style={{
-                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
-                background: 'rgba(232, 160, 200, 0.06)', border: '1px solid rgba(232, 160, 200, 0.20)',
-              }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A0C8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                  Creator's revision notes
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                  {project.creatorFeedback}
-                </div>
-                {project.creatorFeedbackAt && (
-                  <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
-                    Submitted {fmtDate(project.creatorFeedbackAt)}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Show last admin revision notes so editor can act on it */}
-            {project.status === STATUSES.ADMIN_REVISION && project.adminRevisionNotes && (
-              <div style={{
-                marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
-                background: 'rgba(232, 168, 120, 0.06)', border: '1px solid rgba(232, 168, 120, 0.20)',
-              }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#E8A878', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                  Admin's notes for revision
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                  {project.adminRevisionNotes}
-                </div>
-                {project.reviewedBy && (
-                  <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
-                    From {project.reviewedBy}{project.adminReviewedAt ? ` · ${fmtDate(project.adminReviewedAt)}` : ''}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Revision notes are shown at the TOP of the modal in the
+                RevisionBanner — no duplicate display here. */}
           </div>
 
           <div>
