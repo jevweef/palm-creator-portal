@@ -390,12 +390,18 @@ export async function GET(request) {
       // Only photos have CDN URLs — for video posts cdnUrl is null and the
       // Airtable-generated poster is used.
       const cdnUrl = asset['CDN URL'] || ''
-      const thumb = cdnUrl ||
+      // Post.Thumbnail wins over cdnUrl. The CF mirror is keyed by Asset ID
+      // and was uploaded ONCE when the asset was first created — it does
+      // NOT auto-refresh when Asset.Thumbnail or Post.Thumbnail is replaced
+      // via Replace Thumbnail. Preferring cdnUrl meant every thumbnail
+      // replacement appeared to fail because Cloudflare kept serving the
+      // original bytes. Use Post.Thumbnail (Airtable CDN, ~150ms) which
+      // updates on every save, fall back to cdnUrl only for assets that
+      // never had an explicit Thumbnail replacement.
+      const thumb =
         (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
         (assetImg?.thumbnails?.large?.url) || (assetImg?.url) ||
-        // Last resort for matched LIVE cells: the IG scrape thumbnail. Without
-        // this, posts whose Post.Thumbnail is missing/broken render as a blank
-        // LIVE cell after the scrape→Sent dedup hides the scrape duplicate.
+        cdnUrl ||
         scrapeFallback[p.id] || ''
       const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !scrapeFallback[p.id]
       const accountId = (f.Account || [])[0] || null
