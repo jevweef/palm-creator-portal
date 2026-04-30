@@ -12,6 +12,11 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin/score-reels(.*)',
   '/api/admin/mirror-asset(.*)',
   '/api/admin/mirror-inspiration(.*)',
+  // Cron routes carry no Clerk session — Vercel hits them with a Bearer
+  // CRON_SECRET header. Without this exemption Clerk middleware redirects
+  // them and they all return 404. Each cron route enforces its own auth
+  // via CRON_SECRET, so this is safe to bypass at the middleware layer.
+  '/api/cron(.*)',
   '/api/inbox/telegram(.*)',
   '/api/inbox/imessage(.*)',
   '/demo(.*)',
