@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { rawDropboxUrl, isVideo } from './EditorDashboard'
-import { cdnUrlAtSize } from '@/lib/cdnImage'
+import { cdnUrlAtSize, proxyThumbUrl } from '@/lib/cdnImage'
 import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 
 const SELECTED_CREATOR_STORAGE_KEY = 'gridplanner:selectedCreatorId'
@@ -498,48 +498,26 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // problem as the tray — Airtable attachment URLs can rotate and source URLs
 // can die. Swap to the placeholder if the image won't load.
 function CellThumb({ post, style, status }) {
-  // Build the URL chain: primary thumbnail first, then any fallbacks the
-  // server provided (sibling Post.Thumbnails, cdnUrl, scrapeFallback).
-  // Try each in order with up to 2 retries per URL. The retries are key
-  // — Airtable's signed-URL CDN (v5.airtableusercontent.com) randomly
-  // returns 502/abort on perfectly valid URLs, especially under burst
-  // load when many cells render at once. Without retries, every refresh
-  // showed a different random pattern of blank cells.
+  // Each candidate URL gets routed through /api/admin/thumb-proxy so the
+  // browser hits a stable Vercel-cached endpoint instead of Airtable's
+  // flaky signed-URL CDN. Server-side retry + 1-day cache means a
+  // successful first load = permanent until the cache TTL expires.
+  // Client-side retry/cache-busting is no longer needed — proxy handles it.
   const candidates = [post.thumbnail, ...(post.thumbnailFallbacks || [])].filter(Boolean)
-  const MAX_RETRIES_PER_URL = 2
   const [idx, setIdx] = useState(0)
-  const [retry, setRetry] = useState(0)
-  // Reset to first candidate when the underlying URLs change.
-  useEffect(() => {
-    setIdx(0)
-    setRetry(0)
-  }, [post.thumbnail, (post.thumbnailFallbacks || []).join('|')])
-  const baseSrc = candidates[idx] ? cdnUrlAtSize(candidates[idx], 240) : null
-  // Cache-bust on retry by appending a counter query param. Same bytes,
-  // different URL → browser re-fetches instead of replaying its cached
-  // 'this URL failed' state. Airtable's CDN is more likely to succeed
-  // on retry from a different edge node.
-  const src = baseSrc && retry > 0
-    ? baseSrc + (baseSrc.includes('?') ? '&' : '?') + `_r=${idx}-${retry}`
-    : baseSrc
+  useEffect(() => { setIdx(0) }, [post.thumbnail, (post.thumbnailFallbacks || []).join('|')])
+  const rawCurrent = candidates[idx]
+  // Apply CF Images size transform first (only affects imagedelivery.net),
+  // then route through the proxy (only affects Airtable URLs). One does
+  // nothing if the other applies.
+  const sized = rawCurrent ? cdnUrlAtSize(rawCurrent, 240) : null
+  const src = sized ? proxyThumbUrl(sized) : null
   if (!src) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
         {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
       </div>
     )
-  }
-  const handleError = () => {
-    if (retry < MAX_RETRIES_PER_URL) {
-      // Retry same URL after a small backoff. Don't await — fire and let
-      // React re-render when state updates.
-      const delay = 300 * (retry + 1) // 300ms, 600ms
-      setTimeout(() => setRetry(r => r + 1), delay)
-    } else {
-      // Exhausted retries on this URL — advance to next candidate.
-      setIdx(i => i + 1)
-      setRetry(0)
-    }
   }
   return (
     <img
@@ -549,7 +527,7 @@ function CellThumb({ post, style, status }) {
       decoding="async"
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
-      onError={handleError}
+      onError={() => setIdx(i => i + 1)}
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
     />
   )
@@ -560,9 +538,9 @@ function CellThumb({ post, style, status }) {
 // links can become invalid). When the <img> fails to load, swap to the
 // UNPREPPED placeholder so the cell doesn't show a broken-image icon.
 function TrayThumb({ sample }) {
-  const src = cdnUrlAtSize(sample.thumbnail, 240)
+  const sized = cdnUrlAtSize(sample.thumbnail, 240)
+  const src = proxyThumbUrl(sized)
   const [failed, setFailed] = useState(false)
-  // Reset failed state when src changes — same fix as CellThumb above.
   useEffect(() => { setFailed(false) }, [src])
   if (!sample.thumbnail || failed) {
     return (
@@ -574,7 +552,7 @@ function TrayThumb({ sample }) {
   }
   return (
     <img
-      src={cdnUrlAtSize(sample.thumbnail, 240)}
+      src={src}
       alt=""
       loading="lazy"
       decoding="async"
