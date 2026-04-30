@@ -73,6 +73,18 @@ function etToUTC(etDateStr, etHour) {
 // drifts. Posts with .fields mutated in place so callers can read the new
 // dates without re-fetching.
 async function normalizeAccountQueue(accountId, allPostsForCreator) {
+  // Slots already occupied by Sent / Posted siblings on this account.
+  // Queue items must NOT be assigned to these dates — that's how queue
+  // items ended up sharing 5/2, 4/30, etc. with already-Scheduled cells
+  // and stacking 4 reels on the same calendar slot.
+  const occupied = new Set()
+  for (const p of allPostsForCreator) {
+    if (!(p.fields?.Account || []).includes(accountId)) continue
+    if (!p.fields?.['Telegram Sent At'] && !p.fields?.['Posted At']) continue
+    const sd = p.fields?.['Scheduled Date']
+    if (sd) occupied.add(new Date(sd).toISOString())
+  }
+
   const queue = allPostsForCreator
     .filter(p =>
       (p.fields?.Account || []).includes(accountId) &&
@@ -83,11 +95,19 @@ async function normalizeAccountQueue(accountId, allPostsForCreator) {
       new Date(a.fields?.['Scheduled Date'] || 0) - new Date(b.fields?.['Scheduled Date'] || 0)
     )
   if (!queue.length) return []
-  const slots = getQueueSlots(queue.length)
+
+  // Generate enough candidate slots to fit ALL queue items even if many
+  // collide with occupied dates. queue.length + occupied.size is a safe
+  // upper bound — even if every occupied slot collides with a queue
+  // candidate, we still have enough to skip them and assign cleanly.
+  const candidates = getQueueSlots(queue.length + occupied.size)
+  const freeSlots = candidates.filter(s => !occupied.has(s))
+
   const patches = []
   for (let i = 0; i < queue.length; i++) {
     const p = queue[i]
-    const desired = slots[i]
+    const desired = freeSlots[i]
+    if (!desired) continue // shouldn't happen given the upper bound
     if (p.fields?.['Scheduled Date'] !== desired) {
       // Return as a thunk so the caller can throttle batches under
       // Airtable's 5 req/sec limit. Calling patchAirtableRecord eagerly
