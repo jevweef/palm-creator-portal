@@ -133,8 +133,59 @@ export async function PATCH(request) {
       Object.entries(fields).filter(([k]) => allowedFields.includes(k))
     )
 
-    await patchAirtableRecord('Posts', postId, update, typecast ? { typecast: true } : {})
-    return NextResponse.json({ ok: true })
+    // Thumbnail fan-out: a single Asset/Task fans out into N sibling Post
+    // records (one per managed IG account). Updating the Thumbnail on just
+    // the one Post the user is editing leaves the siblings (and the
+    // Unassigned Tray's samplePost preview) showing the OLD image, even
+    // though they're the "same" reel. So when Thumbnail is in the patch,
+    // mirror it to every sibling Post sharing this Post's Task — and
+    // also update Asset.Thumbnail so future fan-outs use the new image.
+    let targetIds = [postId]
+    let assetIdForFanout = null
+    if ('Thumbnail' in update) {
+      const sourceList = await fetchAirtableRecords('Posts', {
+        filterByFormula: `RECORD_ID()='${postId}'`,
+        fields: ['Task', 'Asset'],
+      })
+      const source = sourceList[0]?.fields || {}
+      const taskId = (source.Task || [])[0] || null
+      assetIdForFanout = (source.Asset || [])[0] || null
+      if (taskId) {
+        const siblings = await fetchAirtableRecords('Posts', {
+          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+          fields: ['Task'],
+        })
+        const ids = siblings.map(s => s.id).filter(Boolean)
+        if (ids.length) targetIds = Array.from(new Set([postId, ...ids]))
+      }
+      // Force filename: 'thumbnail.jpg' on the attachment so Airtable stores
+      // it with a usable extension. Without it, ingest sometimes lands a
+      // typeless attachment that browsers refuse to render.
+      if (Array.isArray(update.Thumbnail)) {
+        update.Thumbnail = update.Thumbnail.map(att => ({
+          ...att,
+          filename: att.filename || 'thumbnail.jpg',
+        }))
+      }
+    }
+
+    // Patch all targets in parallel — small fan-out (≤4 accounts), well
+    // under Airtable's 5/sec cap.
+    await Promise.all(targetIds.map(id =>
+      patchAirtableRecord('Posts', id, update, typecast ? { typecast: true } : {})
+    ))
+
+    // Best-effort Asset.Thumbnail mirror so future Post clones inherit the
+    // new image. Failure here doesn't roll back the Post updates.
+    if (assetIdForFanout && Array.isArray(update.Thumbnail)) {
+      try {
+        await patchAirtableRecord('Assets', assetIdForFanout, { 'Thumbnail': update.Thumbnail })
+      } catch (e) {
+        console.warn('[Posts] Asset.Thumbnail mirror failed:', e.message)
+      }
+    }
+
+    return NextResponse.json({ ok: true, updatedPostIds: targetIds })
   } catch (err) {
     console.error('[Posts] PATCH error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
