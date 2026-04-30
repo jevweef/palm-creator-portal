@@ -187,7 +187,26 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
   const postLinks = new Set(past.map(p => p.postLink).filter(Boolean))
   const uniqScraped = scrapedCells.filter(s => !postLinks.has(s.postLink))
 
-  const allCells = [...queue, ...past, ...uniqScraped]
+  // Cap each phone-grid display to ~7 rows × 3 cols = 21 cells. Queue
+  // (future-scheduled, drag-droppable) is always preserved in full —
+  // hiding queue items would mean the admin can't see/move what's
+  // coming. The past/live tail gets trimmed: keep only enough recent
+  // cells to fill the remaining row budget. Below that the user can
+  // still see the actual IG feed if they want to scroll up to the live
+  // grid manually.
+  const MAX_CELLS = 21
+  const remaining = Math.max(0, MAX_CELLS - queue.length)
+  // Past + scraped are already each sorted newest-first. Interleave them
+  // by date so we keep the most recent regardless of source.
+  const tail = [...past, ...uniqScraped]
+    .sort((a, b) => {
+      const aDate = new Date(a.scheduledDate || a.telegramSentAt || a.postedAt || 0)
+      const bDate = new Date(b.scheduledDate || b.telegramSentAt || b.postedAt || 0)
+      return bDate - aDate
+    })
+    .slice(0, remaining)
+  const allCells = [...queue, ...tail]
+  const hiddenCount = (past.length + uniqScraped.length) - tail.length
 
   return (
     <div style={{
@@ -372,6 +391,11 @@ function PhoneFrame({ account, creator, posts, draggingId, onDragStart, onDragEn
           )
         })}
       </div>
+      {hiddenCount > 0 && (
+        <div style={{ padding: '8px 12px 12px', textAlign: 'center', fontSize: '10px', color: 'var(--foreground-muted)' }}>
+          + {hiddenCount} older post{hiddenCount === 1 ? '' : 's'} hidden
+        </div>
+      )}
     </div>
   )
 }
@@ -474,20 +498,48 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
 // problem as the tray — Airtable attachment URLs can rotate and source URLs
 // can die. Swap to the placeholder if the image won't load.
 function CellThumb({ post, style, status }) {
-  const src = cdnUrlAtSize(post.thumbnail, 240)
-  // Sticky failed state was the root cause of "thumbnail won't update" —
-  // once an <img> failed (e.g. transient Airtable CDN miss, optimistic
-  // Dropbox dl URL that 302-redirects), the cell stayed on the fallback
-  // icon forever even after src changed to a working URL. Reset on every
-  // new src so the next render always re-attempts the load.
-  const [failed, setFailed] = useState(false)
-  useEffect(() => { setFailed(false) }, [src])
-  if (failed || !src) {
+  // Build the URL chain: primary thumbnail first, then any fallbacks the
+  // server provided (sibling Post.Thumbnails, cdnUrl, scrapeFallback).
+  // Try each in order with up to 2 retries per URL. The retries are key
+  // — Airtable's signed-URL CDN (v5.airtableusercontent.com) randomly
+  // returns 502/abort on perfectly valid URLs, especially under burst
+  // load when many cells render at once. Without retries, every refresh
+  // showed a different random pattern of blank cells.
+  const candidates = [post.thumbnail, ...(post.thumbnailFallbacks || [])].filter(Boolean)
+  const MAX_RETRIES_PER_URL = 2
+  const [idx, setIdx] = useState(0)
+  const [retry, setRetry] = useState(0)
+  // Reset to first candidate when the underlying URLs change.
+  useEffect(() => {
+    setIdx(0)
+    setRetry(0)
+  }, [post.thumbnail, (post.thumbnailFallbacks || []).join('|')])
+  const baseSrc = candidates[idx] ? cdnUrlAtSize(candidates[idx], 240) : null
+  // Cache-bust on retry by appending a counter query param. Same bytes,
+  // different URL → browser re-fetches instead of replaying its cached
+  // 'this URL failed' state. Airtable's CDN is more likely to succeed
+  // on retry from a different edge node.
+  const src = baseSrc && retry > 0
+    ? baseSrc + (baseSrc.includes('?') ? '&' : '?') + `_r=${idx}-${retry}`
+    : baseSrc
+  if (!src) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: style?.badge || '#999', fontSize: '20px' }}>
         {status === 'queue' ? '🗓' : status === 'scheduled' ? '✓' : '·'}
       </div>
     )
+  }
+  const handleError = () => {
+    if (retry < MAX_RETRIES_PER_URL) {
+      // Retry same URL after a small backoff. Don't await — fire and let
+      // React re-render when state updates.
+      const delay = 300 * (retry + 1) // 300ms, 600ms
+      setTimeout(() => setRetry(r => r + 1), delay)
+    } else {
+      // Exhausted retries on this URL — advance to next candidate.
+      setIdx(i => i + 1)
+      setRetry(0)
+    }
   }
   return (
     <img
@@ -497,7 +549,7 @@ function CellThumb({ post, style, status }) {
       decoding="async"
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
-      onError={() => setFailed(true)}
+      onError={handleError}
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
     />
   )
@@ -1073,38 +1125,73 @@ export default function GridPlanner({ smmMode = false } = {}) {
     })
   }
   const runBulkSend = async () => {
-    // New flow: enqueue all sendable posts in one bulk Airtable PATCH.
-    // The /api/cron/telegram-queue worker fires every minute, processes
-    // up to 2 queued posts per tick (in Scheduled Date order), retries
-    // failed ones manually only. Replaces the old client-driven serial
-    // loop that died when the user closed the tab or hit Vercel 504s.
+    // Two-phase flow:
+    //   1. Bulk-enqueue: PATCH all sendable posts to Status='Queued for
+    //      Telegram'. Returns instantly. Cells flip to orange.
+    //   2. Drain loop: while Queued posts still exist, repeatedly call
+    //      /api/cron/telegram-queue (each tick processes up to 2 posts).
+    //      Vercel cron only runs on production, so on dev preview we
+    //      drive ticks from the client. Each tick takes ~30-90s
+    //      depending on file sizes.
     setBulkSending(true)
     try {
-      // Sort all sendable posts globally by Scheduled Date so the cron
-      // sees them in calendar order regardless of which account they're on.
-      // The cron picks oldest-first; we just need a consistent enqueue.
       const ordered = [...sendablePosts].sort(
         (a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0)
       )
 
-      // Bulk enqueue. /api/admin/posts PATCH already fans out Status across
-      // siblings, but each post here is a SPECIFIC instance — we want only
-      // that one record marked Queued (siblings on other accounts may be
-      // sent at different times). Use the dedicated enqueue endpoint that
-      // bypasses the fan-out.
-      const res = await fetch('/api/admin/telegram/enqueue', {
+      const enqueueRes = await fetch('/api/admin/telegram/enqueue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postIds: ordered.map(p => p.id) }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Enqueue failed')
+      const enqueueData = await enqueueRes.json()
+      if (!enqueueRes.ok) throw new Error(enqueueData.error || 'Enqueue failed')
 
-      showToast(`Queued ${ordered.length} post${ordered.length !== 1 ? 's' : ''} — sending in background (~30s/post). Safe to close tab.`)
-      // Refresh so cells flip to the Queued state immediately.
+      const total = ordered.length
+      setBulkProgress({ handle: 'queue', total, current: 0, status: 'sending', okCount: 0, failCount: 0, lastError: null })
       await loadCreator(selectedCreatorId)
+
+      // Drain loop. Cap at total ticks to avoid infinite loop if cron
+      // can't make progress for some reason. Each tick processes ≤2 posts,
+      // so total/2 + small buffer is enough.
+      const maxTicks = Math.ceil(total / 2) + 4
+      let processed = 0
+      let failedCount = 0
+      for (let tick = 0; tick < maxTicks; tick++) {
+        try {
+          const tickRes = await fetch('/api/cron/telegram-queue', { method: 'GET' })
+          if (!tickRes.ok) {
+            const errText = await tickRes.text()
+            throw new Error(`tick ${tickRes.status}: ${errText.slice(0, 200)}`)
+          }
+          const tickData = await tickRes.json()
+          const tickResults = tickData.results || []
+          const tickOk = tickResults.filter(r => r.sent).length
+          const tickFail = tickResults.filter(r => r.error).length
+          processed += tickOk
+          failedCount += tickFail
+          setBulkProgress(prev => prev ? {
+            ...prev,
+            current: processed + failedCount,
+            okCount: processed,
+            failCount: failedCount,
+            lastError: tickResults.find(r => r.error)?.error || prev.lastError,
+          } : prev)
+          await loadCreator(selectedCreatorId)
+          if (tickData.message === 'queue empty' || (tickResults.length === 0)) break
+        } catch (tickErr) {
+          setBulkProgress(prev => prev ? { ...prev, lastError: tickErr.message } : prev)
+          // One tick failure shouldn't kill the whole drain — continue,
+          // worst case maxTicks bounds it.
+        }
+      }
+
+      setBulkProgress(prev => prev ? { ...prev, status: 'done' } : prev)
+      setTimeout(() => setBulkProgress(null), 8000)
+      showToast(`Done — ${processed}/${total} sent${failedCount ? `, ${failedCount} failed` : ''}.`)
     } catch (e) {
-      showToast(`Enqueue failed: ${e.message}`, true)
+      showToast(`Send failed: ${e.message}`, true)
+      setBulkProgress(null)
     } finally {
       setBulkSending(false)
     }

@@ -4011,3 +4011,48 @@ After doing this, you may fix the identity used for this commit with:
  1 file changed, 159 insertions(+)
  create mode 100644 app/api/admin/oftv-projects/[id]/resend-notification/route.js
 Everything up-to-date
+[dev 5dba9fc] Auto-save: 2026-04-29 21:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 30 insertions(+), 6 deletions(-)
+Everything up-to-date
+[dev 4967ea2] Auto-save: 2026-04-29 21:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 23 insertions(+), 3 deletions(-)
+Everything up-to-date
+[dev cb6fb0c] Auto-save: 2026-04-29 22:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+Everything up-to-date

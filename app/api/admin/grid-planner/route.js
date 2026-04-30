@@ -73,6 +73,18 @@ function etToUTC(etDateStr, etHour) {
 // drifts. Posts with .fields mutated in place so callers can read the new
 // dates without re-fetching.
 async function normalizeAccountQueue(accountId, allPostsForCreator) {
+  // Slots already occupied by Sent / Posted siblings on this account.
+  // Queue items must NOT be assigned to these dates — that's how queue
+  // items ended up sharing 5/2, 4/30, etc. with already-Scheduled cells
+  // and stacking 4 reels on the same calendar slot.
+  const occupied = new Set()
+  for (const p of allPostsForCreator) {
+    if (!(p.fields?.Account || []).includes(accountId)) continue
+    if (!p.fields?.['Telegram Sent At'] && !p.fields?.['Posted At']) continue
+    const sd = p.fields?.['Scheduled Date']
+    if (sd) occupied.add(new Date(sd).toISOString())
+  }
+
   const queue = allPostsForCreator
     .filter(p =>
       (p.fields?.Account || []).includes(accountId) &&
@@ -83,11 +95,19 @@ async function normalizeAccountQueue(accountId, allPostsForCreator) {
       new Date(a.fields?.['Scheduled Date'] || 0) - new Date(b.fields?.['Scheduled Date'] || 0)
     )
   if (!queue.length) return []
-  const slots = getQueueSlots(queue.length)
+
+  // Generate enough candidate slots to fit ALL queue items even if many
+  // collide with occupied dates. queue.length + occupied.size is a safe
+  // upper bound — even if every occupied slot collides with a queue
+  // candidate, we still have enough to skip them and assign cleanly.
+  const candidates = getQueueSlots(queue.length + occupied.size)
+  const freeSlots = candidates.filter(s => !occupied.has(s))
+
   const patches = []
   for (let i = 0; i < queue.length; i++) {
     const p = queue[i]
-    const desired = slots[i]
+    const desired = freeSlots[i]
+    if (!desired) continue // shouldn't happen given the upper bound
     if (p.fields?.['Scheduled Date'] !== desired) {
       // Return as a thunk so the caller can throttle batches under
       // Airtable's 5 req/sec limit. Calling patchAirtableRecord eagerly
@@ -365,6 +385,29 @@ export async function GET(request) {
     })
 
     // Normalize posts + bucket by account
+    // Build a sibling-thumbnail map BEFORE normalize. For each Task, collect
+    // every sibling Post's Thumbnail URL. We use these as fallbacks across
+    // siblings — when one Post's Thumbnail attachment got corrupted by the
+    // clone-of-clone bug, the OTHER siblings' clones almost always render
+    // fine. So if Palm IG 3's clone is broken bytes, falling back to Palm
+    // IG 1's working clone fixes the blank cell instantly. Asset.Thumbnail
+    // and cdnUrl are still in the chain for cases where ALL siblings broke.
+    const pickImageEarly = (atts) => (atts || []).find(a =>
+      a?.type?.startsWith('image/') ||
+      (!a?.type && /\.(jpe?g|png|gif|webp)$/i.test(a?.filename || ''))
+    )
+    const siblingThumbsByTask = {}
+    for (const p of posts) {
+      const tid = (p.fields?.Task || [])[0]
+      if (!tid) continue
+      const img = pickImageEarly(p.fields?.Thumbnail)
+      if (!img) continue
+      const url = img.thumbnails?.large?.url || img.url
+      if (!url) continue
+      if (!siblingThumbsByTask[tid]) siblingThumbsByTask[tid] = []
+      siblingThumbsByTask[tid].push({ postId: p.id, url })
+    }
+
     const normalized = posts.map(p => {
       const f = p.fields || {}
       const assetId = (f.Asset || [])[0]
@@ -398,12 +441,29 @@ export async function GET(request) {
       // original bytes. Use Post.Thumbnail (Airtable CDN, ~150ms) which
       // updates on every save, fall back to cdnUrl only for assets that
       // never had an explicit Thumbnail replacement.
-      const thumb =
+      const primaryThumb =
         (postImg?.thumbnails?.large?.url) || (postImg?.url) ||
-        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) ||
-        cdnUrl ||
-        scrapeFallback[p.id] || ''
-      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !scrapeFallback[p.id]
+        (assetImg?.thumbnails?.large?.url) || (assetImg?.url) || ''
+      // Fallback chain: if the primary thumbnail (Post.Thumbnail or
+      // Asset.Thumbnail) fails to load in the browser — common for old
+      // posts hit by the 2026-04 clone-of-clone broken-bytes bug —
+      // CellThumb tries the cdnUrl next, then the scrape thumbnail.
+      // Without this, my recent flip-cdn-to-last-resort change blanked
+      // out a bunch of legacy SCHEDULED cells whose Post.Thumbnail
+      // attachments had corrupt bytes but cdnUrl was still good.
+      // Fallback chain order:
+      //   1. Sibling Post.Thumbnails (other accounts' clones of the same
+      //      reel) — the OTHER 2 siblings almost always have working clones
+      //      when one breaks. This is the entire reason same-reel cells
+      //      render fine on Palm IG 1+2 but blank on Palm IG 3.
+      //   2. cdnUrl — Cloudflare mirror of the original asset photo
+      //   3. scrapeFallback — IG scrape thumbnail for matched LIVE cells
+      const siblingUrls = (taskId ? (siblingThumbsByTask[taskId] || []) : [])
+        .filter(s => s.postId !== p.id) // don't include our own (already in primary)
+        .map(s => s.url)
+      const fallbackThumbs = [...siblingUrls, cdnUrl, scrapeFallback[p.id]].filter(Boolean)
+      const thumb = primaryThumb || fallbackThumbs[0] || ''
+      const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !cdnUrl && !scrapeFallback[p.id]
       const accountId = (f.Account || [])[0] || null
       return {
         id: p.id,
@@ -416,6 +476,10 @@ export async function GET(request) {
         postedAt: f['Posted At'] || null,
         postLink: f['Post Link'] || '',
         thumbnail: thumb,
+        // List of alternate URLs to try if the primary thumbnail fails to
+        // load. Client iterates through them on <img onError>. Covers the
+        // legacy broken-bytes Post.Thumbnail case + scrape thumbnail.
+        thumbnailFallbacks: fallbackThumbs,
         platform: f.Platform || [],
         caption: f.Caption || '',
         hashtags: f.Hashtags || '',
@@ -752,23 +816,41 @@ export async function POST(request) {
       const managed = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
       if (!managed.length) return NextResponse.json({ ok: true, distributed: 0, message: 'No managed accounts' })
 
-      // All unsent posts for this creator
+      // All recent posts for this creator. We need BOTH unsent (to know what
+      // to distribute) AND already-sent (to know which accounts are already
+      // covered for each task — without these, distribute creates a phantom
+      // duplicate Prepping Post on every account where the task was already
+      // Sent, because the Sent post got filtered out and "covered" came up
+      // empty for that account/task pair).
       const allRecent = await fetchAirtableRecords('Posts', {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
         fields: ['Post Name', 'Creator', 'Account', 'Task', 'Asset', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
       })
-      const creatorPosts = allRecent.filter(p =>
-        (p.fields?.Creator || []).includes(creatorId) &&
+      const allCreatorPosts = allRecent.filter(p =>
+        (p.fields?.Creator || []).includes(creatorId)
+      )
+      const creatorPosts = allCreatorPosts.filter(p =>
         !p.fields?.['Telegram Sent At'] &&
         !p.fields?.['Posted At']
       )
 
-      // Group by Task ID
+      // Group unsent posts by Task ID — these are what we actually distribute.
       const groups = {}
       for (const p of creatorPosts) {
         const taskId = (p.fields?.Task || [])[0] || `orphan-${p.id}`
         if (!groups[taskId]) groups[taskId] = { taskId, posts: [] }
         groups[taskId].posts.push(p)
+      }
+
+      // Build a separate map of full-coverage Posts (sent + unsent) per task,
+      // used below for the `covered` check. Sent siblings count as coverage
+      // even though they're not in `groups`.
+      const fullCoverageByTask = {}
+      for (const p of allCreatorPosts) {
+        const taskId = (p.fields?.Task || [])[0]
+        if (!taskId) continue
+        if (!fullCoverageByTask[taskId]) fullCoverageByTask[taskId] = []
+        fullCoverageByTask[taskId].push(p)
       }
 
       // For each account, track existing slot ISOs so we can compute next-open per account.
@@ -785,9 +867,15 @@ export async function POST(request) {
       const updates = []
 
       for (const group of Object.values(groups)) {
-        // Accounts already covered by this group
+        // Accounts already covered by this group — INCLUDING already-sent
+        // siblings. Pull from fullCoverageByTask, not just group.posts
+        // (which is unsent-only). Without this, distribute creates phantom
+        // Prepping duplicates on accounts where the task was already Sent.
         const covered = new Set()
-        for (const p of group.posts) {
+        const fullSiblings = group.taskId.startsWith('orphan-')
+          ? group.posts
+          : (fullCoverageByTask[group.taskId] || group.posts)
+        for (const p of fullSiblings) {
           for (const accId of (p.fields?.Account || [])) covered.add(accId)
         }
         // Unassigned instances within this group (no Account set)
