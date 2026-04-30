@@ -466,13 +466,37 @@ export async function GET(request) {
         const remaining = accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length
         return remaining > 0
       })
-      .map(g => ({
-        taskId: g.taskId,
-        samplePost: g.samplePost,
-        remaining: accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length,
-        unassignedPostIds: g.unassignedPostIds,
-        assignedAccountIds: [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)),
-      }))
+      .map(g => {
+        // Override samplePost.thumbnail with Asset.Thumbnail when available.
+        // The asset is the single source of truth; sibling Posts can drift
+        // out of sync momentarily during fan-out + Airtable ingest, and
+        // picking any one of them as the tray preview means the user sees
+        // a stale thumbnail until refresh. Asset.Thumbnail is the only
+        // value updated atomically by every Replace Thumbnail flow, so
+        // it's always the most recently saved image.
+        const assetId = g.samplePost.asset?.id
+        const assetThumbObj = assetId ? assetMap[assetId] : null
+        const pickImage = (atts) => (atts || []).find(a =>
+          a?.type?.startsWith('image/') ||
+          (!a?.type && /\.(jpe?g|png|gif|webp)$/i.test(a?.filename || ''))
+        )
+        const assetImg = assetThumbObj ? pickImage(assetThumbObj.Thumbnail) : null
+        const assetCdn = assetThumbObj?.['CDN URL'] || ''
+        const assetThumbUrl =
+          assetCdn ||
+          assetImg?.thumbnails?.large?.url ||
+          assetImg?.url ||
+          ''
+        return {
+          taskId: g.taskId,
+          samplePost: assetThumbUrl
+            ? { ...g.samplePost, thumbnail: assetThumbUrl }
+            : g.samplePost,
+          remaining: accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length,
+          unassignedPostIds: g.unassignedPostIds,
+          assignedAccountIds: [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)),
+        }
+      })
       // Sort: needs-more-slots first, then by scheduled date
       .sort((a, b) => {
         if (b.remaining !== a.remaining) return b.remaining - a.remaining
