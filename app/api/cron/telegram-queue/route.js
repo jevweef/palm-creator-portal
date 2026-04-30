@@ -1,9 +1,13 @@
 export const dynamic = 'force-dynamic'
-// Each cron tick processes up to 2 queued posts. A heavy compress can take
-// 90s+, plus 6s spacing, so 2 × 95s + 6s = ~196s wall-clock — well inside
-// 300s. Picking 1-per-tick would be safer but slower (1/min throughput);
-// 2-per-tick gives 120/hour which respects Telegram's 10 reels/min cap and
-// finishes a typical 12-post bulk in 6 minutes.
+// One post per tick. Each post can take up to ~280s when an asset hasn't
+// been pre-compressed yet (download 15s + ffmpeg 200s + upload 10s + buffer).
+// 2-per-tick blew past 300s and the cron itself timed out, which the client
+// drain loop saw as a 504 / FUNCTION_INVOCATION_TIMEOUT. Better slow + works
+// than fast + jammed: drain loop calls /api/cron/telegram-queue every minute
+// from prod cron, plus the client drain loop also calls it during a Send
+// All. Throughput = 60/hour worst case (uncompressed assets) but climbs to
+// dozens/min once the precompress cron has caught up — at that point each
+// send is just ~10s of "download small file → upload to Telegram".
 export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
@@ -22,7 +26,7 @@ const OPS_BASE_HOST = process.env.VERCEL_ENV === 'production'
   ? 'app.palm-mgmt.com'
   : (process.env.VERCEL_BRANCH_URL || 'palm-creator-portal-git-dev-evan-5378s-projects.vercel.app')
 
-const POSTS_PER_TICK = 2
+const POSTS_PER_TICK = 1
 const GAP_BETWEEN_POSTS_MS = 6000
 
 // Look up a Post + its linked Creator/Account/Asset, then fire the existing
