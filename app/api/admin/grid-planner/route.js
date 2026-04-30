@@ -488,10 +488,14 @@ export async function GET(request) {
         )
         const assetImg = assetThumbObj ? pickImage(assetThumbObj.Thumbnail) : null
         const assetCdn = assetThumbObj?.['CDN URL'] || ''
+        // Same preference flip as the cell render: Asset.Thumbnail wins over
+        // CDN. The CF mirror is uploaded once at asset creation and never
+        // refreshes when admin replaces the thumbnail, so preferring it
+        // means the tray keeps showing the original video frame forever.
         const assetThumbUrl =
-          assetCdn ||
           assetImg?.thumbnails?.large?.url ||
           assetImg?.url ||
+          assetCdn ||
           ''
         return {
           taskId: g.taskId,
