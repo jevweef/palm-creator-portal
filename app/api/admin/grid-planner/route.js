@@ -554,8 +554,38 @@ export async function PATCH(request) {
     if (action === 'setStatus') {
       const { postId, status } = body
       if (!postId || !status) return NextResponse.json({ error: 'postId and status required' }, { status: 400 })
-      await patchAirtableRecord('Posts', postId, { 'Status': status })
-      return NextResponse.json({ ok: true })
+      // Fan out: a single Asset/Task fans out into N sibling Post records
+      // (one per managed IG account). When the admin sends a post back to
+      // Prepping (or any other status flip), all siblings should move
+      // together — otherwise you end up with one Prepping + two Staged
+      // copies of the same reel and the grid shows them as separate cards.
+      let targetIds = [postId]
+      try {
+        const sourceList = await fetchAirtableRecords('Posts', {
+          filterByFormula: `RECORD_ID()='${postId}'`,
+          fields: ['Task'],
+        })
+        const taskId = (sourceList[0]?.fields?.Task || [])[0] || null
+        if (taskId) {
+          const siblings = await fetchAirtableRecords('Posts', {
+            filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+            fields: ['Task', 'Telegram Sent At', 'Posted At'],
+          })
+          // Don't drag already-sent or already-live siblings backwards into
+          // Prepping — once it's out, it's out. Only move pre-send siblings.
+          const ids = siblings
+            .filter(s => !s.fields?.['Telegram Sent At'] && !s.fields?.['Posted At'])
+            .map(s => s.id)
+            .filter(Boolean)
+          if (ids.length) targetIds = Array.from(new Set([postId, ...ids]))
+        }
+      } catch (e) {
+        console.warn('[setStatus] sibling lookup failed:', e.message)
+      }
+      await Promise.all(targetIds.map(id =>
+        patchAirtableRecord('Posts', id, { 'Status': status })
+      ))
+      return NextResponse.json({ ok: true, updatedPostIds: targetIds })
     }
 
     // reorder: take an ordered list of post IDs (oldest at index 0, newest

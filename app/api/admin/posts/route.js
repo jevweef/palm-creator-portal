@@ -142,7 +142,16 @@ export async function PATCH(request) {
     // also update Asset.Thumbnail so future fan-outs use the new image.
     let targetIds = [postId]
     let assetIdForFanout = null
-    if ('Thumbnail' in update) {
+    // Fan-out triggers: any update that should mirror across all sibling
+    // Posts of the same Task. Thumbnail (so all 3 IG instances show the
+    // same cover) and Status (so Send-to-Grid / send-back-to-Prepping
+    // moves all siblings together — one Staged + two Prepping copies of
+    // the same reel is incoherent). Caption / Hashtags / Platform are
+    // intentionally NOT fanned out — admin may want different captions
+    // per account.
+    const FANOUT_FIELDS = new Set(['Thumbnail', 'Status'])
+    const shouldFanout = Object.keys(update).some(k => FANOUT_FIELDS.has(k))
+    if (shouldFanout) {
       const sourceList = await fetchAirtableRecords('Posts', {
         filterByFormula: `RECORD_ID()='${postId}'`,
         fields: ['Task', 'Asset'],
@@ -153,9 +162,18 @@ export async function PATCH(request) {
       if (taskId) {
         const siblings = await fetchAirtableRecords('Posts', {
           filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
-          fields: ['Task'],
+          fields: ['Task', 'Telegram Sent At', 'Posted At'],
         })
-        const ids = siblings.map(s => s.id).filter(Boolean)
+        // For Status fan-out, never drag an already-sent or already-live
+        // sibling backwards. Thumbnail-only fan-out is fine on any sibling.
+        const isStatusChange = 'Status' in update
+        const ids = siblings
+          .filter(s => {
+            if (!isStatusChange) return true
+            return !s.fields?.['Telegram Sent At'] && !s.fields?.['Posted At']
+          })
+          .map(s => s.id)
+          .filter(Boolean)
         if (ids.length) targetIds = Array.from(new Set([postId, ...ids]))
       }
       // Force filename: 'thumbnail.jpg' on the attachment so Airtable stores
