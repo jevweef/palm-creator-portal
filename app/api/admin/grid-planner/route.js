@@ -763,23 +763,41 @@ export async function POST(request) {
       const managed = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
       if (!managed.length) return NextResponse.json({ ok: true, distributed: 0, message: 'No managed accounts' })
 
-      // All unsent posts for this creator
+      // All recent posts for this creator. We need BOTH unsent (to know what
+      // to distribute) AND already-sent (to know which accounts are already
+      // covered for each task — without these, distribute creates a phantom
+      // duplicate Prepping Post on every account where the task was already
+      // Sent, because the Sent post got filtered out and "covered" came up
+      // empty for that account/task pair).
       const allRecent = await fetchAirtableRecords('Posts', {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
         fields: ['Post Name', 'Creator', 'Account', 'Task', 'Asset', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
       })
-      const creatorPosts = allRecent.filter(p =>
-        (p.fields?.Creator || []).includes(creatorId) &&
+      const allCreatorPosts = allRecent.filter(p =>
+        (p.fields?.Creator || []).includes(creatorId)
+      )
+      const creatorPosts = allCreatorPosts.filter(p =>
         !p.fields?.['Telegram Sent At'] &&
         !p.fields?.['Posted At']
       )
 
-      // Group by Task ID
+      // Group unsent posts by Task ID — these are what we actually distribute.
       const groups = {}
       for (const p of creatorPosts) {
         const taskId = (p.fields?.Task || [])[0] || `orphan-${p.id}`
         if (!groups[taskId]) groups[taskId] = { taskId, posts: [] }
         groups[taskId].posts.push(p)
+      }
+
+      // Build a separate map of full-coverage Posts (sent + unsent) per task,
+      // used below for the `covered` check. Sent siblings count as coverage
+      // even though they're not in `groups`.
+      const fullCoverageByTask = {}
+      for (const p of allCreatorPosts) {
+        const taskId = (p.fields?.Task || [])[0]
+        if (!taskId) continue
+        if (!fullCoverageByTask[taskId]) fullCoverageByTask[taskId] = []
+        fullCoverageByTask[taskId].push(p)
       }
 
       // For each account, track existing slot ISOs so we can compute next-open per account.
@@ -796,9 +814,15 @@ export async function POST(request) {
       const updates = []
 
       for (const group of Object.values(groups)) {
-        // Accounts already covered by this group
+        // Accounts already covered by this group — INCLUDING already-sent
+        // siblings. Pull from fullCoverageByTask, not just group.posts
+        // (which is unsent-only). Without this, distribute creates phantom
+        // Prepping duplicates on accounts where the task was already Sent.
         const covered = new Set()
-        for (const p of group.posts) {
+        const fullSiblings = group.taskId.startsWith('orphan-')
+          ? group.posts
+          : (fullCoverageByTask[group.taskId] || group.posts)
+        for (const p of fullSiblings) {
           for (const accId of (p.fields?.Account || [])) covered.add(accId)
         }
         // Unassigned instances within this group (no Account set)
