@@ -37,6 +37,31 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
   // Extract creator name from account name (e.g. "Taby - Free OF" → "Taby")
   const creatorName = acctData?.creatorAka || accountName.split(' - ')[0] || ''
 
+  async function handleMarkEmpty() {
+    if (!accountName || dataType !== 'chargebacks') return
+    if (!confirm(`Mark "${accountName}" as having no new chargebacks through today?`)) return
+    setUploading(true)
+    setError(null)
+    setResult(null)
+    try {
+      const res = await fetch('/api/admin/invoicing/upload-transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creator: creatorName, accountName, dataType: 'chargebacks', markEmpty: true }),
+      })
+      const raw = await res.text()
+      let data
+      try { data = JSON.parse(raw) } catch { throw new Error(`Failed (${res.status}): ${raw.slice(0, 120)}`) }
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      setResult(data)
+      if (onUploadComplete) onUploadComplete()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   async function handleUpload() {
     if (!file || !accountName) return
     setUploading(true)
@@ -267,6 +292,24 @@ export default function UploadModal({ accountName: initialAccount, dataType: ini
           >
             {uploading ? 'Uploading...' : `Upload ${isSales ? 'Earnings' : 'Chargebacks'} for ${accountName}`}
           </button>
+
+          {/* "No new chargebacks" — only for chargeback uploads, when no file is selected */}
+          {dataType === 'chargebacks' && !file && (
+            <button
+              disabled={uploading}
+              onClick={handleMarkEmpty}
+              style={{
+                width: '100%', marginTop: '8px', padding: '10px', borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.08)', background: 'transparent',
+                color: uploading ? '#666' : 'var(--foreground-muted)',
+                fontSize: '13px', fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s',
+              }}
+              title="Mark this account as having no new chargebacks through today — updates coverage timestamp without uploading a file"
+            >
+              No new chargebacks — mark current
+            </button>
+          )}
 
           {/* Error */}
           {error && (

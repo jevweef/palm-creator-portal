@@ -480,20 +480,32 @@ export async function POST(request) {
     const fileLastModified = formData.get('fileLastModified')
     fileTimestamp = fileLastModified ? Number(fileLastModified) : (file.lastModified || null)
   } else {
-    // JSON body — raw text paste (legacy fallback)
-    const { rawData, creator: c, dataType } = await request.json()
+    // JSON body — raw text paste (legacy fallback) OR markEmpty signal
+    const body = await request.json()
+    const { rawData, creator: c, dataType, accountName: an, markEmpty } = body
     creator = c
-    if (!rawData || !creator) return Response.json({ error: 'Missing rawData or creator' }, { status: 400 })
+    accountName = an || c
 
-    const lines = rawData.split('\n').map(l => l.trim()).filter(Boolean)
-    if (lines.length === 0) return Response.json({ error: 'No data to parse' }, { status: 400 })
+    // markEmpty: user confirmed there are no new chargebacks (or sales) for this period.
+    // Skip parsing entirely — fall through to the "no transactions" path below which
+    // updates the Airtable coverage timestamp to "now" without writing any rows.
+    if (markEmpty) {
+      if (!creator) return Response.json({ error: 'Missing creator' }, { status: 400 })
+      txns = []
+      sheetType = dataType === 'chargebacks' ? 'Chargebacks' : 'Sales'
+      fileTimestamp = Date.now()
+    } else {
+      if (!rawData || !creator) return Response.json({ error: 'Missing rawData or creator' }, { status: 400 })
+      const lines = rawData.split('\n').map(l => l.trim()).filter(Boolean)
+      if (lines.length === 0) return Response.json({ error: 'No data to parse' }, { status: 400 })
 
-    const fmt = dataType === 'chargebacks' ? 'chargebacks'
-      : dataType === 'sales' ? 'sales'
-      : detectFormat(lines)
+      const fmt = dataType === 'chargebacks' ? 'chargebacks'
+        : dataType === 'sales' ? 'sales'
+        : detectFormat(lines)
 
-    txns = fmt === 'chargebacks' ? parseChargebacks(lines) : parseSales(lines)
-    sheetType = fmt === 'chargebacks' ? 'Chargebacks' : 'Sales'
+      txns = fmt === 'chargebacks' ? parseChargebacks(lines) : parseSales(lines)
+      sheetType = fmt === 'chargebacks' ? 'Chargebacks' : 'Sales'
+    }
   }
 
   if (!txns || txns.length === 0) {
