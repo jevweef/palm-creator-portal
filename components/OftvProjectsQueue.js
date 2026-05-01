@@ -21,6 +21,26 @@ function fmtSize(bytes) {
   return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
 
+/**
+ * Dropbox file requests prepend the uploader's name to filenames
+ * (e.g. "Ann Adrias - [V2] - GracieCoasterMaking - oftv.mp4"). Strip
+ * that prefix for display when it matches the project's assigned editor —
+ * matching against the editor name keeps this deterministic so we don't
+ * accidentally chop a legitimate filename that happens to contain " - ".
+ *
+ * Optional last-name match handles the common case where Airtable's
+ * Assigned Editor is just a first name ("Ann") but Dropbox prepends the
+ * full uploader name ("Ann Adrias - ...").
+ */
+function cleanFinalFilename(name, editorName) {
+  if (!name || !editorName) return name
+  const first = String(editorName).trim().split(/\s+/)[0]
+  if (!first) return name
+  const escaped = first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`^${escaped}(?:\\s+[A-Za-z'-]+)?\\s+-\\s+`, 'i')
+  return name.replace(re, '')
+}
+
 function fmtDate(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -107,7 +127,7 @@ function RevisionBanner({ project, creatorName, latestFile, latestSrc }) {
             )}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
-            🎞️ {latestFile.name}{latestFile.size ? ` · ${fmtSize(latestFile.size)}` : ''}
+            🎞️ {cleanFinalFilename(latestFile.name, project.assignedEditor)}{latestFile.size ? ` · ${fmtSize(latestFile.size)}` : ''}
           </div>
         </div>
       )}
@@ -689,7 +709,7 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
                         <span style={{ fontSize: '13px' }}>🎞️</span>
-                        <span style={{ fontSize: '12px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                        <span title={f.name} style={{ fontSize: '12px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanFinalFilename(f.name, project.assignedEditor)}</span>
                       </div>
                       <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
                         <span>{fmtSize(f.size)}</span>
