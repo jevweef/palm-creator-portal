@@ -518,6 +518,12 @@ export default function InvoicingPage() {
   const [generatePreview, setGeneratePreview] = useState(null) // dryRun result
   const [generateResult, setGenerateResult] = useState(null) // real-run result
   const [generateError, setGenerateError] = useState(null)
+  // Populate-from-earnings flow (auto-fill Earnings (TR) for current period from Sheets)
+  const [populateOpen, setPopulateOpen] = useState(false)
+  const [populateLoading, setPopulateLoading] = useState(false)
+  const [populatePreview, setPopulatePreview] = useState(null)
+  const [populateResult, setPopulateResult] = useState(null)
+  const [populateError, setPopulateError] = useState(null)
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'invoices')
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
@@ -643,6 +649,49 @@ export default function InvoicingPage() {
     } catch (e) { setGenerateError(e.message) }
     finally { setGenerateLoading(false) }
   }, [generatePreview, load])
+
+  // Populate-from-earnings: read selected period's invoices, fill Earnings (TR) from Google Sheets
+  const openPopulate = useCallback(async () => {
+    setPopulateOpen(true)
+    setPopulateLoading(true)
+    setPopulateError(null)
+    setPopulatePreview(null)
+    setPopulateResult(null)
+    try {
+      const [start, end] = (selectedPeriod || '|').split('|')
+      if (!start || !end) throw new Error('No period selected')
+      const res = await fetch('/api/admin/invoicing/refresh-period', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ periodStart: start, periodEnd: end, dryRun: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Preview failed')
+      setPopulatePreview(data)
+    } catch (e) { setPopulateError(e.message) }
+    finally { setPopulateLoading(false) }
+  }, [selectedPeriod])
+
+  const confirmPopulate = useCallback(async () => {
+    if (!populatePreview) return
+    setPopulateLoading(true)
+    setPopulateError(null)
+    try {
+      const res = await fetch('/api/admin/invoicing/refresh-period', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodStart: populatePreview.periodStart,
+          periodEnd: populatePreview.periodEnd,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Populate failed')
+      setPopulateResult(data)
+      load()
+    } catch (e) { setPopulateError(e.message) }
+    finally { setPopulateLoading(false) }
+  }, [populatePreview, load])
 
   // Bulk status update — mark all records for a creator as Sent/Paid
   const handleBulkStatus = useCallback(async (recordIds, status) => {
@@ -785,8 +834,15 @@ export default function InvoicingPage() {
               </button>
             )
           })}
+          <button onClick={openPopulate} disabled={!selectedPeriod} style={{
+            marginLeft: 'auto', background: 'rgba(125, 211, 164, 0.08)', border: '1px solid #7DD3A4',
+            borderRadius: '6px', color: '#15803d', padding: '6px 14px', fontSize: '12px', fontWeight: 600,
+            cursor: selectedPeriod ? 'pointer' : 'not-allowed', opacity: selectedPeriod ? 1 : 0.5,
+          }} title="Read earnings from Google Sheets and auto-fill Earnings (TR) for every invoice in the selected period that doesn't have a PDF yet">
+            ↻ Populate from earnings
+          </button>
           <button onClick={openGenerate} style={{
-            marginLeft: 'auto', background: 'rgba(232, 160, 160, 0.06)', border: '1px solid #E88FAC',
+            background: 'rgba(232, 160, 160, 0.06)', border: '1px solid #E88FAC',
             borderRadius: '6px', color: 'var(--palm-pink)', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
           }} title="Create placeholder invoices for the most recent pay period">
             + Generate invoices
@@ -979,6 +1035,105 @@ export default function InvoicingPage() {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
                   <button onClick={() => setGenerateOpen(false)} style={{
                     background: 'var(--palm-pink)', border: 'none', color: '#1a1a1a',
+                    padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                  }}>Done</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Populate-from-earnings modal */}
+      {populateOpen && (
+        <div onClick={() => !populateLoading && setPopulateOpen(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '12px',
+            padding: '24px', width: 'min(640px, 92vw)', maxHeight: '85vh', overflow: 'auto',
+            color: 'var(--foreground)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>
+                {populateResult ? 'Done' : 'Populate from earnings'}
+              </h2>
+              <button onClick={() => setPopulateOpen(false)} disabled={populateLoading} style={{
+                background: 'none', border: 'none', color: '#999', fontSize: '20px', cursor: 'pointer',
+              }}>×</button>
+            </div>
+
+            {populateError && (
+              <div style={{ padding: '10px 14px', background: '#2d1515', border: '1px solid #5c2020',
+                borderRadius: '8px', fontSize: '13px', color: '#f87171', marginBottom: '14px' }}>
+                {populateError}
+              </div>
+            )}
+
+            {populateLoading && !populatePreview && !populateResult && (
+              <div style={{ color: '#9ca3af', fontSize: '13px' }}>Reading earnings from Google Sheets…</div>
+            )}
+
+            {populatePreview && !populateResult && (
+              <>
+                <div style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '14px' }}>
+                  Pay period <strong style={{ color: 'var(--foreground)' }}>
+                    {populatePreview.periodStart} → {populatePreview.periodEnd}
+                  </strong>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                  <KPI label="Total invoices" value={populatePreview.total} />
+                  <KPI label="Will populate" value={populatePreview.eligible} accent="#7DD3A4" />
+                  <KPI label="Locked (has PDF)" value={populatePreview.skippedPdf} accent="#9ca3af" />
+                </div>
+                <DetailList title="Will populate (net revenue from Sheets)" items={
+                  (populatePreview.results || []).map(r => {
+                    if (r.error) return `${r.aka || r.id} — ❌ ${r.error}`
+                    if (r.warning) return `${r.aka || r.accountName} — ⚠ ${r.warning}`
+                    const fmt = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    const parts = [
+                      `${r.accountName}: ${fmt(r.earningsNet)}`,
+                      r.txnCount ? `(${r.txnCount} txns)` : '(no data)',
+                    ]
+                    if (r.chargebackNet < 0) parts.push(`incl. ${fmt(r.chargebackNet)} chargebacks`)
+                    if (r.missingTab) parts.push('⚠ tab missing')
+                    if (r.effectiveStartDate !== r.periodStart) parts.push(`from ${r.effectiveStartDate}`)
+                    return parts.join('  ')
+                  })
+                } />
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button onClick={() => setPopulateOpen(false)} disabled={populateLoading} style={{
+                    background: 'transparent', border: '1px solid #333', color: '#aaa',
+                    padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer',
+                  }}>Cancel</button>
+                  <button onClick={confirmPopulate} disabled={populateLoading || populatePreview.eligible === 0} style={{
+                    background: '#7DD3A4', border: 'none', color: '#1a1a1a',
+                    padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
+                    cursor: populateLoading ? 'wait' : 'pointer',
+                    opacity: populatePreview.eligible === 0 ? 0.5 : 1,
+                  }}>
+                    {populateLoading ? 'Populating…' : `Populate ${populatePreview.eligible} invoice${populatePreview.eligible === 1 ? '' : 's'}`}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {populateResult && (
+              <>
+                <div style={{ padding: '14px', background: '#0f2618', border: '1px solid #1f4d2f',
+                  borderRadius: '8px', fontSize: '13px', color: '#7DD3A4', marginBottom: '14px' }}>
+                  Populated {populateResult.populated} invoice{populateResult.populated === 1 ? '' : 's'} for {populateResult.periodStart} → {populateResult.periodEnd}.
+                  {populateResult.errors > 0 ? `  ${populateResult.errors} error${populateResult.errors === 1 ? '' : 's'}.` : ''}
+                </div>
+                {populateResult.errors > 0 && (
+                  <DetailList title="Errors" items={
+                    (populateResult.results || []).filter(r => r.error).map(r => `${r.aka || r.accountName || r.id} — ${r.error}`)
+                  } muted />
+                )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button onClick={() => setPopulateOpen(false)} style={{
+                    background: '#7DD3A4', border: 'none', color: '#1a1a1a',
                     padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                   }}>Done</button>
                 </div>
