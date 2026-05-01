@@ -124,6 +124,17 @@ export async function POST(request, { params }) {
         editorLink,
       ].filter(Boolean).join('\n')
       break
+    case 'revised_cut_to_creator':
+      text = [
+        `🔁 Long-Form: Revised Cut Sent to Creator${revLabel}`,
+        ``,
+        `Creator: ${aka}`,
+        `Project: ${projectName}`,
+        assignedEditor ? `Editor: ${assignedEditor}` : null,
+        ``,
+        `Editor addressed ${aka}'s feedback. Sent directly back to her — no admin gate.`,
+      ].filter(Boolean).join('\n')
+      break
     default:
       return NextResponse.json({ error: `Unsupported event: ${event}` }, { status: 400 })
   }
