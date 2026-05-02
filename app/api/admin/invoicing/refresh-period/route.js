@@ -131,7 +131,8 @@ async function getEarningsForPeriod(sheets, accountName, periodStartDt, periodEn
 // ── Airtable helpers ────────────────────────────────────────────────────────
 
 async function fetchInvoicesForPeriod(periodStart, periodEnd) {
-  const formula = `AND({Period Start}="${periodStart}", {Period End}="${periodEnd}")`
+  // Period Start/End are date fields — use DATETIME_FORMAT to compare against a string date
+  const formula = `AND(DATETIME_FORMAT({Period Start},'YYYY-MM-DD')='${periodStart}',DATETIME_FORMAT({Period End},'YYYY-MM-DD')='${periodEnd}')`
   const params = new URLSearchParams()
   params.set('filterByFormula', formula)
   params.set('returnFieldsByFieldId', 'true')
