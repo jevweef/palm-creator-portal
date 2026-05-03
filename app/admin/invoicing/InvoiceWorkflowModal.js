@@ -327,6 +327,16 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                         boxShadow: '0 4px 24px rgba(0,0,0,0.12)', borderRadius: '4px',
                       }}
                     />
+                  ) : rec?.pdfUrl ? (
+                    <iframe
+                      src={rec.pdfUrl}
+                      title="Invoice PDF"
+                      style={{
+                        width: '100%', height: '100%', border: 'none',
+                        borderRadius: '4px', background: '#fff',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+                      }}
+                    />
                   ) : (
                     <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center' }}>
                       Preview still processing — open the PDF to view it.
