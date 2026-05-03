@@ -15,6 +15,17 @@ const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 // Protects historic invoices from accidental rewrites.
 const AUTOMATION_START = '2026-04-15'
 
+// Default ManageHer chat team fee, expressed as % of net revenue.
+// Stored on each invoice as `Chat Team Fee % (Snapshot)` so future rate
+// changes (e.g. dropping to 17.5% for select creators) don't retroactively
+// affect already-finalized invoices. The snapshot is stored as % of
+// commission (not % of revenue) because that's what the Airtable
+// `Chat Team Cost` formula multiplies against:
+//   chatTeamCost = Earnings × Commission% × Chat Team Fee%
+// To target 20% of revenue at e.g. 40% commission:
+//   Chat Team Fee% = 0.20 / 0.40 = 0.50
+const DEFAULT_CHAT_FEE_OF_REVENUE = 0.20
+
 // ── Field IDs ───────────────────────────────────────────────────────────────
 
 const INV_FIELDS = {
@@ -342,9 +353,18 @@ export async function POST(request) {
       patchFields[INV_FIELDS.earningsTR] = Number(finalNet.toFixed(2))
 
       // Snapshot commission % if creator has one and not already set
-      const existingSnap = f[INV_FIELDS.commissionSnap]
-      if (commissionPct != null && (existingSnap == null || existingSnap === 0)) {
+      const existingCommSnap = f[INV_FIELDS.commissionSnap]
+      const effectiveCommissionPct = (existingCommSnap != null && existingCommSnap > 0) ? existingCommSnap : commissionPct
+      if (commissionPct != null && (existingCommSnap == null || existingCommSnap === 0)) {
         patchFields[INV_FIELDS.commissionSnap] = commissionPct
+      }
+
+      // Snapshot chat team fee % if not already set. Stored as % of commission.
+      // Default = 20% of revenue → snap = 0.20 / commissionPct.
+      const existingChatSnap = f[INV_FIELDS.chatFeeSnap]
+      if (effectiveCommissionPct && effectiveCommissionPct > 0
+          && (existingChatSnap == null || existingChatSnap === 0)) {
+        patchFields[INV_FIELDS.chatFeeSnap] = DEFAULT_CHAT_FEE_OF_REVENUE / effectiveCommissionPct
       }
 
       if (dryRun) {
@@ -359,7 +379,9 @@ export async function POST(request) {
           txnCount: earnings.txnCount,
           missingTab: earnings.missingTab,
           commissionPct,
-          wouldSetSnapshot: patchFields[INV_FIELDS.commissionSnap] != null,
+          wouldSetCommissionSnapshot: patchFields[INV_FIELDS.commissionSnap] != null,
+          wouldSetChatFeeSnapshot: patchFields[INV_FIELDS.chatFeeSnap] != null,
+          chatFeeSnap: patchFields[INV_FIELDS.chatFeeSnap] || null,
         })
         continue
       }
