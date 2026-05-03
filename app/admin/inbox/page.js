@@ -471,17 +471,45 @@ function ChatsTab({ toast }) {
       </div>
 
       <div style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Add to a group</div>
-            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-              Tap on your phone — Telegram opens a "select group" picker.
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Add to a group</div>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+            Telegram's deep link only opens the "select group" picker on mobile.
+            On desktop it just opens the bot chat — known Telegram quirk.
+            Use the QR or the manual steps below.
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&bgcolor=ffffff&color=060606&data=${encodeURIComponent(BOT_DEEP_LINK)}`}
+              alt="Add Palm Management bot to a group"
+              width={180}
+              height={180}
+              style={{ borderRadius: '8px', background: '#fff' }}
+            />
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', textAlign: 'center' }}>
+              Scan with your phone's camera
             </div>
           </div>
-          <a href={BOT_DEEP_LINK} target="_blank" rel="noreferrer" style={{
-            padding: '8px 16px', borderRadius: '8px', background: 'var(--palm-pink)', color: '#060606',
-            fontSize: '12px', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap',
-          }}>+ Add Bot to Group</a>
+          <div style={{ flex: 1, minWidth: '220px', fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.7 }}>
+            <div style={{ fontWeight: 600, color: 'var(--foreground)', marginBottom: '6px' }}>
+              Or add manually (works anywhere):
+            </div>
+            <ol style={{ paddingLeft: '18px', margin: 0 }}>
+              <li>Open the group in Telegram</li>
+              <li>Tap the group name at top → <b>Add Members</b></li>
+              <li>Search <code style={{ color: 'var(--foreground)' }}>palmmanage</code></li>
+              <li>Tap <b>Palm Management</b> → toggle <b>Admin Rights OFF</b> → Add</li>
+            </ol>
+            <a href={BOT_DEEP_LINK} target="_blank" rel="noreferrer" style={{
+              display: 'inline-block', marginTop: '12px',
+              padding: '6px 12px', borderRadius: '6px',
+              background: 'rgba(232, 160, 160, 0.10)', color: 'var(--palm-pink)',
+              fontSize: '11px', fontWeight: 600, textDecoration: 'none',
+              border: '1px solid rgba(232, 160, 160, 0.25)',
+            }}>Try deep link anyway →</a>
+          </div>
         </div>
       </div>
 
