@@ -4878,6 +4878,123 @@ function ProfileSection({ label, text, mono }) {
   )
 }
 
+function OffboardModal({ creator, onClose, onDone }) {
+  const [preview, setPreview] = useState(null)
+  const [loadingPreview, setLoadingPreview] = useState(true)
+  const [confirmText, setConfirmText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!creator?.hqId) { setLoadingPreview(false); return }
+    fetch(`/api/admin/creator/offboard?hqId=${creator.hqId}`)
+      .then(r => r.json())
+      .then(data => { setPreview(data); setLoadingPreview(false) })
+      .catch(e => { setError(e.message); setLoadingPreview(false) })
+  }, [creator?.hqId])
+
+  const aka = preview?.creator?.aka || creator?.aka || ''
+  const akaMatches = confirmText.trim().toLowerCase() === aka.trim().toLowerCase() && aka.length > 0
+  const accounts = preview?.revenueAccounts || []
+  const willDeactivate = accounts.filter(a => a.status !== 'Inactive')
+
+  const handleConfirm = async () => {
+    if (!akaMatches || submitting) return
+    setSubmitting(true); setError('')
+    try {
+      const res = await fetch('/api/admin/creator/offboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId: creator.hqId, confirmAka: confirmText }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Offboard failed')
+      onDone(data)
+    } catch (e) {
+      setError(e.message); setSubmitting(false)
+    }
+  }
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose() }} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+    }}>
+      <div style={{
+        background: 'var(--card-bg-solid)', borderRadius: '14px', maxWidth: '520px', width: '100%',
+        padding: '24px 26px', boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
+        border: '1px solid rgba(255,255,255,0.08)', color: 'var(--foreground)',
+      }}>
+        <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '4px' }}>
+          Offboard {creator?.name || creator?.aka}
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '18px' }}>
+          This action sets the creator to Offboarded and deactivates their revenue accounts. You can reverse it manually in Airtable if needed.
+        </div>
+
+        <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Will happen automatically:</div>
+        <ul style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', margin: '0 0 14px 0', paddingLeft: '18px', lineHeight: '1.6' }}>
+          <li>HQ Creators: <code>Status → Offboarded</code>, <code>Offboarded Date → today</code></li>
+          <li>
+            Revenue Accounts → Inactive ({loadingPreview ? '…' : willDeactivate.length}):
+            {!loadingPreview && willDeactivate.length > 0 && (
+              <span style={{ color: 'var(--foreground-muted)' }}> {willDeactivate.map(a => a.name).join(', ')}</span>
+            )}
+            {!loadingPreview && willDeactivate.length === 0 && accounts.length > 0 && (
+              <span style={{ color: 'var(--foreground-muted)' }}> (all already inactive)</span>
+            )}
+            {!loadingPreview && accounts.length === 0 && (
+              <span style={{ color: 'var(--foreground-muted)' }}> (none linked)</span>
+            )}
+          </li>
+        </ul>
+
+        <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#E8A07A' }}>Still manual — handle separately:</div>
+        <ul style={{ fontSize: '12px', color: 'var(--foreground-muted)', margin: '0 0 18px 0', paddingLeft: '18px', lineHeight: '1.55' }}>
+          <li>Editor tasks / scheduled posts / Telegram thread</li>
+          <li>Apify inspo source accounts (stop scraping)</li>
+          <li>Make.com automations on their Dropbox folders</li>
+          <li>Final invoice for the partial period</li>
+          <li>Clerk: deactivate their portal login</li>
+          <li>Dropbox content: archive in place (do not delete)</li>
+        </ul>
+
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>
+          Type <strong style={{ color: 'var(--foreground)' }}>{aka || '(missing AKA)'}</strong> to confirm:
+        </div>
+        <input
+          value={confirmText}
+          onChange={e => setConfirmText(e.target.value)}
+          autoFocus
+          disabled={submitting}
+          style={{
+            width: '100%', padding: '8px 10px', borderRadius: '6px',
+            background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.12)',
+            color: 'var(--foreground)', fontSize: '13px', outline: 'none', marginBottom: '14px',
+          }}
+        />
+
+        {error && (
+          <div style={{ fontSize: '12px', color: '#E87878', marginBottom: '12px' }}>{error}</div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button onClick={onClose} disabled={submitting} style={{
+            padding: '8px 14px', fontSize: '13px', fontWeight: 500, borderRadius: '6px',
+            border: '1px solid rgba(255,255,255,0.12)', background: 'transparent',
+            color: 'var(--foreground)', cursor: submitting ? 'default' : 'pointer',
+          }}>Cancel</button>
+          <button onClick={handleConfirm} disabled={!akaMatches || submitting} style={{
+            padding: '8px 14px', fontSize: '13px', fontWeight: 600, borderRadius: '6px', border: 'none',
+            background: akaMatches && !submitting ? '#C25450' : 'rgba(194, 84, 80, 0.35)',
+            color: '#fff', cursor: akaMatches && !submitting ? 'pointer' : 'default',
+          }}>{submitting ? 'Offboarding…' : 'Offboard creator'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CreatorsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -4886,6 +5003,8 @@ export default function CreatorsPage() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
   const [activeSection, setActiveSection] = useState(searchParams.get('tab') || 'earnings')
+  const [showOffboard, setShowOffboard] = useState(false)
+  const [offboardResult, setOffboardResult] = useState(null)
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveSection(t) }, [searchParams])
 
   // Helper to update URL params without scroll
@@ -4980,7 +5099,54 @@ export default function CreatorsPage() {
           </div>
         )}
         {loading && <span style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>Loading...</span>}
+        {selected && selected.hqId && (
+          <button
+            onClick={() => { setOffboardResult(null); setShowOffboard(true) }}
+            title="Offboard this creator"
+            style={{
+              marginLeft: 'auto', padding: '6px 12px', fontSize: '12px',
+              background: 'transparent', color: 'var(--foreground-muted)',
+              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', cursor: 'pointer',
+            }}
+          >
+            Offboard…
+          </button>
+        )}
       </div>
+
+      {showOffboard && selected && (
+        <OffboardModal
+          creator={selected}
+          onClose={() => setShowOffboard(false)}
+          onDone={(data) => {
+            setShowOffboard(false)
+            setOffboardResult(data)
+            // Refresh creator list — the offboarded creator drops out (filter is Active/Onboarding)
+            fetch('/api/admin/palm-creators').then(r => r.json()).then(d => {
+              const list = d.creators || []
+              setCreators(list)
+              setSelected(list[0] || null)
+            }).catch(() => {})
+          }}
+        />
+      )}
+
+      {offboardResult && (
+        <div style={{
+          background: 'rgba(110, 180, 130, 0.12)', border: '1px solid rgba(110, 180, 130, 0.35)',
+          borderRadius: '8px', padding: '12px 16px', marginBottom: '14px', fontSize: '13px',
+          color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+        }}>
+          <span>
+            Offboarded <strong>{offboardResult.creator?.aka || offboardResult.creator?.name}</strong>
+            {offboardResult.revenueAccountsDeactivated?.length > 0 && (
+              <> — deactivated {offboardResult.revenueAccountsDeactivated.length} revenue account{offboardResult.revenueAccountsDeactivated.length === 1 ? '' : 's'}</>
+            )}
+            . Don't forget the manual cleanup checklist.
+          </span>
+          <button onClick={() => setOffboardResult(null)} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: '16px', cursor: 'pointer' }}>×</button>
+        </div>
+      )}
 
       {/* Detail panel */}
       {!selected ? (
