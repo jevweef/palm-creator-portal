@@ -15,17 +15,15 @@ export async function GET() {
 
   try {
     const records = await fetchHqRecords(HQ_CREATORS, {
+      // Only Active + Onboarding creators are relevant for current chat mapping.
+      // Leads aren't real creators yet; Offboarded ones don't generate new tasks.
+      filterByFormula: `OR({Status} = 'Active', {Status} = 'Onboarding')`,
       fields: ['Creator', 'AKA', 'Status'],
       sort: [{ field: 'AKA', direction: 'asc' }],
     })
 
     const creators = records
-      .filter(r => {
-        const status = r.fields?.Status
-        // Skip churned/paused if you want — for now include everyone so admin
-        // can map historical chats to inactive creators too.
-        return r.fields?.AKA || r.fields?.Creator
-      })
+      .filter(r => r.fields?.AKA || r.fields?.Creator)
       .map(r => ({
         id: r.id,
         aka: r.fields?.AKA || r.fields?.Creator || '',
