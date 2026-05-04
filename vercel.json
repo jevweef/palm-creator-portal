@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/compress-pending-assets",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/purge-inbox-messages",
+      "schedule": "30 4 * * *"
     }
   ]
 }

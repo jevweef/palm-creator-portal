@@ -107,24 +107,14 @@ async function ingestOne(m) {
   }
 
   const status = chatRecord.fields?.Status
-  if (status === 'Ignored' || status === 'Ignored Forever') {
-    return { skipped: 'ignored' }
+  if (status === 'Ignored Forever') {
+    // Hard block — drop, don't even bump counters.
+    return { skipped: 'ignored-forever' }
   }
-
-  // PRIVACY FENCE: only store message bodies for Watching chats.
-  // Pending Review = chat exists, admin can see it, but message text is not
-  // persisted. Once admin opts in (Watch), future messages land normally.
-  // Historical Pending Review messages are permanently un-stored.
-  if (status === 'Pending Review') {
-    // Bump chat counters so admin can see activity / decide. Don't store body.
-    const currentCount = Number(chatRecord.fields?.['Message Count'] || 0)
-    await patchAirtableRecord(CHATS_TABLE, chatRecord.id, {
-      'Last Message At': sentAtIso,
-      'Message Count': currentCount + 1,
-      ...(m.chatTitle ? { Title: m.chatTitle } : {}),
-    })
-    return { skipped: 'pending-review-no-store' }
-  }
+  // Pending Review and Ignored: store messages so admin can preview the
+  // thread to make a decision. Auto-purge cron deletes them after 14 days
+  // unless the chat gets promoted to Watching.
+  // Watching: store forever. AI extractor processes them.
 
   // Dedupe.
   const existing = await findMessageRecord(composite)

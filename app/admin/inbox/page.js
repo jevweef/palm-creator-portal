@@ -5,7 +5,7 @@
 //
 // Tab convention: ?tab=tasks (default) or ?tab=chats. Sidebar reads same.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { useToast } from '@/lib/useToast'
@@ -291,12 +291,164 @@ function TasksTab({ toast }) {
   )
 }
 
-// ─── Chats tab (existing UI) ─────────────────────────────────────────
+// ─── Chats tab — iMessage-style two-pane view ────────────────────────
 
-function ChatRow({ chat, onUpdate, toast, creators }) {
+const STATUS_LABELS = {
+  'Pending Review': 'Pending',
+  'Watching': 'Watching',
+  'Ignored': 'Ignored',
+  'Ignored Forever': 'Blocked',
+}
+
+const STATUS_COLOR = {
+  'Pending Review': '#E8C878',
+  'Watching': '#7AC97A',
+  'Ignored': '#9aa0a6',
+  'Ignored Forever': '#E87878',
+}
+
+function ChatListItem({ chat, selected, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '12px',
+        padding: '12px 14px',
+        borderRadius: '10px',
+        background: selected ? 'rgba(232, 160, 160, 0.10)' : 'transparent',
+        border: `1px solid ${selected ? 'rgba(232, 160, 160, 0.25)' : 'transparent'}`,
+        cursor: 'pointer',
+        marginBottom: '2px',
+        transition: '0.12s ease',
+      }}
+      onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+      onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'transparent' }}
+    >
+      {/* Avatar circle */}
+      <div style={{
+        width: '36px', height: '36px', borderRadius: '50%',
+        background: chat.source === 'imessage' ? 'rgba(120, 200, 120, 0.15)' : 'rgba(120, 180, 232, 0.15)',
+        color: chat.source === 'imessage' ? '#7AC97A' : '#7AC9E8',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '14px', fontWeight: 700, flexShrink: 0,
+      }}>
+        {(chat.title || '?').slice(0, 1).toUpperCase()}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: '13px', fontWeight: selected ? 700 : 600,
+          color: selected ? 'var(--palm-pink)' : 'var(--foreground)',
+          marginBottom: '2px',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {chat.title}
+        </div>
+        <div style={{
+          fontSize: '10px', color: 'var(--foreground-muted)',
+          display: 'flex', gap: '6px', alignItems: 'center',
+        }}>
+          {chat.creatorAka && (
+            <span style={{
+              padding: '0 4px', borderRadius: '3px',
+              color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.10)',
+              fontWeight: 600,
+            }}>
+              {chat.creatorAka}
+            </span>
+          )}
+          <span>{chat.messageCount}</span>
+          <span>·</span>
+          <span>{timeAgo(chat.lastMessageAt)}</span>
+        </div>
+      </div>
+      <div style={{
+        width: '6px', height: '6px', borderRadius: '50%',
+        background: STATUS_COLOR[chat.status] || 'transparent',
+        flexShrink: 0,
+      }} />
+    </div>
+  )
+}
+
+function MessageBubble({ msg, prevMsg, isGroup }) {
+  const isFromMe = msg.isFromMe
+  // Show sender name above the first message in a chain from this sender,
+  // only in groups (in 1-on-1 it's always obvious who it is).
+  const showSender = isGroup && !isFromMe && (!prevMsg || prevMsg.senderUsername !== msg.senderUsername || prevMsg.isFromMe)
+  // Show timestamp if first message OR more than 30 min gap from previous
+  const showTime = !prevMsg || (
+    msg.sentAt && prevMsg.sentAt &&
+    new Date(msg.sentAt).getTime() - new Date(prevMsg.sentAt).getTime() > 30 * 60 * 1000
+  )
+
+  return (
+    <>
+      {showTime && msg.sentAt && (
+        <div style={{
+          textAlign: 'center', fontSize: '10px', color: 'var(--foreground-muted)',
+          padding: '8px 0',
+        }}>
+          {new Date(msg.sentAt).toLocaleString('en-US', {
+            weekday: 'short', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit', hour12: true,
+          })}
+        </div>
+      )}
+      {showSender && (
+        <div style={{
+          fontSize: '10px', color: 'var(--foreground-muted)',
+          marginLeft: '12px', marginTop: '4px', marginBottom: '2px',
+          fontWeight: 600,
+        }}>
+          {msg.senderName || msg.senderUsername || 'Unknown'}
+        </div>
+      )}
+      <div style={{
+        display: 'flex',
+        justifyContent: isFromMe ? 'flex-end' : 'flex-start',
+        marginBottom: '3px',
+        padding: '0 8px',
+      }}>
+        <div style={{
+          maxWidth: '70%',
+          padding: '8px 13px',
+          borderRadius: '18px',
+          background: isFromMe ? '#0B84FE' : 'rgba(255,255,255,0.08)',
+          color: isFromMe ? '#fff' : 'var(--foreground)',
+          fontSize: '14px', lineHeight: 1.35,
+          wordBreak: 'break-word', whiteSpace: 'pre-wrap',
+        }}>
+          {msg.text || (msg.hasMedia ? `[${msg.mediaType || 'media'}]` : '[empty]')}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function ChatThread({ chat, onUpdate, toast, creators }) {
+  const [messages, setMessages] = useState([])
+  const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const scrollRef = useRef(null)
 
-  async function patch(updates) {
+  useEffect(() => {
+    if (!chat) return
+    setLoading(true)
+    setMessages([])
+    fetch(`/api/admin/inbox/chats/${chat.id}/messages?limit=200`)
+      .then(r => r.json())
+      .then(j => setMessages(j.messages || []))
+      .finally(() => setLoading(false))
+  }, [chat?.id])
+
+  // Auto-scroll to bottom when messages load
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages])
+
+  async function patch(updates, successMsg) {
     setBusy(true)
     try {
       const res = await fetch(`/api/admin/inbox/chats/${chat.id}`, {
@@ -309,44 +461,50 @@ function ChatRow({ chat, onUpdate, toast, creators }) {
         toast(`Failed: ${j.error || res.statusText}`, 'error')
         return
       }
+      if (successMsg) toast(successMsg, 'success')
       onUpdate()
     } finally { setBusy(false) }
   }
 
   function setStatus(status) {
-    patch({ status }).then(() => toast(`${chat.title}: ${status.toLowerCase()}`, 'success'))
-  }
-
-  function setCreator(aka, hqId) {
-    patch({ creatorAka: aka, creatorHqId: hqId }).then(() =>
-      toast(aka ? `Mapped to ${aka}` : 'Creator cleared', 'success')
-    )
+    patch({ status }, `${chat.title}: ${status.toLowerCase()}`)
   }
 
   function onCreatorChange(e) {
     const value = e.target.value
-    if (value === '') return setCreator('', '')
+    if (value === '') return patch({ creatorAka: '', creatorHqId: '' }, 'Creator cleared')
     const [hqId, aka] = value.split('|')
-    setCreator(aka, hqId)
+    patch({ creatorAka: aka, creatorHqId: hqId }, `Mapped to ${aka}`)
   }
 
-  // Compute the dropdown value: hqId|aka, or empty
-  const dropdownValue = chat.creatorHqId && chat.creatorAka
-    ? `${chat.creatorHqId}|${chat.creatorAka}`
-    : ''
+  if (!chat) {
+    return (
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'var(--foreground-muted)', fontSize: '13px',
+      }}>
+        Select a conversation
+      </div>
+    )
+  }
+
+  const isGroup = chat.type === 'group' || chat.type === 'supergroup'
+  const dropdownValue = chat.creatorHqId && chat.creatorAka ? `${chat.creatorHqId}|${chat.creatorAka}` : ''
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '16px',
-      padding: '12px 16px', borderRadius: '10px',
-      background: 'rgba(255, 255, 255, 0.02)',
-      border: '1px solid rgba(255, 255, 255, 0.05)',
-      marginBottom: '8px',
-    }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {chat.title}
-          {chat.source && (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      {/* Header */}
+      <div style={{
+        padding: '14px 20px',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: '15px', fontWeight: 700, color: 'var(--foreground)',
+            display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+          }}>
+            {chat.title}
             <span style={{
               fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
               padding: '1px 6px', borderRadius: '3px',
@@ -355,39 +513,136 @@ function ChatRow({ chat, onUpdate, toast, creators }) {
             }}>
               {chat.source === 'imessage' ? 'iMessage' : 'Telegram'}
             </span>
-          )}
+            <span style={{
+              fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+              padding: '1px 6px', borderRadius: '3px',
+              color: STATUS_COLOR[chat.status],
+              background: 'rgba(255,255,255,0.04)',
+            }}>
+              {STATUS_LABELS[chat.status]}
+            </span>
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
+            {chat.type} · {chat.messageCount} msgs · last {timeAgo(chat.lastMessageAt)}
+          </div>
         </div>
-        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span>{chat.type}</span><span>·</span>
-          <span>{chat.messageCount} msgs</span><span>·</span>
-          <span>last {timeAgo(chat.lastMessageAt)}</span>
-          <select
-            value={dropdownValue}
-            onChange={onCreatorChange}
-            disabled={busy}
-            style={{
-              marginLeft: '8px', padding: '3px 8px', borderRadius: '6px',
-              fontSize: '11px',
-              background: chat.creatorAka ? 'rgba(232, 160, 160, 0.08)' : 'rgba(255,255,255,0.03)',
-              color: chat.creatorAka ? 'var(--palm-pink)' : 'var(--foreground-muted)',
-              border: `1px solid ${chat.creatorAka ? 'rgba(232, 160, 160, 0.25)' : 'rgba(255,255,255,0.08)'}`,
-              cursor: busy ? 'not-allowed' : 'pointer', outline: 'none',
-            }}
-          >
-            <option value="">— no creator —</option>
-            {(creators || []).map(c => (
-              <option key={c.id} value={`${c.id}|${c.aka}`}>
-                {c.aka || c.creator}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={dropdownValue}
+          onChange={onCreatorChange}
+          disabled={busy}
+          style={{
+            padding: '5px 10px', borderRadius: '6px', fontSize: '11px',
+            background: chat.creatorAka ? 'rgba(232, 160, 160, 0.08)' : 'rgba(255,255,255,0.03)',
+            color: chat.creatorAka ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+            border: `1px solid ${chat.creatorAka ? 'rgba(232, 160, 160, 0.25)' : 'rgba(255,255,255,0.08)'}`,
+            cursor: busy ? 'not-allowed' : 'pointer', outline: 'none',
+          }}
+        >
+          <option value="">— no creator —</option>
+          {(creators || []).map(c => (
+            <option key={c.id} value={`${c.id}|${c.aka}`}>
+              {c.aka || c.creator}
+            </option>
+          ))}
+        </select>
       </div>
-      <div style={{ display: 'flex', gap: '6px' }}>
-        {chat.status !== 'Watching' && <Btn variant="success" onClick={() => setStatus('Watching')} disabled={busy}>Watch</Btn>}
-        {chat.status !== 'Ignored' && chat.status !== 'Ignored Forever' && <Btn variant="warn" onClick={() => setStatus('Ignored')} disabled={busy}>Ignore</Btn>}
-        {chat.status !== 'Ignored Forever' && <Btn variant="danger" onClick={() => setStatus('Ignored Forever')} disabled={busy}>Ignore Forever</Btn>}
-        {(chat.status === 'Ignored' || chat.status === 'Ignored Forever') && <Btn onClick={() => setStatus('Watching')} disabled={busy}>Reset</Btn>}
+
+      {/* Action bar */}
+      <div style={{
+        padding: '8px 20px',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        display: 'flex', gap: '6px',
+        background: 'rgba(255,255,255,0.01)',
+      }}>
+        {chat.status !== 'Watching' && <Btn variant="success" size="sm" onClick={() => setStatus('Watching')} disabled={busy}>Watch</Btn>}
+        {chat.status !== 'Ignored' && chat.status !== 'Ignored Forever' && <Btn variant="warn" size="sm" onClick={() => setStatus('Ignored')} disabled={busy}>Ignore</Btn>}
+        {chat.status !== 'Ignored Forever' && <Btn variant="danger" size="sm" onClick={() => setStatus('Ignored Forever')} disabled={busy}>Ignore Forever</Btn>}
+        {(chat.status === 'Ignored' || chat.status === 'Ignored Forever') && <Btn size="sm" onClick={() => setStatus('Pending Review')} disabled={busy}>Reset</Btn>}
+      </div>
+
+      {/* Message thread */}
+      <div ref={scrollRef} style={{
+        flex: 1, overflowY: 'auto',
+        padding: '12px 0',
+      }}>
+        {loading ? (
+          <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', padding: '40px 0' }}>
+            Loading messages…
+          </div>
+        ) : messages.length === 0 ? (
+          <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', padding: '40px 20px' }}>
+            No messages stored for this chat yet.
+            {chat.status === 'Watching'
+              ? ' Newly arriving messages will appear here.'
+              : ' Hit Watch above to start storing them as they arrive.'}
+          </div>
+        ) : (
+          messages.map((m, i) => (
+            <MessageBubble key={m.id} msg={m} prevMsg={messages[i - 1]} isGroup={isGroup} />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ChatList({ chats, selectedId, onSelect, filter, setFilter }) {
+  const filtered = chats.filter(c => {
+    if (filter === 'all') return true
+    if (filter === 'pending') return c.status === 'Pending Review'
+    if (filter === 'watching') return c.status === 'Watching'
+    if (filter === 'ignored') return c.status === 'Ignored' || c.status === 'Ignored Forever'
+    return true
+  })
+
+  const filterPill = (key, label, count) => (
+    <button
+      onClick={() => setFilter(key)}
+      style={{
+        padding: '4px 10px', borderRadius: '6px',
+        fontSize: '11px', fontWeight: 600,
+        background: filter === key ? 'rgba(232, 160, 160, 0.12)' : 'rgba(255,255,255,0.03)',
+        color: filter === key ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+        border: `1px solid ${filter === key ? 'rgba(232, 160, 160, 0.3)' : 'rgba(255,255,255,0.06)'}`,
+        cursor: 'pointer',
+      }}
+    >{label} {count > 0 && `· ${count}`}</button>
+  )
+
+  const counts = {
+    all: chats.length,
+    pending: chats.filter(c => c.status === 'Pending Review').length,
+    watching: chats.filter(c => c.status === 'Watching').length,
+    ignored: chats.filter(c => c.status === 'Ignored' || c.status === 'Ignored Forever').length,
+  }
+
+  return (
+    <div style={{
+      width: '320px', flexShrink: 0,
+      borderRight: '1px solid rgba(255,255,255,0.06)',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ padding: '12px 12px 8px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+        {filterPill('pending', 'Pending', counts.pending)}
+        {filterPill('watching', 'Watching', counts.watching)}
+        {filterPill('all', 'All', counts.all)}
+        {filterPill('ignored', 'Ignored', counts.ignored)}
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px 12px' }}>
+        {filtered.length === 0 ? (
+          <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', padding: '40px 12px' }}>
+            No chats here.
+          </div>
+        ) : (
+          filtered.map(chat => (
+            <ChatListItem
+              key={chat.id}
+              chat={chat}
+              selected={chat.id === selectedId}
+              onClick={() => onSelect(chat)}
+            />
+          ))
+        )}
       </div>
     </div>
   )
@@ -398,6 +653,9 @@ function ChatsTab({ toast }) {
   const [chats, setChats] = useState([])
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedId, setSelectedId] = useState(null)
+  const [filter, setFilter] = useState('pending')
+  const [showSetup, setShowSetup] = useState(false)
 
   async function refresh() {
     try {
@@ -416,7 +674,7 @@ function ChatsTab({ toast }) {
 
   useEffect(() => {
     refresh()
-    const id = setInterval(refresh, 10000)
+    const id = setInterval(refresh, 15000)
     return () => clearInterval(id)
   }, [])
 
@@ -427,125 +685,121 @@ function ChatsTab({ toast }) {
       body: JSON.stringify({ url: window.location.origin }),
     })
     const j = await res.json().catch(() => ({}))
-    if (res.ok) {
-      toast('Webhook re-registered', 'success')
-    } else {
-      toast(`Failed: ${j.error || res.statusText}`, 'error')
-    }
+    if (res.ok) toast('Webhook re-registered', 'success')
+    else toast(`Failed: ${j.error || res.statusText}`, 'error')
     refresh()
   }
 
   if (loading) return <div style={{ color: 'var(--foreground-muted)' }}>Loading chats…</div>
 
-  const watching = chats.filter(c => c.status === 'Watching')
-  const ignored = chats.filter(c => c.status === 'Ignored' || c.status === 'Ignored Forever')
-  const pending = chats.filter(c => c.status === 'Pending Review')
+  const selectedChat = chats.find(c => c.id === selectedId) || null
 
   return (
     <div>
-      <div style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Setup</div>
-            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-              Bot: <code style={{ color: 'var(--foreground)' }}>@palmmanage_bot</code>
+      {/* Collapsible setup section */}
+      <div style={{ marginBottom: '12px' }}>
+        <button
+          onClick={() => setShowSetup(s => !s)}
+          style={{
+            background: 'transparent', border: 'none', color: 'var(--foreground-muted)',
+            fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em',
+            textTransform: 'uppercase', cursor: 'pointer', padding: '4px 0',
+            display: 'flex', alignItems: 'center', gap: '6px',
+          }}
+        >
+          <span style={{ display: 'inline-block', transition: '0.15s', transform: showSetup ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+          Setup &amp; Add Bot
+          <span style={{ display: 'inline-flex', gap: '4px', marginLeft: '8px' }}>
+            <StatusDot ok={status?.env?.tokenSet} />
+            <StatusDot ok={status?.env?.secretSet} />
+            <StatusDot ok={!!status?.telegram?.webhookInfo?.url} />
+          </span>
+        </button>
+        {showSetup && (
+          <div style={{ marginTop: '8px' }}>
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Setup</div>
+                  <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                    Bot: <code style={{ color: 'var(--foreground)' }}>@palmmanage_bot</code>
+                  </div>
+                </div>
+                <Btn variant="primary" size="sm" onClick={registerWebhook}>Re-register Webhook</Btn>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <StatusPill ok={status?.env?.tokenSet} label={status?.env?.tokenSet ? 'Bot Token Set' : 'Bot Token Missing'} />
+                <StatusPill ok={status?.env?.secretSet} label={status?.env?.secretSet ? 'Secret Set' : 'Secret Missing'} />
+                <StatusPill ok={!!status?.telegram?.webhookInfo?.url} label={status?.telegram?.webhookInfo?.url ? 'Webhook Registered' : 'Webhook Not Registered'} />
+              </div>
+            </div>
+            <div style={card}>
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Add bot to a Telegram group</div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                  Scan QR with phone, OR add manually (works anywhere).
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&bgcolor=ffffff&color=060606&data=${encodeURIComponent(BOT_DEEP_LINK)}`}
+                    alt="Add bot"
+                    width={160}
+                    height={160}
+                    style={{ borderRadius: '8px', background: '#fff' }}
+                  />
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Scan with phone</div>
+                </div>
+                <div style={{ flex: 1, minWidth: '220px', fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.7 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--foreground)', marginBottom: '6px' }}>Manual:</div>
+                  <ol style={{ paddingLeft: '18px', margin: 0 }}>
+                    <li>Open group → tap name → <b>Add Members</b></li>
+                    <li>Search <code style={{ color: 'var(--foreground)' }}>palmmanage</code></li>
+                    <li>Toggle <b>Admin Rights OFF</b> → Add</li>
+                  </ol>
+                </div>
+              </div>
             </div>
           </div>
-          <Btn variant="primary" onClick={registerWebhook}>Re-register Webhook</Btn>
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <StatusPill ok={status?.env?.tokenSet} label={status?.env?.tokenSet ? 'Bot Token Set' : 'Bot Token Missing'} />
-          <StatusPill ok={status?.env?.secretSet} label={status?.env?.secretSet ? 'Secret Set' : 'Secret Missing'} />
-          <StatusPill ok={!!status?.telegram?.webhookInfo?.url} label={status?.telegram?.webhookInfo?.url ? 'Webhook Registered' : 'Webhook Not Registered'} />
-        </div>
-        {status?.telegram?.webhookInfo?.url && (
-          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '12px', wordBreak: 'break-all' }}>
-            Pointed at: <code>{status.telegram.webhookInfo.url}</code>
-          </div>
-        )}
-        {status?.telegram?.webhookInfo?.last_error_message && (
-          <div style={{ fontSize: '12px', color: '#E87878', marginTop: '8px' }}>
-            ⚠️ Last Telegram error: {status.telegram.webhookInfo.last_error_message}
-          </div>
-        )}
-      </div>
-
-      <div style={card}>
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Add to a group</div>
-          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-            Telegram's deep link only opens the "select group" picker on mobile.
-            On desktop it just opens the bot chat — known Telegram quirk.
-            Use the QR or the manual steps below.
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&bgcolor=ffffff&color=060606&data=${encodeURIComponent(BOT_DEEP_LINK)}`}
-              alt="Add Palm Management bot to a group"
-              width={180}
-              height={180}
-              style={{ borderRadius: '8px', background: '#fff' }}
-            />
-            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', textAlign: 'center' }}>
-              Scan with your phone's camera
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: '220px', fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.7 }}>
-            <div style={{ fontWeight: 600, color: 'var(--foreground)', marginBottom: '6px' }}>
-              Or add manually (works anywhere):
-            </div>
-            <ol style={{ paddingLeft: '18px', margin: 0 }}>
-              <li>Open the group in Telegram</li>
-              <li>Tap the group name at top → <b>Add Members</b></li>
-              <li>Search <code style={{ color: 'var(--foreground)' }}>palmmanage</code></li>
-              <li>Tap <b>Palm Management</b> → toggle <b>Admin Rights OFF</b> → Add</li>
-            </ol>
-            <a href={BOT_DEEP_LINK} target="_blank" rel="noreferrer" style={{
-              display: 'inline-block', marginTop: '12px',
-              padding: '6px 12px', borderRadius: '6px',
-              background: 'rgba(232, 160, 160, 0.10)', color: 'var(--palm-pink)',
-              fontSize: '11px', fontWeight: 600, textDecoration: 'none',
-              border: '1px solid rgba(232, 160, 160, 0.25)',
-            }}>Try deep link anyway →</a>
-          </div>
-        </div>
-      </div>
-
-      {pending.length > 0 && (
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Pending Review ({pending.length})
-          </div>
-          {pending.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} creators={creators} />)}
-        </div>
-      )}
-
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Watching ({watching.length})
-        </div>
-        {watching.length === 0 ? (
-          <div style={{ ...card, color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center', padding: '24px' }}>
-            Nothing being tracked yet. Add the bot to a group above.
-          </div>
-        ) : (
-          watching.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} creators={creators} />)
         )}
       </div>
 
-      {ignored.length > 0 && (
-        <details style={{ marginBottom: '24px' }}>
-          <summary style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-            Ignored ({ignored.length})
-          </summary>
-          <div style={{ marginTop: '10px' }}>
-            {ignored.map(chat => <ChatRow key={chat.id} chat={chat} onUpdate={refresh} toast={toast} creators={creators} />)}
-          </div>
-        </details>
-      )}
+      {/* iMessage-style two-pane view */}
+      <div style={{
+        display: 'flex',
+        height: '70vh',
+        minHeight: '500px',
+        background: 'rgba(255, 255, 255, 0.015)',
+        border: '1px solid rgba(255, 255, 255, 0.06)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+      }}>
+        <ChatList
+          chats={chats}
+          selectedId={selectedId}
+          onSelect={(c) => setSelectedId(c.id)}
+          filter={filter}
+          setFilter={setFilter}
+        />
+        <ChatThread
+          chat={selectedChat}
+          onUpdate={refresh}
+          toast={toast}
+          creators={creators}
+        />
+      </div>
     </div>
+  )
+}
+
+function StatusDot({ ok }) {
+  return (
+    <span style={{
+      width: '6px', height: '6px', borderRadius: '50%',
+      background: ok ? '#7AC97A' : '#E87878',
+      display: 'inline-block',
+    }} />
   )
 }
 
@@ -578,16 +832,19 @@ export default function InboxAdminPage() {
     )
   }
 
+  // Wider on Chats tab for the two-pane view; narrower on Tasks for readable cards.
+  const maxWidth = tab === 'chats' ? '1200px' : '900px'
+
   return (
-    <div style={{ maxWidth: '900px' }}>
-      <div style={{ marginBottom: '24px' }}>
+    <div style={{ maxWidth }}>
+      <div style={{ marginBottom: '20px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '6px', color: 'var(--foreground)' }}>
           Inbox
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
           {tab === 'tasks'
             ? 'Action items extracted from your conversations. Things you said you’d do.'
-            : 'Manage which chats are being tracked. Map each chat to a creator.'}
+            : 'Browse and triage your chats. Click any chat to read messages.'}
         </p>
       </div>
 
