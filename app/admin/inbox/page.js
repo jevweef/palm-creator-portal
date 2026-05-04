@@ -718,22 +718,18 @@ function ChatList({ chats, selectedId, onSelect, filter, setFilter }) {
 }
 
 function ChatsTab({ toast }) {
-  const [status, setStatus] = useState(null)
   const [chats, setChats] = useState([])
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState(null)
   const [filter, setFilter] = useState('pending')
-  const [showSetup, setShowSetup] = useState(false)
 
   async function refresh() {
     try {
-      const [s, c, cr] = await Promise.all([
-        fetch('/api/admin/inbox/status').then(r => r.json()),
+      const [c, cr] = await Promise.all([
         fetch('/api/admin/inbox/chats').then(r => r.json()),
         fetch('/api/admin/inbox/creators').then(r => r.json()),
       ])
-      setStatus(s)
       setChats(c.chats || [])
       setCreators(cr.creators || [])
     } finally {
@@ -747,93 +743,12 @@ function ChatsTab({ toast }) {
     return () => clearInterval(id)
   }, [])
 
-  async function registerWebhook() {
-    const res = await fetch('/api/admin/inbox/register-webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: window.location.origin }),
-    })
-    const j = await res.json().catch(() => ({}))
-    if (res.ok) toast('Webhook re-registered', 'success')
-    else toast(`Failed: ${j.error || res.statusText}`, 'error')
-    refresh()
-  }
-
   if (loading) return <div style={{ color: 'var(--foreground-muted)' }}>Loading chats…</div>
 
   const selectedChat = chats.find(c => c.id === selectedId) || null
 
   return (
     <div>
-      {/* Collapsible setup section */}
-      <div style={{ marginBottom: '12px' }}>
-        <button
-          onClick={() => setShowSetup(s => !s)}
-          style={{
-            background: 'transparent', border: 'none', color: 'var(--foreground-muted)',
-            fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em',
-            textTransform: 'uppercase', cursor: 'pointer', padding: '4px 0',
-            display: 'flex', alignItems: 'center', gap: '6px',
-          }}
-        >
-          <span style={{ display: 'inline-block', transition: '0.15s', transform: showSetup ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-          Setup &amp; Add Bot
-          <span style={{ display: 'inline-flex', gap: '4px', marginLeft: '8px' }}>
-            <StatusDot ok={status?.env?.tokenSet} />
-            <StatusDot ok={status?.env?.secretSet} />
-            <StatusDot ok={!!status?.telegram?.webhookInfo?.url} />
-          </span>
-        </button>
-        {showSetup && (
-          <div style={{ marginTop: '8px' }}>
-            <div style={card}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Setup</div>
-                  <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-                    Bot: <code style={{ color: 'var(--foreground)' }}>@palmmanage_bot</code>
-                  </div>
-                </div>
-                <Btn variant="primary" size="sm" onClick={registerWebhook}>Re-register Webhook</Btn>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <StatusPill ok={status?.env?.tokenSet} label={status?.env?.tokenSet ? 'Bot Token Set' : 'Bot Token Missing'} />
-                <StatusPill ok={status?.env?.secretSet} label={status?.env?.secretSet ? 'Secret Set' : 'Secret Missing'} />
-                <StatusPill ok={!!status?.telegram?.webhookInfo?.url} label={status?.telegram?.webhookInfo?.url ? 'Webhook Registered' : 'Webhook Not Registered'} />
-              </div>
-            </div>
-            <div style={card}>
-              <div style={{ marginBottom: '12px' }}>
-                <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Add bot to a Telegram group</div>
-                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-                  Scan QR with phone, OR add manually (works anywhere).
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&bgcolor=ffffff&color=060606&data=${encodeURIComponent(BOT_DEEP_LINK)}`}
-                    alt="Add bot"
-                    width={160}
-                    height={160}
-                    style={{ borderRadius: '8px', background: '#fff' }}
-                  />
-                  <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Scan with phone</div>
-                </div>
-                <div style={{ flex: 1, minWidth: '220px', fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.7 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--foreground)', marginBottom: '6px' }}>Manual:</div>
-                  <ol style={{ paddingLeft: '18px', margin: 0 }}>
-                    <li>Open group → tap name → <b>Add Members</b></li>
-                    <li>Search <code style={{ color: 'var(--foreground)' }}>palmmanage</code></li>
-                    <li>Toggle <b>Admin Rights OFF</b> → Add</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* iMessage-style two-pane view */}
       <div style={{
         display: 'flex',
@@ -872,6 +787,127 @@ function StatusDot({ ok }) {
   )
 }
 
+// ─── Setup tab ───────────────────────────────────────────────────────
+
+function SetupTab({ toast }) {
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  async function refresh() {
+    try {
+      const s = await fetch('/api/admin/inbox/status').then(r => r.json())
+      setStatus(s)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { refresh() }, [])
+
+  async function registerWebhook() {
+    const res = await fetch('/api/admin/inbox/register-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: window.location.origin }),
+    })
+    const j = await res.json().catch(() => ({}))
+    if (res.ok) toast('Webhook re-registered', 'success')
+    else toast(`Failed: ${j.error || res.statusText}`, 'error')
+    refresh()
+  }
+
+  if (loading) return <div style={{ color: 'var(--foreground-muted)' }}>Loading setup…</div>
+
+  return (
+    <div>
+      {/* Telegram bot setup */}
+      <div style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Telegram Heartbeat Bot</div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+              <code style={{ color: 'var(--foreground)' }}>@palmmanage_bot</code> — added to PALM x [creator] groups
+            </div>
+          </div>
+          <Btn variant="primary" size="sm" onClick={registerWebhook}>Re-register Webhook</Btn>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <StatusPill ok={status?.env?.tokenSet} label={status?.env?.tokenSet ? 'Bot Token Set' : 'Bot Token Missing'} />
+          <StatusPill ok={status?.env?.secretSet} label={status?.env?.secretSet ? 'Secret Set' : 'Secret Missing'} />
+          <StatusPill ok={!!status?.telegram?.webhookInfo?.url} label={status?.telegram?.webhookInfo?.url ? 'Webhook Registered' : 'Webhook Not Registered'} />
+        </div>
+        {status?.telegram?.webhookInfo?.url && (
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '12px', wordBreak: 'break-all' }}>
+            Pointed at: <code>{status.telegram.webhookInfo.url}</code>
+          </div>
+        )}
+        {status?.telegram?.webhookInfo?.last_error_message && (
+          <div style={{ fontSize: '12px', color: '#E87878', marginTop: '8px' }}>
+            ⚠️ Last Telegram error: {status.telegram.webhookInfo.last_error_message}
+          </div>
+        )}
+      </div>
+
+      {/* Add bot to group */}
+      <div style={card}>
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Add bot to a Telegram group</div>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+            Telegram's deep link only opens the picker on mobile. Use the QR for phone, or add manually.
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&bgcolor=ffffff&color=060606&data=${encodeURIComponent(BOT_DEEP_LINK)}`}
+              alt="Add bot"
+              width={180}
+              height={180}
+              style={{ borderRadius: '8px', background: '#fff' }}
+            />
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Scan with phone camera</div>
+          </div>
+          <div style={{ flex: 1, minWidth: '220px', fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.7 }}>
+            <div style={{ fontWeight: 600, color: 'var(--foreground)', marginBottom: '6px' }}>Manual (works anywhere):</div>
+            <ol style={{ paddingLeft: '18px', margin: 0 }}>
+              <li>Open the group in Telegram</li>
+              <li>Tap the group name at top → <b>Add Members</b></li>
+              <li>Search <code style={{ color: 'var(--foreground)' }}>palmmanage</code></li>
+              <li>Tap <b>Palm Management</b> → toggle <b>Admin Rights OFF</b> → Add</li>
+            </ol>
+            <a href={BOT_DEEP_LINK} target="_blank" rel="noreferrer" style={{
+              display: 'inline-block', marginTop: '12px',
+              padding: '6px 12px', borderRadius: '6px',
+              background: 'rgba(232, 160, 160, 0.10)', color: 'var(--palm-pink)',
+              fontSize: '11px', fontWeight: 600, textDecoration: 'none',
+              border: '1px solid rgba(232, 160, 160, 0.25)',
+            }}>Try deep link anyway →</a>
+          </div>
+        </div>
+      </div>
+
+      {/* iMessage daemon status */}
+      <div style={card}>
+        <div style={{ marginBottom: '8px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>iMessage Daemon</div>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+            Local Python service on your Mac that reads chat.db and serves messages to the portal via Cloudflare Tunnel.
+          </div>
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.7, marginTop: '8px' }}>
+          <div>Daemon path: <code>~/palm-inbox/imessage_daemon.py</code></div>
+          <div>Config: <code>~/.palm-inbox.json</code></div>
+          <div>Logs: <code>~/.palm-inbox.log</code></div>
+          <div>Service: <code>com.palm.inbox.imessage</code> (launchd, auto-starts on login)</div>
+          <div style={{ marginTop: '8px' }}>
+            Restart: <code>launchctl unload ~/Library/LaunchAgents/com.palm.inbox.imessage.plist &amp;&amp; launchctl load ~/Library/LaunchAgents/com.palm.inbox.imessage.plist</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page shell ──────────────────────────────────────────────────────
 
 export default function InboxAdminPage() {
@@ -901,8 +937,14 @@ export default function InboxAdminPage() {
     )
   }
 
-  // Wider on Chats tab for the two-pane view; narrower on Tasks for readable cards.
+  // Wider on Messages tab for the two-pane view; narrower on Tasks/Setup for readable cards.
   const maxWidth = tab === 'chats' ? '1200px' : '900px'
+
+  const subtitles = {
+    tasks: 'Action items extracted from your conversations. Things you (or your team) said you’d do.',
+    chats: 'Browse and triage your chats. Click any chat to read messages.',
+    setup: 'Bot, webhook, and daemon configuration. Add the Palm Management bot to new Telegram groups.',
+  }
 
   return (
     <div style={{ maxWidth }}>
@@ -911,13 +953,13 @@ export default function InboxAdminPage() {
           Inbox
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
-          {tab === 'tasks'
-            ? 'Action items extracted from your conversations. Things you said you’d do.'
-            : 'Browse and triage your chats. Click any chat to read messages.'}
+          {subtitles[tab] || subtitles.tasks}
         </p>
       </div>
 
-      {tab === 'chats' ? <ChatsTab toast={toast} /> : <TasksTab toast={toast} />}
+      {tab === 'chats' ? <ChatsTab toast={toast} />
+        : tab === 'setup' ? <SetupTab toast={toast} />
+        : <TasksTab toast={toast} />}
       <ToastViewport />
     </div>
   )
