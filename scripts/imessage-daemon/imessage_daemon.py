@@ -158,39 +158,89 @@ _META_PREFIXES = (
     "com.apple", "kIM",
 )
 
-def parse_attributed_body(blob):
+def _parse_typedstream(blob):
     """
-    Modern iMessage (iOS 16+ / macOS Ventura+) stores the message text inside
-    the `attributedBody` column as an NSKeyedArchiver-encoded binary plist —
-    not in the `text` column. We parse the plist with plistlib (stdlib) and
-    pull the longest non-metadata string from the $objects array. That's
-    almost always the user-typed message.
+    Parse Apple's NSArchiver `typedstream` format (the OLDER serialization,
+    distinct from NSKeyedArchiver bplist). iMessage's `attributedBody` uses
+    this format. Headers start with b'\\x04\\x0bstreamtyped'.
 
-    Returns "" on failure (caller treats as empty text).
+    The format encodes strings as: 0x2B ('+') + varint length + UTF-8 bytes.
+    We scan for that pattern and collect all length-prefixed strings, then
+    filter out class metadata (NSAttributedString, NSObject, etc.) and
+    return the longest remaining string — almost always the message body.
     """
-    if not blob:
-        return ""
-    try:
-        data = plistlib.loads(blob)
-    except Exception:
-        return ""
-
-    # NSKeyedArchiver shape: {'$archiver': 'NSKeyedArchiver', '$objects': [...], ...}
-    objects = data.get("$objects") if isinstance(data, dict) else None
-    if not isinstance(objects, list):
-        return ""
-
-    # Filter to user-content strings: skip class/metadata names + very short tokens.
     candidates = []
-    for o in objects:
-        if isinstance(o, str) and len(o) > 1 and not o.startswith(_META_PREFIXES):
-            candidates.append(o)
+    i = 0
+    n = len(blob)
+    while i < n - 1:
+        if blob[i] == 0x2B:  # '+'
+            length_byte = blob[i + 1]
+            if length_byte < 0x80:
+                length = length_byte
+                start = i + 2
+            elif length_byte == 0x81 and i + 3 < n:
+                length = blob[i + 2] | (blob[i + 3] << 8)
+                start = i + 4
+            elif length_byte == 0x82 and i + 5 < n:
+                length = int.from_bytes(blob[i + 2:i + 6], "little")
+                start = i + 6
+            else:
+                i += 1
+                continue
+            if 0 < length < 8192 and start + length <= n:
+                try:
+                    s = blob[start:start + length].decode("utf-8")
+                    candidates.append(s)
+                    i = start + length
+                    continue
+                except UnicodeDecodeError:
+                    pass
+        i += 1
 
     if not candidates:
         return ""
-    # Longest is overwhelmingly the message body. (Other strings tend to be
-    # locale codes, attribute keys, etc.)
-    return max(candidates, key=len).strip()
+    user = [c for c in candidates if c and not c.startswith(_META_PREFIXES)]
+    if not user:
+        return ""
+    return max(user, key=len).strip()
+
+
+def parse_attributed_body(blob):
+    """
+    Extract message text from iMessage's `attributedBody` blob.
+
+    Two possible formats:
+    - typedstream (most common, header starts with b'\\x04\\x0bstreamtyped')
+    - NSKeyedArchiver bplist (header starts with b'bplist00')
+
+    Returns "" if extraction fails.
+    """
+    if not blob or len(blob) < 8:
+        return ""
+
+    if blob.startswith(b"\x04\x0bstreamtyped"):
+        return _parse_typedstream(blob)
+
+    if blob.startswith(b"bplist00"):
+        try:
+            data = plistlib.loads(blob)
+        except Exception:
+            return ""
+        objects = data.get("$objects") if isinstance(data, dict) else None
+        if not isinstance(objects, list):
+            return ""
+        candidates = [o for o in objects if isinstance(o, str) and len(o) > 1 and not o.startswith(_META_PREFIXES)]
+        if not candidates:
+            return ""
+        return max(candidates, key=len).strip()
+
+    # Unknown format — last-ditch heuristic search for any UTF-8 strings.
+    try:
+        text = blob.decode("utf-8", errors="ignore")
+        runs = [r for r in text.split("\x00") if len(r) > 2 and not r.startswith(_META_PREFIXES)]
+        return max(runs, key=len).strip() if runs else ""
+    except Exception:
+        return ""
 
 
 def transform_row(row):
