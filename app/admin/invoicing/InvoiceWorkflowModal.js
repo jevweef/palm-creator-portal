@@ -473,7 +473,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
                       disabled={!canSend}
                       style={{
                         background: canSend ? '#7DD3A4' : 'rgba(255,255,255,0.08)',
-                        color: canSend ? 'rgba(255,255,255,0.08)' : '#999',
+                        color: canSend ? '#0f2618' : '#999',
                         border: 'none', borderRadius: '10px',
                         padding: '10px 22px', fontSize: '13px', fontWeight: 600,
                         cursor: canSend ? 'pointer' : 'not-allowed', flexShrink: 0,
