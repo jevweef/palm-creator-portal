@@ -159,6 +159,7 @@ export async function POST(request) {
       const invoiceFormula = f['fldCimhMbOOeOQrFJ'] || ''
       const accountPart = invoiceFormula.includes(' | ') ? invoiceFormula.split(' | ')[0].trim() : ''
       const accountLabel = groupAka ? accountPart.replace(`${groupAka} - `, '').trim() : accountPart
+      const customLabel = (f['fldWsJmd2emUxKRkT'] || '').trim()
       return {
         label: accountLabel,
         start: groupStart,
@@ -166,6 +167,7 @@ export async function POST(request) {
         earnings,
         commission_pct: commissionPct,
         commission_amt: earnings * commissionPct,
+        custom_label: customLabel || null,
       }
     })
 
