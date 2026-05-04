@@ -145,16 +145,17 @@ async function ingestOne(m) {
   // unless the chat gets promoted to Watching.
   // Watching: store forever. AI extractor processes them.
 
-  // Dedupe — but if existing record has no text (privacy-fence-era ingestion),
-  // backfill the text/media fields. Don't bump counters (already counted when
-  // metadata-only row was made).
+  // Dedupe — but backfill text on existing records that don't have it.
+  // Catches two cases: (a) privacy-fence-era metadata-only rows, (b) rows
+  // stored before the plist text parser was added (where text was empty
+  // even though the message had text — fell back to [photo] in UI).
+  // Don't bump counters (already counted when row was made).
   const existing = await findMessageRecord(composite)
   if (existing) {
     const hadText = !!(existing.fields?.Text)
-    const hadMedia = !!(existing.fields?.['Has Media'])
-    if (!hadText && !hadMedia && (m.text || m.hasMedia)) {
+    if (!hadText && m.text) {
       await patchAirtableRecord(MESSAGES_TABLE, existing.id, {
-        Text: m.text || '',
+        Text: m.text,
         'Raw JSON': safeRawJson(m),
         'Has Media': !!m.hasMedia,
         'Media Type': normalizeMediaType(m.mediaType),

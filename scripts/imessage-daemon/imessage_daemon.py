@@ -24,6 +24,7 @@ Author: Palm Management
 
 import json
 import os
+import plistlib
 import sqlite3
 import sys
 import time
@@ -151,43 +152,45 @@ def query_messages(db_path, after_rowid, limit):
     return rows
 
 
+_META_PREFIXES = (
+    "NS", "$", "iMessage", "__kIM", "attributed",
+    "NSAttributed", "NSDictionary", "NSArray", "NSObject",
+    "com.apple", "kIM",
+)
+
 def parse_attributed_body(blob):
     """
-    iMessage stores formatted text in `attributedBody` as an NSKeyedArchiver
-    blob. The plain-text payload is embedded with `NSString` markers. We
-    don't need full parsing — just pull the longest UTF-8 run we can find.
-    Returns "" if nothing meaningful.
+    Modern iMessage (iOS 16+ / macOS Ventura+) stores the message text inside
+    the `attributedBody` column as an NSKeyedArchiver-encoded binary plist —
+    not in the `text` column. We parse the plist with plistlib (stdlib) and
+    pull the longest non-metadata string from the $objects array. That's
+    almost always the user-typed message.
+
+    Returns "" on failure (caller treats as empty text).
     """
     if not blob:
         return ""
     try:
-        # Heuristic: find "NSString" then a length byte, then the string.
-        # Works for typical short messages without full plist parsing.
-        idx = blob.find(b"NSString")
-        if idx == -1:
-            return ""
-        # Skip "NSString" + class tag bytes; find the next printable run.
-        start = idx + 8
-        # Find the longest run of valid UTF-8.
-        # This is ugly but reliable enough for English-ish messages.
-        for offset in range(start, min(start + 64, len(blob))):
-            try:
-                chunk = blob[offset:].decode("utf-8", errors="strict")
-                # Trim non-printable head/tail
-                chunk = chunk.lstrip("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x7f")
-                # Stop at first run of bad chars
-                clean = ""
-                for ch in chunk:
-                    if ord(ch) < 32 and ch not in "\n\r\t":
-                        break
-                    clean += ch
-                if len(clean) > 2:
-                    return clean.strip()
-            except UnicodeDecodeError:
-                continue
-        return ""
+        data = plistlib.loads(blob)
     except Exception:
         return ""
+
+    # NSKeyedArchiver shape: {'$archiver': 'NSKeyedArchiver', '$objects': [...], ...}
+    objects = data.get("$objects") if isinstance(data, dict) else None
+    if not isinstance(objects, list):
+        return ""
+
+    # Filter to user-content strings: skip class/metadata names + very short tokens.
+    candidates = []
+    for o in objects:
+        if isinstance(o, str) and len(o) > 1 and not o.startswith(_META_PREFIXES):
+            candidates.append(o)
+
+    if not candidates:
+        return ""
+    # Longest is overwhelmingly the message body. (Other strings tend to be
+    # locale codes, attribute keys, etc.)
+    return max(candidates, key=len).strip()
 
 
 def transform_row(row):
@@ -344,6 +347,20 @@ def main():
 
     cfg = load_config()
     state = load_state()
+
+    # One-shot backfill: if config has backfill_days_on_next_start set, do
+    # the reset, clear the flag, then continue polling normally. Lets us
+    # trigger a backfill remotely without needing direct chat.db access.
+    backfill = cfg.get("backfill_days_on_next_start")
+    if backfill and isinstance(backfill, int) and backfill > 0:
+        log(f"Config-triggered backfill: rewinding {backfill} days")
+        reset_to_days_ago(backfill)
+        # Clear the flag so we don't re-backfill on every restart
+        cfg["backfill_days_on_next_start"] = None
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(cfg, f, indent=2)
+        # Reload state since reset_to_days_ago wrote it
+        state = load_state()
     log(f"Daemon starting. once_mode={once_mode}, last_rowid={state.get('last_rowid')}.")
 
     interval = cfg.get("poll_interval_seconds", 30)
