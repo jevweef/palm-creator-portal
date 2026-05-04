@@ -45,10 +45,17 @@ export async function GET() {
         const key = `imessage::${d.chatId}`
         seenKeys.add(key)
         const a = airtableByKey.get(key)
+        // Title preference order:
+        //   1. Creator AKA (when admin has mapped this chat to a creator)
+        //   2. Daemon title (group display name OR contact name)
+        //   3. raw chatId
+        const creatorAka = a?.fields?.['Creator AKA'] || ''
+        const displayTitle = creatorAka || d.title || d.chatId
         merged.push({
           id: a?.id || `daemon:${d.chatId}`, // synthetic id for un-tracked chats
           chatId: d.chatId,
-          title: d.title || d.chatId,
+          title: displayTitle,
+          subtitle: creatorAka && d.title && d.title !== creatorAka ? d.title : '',
           type: d.type,
           source: 'imessage',
           status: a?.fields?.['Status'] || 'Pending Review',
@@ -72,17 +79,21 @@ export async function GET() {
       const source = r.fields?.['Source'] || 'telegram'
       const key = `${source}::${r.fields?.['Chat ID'] || ''}`
       if (seenKeys.has(key)) continue
+      const creatorAka2 = r.fields?.['Creator AKA'] || ''
+      const rawTitle = r.fields?.['Title'] || '(untitled)'
+      const displayTitle2 = creatorAka2 || rawTitle
       merged.push({
         id: r.id,
         chatId: r.fields?.['Chat ID'] || '',
-        title: r.fields?.['Title'] || '(untitled)',
+        title: displayTitle2,
+        subtitle: creatorAka2 && rawTitle && rawTitle !== creatorAka2 ? rawTitle : '',
         type: r.fields?.['Type'] || 'group',
         source,
         status: r.fields?.['Status'] || 'Pending Review',
         firstSeen: r.fields?.['First Seen'] || null,
         lastMessageAt: r.fields?.['Last Message At'] || null,
         messageCount: r.fields?.['Message Count'] || 0,
-        creatorAka: r.fields?.['Creator AKA'] || '',
+        creatorAka: creatorAka2,
         creatorHqId: r.fields?.['Creator HQ ID'] || '',
         category: r.fields?.['Category'] || '',
         notes: r.fields?.['Notes'] || '',
