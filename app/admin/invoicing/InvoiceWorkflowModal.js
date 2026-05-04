@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 function fmt(n) {
   if (!n && n !== 0) return '—'
@@ -83,6 +83,34 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
   const totalEarnings = rows.reduce((s, r) => s + (r.earnings || 0), 0)
   const totalCommission = rows.reduce((s, r) => s + (r.totalCommission || 0), 0)
 
+  // Poll for Airtable thumbnails after PDF generation. Airtable generates
+  // thumbnails async — they typically appear ~10-45s after upload. Without
+  // this, the user has to close + reopen the modal to see the preview.
+  // Runs only when: on Review step, all records have PDFs, and at least one
+  // is still missing its thumbnail. Stops after ~60s or when all thumbs land.
+  const missingThumb = sorted.some(r => r.hasPdf && !r.pdfThumbnail)
+  useEffect(() => {
+    if (activeStep !== 1 || !allHavePdfs || !missingThumb) return
+    let cancelled = false
+    let attempts = 0
+    const maxAttempts = 20 // 20 × 3s = 60s
+    const tick = async () => {
+      if (cancelled) return
+      attempts++
+      try {
+        const res = await fetch('/api/admin/invoicing')
+        const data = await res.json()
+        if (cancelled) return
+        if (data.records) onRecordsUpdate(() => data.records)
+      } catch (_) {}
+      if (!cancelled && attempts < maxAttempts) {
+        timer = setTimeout(tick, 3000)
+      }
+    }
+    let timer = setTimeout(tick, 3000)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [activeStep, allHavePdfs, missingThumb, onRecordsUpdate])
+
   // Step status
   const stepStatus = (i) => {
     switch (i) {
@@ -130,7 +158,11 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       setError(e.message)
     }
 
-    // Reload to pick up fresh Airtable attachment URLs (needed for thumbnail preview)
+    // Reload to pick up fresh Airtable attachment URLs (needed for thumbnail preview).
+    // Airtable thumbnails take a few seconds to generate after attachment upload —
+    // wait briefly so the first refresh has a better chance of catching them, then
+    // the Review-step poller takes over for any still-missing ones.
+    await new Promise(r => setTimeout(r, 4000))
     try {
       const refresh = await fetch('/api/admin/invoicing')
       const refreshData = await refresh.json()
