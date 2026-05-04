@@ -338,12 +338,23 @@ function ChatListItem({ chat, selected, onClick }) {
         <div style={{
           display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'baseline',
         }}>
-          <div style={{
-            fontSize: '13px', fontWeight: selected ? 700 : 600,
-            color: selected ? 'var(--palm-pink)' : 'var(--foreground)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0,
-          }}>
-            {chat.title}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: '13px', fontWeight: selected ? 700 : 600,
+              color: selected ? 'var(--palm-pink)' : 'var(--foreground)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {chat.title}
+            </div>
+            {chat.subtitle && (
+              <div style={{
+                fontSize: '10px', color: 'var(--foreground-muted)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                opacity: 0.6,
+              }}>
+                {chat.subtitle}
+              </div>
+            )}
           </div>
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', flexShrink: 0 }}>
             {timeAgo(chat.lastMessageAt)}
