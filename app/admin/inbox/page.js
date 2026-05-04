@@ -569,18 +569,24 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
           <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', padding: '40px 0' }}>
             Loading messages…
           </div>
-        ) : messages.length === 0 ? (
-          <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', padding: '40px 20px' }}>
-            No messages stored for this chat yet.
-            {chat.status === 'Watching'
-              ? ' Newly arriving messages will appear here.'
-              : ' Hit Watch above to start storing them as they arrive.'}
-          </div>
-        ) : (
-          messages.map((m, i) => (
-            <MessageBubble key={m.id} msg={m} prevMsg={messages[i - 1]} isGroup={isGroup} />
+        ) : (() => {
+          // Filter out genuinely-empty messages (no text, no media). These are
+          // typically system events or stripped messages — noise in the thread.
+          const visible = messages.filter(m => m.text || m.hasMedia)
+          if (visible.length === 0) {
+            return (
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', padding: '40px 20px' }}>
+                No readable messages stored for this chat yet.
+                {chat.status === 'Watching'
+                  ? ' Newly arriving messages will appear here.'
+                  : ' Hit Watch above to start storing them as they arrive.'}
+              </div>
+            )
+          }
+          return visible.map((m, i) => (
+            <MessageBubble key={m.id} msg={m} prevMsg={visible[i - 1]} isGroup={isGroup} />
           ))
-        )}
+        })()}
       </div>
     </div>
   )
