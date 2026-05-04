@@ -336,16 +336,31 @@ function ChatListItem({ chat, selected, onClick }) {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: '13px', fontWeight: selected ? 700 : 600,
-          color: selected ? 'var(--palm-pink)' : 'var(--foreground)',
-          marginBottom: '2px',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'baseline',
         }}>
-          {chat.title}
+          <div style={{
+            fontSize: '13px', fontWeight: selected ? 700 : 600,
+            color: selected ? 'var(--palm-pink)' : 'var(--foreground)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0,
+          }}>
+            {chat.title}
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', flexShrink: 0 }}>
+            {timeAgo(chat.lastMessageAt)}
+          </div>
         </div>
+        {chat.lastMessageSnippet && (
+          <div style={{
+            fontSize: '11px', color: 'var(--foreground-muted)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            marginTop: '2px',
+          }}>
+            {chat.isFromMeLast ? 'You: ' : ''}{chat.lastMessageSnippet}
+          </div>
+        )}
         <div style={{
           fontSize: '10px', color: 'var(--foreground-muted)',
-          display: 'flex', gap: '6px', alignItems: 'center',
+          display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px',
         }}>
           {chat.creatorAka && (
             <span style={{
@@ -356,9 +371,7 @@ function ChatListItem({ chat, selected, onClick }) {
               {chat.creatorAka}
             </span>
           )}
-          <span>{chat.messageCount}</span>
-          <span>·</span>
-          <span>{timeAgo(chat.lastMessageAt)}</span>
+          <span>{chat.messageCount} msgs</span>
         </div>
       </div>
       <div style={{

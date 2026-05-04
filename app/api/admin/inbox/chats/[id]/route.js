@@ -4,7 +4,13 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireInboxOwner, patchAirtableRecord } from '@/lib/adminAuth'
+import {
+  requireInboxOwner,
+  patchAirtableRecord,
+  createAirtableRecord,
+  fetchAirtableRecords,
+} from '@/lib/adminAuth'
+import { fetchDaemonChats } from '@/lib/inboxDaemon'
 
 const CHATS_TABLE = 'Telegram Chats'
 
@@ -15,13 +21,41 @@ const VALID_STATUSES = new Set([
   'Ignored Forever',
 ])
 
+// For synthetic "daemon:<chatId>" ids: lazily create the Airtable record on
+// first PATCH (e.g. user clicks Watch on a chat that's only in chat.db).
+// Hydrates title/type/lastMessageAt from the daemon snapshot.
+async function ensureDaemonRecord(chatId) {
+  // Already exists?
+  const existing = await fetchAirtableRecords(CHATS_TABLE, {
+    filterByFormula: `AND({Chat ID} = '${chatId.replace(/'/g, "\\'")}', {Source} = 'imessage')`,
+    maxRecords: 1,
+  })
+  if (existing[0]) return existing[0]
+
+  // Look up metadata from the daemon snapshot
+  const daemonChats = await fetchDaemonChats(500)
+  const meta = daemonChats?.find(c => c.chatId === chatId)
+  const nowIso = new Date().toISOString()
+
+  return await createAirtableRecord(CHATS_TABLE, {
+    'Chat ID': chatId,
+    Title: meta?.title || chatId,
+    Type: meta?.type || 'private',
+    Source: 'imessage',
+    Status: 'Pending Review',
+    'First Seen': meta?.lastMessageAt || nowIso,
+    'Last Message At': meta?.lastMessageAt || nowIso,
+    'Message Count': meta?.messageCount || 0,
+  })
+}
+
 export async function PATCH(request, { params }) {
   const auth = await requireInboxOwner()
   if (auth instanceof NextResponse) return auth
 
   const { id } = params
-  if (!id || !id.startsWith('rec')) {
-    return NextResponse.json({ error: 'invalid record id' }, { status: 400 })
+  if (!id) {
+    return NextResponse.json({ error: 'missing id' }, { status: 400 })
   }
 
   let body
@@ -44,9 +78,6 @@ export async function PATCH(request, { params }) {
   if (body.notes !== undefined) {
     updates.Notes = String(body.notes).slice(0, 5000)
   }
-  // Manual creator mapping (used for iMessage chats which don't auto-map,
-  // and for overriding bad PALM x autoresolves on Telegram).
-  // Pass empty string to clear.
   if (body.creatorAka !== undefined) {
     updates['Creator AKA'] = String(body.creatorAka || '')
   }
@@ -59,8 +90,18 @@ export async function PATCH(request, { params }) {
   }
 
   try {
-    const updated = await patchAirtableRecord(CHATS_TABLE, id, updates)
-    return NextResponse.json({ ok: true, record: updated })
+    let recordId = id
+    // Synthetic daemon id → ensure Airtable record exists, then PATCH it
+    if (id.startsWith('daemon:')) {
+      const chatId = id.slice('daemon:'.length)
+      const record = await ensureDaemonRecord(chatId)
+      recordId = record.id
+    } else if (!id.startsWith('rec')) {
+      return NextResponse.json({ error: 'invalid record id' }, { status: 400 })
+    }
+
+    const updated = await patchAirtableRecord(CHATS_TABLE, recordId, updates)
+    return NextResponse.json({ ok: true, record: updated, recordId })
   } catch (err) {
     console.error('[inbox/chats/:id] patch error', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
