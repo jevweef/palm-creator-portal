@@ -757,7 +757,21 @@ export default function GridPlanner({ smmMode = false } = {}) {
   //   3. first creator with ≥1 account (default)
   useEffect(() => {
     fetch('/api/admin/grid-planner')
-      .then(r => r.json())
+      .then(async r => {
+        // Read as text first so we can give a useful error if the body is
+        // empty / HTML (e.g. Clerk middleware rewrote to /_not-found because
+        // the session cookie expired between page load and this fetch).
+        // Blindly calling r.json() in that case throws the unhelpful
+        // "Unexpected end of JSON input" with no clue what actually happened.
+        const text = await r.text()
+        if (!r.ok) {
+          throw new Error(`Server returned ${r.status}${r.status === 404 ? ' — try a hard refresh (your session may have expired)' : ''}`)
+        }
+        if (!text) throw new Error('Server returned an empty response — try a hard refresh')
+        try { return JSON.parse(text) } catch {
+          throw new Error('Server returned non-JSON response — try a hard refresh')
+        }
+      })
       .then(d => {
         if (d.error) throw new Error(d.error)
         const list = d.creators || []
@@ -805,8 +819,18 @@ export default function GridPlanner({ smmMode = false } = {}) {
     setError('')
     try {
       const res = await fetch(`/api/admin/grid-planner?creatorId=${creatorId}`)
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Failed to load')
+      const text = await res.text()
+      if (!res.ok) {
+        let msg = `Failed to load (${res.status})`
+        try { const errBody = JSON.parse(text); if (errBody?.error) msg = errBody.error } catch {}
+        if (res.status === 404) msg += ' — try a hard refresh (your session may have expired)'
+        throw new Error(msg)
+      }
+      if (!text) throw new Error('Server returned an empty response — try a hard refresh')
+      let d
+      try { d = JSON.parse(text) } catch {
+        throw new Error('Server returned non-JSON response — try a hard refresh')
+      }
       setAccounts(d.accounts || [])
       const freshPosts = d.posts || []
       setPosts(freshPosts)
