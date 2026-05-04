@@ -191,16 +191,27 @@ function TaskCard({ task, onUpdate, toast }) {
 
 function TasksTab({ toast }) {
   const [tasks, setTasks] = useState([])
+  const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
   const [ownerFilter, setOwnerFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('Open')
+  const [creatorFilter, setCreatorFilter] = useState('all')
   const [extractBusy, setExtractBusy] = useState(false)
+
+  // Load creators once for the filter dropdown
+  useEffect(() => {
+    fetch('/api/admin/inbox/creators')
+      .then(r => r.json())
+      .then(j => setCreators(j.creators || []))
+      .catch(() => {})
+  }, [])
 
   async function refresh() {
     try {
       const params = new URLSearchParams()
       params.set('status', statusFilter)
       if (ownerFilter !== 'all') params.set('owner', ownerFilter)
+      if (creatorFilter !== 'all') params.set('creator', creatorFilter)
       const res = await fetch(`/api/admin/inbox/tasks?${params}`).then(r => r.json())
       setTasks(res.tasks || [])
     } finally {
@@ -212,7 +223,7 @@ function TasksTab({ toast }) {
     refresh()
     const id = setInterval(refresh, 30000)
     return () => clearInterval(id)
-  }, [ownerFilter, statusFilter])
+  }, [ownerFilter, statusFilter, creatorFilter])
 
   async function runExtractionNow() {
     setExtractBusy(true)
@@ -257,16 +268,33 @@ function TasksTab({ toast }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', alignSelf: 'center', marginRight: '4px' }}>Owner:</span>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginRight: '4px' }}>Owner:</span>
           {filterBtn('All', 'all', ownerFilter, setOwnerFilter)}
           {filterBtn('Evan', 'Evan', ownerFilter, setOwnerFilter)}
           {filterBtn('Josh', 'Josh', ownerFilter, setOwnerFilter)}
-          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', alignSelf: 'center', marginLeft: '12px', marginRight: '4px' }}>Status:</span>
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginLeft: '12px', marginRight: '4px' }}>Status:</span>
           {filterBtn('Open', 'Open', statusFilter, setStatusFilter)}
           {filterBtn('Done', 'Done', statusFilter, setStatusFilter)}
           {filterBtn('Snoozed', 'Snoozed', statusFilter, setStatusFilter)}
           {filterBtn('Dismissed', 'Dismissed', statusFilter, setStatusFilter)}
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginLeft: '12px', marginRight: '4px' }}>Creator:</span>
+          <select
+            value={creatorFilter}
+            onChange={(e) => setCreatorFilter(e.target.value)}
+            style={{
+              padding: '4px 8px', borderRadius: '6px', fontSize: '11px',
+              background: creatorFilter !== 'all' ? 'rgba(232, 160, 160, 0.12)' : 'rgba(255,255,255,0.03)',
+              color: creatorFilter !== 'all' ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+              border: `1px solid ${creatorFilter !== 'all' ? 'rgba(232, 160, 160, 0.3)' : 'rgba(255,255,255,0.06)'}`,
+              cursor: 'pointer', outline: 'none', fontWeight: 600,
+            }}
+          >
+            <option value="all">All</option>
+            {creators.map(c => (
+              <option key={c.id} value={c.aka}>{c.aka || c.creator}</option>
+            ))}
+          </select>
         </div>
         <Btn variant="primary" size="sm" onClick={runExtractionNow} disabled={extractBusy}>
           {extractBusy ? 'Extracting…' : 'Extract Now'}

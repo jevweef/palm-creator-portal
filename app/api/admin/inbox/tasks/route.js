@@ -16,17 +16,23 @@ export async function GET(request) {
   const url = new URL(request.url)
   const status = url.searchParams.get('status') || 'Open'
   const owner = url.searchParams.get('owner') || null
+  const creator = url.searchParams.get('creator') || null
+  const urgency = url.searchParams.get('urgency') || null
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '200'), 500)
 
+  const esc = (s) => String(s).replace(/'/g, "\\'")
   const filters = []
-  if (status !== 'all') filters.push(`{Status} = '${status}'`)
-  if (owner) filters.push(`{Owner} = '${owner}'`)
+  if (status !== 'all') filters.push(`{Status} = '${esc(status)}'`)
+  if (owner) filters.push(`{Owner} = '${esc(owner)}'`)
+  if (creator) filters.push(`{Creator AKA} = '${esc(creator)}'`)
+  if (urgency) filters.push(`{Urgency} = '${esc(urgency)}'`)
   const formula = filters.length === 0 ? undefined : (filters.length === 1 ? filters[0] : `AND(${filters.join(',')})`)
 
   try {
     const records = await fetchAirtableRecords(TASKS_TABLE, {
       filterByFormula: formula,
       sort: [{ field: 'Detected At', direction: 'desc' }],
-      maxRecords: 200,
+      maxRecords: limit,
     })
 
     const tasks = records.map(r => ({

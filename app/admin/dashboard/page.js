@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import UrgentInboxTasks from './UrgentInboxTasks'
 
 const relTime = iso => {
   if (!iso) return ''
@@ -1079,6 +1080,9 @@ export default function AdminDashboard() {
           )}
         </div>
       )}
+
+      {/* Urgent Inbox tasks — only renders for the inbox owner */}
+      <UrgentInboxTasks />
 
       {/* ─── AGENCY REVENUE CHART — full width hero ─── */}
       <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} creatorList={creatorList} managementStartByCreator={revenue.managementStartByCreator || {}} />
