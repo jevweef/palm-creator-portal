@@ -54,6 +54,35 @@ function msgKeyLookup(key) {
   return `{Telegram Msg Key} = '${safeKey}'`
 }
 
+// Normalize daemon-sent media type strings to the singleSelect options on
+// Telegram Messages.Media Type. Daemon sends informal labels ('image' for
+// any has_attachments=1) which would error as INVALID_MULTIPLE_CHOICE_OPTIONS.
+const MEDIA_TYPE_SYNONYMS = {
+  image: 'photo',
+  picture: 'photo',
+  jpeg: 'photo',
+  jpg: 'photo',
+  png: 'photo',
+  mp4: 'video',
+  mov: 'video',
+  m4v: 'video',
+  m4a: 'audio',
+  mp3: 'audio',
+  pdf: 'document',
+  caf: 'voice',
+  amr: 'voice',
+  gif: 'animation',
+}
+const VALID_MEDIA_TYPES = new Set(['photo', 'video', 'voice', 'audio', 'document', 'sticker', 'animation', 'other'])
+
+function normalizeMediaType(raw) {
+  if (!raw) return null
+  const lower = String(raw).toLowerCase()
+  if (VALID_MEDIA_TYPES.has(lower)) return lower
+  if (MEDIA_TYPE_SYNONYMS[lower]) return MEDIA_TYPE_SYNONYMS[lower]
+  return 'other'
+}
+
 function safeRawJson(obj) {
   const json = JSON.stringify(obj)
   if (json.length > 50000) return json.slice(0, 50000) + '...[truncated]'
@@ -128,7 +157,7 @@ async function ingestOne(m) {
         Text: m.text || '',
         'Raw JSON': safeRawJson(m),
         'Has Media': !!m.hasMedia,
-        'Media Type': m.mediaType || null,
+        'Media Type': normalizeMediaType(m.mediaType),
       })
       return { updated: true }
     }
@@ -149,7 +178,7 @@ async function ingestOne(m) {
     Text: m.text || '',
     'Sent At': sentAtIso,
     'Has Media': !!m.hasMedia,
-    'Media Type': m.mediaType || null,
+    'Media Type': normalizeMediaType(m.mediaType),
     'Raw JSON': safeRawJson(m),
   })
 
