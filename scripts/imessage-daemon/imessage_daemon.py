@@ -29,7 +29,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 HOME = Path.home()
@@ -300,7 +300,46 @@ def run_once(cfg, state):
     return state
 
 
+def reset_to_days_ago(days):
+    """
+    Reset state so the next run begins from N days ago. Looks up the rowid of
+    the earliest message within the window and rewinds last_rowid to that-1.
+    The daemon then re-emits all messages from that point forward. Server-side
+    backfill logic absorbs duplicates and fills text on metadata-only records.
+    """
+    if not DB_PATH.exists():
+        log(f"chat.db not found at {DB_PATH}", "ERROR")
+        sys.exit(1)
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
+    apple_seconds = cutoff.timestamp() - APPLE_EPOCH.timestamp()
+    apple_ns = int(apple_seconds * 1e9)
+    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    cur = conn.execute("SELECT MIN(ROWID) FROM message WHERE date > ?", (apple_ns,))
+    row = cur.fetchone()
+    conn.close()
+    earliest = (row[0] if row and row[0] else 0)
+    new_last = max(0, earliest - 1)
+    state = load_state()
+    prev = state.get("last_rowid", 0)
+    state["last_rowid"] = new_last
+    save_state(state)
+    log(f"Reset state: last_rowid {prev} -> {new_last} (earliest in last {days}d = rowid {earliest}).")
+    log("Restart launchd to start backfilling:")
+    log("  launchctl unload ~/Library/LaunchAgents/com.palm.inbox.imessage.plist")
+    log("  launchctl load ~/Library/LaunchAgents/com.palm.inbox.imessage.plist")
+
+
 def main():
+    if "--backfill-days" in sys.argv:
+        idx = sys.argv.index("--backfill-days")
+        try:
+            days = int(sys.argv[idx + 1])
+        except (IndexError, ValueError):
+            log("Usage: --backfill-days N", "ERROR")
+            sys.exit(1)
+        reset_to_days_ago(days)
+        return
+
     once_mode = "--once" in sys.argv
 
     cfg = load_config()

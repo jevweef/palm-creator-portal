@@ -116,9 +116,24 @@ async function ingestOne(m) {
   // unless the chat gets promoted to Watching.
   // Watching: store forever. AI extractor processes them.
 
-  // Dedupe.
+  // Dedupe — but if existing record has no text (privacy-fence-era ingestion),
+  // backfill the text/media fields. Don't bump counters (already counted when
+  // metadata-only row was made).
   const existing = await findMessageRecord(composite)
-  if (existing) return { skipped: 'duplicate' }
+  if (existing) {
+    const hadText = !!(existing.fields?.Text)
+    const hadMedia = !!(existing.fields?.['Has Media'])
+    if (!hadText && !hadMedia && (m.text || m.hasMedia)) {
+      await patchAirtableRecord(MESSAGES_TABLE, existing.id, {
+        Text: m.text || '',
+        'Raw JSON': safeRawJson(m),
+        'Has Media': !!m.hasMedia,
+        'Media Type': m.mediaType || null,
+      })
+      return { updated: true }
+    }
+    return { skipped: 'duplicate' }
+  }
 
   // Sender labelling. From-me messages get our unified "us" username so the
   // task extractor recognizes them as Evan.
