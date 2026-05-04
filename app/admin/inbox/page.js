@@ -388,7 +388,7 @@ function ChatListItem({ chat, selected, onClick }) {
             {timeAgo(chat.lastMessageAt)}
           </div>
         </div>
-        {chat.lastMessageSnippet && (
+        {chat.lastMessageSnippet && chat.status !== 'Ignored' && chat.status !== 'Ignored Forever' && (
           <div style={{
             fontSize: '11px', color: 'var(--foreground-muted)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -479,27 +479,49 @@ function MessageBubble({ msg, prevMsg, isGroup }) {
 
 function ChatThread({ chat, onUpdate, toast, creators }) {
   const [messages, setMessages] = useState([])
+  const [blocked, setBlocked] = useState(null) // null | { reason }
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const scrollRef = useRef(null)
 
+  // Privacy: client-side guard. If the chat row in our list is already
+  // marked Ignored, don't even ask the server. The server also blocks
+  // (defense in depth) but this prevents the request from going at all.
+  const isIgnored = chat?.status === 'Ignored' || chat?.status === 'Ignored Forever'
+
   function loadMessages(silent = false) {
     if (!chat) return
+    if (isIgnored) {
+      setMessages([])
+      setBlocked({ reason: `Chat is ${chat.status} — content hidden` })
+      setLoading(false)
+      return
+    }
     if (!silent) setLoading(true)
     return fetch(`/api/admin/inbox/chats/${chat.id}/messages?limit=200`)
       .then(r => r.json())
-      .then(j => setMessages(j.messages || []))
+      .then(j => {
+        if (j.blocked) {
+          setBlocked({ reason: j.reason || 'Content hidden' })
+          setMessages([])
+        } else {
+          setBlocked(null)
+          setMessages(j.messages || [])
+        }
+      })
       .finally(() => { if (!silent) setLoading(false) })
   }
 
   useEffect(() => {
     setMessages([])
+    setBlocked(null)
     loadMessages(false)
     // Auto-poll while a chat is open so backfills + new messages show without
-    // a manual refresh.
+    // a manual refresh. Skip polling for ignored chats.
+    if (isIgnored) return
     const id = setInterval(() => loadMessages(true), 10000)
     return () => clearInterval(id)
-  }, [chat?.id])
+  }, [chat?.id, isIgnored])
 
   // Auto-scroll to bottom when messages load
   useEffect(() => {
@@ -656,7 +678,20 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
         flex: 1, overflowY: 'auto',
         padding: '12px 0',
       }}>
-        {loading ? (
+        {blocked ? (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: '60px 24px', color: 'var(--foreground-muted)', textAlign: 'center', gap: '8px',
+          }}>
+            <div style={{ fontSize: '32px', opacity: 0.4 }}>🔒</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>
+              Content hidden
+            </div>
+            <div style={{ fontSize: '12px', maxWidth: '320px', lineHeight: 1.5 }}>
+              {blocked.reason}. Reset the chat to view messages.
+            </div>
+          </div>
+        ) : loading ? (
           <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', padding: '40px 0' }}>
             Loading messages…
           </div>

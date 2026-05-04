@@ -57,9 +57,26 @@ export async function GET(request, { params }) {
   const url = new URL(request.url)
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '200'), 500)
 
-  // Synthetic daemon id: "daemon:<chatId>" — chat isn't in Airtable
+  // Synthetic daemon id: "daemon:<chatId>" — chat isn't in Airtable yet.
+  // Still check if it WAS marked Ignored at some point (admin may have ignored
+  // it; an Airtable record gets created on PATCH). Composite key (Source, Chat ID).
   if (id?.startsWith('daemon:')) {
     const chatId = id.slice('daemon:'.length)
+    try {
+      const safeId = chatId.replace(/'/g, "\\'")
+      const existing = await fetchAirtableRecords(CHATS_TABLE, {
+        filterByFormula: `AND({Chat ID} = '${safeId}', {Source} = 'imessage')`,
+        maxRecords: 1,
+      })
+      const existingStatus = existing[0]?.fields?.Status
+      if (existingStatus === 'Ignored' || existingStatus === 'Ignored Forever') {
+        return NextResponse.json({
+          messages: [], total: 0, source: 'ignored', blocked: true,
+          reason: `Chat is ${existingStatus} — content hidden`,
+        })
+      }
+    } catch {} // best-effort lookup; fall through to daemon fetch on error
+
     const dmsgs = await fetchDaemonMessages(chatId, limit)
     if (dmsgs == null) {
       return NextResponse.json({ error: 'daemon unreachable', messages: [] }, { status: 502 })
@@ -91,7 +108,22 @@ export async function GET(request, { params }) {
   }
 
   const source = chatRecord.fields?.Source || 'telegram'
+  const status = chatRecord.fields?.Status
   const chatIdentifier = chatRecord.fields?.['Chat ID']
+
+  // Privacy guard: never return content for Ignored chats. Even though the
+  // page-level user check restricts to Evan, we treat ignored chats as
+  // off-limits to prevent accidental exposure (browser history, screen shares,
+  // future role changes).
+  if (status === 'Ignored' || status === 'Ignored Forever') {
+    return NextResponse.json({
+      messages: [],
+      total: 0,
+      source: 'ignored',
+      blocked: true,
+      reason: `Chat is ${status} — content hidden`,
+    })
+  }
 
   // Telegram is Airtable-only (the bot is the source of truth).
   if (source === 'telegram') {
