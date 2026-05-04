@@ -90,12 +90,11 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'chat not found' }, { status: 404 })
   }
 
-  const status = chatRecord.fields?.Status
   const source = chatRecord.fields?.Source || 'telegram'
   const chatIdentifier = chatRecord.fields?.['Chat ID']
 
-  // For Watching chats OR Telegram (always Airtable-backed): use Airtable.
-  if (status === 'Watching' || source === 'telegram') {
+  // Telegram is Airtable-only (the bot is the source of truth).
+  if (source === 'telegram') {
     try {
       const records = await fetchAirtableRecords(MESSAGES_TABLE, {
         sort: [{ field: 'Sent At', direction: 'desc' }],
@@ -115,18 +114,40 @@ export async function GET(request, { params }) {
     }
   }
 
-  // iMessage + not Watching → daemon
+  // iMessage: ALWAYS prefer the daemon for display. It has fresh contact
+  // resolution + the latest messages, and avoids stale Airtable data
+  // from before contact resolution was added. Airtable still stores the
+  // messages for Watching chats — that's used for AI extraction, not display.
   const dmsgs = await fetchDaemonMessages(chatIdentifier, limit)
-  if (dmsgs == null) {
+  if (dmsgs != null) {
+    return NextResponse.json({
+      messages: dmsgs.map(shapeDaemonMessage),
+      total: dmsgs.length,
+      source: 'daemon',
+    })
+  }
+
+  // Daemon unreachable — fall back to Airtable if we have it (better than nothing)
+  try {
+    const records = await fetchAirtableRecords(MESSAGES_TABLE, {
+      sort: [{ field: 'Sent At', direction: 'desc' }],
+      maxRecords: 1000,
+    })
+    const filtered = records
+      .filter(r => (r.fields?.Chat || []).includes(id))
+      .slice(0, limit)
+      .reverse()
+    return NextResponse.json({
+      messages: filtered.map(shapeAirtableMessage),
+      total: filtered.length,
+      source: 'airtable-fallback',
+      warning: 'daemon unreachable — showing Airtable cache, may have stale names',
+    })
+  } catch (err) {
     return NextResponse.json({
       messages: [],
-      source: 'daemon',
-      error: 'daemon unreachable — Mac may be asleep or tunnel down',
-    }, { status: 200 })  // 200 with empty list — UI handles gracefully
+      source: 'unavailable',
+      error: 'daemon down + airtable failed',
+    }, { status: 200 })
   }
-  return NextResponse.json({
-    messages: dmsgs.map(shapeDaemonMessage),
-    total: dmsgs.length,
-    source: 'daemon',
-  })
 }
