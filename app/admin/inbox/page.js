@@ -431,14 +431,22 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
   const [busy, setBusy] = useState(false)
   const scrollRef = useRef(null)
 
-  useEffect(() => {
+  function loadMessages(silent = false) {
     if (!chat) return
-    setLoading(true)
-    setMessages([])
-    fetch(`/api/admin/inbox/chats/${chat.id}/messages?limit=200`)
+    if (!silent) setLoading(true)
+    return fetch(`/api/admin/inbox/chats/${chat.id}/messages?limit=200`)
       .then(r => r.json())
       .then(j => setMessages(j.messages || []))
-      .finally(() => setLoading(false))
+      .finally(() => { if (!silent) setLoading(false) })
+  }
+
+  useEffect(() => {
+    setMessages([])
+    loadMessages(false)
+    // Auto-poll while a chat is open so backfills + new messages show without
+    // a manual refresh.
+    const id = setInterval(() => loadMessages(true), 10000)
+    return () => clearInterval(id)
   }, [chat?.id])
 
   // Auto-scroll to bottom when messages load
@@ -551,13 +559,18 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
       <div style={{
         padding: '8px 20px',
         borderBottom: '1px solid rgba(255,255,255,0.04)',
-        display: 'flex', gap: '6px',
+        display: 'flex', gap: '6px', alignItems: 'center',
         background: 'rgba(255,255,255,0.01)',
       }}>
         {chat.status !== 'Watching' && <Btn variant="success" size="sm" onClick={() => setStatus('Watching')} disabled={busy}>Watch</Btn>}
         {chat.status !== 'Ignored' && chat.status !== 'Ignored Forever' && <Btn variant="warn" size="sm" onClick={() => setStatus('Ignored')} disabled={busy}>Ignore</Btn>}
         {chat.status !== 'Ignored Forever' && <Btn variant="danger" size="sm" onClick={() => setStatus('Ignored Forever')} disabled={busy}>Ignore Forever</Btn>}
         {(chat.status === 'Ignored' || chat.status === 'Ignored Forever') && <Btn size="sm" onClick={() => setStatus('Pending Review')} disabled={busy}>Reset</Btn>}
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
+          {messages.length} loaded · auto-refreshes every 10s
+        </span>
+        <Btn size="sm" onClick={() => loadMessages(false)} disabled={busy || loading}>↻ Refresh</Btn>
       </div>
 
       {/* Message thread */}
