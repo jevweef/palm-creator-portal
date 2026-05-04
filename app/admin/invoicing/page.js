@@ -239,6 +239,7 @@ function PaymentCell({ record, onSave, disabled }) {
         color: paid > 0 ? '#E8C878' : '#9ca3af',
         fontSize: '12px', cursor: disabled ? 'default' : 'pointer',
         padding: '3px 8px', fontFamily: 'inherit', transition: 'all 0.15s',
+        whiteSpace: 'nowrap',
       }}
       onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = 'rgba(232, 200, 120, 0.06)' }}}
       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
@@ -249,7 +250,7 @@ function PaymentCell({ record, onSave, disabled }) {
           {remaining > 0 && <span style={{ color: '#9ca3af' }}>· {fmt(remaining)} left</span>}
         </>
       ) : (
-        <span style={{ fontSize: '11px' }}>+ Log payment</span>
+        <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>+ Log payment</span>
       )}
     </button>
   )
@@ -424,7 +425,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
           </div>
           {sorted.map(record => (
             <div key={record.id} style={{
-              display: 'grid', gridTemplateColumns: '140px 1fr 120px 120px 120px 90px',
+              display: 'grid', gridTemplateColumns: '140px 1fr 120px 120px 120px 160px',
               alignItems: 'center', gap: '12px', padding: '8px 0',
               borderBottom: '1px solid transparent',
             }}>
