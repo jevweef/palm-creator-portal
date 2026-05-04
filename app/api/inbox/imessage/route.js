@@ -220,11 +220,12 @@ export async function POST(request) {
 
   // 3. Process serially. Most batches are small. Parallel writes to Airtable
   //    cause rate-limit pain (5 req/s per base) and we'd have to throttle anyway.
-  const stats = { received: messages.length, created: 0, skipped: 0, errors: [] }
+  const stats = { received: messages.length, created: 0, updated: 0, skipped: 0, errors: [] }
   for (const m of messages) {
     try {
       const r = await ingestOne(m)
       if (r.created) stats.created++
+      else if (r.updated) stats.updated++
       else if (r.skipped) stats.skipped++
       else if (r.error) stats.errors.push(r.error)
     } catch (err) {
