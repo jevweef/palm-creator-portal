@@ -491,11 +491,20 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
     patch({ status }, `${chat.title}: ${status.toLowerCase()}`)
   }
 
-  function onCreatorChange(e) {
+  function onCategoryChange(e) {
     const value = e.target.value
-    if (value === '') return patch({ creatorAka: '', creatorHqId: '' }, 'Creator cleared')
-    const [hqId, aka] = value.split('|')
-    patch({ creatorAka: aka, creatorHqId: hqId }, `Mapped to ${aka}`)
+    // Format: "Creator::hqId::aka" for creators, "<Category>::" for categories, "" to clear
+    if (value === '') {
+      return patch({ category: '', creatorAka: '', creatorHqId: '' }, 'Category cleared')
+    }
+    const [category, hqId = '', aka = ''] = value.split('::')
+    if (category === 'Creator') {
+      patch({ category, creatorAka: aka, creatorHqId: hqId }, `Mapped to ${aka}`)
+    } else if (category === 'Personal') {
+      patch({ category, creatorAka: '', creatorHqId: '' }, 'Marked Personal · auto-ignored')
+    } else {
+      patch({ category, creatorAka: '', creatorHqId: '' }, `Marked ${category}`)
+    }
   }
 
   if (!chat) {
@@ -510,7 +519,20 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
   }
 
   const isGroup = chat.type === 'group' || chat.type === 'supergroup'
-  const dropdownValue = chat.creatorHqId && chat.creatorAka ? `${chat.creatorHqId}|${chat.creatorAka}` : ''
+  // Compute dropdown value
+  const dropdownValue = chat.category === 'Creator' && chat.creatorHqId
+    ? `Creator::${chat.creatorHqId}::${chat.creatorAka}`
+    : chat.category
+      ? `${chat.category}::`
+      : ''
+  // Color the picker based on selected category
+  const _catStyle = (() => {
+    if (chat.category === 'Creator' && chat.creatorAka) return { color: 'var(--palm-pink)', bg: 'rgba(232, 160, 160, 0.08)', border: 'rgba(232, 160, 160, 0.25)' }
+    if (chat.category === 'Chat Team') return { color: '#7AC9E8', bg: 'rgba(120, 180, 232, 0.10)', border: 'rgba(120, 180, 232, 0.30)' }
+    if (chat.category === 'Internal Palm') return { color: '#C8A0E8', bg: 'rgba(200, 160, 232, 0.10)', border: 'rgba(200, 160, 232, 0.30)' }
+    if (chat.category === 'Personal') return { color: '#9aa0a6', bg: 'rgba(154, 160, 166, 0.08)', border: 'rgba(154, 160, 166, 0.25)' }
+    return { color: 'var(--foreground-muted)', bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.08)' }
+  })()
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -549,20 +571,24 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
         </div>
         <select
           value={dropdownValue}
-          onChange={onCreatorChange}
+          onChange={onCategoryChange}
           disabled={busy}
           style={{
             padding: '5px 10px', borderRadius: '6px', fontSize: '11px',
-            background: chat.creatorAka ? 'rgba(232, 160, 160, 0.08)' : 'rgba(255,255,255,0.03)',
-            color: chat.creatorAka ? 'var(--palm-pink)' : 'var(--foreground-muted)',
-            border: `1px solid ${chat.creatorAka ? 'rgba(232, 160, 160, 0.25)' : 'rgba(255,255,255,0.08)'}`,
+            background: _catStyle.bg, color: _catStyle.color,
+            border: `1px solid ${_catStyle.border}`,
             cursor: busy ? 'not-allowed' : 'pointer', outline: 'none',
+            minWidth: '180px',
           }}
         >
-          <option value="">— no creator —</option>
+          <option value="">— no category —</option>
+          <option value="Internal Palm::">🟣 Internal Palm</option>
+          <option value="Chat Team::">🔵 Chat Team</option>
+          <option value="Personal::">⚪ Personal (auto-ignore)</option>
+          <option disabled value="">─────────────</option>
           {(creators || []).map(c => (
-            <option key={c.id} value={`${c.id}|${c.aka}`}>
-              {c.aka || c.creator}
+            <option key={c.id} value={`Creator::${c.id}::${c.aka}`}>
+              Creator: {c.aka || c.creator}
             </option>
           ))}
         </select>

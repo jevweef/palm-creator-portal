@@ -133,56 +133,55 @@ export async function GET(request) {
   }
 
   const startTs = Date.now()
-  const stats = { messagesScanned: 0, chatsProcessed: 0, tasksCreated: 0, errors: [] }
+  const stats = { messagesScanned: 0, chatsProcessed: 0, tasksCreated: 0, watchingChats: 0, errors: [] }
 
   try {
-    // 1. Pull a batch of unprocessed messages, oldest first so context is in order.
+    // 1. Pull Watching chats first. We only ever extract from these — pulling
+    //    by status avoids loading 200 messages from Pending Review chats and
+    //    discovering nothing actionable (they're skipped by design).
+    const watchingChats = await fetchAirtableRecords(CHATS_TABLE, {
+      filterByFormula: `{Status} = 'Watching'`,
+    })
+    stats.watchingChats = watchingChats.length
+
+    if (watchingChats.length === 0) {
+      return NextResponse.json({ ok: true, idle: true, reason: 'no Watching chats', stats })
+    }
+
+    // 2. For each Watching chat, fetch its unprocessed messages.
+    //    Airtable filterByFormula can't filter by linked record IDs, so we
+    //    pull recent unprocessed messages and filter client-side. Cap by
+    //    Sent At descending then reverse for chronological-per-chat ordering.
     const messageRecords = await fetchAirtableRecords(MESSAGES_TABLE, {
       filterByFormula: `NOT({Extracted To Task})`,
-      sort: [{ field: 'Sent At', direction: 'asc' }],
+      sort: [{ field: 'Sent At', direction: 'desc' }],
       maxRecords: MAX_MESSAGES_PER_RUN,
     })
     stats.messagesScanned = messageRecords.length
 
     if (messageRecords.length === 0) {
-      return NextResponse.json({ ok: true, idle: true, stats })
+      return NextResponse.json({ ok: true, idle: true, reason: 'no unprocessed messages', stats })
     }
 
-    // 2. Group by chat (linked record id, first one).
-    const byChat = new Map() // chatId → array of message records
+    // 3. Filter to Watching chats only, group by chat.
+    const watchingChatIds = new Set(watchingChats.map(c => c.id))
+    const chatById = new Map(watchingChats.map(c => [c.id, c]))
+    const byChat = new Map()
     for (const m of messageRecords) {
       const chatLink = m.fields?.Chat?.[0]
-      if (!chatLink) continue
+      if (!chatLink || !watchingChatIds.has(chatLink)) continue
       if (!byChat.has(chatLink)) byChat.set(chatLink, [])
       byChat.get(chatLink).push(m)
     }
 
-    // 3. Pull chat metadata for the chats we'll process. Only Watching chats —
-    //    skip Pending Review (shouldn't happen with new default), Ignored, etc.
-    const chatRecords = await fetchAirtableRecords(CHATS_TABLE, {
-      filterByFormula: `OR(${[...byChat.keys()].map(id => `RECORD_ID() = '${id}'`).join(',')})`,
-    })
-    const chatById = new Map(chatRecords.map(c => [c.id, c]))
-
-    // 4. For each chat, slice + extract.
+    // 4. For each chat, sort by date asc + extract.
     const messageIdsToMark = []
 
-    for (const [chatId, msgs] of byChat) {
+    for (const [chatId, msgsDesc] of byChat) {
       const chatRecord = chatById.get(chatId)
       if (!chatRecord) continue
-      const chatStatus = chatRecord.fields?.Status
-      if (chatStatus === 'Ignored' || chatStatus === 'Ignored Forever') {
-        // Chat was muted after messages came in. Mark them processed so they
-        // don't keep getting picked up forever. We don't extract.
-        msgs.forEach(m => messageIdsToMark.push(m.id))
-        continue
-      }
-      if (chatStatus === 'Pending Review') {
-        // iMessage chats await admin opt-in. Don't extract AND don't mark
-        // processed — we want backfill once user clicks Watch.
-        continue
-      }
-      // chatStatus === 'Watching' — proceed.
+      // We pulled descending; flip to ascending for chronological context
+      const msgs = [...msgsDesc].reverse()
 
       // Cap per-chat to keep prompts under control. Take the most recent N.
       const recent = msgs.slice(-MAX_MESSAGES_PER_CHAT)

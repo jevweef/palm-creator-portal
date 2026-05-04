@@ -21,6 +21,8 @@ const VALID_STATUSES = new Set([
   'Ignored Forever',
 ])
 
+const VALID_CATEGORIES = new Set(['Creator', 'Chat Team', 'Internal Palm', 'Personal'])
+
 // For synthetic "daemon:<chatId>" ids: lazily create the Airtable record on
 // first PATCH (e.g. user clicks Watch on a chat that's only in chat.db).
 // Hydrates title/type/lastMessageAt from the daemon snapshot.
@@ -83,6 +85,21 @@ export async function PATCH(request, { params }) {
   }
   if (body.creatorHqId !== undefined) {
     updates['Creator HQ ID'] = String(body.creatorHqId || '')
+  }
+  if (body.category !== undefined) {
+    if (body.category !== '' && !VALID_CATEGORIES.has(body.category)) {
+      return NextResponse.json(
+        { error: `category must be one of: ${[...VALID_CATEGORIES].join(', ')}` },
+        { status: 400 }
+      )
+    }
+    updates.Category = body.category || null
+    // Picking 'Personal' auto-flips status to Ignored Forever — semantic
+    // alignment, save the user a click. Doesn't fire if they're explicitly
+    // changing status in the same PATCH.
+    if (body.category === 'Personal' && body.status === undefined) {
+      updates.Status = 'Ignored Forever'
+    }
   }
 
   if (Object.keys(updates).length === 0) {
