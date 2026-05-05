@@ -11,6 +11,7 @@ import {
   fetchAirtableRecords,
 } from '@/lib/adminAuth'
 import { fetchDaemonChats } from '@/lib/inboxDaemon'
+import { extractForChat } from '@/app/api/cron/extract-tasks/route'
 
 const CHATS_TABLE = 'Telegram Chats'
 
@@ -118,7 +119,28 @@ export async function PATCH(request, { params }) {
     }
 
     const updated = await patchAirtableRecord(CHATS_TABLE, recordId, updates)
-    return NextResponse.json({ ok: true, record: updated, recordId })
+
+    // If status was just set to Watching, kick off an immediate extraction
+    // for this chat (don't wait for the 5-min cron). This is what makes
+    // "click Watch → tasks appear" feel set-and-forget. We pull the full
+    // chat record (with new status) and call the per-chat extractor.
+    let extracted = null
+    if (updates.Status === 'Watching') {
+      try {
+        const fullChat = await fetchAirtableRecords(CHATS_TABLE, {
+          filterByFormula: `RECORD_ID() = '${recordId}'`,
+          maxRecords: 1,
+        })
+        if (fullChat[0]) {
+          extracted = await extractForChat(fullChat[0])
+        }
+      } catch (err) {
+        console.warn('[inbox/chats/:id] auto-extract on Watch failed:', err.message)
+        extracted = { error: err.message }
+      }
+    }
+
+    return NextResponse.json({ ok: true, record: updated, recordId, extracted })
   } catch (err) {
     console.error('[inbox/chats/:id] patch error', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
