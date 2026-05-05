@@ -251,18 +251,22 @@ export async function GET() {
     // Group posts by creator: total future count + per-date breakdown
     // Use ET date for all grouping so evening posts (23:00 UTC = 7 PM ET) land on the correct day
     //
-    // Runway = how many unique reels SMM has actually queued up to post.
+    // SMM runway = "how far out is the SMM schedule pinned." Calendar-time
+    // to the latest Post that has been delivered to Telegram (Telegram Sent
+    // At populated) AND is still in the future. Anything still in Prepping
+    // or Staged is the admin's queue, not the SMM's.
     //
-    // The dashboard's purpose for this number is "how many days of content
-    // does the social media manager have left." That's NOT every approved
-    // edit, NOT every scheduled Post — it's only Posts that have been sent
-    // to Telegram (Telegram Sent At populated) AND are still in the future.
-    // Anything still in Prepping or Staged is the admin's queue, not SMM's.
+    // Why time-based, not count-based: a creator with N IG accounts has N
+    // sibling Posts per reel scheduled for the same slot. Counting raw
+    // Posts overstates Nx; counting unique Asset IDs and dividing by a
+    // hardcoded posts-per-day understates because it doesn't know how many
+    // accounts the SMM is feeding. The schedule's latest date is the only
+    // measure of runway that doesn't require knowing N up front.
     //
-    // Dedupe by Asset ID since N IG accounts produces N sibling Posts per
-    // reel — counting raw Posts would overstate runway Nx for multi-account
-    // creators.
-    const futureAssetsByCreator = {}  // { creatorId: Set<assetId> }
+    // We still track futureAssetsByCreator (unique reels) for the
+    // "X reels scheduled" subtitle text under the runway number.
+    const futureAssetsByCreator = {}      // { creatorId: Set<assetId> }
+    const latestSchedByCreator = {}       // { creatorId: latest future-scheduled ISO }
     const postsByDateByCreator = {}
     const nowMs = Date.now()
     for (const post of allPosts) {
@@ -274,26 +278,19 @@ export async function GET() {
         if (!postsByDateByCreator[creatorId]) postsByDateByCreator[creatorId] = {}
         postsByDateByCreator[creatorId][date] = (postsByDateByCreator[creatorId][date] || 0) + 1
       }
-      // SMM runway: must be sent to Telegram AND scheduled time still in
-      // the future (compare to actual now, not just today's date — a post
-      // scheduled for May 5 7pm ET is "yesterday's" content once May 5 8pm
-      // ET hits, even though the date is technically still today).
       const telegramSentAt = post.fields?.['Telegram Sent At']
       if (!telegramSentAt) continue
       if (!scheduledISO) continue
-      if (new Date(scheduledISO).getTime() <= nowMs) continue
+      const schedMs = new Date(scheduledISO).getTime()
+      if (schedMs <= nowMs) continue
       const assetId = (post.fields?.Asset || [])[0]
       if (!assetId) continue
       if (!futureAssetsByCreator[creatorId]) futureAssetsByCreator[creatorId] = new Set()
       futureAssetsByCreator[creatorId].add(assetId)
+      if (!latestSchedByCreator[creatorId] || schedMs > latestSchedByCreator[creatorId]) {
+        latestSchedByCreator[creatorId] = schedMs
+      }
     }
-
-    // Editor may work at a DIFFERENT cadence than posting. Weekly Reel Quota
-    // sets how many edits the editor should produce per day (e.g. 3/day to
-    // build a buffer). Posting cadence is fixed at 2/day — that's what the
-    // Grid Planner schedules into, so runway is measured against 2, not the
-    // editor's production rate.
-    const POSTS_PER_DAY = 2
 
     const result = creators.map(c => {
       const f = c.fields || {}
@@ -302,7 +299,12 @@ export async function GET() {
       const weeklyQuota = f['Weekly Reel Quota'] || 14
       const dailyQuota = Math.ceil(weeklyQuota / 7)
       const approvedBuffer = futureAssetsByCreator[c.id]?.size || 0
-      const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
+      // Runway = (latest scheduled post in SMM's queue) − now, in days.
+      // Beats counting posts because account-count is unknown and varies.
+      const latestSchedMs = latestSchedByCreator[c.id]
+      const bufferDays = latestSchedMs
+        ? parseFloat(((latestSchedMs - nowMs) / (1000 * 60 * 60 * 24)).toFixed(1))
+        : 0
 
       // Redistribute ALL submitted tasks (approved + in-review + needs-revision)
       // so each day stays at dailyQuota. A revision is still a real edit the
