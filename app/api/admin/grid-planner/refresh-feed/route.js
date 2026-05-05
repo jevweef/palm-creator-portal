@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api.p.rapidapi.com'
@@ -358,6 +358,28 @@ export async function POST(request) {
         }
         if (profile) update['Scraped Profile'] = JSON.stringify(profile)
         await patchAirtableRecord('Creator Platform Directory', a.id, update)
+
+        // Append a snapshot to Account Stats so we have follower history.
+        // The Scraped Profile blob above gets overwritten on every scrape;
+        // this row is permanent and lets us chart growth over time. We log
+        // even if some sub-fields are null — a row with just `followers`
+        // populated still anchors the timeline. Best-effort: never block
+        // the main refresh flow on the snapshot write.
+        if (profile && (profile.followers != null || profile.following != null || profile.postCount != null)) {
+          try {
+            await createAirtableRecord('Account Stats', {
+              'Snapshot ID': `${name} — ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`,
+              'Account': [a.id],
+              'Captured At': new Date().toISOString(),
+              ...(profile.followers != null ? { 'Followers': profile.followers } : {}),
+              ...(profile.following != null ? { 'Following': profile.following } : {}),
+              ...(profile.postCount != null ? { 'Post Count': profile.postCount } : {}),
+              'Source': 'refresh-feed',
+            })
+          } catch (snapErr) {
+            console.warn(`[Refresh] Account Stats write failed for ${name}:`, snapErr.message)
+          }
+        }
 
         return {
           id: a.id, name, ok: true,
