@@ -128,9 +128,13 @@ function TaskRow({ task, onAction }) {
   const [dismissOpen, setDismissOpen] = useState(false)
   const [feedbackType, setFeedbackType] = useState('')
   const [feedbackReason, setFeedbackReason] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(task.task)
+  const [editSaving, setEditSaving] = useState(false)
+  const [currentText, setCurrentText] = useState(task.task)
 
-  async function patch(updates) {
-    onAction({ id: task.id, optimistic: true })
+  async function patch(updates, { keepRow = false } = {}) {
+    if (!keepRow) onAction({ id: task.id, optimistic: true })
     try {
       const res = await fetch(`/api/admin/inbox/tasks/${task.id}`, {
         method: 'PATCH',
@@ -138,10 +142,26 @@ function TaskRow({ task, onAction }) {
         body: JSON.stringify(updates),
       })
       if (!res.ok) throw new Error(await res.text())
-      onAction({ id: task.id, removed: true })
+      if (!keepRow) onAction({ id: task.id, removed: true })
+      return true
     } catch (err) {
       console.warn('task action failed', err)
-      onAction({ id: task.id, restore: true })
+      if (!keepRow) onAction({ id: task.id, restore: true })
+      return false
+    }
+  }
+
+  async function saveEdit() {
+    const text = editText.trim()
+    if (!text || text === currentText) {
+      setEditing(false); return
+    }
+    setEditSaving(true)
+    const ok = await patch({ task: text }, { keepRow: true })
+    setEditSaving(false)
+    if (ok) {
+      setCurrentText(text)
+      setEditing(false)
     }
   }
 
@@ -156,54 +176,108 @@ function TaskRow({ task, onAction }) {
         borderLeft: `2px solid ${URGENCY_COLOR[task.urgency] || URGENCY_COLOR.Soon}`,
       }}
     >
-      <Link
-        href="/admin/inbox?tab=tasks"
-        style={{
-          display: 'flex', alignItems: 'center', gap: '10px',
-          textDecoration: 'none', color: 'inherit',
-          flex: 1, minWidth: 0,
-        }}
-      >
-        <span style={{
-          fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-          padding: '2px 6px', borderRadius: '3px',
-          color: OWNER_COLOR[task.owner] || OWNER_COLOR.Other,
-          background: 'rgba(255,255,255,0.04)',
-          flexShrink: 0,
-        }}>
-          {task.owner}
-        </span>
-        {task.creatorAka && (
+      {editing ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
           <span style={{
-            fontSize: '9px', fontWeight: 700, letterSpacing: '0.04em',
+            fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
             padding: '2px 6px', borderRadius: '3px',
-            color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.08)',
+            color: OWNER_COLOR[task.owner] || OWNER_COLOR.Other,
+            background: 'rgba(255,255,255,0.04)',
             flexShrink: 0,
           }}>
-            {task.creatorAka}
+            {task.owner}
           </span>
-        )}
-        <span style={{
-          fontSize: '13px', fontWeight: 500, color: 'var(--foreground)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          flex: 1, minWidth: 0,
-        }}>
-          {task.task}
-        </span>
-        <span style={{
-          fontSize: '10px', color: 'var(--foreground-muted)', flexShrink: 0,
-        }}>
-          {timeAgo(task.detectedAt)}
-        </span>
-      </Link>
+          <input
+            autoFocus
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); saveEdit() }
+              if (e.key === 'Escape') { e.preventDefault(); setEditText(currentText); setEditing(false) }
+            }}
+            disabled={editSaving}
+            style={{
+              flex: 1, minWidth: 0,
+              fontSize: '13px', fontWeight: 500,
+              padding: '4px 8px', borderRadius: '4px',
+              border: '1px solid var(--palm-pink)',
+              background: 'rgba(255,255,255,0.04)',
+              color: 'var(--foreground)',
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
+      ) : (
+        <Link
+          href="/admin/inbox?tab=tasks"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            textDecoration: 'none', color: 'inherit',
+            flex: 1, minWidth: 0,
+          }}
+        >
+          <span style={{
+            fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+            padding: '2px 6px', borderRadius: '3px',
+            color: OWNER_COLOR[task.owner] || OWNER_COLOR.Other,
+            background: 'rgba(255,255,255,0.04)',
+            flexShrink: 0,
+          }}>
+            {task.owner}
+          </span>
+          {task.creatorAka && (
+            <span style={{
+              fontSize: '9px', fontWeight: 700, letterSpacing: '0.04em',
+              padding: '2px 6px', borderRadius: '3px',
+              color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.08)',
+              flexShrink: 0,
+            }}>
+              {task.creatorAka}
+            </span>
+          )}
+          <span style={{
+            fontSize: '13px', fontWeight: 500, color: 'var(--foreground)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            flex: 1, minWidth: 0,
+          }}>
+            {currentText}
+          </span>
+          <span style={{
+            fontSize: '10px', color: 'var(--foreground-muted)', flexShrink: 0,
+          }}>
+            {timeAgo(task.detectedAt)}
+          </span>
+        </Link>
+      )}
 
       <div style={{ display: 'flex', gap: '4px', flexShrink: 0, position: 'relative' }}>
+        {editing ? (
+          <>
+            <ActionButton onClick={saveEdit} color="#7AE89C" title="Save edit (Enter)">
+              {editSaving ? '...' : 'Save'}
+            </ActionButton>
+            <ActionButton
+              onClick={() => { setEditText(currentText); setEditing(false) }}
+              title="Cancel edit (Esc)"
+            >
+              Cancel
+            </ActionButton>
+          </>
+        ) : (
+          <>
         <ActionButton
           onClick={() => patch({ status: 'Done' })}
           color="#7AE89C"
           title="Mark as done"
         >
           Done
+        </ActionButton>
+        <ActionButton
+          onClick={() => { setEditText(currentText); setEditing(true) }}
+          color="#C8A0E8"
+          title="Edit task wording (won't be overwritten by AI on next run)"
+        >
+          Edit
         </ActionButton>
 
         <div style={{ position: 'relative' }}>
@@ -316,6 +390,8 @@ function TaskRow({ task, onAction }) {
             </div>
           </Popover>
         </div>
+          </>
+        )}
       </div>
     </div>
   )

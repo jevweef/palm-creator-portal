@@ -336,6 +336,9 @@ EXISTING_TASKS lists current open tasks for this chat with their sourceMessageKe
 - If the conversation now warrants a different framing of an old task, output the
   NEW task with the old sourceMessageKey AND mark the old taskId as resolved
   (with reason "superseded").
+- Tasks marked [✏️ MANUALLY EDITED] were rewritten by Evan. Do NOT regenerate
+  them with new wording — the system preserves his text. Only mark them resolved
+  if the conversation now resolves them.
 
 # OUTPUT SHAPE
 
@@ -389,7 +392,10 @@ function buildUserPrompt({ chatTitle, creatorAka, messages, openTasks, filterNot
     '',
     `EXISTING OPEN TASKS for this chat (from prior runs):`,
     openTasks.length > 0
-      ? openTasks.map(t => `  - taskId=${t.id} | sourceKey=${t.sourceMessageKey || '?'} | "${t.task}" | quote: "${t.sourceQuote.slice(0, 120)}"`).join('\n')
+      ? openTasks.map(t => {
+          const edited = t.manuallyEdited ? ' [✏️ MANUALLY EDITED — preserve wording]' : ''
+          return `  - taskId=${t.id}${edited} | sourceKey=${t.sourceMessageKey || '?'} | "${t.task}" | quote: "${t.sourceQuote.slice(0, 120)}"`
+        }).join('\n')
       : '  (none)',
     '',
     `MESSAGES (oldest to newest, last ${messages.length} of conversation):`,
@@ -462,6 +468,7 @@ async function loadOpenTasksForChat(chatRecordId) {
         task: r.fields?.Task || '',
         sourceQuote: r.fields?.['Source Quote'] || '',
         sourceMessageKey: (r.fields?.['Source Messages'] || [])[0]?.name || null,
+        manuallyEdited: !!r.fields?.['Manually Edited'],
       }))
   } catch {
     return []
@@ -662,8 +669,18 @@ export async function extractForChat(chat, { creatorPhones, vocab, feedbackBlock
 
     try {
       if (existing) {
-        await patchAirtableRecord(TASKS_TABLE, existing.id, fields)
-        stats.tasksUpdated++
+        if (existing.manuallyEdited) {
+          // Hands off the wording — Evan rewrote it. Still allow non-text
+          // metadata refresh (defer / urgency / topic / source-time).
+          const { Task: _, 'Source Quote': __, ...metaOnly } = fields
+          if (Object.keys(metaOnly).length > 0) {
+            await patchAirtableRecord(TASKS_TABLE, existing.id, metaOnly)
+            stats.tasksUpdated++
+          }
+        } else {
+          await patchAirtableRecord(TASKS_TABLE, existing.id, fields)
+          stats.tasksUpdated++
+        }
       } else {
         await createAirtableRecord(TASKS_TABLE, {
           ...fields,

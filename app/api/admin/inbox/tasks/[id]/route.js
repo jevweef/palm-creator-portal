@@ -49,7 +49,13 @@ export async function PATCH(request, { params }) {
     updates.Owner = body.owner
   }
   if (body.notes !== undefined) updates.Notes = String(body.notes).slice(0, 5000)
-  if (body.task !== undefined) updates.Task = String(body.task).slice(0, 200)
+  if (body.task !== undefined) {
+    updates.Task = String(body.task).slice(0, 200)
+    // Wording edit → flag as manually edited so extract-tasks won't
+    // overwrite it on subsequent cron runs (Sonnet would otherwise
+    // re-generate the original wording from the same source message).
+    updates['Manually Edited'] = true
+  }
 
   // Snooze: client sends snoozeHours (1, 24, 72, 168 etc) — convert to
   // Defer Until ISO. Also flips status to Snoozed if not already specified.
