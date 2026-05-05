@@ -636,6 +636,87 @@ class _DaemonHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.end_headers()
 
+    def do_POST(self):
+        """Send an iMessage via AppleScript. POST /send with JSON:
+           {"chatId": "+15551234567" | "chat<long>", "text": "Hi!"}
+        Auth: X-Daemon-Secret header. Requires Mac to have granted Automation
+        permission to whatever process is running this (first attempt will
+        prompt the user)."""
+        cfg = load_config()
+        secret = cfg.get("daemon_secret")
+        if not self._check_auth(secret):
+            return
+        url = urlparse(self.path)
+        path = url.path.rstrip("/")
+        if path != "/send":
+            self._send_json(404, {"error": "not found"})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length) if length > 0 else b"{}"
+            payload = json.loads(body or b"{}")
+        except Exception as e:
+            self._send_json(400, {"error": f"bad JSON: {e}"})
+            return
+
+        chat_id = (payload.get("chatId") or "").strip()
+        text = payload.get("text") or ""
+        if not chat_id or not text:
+            self._send_json(400, {"error": "chatId and text required"})
+            return
+        if len(text) > 5000:
+            self._send_json(413, {"error": "text too long"})
+            return
+
+        # AppleScript send. Path differs for 1-on-1 vs group:
+        # - 1-on-1 phone/email: `send "text" to buddy "+15551234567"`
+        # - group chat: target by chat id (chat_identifier from chat.db) using
+        #   the dedicated chat object lookup. AppleScript Messages dictionary
+        #   exposes chats by `chat id`.
+        # We always use the `chat id` form which works for both.
+        # Escape double-quotes in text for AppleScript string literal.
+        safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
+        safe_chat = chat_id.replace("\\", "\\\\").replace('"', '\\"')
+        script = (
+            'tell application "Messages"\n'
+            f'  set targetChat to a reference to text chat id "iMessage;-;{safe_chat}"\n'
+            f'  send "{safe_text}" to targetChat\n'
+            'end tell'
+        )
+        # Fallback for buddies (1-on-1): if the chat id form fails, try buddy form.
+        fallback = (
+            'tell application "Messages"\n'
+            f'  send "{safe_text}" to buddy "{safe_chat}" of (service 1 whose service type is iMessage)\n'
+            'end tell'
+        )
+        import subprocess
+        try:
+            r = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True, text=True, timeout=20,
+            )
+            if r.returncode != 0:
+                # Try fallback
+                r2 = subprocess.run(
+                    ["osascript", "-e", fallback],
+                    capture_output=True, text=True, timeout=20,
+                )
+                if r2.returncode != 0:
+                    log(f"send failed for {chat_id}: chat-id-form err={r.stderr.strip()[:200]} ; buddy-form err={r2.stderr.strip()[:200]}", "ERROR")
+                    self._send_json(500, {
+                        "error": "AppleScript failed",
+                        "chat_id_form_stderr": r.stderr.strip()[:300],
+                        "buddy_form_stderr": r2.stderr.strip()[:300],
+                    })
+                    return
+            log(f"sent message to {chat_id} ({len(text)} chars)")
+            self._send_json(200, {"ok": True, "chatId": chat_id, "chars": len(text)})
+        except subprocess.TimeoutExpired:
+            self._send_json(504, {"error": "AppleScript timeout"})
+        except Exception as e:
+            log(f"send unexpected error: {e!r}", "ERROR")
+            self._send_json(500, {"error": str(e)})
+
     def do_GET(self):
         cfg = load_config()
         secret = cfg.get("daemon_secret")

@@ -103,6 +103,7 @@ const OWNER_COLOR = {
 
 function TaskCard({ task, onUpdate, toast }) {
   const [busy, setBusy] = useState(false)
+  const [replyOpen, setReplyOpen] = useState(false)
 
   async function setStatus(status) {
     setBusy(true)
@@ -123,6 +124,9 @@ function TaskCard({ task, onUpdate, toast }) {
       setBusy(false)
     }
   }
+
+  const chatId = task.sourceChatIds?.[0]
+  const canReply = !!chatId
 
   return (
     <div style={{
@@ -180,9 +184,136 @@ function TaskCard({ task, onUpdate, toast }) {
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+          {canReply && (
+            <Btn variant="primary" size="sm" onClick={() => setReplyOpen(true)} disabled={busy}>Reply</Btn>
+          )}
           <Btn variant="success" size="sm" onClick={() => setStatus('Done')} disabled={busy}>Done</Btn>
           <Btn size="sm" onClick={() => setStatus('Snoozed')} disabled={busy}>Snooze</Btn>
           <Btn variant="danger" size="sm" onClick={() => setStatus('Dismissed')} disabled={busy}>Dismiss</Btn>
+        </div>
+      </div>
+      {replyOpen && (
+        <ReplyModal
+          chatId={chatId}
+          task={task}
+          onClose={() => setReplyOpen(false)}
+          onSent={() => { setReplyOpen(false); onUpdate(); }}
+          toast={toast}
+        />
+      )}
+    </div>
+  )
+}
+
+function ReplyModal({ chatId, task, onClose, onSent, toast }) {
+  const [text, setText] = useState('')
+  const [drafting, setDrafting] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [markDone, setMarkDone] = useState(true)
+
+  async function aiDraft() {
+    setDrafting(true)
+    try {
+      const res = await fetch(`/api/admin/inbox/chats/${chatId}/draft-reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskContext: { task: task.task, sourceQuote: task.sourceQuote },
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok) {
+        toast(`Draft failed: ${j.error || res.statusText}`, 'error')
+        return
+      }
+      setText(j.draft || '')
+    } finally {
+      setDrafting(false)
+    }
+  }
+
+  async function send() {
+    if (!text.trim()) return
+    setSending(true)
+    try {
+      const res = await fetch(`/api/admin/inbox/chats/${chatId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text.trim(),
+          markTaskDone: markDone ? task.id : undefined,
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok) {
+        toast(`Send failed: ${j.error || res.statusText}`, 'error')
+        return
+      }
+      toast(`Sent via ${j.source}${markDone ? ' · task marked done' : ''}`, 'success')
+      onSent()
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(4px)',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'rgba(20, 20, 20, 0.98)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '14px',
+          padding: '20px', width: 'min(560px, 92vw)',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700 }}>Reply</div>
+          <button
+            onClick={onClose}
+            style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: '18px', cursor: 'pointer', padding: 0 }}
+          >×</button>
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '14px' }}>
+          Re: <em>{task.task}</em>
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type your reply, or hit ✨ AI Draft to suggest one…"
+          rows={5}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '8px', padding: '10px 12px',
+            color: 'var(--foreground)', fontSize: '14px', lineHeight: 1.5,
+            resize: 'vertical', outline: 'none',
+            fontFamily: 'inherit',
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', gap: '12px', flexWrap: 'wrap' }}>
+          <Btn size="sm" onClick={aiDraft} disabled={drafting || sending}>
+            {drafting ? 'Drafting…' : '✨ AI Draft'}
+          </Btn>
+          <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={markDone} onChange={(e) => setMarkDone(e.target.checked)} />
+            Mark task done after send
+          </label>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <Btn size="sm" onClick={onClose} disabled={sending}>Cancel</Btn>
+            <Btn variant="primary" size="sm" onClick={send} disabled={sending || !text.trim()}>
+              {sending ? 'Sending…' : 'Send'}
+            </Btn>
+          </div>
         </div>
       </div>
     </div>
