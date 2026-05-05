@@ -116,8 +116,9 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const { hqId, confirmAka } = body || {}
+    const { hqId, confirmAka, reason } = body || {}
     if (!hqId) return NextResponse.json({ error: 'hqId required' }, { status: 400 })
+    const reasonText = (reason || '').toString().trim().slice(0, 2000)
 
     const hq = await fetchHqRecord(HQ_CREATORS, hqId)
     const f = hq.fields || {}
@@ -134,13 +135,16 @@ export async function POST(request) {
 
     const today = new Date().toISOString().slice(0, 10)
 
-    // 1. HQ Creators: flip Status + stamp Offboarded Date
+    // 1. HQ Creators: flip Status + stamp Offboarded Date + reason
     try {
-      await patchHqRecord(HQ_CREATORS, hqId, {
+      const hqPatch = {
         Status: 'Offboarded',
         'Offboarded Date': today,
-      })
+      }
+      if (reasonText) hqPatch['Offboarded Reason'] = reasonText
+      await patchHqRecord(HQ_CREATORS, hqId, hqPatch)
       summary.hqStatus = 'Offboarded'
+      summary.reason = reasonText || null
     } catch (e) {
       summary.errors.push(`HQ status update failed: ${e.message}`)
     }
