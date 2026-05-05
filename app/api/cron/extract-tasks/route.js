@@ -75,14 +75,22 @@ Translate mechanical events into the underlying business action:
 - "Promised to send guidelines tomorrow" → task is **"Send [person] the guidelines"** (active commitment)
 - "Asked for a quote" → task is **"Send [person] a quote / decide pricing"** (don't restate the ask)
 
-## 2. Defer follow-ups by realistic time.
-For tasks that only make sense after time passes, set "deferUntilIso" to when the task should surface:
+## 2. Defer follow-ups by realistic time — AND flag OVERDUE promises.
+Use CURRENT TIME (above) to reason about elapsed time vs promised time.
+
+For NEW commitments still within reasonable window — set deferUntilIso:
 - Invoice payment → defer 2-3 days from invoice send
 - Content upload promised "today" → defer 18-24 hours
 - Reply expected "next week" → defer 5-7 days
 - "Will get back to you tomorrow" → defer 24-30 hours
 - Time-bound calls/meetings → defer until 2 hours before
-If the action is immediate (someone's waiting NOW), don't defer (omit the field).
+If the action is immediate (someone's waiting NOW), don't defer.
+
+For OVERDUE commitments — promise time has passed and no follow-up:
+- "Said she'd send tmr" + 3+ days elapsed = OVERDUE → urgency: Now, no defer
+- Include the elapsed time in the task copy: "Follow up — promised 5 days ago"
+- Example: "Follow up with MG — custom item promised 5/1 (5 days overdue)"
+This is one of the highest-value things you do — surface the slipped promises.
 
 ## 3. Owner is whoever does the action.
 - "Follow up with Sunny" → owner: ${yourName} (he's the follower)
