@@ -70,14 +70,16 @@ function bufferLooksLikeImage(buf, contentLength) {
   return false
 }
 
-// Default for bulk operations is Wall Post — chat manager team isn't
-// using the WP/MM distinction for bulk downloads, so we just stamp them
-// with something so the field isn't blank. They can re-tag from the
-// Used view if it ever matters.
-const USED_FOR_MAP = { wall: 'Wall Post', mm: 'Mass Message' }
-const DEFAULT_USED_FOR = 'Wall Post'
+// Bulk downloads tag everything as "Bulk Download" — the chat manager
+// uses these photos across multiple surfaces (wall posts AND mass
+// messages), so forcing a single WP/MM choice misrepresents how they're
+// actually used. The single-photo flow still uses Wall Post / Mass Message.
+const USED_FOR_MAP = { wall: 'Wall Post', mm: 'Mass Message', bulk: 'Bulk Download' }
+const DEFAULT_USED_FOR = 'Bulk Download'
 
 // Airtable PATCH limits to 10 records per request. Chunks the bulk update.
+// `typecast: true` so Airtable auto-creates the "Bulk Download" singleSelect
+// choice on first run if it doesn't already exist.
 async function batchMarkUsed(assetIds, surfaceLabel, userId) {
   const headers = {
     Authorization: `Bearer ${process.env.AIRTABLE_PAT}`,
@@ -86,6 +88,7 @@ async function batchMarkUsed(assetIds, surfaceLabel, userId) {
   for (let i = 0; i < assetIds.length; i += 10) {
     const chunk = assetIds.slice(i, i + 10)
     const body = {
+      typecast: true,
       records: chunk.map(id => ({
         id,
         fields: {
@@ -110,7 +113,9 @@ async function batchMarkUsed(assetIds, surfaceLabel, userId) {
 /**
  * POST /api/photo-library/bulk-download
  *
- * Body: { creatorId: string, usedFor: 'wall' | 'mm' }
+ * Body: { creatorId: string, usedFor?: 'wall' | 'mm' | 'bulk' }
+ *   - omitted/`bulk` → tagged "Bulk Download" (default for the bulk flow)
+ *   - `wall`/`mm` → tagged "Wall Post"/"Mass Message"
  *
  * Marks every available photo for that creator as Used (with the chosen
  * surface), then streams back a zip containing the Dropbox originals.
@@ -138,8 +143,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
   if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
-  const surfaceLabel = USED_FOR_MAP[usedFor]
-  if (!surfaceLabel) return NextResponse.json({ error: 'usedFor must be "wall" or "mm"' }, { status: 400 })
+  const surfaceLabel = USED_FOR_MAP[usedFor] || DEFAULT_USED_FOR
 
   // 1. Fetch every available photo for this creator. Mirrors the chat-wall
   // photos endpoint's filter (image type, has Dropbox link, not yet Used).
