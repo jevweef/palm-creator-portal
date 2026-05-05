@@ -19,6 +19,7 @@
     "@tailwindcss/postcss": "^4.2.2",
     "@vercel/functions": "^3.4.4",
     "airtable": "^0.12.2",
+    "archiver": "^7.0.1",
     "dompurify": "^3.3.3",
     "ffmpeg-static": "^4.4.1",
     "fluent-ffmpeg": "^2.1.3",
