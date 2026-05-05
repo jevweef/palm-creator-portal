@@ -226,7 +226,7 @@ export default function SonnetTestPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]" style={{ padding: '24px 16px 80px' }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+      <div style={{ maxWidth: record.sonnetOptimized ? 1700 : 1400, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#888', marginBottom: 8 }}>
@@ -390,10 +390,18 @@ export default function SonnetTestPage() {
           />
           <AnalysisColumn
             heading="Sonnet"
-            modelLabel={record.sonnet?.model || 'claude-sonnet-4-6'}
+            modelLabel={`${record.sonnet?.model || 'claude-sonnet-4-6'} · 14 frames @ native res`}
             accentColor="#E8A0A0"
             data={record.sonnet}
           />
+          {record.sonnetOptimized && (
+            <AnalysisColumn
+              heading="Sonnet (optimized)"
+              modelLabel={record.sonnetOptimized.config || '8 frames @ 768px'}
+              accentColor="#a78bfa"
+              data={record.sonnetOptimized}
+            />
+          )}
         </div>
 
         {/* Prev / Next */}
