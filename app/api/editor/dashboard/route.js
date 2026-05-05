@@ -251,26 +251,41 @@ export async function GET() {
     // Group posts by creator: total future count + per-date breakdown
     // Use ET date for all grouping so evening posts (23:00 UTC = 7 PM ET) land on the correct day
     //
-    // Runway = how many unique reels are scheduled, not how many Post records.
-    // A creator with N IG accounts produces N sibling Posts per reel (one per
-    // account), so counting raw Posts overstates buffer Nx. Dedupe by Asset ID.
+    // Runway = how many unique reels SMM has actually queued up to post.
+    //
+    // The dashboard's purpose for this number is "how many days of content
+    // does the social media manager have left." That's NOT every approved
+    // edit, NOT every scheduled Post — it's only Posts that have been sent
+    // to Telegram (Telegram Sent At populated) AND are still in the future.
+    // Anything still in Prepping or Staged is the admin's queue, not SMM's.
+    //
+    // Dedupe by Asset ID since N IG accounts produces N sibling Posts per
+    // reel — counting raw Posts would overstate runway Nx for multi-account
+    // creators.
     const futureAssetsByCreator = {}  // { creatorId: Set<assetId> }
     const postsByDateByCreator = {}
+    const nowMs = Date.now()
     for (const post of allPosts) {
       const creatorId = (post.fields?.Creator || [])[0]
       if (!creatorId) continue
-      const date = toETDateStr(post.fields?.['Scheduled Date'] || '')
+      const scheduledISO = post.fields?.['Scheduled Date']
+      const date = toETDateStr(scheduledISO || '')
       if (date) {
         if (!postsByDateByCreator[creatorId]) postsByDateByCreator[creatorId] = {}
         postsByDateByCreator[creatorId][date] = (postsByDateByCreator[creatorId][date] || 0) + 1
       }
-      // Only count future posts toward buffer, deduped by Asset
-      if (date && date > todayStr) {
-        const assetId = (post.fields?.Asset || [])[0]
-        if (!assetId) continue
-        if (!futureAssetsByCreator[creatorId]) futureAssetsByCreator[creatorId] = new Set()
-        futureAssetsByCreator[creatorId].add(assetId)
-      }
+      // SMM runway: must be sent to Telegram AND scheduled time still in
+      // the future (compare to actual now, not just today's date — a post
+      // scheduled for May 5 7pm ET is "yesterday's" content once May 5 8pm
+      // ET hits, even though the date is technically still today).
+      const telegramSentAt = post.fields?.['Telegram Sent At']
+      if (!telegramSentAt) continue
+      if (!scheduledISO) continue
+      if (new Date(scheduledISO).getTime() <= nowMs) continue
+      const assetId = (post.fields?.Asset || [])[0]
+      if (!assetId) continue
+      if (!futureAssetsByCreator[creatorId]) futureAssetsByCreator[creatorId] = new Set()
+      futureAssetsByCreator[creatorId].add(assetId)
     }
 
     // Editor may work at a DIFFERENT cadence than posting. Weekly Reel Quota
