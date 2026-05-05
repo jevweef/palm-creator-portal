@@ -1,68 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import DOMPurify from 'dompurify'
 import { tagStyle } from '@/lib/tagStyle'
 import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
-
-// ─── Test record (rec6fMhLBcFkSMGiL — "Who's Up for Second?") ───────────────
-// Pulled live from Airtable so the video, stats, and the existing OpenAI
-// analysis match what's on the inspo board. The Sonnet analysis below is the
-// raw output from re-running the same prompt + frames + transcript through
-// claude-sonnet-4-6.
-
-const RECORD = {
-  id: 'rec6fMhLBcFkSMGiL',
-  title: 'Who’s Up for Second?',
-  username: 'gracedzeja_',
-  contentLink: 'https://www.instagram.com/reel/DTnSzwekbVF/',
-  views: 386056,
-  likes: 4213,
-  comments: 31,
-  shares: 16159,
-  streamUid: 'd6c7a3fbb18b24b250f110b65a0aa767',
-  dbRawLink: 'https://www.dropbox.com/scl/fi/laicq9plstbzhr8bwfonh/who-s-up-for-second-video.mp4?rlkey=ibr54c5h2yo4fyvcvjfbsram8&raw=1',
-  dbEmbedCode: '<div style="width:100%; max-width:420px; margin:0 auto !important;"><div style="position:relative !important; width:100% !important; height:0 !important; padding-top:177.78% !important; background:#000 !important; overflow:hidden !important; border-radius:12px !important;"><video controls playsinline style="position:absolute !important; top:0 !important; left:0 !important; width:100% !important; height:100% !important; object-fit:contain !important; display:block !important;"><source src="https://www.dropbox.com/scl/fi/laicq9plstbzhr8bwfonh/who-s-up-for-second-video.mp4?rlkey=ibr54c5h2yo4fyvcvjfbsram8&raw=1" type="video/mp4"></video></div></div>',
-}
-
-const OPENAI = {
-  model: 'gpt-5.4-mini',
-  title: 'Who’s Up for Second?',
-  inspoDirection:
-    'Film yourself on a phone selfie while walking out of a gym or fitness space in workout clothes. Keep the camera held out front and let the movement feel casual, like you just finished training and are still in the moment. Add a quick glance to the camera and a little smirk while staying in motion. Needs a filming partner if you want the follow-behind angle instead of selfie.',
-  whatMattersMost:
-    'It’s a gym sweat-post with a sexual double meaning. The line about being up for a second frames the workout as a double entendre, so the visual needs to sell that she’s just left the gym and is hot, sweaty, and available for attention. The body is part of the appeal, but the joke is the hook.',
-  onScreenText: 'Just finished my first sweat of the day... who’s up for a second?',
-  tags: ['Soft Tease', 'Playful Personality', 'Body Focus', 'Thirst Trap'],
-  filmFormat: ['Selfie', 'Single-Clip'],
-  suggestedTags: ['Double Entendre', 'Gym Selfie', 'Suggestive Humor'],
-}
-
-const SONNET = {
-  model: 'claude-sonnet-4-6',
-  title: 'Who\'s Up for a Second?',
-  inspoDirection:
-    'Film yourself post-workout in a sports bra and leggings, holding your phone in a selfie-style angle that frames your chest and midriff. Move naturally — walking, turning, looking into the camera playfully. The double entendre text is the concept: “Just finished my first sweat of the day… who’s up for a second?” reads as a workout invite on the surface but is clearly an offer for sex. Let the clip breathe — don’t pose stiffly, just move around casually as if you just wrapped a session.',
-  whatMattersMost:
-    'The text is doing a clean double entendre: “first sweat of the day” and “who’s up for a second” sounds like fitness talk but means she’s offering round two in bed. The caption “Any volunteers?” locks in the invitation. It performs because it’s technically safe for Instagram while being unmistakably sexual to anyone paying attention. Pair that with visible cleavage and a bare midriff in the frame and the subtext lands immediately. This only works if the creator has a chest that makes the low-cut sports bra the visual anchor — without that, the text loses its punch.',
-  onScreenText: 'Just finished my first sweat of the day… who’s up for a second?',
-  tags: [
-    'Nature / Outdoors',
-    'Fitness / Gym',
-    'Playful Personality',
-    'Direct Flirt',
-    'Boobs',
-    'Body Focus',
-    'Implied Scenario',
-    'Eye Contact Driven',
-  ],
-  filmFormat: ['Selfie', 'Single-Clip'],
-  suggestedTags: [
-    'Double Entendre / Plausible Deniability',
-    'Post-Workout / Gym Exit',
-    'Open Invitation',
-  ],
-}
 
 function formatNum(n) {
   if (!n || n < 0) return null
@@ -85,6 +26,7 @@ function VideoPane({ record }) {
     <div className="w-full bg-black overflow-hidden rounded-2xl" style={{ aspectRatio: '9/16', maxWidth: 320 }}>
       {record.streamUid ? (
         <iframe
+          key={record.streamUid}
           src={buildStreamIframeUrl(record.streamUid, { autoplay: true, muted: true, loop: true, controls: true })}
           allow="autoplay; fullscreen"
           allowFullScreen
@@ -92,9 +34,9 @@ function VideoPane({ record }) {
           style={{ border: 'none' }}
         />
       ) : embedHtml ? (
-        <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+        <div key={record.id} className="w-full h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
       ) : record.dbRawLink ? (
-        <video src={record.dbRawLink} controls autoPlay muted loop className="w-full h-full object-cover" />
+        <video key={record.id} src={record.dbRawLink} controls autoPlay muted loop className="w-full h-full object-cover" />
       ) : null}
     </div>
   )
@@ -120,12 +62,12 @@ function Section({ label, children }) {
 }
 
 function AnalysisColumn({ heading, modelLabel, accentColor, data }) {
+  if (!data) return null
   return (
     <div
       className="flex-1 min-w-0 rounded-2xl bg-[#0f0f0f] flex flex-col"
       style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}
     >
-      {/* Column header */}
       <div
         style={{
           padding: '18px 24px',
@@ -159,17 +101,12 @@ function AnalysisColumn({ heading, modelLabel, accentColor, data }) {
         </div>
       </div>
 
-      {/* Body */}
       <div className="flex flex-col gap-5" style={{ padding: '22px 24px' }}>
-        {/* Tags */}
         {data.tags?.length > 0 && (
           <Section label={`Tags (${data.tags.length})`}>
             <div className="flex flex-wrap gap-2">
               {data.tags.map((tag) => (
-                <span
-                  key={tag}
-                  style={{ fontSize: 12, padding: '4px 12px', borderRadius: 9999, ...tagStyle(tag) }}
-                >
+                <span key={tag} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 9999, ...tagStyle(tag) }}>
                   {tag}
                 </span>
               ))}
@@ -177,16 +114,11 @@ function AnalysisColumn({ heading, modelLabel, accentColor, data }) {
           </Section>
         )}
 
-        {/* Film Format */}
         {data.filmFormat?.length > 0 && (
           <Section label="Film Format">
             <div className="flex flex-wrap gap-2">
               {data.filmFormat.map((f) => (
-                <span
-                  key={f}
-                  className="text-xs px-3 py-1 rounded"
-                  style={{ background: '#F5F0F2', color: '#888', border: 'none' }}
-                >
+                <span key={f} className="text-xs px-3 py-1 rounded" style={{ background: '#F5F0F2', color: '#888' }}>
                   {f}
                 </span>
               ))}
@@ -194,7 +126,6 @@ function AnalysisColumn({ heading, modelLabel, accentColor, data }) {
           </Section>
         )}
 
-        {/* On-Screen Text */}
         {data.onScreenText && (
           <Section label="On-Screen Text">
             <p style={{ fontSize: 14, color: 'rgba(240,236,232,0.85)', fontStyle: 'italic' }}>
@@ -203,21 +134,18 @@ function AnalysisColumn({ heading, modelLabel, accentColor, data }) {
           </Section>
         )}
 
-        {/* Inspo Direction */}
         {data.inspoDirection && (
           <Section label="Inspo Direction">
             <p style={{ fontSize: 14, color: 'rgba(240,236,232,0.92)', lineHeight: 1.7 }}>{data.inspoDirection}</p>
           </Section>
         )}
 
-        {/* What Matters Most */}
         {data.whatMattersMost && (
           <Section label="What Matters Most">
             <p style={{ fontSize: 14, color: 'rgba(240,236,232,0.92)', lineHeight: 1.7 }}>{data.whatMattersMost}</p>
           </Section>
         )}
 
-        {/* Suggested New Tags */}
         {data.suggestedTags?.length > 0 && (
           <Section label="Suggested New Tags">
             <div className="flex flex-wrap gap-2">
@@ -245,38 +173,74 @@ function AnalysisColumn({ heading, modelLabel, accentColor, data }) {
 }
 
 export default function SonnetTestPage() {
-  const views = formatNum(RECORD.views)
-  const likes = formatNum(RECORD.likes)
-  const comments = formatNum(RECORD.comments)
-  const shares = formatNum(RECORD.shares)
+  const [records, setRecords] = useState(null)
+  const [error, setError] = useState(null)
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    fetch('/sonnet-test-data.json', { cache: 'no-store' })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data) => setRecords(Array.isArray(data) ? data : []))
+      .catch((e) => setError(String(e)))
+  }, [])
+
+  const total = records?.length ?? 0
+  const record = records?.[index] ?? null
+
+  const goPrev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), [])
+  const goNext = useCallback(() => setIndex((i) => Math.min(total - 1, i + 1)), [total])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'ArrowLeft') goPrev()
+      if (e.key === 'ArrowRight') goNext()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [goPrev, goNext])
+
+  if (error) {
+    return (
+      <div style={{ padding: 40, color: '#f87171', fontFamily: 'monospace' }}>
+        Failed to load /sonnet-test-data.json: {error}
+        <p style={{ color: '#888', marginTop: 12, fontSize: 13 }}>
+          Run <code>cd ~/inspo_test && .venv/bin/python sonnet_batch.py</code> to regenerate the data file.
+        </p>
+      </div>
+    )
+  }
+  if (!records) {
+    return <div style={{ padding: 40, color: '#888' }}>Loading comparisons…</div>
+  }
+  if (!record) {
+    return <div style={{ padding: 40, color: '#888' }}>No records loaded.</div>
+  }
+
+  const views = formatNum(record.views)
+  const likes = formatNum(record.likes)
+  const comments = formatNum(record.comments)
+  const shares = formatNum(record.shares)
 
   return (
     <div className="min-h-screen bg-[var(--background)]" style={{ padding: '24px 16px 80px' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <p
-            style={{
-              fontSize: 11,
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              color: '#888',
-              marginBottom: 8,
-            }}
-          >
-            Throwaway test page · OpenAI vs Sonnet
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#888', marginBottom: 8 }}>
+            Throwaway test page · OpenAI vs Sonnet · {index + 1} of {total}
           </p>
-          <h1 style={{ fontSize: 26, fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>
-            {RECORD.title}
-          </h1>
-          {RECORD.username && (
+          <h1 style={{ fontSize: 26, fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>{record.title}</h1>
+          {record.username && (
             <p style={{ fontSize: 13, color: '#999', marginTop: 6 }}>
-              @{RECORD.username}
-              {RECORD.contentLink && (
+              @{record.username}
+              {record.contentLink && (
                 <>
                   <span style={{ margin: '0 8px', color: '#444' }}>·</span>
                   <a
-                    href={RECORD.contentLink}
+                    href={record.contentLink}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: 'var(--palm-pink)', textDecoration: 'none' }}
@@ -289,17 +253,36 @@ export default function SonnetTestPage() {
           )}
         </div>
 
+        {/* Record selector */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 22 }}>
+          {records.map((r, i) => (
+            <button
+              key={r.id}
+              onClick={() => setIndex(i)}
+              title={r.title}
+              style={{
+                fontSize: 11,
+                padding: '5px 11px',
+                borderRadius: 9999,
+                background: i === index ? 'var(--palm-pink)' : 'rgba(255,255,255,0.04)',
+                color: i === index ? '#000' : '#aaa',
+                border: i === index ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                cursor: 'pointer',
+                fontWeight: i === index ? 600 : 400,
+                maxWidth: 200,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {i + 1}. {r.title}
+            </button>
+          ))}
+        </div>
+
         {/* Video + stats */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            marginBottom: 28,
-            gap: 14,
-          }}
-        >
-          <VideoPane record={RECORD} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28, gap: 14 }}>
+          <VideoPane record={record} />
           <div className="flex items-center gap-5 text-sm" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
             {views && (
               <span className="flex items-center gap-1.5 text-[#888]">
@@ -340,16 +323,56 @@ export default function SonnetTestPage() {
         <div className="flex flex-col md:flex-row gap-5">
           <AnalysisColumn
             heading="OpenAI"
-            modelLabel={OPENAI.model + ' (currently in production)'}
+            modelLabel={`${record.openai?.model || 'gpt-5.4-mini'} (currently in production)`}
             accentColor="#10A37F"
-            data={OPENAI}
+            data={record.openai}
           />
           <AnalysisColumn
             heading="Sonnet"
-            modelLabel={SONNET.model}
+            modelLabel={record.sonnet?.model || 'claude-sonnet-4-6'}
             accentColor="#E8A0A0"
-            data={SONNET}
+            data={record.sonnet}
           />
+        </div>
+
+        {/* Prev / Next */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24, gap: 10 }}>
+          <button
+            onClick={goPrev}
+            disabled={index === 0}
+            className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              background: 'rgba(232, 160, 160, 0.06)',
+              color: 'rgba(240, 236, 232, 0.75)',
+              border: 'none',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              borderRadius: 9999,
+              padding: '8px 18px',
+            }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Prev
+          </button>
+          <button
+            onClick={goNext}
+            disabled={index >= total - 1}
+            className="flex items-center gap-2 text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              background: 'rgba(232, 160, 160, 0.06)',
+              color: 'rgba(240, 236, 232, 0.75)',
+              border: 'none',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              borderRadius: 9999,
+              padding: '8px 18px',
+            }}
+          >
+            Next
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
