@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
+import { fetchDaemonChats } from '@/lib/inboxDaemon'
 
 const TASKS_TABLE = 'Inbox Tasks'
 
@@ -56,10 +57,11 @@ export async function GET(request) {
         try {
           const chats = await fetchAirtableRecords('Telegram Chats', {
             filterByFormula: formula,
-            fields: ['Title', 'Source', 'Type', 'Creator AKA'],
+            fields: ['Title', 'Source', 'Type', 'Creator AKA', 'Chat ID'],
           })
           for (const c of chats) {
             chatMetaById.set(c.id, {
+              chatId: c.fields?.['Chat ID'] || '',
               title: c.fields?.Title || '(untitled)',
               source: c.fields?.Source || 'telegram',
               type: c.fields?.Type || 'group',
@@ -68,6 +70,26 @@ export async function GET(request) {
           }
         } catch {}
       }
+    }
+
+    // For iMessage chats whose stored Title is just a phone number, look up
+    // the contact-resolved name from the daemon (which has access to macOS
+    // Contacts). One daemon call covers all iMessage chats.
+    const needsResolve = [...chatMetaById.values()].some(
+      m => m.source === 'imessage' && /^\+?\d{10,}$/.test(m.title.replace(/[\s()-]/g, ''))
+    )
+    if (needsResolve) {
+      try {
+        const daemonChats = await fetchDaemonChats(500)
+        if (daemonChats) {
+          const daemonByChatId = new Map(daemonChats.map(d => [d.chatId, d]))
+          for (const meta of chatMetaById.values()) {
+            if (meta.source !== 'imessage') continue
+            const d = daemonByChatId.get(meta.chatId)
+            if (d?.title && d.title !== meta.chatId) meta.title = d.title
+          }
+        }
+      } catch {}
     }
 
     const tasks = records.map(r => {
