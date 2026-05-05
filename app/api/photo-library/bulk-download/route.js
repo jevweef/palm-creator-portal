@@ -9,6 +9,7 @@ import { auth } from '@clerk/nextjs/server'
 import { Readable } from 'node:stream'
 import archiver from 'archiver'
 import { requireAdminOrChatManager, fetchAirtableRecords } from '@/lib/adminAuth'
+import { getDropboxAccessToken } from '@/lib/dropbox'
 
 const OPS_BASE = 'applLIT2t83plMqNx'
 
@@ -181,23 +182,49 @@ export async function POST(request) {
   const CONCURRENCY = 5
   const archive = archiver('zip', { zlib: { level: 0 }, store: true })
 
+  // Dropbox shared-link `?dl=1` URLs intermittently return a 200 OK with an
+  // HTML interstitial page (~191KB) instead of the file bytes. Use the
+  // authenticated content API which always returns the raw file. Falls back
+  // to the public URL once if the API call fails for any reason.
+  let accessToken
+  try {
+    accessToken = await getDropboxAccessToken()
+  } catch (err) {
+    return NextResponse.json({ error: 'Dropbox auth failed', detail: err.message }, { status: 500 })
+  }
+
+  async function fetchViaApi(link) {
+    const res = await fetch('https://content.dropboxapi.com/2/sharing/get_shared_link_file', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Dropbox-API-Arg': JSON.stringify({ url: link }),
+      },
+    })
+    if (!res.ok) throw new Error(`API ${res.status}`)
+    return Buffer.from(await res.arrayBuffer())
+  }
+
+  async function fetchViaPublic(link) {
+    const res = await fetch(dropboxRawUrl(link))
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return Buffer.from(await res.arrayBuffer())
+  }
+
   async function fetchOne(photo) {
     const link = photo.fields?.['Dropbox Shared Link']
     const name = photo.fields?.['Asset Name'] || photo.id
     if (!link) return null
-    const url = dropboxRawUrl(link)
-    try {
-      const res = await fetch(url)
-      if (!res.ok) {
-        console.warn(`[bulk-download] skip ${photo.id} — HTTP ${res.status}`)
-        return null
+    for (const [label, fn] of [['api', fetchViaApi], ['public', fetchViaPublic]]) {
+      try {
+        const buf = await fn(link)
+        if (bufferLooksLikeImage(buf)) return { name, buffer: buf }
+        console.warn(`[bulk-download] ${photo.id} via ${label}: ${buf.length} bytes, not an image`)
+      } catch (err) {
+        console.warn(`[bulk-download] ${photo.id} via ${label} failed: ${err.message}`)
       }
-      const buf = Buffer.from(await res.arrayBuffer())
-      return { name, buffer: buf }
-    } catch (err) {
-      console.warn(`[bulk-download] error fetching ${photo.id}: ${err.message}`)
-      return null
     }
+    return null
   }
 
   ;(async () => {
