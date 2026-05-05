@@ -5,7 +5,7 @@ import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import CaptionSuggestions from '@/components/CaptionSuggestions'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
-import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
+import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 // ─── Lazy-loaded Creator DNA Modal ────────────────────────────────────────────
 
@@ -132,7 +132,19 @@ export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) 
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
   const photoFile = forcePhoto || isPhoto(link)
-  const imgSrc = cdnUrlAtSize(asset.cdnUrl, 480) || asset.thumbnail || (photoFile && rawUrl) || ''
+  // Poster sources, in order of preference:
+  //  1. CF Images CDN (cdnUrl) — sharpest, but only set after the every-30-min
+  //     poster-frame extraction cron picks up the asset.
+  //  2. Stream poster (streamRawId) — CF Stream auto-generates a thumbnail
+  //     once the video transcode is "ready", usually <1 min after upload.
+  //  3. Airtable attachment thumbnail — for assets that came in via the
+  //     Make.com Dropbox-ingest path with a thumbnail attachment.
+  //  4. Raw URL for photos.
+  // This means a freshly-uploaded video stops looking like a black box as
+  // soon as Stream finishes transcoding, instead of waiting for the next
+  // CF Images poster-frame cron sweep.
+  const streamPoster = videoFile && asset.streamRawId ? buildStreamPosterUrl(asset.streamRawId, { time: '1s', width: 480, fit: 'crop' }) : ''
+  const imgSrc = cdnUrlAtSize(asset.cdnUrl, 480) || streamPoster || asset.thumbnail || (photoFile && rawUrl) || ''
 
   return (
     <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

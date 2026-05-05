@@ -52,7 +52,7 @@ export async function GET(request, { params }) {
         filterByFormula: `AND({Pipeline Status}='Uploaded',{Dropbox Parent Folder}='${unreviewedFolderPath}')`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
-          'Dropbox Path (Current)', 'Dropbox Parent Folder', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Upload Week',
+          'Dropbox Path (Current)', 'Dropbox Parent Folder', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Stream Raw ID', 'Upload Week',
         ],
       }) : [],
       // Inspo-linked assets: fetch by Source Type, then filter in-memory by creator ID
@@ -61,7 +61,7 @@ export async function GET(request, { params }) {
         filterByFormula: `AND({Pipeline Status}='Uploaded',{Source Type}='Inspo Upload',NOT({Inspiration Source}=''))`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Asset Type', 'Dropbox Shared Link', 'Dropbox Path (Current)',
-          'Creator Notes', 'Thumbnail', 'CDN URL', 'Upload Week', 'Inspiration Source', 'Palm Creators',
+          'Creator Notes', 'Thumbnail', 'CDN URL', 'Stream Raw ID', 'Upload Week', 'Inspiration Source', 'Palm Creators',
         ],
       }),
       fetchAirtableRecords('Posts', {
@@ -188,6 +188,10 @@ export async function GET(request, { params }) {
         dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
         thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
         cdnUrl: a.fields?.['CDN URL'] || null,
+        // Stream Raw ID is populated within seconds of upload (CF returns the
+        // UID immediately even before transcode finishes). Surfacing it gives
+        // LibraryCard a poster source long before CF Images extracts a frame.
+        streamRawId: a.fields?.['Stream Raw ID'] || null,
         creatorNotes: a.fields?.['Creator Notes'] || '',
         uploadWeek: a.fields?.['Upload Week'] || '',
         createdAt: a.createdTime || '',
