@@ -1032,9 +1032,10 @@ export default function AdminOnboarding() {
       {offboardResult && (
         <div style={{
           position: 'fixed', bottom: '24px', right: '24px', maxWidth: '460px', zIndex: 999,
-          background: 'rgba(110, 180, 130, 0.12)', border: '1px solid rgba(110, 180, 130, 0.35)',
+          background: '#1a1f1c', border: '1px solid rgba(110, 180, 130, 0.5)',
+          borderLeft: '4px solid #6EB482',
           borderRadius: '10px', padding: '14px 18px', fontSize: '13px',
-          color: 'var(--foreground)', boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          color: 'var(--foreground)', boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
         }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '6px' }}>
             <strong>Offboarded {offboardResult.creator?.aka || offboardResult.creator?.name}</strong>

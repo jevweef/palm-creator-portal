@@ -5017,9 +5017,11 @@ export default function CreatorsPage() {
 
       {offboardResult && (
         <div style={{
-          background: 'rgba(110, 180, 130, 0.12)', border: '1px solid rgba(110, 180, 130, 0.35)',
+          background: '#1a1f1c', border: '1px solid rgba(110, 180, 130, 0.5)',
+          borderLeft: '4px solid #6EB482',
           borderRadius: '8px', padding: '12px 16px', marginBottom: '14px', fontSize: '13px',
           color: 'var(--foreground)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
         }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
             <strong>Offboarded {offboardResult.creator?.aka || offboardResult.creator?.name}</strong>
