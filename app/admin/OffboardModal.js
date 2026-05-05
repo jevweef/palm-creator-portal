@@ -101,6 +101,7 @@ export default function OffboardModal({ creator, onClose, onDone }) {
             {preview?.hasCreatorTelegramThread && <> + creator Telegram thread cleared</>}
           </li>
           <li>Clerk login banned (by Communication Email — reversible via unban)</li>
+          <li>Dropbox file requests closed → no new uploads can arrive (Make.com ingest stops at the source)</li>
           <li>Dropbox folder moved <code>/Palm Ops/Creators/{aka}/</code> → <code>/Palm Ops/Archive/Creators/{aka}/</code></li>
           <li>Past invoices preserved — historical records stay attached to the creator.</li>
         </ul>
@@ -108,7 +109,6 @@ export default function OffboardModal({ creator, onClose, onDone }) {
         <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#E8A07A' }}>Still manual:</div>
         <ul style={{ fontSize: '12px', color: 'var(--foreground-muted)', margin: '0 0 18px 0', paddingLeft: '18px', lineHeight: '1.55' }}>
           <li>Apify: remove their inspo source accounts (stop scraping)</li>
-          <li>Make.com: pause automations on their Dropbox folders</li>
           <li>Final invoice for the partial period</li>
         </ul>
 

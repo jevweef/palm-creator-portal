@@ -5030,7 +5030,8 @@ export default function CreatorsPage() {
             <li>Revenue accounts deactivated: {offboardResult.revenueAccountsDeactivated?.length || 0}{offboardResult.revenueAccountsDeactivated?.length ? ` (${offboardResult.revenueAccountsDeactivated.join(', ')})` : ''}</li>
             <li>SMM topics deleted: {offboardResult.smmTopicsDeleted?.length || 0}{offboardResult.smmTopicsFailed?.length ? ` · failed: ${offboardResult.smmTopicsFailed.length}` : ''}{offboardResult.creatorTelegramThreadCleared ? ' · creator Telegram thread cleared' : ''}</li>
             <li>Clerk: {offboardResult.clerkUserBanned ? `user banned (${offboardResult.clerkUserBanned})` : (offboardResult.clerkUserError || '—')}</li>
-            <li>Dropbox: {offboardResult.dropboxMoved || offboardResult.dropboxError || '—'}</li>
+            <li>Dropbox file requests closed: {offboardResult.fileRequestsClosed?.length ? offboardResult.fileRequestsClosed.join(', ') : '—'}{offboardResult.fileRequestErrors?.length ? ` · errors: ${offboardResult.fileRequestErrors.join('; ')}` : ''}</li>
+            <li>Dropbox folder: {offboardResult.dropboxMoved || offboardResult.dropboxError || '—'}</li>
             {offboardResult.errors?.length > 0 && <li style={{ color: '#E87878' }}>Errors: {offboardResult.errors.join(' · ')}</li>}
           </ul>
           <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--foreground-muted)' }}>

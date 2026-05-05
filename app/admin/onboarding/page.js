@@ -1045,7 +1045,8 @@ export default function AdminOnboarding() {
             <li>{offboardResult.revenueAccountsDeactivated?.length || 0} revenue account(s) → Inactive</li>
             <li>{offboardResult.smmTopicsDeleted?.length || 0} SMM topic(s) deleted</li>
             <li>Clerk: {offboardResult.clerkUserBanned ? 'banned' : (offboardResult.clerkUserError || '—')}</li>
-            <li>Dropbox: {offboardResult.dropboxMoved || offboardResult.dropboxError || '—'}</li>
+            <li>File requests closed: {offboardResult.fileRequestsClosed?.length || 0}</li>
+            <li>Dropbox folder: {offboardResult.dropboxMoved || offboardResult.dropboxError || '—'}</li>
           </ul>
         </div>
       )}
