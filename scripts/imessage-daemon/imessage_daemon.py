@@ -27,11 +27,14 @@ import os
 import plistlib
 import sqlite3
 import sys
+import threading
 import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlparse, parse_qs
 
 HOME = Path.home()
 DB_PATH = HOME / "Library" / "Messages" / "chat.db"
@@ -100,6 +103,114 @@ def save_state(state):
 # Apple stores message timestamps as nanoseconds since 2001-01-01 UTC.
 # This converts to a standard ISO 8601 UTC string.
 APPLE_EPOCH = datetime(2001, 1, 1, tzinfo=timezone.utc)
+
+# ─── Contact resolution (macOS AddressBook) ──────────────────────────
+#
+# macOS stores Contacts in a SQLite db tree under
+#   ~/Library/Application Support/AddressBook/Sources/<UUID>/AddressBook-v22.abcddb
+# (one Source dir per account: iCloud, Local, Exchange, etc.)
+#
+# We query all sources for phone numbers + emails + names, normalize each
+# phone to its last-10-digits, and build a {normalized_handle -> display name}
+# map. Refreshed lazily (cached per-process for 5 min).
+
+import re
+
+_CONTACTS_CACHE = {"map": None, "ts": 0.0, "ttl_sec": 300}
+
+
+def _normalize_handle(handle):
+    """Phone -> last 10 digits. Email -> lowercase. None -> None."""
+    if not handle:
+        return None
+    h = handle.strip().lower()
+    if "@" in h:
+        return h
+    digits = re.sub(r"\D", "", h)
+    if len(digits) >= 10:
+        return digits[-10:]
+    return digits or None
+
+
+def _addressbook_paths():
+    base = HOME / "Library" / "Application Support" / "AddressBook" / "Sources"
+    if not base.exists():
+        return []
+    paths = []
+    for src in base.iterdir():
+        if src.is_dir():
+            db = src / "AddressBook-v22.abcddb"
+            if db.exists():
+                paths.append(db)
+    return paths
+
+
+def _load_contacts_map():
+    """Build {normalized handle -> 'First Last'} from all AddressBook sources."""
+    result = {}
+    for db_path in _addressbook_paths():
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            # ZABCDRECORD has names; ZABCDPHONENUMBER and ZABCDEMAILADDRESS
+            # link to it via ZOWNER. Schema is consistent across macOS versions.
+            rows = conn.execute("""
+                SELECT
+                    p.ZFULLNUMBER AS phone,
+                    NULL          AS email,
+                    r.ZFIRSTNAME  AS first_name,
+                    r.ZLASTNAME   AS last_name,
+                    r.ZORGANIZATION AS org
+                FROM ZABCDPHONENUMBER p
+                JOIN ZABCDRECORD r ON p.ZOWNER = r.Z_PK
+                UNION ALL
+                SELECT
+                    NULL,
+                    e.ZADDRESS    AS email,
+                    r.ZFIRSTNAME,
+                    r.ZLASTNAME,
+                    r.ZORGANIZATION
+                FROM ZABCDEMAILADDRESS e
+                JOIN ZABCDRECORD r ON e.ZOWNER = r.Z_PK
+            """).fetchall()
+            conn.close()
+        except Exception as e:
+            log(f"contacts: failed to read {db_path}: {e!r}", "WARN")
+            continue
+        for phone, email, first, last, org in rows:
+            handle = _normalize_handle(phone or email)
+            if not handle:
+                continue
+            name_parts = [p for p in (first, last) if p]
+            display = " ".join(name_parts) or org or ""
+            if display and handle not in result:
+                result[handle] = display
+    log(f"contacts: loaded {len(result)} mappings from {len(_addressbook_paths())} source(s)")
+    return result
+
+
+def get_contacts_map():
+    """Cached accessor. Refreshes every 5 min on access."""
+    now = time.time()
+    if _CONTACTS_CACHE["map"] is None or now - _CONTACTS_CACHE["ts"] > _CONTACTS_CACHE["ttl_sec"]:
+        try:
+            _CONTACTS_CACHE["map"] = _load_contacts_map()
+            _CONTACTS_CACHE["ts"] = now
+        except Exception as e:
+            log(f"contacts: load failed: {e!r}", "ERROR")
+            if _CONTACTS_CACHE["map"] is None:
+                _CONTACTS_CACHE["map"] = {}
+    return _CONTACTS_CACHE["map"]
+
+
+def resolve_contact(handle):
+    """Return display name for a phone/email, or empty string."""
+    if not handle:
+        return ""
+    norm = _normalize_handle(handle)
+    if not norm:
+        return ""
+    return get_contacts_map().get(norm, "")
+
 
 def apple_ts_to_iso(apple_ns):
     if not apple_ns:
@@ -258,8 +369,13 @@ def transform_row(row):
         "chatTitle": chat_title,
         "chatType": chat_type,
         "messageId": str(row["rowid"]),
-        "senderHandle": "" if row.get("is_from_me") else (row.get("sender_handle") or ""),
-        "senderName": "",  # daemon doesn't have CNContact lookup; portal renders handle
+        # Outbound: set senderHandle to a stable "us" identifier so the server
+        # extractor recognizes it ("jevweef" matches Telegram username for
+        # unified detection across sources). Inbound: pass through actual handle.
+        "senderHandle": "jevweef" if row.get("is_from_me") else (row.get("sender_handle") or ""),
+        # Resolve display name from Contacts when available (else empty,
+        # portal falls back to handle).
+        "senderName": "Evan" if row.get("is_from_me") else (resolve_contact(row.get("sender_handle")) or ""),
         "text": text,
         "sentAt": apple_ts_to_iso(row.get("date")),
         "isFromMe": bool(row.get("is_from_me")),
@@ -382,6 +498,196 @@ def reset_to_days_ago(days):
     log("  launchctl load ~/Library/LaunchAgents/com.palm.inbox.imessage.plist")
 
 
+# ─── Local HTTP server (paired with Cloudflare Tunnel) ──────────────
+#
+# Serves chats + messages from chat.db on demand. Lets the portal fetch
+# data without writing it to Airtable first. Lives on port 8765 by default.
+# Auth: X-Daemon-Secret header against cfg['daemon_secret'].
+
+_HTTP_PORT = 8765
+
+
+def _http_fetch_chats(limit):
+    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("""
+        SELECT
+            c.ROWID                AS chat_rowid,
+            c.chat_identifier      AS chat_identifier,
+            c.display_name         AS display_name,
+            c.style                AS style,
+            COUNT(m.ROWID)         AS msg_count,
+            MAX(m.date)            AS last_date
+        FROM chat c
+        JOIN chat_message_join cmj ON c.ROWID = cmj.chat_id
+        JOIN message m ON m.ROWID = cmj.message_id
+        GROUP BY c.ROWID
+        ORDER BY last_date DESC
+        LIMIT ?
+    """, (limit,)).fetchall()
+    chats = []
+    for row in rows:
+        chat = dict(row)
+        last = conn.execute("""
+            SELECT m.text, m.attributedBody, m.is_from_me, m.cache_has_attachments
+            FROM message m
+            JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+            WHERE cmj.chat_id = ?
+            ORDER BY m.date DESC LIMIT 1
+        """, (chat["chat_rowid"],)).fetchone()
+        text = ""
+        is_from_me = False
+        if last:
+            text = last["text"] or ""
+            if not text and last["attributedBody"]:
+                text = parse_attributed_body(last["attributedBody"])
+            is_from_me = bool(last["is_from_me"])
+            if not text and last["cache_has_attachments"]:
+                text = "[media]"
+        # Resolve a friendly title:
+        # - If chat has a display_name (group chats often do), use it.
+        # - Else if chat_identifier is a phone/email, look up in Contacts.
+        # - Else fall back to chat_identifier.
+        ident = chat["chat_identifier"]
+        title = chat["display_name"]
+        if not title and ident:
+            title = resolve_contact(ident) or ident
+        chats.append({
+            "chatId": ident,
+            "title": title,
+            "type": "group" if chat["style"] == 43 else "private",
+            "messageCount": chat["msg_count"],
+            "lastMessageAt": apple_ts_to_iso(chat["last_date"]),
+            "lastMessageSnippet": text[:140],
+            "isFromMeLast": is_from_me,
+        })
+    conn.close()
+    return chats
+
+
+def _http_fetch_messages(chat_id, limit):
+    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("""
+        SELECT
+            m.ROWID AS rowid, m.guid AS guid, m.text AS text,
+            m.attributedBody AS attributed_body,
+            m.is_from_me AS is_from_me, m.date AS date,
+            m.cache_has_attachments AS has_attachments,
+            h.id AS sender_handle
+        FROM chat c
+        JOIN chat_message_join cmj ON c.ROWID = cmj.chat_id
+        JOIN message m ON m.ROWID = cmj.message_id
+        LEFT JOIN handle h ON m.handle_id = h.ROWID
+        WHERE c.chat_identifier = ?
+        ORDER BY m.date DESC LIMIT ?
+    """, (chat_id, limit)).fetchall()
+    conn.close()
+    messages = []
+    for r in reversed(rows):
+        text = r["text"] or ""
+        if not text and r["attributed_body"]:
+            text = parse_attributed_body(r["attributed_body"])
+        sender_handle = "" if r["is_from_me"] else (r["sender_handle"] or "")
+        sender_name = resolve_contact(sender_handle) if sender_handle else ""
+        messages.append({
+            "messageKey": f"imsg:{chat_id}_{r['rowid']}",
+            "text": text,
+            "senderHandle": sender_handle,
+            "senderName": sender_name,
+            "sentAt": apple_ts_to_iso(r["date"]),
+            "isFromMe": bool(r["is_from_me"]),
+            "hasMedia": bool(r["has_attachments"]),
+            "mediaType": "photo" if r["has_attachments"] else None,
+        })
+    return messages
+
+
+class _DaemonHandler(BaseHTTPRequestHandler):
+    server_version = "PalmInboxDaemon/1.0"
+
+    def log_message(self, fmt, *args):
+        pass  # silence access logs
+
+    def _send_json(self, status, payload):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "X-Daemon-Secret, Content-Type")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _check_auth(self, secret):
+        provided = self.headers.get("X-Daemon-Secret", "")
+        if not secret:
+            self._send_json(500, {"error": "daemon_secret not configured"})
+            return False
+        if provided != secret:
+            self._send_json(401, {"error": "unauthorized"})
+            return False
+        return True
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "X-Daemon-Secret, Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.end_headers()
+
+    def do_GET(self):
+        cfg = load_config()
+        secret = cfg.get("daemon_secret")
+        url = urlparse(self.path)
+        params = parse_qs(url.query)
+        path = url.path.rstrip("/")
+
+        if path == "/health":
+            self._send_json(200, {
+                "ok": True,
+                "dbExists": DB_PATH.exists(),
+                "secretConfigured": bool(secret),
+                "service": "palm-inbox-daemon",
+            })
+            return
+
+        if not self._check_auth(secret):
+            return
+
+        try:
+            if path == "/chats":
+                limit = max(1, min(int(params.get("limit", [200])[0]), 1000))
+                self._send_json(200, {"chats": _http_fetch_chats(limit)})
+                return
+            if path == "/chat":
+                chat_id = (params.get("chatId") or [None])[0]
+                if not chat_id:
+                    self._send_json(400, {"error": "chatId required"})
+                    return
+                limit = max(1, min(int(params.get("limit", [200])[0]), 1000))
+                self._send_json(200, {"messages": _http_fetch_messages(chat_id, limit)})
+                return
+            self._send_json(404, {"error": "not found"})
+        except Exception as e:
+            log(f"http error: {e!r}", "ERROR")
+            self._send_json(500, {"error": str(e)})
+
+
+def start_http_server_thread():
+    """Spawn the local HTTP server on a daemon thread. Inherits FDA from
+    the parent process (launchd-grant), so DB queries succeed."""
+    def _run():
+        try:
+            srv = ThreadingHTTPServer(("127.0.0.1", _HTTP_PORT), _DaemonHandler)
+            log(f"HTTP server listening on http://localhost:{_HTTP_PORT}")
+            srv.serve_forever()
+        except Exception as e:
+            log(f"HTTP server crashed: {e!r}", "ERROR")
+    t = threading.Thread(target=_run, daemon=True, name="palm-http-server")
+    t.start()
+
+
 def main():
     if "--backfill-days" in sys.argv:
         idx = sys.argv.index("--backfill-days")
@@ -397,6 +703,10 @@ def main():
 
     cfg = load_config()
     state = load_state()
+
+    # Start the HTTP server thread (skipped in --once mode)
+    if not once_mode:
+        start_http_server_thread()
 
     # One-shot backfill: if config has backfill_days_on_next_start set, do
     # the reset, clear the flag, then continue polling normally. Lets us
