@@ -119,27 +119,118 @@ function staleDays(sourceSentAt) {
   return Math.floor(days)
 }
 
+const SNOOZE_OPTIONS = [
+  { label: '1h', hours: 1 },
+  { label: '1d', hours: 24 },
+  { label: '3d', hours: 72 },
+  { label: '1w', hours: 168 },
+]
+
+const FEEDBACK_TYPES = [
+  'Not a real task',
+  'Wrong person',
+  'Wrong urgency',
+  'Already done',
+  'Personal not business',
+  'Misread conversation',
+  'Other',
+]
+
+// Tiny popover anchored under its trigger; click-outside closes.
+function Popover({ open, onClose, children, align = 'right' }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    function onDown(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose()
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open, onClose])
+  if (!open) return null
+  return (
+    <div
+      ref={ref}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'absolute', top: 'calc(100% + 4px)',
+        [align]: 0, zIndex: 100,
+        minWidth: '200px',
+        background: 'var(--card-bg-solid, #1a1a1c)',
+        border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: '8px', padding: '6px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function TaskCard({ task, onUpdate, toast }) {
   const [busy, setBusy] = useState(false)
   const [replyOpen, setReplyOpen] = useState(false)
+  const [snoozeOpen, setSnoozeOpen] = useState(false)
+  const [dismissOpen, setDismissOpen] = useState(false)
+  const [feedbackType, setFeedbackType] = useState('')
+  const [feedbackReason, setFeedbackReason] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(task.task)
+  const [currentText, setCurrentText] = useState(task.task)
 
-  async function setStatus(status) {
+  async function patchTask(updates, { successMsg } = {}) {
     setBusy(true)
     try {
       const res = await fetch(`/api/admin/inbox/tasks/${task.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(updates),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
         toast(`Failed: ${j.error || res.statusText}`, 'error')
-        return
+        return false
       }
-      toast(`Marked ${status.toLowerCase()}`, 'success')
-      onUpdate()
+      if (successMsg) toast(successMsg, 'success')
+      return true
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function setStatus(status) {
+    const ok = await patchTask({ status }, { successMsg: `Marked ${status.toLowerCase()}` })
+    if (ok) onUpdate()
+  }
+
+  async function snooze(hours) {
+    setSnoozeOpen(false)
+    const ok = await patchTask({ snoozeHours: hours }, { successMsg: `Snoozed ${hours}h` })
+    if (ok) onUpdate()
+  }
+
+  async function dismissWithFeedback(includeFeedback) {
+    setDismissOpen(false)
+    const updates = { status: 'Dismissed' }
+    if (includeFeedback) {
+      if (feedbackType) updates.feedbackType = feedbackType
+      if (feedbackReason) updates.feedbackReason = feedbackReason
+    }
+    const ok = await patchTask(updates, {
+      successMsg: includeFeedback ? 'Dismissed + feedback saved (will train AI)' : 'Dismissed',
+    })
+    if (ok) onUpdate()
+  }
+
+  async function saveEdit() {
+    const text = editText.trim()
+    if (!text || text === currentText) {
+      setEditing(false); return
+    }
+    const ok = await patchTask({ task: text }, { successMsg: 'Edited (AI won\'t overwrite)' })
+    if (ok) {
+      setCurrentText(text)
+      setEditing(false)
     }
   }
 
@@ -236,9 +327,32 @@ function TaskCard({ task, onUpdate, toast }) {
           </div>
         )}
         {/* Title + quote on same flow */}
-        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', lineHeight: 1.35 }}>
-          {task.task}
-        </div>
+        {editing ? (
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <input
+              autoFocus
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); saveEdit() }
+                if (e.key === 'Escape') { e.preventDefault(); setEditText(currentText); setEditing(false) }
+              }}
+              disabled={busy}
+              style={{
+                flex: 1, fontSize: '13px', fontWeight: 600,
+                padding: '4px 8px', borderRadius: '4px',
+                border: '1px solid var(--palm-pink)',
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--foreground)',
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
+        ) : (
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', lineHeight: 1.35 }}>
+            {currentText}
+          </div>
+        )}
         {task.sourceQuote && (
           <div style={{
             fontSize: '11px', color: 'var(--foreground-muted)',
@@ -251,45 +365,161 @@ function TaskCard({ task, onUpdate, toast }) {
         )}
       </div>
       {/* Buttons — words, not icons */}
-      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-        {canReply && (
-          <button
-            onClick={() => setReplyOpen(true)}
-            disabled={busy}
-            style={{
-              padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-              background: 'var(--palm-pink)', color: '#060606', border: '1px solid var(--palm-pink)',
-              cursor: 'pointer', opacity: busy ? 0.5 : 1,
-            }}
-          >Reply</button>
+      <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'flex-start' }}>
+        {editing ? (
+          <>
+            <button
+              onClick={saveEdit}
+              disabled={busy}
+              style={{
+                padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                background: 'rgba(120, 200, 120, 0.12)', color: '#7AC97A', border: '1px solid rgba(120, 200, 120, 0.3)',
+                cursor: 'pointer', opacity: busy ? 0.5 : 1,
+              }}
+              title="Save edit (Enter)"
+            >{busy ? 'Saving...' : 'Save'}</button>
+            <button
+              onClick={() => { setEditText(currentText); setEditing(false) }}
+              disabled={busy}
+              style={{
+                padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)',
+                cursor: 'pointer', opacity: busy ? 0.5 : 1,
+              }}
+              title="Cancel (Esc)"
+            >Cancel</button>
+          </>
+        ) : (
+          <>
+            {canReply && (
+              <button
+                onClick={() => setReplyOpen(true)}
+                disabled={busy}
+                style={{
+                  padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                  background: 'var(--palm-pink)', color: '#060606', border: '1px solid var(--palm-pink)',
+                  cursor: 'pointer', opacity: busy ? 0.5 : 1,
+                }}
+              >Reply</button>
+            )}
+            <button
+              onClick={() => setStatus('Done')}
+              disabled={busy}
+              style={{
+                padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                background: 'rgba(120, 200, 120, 0.12)', color: '#7AC97A', border: '1px solid rgba(120, 200, 120, 0.3)',
+                cursor: 'pointer', opacity: busy ? 0.5 : 1,
+              }}
+            >Done</button>
+            <button
+              onClick={() => { setEditText(currentText); setEditing(true) }}
+              disabled={busy}
+              style={{
+                padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                background: 'rgba(200, 160, 232, 0.12)', color: '#C8A0E8', border: '1px solid rgba(200, 160, 232, 0.3)',
+                cursor: 'pointer', opacity: busy ? 0.5 : 1,
+              }}
+              title="Edit task wording (won't be overwritten by AI on next run)"
+            >Edit</button>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => { setSnoozeOpen(s => !s); setDismissOpen(false) }}
+                disabled={busy}
+                style={{
+                  padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                  background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)',
+                  cursor: 'pointer', opacity: busy ? 0.5 : 1,
+                }}
+              >Snooze ▾</button>
+              <Popover open={snoozeOpen} onClose={() => setSnoozeOpen(false)}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {SNOOZE_OPTIONS.map(opt => (
+                    <button
+                      key={opt.hours}
+                      onClick={() => snooze(opt.hours)}
+                      style={{
+                        textAlign: 'left', padding: '6px 10px', fontSize: '12px',
+                        background: 'transparent', border: 'none',
+                        color: 'var(--foreground)', cursor: 'pointer', borderRadius: '4px',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >Snooze {opt.label}</button>
+                  ))}
+                </div>
+              </Popover>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => { setDismissOpen(d => !d); setSnoozeOpen(false) }}
+                disabled={busy}
+                style={{
+                  padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                  background: 'rgba(232, 120, 120, 0.12)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)',
+                  cursor: 'pointer', opacity: busy ? 0.5 : 1,
+                }}
+                title="Dismiss (with optional feedback to train the AI)"
+              >Dismiss ▾</button>
+              <Popover open={dismissOpen} onClose={() => setDismissOpen(false)}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '4px', minWidth: '260px' }}>
+                  <div style={{
+                    fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em',
+                    textTransform: 'uppercase', color: 'var(--foreground-muted)',
+                    padding: '2px 4px',
+                  }}>Why? (trains the AI)</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {FEEDBACK_TYPES.map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setFeedbackType(t === feedbackType ? '' : t)}
+                        style={{
+                          fontSize: '10px', padding: '3px 7px', borderRadius: '3px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: feedbackType === t ? 'rgba(232, 160, 160, 0.18)' : 'transparent',
+                          color: feedbackType === t ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+                          cursor: 'pointer',
+                        }}
+                      >{t}</button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={feedbackReason}
+                    onChange={(e) => setFeedbackReason(e.target.value)}
+                    placeholder="Optional: tell the system more..."
+                    rows={2}
+                    style={{
+                      fontSize: '11px', padding: '6px 8px', borderRadius: '4px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.03)',
+                      color: 'var(--foreground)', resize: 'vertical',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={() => dismissWithFeedback(false)}
+                      style={{
+                        fontSize: '11px', padding: '4px 10px', borderRadius: '4px',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'transparent', color: 'var(--foreground-muted)', cursor: 'pointer',
+                      }}
+                    >Just dismiss</button>
+                    <button
+                      onClick={() => dismissWithFeedback(true)}
+                      disabled={!feedbackType && !feedbackReason}
+                      style={{
+                        fontSize: '11px', padding: '4px 10px', borderRadius: '4px',
+                        border: '1px solid var(--palm-pink)',
+                        background: 'var(--palm-pink)', color: '#060606', cursor: 'pointer',
+                        opacity: (!feedbackType && !feedbackReason) ? 0.4 : 1,
+                      }}
+                    >Dismiss + train</button>
+                  </div>
+                </div>
+              </Popover>
+            </div>
+          </>
         )}
-        <button
-          onClick={() => setStatus('Done')}
-          disabled={busy}
-          style={{
-            padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-            background: 'rgba(120, 200, 120, 0.12)', color: '#7AC97A', border: '1px solid rgba(120, 200, 120, 0.3)',
-            cursor: 'pointer', opacity: busy ? 0.5 : 1,
-          }}
-        >Done</button>
-        <button
-          onClick={() => setStatus('Snoozed')}
-          disabled={busy}
-          style={{
-            padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-            background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)',
-            cursor: 'pointer', opacity: busy ? 0.5 : 1,
-          }}
-        >Snooze</button>
-        <button
-          onClick={() => setStatus('Dismissed')}
-          disabled={busy}
-          style={{
-            padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-            background: 'rgba(232, 120, 120, 0.12)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)',
-            cursor: 'pointer', opacity: busy ? 0.5 : 1,
-          }}
-        >Dismiss</button>
       </div>
       {replyOpen && (
         <ReplyModal
