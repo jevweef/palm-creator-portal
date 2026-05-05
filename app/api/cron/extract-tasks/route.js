@@ -1,4 +1,19 @@
-// Cron: every 5 min, scan Watching chats and surface tasks for Evan.
+// Cron entry: hourly during the day. Per-chat gating decides who actually
+// runs Sonnet on each tick.
+//
+// Cost model (the why):
+// - Sonnet calls are the only meaningful expense. Everything else (Airtable
+//   reads, daemon polls, vocab matching) is free.
+// - Per-chat `Check Frequency` controls cadence: Daily (default), Hourly, Off
+// - `Last Extracted At` is the durable cooldown anchor — replaces the old
+//   "infer last extract from open tasks" logic (which broke when tasks were
+//   resolved → chat had 0 open tasks → cooldown skipped → re-ran every tick)
+// - Skip-if-idle: latest message timestamp <= last extract → skip the Sonnet
+//   call but still stamp Last Extracted At so we don't recheck for the cooldown
+// - `Business Filter`: for mixed business+personal chats (Josh DM), pre-filter
+//   messages locally against a creator+business vocab set. Only message clusters
+//   containing vocab hits go to Sonnet. Free locally, ~10x cost reduction on
+//   social-heavy chats.
 //
 // Architecture:
 // - Per-chat logic lives in extractForChat() — reusable so the chat-PATCH
@@ -8,7 +23,6 @@
 //   from Airtable (the bot is the source of truth).
 // - De-dupes by sourceMessageKey: if an existing open task already references
 //   the same source message, UPDATE it instead of creating a duplicate.
-//   This means re-running with a better prompt cleanly replaces stale tasks.
 // - Resolution detection: existing open tasks are sent to Claude alongside
 //   the conversation; Claude returns which are now resolved.
 
@@ -29,12 +43,49 @@ const CHATS_TABLE = 'Telegram Chats'
 const MESSAGES_TABLE = 'Telegram Messages'
 const TASKS_TABLE = 'Inbox Tasks'
 
-// Conversation context window per chat. Smaller = less re-sending of the
-// same old messages every cron tick. 30 covers roughly the last 4-12 hours
-// of a typical chat. Existing open tasks are sent alongside, so Claude can
-// still detect resolution of older items by their stored quote — doesn't
-// need to see the original message to know it's resolved by a new "got it".
-const MESSAGES_PER_CHAT = 30
+// Conversation context window per chat. 15 covers ~2-6 hours of typical chat
+// activity. Existing open tasks are sent alongside, so Claude can detect
+// resolution of older items by their stored quote — doesn't need to re-see
+// the original message to know it's resolved by a new "got it".
+const MESSAGES_PER_CHAT = 15
+
+// Cooldowns (in minutes). Chat is gated out of this cron tick if Last
+// Extracted At is within these windows. Tuned conservatively — the cron
+// is hourly so Hourly chats want a slightly-under-1h floor.
+const COOLDOWN_MIN = {
+  Hourly: 50,
+  Daily: 23 * 60, // 23h — gives ~1h slack before the next day's run
+}
+
+// Business vocab: hardcoded base set. Creator AKAs from HQ are merged in
+// at runtime. Lowercase matched as whole words (with light tolerance for
+// punctuation). Tune by adding/removing here — no schema migration needed.
+const BASE_BUSINESS_VOCAB = [
+  // money
+  'invoice', 'invoices', 'paid', 'payment', 'pay', 'owe', 'owes', 'owed',
+  'venmo', 'zelle', 'wire', 'ach', 'wise', 'paypal', 'cashapp', 'stripe',
+  // platform
+  'of', 'onlyfans', 'fansly', 'ppv', 'ppvs', 'wall', 'tip', 'tips', 'sub', 'subs',
+  // content + ops
+  'content', 'post', 'posts', 'posting', 'edit', 'edits', 'editor', 'edited',
+  'reel', 'reels', 'tiktok', 'instagram', 'ig', 'youtube', 'oftv',
+  'caption', 'thumbnail', 'shoot', 'shooting', 'film', 'filmed', 'filming',
+  'inspo', 'inspiration', 'recreate', 'brief', 'briefed', 'guideline', 'guidelines',
+  'upload', 'uploaded', 'uploads', 'dropbox', 'airtable', 'palm',
+  // people / business state
+  'creator', 'creators', 'manager', 'mgr', 'lead', 'leads', 'sign', 'signed', 'signing',
+  'contract', 'agreement', 'onboard', 'onboarding', 'commission', 'split',
+  'agency', 'team', 'chat team', 'chatter', 'chatters',
+  // scheduling
+  'meeting', 'call', 'schedule', 'scheduled', 'rescheduled', 'reschedule',
+  'tomorrow', 'tonight', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday',
+  'eod', 'morning', 'afternoon', 'evening',
+  // build / tooling
+  'portal', 'dashboard', 'admin', 'cron', 'webhook', 'api', 'fix', 'bug',
+  'deploy', 'deployed', 'vercel', 'cloudflare', 'telegram', 'imessage',
+  // requests
+  'follow up', 'followup', 'reply', 'respond', 'check on', 'remind',
+]
 
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -51,6 +102,107 @@ const US_USERNAMES = new Set(['jevweef', 'whoisjoshvoto'])
 function isUsUsername(u) {
   return u && US_USERNAMES.has(String(u).toLowerCase())
 }
+
+// Parse a chat record's frequency setting. Treats unset / unknown as Daily.
+function chatFrequency(chat) {
+  const f = chat.fields?.['Check Frequency']
+  if (f === 'Off') return 'Off'
+  if (f === 'Hourly') return 'Hourly'
+  return 'Daily'
+}
+
+function chatBusinessFilterOn(chat) {
+  return !!chat.fields?.['Business Filter']
+}
+
+// Returns ms since chat's Last Extracted At, or Infinity if never extracted.
+function msSinceLastExtract(chat) {
+  const ts = chat.fields?.['Last Extracted At']
+  if (!ts) return Infinity
+  const t = new Date(ts).getTime()
+  if (!t) return Infinity
+  return Date.now() - t
+}
+
+// Stamp Last Extracted At = now on the chat record. Best-effort, swallows
+// errors so a transient Airtable hiccup doesn't break the whole run.
+async function stampExtracted(chatRecordId) {
+  try {
+    await patchAirtableRecord(CHATS_TABLE, chatRecordId, {
+      'Last Extracted At': new Date().toISOString(),
+    })
+  } catch (err) {
+    console.warn(`[extract] stamp Last Extracted At failed:`, err.message)
+  }
+}
+
+// ─── business vocab gate ─────────────────────────────────────────────
+
+// Build the full vocab Set for a run. Pulls live creator AKAs from HQ +
+// merges with the base list. Cached 5min — AKAs change rarely.
+let _vocabCache = null
+let _vocabCacheTs = 0
+async function loadBusinessVocab() {
+  if (_vocabCache && Date.now() - _vocabCacheTs < 5 * 60 * 1000) {
+    return _vocabCache
+  }
+  const vocab = new Set(BASE_BUSINESS_VOCAB.map(s => s.toLowerCase()))
+  try {
+    const records = await fetchHqRecords('Creators', {
+      filterByFormula: `OR({Status}='Active', {Status}='Onboarding')`,
+      fields: ['Creator', 'AKA'],
+    })
+    for (const r of records) {
+      const aka = r.fields?.AKA
+      const creator = r.fields?.Creator
+      if (aka) vocab.add(String(aka).toLowerCase())
+      if (creator) {
+        // Add first-name only too (creators often referred to by first name)
+        const first = String(creator).split(/\s+/)[0]
+        if (first) vocab.add(first.toLowerCase())
+      }
+    }
+  } catch (err) {
+    console.warn('[extract] vocab AKA load failed:', err.message)
+  }
+  _vocabCache = vocab
+  _vocabCacheTs = Date.now()
+  return vocab
+}
+
+// Cheap regexes for "money signal" and "URL signal" — these almost always
+// indicate business in a personal chat, even without dictionary words.
+const RE_MONEY = /\$\d|\d+\s*(?:k|usd|dollars?)\b/i
+const RE_URL = /https?:\/\/|\b(?:airtable|dropbox|vercel|github|notion|cloudflare|telegram|t\.me)\.com\b/i
+
+function messageHasBusinessSignal(text, vocab) {
+  if (!text) return false
+  if (RE_MONEY.test(text)) return true
+  if (RE_URL.test(text)) return true
+  const tokens = text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+  for (const t of tokens) {
+    if (vocab.has(t)) return true
+  }
+  return false
+}
+
+// Given a message list, return only those that are "business clusters":
+// any business-signal message + N messages of context on each side, deduped
+// and re-sorted. Empty result = nothing to extract → caller skips Sonnet.
+function applyBusinessFilter(messages, vocab, contextWindow = 2) {
+  const hits = new Set()
+  for (let i = 0; i < messages.length; i++) {
+    if (messageHasBusinessSignal(messages[i].text, vocab)) {
+      const lo = Math.max(0, i - contextWindow)
+      const hi = Math.min(messages.length - 1, i + contextWindow)
+      for (let j = lo; j <= hi; j++) hits.add(j)
+    }
+  }
+  if (hits.size === 0) return []
+  return [...hits].sort((a, b) => a - b).map(i => messages[i])
+}
+
+// ─── prompt builders ─────────────────────────────────────────────────
 
 function buildSystemPrompt(yourName = 'Evan') {
   // Static prompt only — CURRENT TIME is passed in the user message so the
@@ -176,12 +328,13 @@ Return ONE JSON object: {"newTasks": [...], "resolvedTasks": [...]}.
 If nothing actionable AND nothing resolved, return {"newTasks": [], "resolvedTasks": []}.`
 }
 
-function buildUserPrompt({ chatTitle, creatorAka, messages, openTasks }) {
+function buildUserPrompt({ chatTitle, creatorAka, messages, openTasks, filterNote }) {
   const lines = [
     `CHAT: ${chatTitle}`,
     creatorAka
       ? `CREATOR CONTEXT: This chat is about creator "${creatorAka}".`
       : `CREATOR CONTEXT: No specific creator (internal team or non-creator chat).`,
+    filterNote ? `NOTE: ${filterNote}` : null,
     '',
     `EXISTING OPEN TASKS for this chat (from prior runs):`,
     openTasks.length > 0
@@ -198,7 +351,7 @@ function buildUserPrompt({ chatTitle, creatorAka, messages, openTasks }) {
     }),
     '',
     `Read the whole conversation. Identify NEW tasks. Identify EXISTING tasks now RESOLVED. Reuse sourceMessageKey of an existing task to UPDATE its wording. Return the JSON object.`,
-  ]
+  ].filter(Boolean)
   return lines.join('\n')
 }
 
@@ -258,7 +411,6 @@ async function loadOpenTasksForChat(chatRecordId) {
         task: r.fields?.Task || '',
         sourceQuote: r.fields?.['Source Quote'] || '',
         sourceMessageKey: (r.fields?.['Source Messages'] || [])[0]?.name || null,
-        // Fallback: parse the message key from Notes or use the linked record name
       }))
   } catch {
     return []
@@ -307,49 +459,55 @@ async function loadMessagesForChat(chat) {
 
 // ─── per-chat extraction (also called by chat PATCH on Watch) ────────
 
-// Set { force: true } to bypass the "no new activity" skip (used by the
-// chat-PATCH endpoint when admin clicks Watch — we always want to extract
-// fresh on opt-in, even for stale chats).
-export async function extractForChat(chat, { creatorPhones, force = false } = {}) {
+// Set { force: true } to bypass ALL gates (cooldown, skip-if-idle, business
+// filter). Used by chat-PATCH on Watch click and by the manual Refresh
+// button — admin explicitly opted in.
+export async function extractForChat(chat, { creatorPhones, vocab, force = false } = {}) {
   if (!chat) return { error: 'no chat' }
-  const stats = { messagesScanned: 0, tasksCreated: 0, tasksUpdated: 0, tasksResolved: 0, skipped: false }
+  const stats = {
+    messagesScanned: 0,
+    tasksCreated: 0,
+    tasksUpdated: 0,
+    tasksResolved: 0,
+    skipped: false,
+    skipReason: null,
+  }
 
+  // ── Gate 1: frequency cooldown
+  if (!force) {
+    const freq = chatFrequency(chat)
+    if (freq === 'Off') {
+      return { ...stats, skipped: true, skipReason: 'frequency=Off' }
+    }
+    const cooldownMs = COOLDOWN_MIN[freq] * 60 * 1000
+    if (msSinceLastExtract(chat) < cooldownMs) {
+      return { ...stats, skipped: true, skipReason: `cooldown ${freq}` }
+    }
+  }
+
+  // From here on, this counts as "the cron looked at this chat" — we'll
+  // stamp Last Extracted At at the end regardless of outcome.
   const phones = creatorPhones || await loadCreatorPhoneMap()
   const messages = await loadMessagesForChat(chat)
-  if (messages.length === 0) return { ...stats, reason: 'no messages' }
+  if (messages.length === 0) {
+    await stampExtracted(chat.id)
+    return { ...stats, skipped: true, skipReason: 'no messages' }
+  }
   stats.messagesScanned = messages.length
 
-  // SKIP-IF-IDLE optimization (the big cost saver):
-  // If the chat's most recent message timestamp hasn't advanced past the
-  // newest task's Detected At for this chat, AND there are no overdue
-  // open tasks needing re-evaluation, skip the Claude call entirely.
-  // This avoids re-running expensive prompts on chats with no new activity.
+  // ── Gate 2: skip-if-idle (no new messages since last extract)
   if (!force) {
-    try {
-      const latestMsgTs = messages.reduce((max, m) => {
+    const lastExtractMs = chat.fields?.['Last Extracted At']
+      ? new Date(chat.fields['Last Extracted At']).getTime() : 0
+    if (lastExtractMs > 0) {
+      const latestMsgMs = messages.reduce((max, m) => {
         const t = m.sentAt ? new Date(m.sentAt).getTime() : 0
         return t > max ? t : max
       }, 0)
-      const existingOpen = await loadOpenTasksForChat(chat.id)
-      // If we have any tasks at all for this chat, find the newest Detected At.
-      // If chat has no new messages since then, skip.
-      if (existingOpen.length > 0 && latestMsgTs > 0) {
-        // Need full task records to read Detected At — quick refetch
-        const fullTasks = await fetchAirtableRecords(TASKS_TABLE, {
-          filterByFormula: `OR(${existingOpen.map(t => `RECORD_ID()='${t.id}'`).join(',')})`,
-          fields: ['Detected At'],
-        })
-        const newestExtractTs = fullTasks.reduce((max, r) => {
-          const t = r.fields?.['Detected At'] ? new Date(r.fields['Detected At']).getTime() : 0
-          return t > max ? t : max
-        }, 0)
-        if (latestMsgTs <= newestExtractTs) {
-          stats.skipped = true
-          return { ...stats, reason: 'no new activity since last extraction' }
-        }
+      if (latestMsgMs > 0 && latestMsgMs <= lastExtractMs) {
+        await stampExtracted(chat.id)
+        return { ...stats, skipped: true, skipReason: 'no new activity' }
       }
-    } catch {
-      // Skip-check failed (e.g. Airtable hiccup) — fall through to full extract.
     }
   }
 
@@ -357,7 +515,7 @@ export async function extractForChat(chat, { creatorPhones, force = false } = {}
   const creatorAka = chat.fields?.['Creator AKA'] || null
 
   // Resolve creator names on incoming senders via phone map
-  const messagesForPrompt = messages.map(m => {
+  let messagesForPrompt = messages.map(m => {
     let name = m.senderName
     if (!m.isFromMe && m.senderUsername) {
       const phone = normPhone(m.senderUsername)
@@ -365,42 +523,62 @@ export async function extractForChat(chat, { creatorPhones, force = false } = {}
     }
     return { ...m, senderName: name }
   }).filter(m => m.text)
-  if (messagesForPrompt.length === 0) return { ...stats, reason: 'no text messages' }
+  if (messagesForPrompt.length === 0) {
+    await stampExtracted(chat.id)
+    return { ...stats, skipped: true, skipReason: 'no text messages' }
+  }
+
+  // ── Gate 3: business vocab filter (mixed business+personal chats)
+  let filterNote = null
+  if (!force && chatBusinessFilterOn(chat)) {
+    const v = vocab || await loadBusinessVocab()
+    const filtered = applyBusinessFilter(messagesForPrompt, v, 2)
+    if (filtered.length === 0) {
+      // No business signals in window → skip Sonnet entirely
+      await stampExtracted(chat.id)
+      return { ...stats, skipped: true, skipReason: 'no business signal' }
+    }
+    if (filtered.length < messagesForPrompt.length) {
+      filterNote = `Conversation pre-filtered locally: showing only message clusters containing business vocabulary. Personal/social messages omitted.`
+    }
+    messagesForPrompt = filtered
+  }
 
   const openTasks = await loadOpenTasksForChat(chat.id)
 
   let parsed
   try {
-    // Prompt caching: mark the system prompt as cacheable so subsequent calls
-    // within ~5 min get a 90% discount on those tokens. The system prompt is
-    // ~3K tokens of static instructions — cached, it costs ~$0.0009 vs ~$0.009.
-    // We pass the dynamic 'now' timestamp via the user prompt instead of
-    // baking it into the system prompt, so the system stays cacheable.
+    // Prompt caching: mark the system prompt as cacheable. Within a single
+    // cron run, the system prompt is shared across all chat calls — first
+    // chat writes the cache, subsequent chats read it (~10x cheaper).
+    // Across cron runs (>5min apart), cache is cold — going to ttl:'1h'
+    // could fix that but costs 2x to write, only worth it if we're processing
+    // the same hot chats hourly. Revisit once per-chat freq is stable.
     const response = await anthropic.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 3000,
       system: [
         {
           type: 'text',
-          text: buildSystemPrompt('Evan'), // omit nowIso — passed in user msg
+          text: buildSystemPrompt('Evan'),
           cache_control: { type: 'ephemeral' },
         },
       ],
       messages: [{
         role: 'user',
         content: `CURRENT TIME (use for deferral + overdue reasoning): ${new Date().toISOString()}\n\n` +
-          buildUserPrompt({ chatTitle, creatorAka, messages: messagesForPrompt, openTasks }),
+          buildUserPrompt({ chatTitle, creatorAka, messages: messagesForPrompt, openTasks, filterNote }),
       }],
     })
     const content = response.content?.[0]?.text || ''
     parsed = parseJsonObject(content) || { newTasks: [], resolvedTasks: [] }
   } catch (err) {
+    // Don't stamp on Sonnet failure — try again next tick
     return { ...stats, error: `Claude: ${err.message}` }
   }
 
   const detectedAt = new Date().toISOString()
   const keyToMsg = new Map(messages.map(m => [m.messageKey, m]))
-  // Index existing tasks by their sourceMessageKey for de-dup
   const openByKey = new Map()
   for (const t of openTasks) {
     if (t.sourceMessageKey) openByKey.set(t.sourceMessageKey, t)
@@ -433,7 +611,6 @@ export async function extractForChat(chat, { creatorPhones, force = false } = {}
 
     try {
       if (existing) {
-        // Update wording in place — keep original Detected At + Source links
         await patchAirtableRecord(TASKS_TABLE, existing.id, fields)
         stats.tasksUpdated++
       } else {
@@ -469,6 +646,7 @@ export async function extractForChat(chat, { creatorPhones, force = false } = {}
     }
   }
 
+  await stampExtracted(chat.id)
   return stats
 }
 
@@ -493,6 +671,10 @@ export async function GET(request) {
     watchingChatsTotal: 0,
     chatsProcessed: 0,
     chatsSkippedChatTeam: 0,
+    chatsSkippedCooldown: 0,
+    chatsSkippedIdle: 0,
+    chatsSkippedNoBusiness: 0,
+    chatsSkippedOff: 0,
     messagesScanned: 0,
     tasksCreated: 0,
     tasksUpdated: 0,
@@ -520,14 +702,20 @@ export async function GET(request) {
       return NextResponse.json({ ok: true, idle: true, stats })
     }
 
-    const phones = await loadCreatorPhoneMap()
+    // Pre-load both shared resources so per-chat calls reuse them.
+    const [phones, vocab] = await Promise.all([
+      loadCreatorPhoneMap(),
+      loadBusinessVocab(),
+    ])
 
-    let chatsSkippedIdle = 0
     for (const chat of watching) {
       try {
-        const r = await extractForChat(chat, { creatorPhones: phones })
+        const r = await extractForChat(chat, { creatorPhones: phones, vocab })
         if (r.skipped) {
-          chatsSkippedIdle++
+          if (r.skipReason === 'frequency=Off') stats.chatsSkippedOff++
+          else if (r.skipReason?.startsWith('cooldown')) stats.chatsSkippedCooldown++
+          else if (r.skipReason === 'no business signal') stats.chatsSkippedNoBusiness++
+          else stats.chatsSkippedIdle++
         } else {
           stats.chatsProcessed++
         }
@@ -540,7 +728,6 @@ export async function GET(request) {
         stats.errors.push(`${chat.fields?.Title}: ${err.message}`)
       }
     }
-    stats.chatsSkippedIdle = chatsSkippedIdle
 
     return NextResponse.json({ ok: true, stats, durationMs: Date.now() - startTs })
   } catch (err) {
