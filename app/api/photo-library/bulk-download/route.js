@@ -25,19 +25,56 @@ function isImageAsset(fields) {
   return IMAGE_EXTS.includes(ext) || IMAGE_RE.test(link) || type === 'photo' || type === 'image'
 }
 
-// Dropbox shared link → forced-download URL. ?dl=1 sets Content-Disposition:
-// attachment, which is irrelevant for our server-side fetch but also strips
-// any HTML-preview routing — we get raw bytes back.
+// Dropbox shared link → forced-download URL. URL.searchParams handles
+// arbitrary param ordering and avoids the malformed-URL edge case the
+// regex-replace approach had when `dl=0` was the first param.
 function dropboxRawUrl(link) {
   if (!link) return ''
-  const clean = link
-    .replace(/[?&]dl=0/, '')
-    .replace(/[?&]raw=1/, '')
-    .replace(/[?&]dl=1/, '')
-  return clean + (clean.includes('?') ? '&dl=1' : '?dl=1')
+  try {
+    const u = new URL(link)
+    u.searchParams.delete('dl')
+    u.searchParams.delete('raw')
+    u.searchParams.set('dl', '1')
+    return u.toString()
+  } catch {
+    return link
+  }
 }
 
+// Validates that a fetched buffer actually contains image bytes (not an
+// HTML error page, not a truncated response, not a 0-byte file). Catches
+// the cases where Dropbox returns a soft-fail page with status 200, or
+// the connection drops mid-transfer leaving us with partial data.
+function bufferLooksLikeImage(buf, contentLength) {
+  if (!buf || buf.length === 0) return false
+  if (contentLength != null && buf.length !== contentLength) return false
+  // Common image magic numbers
+  const head = buf.slice(0, 12)
+  // JPEG: FF D8 FF
+  if (head[0] === 0xFF && head[1] === 0xD8 && head[2] === 0xFF) return true
+  // PNG: 89 50 4E 47
+  if (head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4E && head[3] === 0x47) return true
+  // GIF: 47 49 46 38
+  if (head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x38) return true
+  // WebP: starts with RIFF then WEBP at offset 8
+  if (head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46
+      && head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50) return true
+  // HEIC/HEIF: ftyp box at offset 4 ("ftypheic", "ftypheix", "ftyphevc", "ftypmif1", "ftypmsf1")
+  if (head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70) return true
+  // BMP: 42 4D
+  if (head[0] === 0x42 && head[1] === 0x4D) return true
+  // TIFF: II* or MM*
+  if ((head[0] === 0x49 && head[1] === 0x49 && head[2] === 0x2A) ||
+      (head[0] === 0x4D && head[1] === 0x4D && head[2] === 0x00)) return true
+  return false
+}
+
+// Default for bulk operations is Wall Post — chat manager team isn't
+// using the WP/MM distinction for bulk downloads, so we just stamp them
+// with something so the field isn't blank. They can re-tag from the
+// Used view if it ever matters.
 const USED_FOR_MAP = { wall: 'Wall Post', mm: 'Mass Message' }
+const DEFAULT_USED_FOR = 'Wall Post'
 
 // Airtable PATCH limits to 10 records per request. Chunks the bulk update.
 async function batchMarkUsed(assetIds, surfaceLabel, userId) {
