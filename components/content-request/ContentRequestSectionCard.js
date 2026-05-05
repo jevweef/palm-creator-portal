@@ -43,7 +43,13 @@ export default function ContentRequestSectionCard({
         body: JSON.stringify({ creatorHqId: hqId }),
       })
       if (!tokenRes.ok) throw new Error('Failed to get upload token')
-      const { accessToken, rootNamespaceId, rootPath, creatorName } = await tokenRes.json()
+      const { accessToken, rootNamespaceId, creatorName } = await tokenRes.json()
+
+      // Format month as MMMYY (e.g. "APR26" for 2026-04)
+      // Vault content is separate from the existing creator social media folder
+      const monthAbbrevs = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+      const [year, monthNum] = month.split('-')
+      const monthFolder = `${monthAbbrevs[parseInt(monthNum, 10) - 1]}${year.slice(-2)}`
 
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i]
@@ -51,9 +57,10 @@ export default function ContentRequestSectionCard({
 
         const ext = file.name.split('.').pop()
         const safeName = `${creatorName}_${Date.now()}_${i + 1}.${ext}`
-        // Path: /{Creator Root}/Content Requests/{month}/{section}/{filename}
-        // Each creator gets their own folder, organized by month, then by section
-        const uploadPath = `${rootPath}/Content Requests/${month}/${name}/${safeName}`
+        // Path: /{AKA}/Vault Content/{MMMYY}/{Section}/{filename}
+        // Top-level AKA folder, separate from social media content
+        // Example: /Raya/Vault Content/APR26/PPV's/raya_xxx.mp4
+        const uploadPath = `/${creatorName}/Vault Content/${monthFolder}/${name}/${safeName}`
 
         // Upload to Dropbox
         const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
