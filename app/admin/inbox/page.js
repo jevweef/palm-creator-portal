@@ -130,67 +130,98 @@ function TaskCard({ task, onUpdate, toast }) {
 
   return (
     <div style={{
-      ...card,
-      marginBottom: '12px', padding: '16px 20px',
+      background: 'rgba(255, 255, 255, 0.02)',
+      border: '1px solid rgba(255, 255, 255, 0.06)',
       borderLeft: `3px solid ${OWNER_COLOR[task.owner] || OWNER_COLOR.Other}`,
+      borderRadius: '8px',
+      padding: '10px 12px',
+      marginBottom: '6px',
+      display: 'flex', alignItems: 'center', gap: '12px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* One-line meta row: pills + time, all inline */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+            padding: '1px 6px', borderRadius: '3px',
+            color: OWNER_COLOR[task.owner], background: 'rgba(255,255,255,0.04)',
+          }}>{task.owner}</span>
+          {task.creatorAka && (
             <span style={{
-              fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-              padding: '2px 8px', borderRadius: '4px',
-              color: OWNER_COLOR[task.owner], background: 'rgba(255,255,255,0.04)',
-            }}>
-              {task.owner}
-            </span>
-            {task.creatorAka && (
-              <span style={{
-                fontSize: '10px', fontWeight: 600, letterSpacing: '0.04em',
-                padding: '2px 8px', borderRadius: '4px',
-                color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.08)',
-              }}>
-                {task.creatorAka}
-              </span>
-            )}
-            <span style={{
-              fontSize: '10px', fontWeight: 600,
-              padding: '2px 8px', borderRadius: '4px',
-              color: URGENCY_COLOR[task.urgency] || URGENCY_COLOR.Soon,
-              background: 'rgba(255,255,255,0.03)',
-            }}>
-              {task.urgency}
-            </span>
-            <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
-              {timeAgo(task.detectedAt)}
-            </span>
-          </div>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
-            {task.task}
-          </div>
-          {task.sourceQuote && (
-            <div style={{
-              fontSize: '12px', color: 'var(--foreground-muted)',
-              fontStyle: 'italic', borderLeft: '2px solid rgba(255,255,255,0.08)',
-              paddingLeft: '10px', marginTop: '8px',
-            }}>
-              "{task.sourceQuote}"
-              {task.ownerUsername && (
-                <span style={{ marginLeft: '8px', fontStyle: 'normal', opacity: 0.6 }}>
-                  — @{task.ownerUsername}
-                </span>
-              )}
-            </div>
+              fontSize: '9px', fontWeight: 600,
+              padding: '1px 6px', borderRadius: '3px',
+              color: 'var(--palm-pink)', background: 'rgba(232, 160, 160, 0.08)',
+            }}>{task.creatorAka}</span>
           )}
+          <span style={{
+            fontSize: '9px', fontWeight: 600,
+            padding: '1px 6px', borderRadius: '3px',
+            color: URGENCY_COLOR[task.urgency] || URGENCY_COLOR.Soon,
+            background: 'rgba(255,255,255,0.03)',
+          }}>{task.urgency}</span>
+          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginLeft: 'auto' }}>
+            {timeAgo(task.detectedAt)}
+          </span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-          {canReply && (
-            <Btn variant="primary" size="sm" onClick={() => setReplyOpen(true)} disabled={busy}>Reply</Btn>
-          )}
-          <Btn variant="success" size="sm" onClick={() => setStatus('Done')} disabled={busy}>Done</Btn>
-          <Btn size="sm" onClick={() => setStatus('Snoozed')} disabled={busy}>Snooze</Btn>
-          <Btn variant="danger" size="sm" onClick={() => setStatus('Dismissed')} disabled={busy}>Dismiss</Btn>
+        {/* Title + quote on same flow */}
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', lineHeight: 1.35 }}>
+          {task.task}
         </div>
+        {task.sourceQuote && (
+          <div style={{
+            fontSize: '11px', color: 'var(--foreground-muted)',
+            fontStyle: 'italic', marginTop: '3px',
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
+          }}>
+            "{task.sourceQuote}"
+          </div>
+        )}
+      </div>
+      {/* Buttons in a horizontal row */}
+      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+        {canReply && (
+          <button
+            onClick={() => setReplyOpen(true)}
+            disabled={busy}
+            title="Reply"
+            style={{
+              padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+              background: 'var(--palm-pink)', color: '#060606', border: '1px solid var(--palm-pink)',
+              cursor: 'pointer', opacity: busy ? 0.5 : 1,
+            }}
+          >Reply</button>
+        )}
+        <button
+          onClick={() => setStatus('Done')}
+          disabled={busy}
+          title="Mark done"
+          style={{
+            padding: '5px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+            background: 'rgba(120, 200, 120, 0.12)', color: '#7AC97A', border: '1px solid rgba(120, 200, 120, 0.3)',
+            cursor: 'pointer', opacity: busy ? 0.5 : 1,
+          }}
+        >✓</button>
+        <button
+          onClick={() => setStatus('Snoozed')}
+          disabled={busy}
+          title="Snooze"
+          style={{
+            padding: '5px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+            background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)',
+            cursor: 'pointer', opacity: busy ? 0.5 : 1,
+          }}
+        >⏰</button>
+        <button
+          onClick={() => setStatus('Dismissed')}
+          disabled={busy}
+          title="Dismiss"
+          style={{
+            padding: '5px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+            background: 'rgba(232, 120, 120, 0.12)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)',
+            cursor: 'pointer', opacity: busy ? 0.5 : 1,
+          }}
+        >✕</button>
       </div>
       {replyOpen && (
         <ReplyModal
