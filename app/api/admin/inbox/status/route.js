@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
+import { daemonHealth } from '@/lib/inboxDaemon'
 
 const CHATS_TABLE = 'Telegram Chats'
 
@@ -47,15 +48,28 @@ export async function GET() {
     chatsError = err.message
   }
 
+  // iMessage daemon health (Cloudflare-tunneled local server)
+  const daemonInfo = await daemonHealth()
+  // Show truncated URL (first 30 + last 25 chars) — easier to verify which
+  // tunnel is configured without leaking the full secret value.
+  const daemonUrl = process.env.DAEMON_URL || ''
+  const daemonUrlPreview = daemonUrl.length > 60
+    ? daemonUrl.slice(0, 30) + '…' + daemonUrl.slice(-25)
+    : daemonUrl
+
   return NextResponse.json({
     env: {
       tokenSet: !!token,
       secretSet: !!secret,
+      daemonUrlSet: !!process.env.DAEMON_URL,
+      daemonSecretSet: !!process.env.DAEMON_SECRET,
+      daemonUrlPreview,
     },
     telegram: {
       webhookInfo,
       error: webhookError,
     },
+    daemon: daemonInfo,
     airtable: {
       chatCounts,
       error: chatsError,

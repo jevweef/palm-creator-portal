@@ -54,6 +54,35 @@ function msgKeyLookup(key) {
   return `{Telegram Msg Key} = '${safeKey}'`
 }
 
+// Normalize daemon-sent media type strings to the singleSelect options on
+// Telegram Messages.Media Type. Daemon sends informal labels ('image' for
+// any has_attachments=1) which would error as INVALID_MULTIPLE_CHOICE_OPTIONS.
+const MEDIA_TYPE_SYNONYMS = {
+  image: 'photo',
+  picture: 'photo',
+  jpeg: 'photo',
+  jpg: 'photo',
+  png: 'photo',
+  mp4: 'video',
+  mov: 'video',
+  m4v: 'video',
+  m4a: 'audio',
+  mp3: 'audio',
+  pdf: 'document',
+  caf: 'voice',
+  amr: 'voice',
+  gif: 'animation',
+}
+const VALID_MEDIA_TYPES = new Set(['photo', 'video', 'voice', 'audio', 'document', 'sticker', 'animation', 'other'])
+
+function normalizeMediaType(raw) {
+  if (!raw) return null
+  const lower = String(raw).toLowerCase()
+  if (VALID_MEDIA_TYPES.has(lower)) return lower
+  if (MEDIA_TYPE_SYNONYMS[lower]) return MEDIA_TYPE_SYNONYMS[lower]
+  return 'other'
+}
+
 function safeRawJson(obj) {
   const json = JSON.stringify(obj)
   if (json.length > 50000) return json.slice(0, 50000) + '...[truncated]'
@@ -107,28 +136,34 @@ async function ingestOne(m) {
   }
 
   const status = chatRecord.fields?.Status
-  if (status === 'Ignored' || status === 'Ignored Forever') {
-    return { skipped: 'ignored' }
+  if (status === 'Ignored Forever') {
+    // Hard block — drop, don't even bump counters.
+    return { skipped: 'ignored-forever' }
   }
+  // Pending Review and Ignored: store messages so admin can preview the
+  // thread to make a decision. Auto-purge cron deletes them after 14 days
+  // unless the chat gets promoted to Watching.
+  // Watching: store forever. AI extractor processes them.
 
-  // PRIVACY FENCE: only store message bodies for Watching chats.
-  // Pending Review = chat exists, admin can see it, but message text is not
-  // persisted. Once admin opts in (Watch), future messages land normally.
-  // Historical Pending Review messages are permanently un-stored.
-  if (status === 'Pending Review') {
-    // Bump chat counters so admin can see activity / decide. Don't store body.
-    const currentCount = Number(chatRecord.fields?.['Message Count'] || 0)
-    await patchAirtableRecord(CHATS_TABLE, chatRecord.id, {
-      'Last Message At': sentAtIso,
-      'Message Count': currentCount + 1,
-      ...(m.chatTitle ? { Title: m.chatTitle } : {}),
-    })
-    return { skipped: 'pending-review-no-store' }
-  }
-
-  // Dedupe.
+  // Dedupe — but backfill text on existing records that don't have it.
+  // Catches two cases: (a) privacy-fence-era metadata-only rows, (b) rows
+  // stored before the plist text parser was added (where text was empty
+  // even though the message had text — fell back to [photo] in UI).
+  // Don't bump counters (already counted when row was made).
   const existing = await findMessageRecord(composite)
-  if (existing) return { skipped: 'duplicate' }
+  if (existing) {
+    const hadText = !!(existing.fields?.Text)
+    if (!hadText && m.text) {
+      await patchAirtableRecord(MESSAGES_TABLE, existing.id, {
+        Text: m.text,
+        'Raw JSON': safeRawJson(m),
+        'Has Media': !!m.hasMedia,
+        'Media Type': normalizeMediaType(m.mediaType),
+      })
+      return { updated: true }
+    }
+    return { skipped: 'duplicate' }
+  }
 
   // Sender labelling. From-me messages get our unified "us" username so the
   // task extractor recognizes them as Evan.
@@ -144,7 +179,7 @@ async function ingestOne(m) {
     Text: m.text || '',
     'Sent At': sentAtIso,
     'Has Media': !!m.hasMedia,
-    'Media Type': m.mediaType || null,
+    'Media Type': normalizeMediaType(m.mediaType),
     'Raw JSON': safeRawJson(m),
   })
 
@@ -185,11 +220,12 @@ export async function POST(request) {
 
   // 3. Process serially. Most batches are small. Parallel writes to Airtable
   //    cause rate-limit pain (5 req/s per base) and we'd have to throttle anyway.
-  const stats = { received: messages.length, created: 0, skipped: 0, errors: [] }
+  const stats = { received: messages.length, created: 0, updated: 0, skipped: 0, errors: [] }
   for (const m of messages) {
     try {
       const r = await ingestOne(m)
       if (r.created) stats.created++
+      else if (r.updated) stats.updated++
       else if (r.skipped) stats.skipped++
       else if (r.error) stats.errors.push(r.error)
     } catch (err) {

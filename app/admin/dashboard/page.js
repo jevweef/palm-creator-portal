@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import UrgentInboxTasks from './UrgentInboxTasks'
 
 const relTime = iso => {
   if (!iso) return ''
@@ -465,7 +466,7 @@ const PERIODS = [
 ]
 
 /* ─── Agency Revenue Chart ─── */
-function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] }) {
+function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [], managementStartByCreator = {} }) {
   const [hover, setHover] = useState(null)
   const [period, setPeriod] = useState('last30')
   const [enabledCreators, setEnabledCreators] = useState(() => new Set(creatorList))
@@ -499,7 +500,11 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
 
     for (const [creator, data] of Object.entries(earningsData)) {
       if (!enabledCreators.has(creator) || !data?.dailyData) continue
+      // Agency revenue should only count earnings from the day a creator
+      // joined Palm onward — never backdate their full sheet history.
+      const startDate = managementStartByCreator[creator] || null
       for (const d of data.dailyData) {
+        if (startDate && d.date < startDate) continue
         if (!dayMap[d.date]) dayMap[d.date] = { date: d.date, total: 0, byCreator: {} }
         dayMap[d.date].total += d.net
         dayMap[d.date].byCreator[creator] = (dayMap[d.date].byCreator[creator] || 0) + d.net
@@ -526,7 +531,7 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [] })
     }
 
     return days
-  }, [earningsData, enabledCreators, period])
+  }, [earningsData, enabledCreators, period, managementStartByCreator])
 
   const totalForPeriod = chartData.reduce((s, d) => s + d.total, 0)
   const activeCount = [...enabledCreators].filter(c => earningsData?.[c]?.dailyData?.length > 0).length
@@ -1076,8 +1081,11 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Urgent Inbox tasks — only renders for the inbox owner */}
+      <UrgentInboxTasks />
+
       {/* ─── AGENCY REVENUE CHART — full width hero ─── */}
-      <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} creatorList={creatorList} />
+      <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} creatorList={creatorList} managementStartByCreator={revenue.managementStartByCreator || {}} />
 
       {/* ─── KPI STRIP ─── */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>

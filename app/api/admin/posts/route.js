@@ -31,7 +31,7 @@ export async function GET() {
     const [creatorRecords, assetRecords] = await Promise.all([
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
         filterByFormula: recordIdFormula(creatorIds),
-        fields: ['Creator', 'AKA', 'Telegram Thread ID'],
+        fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Status'],
       }) : [],
       assetIds.length ? fetchAirtableRecords('Assets', {
         filterByFormula: recordIdFormula(assetIds),
@@ -42,7 +42,16 @@ export async function GET() {
     const creatorMap = Object.fromEntries(creatorRecords.map(r => [r.id, r.fields]))
     const assetMap = Object.fromEntries(assetRecords.map(r => [r.id, r.fields]))
 
-    const result = posts.map(p => {
+    // Drop posts whose creator has been offboarded — they shouldn't clutter the active queue.
+    const offboardedCreatorIds = new Set(
+      creatorRecords.filter(r => (r.fields?.Status === 'Offboarded' || r.fields?.Status?.name === 'Offboarded')).map(r => r.id)
+    )
+    const visiblePosts = posts.filter(p => {
+      const cid = (p.fields?.Creator || [])[0]
+      return !cid || !offboardedCreatorIds.has(cid)
+    })
+
+    const result = visiblePosts.map(p => {
       const f = p.fields || {}
       const creatorId = (f.Creator || [])[0] || null
       const assetId = (f.Asset || [])[0] || null

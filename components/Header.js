@@ -101,7 +101,9 @@ export default function Header() {
               <Link href={`/creator/${creatorIdFromPath}/dashboard${hqSuffix}`} style={linkStyle(pathname?.endsWith('/dashboard'))}>Dashboard</Link>
               <Link href={`/creator/${creatorIdFromPath}/my-content${hqSuffix}`} style={linkStyle(pathname?.includes('/my-content'))}>My Content</Link>
               <Link href={`/creator/${creatorIdFromPath}/inspo${hqSuffix}`} style={linkStyle(pathname?.includes('/inspo'))}>Inspo Board</Link>
-              <Link href={`/creator/${creatorIdFromPath}/content-request${hqSuffix}`} style={linkStyle(pathname?.includes('/content-request'))}>Content Request</Link>
+              {isAdmin && (
+                <Link href={`/creator/${creatorIdFromPath}/content-request${hqSuffix}`} style={linkStyle(pathname?.includes('/content-request'))}>Content Request</Link>
+              )}
             </>
           ) : (
             <>
@@ -113,7 +115,9 @@ export default function Header() {
               </Link>
               <Link href="/my-content" style={linkStyle(pathname === '/my-content')}>My Content</Link>
               <Link href="/inspo" style={linkStyle(pathname === '/inspo')}>Inspo Board</Link>
-              <Link href="/content-request" style={linkStyle(pathname === '/content-request')}>Content Request</Link>
+              {isAdmin && (
+                <Link href="/content-request" style={linkStyle(pathname === '/content-request')}>Content Request</Link>
+              )}
               {isAdmin && (
                 <Link href="/admin/dashboard" style={{ ...linkStyle(pathname?.startsWith('/admin') && pathname !== '/admin/dashboard' && pathname !== '/admin'), color: pathname?.startsWith('/admin') ? 'var(--palm-pink)' : 'var(--foreground-muted)' }}>Admin</Link>
               )}

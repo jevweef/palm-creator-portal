@@ -1,5 +1,6 @@
-// Update a single task — primarily Status (Done / Snoozed / Dismissed)
-// and Notes. Owner can also be reassigned if the AI got it wrong.
+// Update a single task — Status (Done / Snoozed / Dismissed), Notes,
+// snooze defer, and feedback (when dismissing with a reason — feeds the
+// extract-tasks training loop).
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,15 @@ const TASKS_TABLE = 'Inbox Tasks'
 
 const VALID_STATUSES = new Set(['Open', 'Done', 'Snoozed', 'Dismissed'])
 const VALID_OWNERS = new Set(['Evan', 'Josh', 'Other'])
+const VALID_FEEDBACK = new Set([
+  'Not a real task',
+  'Wrong person',
+  'Wrong urgency',
+  'Already done',
+  'Personal not business',
+  'Misread conversation',
+  'Other',
+])
 
 export async function PATCH(request, { params }) {
   const auth = await requireInboxOwner()
@@ -39,7 +49,37 @@ export async function PATCH(request, { params }) {
     updates.Owner = body.owner
   }
   if (body.notes !== undefined) updates.Notes = String(body.notes).slice(0, 5000)
-  if (body.task !== undefined) updates.Task = String(body.task).slice(0, 200)
+  if (body.task !== undefined) {
+    updates.Task = String(body.task).slice(0, 200)
+    // Wording edit → flag as manually edited so extract-tasks won't
+    // overwrite it on subsequent cron runs (Sonnet would otherwise
+    // re-generate the original wording from the same source message).
+    updates['Manually Edited'] = true
+  }
+
+  // Snooze: client sends snoozeHours (1, 24, 72, 168 etc) — convert to
+  // Defer Until ISO. Also flips status to Snoozed if not already specified.
+  if (body.snoozeHours !== undefined) {
+    const hours = Number(body.snoozeHours)
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 24 * 30) {
+      return NextResponse.json({ error: 'bad snoozeHours' }, { status: 400 })
+    }
+    updates['Defer Until'] = new Date(Date.now() + hours * 3600 * 1000).toISOString()
+    if (!updates.Status) updates.Status = 'Snoozed'
+  }
+
+  // Feedback (typically sent alongside status='Dismissed'). Both fields
+  // are optional individually but at least one type/reason is expected
+  // when training the loop.
+  if (body.feedbackType !== undefined) {
+    if (body.feedbackType && !VALID_FEEDBACK.has(body.feedbackType)) {
+      return NextResponse.json({ error: `bad feedbackType: ${body.feedbackType}` }, { status: 400 })
+    }
+    updates['Feedback Type'] = body.feedbackType || null
+  }
+  if (body.feedbackReason !== undefined) {
+    updates['Feedback Reason'] = String(body.feedbackReason || '').slice(0, 1000)
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'nothing to update' }, { status: 400 })

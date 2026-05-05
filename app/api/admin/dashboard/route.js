@@ -5,6 +5,7 @@ import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 
 const HQ_BASE = 'appL7c4Wtotpz07KS'
 const INVOICES_TABLE = 'tblKbU8VkdlOHXoJj'
+const HQ_CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
 
 const hqHeaders = () => ({
   Authorization: `Bearer ${process.env.AIRTABLE_PAT}`,
@@ -26,6 +27,35 @@ const INV_FIELDS = [
   'fldQEjYB0DxpNWxhU', // Invoice Status
   'fldOTpRmDWDfwz8FH', // Due Date
 ]
+
+async function fetchHqManagementStartByAka() {
+  // HQ Creators: AKA → Management Start Date (YYYY-MM-DD).
+  // Used to clip per-creator daily revenue to "what counted as agency revenue
+  // since they joined Palm" (no backdating before management start).
+  const records = []
+  let offset = null
+  do {
+    const params = new URLSearchParams()
+    params.append('fields[]', 'AKA')
+    params.append('fields[]', 'Creator')
+    params.append('fields[]', 'Management Start Date')
+    if (offset) params.set('offset', offset)
+    const res = await fetch(
+      `https://api.airtable.com/v0/${HQ_BASE}/${HQ_CREATORS_TABLE}?${params}`,
+      { headers: hqHeaders(), cache: 'no-store' }
+    )
+    const data = await res.json()
+    if (data.records) records.push(...data.records)
+    offset = data.offset || null
+  } while (offset)
+  const map = {}
+  for (const r of records) {
+    const aka = r.fields?.AKA || r.fields?.Creator
+    const start = r.fields?.['Management Start Date']
+    if (aka && start) map[aka] = String(start).split('T')[0]
+  }
+  return map
+}
 
 async function fetchInvoices() {
   const records = []
@@ -78,6 +108,7 @@ export async function GET() {
       sourceReels,
       inspoRecords,
       inspoSources,
+      managementStartByAka,
     ] = await Promise.all([
       // HQ base — invoices (raw fetch with returnFieldsByFieldId)
       fetchInvoices(),
@@ -115,6 +146,12 @@ export async function GET() {
       // OPS — inspo sources
       fetchAirtableRecords('Inspo Sources', {
         fields: ['Handle', 'Enabled', 'Last Scraped At'],
+      }),
+      // HQ — management start dates so the agency revenue chart only counts
+      // each creator's earnings from when they joined Palm onward.
+      fetchHqManagementStartByAka().catch(e => {
+        console.error('[Admin Dashboard] HQ management start fetch failed:', e)
+        return {}
       }),
     ])
 
@@ -555,6 +592,7 @@ export async function GET() {
         byCreator: revenueByCreator,
         periods: periodSummaries,
         currentPeriodLabel: currentPeriod?.label || '',
+        managementStartByCreator: managementStartByAka,
       },
       editorRunway,
       creatorLibrary,

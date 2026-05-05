@@ -192,7 +192,7 @@ export async function GET() {
       }) : [],
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
         filterByFormula: recordIdFormula(creatorIds),
-        fields: ['Creator', 'AKA'],
+        fields: ['Creator', 'AKA', 'Status'],
       }) : [],
       inspoIds.length ? fetchAirtableRecords('Inspiration', {
         filterByFormula: recordIdFormula(inspoIds),
@@ -209,8 +209,16 @@ export async function GET() {
     const creatorMap = Object.fromEntries(creatorRecords.map(r => [r.id, r.fields]))
     const inspoMap = Object.fromEntries(inspoRecords.map(r => [r.id, r.fields]))
 
+    // Drop tasks whose linked creator has been offboarded — keeps the editor queue clean.
+    const offboardedCreatorIds = new Set(
+      creatorRecords.filter(r => (r.fields?.Status === 'Offboarded' || r.fields?.Status?.name === 'Offboarded')).map(r => r.id)
+    )
+    const visibleTasks = offboardedCreatorIds.size > 0
+      ? tasks.filter(t => !((t.fields?.Creator || []).some(cid => offboardedCreatorIds.has(cid))))
+      : tasks
+
     // 5. Assemble joined response
-    const joinedTasks = tasks.map(t => {
+    const joinedTasks = visibleTasks.map(t => {
       const f = t.fields || {}
       const assetId = (f.Asset || [])[0] || null
       const creatorId = (f.Creator || [])[0] || null

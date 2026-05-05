@@ -41,7 +41,8 @@ const ADMIN_NAV = [
   ]},
   { href: '/admin/inbox', label: 'Inbox', icon: '📥', ownerOnly: true, children: [
     { key: 'tasks', label: 'Tasks' },
-    { key: 'chats', label: 'Chats' },
+    { key: 'chats', label: 'Messages' },
+    { key: 'setup', label: 'Setup' },
   ]},
   { href: '/admin/help', label: 'Help', icon: '❓' },
 ]

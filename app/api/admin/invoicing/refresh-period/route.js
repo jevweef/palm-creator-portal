@@ -15,6 +15,17 @@ const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 // Protects historic invoices from accidental rewrites.
 const AUTOMATION_START = '2026-04-15'
 
+// Default ManageHer chat team fee, expressed as % of net revenue.
+// Stored on each invoice as `Chat Team Fee % (Snapshot)` so future rate
+// changes (e.g. dropping to 17.5% for select creators) don't retroactively
+// affect already-finalized invoices. The snapshot is stored as % of
+// commission (not % of revenue) because that's what the Airtable
+// `Chat Team Cost` formula multiplies against:
+//   chatTeamCost = Earnings × Commission% × Chat Team Fee%
+// To target 20% of revenue at e.g. 40% commission:
+//   Chat Team Fee% = 0.20 / 0.40 = 0.50
+const DEFAULT_CHAT_FEE_OF_REVENUE = 0.20
+
 // ── Field IDs ───────────────────────────────────────────────────────────────
 
 const INV_FIELDS = {
@@ -85,53 +96,71 @@ function parseSheetDateET(s) {
 
 /**
  * Fetch earnings totals for a single account, bounded by period.
- * @param {object} sheets - googleapis sheets client
- * @param {string} accountName - e.g. "Taby - Free OF"
- * @param {Date} periodStartDt - inclusive (UTC Date object representing 8 PM ET on period start - 1 day, or management start)
- * @param {Date} periodEndDt - exclusive (UTC Date object representing 8 PM ET on period end)
- * @returns {Promise<{gross, net, ofFee, txnCount, chargebackNet, chargebackCount}>}
+ * Reads BOTH `{accountName} - Sales` AND `{accountName} - Chargebacks` tabs:
+ *   - Sales tab: regular transactions; sometimes also has inline Chargeback rows
+ *     (when the same upload mixed both)
+ *   - Chargebacks tab: disputes uploaded separately from the OF disputes page
+ * Chargeback rows have negative net values; we sum them as `chargebackNet`
+ * (a negative number) and the caller adds it to `net` to get the final figure.
+ * @returns {Promise<{gross, net, ofFee, txnCount, chargebackNet, chargebackCount, missingTab}>}
  */
 async function getEarningsForPeriod(sheets, accountName, periodStartDt, periodEndDt) {
-  const tabName = `${accountName} - Sales`
-  let rows = []
+  let gross = 0, net = 0, ofFee = 0, txnCount = 0
+  let chargebackNet = 0, chargebackCount = 0
+  let salesTabExists = false
+
+  const accumulate = (rows) => {
+    for (const row of rows) {
+      const [dateTime, g, fee, n, type] = row
+      if (!dateTime) continue
+      const dt = parseSheetDateET(dateTime)
+      if (!dt) continue
+      // Inclusive start, exclusive end → strict less-than on end
+      if (dt < periodStartDt || dt >= periodEndDt) continue
+      const isChargeback = type === 'Chargeback'
+      if (isChargeback) {
+        chargebackNet += parseMoney(n)
+        chargebackCount++
+      } else {
+        gross += parseMoney(g)
+        ofFee += parseMoney(fee)
+        net += parseMoney(n)
+        txnCount++
+      }
+    }
+  }
+
+  // Sales tab — required (a missing Sales tab means we have no earnings data at all)
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${tabName}'!A4:I`,
+      range: `'${accountName} - Sales'!A4:I`,
     })
-    rows = res.data.values || []
+    accumulate(res.data.values || [])
+    salesTabExists = true
   } catch (err) {
-    console.warn(`[refresh-period] Tab "${tabName}" not found or empty:`, err.message)
-    return { gross: 0, net: 0, ofFee: 0, txnCount: 0, chargebackNet: 0, chargebackCount: 0, missingTab: true }
+    console.warn(`[refresh-period] Sales tab "${accountName} - Sales" missing:`, err.message)
   }
 
-  let gross = 0, net = 0, ofFee = 0, txnCount = 0
-  let chargebackNet = 0, chargebackCount = 0
-  for (const row of rows) {
-    const [dateTime, g, fee, n, type] = row
-    if (!dateTime) continue
-    const dt = parseSheetDateET(dateTime)
-    if (!dt) continue
-    // Inclusive start, exclusive end → strict less-than on end
-    if (dt < periodStartDt || dt >= periodEndDt) continue
-    const isChargeback = type === 'Chargeback'
-    if (isChargeback) {
-      chargebackNet += parseMoney(n)
-      chargebackCount++
-    } else {
-      gross += parseMoney(g)
-      ofFee += parseMoney(fee)
-      net += parseMoney(n)
-      txnCount++
-    }
+  // Chargebacks tab — optional (only present if disputes data was ever uploaded)
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${accountName} - Chargebacks'!A4:I`,
+    })
+    accumulate(res.data.values || [])
+  } catch (err) {
+    // Silently OK — most accounts won't have a Chargebacks tab unless disputes were uploaded
   }
-  return { gross, net, ofFee, txnCount, chargebackNet, chargebackCount, missingTab: false }
+
+  return { gross, net, ofFee, txnCount, chargebackNet, chargebackCount, missingTab: !salesTabExists }
 }
 
 // ── Airtable helpers ────────────────────────────────────────────────────────
 
 async function fetchInvoicesForPeriod(periodStart, periodEnd) {
-  const formula = `AND({Period Start}="${periodStart}", {Period End}="${periodEnd}")`
+  // Period Start/End are date fields — use DATETIME_FORMAT to compare against a string date
+  const formula = `AND(DATETIME_FORMAT({Period Start},'YYYY-MM-DD')='${periodStart}',DATETIME_FORMAT({Period End},'YYYY-MM-DD')='${periodEnd}')`
   const params = new URLSearchParams()
   params.set('filterByFormula', formula)
   params.set('returnFieldsByFieldId', 'true')
@@ -324,9 +353,18 @@ export async function POST(request) {
       patchFields[INV_FIELDS.earningsTR] = Number(finalNet.toFixed(2))
 
       // Snapshot commission % if creator has one and not already set
-      const existingSnap = f[INV_FIELDS.commissionSnap]
-      if (commissionPct != null && (existingSnap == null || existingSnap === 0)) {
+      const existingCommSnap = f[INV_FIELDS.commissionSnap]
+      const effectiveCommissionPct = (existingCommSnap != null && existingCommSnap > 0) ? existingCommSnap : commissionPct
+      if (commissionPct != null && (existingCommSnap == null || existingCommSnap === 0)) {
         patchFields[INV_FIELDS.commissionSnap] = commissionPct
+      }
+
+      // Snapshot chat team fee % if not already set. Stored as % of commission.
+      // Default = 20% of revenue → snap = 0.20 / commissionPct.
+      const existingChatSnap = f[INV_FIELDS.chatFeeSnap]
+      if (effectiveCommissionPct && effectiveCommissionPct > 0
+          && (existingChatSnap == null || existingChatSnap === 0)) {
+        patchFields[INV_FIELDS.chatFeeSnap] = DEFAULT_CHAT_FEE_OF_REVENUE / effectiveCommissionPct
       }
 
       if (dryRun) {
@@ -341,7 +379,9 @@ export async function POST(request) {
           txnCount: earnings.txnCount,
           missingTab: earnings.missingTab,
           commissionPct,
-          wouldSetSnapshot: patchFields[INV_FIELDS.commissionSnap] != null,
+          wouldSetCommissionSnapshot: patchFields[INV_FIELDS.commissionSnap] != null,
+          wouldSetChatFeeSnapshot: patchFields[INV_FIELDS.chatFeeSnap] != null,
+          chatFeeSnap: patchFields[INV_FIELDS.chatFeeSnap] || null,
         })
         continue
       }

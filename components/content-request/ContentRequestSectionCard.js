@@ -45,13 +45,21 @@ export default function ContentRequestSectionCard({
       if (!tokenRes.ok) throw new Error('Failed to get upload token')
       const { accessToken, rootNamespaceId, creatorName } = await tokenRes.json()
 
+      // Format month as "{MM} {Month}" for chronological sorting (e.g. "04 April")
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      const [year, monthNum] = month.split('-')
+      const monthFolder = `${monthNum} ${monthNames[parseInt(monthNum, 10) - 1]}`
+
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i]
         setUploadProgress(`Uploading ${i + 1} of ${fileArray.length}: ${file.name}`)
 
         const ext = file.name.split('.').pop()
         const safeName = `${creatorName}_${Date.now()}_${i + 1}.${ext}`
-        const uploadPath = `/Content Requests/${month}/${name}/${safeName}`
+        // Path: /Vault Content/{AKA}/{MMMYY}/{Section}/{filename}
+        // Top-level Vault Content folder, then per-creator AKA folder
+        // Example: /Vault Content/Raya/APR26/PPV's/raya_xxx.mp4
+        const uploadPath = `/Vault Content/${creatorName}/${monthFolder}/${name}/${safeName}`
 
         // Upload to Dropbox
         const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {

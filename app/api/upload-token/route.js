@@ -63,6 +63,7 @@ export async function POST(request) {
     return NextResponse.json({
       accessToken,
       rootNamespaceId,
+      rootPath,
       uploadFolder: `${rootPath}/Social Media/20_NEEDS_EDIT`,
       creatorName: aka,
     })

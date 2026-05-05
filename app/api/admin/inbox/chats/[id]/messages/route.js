@@ -1,0 +1,185 @@
+// Returns messages for a single chat. Two paths:
+//   1. Synthetic id "daemon:<chatId>" → fetch directly from daemon (chat
+//      isn't in Airtable yet, no records to read).
+//   2. Real Airtable record id (rec...) → look up the chat record. If
+//      Watching, read from Airtable Messages (those are the persisted ones).
+//      Otherwise, fetch from daemon by the chat's Chat ID.
+//
+// Daemon fallback keeps the local-first model: nothing is in Airtable
+// until the user explicitly Watches a chat.
+
+export const dynamic = 'force-dynamic'
+
+import { NextResponse } from 'next/server'
+import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
+import { fetchDaemonMessages } from '@/lib/inboxDaemon'
+
+const CHATS_TABLE = 'Telegram Chats'
+const MESSAGES_TABLE = 'Telegram Messages'
+const US_USERNAMES = new Set(['jevweef'])
+
+function shapeAirtableMessage(r) {
+  const username = (r.fields?.['Sender Username'] || '').toLowerCase()
+  return {
+    id: r.id,
+    msgKey: r.fields?.['Telegram Msg Key'] || '',
+    text: r.fields?.Text || '',
+    senderName: r.fields?.['Sender Name'] || '',
+    senderUsername: r.fields?.['Sender Username'] || '',
+    sentAt: r.fields?.['Sent At'] || null,
+    hasMedia: !!r.fields?.['Has Media'],
+    mediaType: r.fields?.['Media Type'] || null,
+    source: r.fields?.['Source'] || 'telegram',
+    isFromMe: US_USERNAMES.has(username),
+  }
+}
+
+function shapeDaemonMessage(d) {
+  return {
+    id: d.messageKey,
+    msgKey: d.messageKey,
+    text: d.text || '',
+    senderName: d.senderName || '',
+    senderUsername: d.senderHandle || '',
+    sentAt: d.sentAt,
+    hasMedia: !!d.hasMedia,
+    mediaType: d.mediaType,
+    source: 'imessage',
+    isFromMe: !!d.isFromMe,
+  }
+}
+
+export async function GET(request, { params }) {
+  const auth = await requireInboxOwner()
+  if (auth instanceof NextResponse) return auth
+
+  const { id } = params
+  const url = new URL(request.url)
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '200'), 500)
+
+  // Synthetic daemon id: "daemon:<chatId>" — chat isn't in Airtable yet.
+  // Still check if it WAS marked Ignored at some point (admin may have ignored
+  // it; an Airtable record gets created on PATCH). Composite key (Source, Chat ID).
+  if (id?.startsWith('daemon:')) {
+    const chatId = id.slice('daemon:'.length)
+    try {
+      const safeId = chatId.replace(/'/g, "\\'")
+      const existing = await fetchAirtableRecords(CHATS_TABLE, {
+        filterByFormula: `AND({Chat ID} = '${safeId}', {Source} = 'imessage')`,
+        maxRecords: 1,
+      })
+      const existingStatus = existing[0]?.fields?.Status
+      if (existingStatus === 'Ignored' || existingStatus === 'Ignored Forever') {
+        return NextResponse.json({
+          messages: [], total: 0, source: 'ignored', blocked: true,
+          reason: `Chat is ${existingStatus} — content hidden`,
+        })
+      }
+    } catch {} // best-effort lookup; fall through to daemon fetch on error
+
+    const dmsgs = await fetchDaemonMessages(chatId, limit)
+    if (dmsgs == null) {
+      return NextResponse.json({ error: 'daemon unreachable', messages: [] }, { status: 502 })
+    }
+    return NextResponse.json({
+      messages: dmsgs.map(shapeDaemonMessage),
+      total: dmsgs.length,
+      source: 'daemon',
+    })
+  }
+
+  if (!id?.startsWith('rec')) {
+    return NextResponse.json({ error: 'invalid chat id' }, { status: 400 })
+  }
+
+  // Real Airtable record. Look it up to know status + source + chatId.
+  let chatRecord
+  try {
+    const records = await fetchAirtableRecords(CHATS_TABLE, {
+      filterByFormula: `RECORD_ID() = '${id}'`,
+      maxRecords: 1,
+    })
+    chatRecord = records[0]
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+  if (!chatRecord) {
+    return NextResponse.json({ error: 'chat not found' }, { status: 404 })
+  }
+
+  const source = chatRecord.fields?.Source || 'telegram'
+  const status = chatRecord.fields?.Status
+  const chatIdentifier = chatRecord.fields?.['Chat ID']
+
+  // Privacy guard: never return content for Ignored chats. Even though the
+  // page-level user check restricts to Evan, we treat ignored chats as
+  // off-limits to prevent accidental exposure (browser history, screen shares,
+  // future role changes).
+  if (status === 'Ignored' || status === 'Ignored Forever') {
+    return NextResponse.json({
+      messages: [],
+      total: 0,
+      source: 'ignored',
+      blocked: true,
+      reason: `Chat is ${status} — content hidden`,
+    })
+  }
+
+  // Telegram is Airtable-only (the bot is the source of truth).
+  if (source === 'telegram') {
+    try {
+      const records = await fetchAirtableRecords(MESSAGES_TABLE, {
+        sort: [{ field: 'Sent At', direction: 'desc' }],
+        maxRecords: 1000,
+      })
+      const filtered = records
+        .filter(r => (r.fields?.Chat || []).includes(id))
+        .slice(0, limit)
+        .reverse()
+      return NextResponse.json({
+        messages: filtered.map(shapeAirtableMessage),
+        total: filtered.length,
+        source: 'airtable',
+      })
+    } catch (err) {
+      return NextResponse.json({ error: err.message }, { status: 500 })
+    }
+  }
+
+  // iMessage: ALWAYS prefer the daemon for display. It has fresh contact
+  // resolution + the latest messages, and avoids stale Airtable data
+  // from before contact resolution was added. Airtable still stores the
+  // messages for Watching chats — that's used for AI extraction, not display.
+  const dmsgs = await fetchDaemonMessages(chatIdentifier, limit)
+  if (dmsgs != null) {
+    return NextResponse.json({
+      messages: dmsgs.map(shapeDaemonMessage),
+      total: dmsgs.length,
+      source: 'daemon',
+    })
+  }
+
+  // Daemon unreachable — fall back to Airtable if we have it (better than nothing)
+  try {
+    const records = await fetchAirtableRecords(MESSAGES_TABLE, {
+      sort: [{ field: 'Sent At', direction: 'desc' }],
+      maxRecords: 1000,
+    })
+    const filtered = records
+      .filter(r => (r.fields?.Chat || []).includes(id))
+      .slice(0, limit)
+      .reverse()
+    return NextResponse.json({
+      messages: filtered.map(shapeAirtableMessage),
+      total: filtered.length,
+      source: 'airtable-fallback',
+      warning: 'daemon unreachable — showing Airtable cache, may have stale names',
+    })
+  } catch (err) {
+    return NextResponse.json({
+      messages: [],
+      source: 'unavailable',
+      error: 'daemon down + airtable failed',
+    }, { status: 200 })
+  }
+}
