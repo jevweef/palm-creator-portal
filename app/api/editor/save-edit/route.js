@@ -50,6 +50,25 @@ export async function POST(req) {
 
   const submitter = await getSubmitterSnapshot()
 
+  // Read existing Completed At so we can preserve the original first-submit
+  // timestamp on revision resubmits. Editor's daily slots pin to the day a
+  // task was originally completed; bumping Completed At on every save would
+  // shuffle a Sunday-completed task to whatever day the revision resubmit
+  // happened, leaving a gap on Sunday and an extra fill on the resubmit day.
+  let preserveCompletedAt = null
+  if (taskId) {
+    try {
+      const taskRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${TASKS_TABLE}/${taskId}`, {
+        headers: airtableHeaders, cache: 'no-store',
+      })
+      if (taskRes.ok) {
+        const taskJson = await taskRes.json()
+        preserveCompletedAt = taskJson.fields?.['Completed At'] || null
+      }
+    } catch {}
+  }
+  const completedAtToWrite = preserveCompletedAt || new Date().toISOString()
+
   const results = await Promise.all([
     // Save URL to asset's Edited File Link
     assetId ? fetch(`https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`, {
@@ -58,7 +77,8 @@ export async function POST(req) {
       body: JSON.stringify({ fields: { 'Edited File Link': editedFileLink } }),
     }) : null,
 
-    // Mark task as Done + Pending Review + capture submitter
+    // Mark task as Done + Pending Review + capture submitter. Completed At
+    // is the *original* first-submit time on resubmits.
     taskId ? fetch(`https://api.airtable.com/v0/${OPS_BASE}/${TASKS_TABLE}/${taskId}`, {
       method: 'PATCH',
       headers: airtableHeaders,
@@ -66,7 +86,7 @@ export async function POST(req) {
         fields: {
           Status: 'Done',
           'Admin Review Status': 'Pending Review',
-          'Completed At': new Date().toISOString(),
+          'Completed At': completedAtToWrite,
           ...(submitter || {}),
         },
       }),

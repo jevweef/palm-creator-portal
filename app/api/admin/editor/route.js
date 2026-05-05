@@ -445,7 +445,13 @@ export async function PATCH(request) {
       taskUpdate['Started At'] = new Date().toISOString()
     }
     if (newStatus === 'Done') {
-      taskUpdate['Completed At'] = new Date().toISOString()
+      // Preserve original first-submit timestamp on revision resubmits.
+      // Daily slots pin to the day a task was originally completed; bumping
+      // Completed At on every save would shuffle a Sunday-completed task to
+      // whatever day the revision resubmit happened, leaving a gap on Sunday
+      // and an extra fill on the resubmit day.
+      const existingCompletedAt = tasks[0]?.fields?.['Completed At'] || null
+      taskUpdate['Completed At'] = existingCompletedAt || new Date().toISOString()
       taskUpdate['Admin Review Status'] = 'Pending Review'
       // Clear any previous revision feedback when resubmitting
       if (isRevision) taskUpdate['Admin Feedback'] = ''

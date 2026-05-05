@@ -261,22 +261,22 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
               <iframe
                 src={buildStreamIframeUrl(record.streamUid, { autoplay: true, muted: true, loop: true, controls: true })}
                 allow="autoplay; fullscreen" allowFullScreen
-                className="w-full md:h-full"
+                className="w-full h-full"
                 style={{ border: 'none' }}
               />
             ) : embedHtml ? (
-              <div className="w-full md:h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+              <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: embedHtml }} />
             ) : videoUrl ? (
               <video
                 src={videoUrl}
                 controls
-                className="w-full md:h-full object-cover"
+                className="w-full h-full object-cover"
                 autoPlay
                 muted
                 loop
               />
             ) : (record.cdnUrl || record.thumbnail) ? (
-              <img src={cdnUrlAtSize(record.cdnUrl, 1200) || record.thumbnail} alt={record.title} className="w-full md:h-full object-cover" />
+              <img src={cdnUrlAtSize(record.cdnUrl, 1200) || record.thumbnail} alt={record.title} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-[#D4A0B0]">
                 <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
