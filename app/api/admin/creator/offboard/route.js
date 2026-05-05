@@ -3,6 +3,7 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { fetchHqRecord, patchHqRecord, HQ_BASE, hqHeaders } from '@/lib/hqAirtable'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, moveDropboxItem, createDropboxFolder } from '@/lib/dropbox'
+import { closeDropboxFileRequest } from '@/lib/dropboxFileRequests'
 import { deleteSmmTopic } from '@/lib/telegramTopics'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,7 @@ export const maxDuration = 60
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 const REVENUE_ACCOUNTS = 'tblQqPWlsjiyJA0ba'
+const HQ_ONBOARDING = 'tbl4nFzgH6nJHr3q6'
 
 const ARCHIVE_ROOT = '/Palm Ops/Archive/Creators'
 const LIVE_ROOT = '/Palm Ops/Creators'
@@ -109,6 +111,8 @@ export async function POST(request) {
     creatorTelegramThreadCleared: false,
     clerkUserBanned: null,
     clerkUserError: null,
+    fileRequestsClosed: [],
+    fileRequestErrors: [],
     dropboxMoved: null,
     dropboxError: null,
     errors: [],
@@ -116,8 +120,9 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const { hqId, confirmAka } = body || {}
+    const { hqId, confirmAka, reason } = body || {}
     if (!hqId) return NextResponse.json({ error: 'hqId required' }, { status: 400 })
+    const reasonText = (reason || '').toString().trim().slice(0, 2000)
 
     const hq = await fetchHqRecord(HQ_CREATORS, hqId)
     const f = hq.fields || {}
@@ -134,13 +139,16 @@ export async function POST(request) {
 
     const today = new Date().toISOString().slice(0, 10)
 
-    // 1. HQ Creators: flip Status + stamp Offboarded Date
+    // 1. HQ Creators: flip Status + stamp Offboarded Date + reason
     try {
-      await patchHqRecord(HQ_CREATORS, hqId, {
+      const hqPatch = {
         Status: 'Offboarded',
         'Offboarded Date': today,
-      })
+      }
+      if (reasonText) hqPatch['Offboarded Reason'] = reasonText
+      await patchHqRecord(HQ_CREATORS, hqId, hqPatch)
       summary.hqStatus = 'Offboarded'
+      summary.reason = reasonText || null
     } catch (e) {
       summary.errors.push(`HQ status update failed: ${e.message}`)
     }
@@ -251,14 +259,47 @@ export async function POST(request) {
       summary.clerkUserError = 'No Communication Email on HQ Creators record — skipped Clerk ban.'
     }
 
-    // 5. Dropbox: move /Palm Ops/Creators/{aka}/ → /Palm Ops/Archive/Creators/{aka}/
+    // 5. Dropbox: close file requests FIRST so no new uploads come in mid-move,
+    //    then move /Palm Ops/Creators/{aka}/ → /Palm Ops/Archive/Creators/{aka}/.
+    //    Closing the file requests is what actually stops Make.com ingest at
+    //    the source — no new files arrive, so no orphan creator-name lookups.
     if (aka) {
       try {
         const accessToken = await getDropboxAccessToken()
         const rootNs = await getDropboxRootNamespaceId(accessToken)
+
+        // 5a. Close Dropbox file requests recorded on the Onboarding row
+        try {
+          const onboardingRows = await fetch(
+            `https://api.airtable.com/v0/${HQ_BASE}/${HQ_ONBOARDING}?filterByFormula=${encodeURIComponent(`FIND('${hqId}', ARRAYJOIN({Creator}))`)}&maxRecords=1`,
+            { headers: hqHeaders, cache: 'no-store' }
+          ).then(r => r.json())
+          const ob = onboardingRows.records?.[0]
+          if (ob) {
+            const socialReqId = ob.fields?.['Social File Request ID']
+            const longformReqId = ob.fields?.['Longform File Request ID']
+            for (const [label, id] of [['social', socialReqId], ['longform', longformReqId]]) {
+              if (!id) continue
+              try {
+                await closeDropboxFileRequest(accessToken, rootNs, id)
+                summary.fileRequestsClosed.push(label)
+              } catch (e) {
+                // file_request_id_not_found is fine — already closed/deleted
+                if (/not_found|disabled_for_team/i.test(e.message)) {
+                  summary.fileRequestsClosed.push(`${label} (already closed)`)
+                } else {
+                  summary.fileRequestErrors.push(`${label}: ${e.message}`)
+                }
+              }
+            }
+          }
+        } catch (e) {
+          summary.fileRequestErrors.push(`Onboarding lookup failed: ${e.message}`)
+        }
+
+        // 5b. Move the live folder to archive
         const fromPath = `${LIVE_ROOT}/${sanitizeForDropbox(aka)}`
         const toPath = `${ARCHIVE_ROOT}/${sanitizeForDropbox(aka)}`
-        // Make sure /Palm Ops/Archive/Creators exists before move
         await createDropboxFolder(accessToken, rootNs, '/Palm Ops/Archive')
         await createDropboxFolder(accessToken, rootNs, ARCHIVE_ROOT)
         const result = await moveDropboxItem(accessToken, rootNs, fromPath, toPath)
@@ -271,7 +312,7 @@ export async function POST(request) {
         summary.dropboxError = e.message
       }
     } else {
-      summary.dropboxError = 'No AKA on HQ record — skipped Dropbox archive.'
+      summary.dropboxError = 'No AKA on HQ record — skipped Dropbox archive + file request close.'
     }
 
     return NextResponse.json({

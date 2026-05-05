@@ -89,6 +89,11 @@ export default function ChatWallPage() {
   // Asset waiting on the Use & Download confirmation. Only set when going
   // available → used (Restore skips confirmation since it's reversible).
   const [confirmAsset, setConfirmAsset] = useState(null)
+  // Bulk-download state. When non-null, shows the bulk modal; while
+  // downloading we hold a status string for the in-progress UI.
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
+  const [bulkStatus, setBulkStatus] = useState(null) // null | 'preparing' | 'downloading' | 'done' | 'error'
+  const [bulkError, setBulkError] = useState(null)
 
   // Hydrate "View As [chat manager]" selection from localStorage. Polled
   // here (not just on mount) so changes from SuperAdminBar take effect
@@ -481,6 +486,30 @@ export default function ChatWallPage() {
             {selectedCreator?.aka || selectedCreator?.name} · {total} {view === 'used' ? 'used' : 'available'} {total === 1 ? 'photo' : 'photos'}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            {/* Bulk download — only useful on the Available tab and when
+                there's something to grab. Marks every available photo as
+                used in one go and streams a zip of the originals. */}
+            {view === 'available' && total > 0 && (
+              <button
+                onClick={() => setBulkConfirmOpen(true)}
+                disabled={!!bulkStatus && bulkStatus !== 'done' && bulkStatus !== 'error'}
+                style={{
+                  padding: '6px 12px',
+                  background: 'var(--palm-pink)',
+                  color: '#060606',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: bulkStatus && bulkStatus !== 'done' && bulkStatus !== 'error' ? 'wait' : 'pointer',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {bulkStatus === 'preparing' ? 'Preparing...' :
+                 bulkStatus === 'downloading' ? 'Downloading...' :
+                 `↓ Download all (${total})`}
+              </button>
+            )}
             {/* Page size — sticky per browser via localStorage. Resets to
                 page 0 on change so the user doesn't end up past the new
                 last page. */}
@@ -570,6 +599,77 @@ export default function ChatWallPage() {
             commitToggle(asset, true, { advance, usedFor })
           }}
         />
+      )}
+
+      {/* Bulk download confirmation. Same WP/MM choice, but applies to
+          every available photo for the creator and streams a single zip. */}
+      {bulkConfirmOpen && (
+        <BulkDownloadConfirmModal
+          creatorName={selectedCreator?.aka || selectedCreator?.name || 'this creator'}
+          count={total}
+          onCancel={() => setBulkConfirmOpen(false)}
+          onConfirm={async (usedFor) => {
+            setBulkConfirmOpen(false)
+            setBulkError(null)
+            setBulkStatus('preparing')
+            try {
+              const res = await fetch('/api/photo-library/bulk-download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ creatorId, usedFor }),
+              })
+              if (!res.ok) {
+                const text = await res.text().catch(() => '')
+                throw new Error(text || `HTTP ${res.status}`)
+              }
+              setBulkStatus('downloading')
+              // Stream the zip into a Blob then save via anchor click. We
+              // could pipe to a service worker for true streaming-to-disk,
+              // but the Blob approach works in every browser without extra
+              // infra and the user sees a normal "Save" prompt at the end.
+              const blob = await res.blob()
+              const dispo = res.headers.get('content-disposition') || ''
+              const m = dispo.match(/filename="?([^";]+)"?/)
+              const filename = m?.[1] || 'palm-photos.zip'
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = filename
+              a.style.display = 'none'
+              document.body.appendChild(a)
+              a.click()
+              setTimeout(() => {
+                a.remove()
+                URL.revokeObjectURL(url)
+              }, 1000)
+              setBulkStatus('done')
+              loadPhotos()
+            } catch (err) {
+              console.error('Bulk download failed:', err)
+              setBulkError(err.message || 'Download failed')
+              setBulkStatus('error')
+            }
+          }}
+        />
+      )}
+
+      {/* Tiny toast for bulk-download error feedback. Success doesn't need
+          one — the file appearing in Downloads + the list flipping to Used
+          is feedback enough. */}
+      {bulkStatus === 'error' && bulkError && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 1200,
+          padding: '12px 16px', borderRadius: 10,
+          background: 'rgba(255, 80, 80, 0.12)',
+          border: '1px solid rgba(255, 80, 80, 0.35)',
+          color: '#ffb4b4', fontSize: 13, maxWidth: 360,
+        }}>
+          Download failed: {bulkError}
+          <button
+            onClick={() => { setBulkStatus(null); setBulkError(null) }}
+            style={{ marginLeft: 12, background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 16, fontWeight: 700 }}
+          >×</button>
+        </div>
       )}
 
       {/* Footer pager */}
@@ -1172,6 +1272,103 @@ function navOverlayStyle(side) {
     backdropFilter: 'blur(6px)',
     transition: 'all 0.15s ease',
   }
+}
+
+// Bulk-download confirmation. Same shape as UseConfirmModal but applies to
+// every available photo for the selected creator and ends in a zip download
+// instead of a per-photo trigger. Keyboard: W = Wall Post, M = Mass Message,
+// Esc = cancel.
+function BulkDownloadConfirmModal({ creatorName, count, onCancel, onConfirm }) {
+  useEffect(() => {
+    function onKey(e) {
+      if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA') return
+      if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+      else if (e.key === 'w' || e.key === 'W') { e.preventDefault(); onConfirm('wall') }
+      else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); onConfirm('mm') }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel, onConfirm])
+
+  return (
+    <div
+      onClick={onCancel}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1100,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24, backdropFilter: 'blur(10px)',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#0f0f0f', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 16, padding: 24, maxWidth: 480, width: '100%',
+          display: 'flex', flexDirection: 'column', gap: 18,
+          boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)' }}>
+            Download all {count} photos?
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 6, lineHeight: 1.5 }}>
+            We&apos;ll mark every available photo for <strong>{creatorName}</strong> as Used,
+            zip the originals from Dropbox, and start downloading the file to your computer.
+            Pick the surface — that&apos;s what they&apos;ll be tagged with in the Used view.
+          </div>
+        </div>
+
+        <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255, 200, 0, 0.06)', border: '1px solid rgba(255, 200, 0, 0.2)', fontSize: 12, color: '#ffd97a', lineHeight: 1.5 }}>
+          Heads up: zipping {count} photos can take 30 seconds to a few minutes
+          depending on file sizes. The download starts as soon as the zip is
+          ready — leave the tab open until it begins.
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <button
+            onClick={() => onConfirm('wall')}
+            autoFocus
+            style={{
+              padding: '14px 16px', background: 'var(--palm-pink)', border: 'none',
+              borderRadius: 10, color: '#060606', fontSize: 14, fontWeight: 700,
+              cursor: 'pointer', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 2,
+            }}
+          >
+            <span>Wall Post</span>
+            <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>press W</span>
+          </button>
+          <button
+            onClick={() => onConfirm('mm')}
+            style={{
+              padding: '14px 16px', background: '#7aa9ff', border: 'none',
+              borderRadius: 10, color: '#060606', fontSize: 14, fontWeight: 700,
+              cursor: 'pointer', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 2,
+            }}
+          >
+            <span>Mass Message</span>
+            <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>press M</span>
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '8px 14px', background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+              color: 'var(--foreground-muted)', fontSize: 12, fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel (Esc)
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function Pager({ page, totalPages, onChange }) {

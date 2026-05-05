@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
+import OffboardModal from '../OffboardModal'
 
 const STATUS_COLORS = {
   'Not Started': { bg: 'rgba(255,255,255,0.03)', color: 'var(--foreground-muted)' },
@@ -26,6 +27,8 @@ export default function AdminOnboarding() {
   const [filter, setFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [surveyModal, setSurveyModal] = useState(null) // { creatorName, hqId, sections, loading }
+  const [offboardTarget, setOffboardTarget] = useState(null) // { hqId, name, aka }
+  const [offboardResult, setOffboardResult] = useState(null)
 
   const sigCanvasRef = useRef(null)
   const [isSigDrawing, setIsSigDrawing] = useState(false)
@@ -443,6 +446,14 @@ export default function AdminOnboarding() {
                         >
                           Photos
                         </a>
+                        {c.status === 'Active' && (
+                          <button
+                            onClick={() => setOffboardTarget({ hqId: c.id, name: c.name, aka: c.aka })}
+                            style={{ ...actionBtnStyle, background: 'rgba(194, 84, 80, 0.12)', color: '#C25450' }}
+                          >
+                            Offboard
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -999,6 +1010,45 @@ export default function AdminOnboarding() {
               })
             )}
           </div>
+        </div>
+      )}
+
+      {offboardTarget && (
+        <OffboardModal
+          creator={offboardTarget}
+          onClose={() => setOffboardTarget(null)}
+          onDone={(data) => {
+            setOffboardTarget(null)
+            setOffboardResult(data)
+            // Refresh the list — the offboarded creator now shows under the Offboarded filter pill
+            fetch('/api/admin/onboarding/status')
+              .then(r => r.json())
+              .then(d => setCreators(d.creators || []))
+              .catch(() => {})
+          }}
+        />
+      )}
+
+      {offboardResult && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', maxWidth: '460px', zIndex: 999,
+          background: '#1a1f1c', border: '1px solid rgba(110, 180, 130, 0.5)',
+          borderLeft: '4px solid #6EB482',
+          borderRadius: '10px', padding: '14px 18px', fontSize: '13px',
+          color: 'var(--foreground)', boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '6px' }}>
+            <strong>Offboarded {offboardResult.creator?.aka || offboardResult.creator?.name}</strong>
+            <button onClick={() => setOffboardResult(null)} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: '16px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          </div>
+          <ul style={{ margin: '0', paddingLeft: '18px', lineHeight: '1.5', color: 'rgba(240, 236, 232, 0.85)', fontSize: '12px' }}>
+            <li>HQ + Ops status flipped, reason saved</li>
+            <li>{offboardResult.revenueAccountsDeactivated?.length || 0} revenue account(s) → Inactive</li>
+            <li>{offboardResult.smmTopicsDeleted?.length || 0} SMM topic(s) deleted</li>
+            <li>Clerk: {offboardResult.clerkUserBanned ? 'banned' : (offboardResult.clerkUserError || '—')}</li>
+            <li>File requests closed: {offboardResult.fileRequestsClosed?.length || 0}</li>
+            <li>Dropbox folder: {offboardResult.dropboxMoved || offboardResult.dropboxError || '—'}</li>
+          </ul>
         </div>
       )}
     </div>
