@@ -4934,29 +4934,34 @@ function OffboardModal({ creator, onClose, onDone }) {
 
         <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Will happen automatically:</div>
         <ul style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.85)', margin: '0 0 14px 0', paddingLeft: '18px', lineHeight: '1.6' }}>
-          <li>HQ Creators: <code>Status → Offboarded</code>, <code>Offboarded Date → today</code></li>
+          <li>HQ + Ops Creators: <code>Status → Offboarded</code>, <code>Offboarded Date → today</code></li>
+          <li>Ops <code>Social Media Editing</code> unchecked → drops from editor + grid planner</li>
           <li>
-            Revenue Accounts → Inactive ({loadingPreview ? '…' : willDeactivate.length}):
+            Revenue Accounts → Inactive ({loadingPreview ? '…' : willDeactivate.length}
             {!loadingPreview && willDeactivate.length > 0 && (
-              <span style={{ color: 'var(--foreground-muted)' }}> {willDeactivate.map(a => a.name).join(', ')}</span>
+              <span style={{ color: 'var(--foreground-muted)' }}>: {willDeactivate.map(a => a.name).join(', ')}</span>
             )}
             {!loadingPreview && willDeactivate.length === 0 && accounts.length > 0 && (
-              <span style={{ color: 'var(--foreground-muted)' }}> (all already inactive)</span>
+              <span style={{ color: 'var(--foreground-muted)' }}> — all already inactive</span>
             )}
             {!loadingPreview && accounts.length === 0 && (
-              <span style={{ color: 'var(--foreground-muted)' }}> (none linked)</span>
-            )}
+              <span style={{ color: 'var(--foreground-muted)' }}> — none linked</span>
+            )})
           </li>
+          <li>
+            SMM Telegram topics deleted ({loadingPreview ? '…' : (preview?.cpdTopicCount || 0)})
+            {preview?.hasCreatorTelegramThread && <> + creator Telegram thread cleared</>}
+          </li>
+          <li>Clerk login banned (by Communication Email — reversible via unban)</li>
+          <li>Dropbox folder moved <code>/Palm Ops/Creators/{aka}/</code> → <code>/Palm Ops/Archive/Creators/{aka}/</code></li>
+          <li>Past invoices preserved — they stay attached to the creator record.</li>
         </ul>
 
-        <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#E8A07A' }}>Still manual — handle separately:</div>
+        <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#E8A07A' }}>Still manual:</div>
         <ul style={{ fontSize: '12px', color: 'var(--foreground-muted)', margin: '0 0 18px 0', paddingLeft: '18px', lineHeight: '1.55' }}>
-          <li>Editor tasks / scheduled posts / Telegram thread</li>
-          <li>Apify inspo source accounts (stop scraping)</li>
-          <li>Make.com automations on their Dropbox folders</li>
+          <li>Apify: remove their inspo source accounts (stop scraping)</li>
+          <li>Make.com: pause automations on their Dropbox folders</li>
           <li>Final invoice for the partial period</li>
-          <li>Clerk: deactivate their portal login</li>
-          <li>Dropbox content: archive in place (do not delete)</li>
         </ul>
 
         <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>
@@ -5135,16 +5140,23 @@ export default function CreatorsPage() {
         <div style={{
           background: 'rgba(110, 180, 130, 0.12)', border: '1px solid rgba(110, 180, 130, 0.35)',
           borderRadius: '8px', padding: '12px 16px', marginBottom: '14px', fontSize: '13px',
-          color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+          color: 'var(--foreground)',
         }}>
-          <span>
-            Offboarded <strong>{offboardResult.creator?.aka || offboardResult.creator?.name}</strong>
-            {offboardResult.revenueAccountsDeactivated?.length > 0 && (
-              <> — deactivated {offboardResult.revenueAccountsDeactivated.length} revenue account{offboardResult.revenueAccountsDeactivated.length === 1 ? '' : 's'}</>
-            )}
-            . Don't forget the manual cleanup checklist.
-          </span>
-          <button onClick={() => setOffboardResult(null)} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: '16px', cursor: 'pointer' }}>×</button>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+            <strong>Offboarded {offboardResult.creator?.aka || offboardResult.creator?.name}</strong>
+            <button onClick={() => setOffboardResult(null)} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: '16px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          </div>
+          <ul style={{ margin: '8px 0 0 0', paddingLeft: '18px', lineHeight: '1.55', color: 'rgba(240, 236, 232, 0.85)' }}>
+            <li>HQ status → {offboardResult.hqStatus || '—'}{offboardResult.opsStatus ? `, Ops status → ${offboardResult.opsStatus}` : ''}{offboardResult.socialMediaEditingCleared ? ', Social Media Editing cleared' : ''}</li>
+            <li>Revenue accounts deactivated: {offboardResult.revenueAccountsDeactivated?.length || 0}{offboardResult.revenueAccountsDeactivated?.length ? ` (${offboardResult.revenueAccountsDeactivated.join(', ')})` : ''}</li>
+            <li>SMM topics deleted: {offboardResult.smmTopicsDeleted?.length || 0}{offboardResult.smmTopicsFailed?.length ? ` · failed: ${offboardResult.smmTopicsFailed.length}` : ''}{offboardResult.creatorTelegramThreadCleared ? ' · creator Telegram thread cleared' : ''}</li>
+            <li>Clerk: {offboardResult.clerkUserBanned ? `user banned (${offboardResult.clerkUserBanned})` : (offboardResult.clerkUserError || '—')}</li>
+            <li>Dropbox: {offboardResult.dropboxMoved || offboardResult.dropboxError || '—'}</li>
+            {offboardResult.errors?.length > 0 && <li style={{ color: '#E87878' }}>Errors: {offboardResult.errors.join(' · ')}</li>}
+          </ul>
+          <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
+            Don't forget: stop Apify scraping for their inspo accounts, pause Make.com folder automations, generate final partial-period invoice.
+          </div>
         </div>
       )}
 
