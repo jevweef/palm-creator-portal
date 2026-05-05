@@ -251,33 +251,94 @@ export default function SonnetTestPage() {
               )}
             </p>
           )}
+
+          {/* Difficulty verdict */}
+          {record.difficulty && record.difficulty.difficulty && (() => {
+            const d = record.difficulty
+            const palette = {
+              Easy:     { bg: '#4ade80', border: '#4ade80' },
+              Moderate: { bg: '#facc15', border: '#facc15' },
+              Niche:    { bg: '#f472b6', border: '#f472b6' },
+              Unknown:  { bg: '#888',     border: '#888'    },
+            }
+            const c = palette[d.difficulty] || palette.Unknown
+            return (
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      padding: '4px 12px',
+                      borderRadius: 9999,
+                      background: c.bg,
+                      color: '#000',
+                    }}
+                  >
+                    {d.difficulty} to recreate
+                  </span>
+                  {d.blockers?.length > 0 && d.blockers.map((b) => (
+                    <span
+                      key={b}
+                      style={{
+                        fontSize: 11,
+                        padding: '3px 10px',
+                        borderRadius: 9999,
+                        background: 'rgba(255,255,255,0.04)',
+                        color: '#bbb',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      {b}
+                    </span>
+                  ))}
+                </div>
+                {d.reason && (
+                  <p style={{ fontSize: 12, color: '#888', maxWidth: 720, lineHeight: 1.5 }}>{d.reason}</p>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* Record selector */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 22 }}>
-          {records.map((r, i) => (
-            <button
-              key={r.id}
-              onClick={() => setIndex(i)}
-              title={r.title}
-              style={{
-                fontSize: 11,
-                padding: '5px 11px',
-                borderRadius: 9999,
-                background: i === index ? 'var(--palm-pink)' : 'rgba(255,255,255,0.04)',
-                color: i === index ? '#000' : '#aaa',
-                border: i === index ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                cursor: 'pointer',
-                fontWeight: i === index ? 600 : 400,
-                maxWidth: 200,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {i + 1}. {r.title}
-            </button>
-          ))}
+          {records.map((r, i) => {
+            const dColor = {
+              Easy: '#4ade80',
+              Moderate: '#facc15',
+              Niche: '#f472b6',
+            }[r.difficulty?.difficulty] || '#666'
+            return (
+              <button
+                key={r.id}
+                onClick={() => setIndex(i)}
+                title={r.title + (r.difficulty?.difficulty ? ` · ${r.difficulty.difficulty}` : '')}
+                style={{
+                  fontSize: 11,
+                  padding: '5px 11px',
+                  borderRadius: 9999,
+                  background: i === index ? 'var(--palm-pink)' : 'rgba(255,255,255,0.04)',
+                  color: i === index ? '#000' : '#aaa',
+                  border: i === index ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                  cursor: 'pointer',
+                  fontWeight: i === index ? 600 : 400,
+                  maxWidth: 220,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: 9999, background: dColor, flexShrink: 0 }} />
+                {i + 1}. {r.title}
+              </button>
+            )
+          })}
         </div>
 
         {/* Video + stats */}

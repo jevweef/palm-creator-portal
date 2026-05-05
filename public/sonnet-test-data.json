@@ -59,6 +59,13 @@
         "Open Invitation"
       ],
       "bestThumbnailFrame": "frame_09.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Niche",
+      "reason": "The concept hard-depends on a prominent chest — the low camera angle, tight sports bra framing, and double-entendre text are explicitly built around that feature, making it non-recreatable for most creators without that body type.",
+      "blockers": [
+        "Body-Type Specific"
+      ]
     }
   },
   {
@@ -121,6 +128,14 @@
         "Moto / Scooter Content"
       ],
       "bestThumbnailFrame": "frame_11.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Niche",
+      "reason": "The concept hard-depends on a large chest for the bounce payoff to land, and also requires being in Bali (or a similarly bumpy exotic road setting) on a scooter — stacking a body-type lock-in with a specific hard-to-access location.",
+      "blockers": [
+        "Specific Location",
+        "Body-Type Specific"
+      ]
     }
   },
   {
@@ -186,6 +201,14 @@
         "Travel / Luxury Destination"
       ],
       "bestThumbnailFrame": "frame_13.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Moderate",
+      "reason": "Requires pool or poolside access and a filming partner for the slow pull-out camera move — otherwise a straightforward bikini lifestyle shot.",
+      "blockers": [
+        "Specific Location",
+        "Filming Partner"
+      ]
     }
   },
   {
@@ -251,6 +274,13 @@
         "Challenge to Viewer"
       ],
       "bestThumbnailFrame": "frame_01.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Niche",
+      "reason": "The concept explicitly hard-depends on a large chest that visually overfills the cut-outs — the dialogue and premise only land if the body makes the dress look like it's failing to contain her, which is a body-type lock-in, not just a flattering-body bonus.",
+      "blockers": [
+        "Body-Type Specific"
+      ]
     }
   },
   {
@@ -316,6 +346,14 @@
         "Outdoor Steps / Stoop"
       ],
       "bestThumbnailFrame": "frame_11.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Moderate",
+      "reason": "The walk section requires a filming partner for a specific low-to-mid angle, and the outdoor setting plus heels/short skirt add minimal but real planning beyond a pure at-home whim shoot.",
+      "blockers": [
+        "Filming Partner",
+        "Specific Location"
+      ]
     }
   },
   {
@@ -376,6 +414,16 @@
         "Public / Out in Public"
       ],
       "bestThumbnailFrame": "frame_05.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Niche",
+      "reason": "Requires a filming partner throughout, an attractive female collaborator whose body specifically needs to deliver a prominent booty shot, multiple scripted public scenarios across different locations, and a multi-clip edited structure — too many compounding blockers to be casually recreatable.",
+      "blockers": [
+        "Filming Partner",
+        "Body-Type Specific",
+        "Multi-Step Production",
+        "Specific Location"
+      ]
     }
   },
   {
@@ -437,6 +485,13 @@
         "Got Caught Complimenting Her"
       ],
       "bestThumbnailFrame": "frame_13.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Moderate",
+      "reason": "Simple at-home skit but requires a male filming partner to deliver the spoken dialogue that drives the entire joke.",
+      "blockers": [
+        "Filming Partner"
+      ]
     }
   },
   {
@@ -496,6 +551,11 @@
         "Fetish Content"
       ],
       "bestThumbnailFrame": "frame_07.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Easy",
+      "reason": "Filmed alone at home with a floor-placed tripod, no special props, no partner, and no location requirements — just a chair, a sock, and maintained feet.",
+      "blockers": []
     }
   },
   {
@@ -558,6 +618,14 @@
         "Comedy Hook / Joke Setup"
       ],
       "bestThumbnailFrame": "frame_08.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Niche",
+      "reason": "The concept explicitly depends on a large chest as the visual punchline — the analysis states it 'requires a creator with a prominent chest' and the joke only works because the body contradicts the 'sports girl' expectation — plus it needs an outdoor golf course at night as a specific location.",
+      "blockers": [
+        "Body-Type Specific",
+        "Specific Location"
+      ]
     }
   },
   {
@@ -616,6 +684,14 @@
         "Self-Control Test"
       ],
       "bestThumbnailFrame": "frame_11.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Moderate",
+      "reason": "Requires gym access and a filming partner for the behind angle, but no special props or skills beyond that.",
+      "blockers": [
+        "Specific Location",
+        "Filming Partner"
+      ]
     }
   },
   {
@@ -681,6 +757,11 @@
         "Bedroom / Private Space"
       ],
       "bestThumbnailFrame": "frame_12.jpg"
+    },
+    "difficulty": {
+      "difficulty": "Easy",
+      "reason": "A mirror selfie in lingerie filmed solo at home with no special location, props, or skills required — the corset and thigh-highs are common wardrobe items any creator likely owns or can easily get.",
+      "blockers": []
     }
   }
 ]
