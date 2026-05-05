@@ -202,9 +202,60 @@ function applyBusinessFilter(messages, vocab, contextWindow = 2) {
   return [...hits].sort((a, b) => a - b).map(i => messages[i])
 }
 
+// ─── feedback loop (training) ────────────────────────────────────────
+
+// Load recent dismissed-with-feedback tasks → format as anti-examples
+// for the system prompt. Cached 24h: Evan dismissing a task NOW affects
+// the NEXT day's extractions, not the current cron tick. This is the
+// right tradeoff — keeps the system prompt stable enough that prompt
+// caching pays off, and 24h latency on training is fine for human use.
+//
+// Vercel functions don't reliably keep memory across cold starts, so
+// the "24h cache" really means "at most one Airtable query per warm
+// instance per day" — cold starts re-query, which is still cheap
+// (~16 queries/day worst case).
+let _feedbackCache = null
+let _feedbackCacheTs = 0
+const FEEDBACK_CACHE_MS = 24 * 60 * 60 * 1000
+const FEEDBACK_LOOKBACK_DAYS = 30
+const FEEDBACK_MAX_EXAMPLES = 8
+
+async function loadFeedbackBlock() {
+  if (_feedbackCache !== null && Date.now() - _feedbackCacheTs < FEEDBACK_CACHE_MS) {
+    return _feedbackCache
+  }
+  let block = ''
+  try {
+    const cutoff = new Date(Date.now() - FEEDBACK_LOOKBACK_DAYS * 24 * 3600 * 1000).toISOString()
+    const records = await fetchAirtableRecords(TASKS_TABLE, {
+      filterByFormula: `AND(NOT({Feedback Type}=''), IS_AFTER({Detected At}, '${cutoff}'))`,
+      sort: [{ field: 'Detected At', direction: 'desc' }],
+      maxRecords: FEEDBACK_MAX_EXAMPLES,
+    })
+    if (records.length > 0) {
+      const lines = records.map(r => {
+        const t = r.fields?.Task || ''
+        const type = r.fields?.['Feedback Type'] || ''
+        const reason = r.fields?.['Feedback Reason'] || ''
+        const reasonPart = reason ? ` — Evan said: "${reason.slice(0, 200)}"` : ''
+        return `  • [${type}] "${t.slice(0, 120)}"${reasonPart}`
+      })
+      block = `\n\n# RECENT CORRECTIONS FROM EVAN — DO NOT REPEAT THESE PATTERNS\n` +
+        `These are tasks Evan dismissed with feedback in the last ${FEEDBACK_LOOKBACK_DAYS} days.\n` +
+        `Learn from them: don't generate tasks matching these patterns.\n\n` +
+        lines.join('\n')
+    }
+  } catch (err) {
+    console.warn('[extract] feedback load failed:', err.message)
+  }
+  _feedbackCache = block
+  _feedbackCacheTs = Date.now()
+  return block
+}
+
 // ─── prompt builders ─────────────────────────────────────────────────
 
-function buildSystemPrompt(yourName = 'Evan') {
+function buildSystemPrompt(yourName = 'Evan', feedbackBlock = '') {
   // Static prompt only — CURRENT TIME is passed in the user message so the
   // system prompt stays identical across calls and is cacheable.
   return `You are ${yourName}'s personal assistant — chief-of-staff for his inbox. You think in CONVERSATION FLOW (not single messages) and you reason about REAL-WORLD ACTION CHAINS, not just literal words.
@@ -325,7 +376,7 @@ For each RESOLVED prior task:
 }
 
 Return ONE JSON object: {"newTasks": [...], "resolvedTasks": [...]}.
-If nothing actionable AND nothing resolved, return {"newTasks": [], "resolvedTasks": []}.`
+If nothing actionable AND nothing resolved, return {"newTasks": [], "resolvedTasks": []}.${feedbackBlock}`
 }
 
 function buildUserPrompt({ chatTitle, creatorAka, messages, openTasks, filterNote }) {
@@ -462,7 +513,7 @@ async function loadMessagesForChat(chat) {
 // Set { force: true } to bypass ALL gates (cooldown, skip-if-idle, business
 // filter). Used by chat-PATCH on Watch click and by the manual Refresh
 // button — admin explicitly opted in.
-export async function extractForChat(chat, { creatorPhones, vocab, force = false } = {}) {
+export async function extractForChat(chat, { creatorPhones, vocab, feedbackBlock, force = false } = {}) {
   if (!chat) return { error: 'no chat' }
   const stats = {
     messagesScanned: 0,
@@ -560,7 +611,7 @@ export async function extractForChat(chat, { creatorPhones, vocab, force = false
       system: [
         {
           type: 'text',
-          text: buildSystemPrompt('Evan'),
+          text: buildSystemPrompt('Evan', feedbackBlock || await loadFeedbackBlock()),
           cache_control: { type: 'ephemeral' },
         },
       ],
@@ -702,15 +753,18 @@ export async function GET(request) {
       return NextResponse.json({ ok: true, idle: true, stats })
     }
 
-    // Pre-load both shared resources so per-chat calls reuse them.
-    const [phones, vocab] = await Promise.all([
+    // Pre-load shared resources so per-chat calls reuse them. Feedback
+    // block is daily-cached — only changes when 24h has passed since
+    // last load, keeping system prompt stable for cache hits within a run.
+    const [phones, vocab, feedbackBlock] = await Promise.all([
       loadCreatorPhoneMap(),
       loadBusinessVocab(),
+      loadFeedbackBlock(),
     ])
 
     for (const chat of watching) {
       try {
-        const r = await extractForChat(chat, { creatorPhones: phones, vocab })
+        const r = await extractForChat(chat, { creatorPhones: phones, vocab, feedbackBlock })
         if (r.skipped) {
           if (r.skipReason === 'frequency=Off') stats.chatsSkippedOff++
           else if (r.skipReason?.startsWith('cooldown')) stats.chatsSkippedCooldown++
