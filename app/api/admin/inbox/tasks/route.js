@@ -42,21 +42,57 @@ export async function GET(request) {
       maxRecords: limit,
     })
 
-    const tasks = records.map(r => ({
-      id: r.id,
-      task: r.fields?.Task || '',
-      status: r.fields?.Status || 'Open',
-      owner: r.fields?.Owner || 'Other',
-      ownerUsername: r.fields?.['Owner Username'] || '',
-      creatorAka: r.fields?.['Creator AKA'] || '',
-      sourceQuote: r.fields?.['Source Quote'] || '',
-      sourceChatIds: r.fields?.['Source Chat'] || [],
-      urgency: r.fields?.Urgency || 'Soon',
-      confidence: r.fields?.['AI Confidence'] || null,
-      detectedAt: r.fields?.['Detected At'] || null,
-      deferUntil: r.fields?.['Defer Until'] || null,
-      notes: r.fields?.Notes || '',
-    }))
+    // Enrich with chat metadata so cards show source / chat name / type
+    // without making the UI fetch separately. Only fetch unique chat ids.
+    const uniqueChatIds = [...new Set(records.flatMap(r => r.fields?.['Source Chat'] || []))]
+    const chatMetaById = new Map()
+    if (uniqueChatIds.length > 0) {
+      const chunks = []
+      for (let i = 0; i < uniqueChatIds.length; i += 50) chunks.push(uniqueChatIds.slice(i, i + 50))
+      for (const chunk of chunks) {
+        const formula = chunk.length === 1
+          ? `RECORD_ID() = '${chunk[0]}'`
+          : `OR(${chunk.map(id => `RECORD_ID() = '${id}'`).join(',')})`
+        try {
+          const chats = await fetchAirtableRecords('Telegram Chats', {
+            filterByFormula: formula,
+            fields: ['Title', 'Source', 'Type', 'Creator AKA'],
+          })
+          for (const c of chats) {
+            chatMetaById.set(c.id, {
+              title: c.fields?.Title || '(untitled)',
+              source: c.fields?.Source || 'telegram',
+              type: c.fields?.Type || 'group',
+              creatorAka: c.fields?.['Creator AKA'] || '',
+            })
+          }
+        } catch {}
+      }
+    }
+
+    const tasks = records.map(r => {
+      const chatId = (r.fields?.['Source Chat'] || [])[0]
+      const chat = chatMetaById.get(chatId) || null
+      return {
+        id: r.id,
+        task: r.fields?.Task || '',
+        status: r.fields?.Status || 'Open',
+        owner: r.fields?.Owner || 'Other',
+        doerName: r.fields?.['Doer Name'] || '',
+        ownerUsername: r.fields?.['Owner Username'] || '',
+        creatorAka: r.fields?.['Creator AKA'] || '',
+        sourceQuote: r.fields?.['Source Quote'] || '',
+        sourceChatIds: r.fields?.['Source Chat'] || [],
+        chatSource: chat?.source || null,
+        chatTitle: chat?.title || null,
+        chatType: chat?.type || null, // 'private' | 'group' | 'supergroup' | 'channel'
+        urgency: r.fields?.Urgency || 'Soon',
+        confidence: r.fields?.['AI Confidence'] || null,
+        detectedAt: r.fields?.['Detected At'] || null,
+        deferUntil: r.fields?.['Defer Until'] || null,
+        notes: r.fields?.Notes || '',
+      }
+    })
 
     return NextResponse.json({ tasks })
   } catch (err) {

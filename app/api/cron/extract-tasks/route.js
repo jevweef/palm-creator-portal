@@ -135,14 +135,21 @@ EXISTING_TASKS lists current open tasks for this chat with their sourceMessageKe
 
 For each task (new OR refreshed):
 {
-  "task": "imperative summary, ≤80 chars, REAL action",
-  "owner": "${yourName}",
+  "task": "imperative summary, ≤80 chars, REAL action — DON'T include 'Evan' or doer's name (UI shows it)",
+  "doerName": "FRIENDLY name of who needs to act: 'Evan', 'Josh', a creator AKA ('MG', 'Sunny'), or a contact name ('Meeps')",
+  "owner": "Evan" | "Josh" | "Other"  (broad bucket — Doer Name is the human-readable label)",
   "sourceQuote": "exact quoted text proving this is actionable, ≤200 chars",
   "sourceMessageKey": "the messageKey from the message",
   "urgency": "Now" | "Soon" | "Later",
   "deferUntilIso": "ISO datetime or OMIT",
   "confidence": 0.0-1.0
 }
+
+Doer choice rule: who must take the next action to complete this task?
+- "Follow up with X re: Y" → doer is Evan (he follows up)
+- "X said she'd send Y" → doer is X (she sends)
+- "Pay invoice" → doer is the person paying
+- "Show up to call" → doer is Evan
 
 For each RESOLVED prior task:
 {
@@ -355,6 +362,7 @@ export async function extractForChat(chat, { creatorPhones } = {}) {
       Urgency: ['Now', 'Soon', 'Later'].includes(t.urgency) ? t.urgency : 'Soon',
       'AI Confidence': typeof t.confidence === 'number' ? Math.round(t.confidence * 100) / 100 : null,
       ...(deferUntil ? { 'Defer Until': deferUntil } : {}),
+      ...(t.doerName ? { 'Doer Name': String(t.doerName).slice(0, 80) } : {}),
     }
 
     try {

@@ -139,13 +139,16 @@ function TaskCard({ task, onUpdate, toast }) {
       display: 'flex', alignItems: 'center', gap: '12px',
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* One-line meta row: pills + time, all inline */}
+        {/* Top meta row: owner + creator + urgency + time */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap' }}>
           <span style={{
             fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
             padding: '1px 6px', borderRadius: '3px',
-            color: OWNER_COLOR[task.owner], background: 'rgba(255,255,255,0.04)',
-          }}>{task.owner}</span>
+            color: OWNER_COLOR[task.owner] || OWNER_COLOR.Other,
+            background: 'rgba(255,255,255,0.04)',
+          }}>
+            {(task.doerName && task.owner !== 'Evan') ? `Waiting on ${task.doerName}` : (task.doerName || task.owner)}
+          </span>
           {task.creatorAka && (
             <span style={{
               fontSize: '9px', fontWeight: 600,
@@ -163,6 +166,28 @@ function TaskCard({ task, onUpdate, toast }) {
             {timeAgo(task.detectedAt)}
           </span>
         </div>
+        {/* Source + chat context row — small line below the meta */}
+        {(task.chatSource || task.chatTitle) && (
+          <div style={{
+            fontSize: '10px', color: 'var(--foreground-muted)', marginBottom: '4px',
+            display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap',
+          }}>
+            {task.chatSource && (
+              <span style={{
+                fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                padding: '1px 5px', borderRadius: '3px',
+                color: task.chatSource === 'imessage' ? '#7AC97A' : '#7AC9E8',
+                background: task.chatSource === 'imessage' ? 'rgba(120, 200, 120, 0.10)' : 'rgba(120, 180, 232, 0.10)',
+              }}>
+                {task.chatSource === 'imessage' ? 'iMessage' : 'Telegram'}
+              </span>
+            )}
+            <span style={{ opacity: 0.85 }}>
+              {task.chatType === 'private' ? '1-on-1 with ' : (task.chatType === 'group' || task.chatType === 'supergroup' ? 'group · ' : '')}
+              {task.chatTitle || ''}
+            </span>
+          </div>
+        )}
         {/* Title + quote on same flow */}
         <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', lineHeight: 1.35 }}>
           {task.task}
