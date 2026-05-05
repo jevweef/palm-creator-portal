@@ -162,8 +162,15 @@ function TaskCard({ task, onUpdate, toast }) {
             color: URGENCY_COLOR[task.urgency] || URGENCY_COLOR.Soon,
             background: 'rgba(255,255,255,0.03)',
           }}>{task.urgency}</span>
-          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginLeft: 'auto' }}>
-            {timeAgo(task.detectedAt)}
+          <span
+            style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginLeft: 'auto' }}
+            title={task.sourceSentAt
+              ? `Message sent: ${new Date(task.sourceSentAt).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' })}\nDetected: ${task.detectedAt ? new Date(task.detectedAt).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' }) : '?'}`
+              : `Detected: ${task.detectedAt ? new Date(task.detectedAt).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' }) : '?'}`}
+          >
+            {task.sourceSentAt
+              ? new Date(task.sourceSentAt).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+              : timeAgo(task.detectedAt)}
           </span>
         </div>
         {/* Source + chat context row — small line below the meta */}

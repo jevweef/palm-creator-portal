@@ -363,6 +363,7 @@ export async function extractForChat(chat, { creatorPhones } = {}) {
       'AI Confidence': typeof t.confidence === 'number' ? Math.round(t.confidence * 100) / 100 : null,
       ...(deferUntil ? { 'Defer Until': deferUntil } : {}),
       ...(t.doerName ? { 'Doer Name': String(t.doerName).slice(0, 80) } : {}),
+      ...(sourceMsg?.sentAt ? { 'Source Sent At': sourceMsg.sentAt } : {}),
     }
 
     try {

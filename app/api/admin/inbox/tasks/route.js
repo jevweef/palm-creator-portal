@@ -89,6 +89,7 @@ export async function GET(request) {
         urgency: r.fields?.Urgency || 'Soon',
         confidence: r.fields?.['AI Confidence'] || null,
         detectedAt: r.fields?.['Detected At'] || null,
+        sourceSentAt: r.fields?.['Source Sent At'] || null,
         deferUntil: r.fields?.['Defer Until'] || null,
         notes: r.fields?.Notes || '',
       }
