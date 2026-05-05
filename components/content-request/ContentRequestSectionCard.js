@@ -45,11 +45,10 @@ export default function ContentRequestSectionCard({
       if (!tokenRes.ok) throw new Error('Failed to get upload token')
       const { accessToken, rootNamespaceId, creatorName } = await tokenRes.json()
 
-      // Format month as MMMYY (e.g. "APR26" for 2026-04)
-      // Vault content is separate from the existing creator social media folder
-      const monthAbbrevs = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+      // Format month as "{MM} {Month}" for chronological sorting (e.g. "04 April")
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
       const [year, monthNum] = month.split('-')
-      const monthFolder = `${monthAbbrevs[parseInt(monthNum, 10) - 1]}${year.slice(-2)}`
+      const monthFolder = `${monthNum} ${monthNames[parseInt(monthNum, 10) - 1]}`
 
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i]
