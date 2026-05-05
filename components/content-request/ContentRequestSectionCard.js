@@ -57,10 +57,10 @@ export default function ContentRequestSectionCard({
 
         const ext = file.name.split('.').pop()
         const safeName = `${creatorName}_${Date.now()}_${i + 1}.${ext}`
-        // Path: /{AKA}/Vault Content/{MMMYY}/{Section}/{filename}
-        // Top-level AKA folder, separate from social media content
-        // Example: /Raya/Vault Content/APR26/PPV's/raya_xxx.mp4
-        const uploadPath = `/${creatorName}/Vault Content/${monthFolder}/${name}/${safeName}`
+        // Path: /Vault Content/{AKA}/{MMMYY}/{Section}/{filename}
+        // Top-level Vault Content folder, then per-creator AKA folder
+        // Example: /Vault Content/Raya/APR26/PPV's/raya_xxx.mp4
+        const uploadPath = `/Vault Content/${creatorName}/${monthFolder}/${name}/${safeName}`
 
         // Upload to Dropbox
         const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
