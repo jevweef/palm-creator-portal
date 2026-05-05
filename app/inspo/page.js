@@ -164,6 +164,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [search, setSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [textOnly, setTextOnly] = useState(false)
+  const [hideNiche, setHideNiche] = useState(true) // default: niche reels hidden
   const [creatorTagWeights, setCreatorTagWeights] = useState({}) // { tag: weight }
   const [creatorFormatWeights, setCreatorFormatWeights] = useState({}) // { format: weight }
 
@@ -326,6 +327,12 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       result = result.filter((r) => r.onScreenText && r.onScreenText.trim().length > 0)
     }
 
+    // Effort filter: by default hide Niche reels. Records with no Effort value
+    // (e.g. still on the older OpenAI analysis pre-backfill) stay visible.
+    if (hideNiche) {
+      result = result.filter((r) => r.effort !== 'Niche')
+    }
+
     // Sort
     if (sort === 'top') {
       result.sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0))
@@ -384,7 +391,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, creatorTagWeights, creatorFormatWeights, creatorOpsId, isAdmin])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, creatorTagWeights, creatorFormatWeights, creatorOpsId, isAdmin])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -504,6 +511,25 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 {textOnly ? '✕ ' : ''}Text on screen
               </button>
             )}
+
+            {/* Niche toggle — hidden by default, click to include super-specific reels */}
+            <button
+              onClick={() => setHideNiche(v => !v)}
+              title={hideNiche ? 'Niche reels (specific props, body-type lock-in, etc.) are hidden' : 'Showing all reels including niche concepts'}
+              style={{
+                fontSize: '11px', padding: '3px 10px', borderRadius: '9999px', flexShrink: 0,
+                border: !hideNiche ? '1px solid #f472b6' : 'none',
+                boxShadow: !hideNiche ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
+                cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+                background: !hideNiche ? 'rgba(244, 114, 182, 0.08)' : 'transparent',
+                color: !hideNiche ? '#f472b6' : '#999',
+                fontWeight: !hideNiche ? 700 : 400,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: 9999, background: '#f472b6' }} />
+              {hideNiche ? 'Show niche' : 'Hide niche'}
+            </button>
 
             {/* Divider */}
             <div style={{width:'1px', height:'20px', background:'rgba(255,255,255,0.06)', flexShrink:0}} />
