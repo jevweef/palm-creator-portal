@@ -33,7 +33,7 @@ function parseNotes(notes) {
   }
 }
 
-export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext, isSaved, onSave, onUpload, viewAsCreator }) {
+export default function InspoModal({ record, grade, onClose, onPrev, onNext, hasPrev, hasNext, isSaved, onSave, onUpload, viewAsCreator, rateState, onRate }) {
   const { user } = useUser()
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
@@ -141,6 +141,57 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             </div>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>
+            {onRate && (
+              <div
+                title="Tell the inspo board you want more / less of this kind of reel"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  background: 'rgba(232, 160, 160, 0.04)',
+                  borderRadius: 9999,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                  overflow: 'hidden',
+                }}
+              >
+                <button
+                  onClick={() => onRate(record.id, rateState === 'up' ? 'clear' : 'up')}
+                  aria-label={rateState === 'up' ? 'Remove thumbs up' : 'Thumbs up — show more like this'}
+                  style={{
+                    background: rateState === 'up' ? 'var(--palm-pink)' : 'transparent',
+                    color: rateState === 'up' ? 'var(--foreground)' : '#888',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '6px 10px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <svg className="w-3.5 h-3.5" fill={rateState === 'up' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                  </svg>
+                </button>
+                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.06)' }} />
+                <button
+                  onClick={() => onRate(record.id, rateState === 'down' ? 'clear' : 'down')}
+                  aria-label={rateState === 'down' ? 'Remove thumbs down' : 'Thumbs down — show less like this'}
+                  style={{
+                    background: rateState === 'down' ? '#7c3a4f' : 'transparent',
+                    color: rateState === 'down' ? '#fff' : '#888',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '6px 10px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <svg className="w-3.5 h-3.5" fill={rateState === 'down' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06L17 4m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                  </svg>
+                </button>
+              </div>
+            )}
             {onUpload && (
               <button
                 onClick={onUpload}

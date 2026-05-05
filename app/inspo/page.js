@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs'
 import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
 import { tagStyle } from '@/lib/tagStyle'
+import { managerBoostScore } from '@/lib/managerBoost'
 
 function computeGradeFn(records) {
   const scores = records.map((r) => r.engagementScore || 0).sort((a, b) => a - b)
@@ -167,10 +168,12 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [hideNiche, setHideNiche] = useState(true) // default: niche reels hidden
   const [creatorTagWeights, setCreatorTagWeights] = useState({}) // { tag: weight }
   const [creatorFormatWeights, setCreatorFormatWeights] = useState({}) // { format: weight }
+  const [tagBumps, setTagBumps] = useState({}) // { tag: signed bump from thumbs up/down }
 
   const [allTags, setAllTags] = useState([])
   const [allFormats, setAllFormats] = useState([])
   const [savedIds, setSavedIds] = useState(new Set())
+  const [thumbStates, setThumbStates] = useState({}) // { reelId: 'up'|'down' }
 
   // Admin: "View as Creator" for testing For You
   const role = user?.publicMetadata?.role
@@ -221,10 +224,14 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
 
         // Initialize saved state from records
         const saved = new Set()
+        const thumbs = {}
         data.records.forEach((r) => {
           if (r.savedBy && r.savedBy.includes(creatorOpsId)) saved.add(r.id)
+          if (r.thumbsUpBy && r.thumbsUpBy.includes(creatorOpsId)) thumbs[r.id] = 'up'
+          else if (r.thumbsDownBy && r.thumbsDownBy.includes(creatorOpsId)) thumbs[r.id] = 'down'
         })
         setSavedIds(saved)
+        setThumbStates(thumbs)
       } catch (err) {
         setError(err.message)
       } finally {
@@ -244,10 +251,53 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         const fmtWeights = data.filmFormatWeights || {}
         setCreatorTagWeights(weights)
         setCreatorFormatWeights(fmtWeights)
+        setTagBumps(data.tagBumps || {})
         if (Object.keys(weights).length > 0) setSort('foryou')
       })
       .catch(() => {})
   }, [creatorOpsId])
+
+  const handleRate = useCallback(async (recordId, action) => {
+    if (!creatorOpsId) return
+    const prev = thumbStates[recordId] || null
+    // Optimistic update
+    setThumbStates((s) => {
+      const next = { ...s }
+      if (action === 'clear') delete next[recordId]
+      else next[recordId] = action
+      return next
+    })
+    try {
+      const res = await fetch('/api/inspo-rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId, creatorOpsId, action }),
+      })
+      if (!res.ok) {
+        const err = await res.text().catch(() => '')
+        console.error('[rate] failed', res.status, err)
+        // Revert
+        setThumbStates((s) => {
+          const next = { ...s }
+          if (prev) next[recordId] = prev
+          else delete next[recordId]
+          return next
+        })
+        return
+      }
+      // Refresh personal cache so the For You order updates immediately
+      const fresh = await fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then((r) => r.json())
+      setTagBumps(fresh.tagBumps || {})
+    } catch (err) {
+      console.error('[rate] exception', err)
+      setThumbStates((s) => {
+        const next = { ...s }
+        if (prev) next[recordId] = prev
+        else delete next[recordId]
+        return next
+      })
+    }
+  }, [creatorOpsId, thumbStates])
 
   const handleSave = useCallback(async (recordId) => {
     const isSaved = savedIds.has(recordId)
@@ -341,10 +391,22 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     } else if (sort === 'recent') {
       result.sort((a, b) => new Date(b.creatorPostedDate || 0) - new Date(a.creatorPostedDate || 0))
     } else if (sort === 'foryou' && Object.keys(creatorTagWeights).length > 0) {
-      // Hybrid scoring: 50% semantic match + 35% tag overlap + 15% virality
-      // Semantic match = pre-computed cosine similarity between reel and creator embeddings
-      // Tag match = content tags (full) + film format (0.5x), normalized to 0-1
-      // Virality = z-score normalized to 0-1
+      // Hybrid scoring with two ranking layers on top of the creator's own DNA:
+      //   - Manager Boost (sitewide): agency-set tag weighting that pushes
+      //     funnel-signal content (Direct Flirt, POV, Implied Scenario, etc.)
+      //   - Personal Bumps: derived from this creator's thumbs up / thumbs
+      //     down history. Only kicks in once they've actually rated a reel.
+      //
+      // Formula:
+      //   no thumbs:  0.45·sem + 0.30·DNA + 0.10·viral + 0.15·manager
+      //   with thumbs: 0.40·sem + 0.25·DNA + 0.10·viral + 0.15·manager + 0.10·personal
+
+      const hasPersonal = Object.keys(tagBumps).length > 0
+      const W_SEM = hasPersonal ? 0.40 : 0.45
+      const W_DNA = hasPersonal ? 0.25 : 0.30
+      const W_VIR = 0.10
+      const W_MGR = 0.15
+      const W_PER = hasPersonal ? 0.10 : 0
 
       const tagScores = result.map(r => {
         const tagScore = [...(r.tags || []), ...(r.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
@@ -352,6 +414,20 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         return tagScore + fmtScore
       })
       const maxTag = Math.max(...tagScores, 1)
+
+      const managerScores = result.map(r => managerBoostScore(r))
+
+      // Personal tag-bump score per reel: signed sum of bumps for tags on
+      // this reel, normalized into the same 0-1 band the other terms use.
+      // Negative bumps (from thumbs-down tags) push the reel below neutral.
+      const personalRaw = result.map(r => {
+        let s = 0
+        const tags = [...(r.tags || []), ...(r.suggestedTags || []), ...(r.filmFormat || [])]
+        for (const t of tags) s += (tagBumps[t] || 0)
+        return s
+      })
+      const maxPersonalAbs = Math.max(...personalRaw.map(Math.abs), 1)
+      const personalScores = personalRaw.map(s => 0.5 + 0.5 * (s / maxPersonalAbs))
 
       const zScores = result.map(r => r.zScore || 0)
       const maxZ = Math.max(...zScores.map(Math.abs), 1)
@@ -366,24 +442,33 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         const tagB = tagScores[idxB] / maxTag
         const viralA = (zScores[idxA] + maxZ) / (2 * maxZ)
         const viralB = (zScores[idxB] + maxZ) / (2 * maxZ)
+        const mgrA = managerScores[idxA]
+        const mgrB = managerScores[idxB]
+        const perA = personalScores[idxA]
+        const perB = personalScores[idxB]
 
-        const hybridA = 0.5 * semanticA + 0.35 * tagA + 0.15 * viralA
-        const hybridB = 0.5 * semanticB + 0.35 * tagB + 0.15 * viralB
+        const hybridA = W_SEM * semanticA + W_DNA * tagA + W_VIR * viralA + W_MGR * mgrA + W_PER * perA
+        const hybridB = W_SEM * semanticB + W_DNA * tagB + W_VIR * viralB + W_MGR * mgrB + W_PER * perB
         return hybridB - hybridA
       })
 
       // Store debug scores for admin overlay
       if (isAdmin) {
         const scores = {}
-        result.forEach((r, i) => {
+        result.forEach((r) => {
+          const idx = result.indexOf(r)
           const semantic = (r.semanticScores && r.semanticScores[creatorOpsId]) || 0
-          const tag = tagScores[result.indexOf(r)] / maxTag
-          const viral = (zScores[result.indexOf(r)] + maxZ) / (2 * maxZ)
+          const tag = tagScores[idx] / maxTag
+          const viral = (zScores[idx] + maxZ) / (2 * maxZ)
+          const mgr = managerScores[idx]
+          const per = personalScores[idx]
           scores[r.id] = {
             semantic: Math.round(semantic * 100),
             tag: Math.round(tag * 100),
             virality: Math.round(viral * 100),
-            hybrid: Math.round((0.5 * semantic + 0.35 * tag + 0.15 * viral) * 100),
+            manager: Math.round(mgr * 100),
+            personal: hasPersonal ? Math.round(per * 100) : null,
+            hybrid: Math.round((W_SEM * semantic + W_DNA * tag + W_VIR * viral + W_MGR * mgr + W_PER * per) * 100),
           }
         })
         setDebugScores(scores)
@@ -391,7 +476,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, creatorTagWeights, creatorFormatWeights, creatorOpsId, isAdmin])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, creatorTagWeights, creatorFormatWeights, tagBumps, creatorOpsId, isAdmin])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -754,7 +839,15 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                     <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
                       {debugScores[record.id].hybrid}
                     </div>
-                    <div>S: {debugScores[record.id].semantic} &middot; T: {debugScores[record.id].tag} &middot; V: {debugScores[record.id].virality}</div>
+                    <div>
+                      S: {debugScores[record.id].semantic}
+                      &middot; T: {debugScores[record.id].tag}
+                      &middot; V: {debugScores[record.id].virality}
+                      &middot; M: {debugScores[record.id].manager ?? 0}
+                      {debugScores[record.id].personal !== null && debugScores[record.id].personal !== undefined && (
+                        <> &middot; P: {debugScores[record.id].personal}</>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -883,6 +976,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
           hasNext={selectedIdx < filtered.length - 1}
           isSaved={savedIds.has(filtered[selectedIdx]?.id)}
           onSave={handleSave}
+          rateState={creatorOpsId ? (thumbStates[filtered[selectedIdx]?.id] || null) : null}
+          onRate={creatorOpsId ? handleRate : null}
           viewAsCreator={isAdmin && adminSelectedCreator
             ? adminCreators.find(c => c.id === adminSelectedCreator) || null
             : null}
