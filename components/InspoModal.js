@@ -102,9 +102,43 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
         <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid transparent', gap:'16px'}}>
           <div style={{minWidth:0}}>
             <h2 style={{fontSize:'18px', fontWeight:600, color:'var(--foreground)', lineHeight:1.4, margin:0}}>{record.title}</h2>
-            {record.username && (
-              <p style={{fontSize:'12px', color:'#999', marginTop:'6px'}}>@{record.username}</p>
-            )}
+            <div style={{display:'flex', alignItems:'center', gap:8, marginTop:6, flexWrap:'wrap'}}>
+              {record.username && (
+                <span style={{fontSize:'12px', color:'#999'}}>@{record.username}</span>
+              )}
+              {record.effort && (() => {
+                const palette = {
+                  Easy:     { bg: '#4ade80' },
+                  Moderate: { bg: '#facc15' },
+                  Niche:    { bg: '#f472b6' },
+                }
+                const c = palette[record.effort] || { bg: '#888' }
+                return (
+                  <span
+                    title={record.effortReason || ''}
+                    style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+                      textTransform: 'uppercase', padding: '2px 8px',
+                      borderRadius: 9999, background: c.bg, color: '#000',
+                    }}
+                  >
+                    {record.effort}
+                  </span>
+                )
+              })()}
+              {record.effortBlockers?.length > 0 && record.effortBlockers.map((b) => (
+                <span
+                  key={b}
+                  style={{
+                    fontSize: 10, padding: '2px 8px', borderRadius: 9999,
+                    background: 'rgba(255,255,255,0.04)', color: '#aaa',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  {b}
+                </span>
+              ))}
+            </div>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>
             {onUpload && (
