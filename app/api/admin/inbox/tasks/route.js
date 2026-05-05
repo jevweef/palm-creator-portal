@@ -18,6 +18,8 @@ export async function GET(request) {
   const owner = url.searchParams.get('owner') || null
   const creator = url.searchParams.get('creator') || null
   const urgency = url.searchParams.get('urgency') || null
+  // Pass ?showDeferred=true to include tasks whose Defer Until is in the future
+  const showDeferred = url.searchParams.get('showDeferred') === 'true'
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '200'), 500)
 
   const esc = (s) => String(s).replace(/'/g, "\\'")
@@ -26,6 +28,11 @@ export async function GET(request) {
   if (owner) filters.push(`{Owner} = '${esc(owner)}'`)
   if (creator) filters.push(`{Creator AKA} = '${esc(creator)}'`)
   if (urgency) filters.push(`{Urgency} = '${esc(urgency)}'`)
+  // Hide deferred tasks unless explicitly requested. A task is deferred if
+  // its Defer Until > now. Empty Defer Until = surface immediately.
+  if (!showDeferred) {
+    filters.push(`OR({Defer Until} = BLANK(), IS_BEFORE({Defer Until}, NOW()))`)
+  }
   const formula = filters.length === 0 ? undefined : (filters.length === 1 ? filters[0] : `AND(${filters.join(',')})`)
 
   try {
@@ -47,6 +54,7 @@ export async function GET(request) {
       urgency: r.fields?.Urgency || 'Soon',
       confidence: r.fields?.['AI Confidence'] || null,
       detectedAt: r.fields?.['Detected At'] || null,
+      deferUntil: r.fields?.['Defer Until'] || null,
       notes: r.fields?.Notes || '',
     }))
 

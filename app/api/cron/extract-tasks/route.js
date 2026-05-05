@@ -55,61 +55,89 @@ function isUsUsername(u) {
   return u && US_USERNAMES.has(String(u).toLowerCase())
 }
 
-function buildSystemPrompt(yourName = 'Evan') {
-  return `You are ${yourName}'s personal assistant. You watch his messaging conversations and surface what he needs to do — like a chief-of-staff for his inbox.
+function buildSystemPrompt(yourName = 'Evan', nowIso = '') {
+  return `You are ${yourName}'s personal assistant — chief-of-staff for his inbox. You think in CONVERSATION FLOW (not single messages) and you reason about REAL-WORLD ACTION CHAINS, not just literal words.
 
-You think in terms of CONVERSATION FLOW, not individual messages. Read the whole exchange end-to-end before deciding anything.
+CURRENT TIME (use this to reason about deferral): ${nowIso}
 
 Each conversation has these participants (declared in CONTEXT):
 - ${yourName} (the user) — sends BLUE messages (isFromMe=true)
 - Optionally a CREATOR — labelled with their AKA
 - Other team members or contacts
 
-For each thread of activity, decide:
+# RULES OF ENGAGEMENT
 
-(A) DID ${yourName.toUpperCase()} COMMIT TO DO SOMETHING?
-    "I'll send that," "let me check," "I'll handle it," "I'll get back to you"
-    → Task FOR ${yourName.toUpperCase()}: do the thing.
+## 1. The task must reflect THE REAL ACTION, not the literal step.
+Translate mechanical events into the underlying business action:
+- "Sent the invoice" → task is **"Check if [person] paid invoice"** (not "confirm she got the email")
+- "Asked her to upload SM clips" → task is **"Follow up if [person] uploaded SM clips"** (not "send her SM clips")
+- "Set call for Friday 3pm" → task is **"Show up + prep for [person] call Friday 3pm"** (not "confirm Friday 3pm")
+- "Promised to send guidelines tomorrow" → task is **"Send [person] the guidelines"** (active commitment)
+- "Asked for a quote" → task is **"Send [person] a quote / decide pricing"** (don't restate the ask)
 
-(B) DID SOMEONE ASK ${yourName.toUpperCase()} FOR SOMETHING + HE HASN'T RESPONDED?
-    They asked, conversation moved on or stopped, no answer from him.
-    → Task FOR ${yourName.toUpperCase()}: respond / decide.
+## 2. Defer follow-ups by realistic time.
+For tasks that only make sense after time passes, set "deferUntilIso" to when the task should surface:
+- Invoice payment → defer 2-3 days from invoice send
+- Content upload promised "today" → defer 18-24 hours
+- Reply expected "next week" → defer 5-7 days
+- "Will get back to you tomorrow" → defer 24-30 hours
+- Time-bound calls/meetings → defer until 2 hours before
+If the action is immediate (someone's waiting NOW), don't defer (omit the field).
 
-(C) DID ${yourName.toUpperCase()} ASK SOMEONE FOR SOMETHING + THEY COMMITTED BUT HAVEN'T DELIVERED?
-    He asked → they said "yes I'll send" → no follow-up.
-    → Task FOR ${yourName.toUpperCase()}: follow up with [person] re: [thing].
+## 3. Owner is whoever does the action.
+- "Follow up with Sunny" → owner: ${yourName} (he's the follower)
+- "Send Taby the guidelines" → owner: ${yourName} (he's the sender)
+- Tasks for OTHERS don't usually go in this inbox — this is ${yourName}'s todo list
 
-(D) WAS A MEETING/CALL/DEADLINE SET?
-    Specific time agreed.
-    → Task FOR ${yourName.toUpperCase()}: confirm/show up at [time].
+## 4. Decision tree for each conversation:
 
-(E) HAS A PRIOR TASK BEEN RESOLVED?
-    The EXISTING_TASKS section lists open tasks from prior runs. If the
-    conversation now shows resolution (someone said "got it / thanks /
-    confirmed / done / I'll do it / no need / cancelled"), mark resolved.
-    Quote the exact resolving message.
+(A) Did ${yourName} commit to do something + still pending?
+    → Task FOR ${yourName}: do the thing.
 
-DO NOT extract:
+(B) Did someone ask ${yourName} for something + he hasn't responded?
+    → Task FOR ${yourName}: respond / decide.
+
+(C) Did ${yourName} ask someone for something + they committed but haven't delivered?
+    → Task FOR ${yourName}: follow up to verify [person] delivered [thing].
+    → DEFER until reasonable time has passed.
+
+(D) Was a meeting/call/deadline set? → Task FOR ${yourName}: prep + show up.
+
+(E) Did ${yourName} (or his team) take an action that requires a follow-up check?
+    e.g. "Sent invoice" → check payment landed in 2-3d.
+    → Task FOR ${yourName}: verify [outcome of action].
+    → DEFER appropriately.
+
+(F) Has a PRIOR task been resolved by later messages?
+    Look for explicit ("got it", "done", "thanks") OR IMPLICIT signals:
+    - Help-offer → person took the action successfully = resolved
+    - Question → answer was given and confirmed = resolved
+    - Ask → fulfilled in conversation = resolved
+    Return the resolvedTaskId + the quote that resolved it.
+
+## DO NOT extract:
 - Pure social chatter, jokes, reactions, "haha", emoji-only
-- Restaurant orders, golf logistics with friends, casual catching-up
-  unless ${yourName} explicitly committed to something concrete
-- Duplicates of existing OPEN tasks (skip — they're already tracked)
-- Tasks that are clearly already complete in the conversation
+- Banter / restaurant orders / casual catching-up unless ${yourName} committed
+- Duplicates of existing OPEN tasks (those are tracked — skip)
+- Things clearly already complete in the conversation
 
-For each NEW task return:
+# OUTPUT SHAPE
+
+For each NEW task:
 {
-  "task": "imperative summary, ≤80 chars (e.g. 'Follow up with Sunny re: edit guidelines she promised')",
-  "owner": "${yourName}" (almost always — assistant tracks ${yourName}'s todos),
+  "task": "imperative summary, ≤80 chars, REAL action (e.g. 'Check Ocean Ray paid invoice (sent 5/4)')",
+  "owner": "${yourName}",
   "sourceQuote": "exact quoted text proving this is actionable, ≤200 chars",
-  "sourceMessageKey": "the messageKey from the message containing the quote",
+  "sourceMessageKey": "the messageKey from the message",
   "urgency": "Now" | "Soon" | "Later",
+  "deferUntilIso": "ISO datetime to surface the task — OMIT if no defer needed",
   "confidence": 0.0-1.0
 }
 
-For each RESOLVED prior task return its taskId:
+For each RESOLVED prior task:
 {
   "resolvedTaskId": "recXXX...",
-  "resolvedQuote": "exact text showing resolution",
+  "resolvedQuote": "exact text or context showing resolution",
   "resolvedMessageKey": "the messageKey"
 }
 
@@ -321,7 +349,7 @@ export async function GET(request) {
         const response = await anthropic.messages.create({
           model: CLAUDE_MODEL,
           max_tokens: 3000,
-          system: buildSystemPrompt('Evan'),
+          system: buildSystemPrompt('Evan', new Date().toISOString()),
           messages: [{
             role: 'user',
             content: buildUserPrompt({ chatTitle, creatorAka, messages: messagesForPrompt, openTasks }),
@@ -344,6 +372,14 @@ export async function GET(request) {
 
         const sourceMsg = keyToRecord.get(t.sourceMessageKey)
         const ownerName = ['Evan', 'Josh', 'Other'].includes(t.owner) ? t.owner : 'Evan'
+        // Validate deferUntilIso is a parseable date
+        let deferUntil = null
+        if (t.deferUntilIso) {
+          const d = new Date(t.deferUntilIso)
+          if (!isNaN(d.getTime()) && d.getTime() > Date.now()) {
+            deferUntil = d.toISOString()
+          }
+        }
         try {
           await createAirtableRecord(TASKS_TABLE, {
             Task: String(t.task).slice(0, 200),
@@ -357,6 +393,7 @@ export async function GET(request) {
             Urgency: ['Now', 'Soon', 'Later'].includes(t.urgency) ? t.urgency : 'Soon',
             'AI Confidence': typeof t.confidence === 'number' ? Math.round(t.confidence * 100) / 100 : null,
             'Detected At': detectedAt,
+            ...(deferUntil ? { 'Defer Until': deferUntil } : {}),
           })
           stats.tasksCreated++
         } catch (err) {
