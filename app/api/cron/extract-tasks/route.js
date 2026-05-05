@@ -29,9 +29,12 @@ const CHATS_TABLE = 'Telegram Chats'
 const MESSAGES_TABLE = 'Telegram Messages'
 const TASKS_TABLE = 'Inbox Tasks'
 
-// Conversation context window per chat. Big enough to detect resolution of
-// week-old tasks; small enough to keep each Claude call fast + cheap.
-const MESSAGES_PER_CHAT = 80
+// Conversation context window per chat. Smaller = less re-sending of the
+// same old messages every cron tick. 30 covers roughly the last 4-12 hours
+// of a typical chat. Existing open tasks are sent alongside, so Claude can
+// still detect resolution of older items by their stored quote — doesn't
+// need to see the original message to know it's resolved by a new "got it".
+const MESSAGES_PER_CHAT = 30
 
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -49,10 +52,10 @@ function isUsUsername(u) {
   return u && US_USERNAMES.has(String(u).toLowerCase())
 }
 
-function buildSystemPrompt(yourName = 'Evan', nowIso = '') {
+function buildSystemPrompt(yourName = 'Evan') {
+  // Static prompt only — CURRENT TIME is passed in the user message so the
+  // system prompt stays identical across calls and is cacheable.
   return `You are ${yourName}'s personal assistant — chief-of-staff for his inbox. You think in CONVERSATION FLOW (not single messages) and you reason about REAL-WORLD ACTION CHAINS, not just literal words.
-
-CURRENT TIME (use this to reason about deferral and overdue): ${nowIso}
 
 Each conversation has these participants (declared in CONTEXT):
 - ${yourName} (the user) — sends BLUE messages (isFromMe=true)
@@ -368,13 +371,25 @@ export async function extractForChat(chat, { creatorPhones, force = false } = {}
 
   let parsed
   try {
+    // Prompt caching: mark the system prompt as cacheable so subsequent calls
+    // within ~5 min get a 90% discount on those tokens. The system prompt is
+    // ~3K tokens of static instructions — cached, it costs ~$0.0009 vs ~$0.009.
+    // We pass the dynamic 'now' timestamp via the user prompt instead of
+    // baking it into the system prompt, so the system stays cacheable.
     const response = await anthropic.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 3000,
-      system: buildSystemPrompt('Evan', new Date().toISOString()),
+      system: [
+        {
+          type: 'text',
+          text: buildSystemPrompt('Evan'), // omit nowIso — passed in user msg
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
       messages: [{
         role: 'user',
-        content: buildUserPrompt({ chatTitle, creatorAka, messages: messagesForPrompt, openTasks }),
+        content: `CURRENT TIME (use for deferral + overdue reasoning): ${new Date().toISOString()}\n\n` +
+          buildUserPrompt({ chatTitle, creatorAka, messages: messagesForPrompt, openTasks }),
       }],
     })
     const content = response.content?.[0]?.text || ''
