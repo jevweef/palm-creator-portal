@@ -258,7 +258,18 @@ export async function GET(request) {
         'SMM Scheduled', 'SMM Scheduled At',
       ],
     })
-    const posts = allRecentPosts.filter(p => (p.fields?.Creator || []).includes(creatorId))
+    // Drop Prepping posts: those still belong to admin's Post Prep workflow,
+    // not the Grid Planner queue. They show up here only after admin clicks
+    // "Send to Grid" (which flips Status from Prepping → Staged). Also drop
+    // Archived since those are off-pipeline. Status is a singleSelect — value
+    // can be returned as a string OR {name: 'Prepping'} depending on call.
+    const statusName = (s) => typeof s === 'string' ? s : (s?.name || '')
+    const HIDDEN = new Set(['Prepping', 'Archived'])
+    const posts = allRecentPosts.filter(p => {
+      if (!(p.fields?.Creator || []).includes(creatorId)) return false
+      if (HIDDEN.has(statusName(p.fields?.Status))) return false
+      return true
+    })
 
     // Queue normalization: for each managed account, sort unsent posts and
     // renumber their Scheduled Dates to the canonical "today AM, today PM,
