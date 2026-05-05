@@ -601,14 +601,15 @@ export default function ChatWallPage() {
         />
       )}
 
-      {/* Bulk download confirmation. Same WP/MM choice, but applies to
-          every available photo for the creator and streams a single zip. */}
+      {/* Bulk download confirmation. Single confirm — every photo gets
+          tagged "Bulk Download" since the chat manager uses these across
+          both wall posts and mass messages. */}
       {bulkConfirmOpen && (
         <BulkDownloadConfirmModal
           creatorName={selectedCreator?.aka || selectedCreator?.name || 'this creator'}
           count={total}
           onCancel={() => setBulkConfirmOpen(false)}
-          onConfirm={async (usedFor) => {
+          onConfirm={async () => {
             setBulkConfirmOpen(false)
             setBulkError(null)
             setBulkStatus('preparing')
@@ -616,7 +617,7 @@ export default function ChatWallPage() {
               const res = await fetch('/api/photo-library/bulk-download', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ creatorId, usedFor }),
+                body: JSON.stringify({ creatorId, usedFor: 'bulk' }),
               })
               if (!res.ok) {
                 const text = await res.text().catch(() => '')
@@ -651,6 +652,12 @@ export default function ChatWallPage() {
             }
           }}
         />
+      )}
+
+      {/* In-progress overlay — keeps the user on the page and gives a
+          clear "we're working" signal during the 30s–few-min zip job. */}
+      {(bulkStatus === 'preparing' || bulkStatus === 'downloading') && (
+        <BulkDownloadProgressModal status={bulkStatus} count={total} creatorName={selectedCreator?.aka || selectedCreator?.name} />
       )}
 
       {/* Tiny toast for bulk-download error feedback. Success doesn't need
@@ -1274,17 +1281,15 @@ function navOverlayStyle(side) {
   }
 }
 
-// Bulk-download confirmation. Same shape as UseConfirmModal but applies to
-// every available photo for the selected creator and ends in a zip download
-// instead of a per-photo trigger. Keyboard: W = Wall Post, M = Mass Message,
-// Esc = cancel.
+// Bulk-download confirmation. Single confirm — every photo gets tagged
+// "Bulk Download" since the chat manager uses these across both wall posts
+// and mass messages. Enter = confirm, Esc = cancel.
 function BulkDownloadConfirmModal({ creatorName, count, onCancel, onConfirm }) {
   useEffect(() => {
     function onKey(e) {
       if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA') return
       if (e.key === 'Escape') { e.preventDefault(); onCancel() }
-      else if (e.key === 'w' || e.key === 'W') { e.preventDefault(); onConfirm('wall') }
-      else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); onConfirm('mm') }
+      else if (e.key === 'Enter') { e.preventDefault(); onConfirm() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -1313,60 +1318,96 @@ function BulkDownloadConfirmModal({ creatorName, count, onCancel, onConfirm }) {
             Download all {count} photos?
           </div>
           <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 6, lineHeight: 1.5 }}>
-            We&apos;ll mark every available photo for <strong>{creatorName}</strong> as Used,
-            zip the originals from Dropbox, and start downloading the file to your computer.
-            Pick the surface — that&apos;s what they&apos;ll be tagged with in the Used view.
+            We&apos;ll pull every available photo for <strong>{creatorName}</strong> out of
+            the available view, zip them up, and download the file to your computer. New
+            photos will pop up here as the creator adds them to Dropbox.
           </div>
         </div>
 
         <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255, 200, 0, 0.06)', border: '1px solid rgba(255, 200, 0, 0.2)', fontSize: 12, color: '#ffd97a', lineHeight: 1.5 }}>
           Heads up: zipping {count} photos can take 30 seconds to a few minutes
-          depending on file sizes. The download starts as soon as the zip is
-          ready — leave the tab open until it begins.
+          depending on file sizes. Leave this tab open — we&apos;ll show progress
+          and the download will start automatically when it&apos;s ready.
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <button
-            onClick={() => onConfirm('wall')}
-            autoFocus
-            style={{
-              padding: '14px 16px', background: 'var(--palm-pink)', border: 'none',
-              borderRadius: 10, color: '#060606', fontSize: 14, fontWeight: 700,
-              cursor: 'pointer', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 2,
-            }}
-          >
-            <span>Wall Post</span>
-            <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>press W</span>
-          </button>
-          <button
-            onClick={() => onConfirm('mm')}
-            style={{
-              padding: '14px 16px', background: '#7aa9ff', border: 'none',
-              borderRadius: 10, color: '#060606', fontSize: 14, fontWeight: 700,
-              cursor: 'pointer', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 2,
-            }}
-          >
-            <span>Mass Message</span>
-            <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>press M</span>
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button
             onClick={onCancel}
             style={{
-              padding: '8px 14px', background: 'transparent',
+              padding: '10px 16px', background: 'transparent',
               border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
-              color: 'var(--foreground-muted)', fontSize: 12, fontWeight: 500,
+              color: 'var(--foreground-muted)', fontSize: 13, fontWeight: 500,
               cursor: 'pointer',
             }}
           >
             Cancel (Esc)
           </button>
+          <button
+            onClick={() => onConfirm()}
+            autoFocus
+            style={{
+              padding: '10px 20px', background: 'var(--palm-pink)', border: 'none',
+              borderRadius: 8, color: '#060606', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Download {count} photos
+          </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Progress overlay shown during the zip job. Spinner + status text so the
+// chat manager knows the page hasn't frozen — the actual download starts
+// at the end of `downloading`. Non-dismissable while running.
+function BulkDownloadProgressModal({ status, count, creatorName }) {
+  const label = status === 'preparing'
+    ? 'Preparing zip…'
+    : 'Streaming download…'
+  const sub = status === 'preparing'
+    ? `Marking ${count} photos as used and pulling originals from Dropbox.`
+    : 'Your browser is saving the file. Don\'t close this tab until it appears in Downloads.'
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1300,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24, backdropFilter: 'blur(10px)',
+      }}
+    >
+      <div
+        style={{
+          background: '#0f0f0f', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 16, padding: 28, maxWidth: 420, width: '100%',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+          boxShadow: '0 30px 80px rgba(0,0,0,0.6)', textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: 44, height: 44, borderRadius: '50%',
+            border: '3px solid rgba(255,255,255,0.1)',
+            borderTopColor: 'var(--palm-pink)',
+            animation: 'palm-spin 0.9s linear infinite',
+          }}
+        />
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>
+            {label}
+          </div>
+          {creatorName && (
+            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>
+              {count} photos for {creatorName}
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
+          {sub}
+        </div>
+      </div>
+      <style>{`@keyframes palm-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
