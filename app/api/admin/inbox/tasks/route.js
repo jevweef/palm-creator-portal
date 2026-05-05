@@ -19,6 +19,7 @@ export async function GET(request) {
   const owner = url.searchParams.get('owner') || null
   const creator = url.searchParams.get('creator') || null
   const urgency = url.searchParams.get('urgency') || null
+  const topic = url.searchParams.get('topic') || null
   // Pass ?showDeferred=true to include tasks whose Defer Until is in the future
   const showDeferred = url.searchParams.get('showDeferred') === 'true'
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '200'), 500)
@@ -29,6 +30,7 @@ export async function GET(request) {
   if (owner) filters.push(`{Owner} = '${esc(owner)}'`)
   if (creator) filters.push(`{Creator AKA} = '${esc(creator)}'`)
   if (urgency) filters.push(`{Urgency} = '${esc(urgency)}'`)
+  if (topic) filters.push(`{Topic} = '${esc(topic)}'`)
   // Hide deferred tasks unless explicitly requested. A task is deferred if
   // its Defer Until > now. Empty Defer Until = surface immediately.
   if (!showDeferred) {
@@ -103,6 +105,7 @@ export async function GET(request) {
         doerName: r.fields?.['Doer Name'] || '',
         ownerUsername: r.fields?.['Owner Username'] || '',
         creatorAka: r.fields?.['Creator AKA'] || '',
+        topic: r.fields?.Topic || '',
         sourceQuote: r.fields?.['Source Quote'] || '',
         sourceChatIds: r.fields?.['Source Chat'] || [],
         chatSource: chat?.source || null,

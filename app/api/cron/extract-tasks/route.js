@@ -138,12 +138,23 @@ For each task (new OR refreshed):
   "task": "imperative summary, ≤80 chars, REAL action — DON'T include 'Evan' or doer's name (UI shows it)",
   "doerName": "FRIENDLY name of who needs to act: 'Evan', 'Josh', a creator AKA ('MG', 'Sunny'), or a contact name ('Meeps')",
   "owner": "Evan" | "Josh" | "Other"  (broad bucket — Doer Name is the human-readable label)",
+  "topic": "Lead" | "Invoice" | "Content" | "Reply" | "Build" | "Internal" | "Scheduling" | "Other",
   "sourceQuote": "exact quoted text proving this is actionable, ≤200 chars",
   "sourceMessageKey": "the messageKey from the message",
   "urgency": "Now" | "Soon" | "Later",
   "deferUntilIso": "ISO datetime or OMIT",
   "confidence": 0.0-1.0
 }
+
+Topic guide:
+- Lead: inbound creator interest, scouting, intro convos with potential signups
+- Invoice: payments, invoices sent, money owed/received, billing
+- Content: creator content requests/uploads, Content Snare, PPV sets, edits
+- Reply: needs Evan's response/decision (general inbound questions)
+- Build: portal feature work, dashboard requests, technical setup
+- Internal: Palm-internal team coordination, Josh-only stuff
+- Scheduling: meetings, calls, time-bound coordination
+- Other: doesn't fit above
 
 Doer choice rule: who must take the next action to complete this task?
 - "Follow up with X re: Y" → doer is Evan (he follows up)
@@ -364,6 +375,8 @@ export async function extractForChat(chat, { creatorPhones } = {}) {
       ...(deferUntil ? { 'Defer Until': deferUntil } : {}),
       ...(t.doerName ? { 'Doer Name': String(t.doerName).slice(0, 80) } : {}),
       ...(sourceMsg?.sentAt ? { 'Source Sent At': sourceMsg.sentAt } : {}),
+      ...(t.topic && ['Lead','Invoice','Content','Reply','Build','Internal','Scheduling','Other'].includes(t.topic)
+        ? { Topic: t.topic } : {}),
     }
 
     try {

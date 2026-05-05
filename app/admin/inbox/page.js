@@ -101,6 +101,24 @@ const OWNER_COLOR = {
   Other: '#9aa0a6',
 }
 
+const TOPIC_COLOR = {
+  Lead: '#C8A0E8',
+  Invoice: '#7AC97A',
+  Content: '#E8A0A0',
+  Reply: '#7AC9E8',
+  Build: '#E8C878',
+  Internal: '#A0DBD8',
+  Scheduling: '#E8B878',
+  Other: '#9aa0a6',
+}
+
+// Stale = source message older than this many days while task is still Open.
+function staleDays(sourceSentAt) {
+  if (!sourceSentAt) return 0
+  const days = (Date.now() - new Date(sourceSentAt).getTime()) / (1000 * 60 * 60 * 24)
+  return Math.floor(days)
+}
+
 function TaskCard({ task, onUpdate, toast }) {
   const [busy, setBusy] = useState(false)
   const [replyOpen, setReplyOpen] = useState(false)
@@ -162,6 +180,28 @@ function TaskCard({ task, onUpdate, toast }) {
             color: URGENCY_COLOR[task.urgency] || URGENCY_COLOR.Soon,
             background: 'rgba(255,255,255,0.03)',
           }}>{task.urgency}</span>
+          {task.topic && (
+            <span style={{
+              fontSize: '9px', fontWeight: 600,
+              padding: '1px 6px', borderRadius: '3px',
+              color: TOPIC_COLOR[task.topic] || TOPIC_COLOR.Other,
+              background: 'rgba(255,255,255,0.03)',
+            }}>{task.topic}</span>
+          )}
+          {(() => {
+            const days = staleDays(task.sourceSentAt)
+            if (days >= 2) {
+              return (
+                <span style={{
+                  fontSize: '9px', fontWeight: 700,
+                  padding: '1px 6px', borderRadius: '3px',
+                  color: '#E87878', background: 'rgba(232, 120, 120, 0.10)',
+                  border: '1px solid rgba(232, 120, 120, 0.30)',
+                }}>STALE {days}d</span>
+              )
+            }
+            return null
+          })()}
           <span
             style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginLeft: 'auto' }}
             title={task.sourceSentAt
@@ -210,13 +250,12 @@ function TaskCard({ task, onUpdate, toast }) {
           </div>
         )}
       </div>
-      {/* Buttons in a horizontal row */}
+      {/* Buttons — words, not icons */}
       <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
         {canReply && (
           <button
             onClick={() => setReplyOpen(true)}
             disabled={busy}
-            title="Reply"
             style={{
               padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
               background: 'var(--palm-pink)', color: '#060606', border: '1px solid var(--palm-pink)',
@@ -227,33 +266,30 @@ function TaskCard({ task, onUpdate, toast }) {
         <button
           onClick={() => setStatus('Done')}
           disabled={busy}
-          title="Mark done"
           style={{
-            padding: '5px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+            padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
             background: 'rgba(120, 200, 120, 0.12)', color: '#7AC97A', border: '1px solid rgba(120, 200, 120, 0.3)',
             cursor: 'pointer', opacity: busy ? 0.5 : 1,
           }}
-        >✓</button>
+        >Done</button>
         <button
           onClick={() => setStatus('Snoozed')}
           disabled={busy}
-          title="Snooze"
           style={{
-            padding: '5px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+            padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
             background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.1)',
             cursor: 'pointer', opacity: busy ? 0.5 : 1,
           }}
-        >⏰</button>
+        >Snooze</button>
         <button
           onClick={() => setStatus('Dismissed')}
           disabled={busy}
-          title="Dismiss"
           style={{
-            padding: '5px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+            padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
             background: 'rgba(232, 120, 120, 0.12)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)',
             cursor: 'pointer', opacity: busy ? 0.5 : 1,
           }}
-        >✕</button>
+        >Dismiss</button>
       </div>
       {replyOpen && (
         <ReplyModal
@@ -390,6 +426,7 @@ function TasksTab({ toast }) {
   const [ownerFilter, setOwnerFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('Open')
   const [creatorFilter, setCreatorFilter] = useState('all')
+  const [topicFilter, setTopicFilter] = useState('all')
   const [extractBusy, setExtractBusy] = useState(false)
 
   // Load creators once for the filter dropdown
@@ -406,6 +443,7 @@ function TasksTab({ toast }) {
       params.set('status', statusFilter)
       if (ownerFilter !== 'all') params.set('owner', ownerFilter)
       if (creatorFilter !== 'all') params.set('creator', creatorFilter)
+      if (topicFilter !== 'all') params.set('topic', topicFilter)
       const res = await fetch(`/api/admin/inbox/tasks?${params}`).then(r => r.json())
       setTasks(res.tasks || [])
     } finally {
@@ -417,7 +455,7 @@ function TasksTab({ toast }) {
     refresh()
     const id = setInterval(refresh, 30000)
     return () => clearInterval(id)
-  }, [ownerFilter, statusFilter, creatorFilter])
+  }, [ownerFilter, statusFilter, creatorFilter, topicFilter])
 
   async function runExtractionNow() {
     setExtractBusy(true)
@@ -489,6 +527,11 @@ function TasksTab({ toast }) {
               <option key={c.id} value={c.aka}>{c.aka || c.creator}</option>
             ))}
           </select>
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginLeft: '12px', marginRight: '4px' }}>Topic:</span>
+          {filterBtn('All', 'all', topicFilter, setTopicFilter)}
+          {['Lead', 'Invoice', 'Content', 'Reply', 'Build', 'Internal', 'Scheduling'].map(t =>
+            filterBtn(t, t, topicFilter, setTopicFilter)
+          )}
         </div>
         <Btn variant="primary" size="sm" onClick={runExtractionNow} disabled={extractBusy}>
           {extractBusy ? 'Extracting…' : 'Extract Now'}
@@ -1194,8 +1237,8 @@ export default function InboxAdminPage() {
     )
   }
 
-  // Wider on Messages tab for the two-pane view; narrower on Tasks/Setup for readable cards.
-  const maxWidth = tab === 'chats' ? '1200px' : '900px'
+  // Wider on Messages tab for the two-pane view + Tasks for room to breathe.
+  const maxWidth = tab === 'chats' ? '1200px' : (tab === 'tasks' ? '1200px' : '900px')
 
   const subtitles = {
     tasks: 'Action items extracted from your conversations. Things you (or your team) said you’d do.',
