@@ -132,7 +132,9 @@ export async function PATCH(request, { params }) {
           maxRecords: 1,
         })
         if (fullChat[0]) {
-          extracted = await extractForChat(fullChat[0])
+          // force=true: always extract on Watch click, even if no recent activity
+          // (admin explicitly opted in and wants to see what's there).
+          extracted = await extractForChat(fullChat[0], { force: true })
         }
       } catch (err) {
         console.warn('[inbox/chats/:id] auto-extract on Watch failed:', err.message)

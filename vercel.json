@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/extract-tasks",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/telegram-queue",

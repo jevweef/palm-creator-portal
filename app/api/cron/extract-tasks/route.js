@@ -304,14 +304,51 @@ async function loadMessagesForChat(chat) {
 
 // ─── per-chat extraction (also called by chat PATCH on Watch) ────────
 
-export async function extractForChat(chat, { creatorPhones } = {}) {
+// Set { force: true } to bypass the "no new activity" skip (used by the
+// chat-PATCH endpoint when admin clicks Watch — we always want to extract
+// fresh on opt-in, even for stale chats).
+export async function extractForChat(chat, { creatorPhones, force = false } = {}) {
   if (!chat) return { error: 'no chat' }
-  const stats = { messagesScanned: 0, tasksCreated: 0, tasksUpdated: 0, tasksResolved: 0 }
+  const stats = { messagesScanned: 0, tasksCreated: 0, tasksUpdated: 0, tasksResolved: 0, skipped: false }
 
   const phones = creatorPhones || await loadCreatorPhoneMap()
   const messages = await loadMessagesForChat(chat)
   if (messages.length === 0) return { ...stats, reason: 'no messages' }
   stats.messagesScanned = messages.length
+
+  // SKIP-IF-IDLE optimization (the big cost saver):
+  // If the chat's most recent message timestamp hasn't advanced past the
+  // newest task's Detected At for this chat, AND there are no overdue
+  // open tasks needing re-evaluation, skip the Claude call entirely.
+  // This avoids re-running expensive prompts on chats with no new activity.
+  if (!force) {
+    try {
+      const latestMsgTs = messages.reduce((max, m) => {
+        const t = m.sentAt ? new Date(m.sentAt).getTime() : 0
+        return t > max ? t : max
+      }, 0)
+      const existingOpen = await loadOpenTasksForChat(chat.id)
+      // If we have any tasks at all for this chat, find the newest Detected At.
+      // If chat has no new messages since then, skip.
+      if (existingOpen.length > 0 && latestMsgTs > 0) {
+        // Need full task records to read Detected At — quick refetch
+        const fullTasks = await fetchAirtableRecords(TASKS_TABLE, {
+          filterByFormula: `OR(${existingOpen.map(t => `RECORD_ID()='${t.id}'`).join(',')})`,
+          fields: ['Detected At'],
+        })
+        const newestExtractTs = fullTasks.reduce((max, r) => {
+          const t = r.fields?.['Detected At'] ? new Date(r.fields['Detected At']).getTime() : 0
+          return t > max ? t : max
+        }, 0)
+        if (latestMsgTs <= newestExtractTs) {
+          stats.skipped = true
+          return { ...stats, reason: 'no new activity since last extraction' }
+        }
+      }
+    } catch {
+      // Skip-check failed (e.g. Airtable hiccup) — fall through to full extract.
+    }
+  }
 
   const chatTitle = chat.fields?.Title || '(untitled)'
   const creatorAka = chat.fields?.['Creator AKA'] || null
@@ -470,10 +507,15 @@ export async function GET(request) {
 
     const phones = await loadCreatorPhoneMap()
 
+    let chatsSkippedIdle = 0
     for (const chat of watching) {
       try {
         const r = await extractForChat(chat, { creatorPhones: phones })
-        stats.chatsProcessed++
+        if (r.skipped) {
+          chatsSkippedIdle++
+        } else {
+          stats.chatsProcessed++
+        }
         stats.messagesScanned += r.messagesScanned || 0
         stats.tasksCreated += r.tasksCreated || 0
         stats.tasksUpdated += r.tasksUpdated || 0
@@ -483,6 +525,7 @@ export async function GET(request) {
         stats.errors.push(`${chat.fields?.Title}: ${err.message}`)
       }
     }
+    stats.chatsSkippedIdle = chatsSkippedIdle
 
     return NextResponse.json({ ok: true, stats, durationMs: Date.now() - startTs })
   } catch (err) {
