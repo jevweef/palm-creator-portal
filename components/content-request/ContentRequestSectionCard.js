@@ -43,7 +43,7 @@ export default function ContentRequestSectionCard({
         body: JSON.stringify({ creatorHqId: hqId }),
       })
       if (!tokenRes.ok) throw new Error('Failed to get upload token')
-      const { accessToken, rootNamespaceId, creatorName } = await tokenRes.json()
+      const { accessToken, rootNamespaceId, rootPath, creatorName } = await tokenRes.json()
 
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i]
@@ -51,7 +51,9 @@ export default function ContentRequestSectionCard({
 
         const ext = file.name.split('.').pop()
         const safeName = `${creatorName}_${Date.now()}_${i + 1}.${ext}`
-        const uploadPath = `/Content Requests/${month}/${name}/${safeName}`
+        // Path: /{Creator Root}/Content Requests/{month}/{section}/{filename}
+        // Each creator gets their own folder, organized by month, then by section
+        const uploadPath = `${rootPath}/Content Requests/${month}/${name}/${safeName}`
 
         // Upload to Dropbox
         const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
