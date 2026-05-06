@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import CreatorsCommunication from '@/components/CreatorsCommunication'
 import AISuperClonePanel from './AISuperClonePanel'
 import OffboardModal from '../OffboardModal'
 
@@ -4943,6 +4944,30 @@ export default function CreatorsPage() {
     setCreators(prev => prev.map(c => c.id === creatorId ? { ...c, profileAnalysisStatus: status } : c))
   }
 
+  // Communication routing is a global view (one row per creator), so it
+  // sits alongside the per-creator tabs but skips the dropdown + detail
+  // panel below.
+  if (activeSection === 'communication') {
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
+          {[['earnings', 'Earnings'], ['fans', 'Fans'], ['dna', 'DNA Profile'], ['communication', 'Communication']].map(([key, label]) => (
+            <button key={key} onClick={() => { setActiveSection(key); updateUrl(selected?.id, key) }}
+              style={{
+                padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,
+                color: activeSection === key ? 'var(--foreground)' : 'var(--foreground-subtle)', background: 'none', border: 'none',
+                borderBottom: activeSection === key ? '1px solid var(--palm-pink)' : '2px solid transparent',
+                cursor: 'pointer', marginBottom: '-2px',
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <CreatorsCommunication />
+      </div>
+    )
+  }
+
   return (
     <div>
       {/* Header: dropdown + section buttons */}
@@ -4969,7 +4994,7 @@ export default function CreatorsPage() {
         </select>
         {selected && (
           <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
-            {[['earnings', 'Earnings'], ['fans', 'Fans'], ['dna', 'DNA Profile']].map(([key, label]) => (
+            {[['earnings', 'Earnings'], ['fans', 'Fans'], ['dna', 'DNA Profile'], ['communication', 'Communication']].map(([key, label]) => (
               <button key={key} onClick={() => { setActiveSection(key); updateUrl(selected?.id, key) }}
                 style={{
                   padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,

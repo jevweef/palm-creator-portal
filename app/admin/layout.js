@@ -28,6 +28,7 @@ const ADMIN_NAV = [
   { href: '/admin/creators', label: 'Creators', icon: '🎭', children: [
     { key: 'earnings', label: 'Earnings' },
     { key: 'dna', label: 'DNA Profile' },
+    { key: 'communication', label: 'Communication' },
   ]},
   { href: '/admin/whale-hunting', label: 'Whale Hunting', icon: '🐋', children: [
     { key: 'internal', label: 'Palm Internal' },
