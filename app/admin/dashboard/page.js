@@ -1000,9 +1000,12 @@ export default function AdminDashboard() {
 
   const { revenue, editorRunway, creatorLibrary, pipeline, posting, alerts } = data
 
-  // Sort alerts: red first (low_runway, overdue), then yellow
-  const redAlerts = alerts.filter(a => a.type === 'low_runway' || a.type === 'overdue_invoice')
-  const yellowAlerts = alerts.filter(a => a.type !== 'low_runway' && a.type !== 'overdue_invoice')
+  // Sort alerts: red first (low_runway, overdue), then yellow.
+  // OFTV review-needed alerts are filtered out here — they get their own
+  // prominent banner above this row, so we don't duplicate them.
+  const dedupedAlerts = alerts.filter(a => a.type !== 'new_oftv_final_delivered')
+  const redAlerts = dedupedAlerts.filter(a => a.type === 'low_runway' || a.type === 'overdue_invoice')
+  const yellowAlerts = dedupedAlerts.filter(a => a.type !== 'low_runway' && a.type !== 'overdue_invoice')
   const sortedAlerts = [...redAlerts, ...yellowAlerts]
   const MAX_COLLAPSED_ALERTS = 4
   const visibleAlerts = alertsExpanded ? sortedAlerts : sortedAlerts.slice(0, MAX_COLLAPSED_ALERTS)
@@ -1054,6 +1057,60 @@ export default function AdminDashboard() {
         <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Dashboard</h1>
         <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{formatPeriodLabel(revenue.currentPeriodLabel)}</span>
       </div>
+
+      {/* ─── OFTV REVIEW BANNER ─────────────────────────────────────────
+          Hard-to-miss banner when ≥1 OFTV project is sitting in Final
+          Submitted waiting for admin review. Rendered above the regular
+          alerts feed because the regular alerts get dismissed in the
+          mind as "ambient noise" — this one needs to feel different.
+          Per-project Review buttons deep-link straight into the project's
+          detail modal in /admin/editor?tab=oftv. */}
+      {(() => {
+        const oftvReviews = alerts.filter(a => a.type === 'new_oftv_final_delivered')
+        if (oftvReviews.length === 0) return null
+        return (
+          <div style={{
+            marginBottom: '12px', padding: '14px 18px', borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(232,120,120,0.10), rgba(232,120,120,0.04))',
+            border: '1px solid rgba(232, 120, 120, 0.30)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: '1 1 auto' }}>
+              <span style={{
+                width: '10px', height: '10px', borderRadius: '50%',
+                background: '#E87878', flexShrink: 0,
+                animation: 'oftvBannerPulse 1.4s ease-in-out infinite',
+              }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#E87878' }}>
+                  {oftvReviews.length} OFTV {oftvReviews.length === 1 ? 'cut' : 'cuts'} waiting for your review
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+                  Editors are blocked until you approve or send back. Open each one to watch the cut and decide.
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {oftvReviews.map(p => (
+                <a
+                  key={p.projectId}
+                  href={`/admin/editor?tab=oftv&project=${p.projectId}`}
+                  style={{
+                    padding: '8px 14px', fontSize: '12px', fontWeight: 600,
+                    background: 'rgba(232, 120, 120, 0.18)', color: '#fff',
+                    border: '1px solid rgba(232, 120, 120, 0.45)', borderRadius: '9999px',
+                    textDecoration: 'none', whiteSpace: 'nowrap',
+                  }}
+                  title={`${p.creator || 'Unknown'} · ${p.projectName}${p.revisionCount > 0 ? ` · rev ${p.revisionCount}` : ''}`}
+                >
+                  Review {p.creator ? `${p.creator}'s ` : ''}{p.projectName}
+                </a>
+              ))}
+            </div>
+            <style>{`@keyframes oftvBannerPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }`}</style>
+          </div>
+        )
+      })()}
 
       {/* ─── ALERTS ─── */}
       {sortedAlerts.length > 0 && (

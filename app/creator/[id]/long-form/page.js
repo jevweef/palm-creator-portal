@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { useBackdropDismiss } from '@/lib/useBackdropDismiss'
 import { useToast } from '@/lib/useToast'
@@ -1225,13 +1225,20 @@ function ProjectRow({ project, onClick, onDelete, confirm }) {
 
 export default function LongFormPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const { user } = useUser()
   const creatorOpsId = params?.id
+  // Deep-link from outbound iMessage / Telegram messages:
+  //   /creator/{id}/long-form?project=recXXX
+  // auto-opens that project's detail modal so creator lands directly on
+  // the video + Approve/Request Changes surface.
+  const targetProjectId = searchParams?.get('project') || null
 
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [detail, setDetail] = useState(null)
+  const [autoOpenedFor, setAutoOpenedFor] = useState(null)
   const { toast, ToastViewport } = useToast()
   const { confirm, ConfirmDialog } = useConfirm()
 
@@ -1246,6 +1253,18 @@ export default function LongFormPage() {
   }, [creatorOpsId])
 
   useEffect(() => { load() }, [load])
+
+  // Auto-open the deep-linked project once load completes. Only fires
+  // once per id so closing the modal doesn't reopen it.
+  useEffect(() => {
+    if (!targetProjectId || autoOpenedFor === targetProjectId || loading) return
+    const match = projects.find(p => p.id === targetProjectId)
+    if (match) {
+      setDetail(match)
+      setAutoOpenedFor(targetProjectId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetProjectId, projects, loading])
 
   const refreshDetail = async () => {
     await load()

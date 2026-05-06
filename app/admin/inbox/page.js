@@ -5,7 +5,7 @@
 //
 // Tab convention: ?tab=tasks (default) or ?tab=chats. Sidebar reads same.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { useToast } from '@/lib/useToast'
@@ -293,16 +293,35 @@ function TaskCard({ task, onUpdate, toast }) {
             }
             return null
           })()}
-          <span
-            style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginLeft: 'auto' }}
-            title={task.sourceSentAt
-              ? `Message sent: ${new Date(task.sourceSentAt).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' })}\nDetected: ${task.detectedAt ? new Date(task.detectedAt).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' }) : '?'}`
-              : `Detected: ${task.detectedAt ? new Date(task.detectedAt).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' }) : '?'}`}
-          >
-            {task.sourceSentAt
-              ? new Date(task.sourceSentAt).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
-              : timeAgo(task.detectedAt)}
-          </span>
+          {(() => {
+            // Show explicit date+time. Prefer source-message timestamp;
+            // fall back to detected-at. Tooltip shows both + relative.
+            const primaryIso = task.sourceSentAt || task.detectedAt
+            const isSource = !!task.sourceSentAt
+            const fmtFull = (iso) => iso
+              ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' })
+              : '?'
+            const fmtCompact = (iso) => iso
+              ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+              : '?'
+            return (
+              <span
+                style={{
+                  fontSize: '10px', color: 'var(--foreground-muted)', marginLeft: 'auto',
+                  whiteSpace: 'nowrap',
+                }}
+                title={`Message sent: ${fmtFull(task.sourceSentAt)}\nDetected: ${fmtFull(task.detectedAt)}\n(${timeAgo(primaryIso)})`}
+              >
+                <span style={{ opacity: 0.7, marginRight: '4px' }}>
+                  {isSource ? '✉' : '🔍'}
+                </span>
+                {fmtCompact(primaryIso)}
+                <span style={{ opacity: 0.5, marginLeft: '6px' }}>
+                  · {timeAgo(primaryIso)}
+                </span>
+              </span>
+            )
+          })()}
         </div>
         {/* Source + chat context row — small line below the meta */}
         {(task.chatSource || task.chatTitle) && (
@@ -657,7 +676,31 @@ function TasksTab({ toast }) {
   const [statusFilter, setStatusFilter] = useState('Open')
   const [creatorFilter, setCreatorFilter] = useState('all')
   const [topicFilter, setTopicFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('urgency')
   const [extractBusy, setExtractBusy] = useState(false)
+
+  // Client-side sort. Server already returns Detected-At-desc; we re-order
+  // here so changing the sort doesn't require a refetch.
+  const URGENCY_RANK = { Now: 0, Soon: 1, Later: 2 }
+  const taskTime = (t) => new Date(t.sourceSentAt || t.detectedAt || 0).getTime()
+  const sortedTasks = useMemo(() => {
+    const arr = [...tasks]
+    if (sortBy === 'urgency') {
+      arr.sort((a, b) => {
+        const u = (URGENCY_RANK[a.urgency] ?? 9) - (URGENCY_RANK[b.urgency] ?? 9)
+        if (u !== 0) return u
+        return taskTime(b) - taskTime(a)
+      })
+    } else if (sortBy === 'newest') {
+      arr.sort((a, b) => taskTime(b) - taskTime(a))
+    } else if (sortBy === 'oldest') {
+      arr.sort((a, b) => taskTime(a) - taskTime(b))
+    } else if (sortBy === 'detected') {
+      arr.sort((a, b) =>
+        new Date(b.detectedAt || 0).getTime() - new Date(a.detectedAt || 0).getTime())
+    }
+    return arr
+  }, [tasks, sortBy])
 
   // Load creators once for the filter dropdown
   useEffect(() => {
@@ -762,6 +805,23 @@ function TasksTab({ toast }) {
           {['Lead', 'Invoice', 'Content', 'Reply', 'Build', 'Internal', 'Scheduling'].map(t =>
             filterBtn(t, t, topicFilter, setTopicFilter)
           )}
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginLeft: '12px', marginRight: '4px' }}>Sort:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{
+              padding: '4px 8px', borderRadius: '6px', fontSize: '11px',
+              background: sortBy !== 'urgency' ? 'rgba(232, 160, 160, 0.12)' : 'rgba(255,255,255,0.03)',
+              color: sortBy !== 'urgency' ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+              border: `1px solid ${sortBy !== 'urgency' ? 'rgba(232, 160, 160, 0.3)' : 'rgba(255,255,255,0.06)'}`,
+              cursor: 'pointer', outline: 'none', fontWeight: 600,
+            }}
+          >
+            <option value="urgency">Urgency (Now first)</option>
+            <option value="newest">Newest message</option>
+            <option value="oldest">Oldest message</option>
+            <option value="detected">Recently detected</option>
+          </select>
         </div>
         <Btn variant="primary" size="sm" onClick={runExtractionNow} disabled={extractBusy}>
           {extractBusy ? 'Extracting…' : 'Extract Now'}
@@ -780,7 +840,7 @@ function TasksTab({ toast }) {
           </div>
         </div>
       ) : (
-        tasks.map(t => <TaskCard key={t.id} task={t} onUpdate={refresh} toast={toast} />)
+        sortedTasks.map(t => <TaskCard key={t.id} task={t} onUpdate={refresh} toast={toast} />)
       )}
     </div>
   )

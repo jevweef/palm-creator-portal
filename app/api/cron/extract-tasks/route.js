@@ -654,7 +654,20 @@ export async function extractForChat(chat, { creatorPhones, vocab, feedbackBlock
     }
 
     const existing = openByKey.get(t.sourceMessageKey)
-    const sourceMsg = keyToMsg.get(t.sourceMessageKey)
+    // Resolve the source message. Sonnet usually returns the exact messageKey
+    // from the prompt, but occasionally fabricates/garbles one. Fall back to
+    // matching the source quote text, then to the most recent message in the
+    // window so Source Sent At always gets populated.
+    let sourceMsg = keyToMsg.get(t.sourceMessageKey)
+    if (!sourceMsg && t.sourceQuote) {
+      const snip = String(t.sourceQuote).slice(0, 50).toLowerCase().trim()
+      if (snip) {
+        sourceMsg = messages.find(m => m.text && m.text.toLowerCase().includes(snip))
+      }
+    }
+    if (!sourceMsg && messages.length > 0) {
+      sourceMsg = messages[messages.length - 1]
+    }
     const fields = {
       Task: String(t.task).slice(0, 200),
       'Source Quote': String(t.sourceQuote || '').slice(0, 1000),

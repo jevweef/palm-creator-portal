@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { currentUser } from '@clerk/nextjs/server'
 import { STATUSES } from '@/lib/oftvWorkflow'
 import { notifyOftv, lookupCreatorAka } from '@/lib/oftvTelegram'
+import { notifyCreatorByMessage } from '@/lib/oftvCreatorMessaging'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -68,6 +69,17 @@ export async function POST(_request, { params }) {
     creator: aka,
     projectName: record.fields?.['Project Name'],
     projectId: id,
+  }).catch(() => {})
+
+  // iMessage the creator directly. First draft (revisionCount === 0) gets
+  // first-cut copy; later approvals get "new version" copy. Fire-and-forget
+  // — text is a nudge, not load-bearing.
+  notifyCreatorByMessage({
+    event: 'admin_approved',
+    creatorOpsId,
+    projectId: id,
+    projectName: record.fields?.['Project Name'],
+    isFirstDraft: (record.fields?.['Revision Count'] || 0) === 0,
   }).catch(() => {})
 
   return NextResponse.json({ ok: true, status: STATUSES.SENT_TO_CREATOR })

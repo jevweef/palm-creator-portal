@@ -1,9 +1,11 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { clerkMiddleware, createRouteMatcher, clerkClient } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 
 // Public routes that don't require auth
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/not-authorized(.*)',
   '/onboarding',
   '/api/webhooks(.*)',
   '/api/onboarding/validate-token(.*)',
@@ -28,10 +30,46 @@ const isPublicRoute = createRouteMatcher([
   '/demo(.*)',
 ])
 
-export default clerkMiddleware((auth, req) => {
+// Routes a signed-in user with no role can still hit (so they can finish
+// onboarding via the tokenized link, or sign out from the holding page).
+const isRoleExemptRoute = createRouteMatcher([
+  '/not-authorized(.*)',
+  '/onboarding(.*)',
+  '/api/onboarding(.*)',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+])
+
+export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) return
 
-  auth().protect()
+  const { userId } = auth().protect()
+
+  // Defense in depth: any signed-in user with no role gets bounced to a
+  // holding page. New self-serve sign-ups land here with no metadata.role —
+  // we don't want them seeing the inspo board, dashboard, etc.
+  // Roles are set via Clerk publicMetadata when an admin links the account
+  // to a creator/editor/chat_manager record (or grants admin).
+  // Note: sessionClaims doesn't reliably include publicMetadata in Clerk v5
+  // without custom JWT template config, so we fetch the user inline.
+  if (!isRoleExemptRoute(req) && userId) {
+    try {
+      const user = await clerkClient().users.getUser(userId)
+      const role = user?.publicMetadata?.role
+      if (!role) {
+        const url = req.nextUrl.clone()
+        url.pathname = '/not-authorized'
+        url.search = ''
+        return NextResponse.redirect(url)
+      }
+    } catch (err) {
+      // If Clerk user lookup fails for any reason, fail open for now —
+      // we don't want to lock everyone out of the portal during an outage.
+      // The page-level checks in app/page.js and per-section layouts still
+      // do role-based routing.
+      console.error('[middleware] role check failed', err)
+    }
+  }
 })
 
 export const config = {
