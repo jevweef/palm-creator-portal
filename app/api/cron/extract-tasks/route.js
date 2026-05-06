@@ -821,7 +821,11 @@ export async function GET(request) {
     for (const chat of watching) {
       try {
         const r = await extractForChat(chat, { creatorPhones: phones, vocab, feedbackBlock, bypassCooldown })
-        if (r.skipped) {
+        // Bucket the outcome. Errors win — if a chat had error, count it
+        // ONLY in errors[], not also as idle (that double-counted in toast).
+        if (r.error) {
+          stats.errors.push(`${chat.fields?.Title}: ${r.error}`)
+        } else if (r.skipped) {
           if (r.skipReason === 'frequency=Off') stats.chatsSkippedOff++
           else if (r.skipReason?.startsWith('cooldown')) stats.chatsSkippedCooldown++
           else if (r.skipReason === 'no business signal') stats.chatsSkippedNoBusiness++
@@ -833,7 +837,6 @@ export async function GET(request) {
         stats.tasksCreated += r.tasksCreated || 0
         stats.tasksUpdated += r.tasksUpdated || 0
         stats.tasksResolved += r.tasksResolved || 0
-        if (r.error) stats.errors.push(`${chat.fields?.Title}: ${r.error}`)
       } catch (err) {
         stats.errors.push(`${chat.fields?.Title}: ${err.message}`)
       }

@@ -37,7 +37,7 @@ export async function GET(request) {
       // active management status. Filter loose here, callers can scope
       // to a single creator with the param above.
       filterByFormula: '{Status}!=BLANK()',
-      fields: ['AKA', 'Communication Name', 'Status', 'HQ Record ID', 'OFTV Notification Chat'],
+      fields: ['AKA', 'Communication Name', 'Status', 'HQ Record ID', 'Communication Chat'],
     })
   } catch (err) {
     return NextResponse.json({ error: 'Airtable fetch failed', detail: err.message }, { status: 500 })
