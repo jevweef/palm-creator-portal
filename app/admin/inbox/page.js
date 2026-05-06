@@ -738,17 +738,39 @@ function TasksTab({ toast }) {
       if (!res.ok) {
         toast(`Extract failed: ${j.error || res.statusText}`, 'error')
       } else {
-        const created = j.stats?.tasksCreated || 0
-        const chats = j.stats?.chatsProcessed || 0
-        const scanned = j.stats?.messagesScanned || 0
-        toast(
-          created > 0
-            ? `Extracted ${created} task${created === 1 ? '' : 's'} from ${chats} chat${chats === 1 ? '' : 's'}`
-            : scanned === 0
-              ? 'No new messages to scan'
-              : `Scanned ${scanned} message${scanned === 1 ? '' : 's'} across ${chats} chat${chats === 1 ? '' : 's'} — nothing actionable`,
-          created > 0 ? 'success' : 'info'
-        )
+        const s = j.stats || {}
+        const created = s.tasksCreated || 0
+        const updated = s.tasksUpdated || 0
+        const resolved = s.tasksResolved || 0
+        const processed = s.chatsProcessed || 0
+        const idle = s.chatsSkippedIdle || 0
+        const noBiz = s.chatsSkippedNoBusiness || 0
+        const off = s.chatsSkippedOff || 0
+        const total = s.watchingChatsTotal || 0
+        const errs = (s.errors || []).length
+
+        if (created + updated + resolved > 0) {
+          const parts = []
+          if (created) parts.push(`${created} new`)
+          if (updated) parts.push(`${updated} updated`)
+          if (resolved) parts.push(`${resolved} resolved`)
+          toast(`✓ ${parts.join(', ')} (${processed} of ${total} chat${total === 1 ? '' : 's'} processed)`, 'success')
+        } else {
+          // Nothing changed — explain WHY, not just "nothing actionable"
+          const reasons = []
+          if (idle) reasons.push(`${idle} had no new messages`)
+          if (noBiz) reasons.push(`${noBiz} had no business signals`)
+          if (off) reasons.push(`${off} marked Off`)
+          if (errs) reasons.push(`${errs} errored`)
+          const detail = reasons.length > 0 ? ` — ${reasons.join(', ')}` : ''
+          const ranSonnet = processed > 0
+          toast(
+            ranSonnet
+              ? `Looked at ${total} chat${total === 1 ? '' : 's'}${detail} — Sonnet ran on ${processed} but found nothing actionable`
+              : `Checked ${total} chat${total === 1 ? '' : 's'}${detail} — nothing new`,
+            'info'
+          )
+        }
         refresh()
       }
     } finally {

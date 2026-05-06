@@ -14,10 +14,14 @@ export async function POST(request) {
   if (auth instanceof NextResponse) return auth
 
   // Inject the bearer header so the underlying handler's auth check passes.
+  // Add ?bypassCooldown=true — manual button means "look right now even if
+  // Daily chats are mid-cooldown" (still respects skip-if-idle + filter).
   const cronSecret = process.env.CRON_SECRET
   const proxyHeaders = new Headers(request.headers)
   if (cronSecret) proxyHeaders.set('authorization', `Bearer ${cronSecret}`)
-  const proxyReq = new Request(request.url, { method: 'GET', headers: proxyHeaders })
+  const proxyUrl = new URL(request.url)
+  proxyUrl.searchParams.set('bypassCooldown', 'true')
+  const proxyReq = new Request(proxyUrl.toString(), { method: 'GET', headers: proxyHeaders })
 
   return runExtractor(proxyReq)
 }
