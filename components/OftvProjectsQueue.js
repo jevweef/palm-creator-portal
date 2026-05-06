@@ -434,9 +434,10 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
     }
   }
 
-  // Manual fire of the creator iMessage. Use case: cut was sent to creator
-  // before Communication Chat was set, or admin wants to re-poke a creator
-  // who hasn't responded. Hits the inferred event automatically.
+  // Manual fire — sends immediately on click. Preview-modal version is
+  // built (endpoint at /notify-creator/preview returns dry-run + message
+  // text) but not wired into the UI yet; admin asked to test the direct
+  // send first. Add the modal flow when you want eyes-on confirmation.
   const notifyCreator = async () => {
     setReviewing(true)
     try {
