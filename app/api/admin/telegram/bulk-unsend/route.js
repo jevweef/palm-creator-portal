@@ -77,30 +77,51 @@ export async function POST(request) {
       const useSmm = !!smmTopicId
       const chatId = useSmm ? TELEGRAM_SMM_GROUP_CHAT_ID : TELEGRAM_CHAT_ID
 
-      // Try to delete the Telegram message. If we don't have a Message ID
-      // (older sends pre-dating that field, or media-group sends where the
-      // ID wasn't captured), skip the delete and just requeue — operator
-      // will need to manually delete from Telegram.
-      if (messageId && chatId) {
-        try {
-          const delRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/deleteMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, message_id: parseInt(messageId) }),
-          })
-          const delData = await delRes.json()
-          if (delData.ok) {
-            results.deleted++
-          } else {
-            // Common failures: 'message to delete not found' (already deleted),
-            // 'message can't be deleted' (older than 48h). Either way, proceed
-            // to requeue — the message either isn't there or we can't touch it.
-            results.deleteFailed++
-            results.errors.push({ postId: p.id, kind: 'delete', error: delData.description || 'unknown' })
+      // Each post is a sendMediaGroup of 2 messages (video + thumbnail-as-photo).
+      // New format: 'Telegram Message ID' is comma-separated for both items.
+      // Legacy format: only the video ID was stored — for those, also try
+      // videoId+1 because sendMediaGroup assigns sequential message_ids to
+      // its items in order, so the orphan thumbnail photo lives at video+1.
+      // Without this, bulk-unsend deletes the video and leaves the thumbnail
+      // photo as a confusing orphan in the chat.
+      let idsToDelete = []
+      if (typeof messageId === 'string' && messageId.includes(',')) {
+        idsToDelete = messageId.split(',').map(s => s.trim()).filter(Boolean)
+      } else if (messageId) {
+        const baseId = parseInt(messageId)
+        if (!isNaN(baseId)) {
+          idsToDelete = [String(baseId), String(baseId + 1)]
+        }
+      }
+
+      if (idsToDelete.length && chatId) {
+        let anyDeleted = false
+        let firstError = null
+        for (const id of idsToDelete) {
+          try {
+            const delRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/deleteMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: chatId, message_id: parseInt(id) }),
+            })
+            const delData = await delRes.json()
+            if (delData.ok) {
+              anyDeleted = true
+            } else if (!firstError) {
+              // Common: 'message to delete not found' (already gone),
+              // 'message can't be deleted' (>48h old). One of these per group
+              // member is normal when only one of the two was actually present.
+              firstError = delData.description || 'unknown'
+            }
+          } catch (e) {
+            if (!firstError) firstError = e.message
           }
-        } catch (e) {
+        }
+        if (anyDeleted) {
+          results.deleted++
+        } else {
           results.deleteFailed++
-          results.errors.push({ postId: p.id, kind: 'delete', error: e.message })
+          results.errors.push({ postId: p.id, kind: 'delete', error: firstError || 'all deletes failed' })
         }
       } else {
         results.deleteFailed++

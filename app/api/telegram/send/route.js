@@ -533,17 +533,19 @@ async function doSend(params) {
       }
     }
 
-    // Extract message ID (sendMediaGroup returns array, others return single message)
-    const messageId = Array.isArray(result.result)
-      ? result.result[0]?.message_id
-      : result.result?.message_id
+    // Extract message IDs. sendMediaGroup returns an array (video + thumbnail-as-photo);
+    // store ALL IDs comma-separated so bulk-unsend can clean up the entire group,
+    // not just the first message. Other send types return a single message.
+    const messageIds = Array.isArray(result.result)
+      ? result.result.map(m => m?.message_id).filter(Boolean).join(',')
+      : (result.result?.message_id ? String(result.result.message_id) : '')
 
     // Stamp the Post record — also save caption/hashtags/platform/date in case user didn't Save first
     if (postId) {
       await patchAirtableRecord('Posts', postId, {
         'Status': 'Sent to Telegram',
         'Telegram Sent At': new Date().toISOString(),
-        ...(messageId ? { 'Telegram Message ID': String(messageId) } : {}),
+        ...(messageIds ? { 'Telegram Message ID': messageIds } : {}),
         ...(rawCaption ? { 'Caption': rawCaption } : {}),
         ...(rawHashtags ? { 'Hashtags': rawHashtags } : {}),
         ...(platform?.length ? { 'Platform': platform } : {}),
