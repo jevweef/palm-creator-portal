@@ -414,6 +414,38 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
     }
   }
 
+  // Manual fire of the creator iMessage. Use case: cut was sent to creator
+  // before Communication Chat was set, or admin wants to re-poke a creator
+  // who hasn't responded. Hits the inferred event automatically.
+  const notifyCreator = async () => {
+    setReviewing(true)
+    try {
+      const res = await fetch(`/api/admin/oftv-projects/${project.id}/notify-creator`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        toast?.(data.error || 'Send failed', 'error')
+        return
+      }
+      const r = data.result || {}
+      if (r.sent) {
+        toast?.(`Sent to ${r.chatTitle || r.name || 'creator'}`, 'success')
+      } else if (r.skipped) {
+        const reasonLabel = {
+          'daemon-not-configured': 'iMessage daemon isn\'t configured (DAEMON_URL env)',
+          'no-watched-chat': 'No master chat assigned for this creator. Set one in Creators → Communication.',
+          'no-hq-id-and-no-override': 'Creator has no HQ Record ID — run inbox sync first.',
+        }[r.reason] || `Skipped: ${r.reason}`
+        toast?.(reasonLabel, 'warning', { duration: 7000 })
+      } else if (r.error) {
+        toast?.(`Daemon error: ${r.error}`, 'error')
+      }
+    } catch (e) {
+      toast?.(e.message || 'Send failed', 'error')
+    } finally {
+      setReviewing(false)
+    }
+  }
+
   const syncFiles = async () => {
     try {
       const res = await fetch(`/api/admin/oftv-projects/${project.id}/sync`, { method: 'POST' })
@@ -820,9 +852,25 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
                 marginTop: '12px', padding: '12px 14px', borderRadius: '10px',
                 background: 'rgba(120, 200, 220, 0.06)', border: '1px solid rgba(120, 200, 220, 0.20)',
                 fontSize: '12px', color: 'var(--foreground)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap',
               }}>
-                <strong style={{ color: '#78D4E8' }}>Sent to creator</strong> — waiting for {creatorName || 'them'} to approve or request changes.
-                {project.sentToCreatorAt && <span style={{ color: 'var(--foreground-muted)' }}> · Sent {fmtDate(project.sentToCreatorAt)}</span>}
+                <div>
+                  <strong style={{ color: '#78D4E8' }}>Sent to creator</strong> — waiting for {creatorName || 'them'} to approve or request changes.
+                  {project.sentToCreatorAt && <span style={{ color: 'var(--foreground-muted)' }}> · Sent {fmtDate(project.sentToCreatorAt)}</span>}
+                </div>
+                {/* Manual fire of the iMessage to the creator's master chat.
+                    Use case: cut was approved before Communication Chat was
+                    set, or just want to re-poke them with the same link. */}
+                <button
+                  onClick={notifyCreator}
+                  disabled={reviewing}
+                  style={{
+                    padding: '7px 14px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap',
+                    background: 'rgba(120, 200, 220, 0.15)', color: '#78D4E8',
+                    border: '1px solid rgba(120, 200, 220, 0.35)', borderRadius: '9999px',
+                    cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.5 : 1,
+                  }}
+                >📨 {reviewing ? 'Sending…' : `Notify ${creatorName || 'creator'}`}</button>
               </div>
             )}
             {project.status === STATUSES.APPROVED && (
