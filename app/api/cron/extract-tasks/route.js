@@ -47,7 +47,12 @@ const TASKS_TABLE = 'Inbox Tasks'
 // activity. Existing open tasks are sent alongside, so Claude can detect
 // resolution of older items by their stored quote — doesn't need to re-see
 // the original message to know it's resolved by a new "got it".
-const MESSAGES_PER_CHAT = 15
+//
+// TEMPORARY: bumped 15 → 100 for a one-time backfill to recover the 22h
+// of iMessage activity lost during the May 5 FDA outage. REVERT to 15
+// after the next Extract Now click completes, before the hourly cron
+// starts paying for 100-msg contexts on every run.
+const MESSAGES_PER_CHAT = 100
 
 // Cooldowns (in minutes). Chat is gated out of this cron tick if Last
 // Extracted At is within these windows. Tuned conservatively — the cron
