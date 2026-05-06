@@ -520,7 +520,7 @@ async function loadMessagesForChat(chat) {
 // Set { force: true } to bypass ALL gates (cooldown, skip-if-idle, business
 // filter). Used by chat-PATCH on Watch click and by the manual Refresh
 // button — admin explicitly opted in.
-export async function extractForChat(chat, { creatorPhones, vocab, feedbackBlock, force = false } = {}) {
+export async function extractForChat(chat, { creatorPhones, vocab, feedbackBlock, force = false, bypassCooldown = false } = {}) {
   if (!chat) return { error: 'no chat' }
   const stats = {
     messagesScanned: 0,
@@ -532,7 +532,11 @@ export async function extractForChat(chat, { creatorPhones, vocab, feedbackBlock
   }
 
   // ── Gate 1: frequency cooldown
-  if (!force) {
+  // `force` (chat-PATCH/Watch click) bypasses everything.
+  // `bypassCooldown` (manual Extract Now) bypasses ONLY this gate, but
+  // still respects skip-if-idle + business filter — no point burning
+  // Sonnet tokens on chats with truly no new messages.
+  if (!force && !bypassCooldown) {
     const freq = chatFrequency(chat)
     if (freq === 'Off') {
       return { ...stats, skipped: true, skipReason: 'frequency=Off' }
@@ -541,6 +545,10 @@ export async function extractForChat(chat, { creatorPhones, vocab, feedbackBlock
     if (msSinceLastExtract(chat) < cooldownMs) {
       return { ...stats, skipped: true, skipReason: `cooldown ${freq}` }
     }
+  }
+  // Even with bypassCooldown, respect frequency=Off (user's explicit "don't").
+  if (!force && bypassCooldown && chatFrequency(chat) === 'Off') {
+    return { ...stats, skipped: true, skipReason: 'frequency=Off' }
   }
 
   // From here on, this counts as "the cron looked at this chat" — we'll
@@ -792,9 +800,14 @@ export async function GET(request) {
       loadFeedbackBlock(),
     ])
 
+    // Manual Extract Now button passes ?bypassCooldown=true so it actually
+    // does something even when Daily chats are in their 23h cooldown.
+    const url = new URL(request.url)
+    const bypassCooldown = url.searchParams.get('bypassCooldown') === 'true'
+
     for (const chat of watching) {
       try {
-        const r = await extractForChat(chat, { creatorPhones: phones, vocab, feedbackBlock })
+        const r = await extractForChat(chat, { creatorPhones: phones, vocab, feedbackBlock, bypassCooldown })
         if (r.skipped) {
           if (r.skipReason === 'frequency=Off') stats.chatsSkippedOff++
           else if (r.skipReason?.startsWith('cooldown')) stats.chatsSkippedCooldown++
