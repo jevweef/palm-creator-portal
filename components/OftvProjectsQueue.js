@@ -348,15 +348,35 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
   const approveFinal = async () => {
     const ok = await confirm({
       title: 'Approve and send to creator?',
-      message: `${creatorName || 'The creator'} will see this final cut on their dashboard and can mark it complete or request changes.`,
+      message: `${creatorName || 'The creator'} will see this final cut on their dashboard and get an iMessage to their group chat with the link. They can then mark it complete or request changes.`,
       confirmLabel: 'Approve & Send',
     })
     if (!ok) return
     setReviewing(true)
     try {
       const res = await fetch(`/api/admin/oftv-projects/${project.id}/approve`, { method: 'POST' })
-      if (!res.ok) throw new Error((await res.json()).error || 'Approve failed')
-      toast?.('Sent to creator', 'success')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Approve failed')
+
+      // Build a single combined toast that tells admin BOTH that the
+      // status flipped AND whether the iMessage actually went out. Avoids
+      // double toasts but keeps both signals visible.
+      const cm = data.creatorMessage || {}
+      if (cm.sent) {
+        toast?.(`Sent to creator · iMessage to ${cm.chatTitle || cm.name || 'group chat'}`, 'success', { duration: 5000 })
+      } else if (cm.skipped) {
+        const reasonLabel = {
+          'daemon-not-configured': 'iMessage daemon offline (no DAEMON_URL)',
+          'no-watched-chat': 'no master chat assigned — set in Creators → Communication',
+          'no-hq-id-and-no-override': 'creator has no HQ Record ID',
+        }[cm.reason] || cm.reason
+        toast?.(`Sent to creator · iMessage skipped (${reasonLabel})`, 'warning', { duration: 7000 })
+      } else if (cm.error) {
+        toast?.(`Sent to creator · iMessage failed: ${cm.error}`, 'error', { duration: 7000 })
+      } else {
+        toast?.('Sent to creator', 'success')
+      }
+
       onUpdate({ ...project, status: STATUSES.SENT_TO_CREATOR })
       setStatus(STATUSES.SENT_TO_CREATOR)
     } catch (e) {

@@ -64,6 +64,7 @@ export async function POST(_request, { params }) {
 
   const creatorOpsId = (record.fields?.['Creator'] || [])[0]
   const aka = await lookupCreatorAka(creatorOpsId)
+  // Telegram is fire-and-forget (admin awareness, can fail silently).
   notifyOftv({
     event: 'admin_approved',
     creator: aka,
@@ -71,16 +72,26 @@ export async function POST(_request, { params }) {
     projectId: id,
   }).catch(() => {})
 
-  // iMessage the creator directly. First draft (revisionCount === 0) gets
-  // first-cut copy; later approvals get "new version" copy. Fire-and-forget
-  // — text is a nudge, not load-bearing.
-  notifyCreatorByMessage({
-    event: 'admin_approved',
-    creatorOpsId,
-    projectId: id,
-    projectName: record.fields?.['Project Name'],
-    isFirstDraft: (record.fields?.['Revision Count'] || 0) === 0,
-  }).catch(() => {})
+  // iMessage to the creator we DO await — admin needs to know whether
+  // the creator actually got pinged. The result comes back to the
+  // approve UI which surfaces it in a toast so admin sees "Sent to
+  // creator + notified Taby's group" instead of guessing.
+  let creatorMessage = { skipped: true, reason: 'unknown' }
+  try {
+    creatorMessage = await notifyCreatorByMessage({
+      event: 'admin_approved',
+      creatorOpsId,
+      projectId: id,
+      projectName: record.fields?.['Project Name'],
+      isFirstDraft: (record.fields?.['Revision Count'] || 0) === 0,
+    })
+  } catch (err) {
+    creatorMessage = { error: err.message }
+  }
 
-  return NextResponse.json({ ok: true, status: STATUSES.SENT_TO_CREATOR })
+  return NextResponse.json({
+    ok: true,
+    status: STATUSES.SENT_TO_CREATOR,
+    creatorMessage,
+  })
 }
