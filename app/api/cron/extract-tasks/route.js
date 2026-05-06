@@ -476,6 +476,13 @@ async function loadOpenTasksForChat(chatRecordId) {
 }
 
 // Pull messages for a chat. iMessage → daemon (live). Telegram → Airtable.
+// Returns:
+//   - array of message objects (possibly empty []) on success
+//   - null when the daemon was unreachable — caller MUST NOT stamp
+//     Last Extracted At, otherwise the next run will think the chat
+//     was already processed (this is exactly how the FDA-outage bug
+//     happened: cron stamped during 22h of broken daemon, then
+//     skip-if-idle blocked all the recovered messages once FDA returned)
 async function loadMessagesForChat(chat) {
   const source = chat.fields?.Source || 'telegram'
   const chatId = chat.fields?.['Chat ID']
@@ -483,7 +490,7 @@ async function loadMessagesForChat(chat) {
 
   if (source === 'imessage' && isDaemonConfigured()) {
     const dmsgs = await fetchDaemonMessages(chatId, MESSAGES_PER_CHAT)
-    if (!dmsgs) return []
+    if (dmsgs == null) return null  // daemon FAIL — caller must NOT stamp
     return dmsgs.map(d => ({
       messageKey: d.messageKey,
       text: d.text || '',
@@ -552,9 +559,15 @@ export async function extractForChat(chat, { creatorPhones, vocab, feedbackBlock
   }
 
   // From here on, this counts as "the cron looked at this chat" — we'll
-  // stamp Last Extracted At at the end regardless of outcome.
+  // stamp Last Extracted At at the end regardless of outcome…
+  // EXCEPT when the daemon is unreachable (returns null). In that case
+  // we did NOT actually look — so don't stamp, otherwise next run will
+  // skip-if-idle these messages once the daemon recovers.
   const phones = creatorPhones || await loadCreatorPhoneMap()
   const messages = await loadMessagesForChat(chat)
+  if (messages === null) {
+    return { ...stats, skipped: true, skipReason: 'daemon unreachable', error: 'daemon down' }
+  }
   if (messages.length === 0) {
     await stampExtracted(chat.id)
     return { ...stats, skipped: true, skipReason: 'no messages' }
