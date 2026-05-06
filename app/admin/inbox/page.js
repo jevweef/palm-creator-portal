@@ -1006,21 +1006,97 @@ function MessageBubble({ msg, prevMsg, isGroup }) {
       )}
       <div style={{
         display: 'flex',
-        justifyContent: isFromMe ? 'flex-end' : 'flex-start',
+        flexDirection: 'column',
+        alignItems: isFromMe ? 'flex-end' : 'flex-start',
         marginBottom: '3px',
         padding: '0 8px',
+        gap: '3px',
       }}>
-        <div style={{
-          maxWidth: '70%',
-          padding: '8px 13px',
-          borderRadius: '18px',
-          background: isFromMe ? '#0B84FE' : 'rgba(255,255,255,0.08)',
-          color: isFromMe ? '#fff' : 'var(--foreground)',
-          fontSize: '14px', lineHeight: 1.35,
-          wordBreak: 'break-word', whiteSpace: 'pre-wrap',
-        }}>
-          {msg.text || (msg.hasMedia ? `[${msg.mediaType || 'media'}]` : '[empty]')}
-        </div>
+        {/* Inline image attachments. Other types fall back to a generic
+            file pill below. iMessage attachments come from the daemon
+            with stable guids; <img src> hits our server proxy which
+            streams from the Mac. */}
+        {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: '4px',
+            maxWidth: '70%',
+          }}>
+            {msg.attachments.map((att, i) => {
+              if (!att.guid) return null
+              const src = `/api/admin/inbox/attachment?guid=${encodeURIComponent(att.guid)}`
+              if (att.kind === 'image') {
+                return (
+                  <a key={att.guid + i} href={src} target="_blank" rel="noreferrer">
+                    <img
+                      src={src}
+                      alt={att.transferName || 'image'}
+                      style={{
+                        maxWidth: '100%', maxHeight: '300px',
+                        borderRadius: '14px',
+                        display: 'block',
+                        background: 'rgba(255,255,255,0.04)',
+                      }}
+                      loading="lazy"
+                    />
+                  </a>
+                )
+              }
+              if (att.kind === 'video') {
+                return (
+                  <video
+                    key={att.guid + i}
+                    src={src}
+                    controls
+                    preload="metadata"
+                    style={{
+                      maxWidth: '100%', maxHeight: '300px',
+                      borderRadius: '14px',
+                      background: '#000',
+                    }}
+                  />
+                )
+              }
+              // Audio + generic file → pill link
+              return (
+                <a
+                  key={att.guid + i}
+                  href={src}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 12px', borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: 'var(--foreground)',
+                    fontSize: '12px', textDecoration: 'none',
+                  }}
+                >
+                  📎 {att.transferName || att.kind || 'attachment'}
+                  {att.sizeBytes ? (
+                    <span style={{ opacity: 0.6 }}>
+                      · {(att.sizeBytes / 1024).toFixed(0)} KB
+                    </span>
+                  ) : null}
+                </a>
+              )
+            })}
+          </div>
+        )}
+        {/* Text bubble — only render if there's text, OR if there's no
+            attachment at all (so we don't show "[media]" alongside an image). */}
+        {(msg.text || (msg.hasMedia && (!msg.attachments || msg.attachments.length === 0))) && (
+          <div style={{
+            maxWidth: '70%',
+            padding: '8px 13px',
+            borderRadius: '18px',
+            background: isFromMe ? '#0B84FE' : 'rgba(255,255,255,0.08)',
+            color: isFromMe ? '#fff' : 'var(--foreground)',
+            fontSize: '14px', lineHeight: 1.35,
+            wordBreak: 'break-word', whiteSpace: 'pre-wrap',
+          }}>
+            {msg.text || `[${msg.mediaType || 'media'}]`}
+          </div>
+        )}
       </div>
     </>
   )

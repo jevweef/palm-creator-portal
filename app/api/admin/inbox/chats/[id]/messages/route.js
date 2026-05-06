@@ -31,6 +31,8 @@ function shapeAirtableMessage(r) {
     mediaType: r.fields?.['Media Type'] || null,
     source: r.fields?.['Source'] || 'telegram',
     isFromMe: US_USERNAMES.has(username),
+    // No attachments stored in Airtable — only the daemon path includes them
+    attachments: [],
   }
 }
 
@@ -46,6 +48,10 @@ function shapeDaemonMessage(d) {
     mediaType: d.mediaType,
     source: 'imessage',
     isFromMe: !!d.isFromMe,
+    // Attachments come straight from chat.db via the daemon. Browser will
+    // load each via /api/admin/inbox/attachment?guid=XXX (server-side proxy
+    // injects the daemon secret).
+    attachments: Array.isArray(d.attachments) ? d.attachments : [],
   }
 }
 
