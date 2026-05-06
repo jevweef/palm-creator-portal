@@ -11,6 +11,7 @@ import {
 import { createDropboxFileRequest } from '@/lib/dropboxFileRequests'
 import { STATUSES, STATUSES_THAT_AUTO_FLIP_TO_FINAL } from '@/lib/oftvWorkflow'
 import { notifyOftv, lookupCreatorAka } from '@/lib/oftvTelegram'
+import { notifyCreatorByMessage } from '@/lib/oftvCreatorMessaging'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -183,6 +184,20 @@ export async function GET(request, { params }) {
           assignedEditor: record.fields?.['Assigned Editor'],
           revisionCount: prevCount,
         }).catch(() => {})
+
+        // When skipping the admin gate (creator revision → straight to
+        // creator), also iMessage the creator so they know a new version
+        // is waiting. Admin-gated path doesn't text — admin still has to
+        // approve before creator should hear anything.
+        if (fromCreatorRevision) {
+          notifyCreatorByMessage({
+            event: 'revised_cut_to_creator',
+            creatorOpsId: (record.fields?.['Creator'] || [])[0],
+            projectId: record.id,
+            projectName: record.fields?.['Project Name'],
+            isFirstDraft: false,
+          }).catch(() => {})
+        }
       } catch (err) {
         console.warn('[oftv/final] auto-flip failed:', err.message)
       }
