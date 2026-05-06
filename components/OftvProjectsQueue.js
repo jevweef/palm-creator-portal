@@ -199,7 +199,11 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectNotes, setRejectNotes] = useState('')
   const [filesExpanded, setFilesExpanded] = useState(false)
-  const COLLAPSED_FILE_COUNT = 5
+  // Source files now start fully collapsed — admin and editor both see
+  // a one-line "Source Files (10) ▾" toggle. Click reveals the full list.
+  // Long-form projects routinely carry 60+ raw clips; even 5-by-default
+  // pushed the actionable parts of the modal off-screen.
+  const COLLAPSED_FILE_COUNT = 0
   // Pre-loaded streaming src for the latest delivered cut. Used by the
   // top-of-modal Revision Banner so the editor (or admin) sees the video
   // immediately when reviewing creator/admin feedback.
@@ -569,7 +573,11 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
             </div>
           )}
 
-          {project.instructions && (
+          {/* Project brief at top — editor needs to read before editing.
+              For admin, the brief moves below the editor's submission so
+              the actionable cut is what they see first (rendered later in
+              this body). */}
+          {!isAdmin && project.instructions && (
             <div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>This Project's Brief</div>
               <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', background: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '10px' }}>
@@ -681,47 +689,92 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
             }}>Recount files</button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            <div>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Status</label>
-              <select value={status} onChange={e => setStatus(e.target.value)} style={{
-                width: '100%', padding: '10px 12px', fontSize: '13px',
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
-              }}>
-                {ALL_STATUSES.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+          {/* Status + Assigned Editor — admin-only manual override controls.
+              Editor doesn't reassign herself or flip status; the workflow
+              moves automatically. Hidden from her view to keep things
+              focused on the work. */}
+          {isAdmin && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Status</label>
+                <select value={status} onChange={e => setStatus(e.target.value)} style={{
+                  width: '100%', padding: '10px 12px', fontSize: '13px',
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
+                }}>
+                  {ALL_STATUSES.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Assigned Editor</label>
+                <input value={assignedEditor} onChange={e => setAssignedEditor(e.target.value)} placeholder="Editor name" style={{
+                  width: '100%', padding: '10px 12px', fontSize: '13px',
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
+                }} />
+              </div>
             </div>
+          )}
+
+          {/* Editor Notes — writable for editor, read-only display for
+              admin (only shown when there are notes; admin doesn't write
+              here). Notes are the editor's progress / "couldn't add more
+              brolls" type comments visible in the admin review screen. */}
+          {!isAdmin ? (
             <div>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Assigned Editor</label>
-              <input value={assignedEditor} onChange={e => setAssignedEditor(e.target.value)} placeholder="Editor name" style={{
+              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Editor Notes</label>
+              <textarea value={editorNotes} onChange={e => setEditorNotes(e.target.value)} rows={3} placeholder="Progress notes, questions for the creator, etc." style={{
                 width: '100%', padding: '10px 12px', fontSize: '13px',
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none', resize: 'vertical', fontFamily: 'inherit',
               }} />
             </div>
-          </div>
+          ) : project.editorNotes ? (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                Notes from {project.assignedEditor || 'Editor'}
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
+                {project.editorNotes}
+              </div>
+            </div>
+          ) : null}
 
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Editor Notes</label>
-            <textarea value={editorNotes} onChange={e => setEditorNotes(e.target.value)} rows={3} placeholder="Progress notes, questions for the creator, etc." style={{
-              width: '100%', padding: '10px 12px', fontSize: '13px',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none', resize: 'vertical', fontFamily: 'inherit',
-            }} />
-          </div>
+          {/* Final Cut section — admin and editor both see this, but with
+              very different framing.
 
-          {/* Final Cut Upload + Files */}
+              Admin: "Editor Submission · Ann · v2" → inline video player →
+                     small file list → action buttons. No upload CTA, no
+                     editor-facing copy.
+              Editor: "Final Cut Delivery" → upload CTA → file list with
+                     play/delete. */}
           <div style={{
             background: 'rgba(125, 211, 164, 0.04)', border: '1px solid rgba(125, 211, 164, 0.18)',
             borderRadius: '12px', padding: '14px 16px',
           }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-              ✅ Final Cut Delivery
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
-              Drop your finished edit here. Re-upload anytime for revisions.
-            </div>
-            {finalUploadUrl && (
+            {isAdmin ? (
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span>🎬 Editor Submission</span>
+                {project.assignedEditor && (
+                  <span style={{ color: 'var(--foreground)', textTransform: 'none', fontWeight: 600, letterSpacing: 0 }}>· {project.assignedEditor}</span>
+                )}
+                {finalFiles.length > 0 && (
+                  <span style={{ color: 'var(--foreground-muted)', textTransform: 'none', fontWeight: 500, letterSpacing: 0 }}>
+                    · v{(project.revisionCount || 0) + 1}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                  ✅ Final Cut Delivery
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '10px' }}>
+                  Drop your finished edit here. Re-upload anytime for revisions.
+                </div>
+              </>
+            )}
+            {/* Upload CTA — editor only. Admin doesn't upload finals. */}
+            {!isAdmin && finalUploadUrl && (
               <a
                 href={finalUploadUrl}
                 target="_blank"
@@ -740,11 +793,35 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
                 <span style={{ fontSize: '15px' }}>→</span>
               </a>
             )}
+            {/* Inline video player for admin — watch right inside the modal,
+                no click-to-open second modal. Default muted + no autoplay
+                because admin asked: clip pages shouldn't blast audio. */}
+            {isAdmin && finalFiles[0] && /\.(mp4|mov|webm|mkv|m4v)$/i.test(finalFiles[0].name) && (
+              <div style={{ marginBottom: '10px' }}>
+                <div style={{ background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '240px' }}>
+                  {latestFinalSrc ? (
+                    <video
+                      key={latestFinalSrc}
+                      src={latestFinalSrc}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      style={{ width: '100%', maxHeight: '60vh', background: '#000' }}
+                    />
+                  ) : (
+                    <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', padding: '40px' }}>Loading video…</div>
+                  )}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+                  🎞️ {cleanFinalFilename(finalFiles[0].name, project.assignedEditor)} · {fmtSize(finalFiles[0].size)}
+                </div>
+              </div>
+            )}
             {finalFiles.length === 0 ? (
               <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', padding: '12px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.08)' }}>
-                No final cut delivered yet.
+                {isAdmin ? 'Editor hasn\'t submitted a cut yet.' : 'No final cut delivered yet.'}
               </div>
-            ) : (
+            ) : isAdmin ? null : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {finalFiles.map((f, i) => {
                   const isMedia = /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name)
@@ -909,13 +986,30 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
                 RevisionBanner — no duplicate display here. */}
           </div>
 
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Delivered Edit URL <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--foreground-subtle)' }}>(optional — for outside links)</span></label>
-            <input value={editedFileLink} onChange={e => setEditedFileLink(e.target.value)} placeholder="Frame.io, Drive, etc — only if not using Dropbox upload above" style={{
-              width: '100%', padding: '10px 12px', fontSize: '13px',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
-            }} />
-          </div>
+          {/* Project brief moves to the BOTTOM for admin so the editor's
+              submission video is what they see first. Editor's view shows
+              brief at the top because they need it before they edit. */}
+          {isAdmin && project.instructions && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>This Project's Brief</div>
+              <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, whiteSpace: 'pre-wrap', background: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '10px' }}>
+                {project.instructions}
+              </div>
+            </div>
+          )}
+
+          {/* Delivered Edit URL — editor-only "outside links" fallback (Frame.io,
+              Drive, etc.) when not uploading via Dropbox. Admin doesn't need
+              it; the Dropbox-uploaded final cut is the canonical deliverable. */}
+          {!isAdmin && (
+            <div>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Delivered Edit URL <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--foreground-subtle)' }}>(optional — for outside links)</span></label>
+              <input value={editedFileLink} onChange={e => setEditedFileLink(e.target.value)} placeholder="Frame.io, Drive, etc — only if not using Dropbox upload above" style={{
+                width: '100%', padding: '10px 12px', fontSize: '13px',
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: 'var(--foreground)', outline: 'none',
+              }} />
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '4px' }}>
             <button onClick={onClose} disabled={saving} style={{
