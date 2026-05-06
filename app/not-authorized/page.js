@@ -46,7 +46,7 @@ export default function NotAuthorizedPage() {
           lineHeight: '1.6',
           marginBottom: '32px',
         }}>
-          Drop your account manager a line and we&apos;ll get you set up.
+          Get in touch with your manager to set you up on the website.
         </p>
 
         <SignOutButton redirectUrl="/sign-in">

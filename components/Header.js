@@ -43,7 +43,7 @@ export default function Header() {
   const hqId = hqIdFromUrl || hqIdFromOps
   const hqSuffix = hqId ? `?hqId=${hqId}` : ''
 
-  if (pathname?.startsWith('/sign-') || pathname?.startsWith('/onboarding')) return null
+  if (pathname?.startsWith('/sign-') || pathname?.startsWith('/onboarding') || pathname?.startsWith('/not-authorized')) return null
 
   const linkStyle = (active) => ({
     fontSize: '12px',
