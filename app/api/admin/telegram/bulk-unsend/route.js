@@ -29,15 +29,18 @@ export async function POST(request) {
 
     const sinceISO = new Date(Date.now() - sinceMinutes * 60 * 1000).toISOString()
 
-    // Find all Posts for this creator marked Sent to Telegram in the window.
-    const posts = await fetchAirtableRecords('Posts', {
-      filterByFormula: `AND(
-        FIND('${creatorId}', ARRAYJOIN({Creator})),
-        {Status}='Sent to Telegram',
-        IS_AFTER({Telegram Sent At}, '${sinceISO}')
-      )`.replace(/\s+/g, ' '),
+    // Find all Posts marked Sent to Telegram in the window, then filter to
+    // this creator client-side. We can't filter on Creator in the formula
+    // because ARRAYJOIN({Creator}) returns the linked records' primary field
+    // text (e.g. "Grace Collins"), not their record IDs — so FIND with a
+    // 'rec...' ID never matches.
+    const allPosts = await fetchAirtableRecords('Posts', {
+      filterByFormula: `AND({Status}='Sent to Telegram', IS_AFTER({Telegram Sent At}, '${sinceISO}'))`,
       fields: ['Post Name', 'Account', 'Creator', 'Telegram Message ID', 'Telegram Sent At'],
     })
+    const posts = allPosts.filter(p =>
+      (p.fields?.Creator || []).includes(creatorId)
+    )
 
     if (!posts.length) {
       return NextResponse.json({ ok: true, found: 0, message: 'No posts in window' })
