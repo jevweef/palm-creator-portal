@@ -54,6 +54,29 @@ async function processOnePost(postId) {
     return { skipped: true, reason: `status=${f.Status}` }
   }
 
+  // CRITICAL: claim the post by flipping Status to 'Sending' BEFORE we kick
+  // off the actual Telegram upload. The cron's filterByFormula only picks
+  // posts in 'Queued for Telegram' — once we're 'Sending', the next minute's
+  // tick won't re-pick this same post.
+  //
+  // Fixes the duplicate-send bug: when the function 504s mid-upload (slow
+  // compression, large file, network), Telegram has already received the
+  // message but our 'Sent to Telegram' PATCH never landed. Without this
+  // lock, the post stays 'Queued' → re-picked → duplicate in Telegram.
+  // With this lock, the post stays stuck at 'Sending' (manual reset if
+  // needed) — one stuck post is way better than infinite duplicates.
+  // typecast:true creates the 'Sending' Status option if missing.
+  try {
+    await patchAirtableRecord('Posts', postId, {
+      'Status': 'Sending',
+    }, { typecast: true })
+  } catch (lockErr) {
+    // If we can't even claim the lock (Airtable rate limit / 429), don't
+    // proceed — leaving status at 'Queued' means a future tick can retry,
+    // and we haven't sent a duplicate.
+    throw new Error(`Failed to claim send lock: ${lockErr.message}`)
+  }
+
   const creatorId = (f.Creator || [])[0]
   const assetId = (f.Asset || [])[0]
   const accountId = (f.Account || [])[0]
