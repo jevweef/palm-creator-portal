@@ -160,6 +160,33 @@ export async function GET(request) {
     try { await requireAdminOrSocialMedia() } catch (e) { return e }
   }
 
+  // STALE LOCK RECOVERY: any post stuck at Status='Sending' for >10 min
+  // is a real crash mid-upload (Vercel function killed, network drop, etc).
+  // Reset it to 'Queued for Telegram' so the next tick can retry.
+  // 10 minutes is plenty — even our worst sends finish in <5 min including
+  // ffmpeg compression, so anything older means the function genuinely died.
+  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const stuck = await fetchAirtableRecords('Posts', {
+    filterByFormula: `AND({Status}='Sending', IS_BEFORE({Last Modified}, '${tenMinAgo}'))`,
+    fields: ['Status'],
+    maxRecords: 5,
+  }).catch(err => {
+    // {Last Modified} may not exist on every base. Fall back to a simpler
+    // query if so — better to potentially over-recover than fail the cron.
+    console.warn('[telegram-queue] stale-lock query failed:', err.message)
+    return []
+  })
+  for (const s of stuck) {
+    try {
+      await patchAirtableRecord('Posts', s.id, {
+        'Status': 'Queued for Telegram',
+      })
+      console.log(`[telegram-queue] stale-lock reset on ${s.id}`)
+    } catch (e) {
+      console.warn(`[telegram-queue] failed to reset stuck ${s.id}:`, e.message)
+    }
+  }
+
   // Fetch oldest queued posts. Order by Scheduled Date ASC so reels go
   // out in calendar order — important when an account has Apr 27, 28, 29
   // queued and you don't want them landing 28, 27, 29.
