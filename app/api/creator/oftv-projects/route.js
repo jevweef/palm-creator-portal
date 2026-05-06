@@ -205,6 +205,10 @@ export async function POST(request) {
             'Dropbox File Request ID': fileRequestId,
             'File Count': 0,
             'Created At': new Date().toISOString(),
+            // Auto-assign Ann Adrias as the long-form editor on every new
+            // OFTV project. She's the only one for now — when we add more
+            // long-form editors, swap this for a dropdown / round-robin.
+            'Assigned Editor': 'Ann Adrias',
           },
         }],
       }),
