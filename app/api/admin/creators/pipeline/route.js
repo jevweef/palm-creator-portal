@@ -19,6 +19,7 @@ export async function GET() {
           'Creator', 'AKA', 'Status', 'Social Media Editing',
           'Weekly Reel Quota', 'Telegram Thread ID',
           'Profile Summary', 'Music DNA Processed',
+          'Communication Chat',
         ],
       }),
       // Only count accounts that actually exist — i.e. have a real handle.
@@ -49,6 +50,10 @@ export async function GET() {
         hasProfile: !!(f['Profile Summary'] && f['Profile Summary'].trim()),
         hasMusicDna: !!f['Music DNA Processed'],
         telegramThreadId: f['Telegram Thread ID'] || '',
+        // Master communication chat for outbound automations (OFTV deliveries,
+        // future inspo digests, etc.). Boolean here drives the dashboard
+        // readiness badge — actual chat lookup happens at send time.
+        hasCommunicationChat: Array.isArray(f['Communication Chat']) && f['Communication Chat'].length > 0,
         weeklyQuota: f['Weekly Reel Quota'] || null,
         igAccountCount: igCountByCreator[c.id] || 0,
       }

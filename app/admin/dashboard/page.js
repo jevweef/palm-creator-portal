@@ -1338,6 +1338,25 @@ export default function AdminDashboard() {
                         label="TG"
                         title={pipe.telegramThreadId ? 'Telegram thread wired' : 'No Telegram Thread ID — can\'t send from Grid Planner'}
                       />
+                      {/* Communication Chat — master iMessage / Telegram chat
+                          for portal automations (OFTV deliveries, future
+                          inspo digests). Click navigates to the routing UI
+                          for this creator. */}
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          window.location.href = `/admin/creators?tab=communication`
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <ReadinessBadge
+                          ok={!!pipe.hasCommunicationChat}
+                          label="Comms"
+                          title={pipe.hasCommunicationChat
+                            ? 'Master communication chat is set — automations route here'
+                            : 'No master chat picked yet — go to Creators → Communication to assign one'}
+                        />
+                      </span>
                     </>
                   ) : (
                     <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.08)' }}>—</span>
