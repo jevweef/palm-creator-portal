@@ -33,11 +33,12 @@ export async function GET(request) {
   let creators
   try {
     creators = await fetchAirtableRecords(CREATORS_TABLE, {
-      // Only show creators we care about routing for — anyone with an
-      // active management status. Filter loose here, callers can scope
-      // to a single creator with the param above.
-      filterByFormula: '{Status}!=BLANK()',
-      fields: ['AKA', 'Communication Name', 'Status', 'HQ Record ID', 'OFTV Notification Chat'],
+      // Only show creators we actually need to route to: managed roster
+      // (Active + Onboarding). Leads aren't on the portal yet so routing
+      // doesn't apply. Field name 'Communication Chat' must match the
+      // current Airtable schema (was renamed from 'OFTV Notification Chat').
+      filterByFormula: `OR({Status}='Active', {Status}='Onboarding')`,
+      fields: ['AKA', 'Communication Name', 'Status', 'HQ Record ID', 'Communication Chat'],
     })
   } catch (err) {
     return NextResponse.json({ error: 'Airtable fetch failed', detail: err.message }, { status: 500 })
