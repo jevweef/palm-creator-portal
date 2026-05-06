@@ -908,7 +908,17 @@ export async function POST(request) {
             })
             updates.push({ postId: reuse.id, accountId: acc.id, scheduledDate: nextSlot, reused: true })
           } else {
-            // Clone from sibling
+            // Clone from sibling. Preserve the source Post's Status so the
+            // clone shows up in the same place in the UI as the source did.
+            // If we hardcode 'Prepping' here, the GET filter (which now drops
+            // Prepping from Grid Planner) hides the clone — admin clicks
+            // Distribute, gets a "distributed N" toast, but only the reused
+            // (already-Staged) sibling appears on the new account; clones
+            // sit invisible. Match the source's status instead. Status is a
+            // singleSelect so Airtable returns it as either a string or
+            // {name: '...'} depending on the read path — normalize.
+            const srcStatusName = typeof src.Status === 'string' ? src.Status : (src.Status?.name || '')
+            const cloneStatus = srcStatusName || 'Staged'
             const thumbField = await buildClonedThumbnail((src.Asset || [])[0], src.Thumbnail)
             const fields = {
               'Post Name': src['Post Name'] || '',
@@ -916,7 +926,7 @@ export async function POST(request) {
               ...(src.Asset ? { 'Asset': src.Asset } : {}),
               ...(group.taskId && !group.taskId.startsWith('orphan-') ? { 'Task': [group.taskId] } : {}),
               'Account': [acc.id],
-              'Status': 'Prepping',
+              'Status': cloneStatus,
               ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
               ...(src.Caption ? { 'Caption': src.Caption } : {}),
               ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
