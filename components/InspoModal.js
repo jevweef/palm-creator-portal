@@ -252,11 +252,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {onUpload && (
               <button
                 onClick={onUpload}
+                aria-label="Upload"
                 style={{
                   background: 'var(--palm-pink)',
                   border: '1px solid transparent',
                   borderRadius: '9999px',
-                  padding: '6px 14px',
+                  padding: '6px 10px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -270,20 +271,21 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-                Upload
+                <span className="hidden md:inline">Upload</span>
               </button>
             )}
             {record?.dbRawLink && (
               <button
                 onClick={handleSaveVideo}
                 disabled={downloading}
+                aria-label={downloadHint || 'Save video to camera roll'}
                 title={downloadHint || 'Save the reel to your camera roll, then import in Edits for lip sync'}
                 style={{
                   background: 'rgba(232, 160, 160, 0.06)',
                   border: 'none',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
                   borderRadius: '9999px',
-                  padding: '6px 14px',
+                  padding: '6px 10px',
                   cursor: downloading ? 'wait' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -305,18 +307,19 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                 )}
-                {downloadHint || 'Save video'}
+                <span className="hidden md:inline">{downloadHint || 'Save video'}</span>
               </button>
             )}
             {onSave && (
               <button
                 onClick={() => onSave(record.id)}
+                aria-label={isSaved ? 'Unsave' : 'Save'}
                 style={{
                   background: isSaved ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
                   border: isSaved ? '1px solid #E88FAC' : 'none',
                   boxShadow: isSaved ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
                   borderRadius: '9999px',
-                  padding: '6px 14px',
+                  padding: '6px 10px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -330,7 +333,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 <svg className="w-3.5 h-3.5" fill={isSaved ? 'var(--foreground)' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
-                {isSaved ? 'Saved' : 'Save'}
+                <span className="hidden md:inline">{isSaved ? 'Saved' : 'Save'}</span>
               </button>
             )}
             <button onClick={onClose} style={{color:'#999', background:'none', border:'none', cursor:'pointer', padding:'4px', marginTop:'2px'}}>
