@@ -257,7 +257,21 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
     fetch(`/api/admin/oftv-projects/${project.id}/final`)
       .then(r => r.json())
       .then(d => {
-        setFinalFiles(d.files || [])
+        const newFiles = d.files || []
+        // Dedupe: only swap state when paths/sizes actually changed.
+        // Otherwise the 15s poll causes the inline video to remount
+        // (because the temp Dropbox URL rotates and the <video key=...>
+        // reloads from scratch every cycle — looks like the modal is
+        // refreshing itself for no reason).
+        setFinalFiles(prev => {
+          if (prev.length !== newFiles.length) return newFiles
+          for (let i = 0; i < prev.length; i++) {
+            if (prev[i].path !== newFiles[i].path || prev[i].size !== newFiles[i].size) {
+              return newFiles
+            }
+          }
+          return prev
+        })
         setFinalUploadUrl(d.fileRequestUrl || '')
       })
       .catch(() => {})
@@ -265,19 +279,25 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
 
   // Pre-fetch streaming temp link for the latest delivered cut so the
   // Revision Banner can play inline without click-to-load delay.
+  // Depend on the latest file's PATH (string) instead of the whole files
+  // array — Dropbox temp URLs rotate every fetch, so re-fetching when
+  // the underlying file hasn't changed would remount the <video> and
+  // restart it from scratch (poll loop made the modal feel like it kept
+  // refreshing itself).
+  const latestFinalPath = finalFiles[0]?.path || ''
+  const latestFinalName = finalFiles[0]?.name || ''
   useEffect(() => {
-    const latest = finalFiles[0]
-    if (!latest || !/\.(mp4|mov|webm|mkv|m4v)$/i.test(latest.name)) {
+    if (!latestFinalPath || !/\.(mp4|mov|webm|mkv|m4v)$/i.test(latestFinalName)) {
       setLatestFinalSrc('')
       return
     }
     let cancelled = false
-    fetch(`/api/admin/oftv-projects/${project.id}/final?path=${encodeURIComponent(latest.path)}`)
+    fetch(`/api/admin/oftv-projects/${project.id}/final?path=${encodeURIComponent(latestFinalPath)}`)
       .then(r => r.json())
       .then(d => { if (!cancelled) setLatestFinalSrc(d.link || '') })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [finalFiles, project.id])
+  }, [latestFinalPath, latestFinalName, project.id])
   useEffect(() => { loadFinal() }, [loadFinal])
   useEffect(() => {
     const t = setInterval(loadFinal, 15000)
