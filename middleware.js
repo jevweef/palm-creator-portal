@@ -40,36 +40,15 @@ const isRoleExemptRoute = createRouteMatcher([
   '/sign-up(.*)',
 ])
 
-export default clerkMiddleware(async (auth, req) => {
+export default clerkMiddleware((auth, req) => {
   if (isPublicRoute(req)) return
 
-  const { userId } = auth().protect()
+  auth().protect()
 
-  // Defense in depth: any signed-in user with no role gets bounced to a
-  // holding page. New self-serve sign-ups land here with no metadata.role —
-  // we don't want them seeing the inspo board, dashboard, etc.
-  // Roles are set via Clerk publicMetadata when an admin links the account
-  // to a creator/editor/chat_manager record (or grants admin).
-  // Note: sessionClaims doesn't reliably include publicMetadata in Clerk v5
-  // without custom JWT template config, so we fetch the user inline.
-  if (!isRoleExemptRoute(req) && userId) {
-    try {
-      const user = await clerkClient().users.getUser(userId)
-      const role = user?.publicMetadata?.role
-      if (!role) {
-        const url = req.nextUrl.clone()
-        url.pathname = '/not-authorized'
-        url.search = ''
-        return NextResponse.redirect(url)
-      }
-    } catch (err) {
-      // If Clerk user lookup fails for any reason, fail open for now —
-      // we don't want to lock everyone out of the portal during an outage.
-      // The page-level checks in app/page.js and per-section layouts still
-      // do role-based routing.
-      console.error('[middleware] role check failed', err)
-    }
-  }
+  // ROLE CHECK DISABLED 2026-05-06 — was bouncing legitimate creators to
+  // /not-authorized. Cause under investigation: some creator accounts
+  // appear to not have publicMetadata.role populated even though they
+  // have full Airtable creator records. Re-enable after fixing.
 })
 
 export const config = {
