@@ -1,11 +1,9 @@
-import { clerkMiddleware, createRouteMatcher, clerkClient } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
 // Public routes that don't require auth
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
-  '/not-authorized(.*)',
   '/onboarding',
   '/api/webhooks(.*)',
   '/api/onboarding/validate-token(.*)',
@@ -30,25 +28,10 @@ const isPublicRoute = createRouteMatcher([
   '/demo(.*)',
 ])
 
-// Routes a signed-in user with no role can still hit (so they can finish
-// onboarding via the tokenized link, or sign out from the holding page).
-const isRoleExemptRoute = createRouteMatcher([
-  '/not-authorized(.*)',
-  '/onboarding(.*)',
-  '/api/onboarding(.*)',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-])
-
 export default clerkMiddleware((auth, req) => {
   if (isPublicRoute(req)) return
 
   auth().protect()
-
-  // ROLE CHECK DISABLED 2026-05-06 — was bouncing legitimate creators to
-  // /not-authorized. Cause under investigation: some creator accounts
-  // appear to not have publicMetadata.role populated even though they
-  // have full Airtable creator records. Re-enable after fixing.
 })
 
 export const config = {
