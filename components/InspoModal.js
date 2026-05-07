@@ -48,11 +48,13 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   // surfaces the share sheet so you can tap "Save Video" → Photos, then open
   // Edits → New Project → import from camera roll for a lip sync.
   const handleSaveVideo = useCallback(async () => {
-    if (!record?.dbRawLink || downloading) return
+    if (!record?.id || downloading) return
     setDownloading(true)
     setDownloadHint('Fetching video…')
     try {
-      const res = await fetch(record.dbRawLink, { mode: 'cors' })
+      // Fetch through our same-origin proxy so iOS Safari doesn't choke on
+      // Dropbox's CORS redirect chain.
+      const res = await fetch(`/api/inspo-download/${record.id}`)
       if (!res.ok) throw new Error(`Fetch failed (${res.status})`)
       const blob = await res.blob()
       const safeName = ((record.title || 'reel').replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'reel') + '.mp4'
