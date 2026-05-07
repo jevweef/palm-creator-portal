@@ -2,6 +2,7 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { waitUntil } from '@vercel/functions'
 import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { sendPushToAdmins } from '@/lib/sendPushNotifications'
 
@@ -411,23 +412,33 @@ export async function PATCH(request) {
       }
       console.log(`[Editor] Task ${taskId} sent back for revision`)
 
-      // Send Telegram notification to editor (non-blocking)
+      // Send Telegram notification to editor in the background. The fetch
+      // chain (Dropbox screenshot → buffer → Telegram sendPhoto) can run
+      // 5–15s on a phone-sized PNG, which is enough to bump up against the
+      // function timeout and trip a Vercel HTML error page instead of our
+      // JSON response. waitUntil lets the response return immediately while
+      // Vercel keeps the function warm for the Telegram round-trip.
       const task = tasks[0]
       const creatorId = (task.fields?.Creator || [])[0] || null
       const inspoId = (task.fields?.Inspiration || [])[0] || null
       const taskName = task.fields?.Name || ''
-      let creatorName = '', inspoTitle = ''
-      try {
-        const [creatorRecs, inspoRecs] = await Promise.all([
-          creatorId ? fetchAirtableRecords('Palm Creators', { filterByFormula: `RECORD_ID()='${creatorId}'`, fields: ['AKA', 'Creator'] }) : [],
-          inspoId ? fetchAirtableRecords('Inspiration', { filterByFormula: `RECORD_ID()='${inspoId}'`, fields: ['Title'] }) : [],
-        ])
-        creatorName = creatorRecs[0]?.fields?.AKA || creatorRecs[0]?.fields?.Creator || ''
-        inspoTitle = inspoRecs[0]?.fields?.Title || ''
-      } catch (e) {
-        console.warn('[Revision Telegram] Failed to fetch creator/inspo names:', e.message)
-      }
-      await sendRevisionTelegram({ creatorName, creatorId, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls })
+      const telegramWork = (async () => {
+        let creatorName = '', inspoTitle = ''
+        try {
+          const [creatorRecs, inspoRecs] = await Promise.all([
+            creatorId ? fetchAirtableRecords('Palm Creators', { filterByFormula: `RECORD_ID()='${creatorId}'`, fields: ['AKA', 'Creator'] }) : [],
+            inspoId ? fetchAirtableRecords('Inspiration', { filterByFormula: `RECORD_ID()='${inspoId}'`, fields: ['Title'] }) : [],
+          ])
+          creatorName = creatorRecs[0]?.fields?.AKA || creatorRecs[0]?.fields?.Creator || ''
+          inspoTitle = inspoRecs[0]?.fields?.Title || ''
+        } catch (e) {
+          console.warn('[Revision Telegram] Failed to fetch creator/inspo names:', e.message)
+        }
+        await sendRevisionTelegram({ creatorName, creatorId, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls })
+      })().catch(err => {
+        console.warn('[Revision Telegram] background work failed:', err.message)
+      })
+      try { waitUntil(telegramWork) } catch { /* not in Vercel runtime — let it fire-and-forget */ }
 
       return NextResponse.json({ ok: true, action: 'requestRevision' })
     }
