@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useUser } from '@clerk/nextjs'
 
 import InspoCard from '@/components/InspoCard'
@@ -174,6 +174,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [allFormats, setAllFormats] = useState([])
   const [savedIds, setSavedIds] = useState(new Set())
   const [thumbStates, setThumbStates] = useState({}) // { reelId: 'up'|'down' }
+  const [downloadedIds, setDownloadedIds] = useState(new Set())
+  const [bulkDownloading, setBulkDownloading] = useState(false)
 
   // Admin: "View as Creator" for testing For You
   const role = user?.publicMetadata?.role
@@ -225,13 +227,16 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         // Initialize saved state from records
         const saved = new Set()
         const thumbs = {}
+        const downloaded = new Set()
         data.records.forEach((r) => {
           if (r.savedBy && r.savedBy.includes(creatorOpsId)) saved.add(r.id)
           if (r.thumbsUpBy && r.thumbsUpBy.includes(creatorOpsId)) thumbs[r.id] = 'up'
           else if (r.thumbsDownBy && r.thumbsDownBy.includes(creatorOpsId)) thumbs[r.id] = 'down'
+          if (r.downloadedBy && r.downloadedBy.includes(creatorOpsId)) downloaded.add(r.id)
         })
         setSavedIds(saved)
         setThumbStates(thumbs)
+        setDownloadedIds(downloaded)
       } catch (err) {
         setError(err.message)
       } finally {
@@ -298,6 +303,54 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       })
     }
   }, [creatorOpsId, thumbStates])
+
+  // Pending downloads = saved reels that this creator hasn't grabbed yet.
+  // Recomputed reactively whenever Save / Download state changes.
+  const pendingDownloadCount = useMemo(() => {
+    let n = 0
+    savedIds.forEach((id) => { if (!downloadedIds.has(id)) n++ })
+    return n
+  }, [savedIds, downloadedIds])
+
+  const handleBulkDownload = useCallback(async () => {
+    if (!creatorOpsId || bulkDownloading) return
+    if (pendingDownloadCount === 0) return
+    setBulkDownloading(true)
+    try {
+      const res = await fetch('/api/inspo/bulk-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorOpsId }),
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        console.error('[bulk-download]', res.status, text)
+        alert(`Download failed (${res.status})`)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const today = new Date().toISOString().slice(0, 10)
+      a.download = `inspo-saved-${today}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      // Mirror the server's mark-as-downloaded so the button hides immediately
+      setDownloadedIds((prev) => {
+        const next = new Set(prev)
+        savedIds.forEach((id) => next.add(id))
+        return next
+      })
+    } catch (err) {
+      console.error('[bulk-download] exception', err)
+      alert('Download failed')
+    } finally {
+      setBulkDownloading(false)
+    }
+  }, [creatorOpsId, savedIds, bulkDownloading, pendingDownloadCount])
 
   const handleSave = useCallback(async (recordId) => {
     const isSaved = savedIds.has(recordId)
@@ -536,6 +589,27 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 <p style={{fontSize:'11px', color:'#999', marginTop:'1px'}}>{filtered.length} reels</p>
               )}
             </div>
+            <div style={{display:'flex', alignItems:'center', gap:'6px'}}>
+            {creatorOpsId && pendingDownloadCount > 0 && (
+              <button
+                onClick={handleBulkDownload}
+                disabled={bulkDownloading}
+                style={{
+                  display:'flex', alignItems:'center', gap:'5px',
+                  background: bulkDownloading ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)',
+                  border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)',
+                  borderRadius:'9999px',
+                  padding:'7px 12px', fontSize:'12px', fontWeight:600,
+                  color: bulkDownloading ? '#888' : 'var(--foreground)',
+                  cursor: bulkDownloading ? 'wait' : 'pointer',
+                }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {bulkDownloading ? 'Zipping…' : pendingDownloadCount}
+              </button>
+            )}
             <button
               onClick={() => setShowMobileFilters(true)}
               style={{
@@ -554,6 +628,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 </span>
               )}
             </button>
+            </div>
           </div>
           {/* Mobile: sort buttons always visible */}
           <div className="flex md:hidden" style={{gap:'6px', marginTop:'10px', overflowX:'auto', paddingBottom:'2px'}}>
@@ -594,6 +669,32 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                 }}
               >
                 {textOnly ? '✕ ' : ''}Text on screen
+              </button>
+            )}
+
+            {/* Bulk download saved reels — only when there's something pending */}
+            {creatorOpsId && pendingDownloadCount > 0 && (
+              <button
+                onClick={handleBulkDownload}
+                disabled={bulkDownloading}
+                title={`Download ${pendingDownloadCount} saved reel${pendingDownloadCount === 1 ? '' : 's'} as a zip`}
+                style={{
+                  fontSize: '11px', padding: '3px 12px', borderRadius: '9999px', flexShrink: 0,
+                  border: 'none',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                  cursor: bulkDownloading ? 'wait' : 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+                  background: bulkDownloading ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)',
+                  color: bulkDownloading ? '#888' : 'var(--foreground)',
+                  fontWeight: 600,
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {bulkDownloading
+                  ? 'Zipping…'
+                  : `Download ${pendingDownloadCount} saved`}
               </button>
             )}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { useUser } from '@clerk/nextjs'
 import { tagStyle } from '@/lib/tagStyle'
@@ -41,6 +41,65 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   // AND that creator is toggled on for AI Conversions.
   const showCreateAI = isAdmin && viewAsCreator?.aiConversionsEnabled
   const bodyRef = useRef(null)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadHint, setDownloadHint] = useState('')
+
+  // Save to camera roll (mobile) or download to disk (desktop). On iOS this
+  // surfaces the share sheet so you can tap "Save Video" → Photos, then open
+  // Edits → New Project → import from camera roll for a lip sync.
+  const handleSaveVideo = useCallback(async () => {
+    if (!record?.id || downloading) return
+    setDownloading(true)
+    setDownloadHint('Fetching video…')
+    try {
+      // Fetch through our same-origin proxy so iOS Safari doesn't choke on
+      // Dropbox's CORS redirect chain.
+      const res = await fetch(`/api/inspo-download/${record.id}`)
+      if (!res.ok) throw new Error(`Fetch failed (${res.status})`)
+      const blob = await res.blob()
+      const safeName = ((record.title || 'reel').replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'reel') + '.mp4'
+      const file = new File([blob], safeName, { type: 'video/mp4' })
+
+      // Web Share API Level 2 — iOS Safari supports file shares from iOS 15+.
+      // The OS share sheet shows "Save Video" + any installed apps that
+      // accept video (Edits, Reels Drafts, etc.) so the user picks where it
+      // goes in one tap.
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: record.title || 'Inspo Reel' })
+          setDownloadHint('')
+          setDownloading(false)
+          return
+        } catch (e) {
+          // User cancelled the share sheet — not an error
+          if (e && e.name === 'AbortError') {
+            setDownloadHint('')
+            setDownloading(false)
+            return
+          }
+          // Fall through to direct download
+        }
+      }
+
+      // Fallback for desktop / browsers without Web Share Level 2
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = safeName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+      setDownloadHint('Saved')
+      setTimeout(() => setDownloadHint(''), 2000)
+    } catch (err) {
+      console.error('[save-video]', err)
+      setDownloadHint('Failed — try again')
+      setTimeout(() => setDownloadHint(''), 3000)
+    } finally {
+      setDownloading(false)
+    }
+  }, [record, downloading])
 
   // On mobile, auto-scroll to midpoint so content is visible on open
   useEffect(() => {
@@ -195,11 +254,12 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
             {onUpload && (
               <button
                 onClick={onUpload}
+                aria-label="Upload"
                 style={{
                   background: 'var(--palm-pink)',
                   border: '1px solid transparent',
                   borderRadius: '9999px',
-                  padding: '6px 14px',
+                  padding: '6px 10px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -213,18 +273,55 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-                Upload
+                <span className="hidden md:inline">Upload</span>
+              </button>
+            )}
+            {record?.dbRawLink && (
+              <button
+                onClick={handleSaveVideo}
+                disabled={downloading}
+                aria-label={downloadHint || 'Save video to camera roll'}
+                title={downloadHint || 'Save the reel to your camera roll, then import in Edits for lip sync'}
+                style={{
+                  background: 'rgba(232, 160, 160, 0.06)',
+                  border: 'none',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                  borderRadius: '9999px',
+                  padding: '6px 10px',
+                  cursor: downloading ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: '#888',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  transition: 'all 0.2s',
+                  opacity: downloading ? 0.6 : 1,
+                }}
+              >
+                {downloading ? (
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                    <path strokeLinecap="round" d="M22 12a10 10 0 0 0-10-10" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                )}
+                <span className="hidden md:inline">{downloadHint || 'Save video'}</span>
               </button>
             )}
             {onSave && (
               <button
                 onClick={() => onSave(record.id)}
+                aria-label={isSaved ? 'Unsave' : 'Save'}
                 style={{
                   background: isSaved ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)',
                   border: isSaved ? '1px solid #E88FAC' : 'none',
                   boxShadow: isSaved ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
                   borderRadius: '9999px',
-                  padding: '6px 14px',
+                  padding: '6px 10px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -238,7 +335,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                 <svg className="w-3.5 h-3.5" fill={isSaved ? 'var(--foreground)' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
-                {isSaved ? 'Saved' : 'Save'}
+                <span className="hidden md:inline">{isSaved ? 'Saved' : 'Save'}</span>
               </button>
             )}
             <button onClick={onClose} style={{color:'#999', background:'none', border:'none', cursor:'pointer', padding:'4px', marginTop:'2px'}}>
