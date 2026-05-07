@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { useUser } from '@clerk/nextjs'
 import { tagStyle } from '@/lib/tagStyle'
@@ -41,6 +41,63 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
   // AND that creator is toggled on for AI Conversions.
   const showCreateAI = isAdmin && viewAsCreator?.aiConversionsEnabled
   const bodyRef = useRef(null)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadHint, setDownloadHint] = useState('')
+
+  // Save to camera roll (mobile) or download to disk (desktop). On iOS this
+  // surfaces the share sheet so you can tap "Save Video" → Photos, then open
+  // Edits → New Project → import from camera roll for a lip sync.
+  const handleSaveVideo = useCallback(async () => {
+    if (!record?.dbRawLink || downloading) return
+    setDownloading(true)
+    setDownloadHint('Fetching video…')
+    try {
+      const res = await fetch(record.dbRawLink, { mode: 'cors' })
+      if (!res.ok) throw new Error(`Fetch failed (${res.status})`)
+      const blob = await res.blob()
+      const safeName = ((record.title || 'reel').replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'reel') + '.mp4'
+      const file = new File([blob], safeName, { type: 'video/mp4' })
+
+      // Web Share API Level 2 — iOS Safari supports file shares from iOS 15+.
+      // The OS share sheet shows "Save Video" + any installed apps that
+      // accept video (Edits, Reels Drafts, etc.) so the user picks where it
+      // goes in one tap.
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: record.title || 'Inspo Reel' })
+          setDownloadHint('')
+          setDownloading(false)
+          return
+        } catch (e) {
+          // User cancelled the share sheet — not an error
+          if (e && e.name === 'AbortError') {
+            setDownloadHint('')
+            setDownloading(false)
+            return
+          }
+          // Fall through to direct download
+        }
+      }
+
+      // Fallback for desktop / browsers without Web Share Level 2
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = safeName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+      setDownloadHint('Saved')
+      setTimeout(() => setDownloadHint(''), 2000)
+    } catch (err) {
+      console.error('[save-video]', err)
+      setDownloadHint('Failed — try again')
+      setTimeout(() => setDownloadHint(''), 3000)
+    } finally {
+      setDownloading(false)
+    }
+  }, [record, downloading])
 
   // On mobile, auto-scroll to midpoint so content is visible on open
   useEffect(() => {
@@ -214,6 +271,41 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
                 Upload
+              </button>
+            )}
+            {record?.dbRawLink && (
+              <button
+                onClick={handleSaveVideo}
+                disabled={downloading}
+                title={downloadHint || 'Save the reel to your camera roll, then import in Edits for lip sync'}
+                style={{
+                  background: 'rgba(232, 160, 160, 0.06)',
+                  border: 'none',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                  borderRadius: '9999px',
+                  padding: '6px 14px',
+                  cursor: downloading ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: '#888',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  transition: 'all 0.2s',
+                  opacity: downloading ? 0.6 : 1,
+                }}
+              >
+                {downloading ? (
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                    <path strokeLinecap="round" d="M22 12a10 10 0 0 0-10-10" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                )}
+                {downloadHint || 'Save video'}
               </button>
             )}
             {onSave && (
