@@ -928,28 +928,25 @@ export default function AdminDashboard() {
     return m
   }, [data])
 
-  // Fetch all creator earnings for agency chart (lazy, after main dashboard loads)
+  // Fetch agency-revenue ledger from the Google Sheet (Agency Revenue tab).
+  // Single fetch, formula-driven on the spreadsheet side, already gated by
+  // each account's "Managed From" date so backfilled pre-management data is
+  // excluded automatically. See /api/admin/agency-revenue/route.js.
   useEffect(() => {
-    if (!data || earningsFetched.current || creatorList.length === 0) return
+    if (!data || earningsFetched.current) return
     earningsFetched.current = true
     setEarningsLoading(true)
-    Promise.all(
-      creatorList.map(name =>
-        fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}`)
-          .then(r => r.ok ? r.json() : null)
-          .catch(() => null)
-      )
-    ).then(results => {
-      const dataMap = {}
-      results.forEach((r, i) => {
-        if (r && r.dailyData?.length > 0) {
-          dataMap[creatorList[i]] = r
-        }
+    fetch(`/api/admin/agency-revenue`)
+      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        setEarningsData(r?.earningsData || {})
+        setEarningsLoading(false)
       })
-      setEarningsData(dataMap)
-      setEarningsLoading(false)
-    })
-  }, [data, creatorList])
+      .catch(() => {
+        setEarningsData({})
+        setEarningsLoading(false)
+      })
+  }, [data])
 
   // Fetch whale alerts for all creators (lazy, after main dashboard loads)
   const WHALE_CREATORS = ['Laurel', 'Taby', 'MG', 'Sunny']

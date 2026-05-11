@@ -82,13 +82,28 @@ function StatusPill({ status, pulse = false }) {
  * the first thing.
  */
 function RevisionBanner({ project, creatorName, latestFile, latestSrc }) {
+  // Three modes:
+  //  - active creator revision (status = CREATOR_REVISION)
+  //  - active admin revision   (status = ADMIN_REVISION)
+  //  - historical: editor has shipped the revised cut so status moved on
+  //    (Sent to Creator / Final Submitted / In Editing), but the last
+  //    feedback is still worth surfacing so the editor doesn't lose context
+  //    about what was asked for.
   const isCreatorRev = project.status === STATUSES.CREATOR_REVISION
-  const accent = isCreatorRev ? '#E8A0C8' : '#E8A878'
-  const accentBg = isCreatorRev ? 'rgba(232, 160, 200, 0.06)' : 'rgba(232, 168, 120, 0.06)'
-  const accentBorder = isCreatorRev ? 'rgba(232, 160, 200, 0.25)' : 'rgba(232, 168, 120, 0.25)'
-  const headerName = isCreatorRev ? (creatorName || 'Creator') : 'Admin'
-  const notes = isCreatorRev ? project.creatorFeedback : project.adminRevisionNotes
-  const notesAt = isCreatorRev ? project.creatorFeedbackAt : project.adminReviewedAt
+  const isAdminRev = project.status === STATUSES.ADMIN_REVISION
+  const isActive = isCreatorRev || isAdminRev
+  // Historical fallback: prefer creator feedback (it's what the editor
+  // last addressed) over admin notes.
+  const sourceIsCreator = isActive ? isCreatorRev : !!project.creatorFeedback
+  const accent = sourceIsCreator ? '#E8A0C8' : '#E8A878'
+  const accentBg = sourceIsCreator ? 'rgba(232, 160, 200, 0.06)' : 'rgba(232, 168, 120, 0.06)'
+  const accentBorder = sourceIsCreator ? 'rgba(232, 160, 200, 0.25)' : 'rgba(232, 168, 120, 0.25)'
+  const headerName = sourceIsCreator ? (creatorName || 'Creator') : 'Admin'
+  const notes = sourceIsCreator ? project.creatorFeedback : project.adminRevisionNotes
+  const notesAt = sourceIsCreator ? project.creatorFeedbackAt : project.adminReviewedAt
+  const headerLabel = isActive
+    ? `✏️ Revision notes from ${headerName}`
+    : `📝 Last revision notes from ${headerName} (Rev ${project.revisionCount || 1})`
   const isVideo = latestFile && /\.(mp4|mov|webm|mkv|m4v)$/i.test(latestFile.name)
 
   return (
@@ -102,7 +117,7 @@ function RevisionBanner({ project, creatorName, latestFile, latestSrc }) {
         fontSize: '11px', fontWeight: 700, color: accent,
         textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px',
       }}>
-        ✏️ Revision notes from {headerName}
+        {headerLabel}
       </div>
 
       {/* Inline player for the cut that needs revising. Editor watches the
@@ -536,14 +551,25 @@ function ProjectDetail({ project, creatorName, onClose, onUpdate, showToast, con
               Admin Revision (admin → editor):     "Revision notes from admin"
               No admin gate after creator revision — editor uploads → straight
               back to creator (handled by the auto-flip in /final). */}
-          {(project.status === STATUSES.CREATOR_REVISION || project.status === STATUSES.ADMIN_REVISION) && (
-            <RevisionBanner
-              project={project}
-              creatorName={creatorName}
-              latestFile={finalFiles[0] || null}
-              latestSrc={latestFinalSrc}
-            />
-          )}
+          {(() => {
+            const isActiveRev = project.status === STATUSES.CREATOR_REVISION || project.status === STATUSES.ADMIN_REVISION
+            // Keep the banner around after the editor ships the next cut so
+            // the feedback she's working from doesn't vanish from her view.
+            // Only hides for terminal / pre-feedback states.
+            const hasHistoricalFeedback = !!project.creatorFeedback
+              && project.status !== STATUSES.APPROVED
+              && project.status !== STATUSES.ARCHIVED
+              && project.status !== STATUSES.AWAITING_UPLOAD
+              && project.status !== STATUSES.FILES_UPLOADED
+            return (isActiveRev || hasHistoricalFeedback) && (
+              <RevisionBanner
+                project={project}
+                creatorName={creatorName}
+                latestFile={finalFiles[0] || null}
+                latestSrc={latestFinalSrc}
+              />
+            )
+          })()}
 
           {(project.editingPrefs || assets.length > 0) && (
             <div style={{ background: 'rgba(232, 160, 160, 0.06)', border: '1px solid rgba(232, 160, 160, 0.15)', borderRadius: '12px', padding: '14px 16px' }}>
