@@ -63,8 +63,14 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
       // Web Share API Level 2 — iOS Safari supports file shares from iOS 15+.
       // The OS share sheet shows "Save Video" + any installed apps that
       // accept video (Edits, Reels Drafts, etc.) so the user picks where it
-      // goes in one tap.
-      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // goes in one tap. Gate to actual mobile devices — desktop Chrome also
+      // reports canShare:true but a share-sheet popup on desktop is annoying
+      // when the user really just wants the file on disk.
+      const isMobile = typeof navigator !== 'undefined' && (
+        navigator.userAgentData?.mobile ||
+        /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+      )
+      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: record.title || 'Inspo Reel' })
           setDownloadHint('')
