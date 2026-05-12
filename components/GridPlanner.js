@@ -425,7 +425,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       onDragLeave={() => setIsOver(false)}
       onDrop={(e) => { e.preventDefault(); setIsOver(false); onDrop() }}
       onClick={onClick}
-      title={isScraped ? `Already on IG · ${formatScheduled(post.postedAt)}` : `${status}${post.scheduledDate ? ' · ' + formatScheduled(post.scheduledDate) : ''}`}
+      title={isScraped ? `Already on IG · ${formatScheduled(post.postedAt)}` : status}
       style={{
         aspectRatio: '1 / 1',
         background: post.thumbnail ? '#000' : style.bg,
@@ -465,17 +465,9 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       }}>
         {isScraped ? 'live' : status}
       </div>
-      {/* Date chip */}
-      {post.scheduledDate && status !== 'live' && !isScraped && (
-        <div style={{
-          position: 'absolute', bottom: 3, right: 3,
-          padding: '1px 4px', borderRadius: '3px',
-          background: 'rgba(0,0,0,0.55)', color: 'var(--foreground)',
-          fontSize: '8px', fontWeight: 600,
-        }}>
-          {new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })}
-        </div>
-      )}
+      {/* Date chip retired May 2026 — Scheduled Date is now an opaque
+          ordering token for cron FIFO, not a calendar time. SMM posts on
+          their own cadence. No date shown on cells. */}
 
       {/* SMM-scheduled checkmark — visible in all modes so admins can see status too */}
       {post.smmScheduled && !isScraped && (
@@ -594,10 +586,10 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
           <span>🗂️</span> Ready to schedule
         </div>
         <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>
-          {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} left
+          {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} waiting
         </div>
         <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
-          Drag a thumbnail onto an account →
+          Drag a thumbnail onto IG or FB →
         </div>
       </div>
 
@@ -913,33 +905,11 @@ export default function GridPlanner({ smmMode = false } = {}) {
         const [moved] = newQueue.splice(fromIdx, 1)
         newQueue.splice(toIdx, 0, moved)
 
-        // Compute new dates: position 0 = today AM, 1 = today PM, 2 = tomorrow AM, ...
-        // Mirror server-side getQueueSlots so optimistic UI matches truth.
-        const computeSlots = (count) => {
-          const slots = []
-          const now = new Date()
-          const todayET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now)
-          const [sy, sm, sd] = todayET.split('-').map(Number)
-          for (let i = 0; i < count; i++) {
-            const dayOffset = Math.floor(i / 2)
-            const hourIdx = i % 2
-            const etHour = [11, 19][hourIdx]
-            // Construct noon UTC of target day so format-back-to-ET stays stable
-            const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset, 12))
-            const etDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(iter)
-            const [ty, tm, td] = etDateStr.split('-').map(Number)
-            // 11 AM EDT = 15:00 UTC, 7 PM EDT = 23:00 UTC. Use Intl-derived offset
-            // to handle EDT/EST boundary correctly.
-            const noonUtc = new Date(Date.UTC(ty, tm - 1, td, 12))
-            const etHourAtNoon = parseInt(
-              new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(noonUtc)
-            )
-            const utcHour = etHour + (12 - etHourAtNoon)
-            slots.push(new Date(Date.UTC(ty, tm - 1, td, utcHour)).toISOString())
-          }
-          return slots
-        }
-        const slots = computeSlots(newQueue.length)
+        // Stamp ordering tokens 1 second apart so cron FIFO sort matches the
+        // new visual order. No more AM/PM slot grid — these are opaque
+        // sortable timestamps, not real post times.
+        const baseTs = Date.now()
+        const slots = newQueue.map((_, i) => new Date(baseTs + i * 1000).toISOString())
         const dateById = Object.fromEntries(newQueue.map((p, i) => [p.id, slots[i]]))
 
         // Optimistic UI
@@ -1199,17 +1169,16 @@ export default function GridPlanner({ smmMode = false } = {}) {
     }
   }
 
-  // Push every queue item onto every managed account that doesn't already
-  // have it. After this runs, the unassigned tray empties — admin can drag
-  // posts around inside each account grid to reorder.
+  // Split unchanneled queue items evenly between IG and FB via round-robin
+  // (server-side, in distributeQueue). Each unique clip lands on ONE
+  // channel — no more fanout.
   const [distributing, setDistributing] = useState(false)
   const handleDistributeQueue = async () => {
     if (!selectedCreatorId || !unassignedGroups.length) return
-    const remaining = unassignedGroups.reduce((s, g) => s + (g.remaining || 0), 0)
     setConfirmDialog({
-      title: 'Push queue to all accounts',
-      message: `Push ${unassignedGroups.length} queue item${unassignedGroups.length !== 1 ? 's' : ''} (${remaining} placement${remaining !== 1 ? 's' : ''}) onto every Palm IG account that's missing it?`,
-      confirmLabel: 'Distribute',
+      title: 'Split queue between IG and FB',
+      message: `Send ${unassignedGroups.length} queued reel${unassignedGroups.length !== 1 ? 's' : ''} across the IG and FB grids? Each reel lands on one platform (split as evenly as possible).`,
+      confirmLabel: 'Split queue',
       onConfirm: () => runDistributeQueue(),
     })
   }
@@ -1223,7 +1192,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Distribute failed')
-      showToast(`Distributed ${data.distributed} placement${data.distributed !== 1 ? 's' : ''}`)
+      const fb = data.finalBalance ? ` (IG: ${data.finalBalance.IG} · FB: ${data.finalBalance.FB})` : ''
+      showToast(`Distributed ${data.distributed}${fb}`)
       await loadCreator(selectedCreatorId)
     } catch (e) {
       showToast(e.message, true)
@@ -1251,7 +1221,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
     }
     setConfirmDialog({
       title: 'Shuffle queue',
-      message: `Randomize ${totalQueueItems} queue item${totalQueueItems !== 1 ? 's' : ''} across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}? Same reel won't land on the same slot across accounts.`,
+      message: `Randomize the order of ${totalQueueItems} queue item${totalQueueItems !== 1 ? 's' : ''} across IG and FB?`,
       confirmLabel: 'Shuffle',
       onConfirm: () => runShuffle(queues),
     })
@@ -1522,26 +1492,9 @@ export default function GridPlanner({ smmMode = false } = {}) {
     }
   }
 
-  // Fan out: duplicate post to all managed accounts, auto-staggering times
-  const handleFanOut = async (post) => {
-    if (!accounts.length) return
-    setSaving(true)
-    try {
-      const res = await fetch('/api/admin/grid-planner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'fanOut', postId: post.id, accountIds: accounts.map(a => a.id) }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Fan out failed')
-      showToast(`Fanned out to ${accounts.length} account${accounts.length > 1 ? 's' : ''}`)
-      await loadCreator(selectedCreatorId)
-    } catch (e) {
-      showToast(e.message, true)
-    } finally {
-      setSaving(false)
-    }
-  }
+  // Fan-out is retired (May 2026). Each clip lives on ONE channel now;
+  // no more cloning into multiple grids. Distribute-queue + drag-drop
+  // between IG/FB cover the use cases.
 
   return (
     <div>
@@ -1567,7 +1520,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           <button
             onClick={handleDistributeQueue}
             disabled={distributing}
-            title="Push every queue item onto every managed Palm IG account it's not already on. Skips accounts that already have the item."
+            title="Split every queue item between the IG and FB grids via round-robin. Each clip lands on one channel."
             style={{
               padding: '6px 14px', fontSize: '12px', fontWeight: 700,
               background: distributing ? 'rgba(232, 160, 160, 0.04)' : 'rgba(232, 160, 160, 0.10)',
@@ -1576,14 +1529,14 @@ export default function GridPlanner({ smmMode = false } = {}) {
               borderRadius: '6px', cursor: distributing ? 'default' : 'pointer',
             }}
           >
-            {distributing ? 'Distributing…' : `↗ Push queue to all accounts`}
+            {distributing ? 'Distributing…' : `↗ Split queue between IG & FB`}
           </button>
         )}
         {accounts.length > 1 && posts.some(p => postStatus(p) === 'queue') && (
           <button
             onClick={handleShuffle}
             disabled={shuffling}
-            title="Randomize each account's queue. Same reel won't land on the same slot across accounts."
+            title="Randomize the order of queued posts within each channel."
             style={{
               padding: '6px 14px', fontSize: '12px', fontWeight: 700,
               background: shuffling ? 'rgba(168, 132, 232, 0.04)' : 'rgba(168, 132, 232, 0.10)',
@@ -1599,7 +1552,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           <button
             onClick={handleBulkSend}
             disabled={bulkSending}
-            title={`Send all ${sendablePosts.length} scheduled-but-unsent posts to Telegram. Runs serially: account 1's full queue, then account 2's, etc. One upload at a time to stay under Telegram's rate limit.`}
+            title={`Send all ${sendablePosts.length} unsent posts to Telegram. Runs serially across IG + FB queues, one upload at a time to stay under Telegram's rate limit.`}
             style={{
               padding: '6px 14px', fontSize: '12px', fontWeight: 700,
               background: bulkSending ? 'rgba(125, 211, 164, 0.04)' : 'rgba(125, 211, 164, 0.10)',
