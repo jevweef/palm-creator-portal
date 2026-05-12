@@ -811,139 +811,104 @@ export async function POST(request) {
     const body = await request.json()
     const { action } = body
 
-    // distributeQueue: for the given creator, place every queue item (each
-    // unsent task group) onto every managed IG account it isn't already on.
-    // Reuses unassigned-post instances first, clones siblings second. Each
-    // landing gets the next open slot on the destination account.
+    // distributeQueue (2026-05 rewrite): assign every unchanneled queue item
+    // for this creator to either IG or FB via round-robin, then schedule it
+    // at the next open slot on that channel's grid. ONE Post per source
+    // clip — no more fanout-cloning across multiple IG accounts.
+    //
+    // Old behavior (retired): clone source Post once per managed IG account
+    // (IG 1/2/3 each got their own copy of the same reel). That model died
+    // when we collapsed to 1 IG + 1 FB per creator and started sending
+    // UNIQUE content to each platform.
+    //
+    // Channel balancing: start with whichever side currently has fewer
+    // already-channeled posts (so a freshly-set-up creator with 0 of each
+    // starts with IG, but if there are 5 IG posts and 2 FB, the next 3
+    // queue items go to FB first). Inside the queue items, strict alternate.
     if (action === 'distributeQueue') {
       const { creatorId } = body
       if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
 
-      // Managed IG accounts for this creator
-      const allAccounts = await fetchAirtableRecords('Creator Platform Directory', {
-        filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
-        fields: ['Account Name', 'Creator'],
+      // Verify the creator has both topic IDs set — otherwise the send route
+      // will error at Telegram time. Fail loud now instead of later.
+      const creatorRecs = await fetchAirtableRecords('Palm Creators', {
+        filterByFormula: `RECORD_ID()='${creatorId}'`,
+        fields: ['Creator', 'AKA', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
       })
-      const managed = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
-      if (!managed.length) return NextResponse.json({ ok: true, distributed: 0, message: 'No managed accounts' })
+      if (!creatorRecs.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
+      const cf = creatorRecs[0].fields || {}
+      if (!cf['Telegram IG Topic ID'] || !cf['Telegram FB Topic ID']) {
+        return NextResponse.json({
+          error: `Creator missing Telegram IG Topic ID or Telegram FB Topic ID — set both on Palm Creators before distributing`,
+        }, { status: 400 })
+      }
 
-      // All recent posts for this creator. We need BOTH unsent (to know what
-      // to distribute) AND already-sent (to know which accounts are already
-      // covered for each task — without these, distribute creates a phantom
-      // duplicate Prepping Post on every account where the task was already
-      // Sent, because the Sent post got filtered out and "covered" came up
-      // empty for that account/task pair).
+      // All unsent posts for this creator, in the recent window. We need
+      // existing-channeled posts to (a) count current IG vs FB balance,
+      // (b) build per-channel slot maps for next-open scheduling.
       const allRecent = await fetchAirtableRecords('Posts', {
         filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
-        fields: ['Post Name', 'Creator', 'Account', 'Task', 'Asset', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
+        fields: ['Post Name', 'Creator', 'Channel', 'Asset', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
       })
-      const allCreatorPosts = allRecent.filter(p =>
-        (p.fields?.Creator || []).includes(creatorId)
-      )
-      const creatorPosts = allCreatorPosts.filter(p =>
+      const creatorPosts = allRecent.filter(p =>
+        (p.fields?.Creator || []).includes(creatorId) &&
         !p.fields?.['Telegram Sent At'] &&
         !p.fields?.['Posted At']
       )
 
-      // Group unsent posts by Task ID — these are what we actually distribute.
-      const groups = {}
+      // Normalize Channel — Airtable can return it as a string or {name: '...'}
+      // depending on read path.
+      const channelOf = (p) => {
+        const c = p.fields?.Channel
+        return typeof c === 'string' ? c : (c?.name || null)
+      }
+
+      // Also pull all-time channeled posts (no date filter) so the
+      // unscheduled queue tail isn't missed if it was created >60d ago
+      // for some reason. Currently the same allRecent set covers it, but
+      // we keep the date filter to stay light on Airtable.
+      const queueItems = creatorPosts.filter(p => !channelOf(p))
+      if (!queueItems.length) {
+        return NextResponse.json({ ok: true, distributed: 0, message: 'Queue empty' })
+      }
+
+      // Per-channel slot map and balance counter, seeded from existing posts.
+      const slotsByChannel = { IG: [], FB: [] }
+      const countByChannel = { IG: 0, FB: 0 }
       for (const p of creatorPosts) {
-        const taskId = (p.fields?.Task || [])[0] || `orphan-${p.id}`
-        if (!groups[taskId]) groups[taskId] = { taskId, posts: [] }
-        groups[taskId].posts.push(p)
-      }
-
-      // Build a separate map of full-coverage Posts (sent + unsent) per task,
-      // used below for the `covered` check. Sent siblings count as coverage
-      // even though they're not in `groups`.
-      const fullCoverageByTask = {}
-      for (const p of allCreatorPosts) {
-        const taskId = (p.fields?.Task || [])[0]
-        if (!taskId) continue
-        if (!fullCoverageByTask[taskId]) fullCoverageByTask[taskId] = []
-        fullCoverageByTask[taskId].push(p)
-      }
-
-      // For each account, track existing slot ISOs so we can compute next-open per account.
-      // We update in-memory as we add to avoid re-fetching after each add.
-      const accountSlots = {}
-      for (const acc of managed) {
-        accountSlots[acc.id] = creatorPosts
-          .filter(p => (p.fields?.Account || []).includes(acc.id))
-          .map(p => p.fields?.['Scheduled Date'])
-          .filter(Boolean)
+        const ch = channelOf(p)
+        if (!ch) continue
+        countByChannel[ch] = (countByChannel[ch] || 0) + 1
+        const sd = p.fields?.['Scheduled Date']
+        if (sd) slotsByChannel[ch].push(sd)
       }
 
       let distributed = 0
       const updates = []
 
-      for (const group of Object.values(groups)) {
-        // Accounts already covered by this group — INCLUDING already-sent
-        // siblings. Pull from fullCoverageByTask, not just group.posts
-        // (which is unsent-only). Without this, distribute creates phantom
-        // Prepping duplicates on accounts where the task was already Sent.
-        const covered = new Set()
-        const fullSiblings = group.taskId.startsWith('orphan-')
-          ? group.posts
-          : (fullCoverageByTask[group.taskId] || group.posts)
-        for (const p of fullSiblings) {
-          for (const accId of (p.fields?.Account || [])) covered.add(accId)
-        }
-        // Unassigned instances within this group (no Account set)
-        const unassignedInGroup = group.posts.filter(p => !(p.fields?.Account || []).length)
-        // Sample sibling for cloning
-        const sibling = group.posts[0]
-        const src = sibling?.fields || {}
+      for (const p of queueItems) {
+        // Pick the channel with fewer current posts. Tie → IG (arbitrary
+        // but deterministic — matters when starting from 0/0).
+        const ch = countByChannel.IG <= countByChannel.FB ? 'IG' : 'FB'
+        const nextSlot = getNextOpenSlot(slotsByChannel[ch]).toISOString()
 
-        for (const acc of managed) {
-          if (covered.has(acc.id)) continue
-          const nextSlot = getNextOpenSlot(accountSlots[acc.id]).toISOString()
+        await patchAirtableRecord('Posts', p.id, {
+          'Channel': ch,
+          'Scheduled Date': nextSlot,
+        })
 
-          if (unassignedInGroup.length) {
-            // Reuse unassigned instance
-            const reuse = unassignedInGroup.shift()
-            await patchAirtableRecord('Posts', reuse.id, {
-              'Account': [acc.id],
-              'Scheduled Date': nextSlot,
-            })
-            updates.push({ postId: reuse.id, accountId: acc.id, scheduledDate: nextSlot, reused: true })
-          } else {
-            // Clone from sibling. Preserve the source Post's Status so the
-            // clone shows up in the same place in the UI as the source did.
-            // If we hardcode 'Prepping' here, the GET filter (which now drops
-            // Prepping from Grid Planner) hides the clone — admin clicks
-            // Distribute, gets a "distributed N" toast, but only the reused
-            // (already-Staged) sibling appears on the new account; clones
-            // sit invisible. Match the source's status instead. Status is a
-            // singleSelect so Airtable returns it as either a string or
-            // {name: '...'} depending on the read path — normalize.
-            const srcStatusName = typeof src.Status === 'string' ? src.Status : (src.Status?.name || '')
-            const cloneStatus = srcStatusName || 'Staged'
-            const thumbField = await buildClonedThumbnail((src.Asset || [])[0], src.Thumbnail)
-            const fields = {
-              'Post Name': src['Post Name'] || '',
-              ...(src.Creator ? { 'Creator': src.Creator } : {}),
-              ...(src.Asset ? { 'Asset': src.Asset } : {}),
-              ...(group.taskId && !group.taskId.startsWith('orphan-') ? { 'Task': [group.taskId] } : {}),
-              'Account': [acc.id],
-              'Status': cloneStatus,
-              ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
-              ...(src.Caption ? { 'Caption': src.Caption } : {}),
-              ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
-              ...(thumbField ? { 'Thumbnail': thumbField } : {}),
-              'Scheduled Date': nextSlot,
-            }
-            const created = await createAirtableRecord('Posts', fields)
-            updates.push({ postId: created.id, accountId: acc.id, scheduledDate: nextSlot, cloned: true })
-          }
-
-          accountSlots[acc.id].push(nextSlot)
-          covered.add(acc.id)
-          distributed++
-        }
+        slotsByChannel[ch].push(nextSlot)
+        countByChannel[ch]++
+        distributed++
+        updates.push({ postId: p.id, channel: ch, scheduledDate: nextSlot })
       }
 
-      return NextResponse.json({ ok: true, distributed, accountCount: managed.length, updates })
+      return NextResponse.json({
+        ok: true,
+        distributed,
+        finalBalance: { IG: countByChannel.IG, FB: countByChannel.FB },
+        updates,
+      })
     }
 
     if (action !== 'fanOut') {
