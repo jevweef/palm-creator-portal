@@ -163,12 +163,19 @@ function getNextOpenSlot(existingISOs) {
 }
 
 // GET /api/admin/grid-planner
-//   - No params: returns list of creators who have managed IG accounts
-//   - ?creatorId=rec...: returns that creator's accounts + all their posts grouped by account
+//   - No params: returns list of creators who do Social Media Editing
+//   - ?creatorId=rec...: returns that creator's 2 channel frames (IG, FB) + posts
 //
-// Grid planner shows 1 creator at a time. Each creator has up to 4 IG accounts
-// (Main + Palm IG 1/2/3). Posts with no Account field set show in an "Unassigned"
-// bucket so the admin can drag them into an account grid.
+// 2026-05 rewrite (post-calendar, channel-routed):
+// - Creator dropdown sources from Palm Creators with Social Media Editing=1
+//   (no longer CPD-derived — CPD is being phased out of this surface).
+// - Each creator gets exactly 2 synthetic "accounts": IG and FB. They share
+//   the same shape as legacy CPD account objects so the frontend doesn't
+//   need to know about the model change.
+// - Posts route to a frame by their Channel field (IG or FB). Posts with no
+//   Channel set are unassigned and show in the queue tray.
+// - Scheduled Date is now an opaque ordering token (cron-side FIFO), not a
+//   calendar time. UI shouldn't render it as a date anymore.
 export async function GET(request) {
   try { await requireAdminOrSocialMedia() } catch (e) { return e }
 
@@ -176,83 +183,95 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const creatorId = searchParams.get('creatorId')
 
-    // Fetch ALL managed creators (anyone with at least one active IG account in CPD)
-    const allAccounts = await fetchAirtableRecords('Creator Platform Directory', {
-      filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist')`,
-      fields: ['Account Name', 'Creator', 'Platform', 'Status', 'Handle/ Username', 'Handle Override', 'URL', 'Follower Count', 'Account Type', 'Telegram Topic ID'],
-    })
-
-    // Extract unique creator IDs + fetch their names
-    const creatorIds = [...new Set(allAccounts.flatMap(a => a.fields?.Creator || []).filter(Boolean))]
-    if (!creatorIds.length) {
-      return NextResponse.json({ creators: [], selectedCreator: null, accounts: [], posts: [] })
-    }
-
-    // Only include creators we're actively doing social media + editing for.
-    // Filter: Social Media Editing = 1 on Palm Creators. Any creator without
-    // that flag (e.g. onboarding-only, churned, or DNA-only clients) is excluded
-    // from the Grid Planner dropdown even if they still have IG accounts in CPD.
+    // Creator dropdown: every active Palm Creator with Social Media Editing
+    // checked, regardless of whether they still have legacy IG CPD accounts.
+    // Topic IDs (per-channel) live on this record now.
     const creatorRecs = await fetchAirtableRecords('Palm Creators', {
-      filterByFormula: `AND(OR(${creatorIds.map(id => `RECORD_ID()='${id}'`).join(',')}), {Social Media Editing}=1)`,
-      fields: ['Creator', 'AKA', 'Telegram Thread ID'],
+      filterByFormula: `AND({Social Media Editing}=1, {Status}='Active')`,
+      fields: [
+        'Creator', 'AKA', 'Telegram Thread ID',
+        'Telegram IG Topic ID', 'Telegram FB Topic ID',
+      ],
     })
     const creatorMap = Object.fromEntries(creatorRecs.map(r => [r.id, r.fields?.AKA || r.fields?.Creator || '(unnamed)']))
     const creatorThreadMap = Object.fromEntries(creatorRecs.map(r => [r.id, r.fields?.['Telegram Thread ID'] || null]))
+    const creatorById = Object.fromEntries(creatorRecs.map(r => [r.id, r.fields || {}]))
 
-    // Count IG accounts per creator to flag which ones are actually editable
-    const accountsPerCreator = {}
-    for (const acc of allAccounts) {
-      for (const cid of acc.fields?.Creator || []) {
-        if (!accountsPerCreator[cid]) accountsPerCreator[cid] = 0
-        accountsPerCreator[cid]++
-      }
-    }
-
+    // accountCount = 2 always (IG + FB) for any creator with Social Media
+    // Editing on. Keeping the field for frontend back-compat — it used to
+    // flag creators with zero managed IG accounts; that case is gone.
     const creators = Object.entries(creatorMap)
-      .map(([id, name]) => ({ id, name, accountCount: accountsPerCreator[id] || 0 }))
+      .map(([id, name]) => ({ id, name, accountCount: 2 }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
     if (!creatorId) {
       return NextResponse.json({ creators })
     }
 
-    // Fetch this creator's accounts + all their posts in parallel
-    const creatorAccounts = allAccounts.filter(a => (a.fields?.Creator || []).includes(creatorId))
+    const cf = creatorById[creatorId] || {}
+    const igTopicId = cf['Telegram IG Topic ID'] || null
+    const fbTopicId = cf['Telegram FB Topic ID'] || null
+    const creatorAka = creatorMap[creatorId] || ''
 
-    // Fetch scraped feed data separately (bigger fields — multilineText JSON).
-    // Small extra roundtrip is fine, keeps the main GET lean.
-    const scrapedRecords = creatorAccounts.length
-      ? await fetchAirtableRecords('Creator Platform Directory', {
-          filterByFormula: `OR(${creatorAccounts.map(a => `RECORD_ID()='${a.id}'`).join(',')})`,
-          fields: ['Scraped Feed', 'Scraped Feed Updated', 'Scraped Profile', 'Scraped Error'],
-        })
-      : []
-    const scrapedMap = Object.fromEntries(scrapedRecords.map(r => {
-      let feed = []
-      let profile = null
-      // Scraped Feed is authoritative for cached posts. Legacy: it used to
-      // sometimes hold an error-shaped object — treat that as empty so we
-      // don't leak old error data into the UI.
-      try {
-        const parsed = JSON.parse(r.fields?.['Scraped Feed'] || '[]')
-        if (Array.isArray(parsed)) feed = parsed
-      } catch {}
-      try {
-        const p = JSON.parse(r.fields?.['Scraped Profile'] || 'null')
-        if (p && typeof p === 'object') profile = p
-      } catch {}
-      // Error is now a separate field — doesn't destroy cached posts.
-      const scrapedError = (r.fields?.['Scraped Error'] || '').trim() || null
-      return [r.id, { feed, updated: r.fields?.['Scraped Feed Updated'] || null, error: scrapedError, profile }]
-    }))
+    // Best-effort: pull scraped IG feed data from the creator's legacy CPD
+    // record(s) so the IG phone frame still shows their real Instagram grid.
+    // If they have multiple CPD records (old fanout era), pick the one with
+    // the freshest Scraped Feed Updated. FB has no scrape source — empty.
+    const cpdRecs = await fetchAirtableRecords('Creator Platform Directory', {
+      filterByFormula: `AND({Platform}='Instagram', {Managed by Palm}=1, {Status}!='Does Not Exist')`,
+      fields: [
+        'Account Name', 'Creator', 'Handle/ Username', 'Handle Override',
+        'URL', 'Follower Count',
+        'Scraped Feed', 'Scraped Feed Updated', 'Scraped Profile', 'Scraped Error',
+      ],
+    })
+    const creatorCpdRecs = cpdRecs.filter(r => (r.fields?.Creator || []).includes(creatorId))
+    let scrapedFeed = []
+    let scrapedFeedUpdated = null
+    let scrapedProfile = null
+    let scrapedError = null
+    let igHandle = ''
+    let igFollowers = null
+    let igUrl = ''
+    // Sort newest scrape first
+    creatorCpdRecs.sort((a, b) => {
+      const ua = new Date(a.fields?.['Scraped Feed Updated'] || 0).getTime()
+      const ub = new Date(b.fields?.['Scraped Feed Updated'] || 0).getTime()
+      return ub - ua
+    })
+    for (const r of creatorCpdRecs) {
+      const f = r.fields || {}
+      // Use the first record as the canonical handle/follower source even if it has no scrape.
+      if (!igHandle) {
+        igHandle = ((f['Handle Override'] || '').trim() || (f['Handle/ Username'] || '').trim()).replace(/^@/, '')
+        igFollowers = f['Follower Count'] || null
+        const rawUrl = (f['URL'] || '').trim()
+        igUrl = rawUrl.startsWith('http') ? rawUrl : (rawUrl ? `https://${rawUrl}` : (igHandle ? `https://instagram.com/${igHandle}` : ''))
+      }
+      // First record with an actual scrape wins for feed data.
+      if (!scrapedFeedUpdated && f['Scraped Feed Updated']) {
+        try {
+          const parsed = JSON.parse(f['Scraped Feed'] || '[]')
+          if (Array.isArray(parsed)) scrapedFeed = parsed
+        } catch {}
+        try {
+          const p = JSON.parse(f['Scraped Profile'] || 'null')
+          if (p && typeof p === 'object') scrapedProfile = p
+        } catch {}
+        scrapedFeedUpdated = f['Scraped Feed Updated']
+        scrapedError = (f['Scraped Error'] || '').trim() || null
+      }
+    }
 
     // Pull posts in window (last 60 days + future), filter to this creator in memory.
     // Can't filter by Creator record ID in Airtable formula — ARRAYJOIN returns
-    // display names, not IDs. Fetch-then-filter is fine at this scale (tens of posts).
+    // display names, not IDs. Also include posts with no Scheduled Date so
+    // newly-staged queue items (Channel not yet assigned, no date stamped)
+    // still appear in the queue tray.
     const allRecentPosts = await fetchAirtableRecords('Posts', {
-      filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
+      filterByFormula: `OR(IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days')), {Scheduled Date}=BLANK())`,
       fields: [
-        'Post Name', 'Creator', 'Account', 'Asset', 'Task',
+        'Post Name', 'Creator', 'Channel', 'Asset', 'Task',
         'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail',
         'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link',
         'SMM Scheduled', 'SMM Scheduled At',
@@ -261,8 +280,7 @@ export async function GET(request) {
     // Drop Prepping posts: those still belong to admin's Post Prep workflow,
     // not the Grid Planner queue. They show up here only after admin clicks
     // "Send to Grid" (which flips Status from Prepping → Staged). Also drop
-    // Archived since those are off-pipeline. Status is a singleSelect — value
-    // can be returned as a string OR {name: 'Prepping'} depending on call.
+    // Archived since those are off-pipeline.
     const statusName = (s) => typeof s === 'string' ? s : (s?.name || '')
     const HIDDEN = new Set(['Prepping', 'Archived'])
     const posts = allRecentPosts.filter(p => {
@@ -271,43 +289,28 @@ export async function GET(request) {
       return true
     })
 
-    // Queue normalization: for each managed account, sort unsent posts and
-    // renumber their Scheduled Dates to the canonical "today AM, today PM,
-    // tomorrow AM, ..." sequence. Yesterday's "today AM" becomes today's
-    // "yesterday AM" and that post bumps to today AM automatically. Sent and
-    // Live posts are immune.
-    const normPatches = (await Promise.all(
-      creatorAccounts.map(acc => normalizeAccountQueue(acc.id, posts))
-    )).flat()
-    if (normPatches.length) {
-      await runThrottled(normPatches)
+    // Normalize Channel — singleSelect may come back as a string or {name:'IG'}.
+    const channelOf = (p) => {
+      const c = p.fields?.Channel
+      return typeof c === 'string' ? c : (c?.name || null)
     }
 
-    // Match scraped Live posts back to existing Sent Posts so the grid shows
-    // ONE cell per reel instead of duplicates (Sent + scraped Live side-by-side
-    // for the same content). Heuristic: per account, sort Sent-but-not-yet-live
-    // Posts by Scheduled Date ASC and the scraped feed by Posted At ASC, match
-    // oldest pairs. Only claim a scrape into a Post when the dates are within
-    // 5 days of each other (avoids manually-posted IG content getting captured
-    // into our pipeline records). Once Post Link is written, the existing
-    // dedup at GridPlanner.PhoneFrame (`postLinks` Set) hides the scraped
-    // duplicate. Idempotent — once matched, the Post has Post Link set, so
-    // subsequent GETs skip it.
+    // Calendar/slot normalization (normalizeAccountQueue) and per-account
+    // scrape-match-to-Sent dedupe are retired — slots are gone, accounts
+    // are gone. Frontend renders posts in queue order (Scheduled Date as
+    // an opaque ordering token) for the queue side; Sent posts render in
+    // their post-time order.
+
+    // Match scraped Live posts to existing Sent IG posts so the grid shows
+    // ONE cell per reel instead of duplicates. New architecture: only the
+    // IG synthetic frame has a scraped feed (FB has none), so we match
+    // unmatched IG-Sent posts against the single scrapedFeed.
     const matchPatches = []
-    // Map of post.id → live scrape (used as thumbnail fallback when the matched
-    // Post's own Thumbnail attachment is missing/broken — without this, matched
-    // LIVE cells render as blank black squares because dedup at the client
-    // hides the scrape's rich thumbnail in favor of the now-matched Post.
     const scrapeFallback = {}
-    // Also: any scrape whose URL appears on an already-matched Post (from a
-    // prior run) — capture those too so old LIVE cells stay populated when the
-    // scrape feed still has the data.
-    for (const acc of creatorAccounts) {
-      const feed = scrapedMap[acc.id]?.feed || []
-      if (!feed.length) continue
-      const feedByUrl = new Map(feed.map(s => [s.url, s]))
+    if (scrapedFeed.length) {
+      const feedByUrl = new Map(scrapedFeed.map(s => [s.url, s]))
       for (const p of posts) {
-        if (!(p.fields?.Account || []).includes(acc.id)) continue
+        if (channelOf(p) !== 'IG') continue
         const link = p.fields?.['Post Link']
         if (link && feedByUrl.has(link)) {
           const s = feedByUrl.get(link)
@@ -316,40 +319,33 @@ export async function GET(request) {
       }
       const unmatched = posts
         .filter(p =>
-          (p.fields?.Account || []).includes(acc.id) &&
+          channelOf(p) === 'IG' &&
           p.fields?.['Telegram Sent At'] &&
           !p.fields?.['Post Link'] &&
           !p.fields?.['Posted At']
         )
-        .sort((a, b) =>
-          new Date(a.fields['Scheduled Date'] || 0) - new Date(b.fields['Scheduled Date'] || 0)
-        )
-      if (!unmatched.length) continue
-      const scrapedAsc = [...feed]
+        .sort((a, b) => new Date(a.fields['Scheduled Date'] || 0) - new Date(b.fields['Scheduled Date'] || 0))
+      const scrapedAsc = [...scrapedFeed]
         .filter(s => s.postedAt && s.url)
         .sort((a, b) => new Date(a.postedAt) - new Date(b.postedAt))
-      const num = Math.min(unmatched.length, scrapedAsc.length)
       const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
+      const num = Math.min(unmatched.length, scrapedAsc.length)
       for (let i = 0; i < num; i++) {
         const post = unmatched[i]
         const live = scrapedAsc[i]
-        const drift = Math.abs(new Date(live.postedAt) - new Date(post.fields['Scheduled Date']))
+        const drift = Math.abs(new Date(live.postedAt) - new Date(post.fields['Scheduled Date'] || 0))
         if (drift > FIVE_DAYS_MS) continue
-        const postId = post.id
-        const liveUrl = live.url
-        const livePostedAt = live.postedAt
-        matchPatches.push(() => patchAirtableRecord('Posts', postId, {
-          'Post Link': liveUrl,
-          'Posted At': livePostedAt,
+        matchPatches.push(() => patchAirtableRecord('Posts', post.id, {
+          'Post Link': live.url,
+          'Posted At': live.postedAt,
         }))
-        // Mutate in-place so this GET's response already reflects the match
         post.fields['Post Link'] = live.url
         post.fields['Posted At'] = live.postedAt
         if (live.thumbnail) scrapeFallback[post.id] = live.thumbnail
       }
     }
     if (matchPatches.length) {
-      console.log(`[Grid Planner] Matched ${matchPatches.length} scraped post${matchPatches.length !== 1 ? 's' : ''} to existing Sent records`)
+      console.log(`[Grid Planner] Matched ${matchPatches.length} scraped IG post${matchPatches.length !== 1 ? 's' : ''} to Sent records`)
       await runThrottled(matchPatches)
     }
 
@@ -364,36 +360,43 @@ export async function GET(request) {
       for (const a of assets) assetMap[a.id] = a.fields || {}
     }
 
-    // Normalize accounts
-    const accounts = creatorAccounts.map(a => {
-      const f = a.fields || {}
-      const rawUrl = (f['URL'] || '').trim()
-      // Handle Override wins if set (CPD's synced Handle/Username can be stale)
-      const handle = ((f['Handle Override'] || '').trim() || (f['Handle/ Username'] || '').trim()).replace(/^@/, '')
-      const scraped = scrapedMap[a.id] || { feed: [], updated: null }
-      return {
-        id: a.id,
-        name: f['Account Name'] || '',
-        handle,
-        url: rawUrl.startsWith('http') ? rawUrl : (rawUrl ? `https://${rawUrl}` : (handle ? `https://instagram.com/${handle}` : '')),
-        followers: f['Follower Count'] || null,
-        accountType: f['Account Type'] || '',
-        status: f['Status'] || '',
-        scrapedFeed: scraped.feed,
-        scrapedFeedUpdated: scraped.updated,
-        scrapedError: scraped.error,
-        scrapedProfile: scraped.profile,  // { followers, following, bio, fullName, profilePicUrl, isVerified, isPrivate, postCount }
-        telegramTopicId: f['Telegram Topic ID'] || null,
-      }
-    }).sort((a, b) => {
-      // Main first, then numbered Palm IGs in order
-      const order = s => {
-        if (s.accountType === 'Main') return 0
-        const m = s.name.match(/Palm IG (\d+)/i)
-        return m ? parseInt(m[1]) : 99
-      }
-      return order(a) - order(b)
-    })
+    // Build the 2 synthetic "accounts" — one per channel. These have the
+    // same shape as legacy CPD account objects so the frontend doesn't need
+    // a model change. accountId pattern: `${creatorId}-IG` / `${creatorId}-FB`.
+    const igAccountId = `${creatorId}-IG`
+    const fbAccountId = `${creatorId}-FB`
+    const accounts = [
+      {
+        id: igAccountId,
+        channel: 'IG',
+        name: `${creatorAka} Instagram`,
+        handle: igHandle,
+        url: igUrl,
+        followers: igFollowers,
+        accountType: 'Instagram',
+        status: 'Active',
+        scrapedFeed,
+        scrapedFeedUpdated,
+        scrapedError,
+        scrapedProfile,
+        telegramTopicId: igTopicId,
+      },
+      {
+        id: fbAccountId,
+        channel: 'FB',
+        name: `${creatorAka} Facebook`,
+        handle: igHandle ? `${igHandle} (FB)` : '',  // placeholder display
+        url: '',
+        followers: null,
+        accountType: 'Facebook',
+        status: 'Active',
+        scrapedFeed: [],
+        scrapedFeedUpdated: null,
+        scrapedError: null,
+        scrapedProfile: null,
+        telegramTopicId: fbTopicId,
+      },
+    ]
 
     // Normalize posts + bucket by account
     // Build a sibling-thumbnail map BEFORE normalize. For each Task, collect
@@ -475,12 +478,18 @@ export async function GET(request) {
       const fallbackThumbs = [...siblingUrls, cdnUrl, scrapeFallback[p.id]].filter(Boolean)
       const thumb = primaryThumb || fallbackThumbs[0] || ''
       const hasBrokenThumb = !postImg && (f.Thumbnail || []).length > 0 && !cdnUrl && !scrapeFallback[p.id]
-      const accountId = (f.Account || [])[0] || null
+      // Map to one of the two synthetic accounts via Channel. Legacy
+      // posts that still have a CPD Account link but no Channel show as
+      // unassigned (accountId=null) and land in the queue tray — admin
+      // can run distributeQueue to push them through.
+      const ch = channelOf(p)
+      const accountId = ch === 'IG' ? igAccountId : ch === 'FB' ? fbAccountId : null
       return {
         id: p.id,
         name: f['Post Name'] || '',
-        status: f.Status || '',
+        status: statusName(f.Status),
         accountId,
+        channel: ch,
         taskId, // for grouping sibling instances in the Unassigned tray
         scheduledDate: f['Scheduled Date'] || null,
         telegramSentAt: f['Telegram Sent At'] || null,
@@ -513,17 +522,22 @@ export async function GET(request) {
       }
     })
 
-    // Build task instance groups: for each Task linked to at least one post,
-    // count how many accounts still need this reel placed (N_accounts - already_placed).
-    // This powers the Unassigned Tray's "3-2-1 badge" UX: one card per task group,
-    // counter decrements as each instance gets dragged onto an account grid.
+    // Build queue tray groups. Post-fanout world: each Task has ONE post,
+    // so the "group" mostly exists for legacy posts that have multiple
+    // unchanneled siblings still lingering. A group shows in the tray as
+    // long as it has at least one Channel-less unsent post.
+    //
+    // `remaining` used to mean "N_accounts not yet placed" (3 → 2 → 1 → 0
+    // as fanout filled). New meaning: count of unchanneled posts in this
+    // group — usually 1, sometimes more for legacy cleanup. The frontend
+    // only needs >0 to keep the tile in the tray.
     const taskGroups = {}
     for (const p of normalized) {
-      const key = p.taskId || `orphan-${p.id}` // orphan = post with no linked Task
+      const key = p.taskId || `orphan-${p.id}`
       if (!taskGroups[key]) {
         taskGroups[key] = {
           taskId: p.taskId,
-          samplePost: p, // use any post in group for caption/thumbnail preview
+          samplePost: p,
           allPosts: [],
           assignedAccountIds: new Set(),
           unassignedPostIds: [],
@@ -532,29 +546,16 @@ export async function GET(request) {
       taskGroups[key].allPosts.push(p)
       if (p.accountId) taskGroups[key].assignedAccountIds.add(p.accountId)
       else taskGroups[key].unassignedPostIds.push(p.id)
-      // Prefer a post with a thumbnail as the sample
       if (p.thumbnail && !taskGroups[key].samplePost.thumbnail) taskGroups[key].samplePost = p
     }
-    // Only show groups that (a) have at least one unplaced instance, AND
-    // (b) are NOT already sent/posted everywhere (those graduate out of the tray)
-    const accountIdsSet = new Set(accounts.map(a => a.id))
     const unassignedGroups = Object.values(taskGroups)
       .filter(g => {
-        // Skip groups where every post is already sent or posted
         const allFinal = g.allPosts.every(p => p.telegramSentAt || p.postedAt || p.postLink)
         if (allFinal) return false
-        // Remaining = accounts this reel still needs to hit
-        const remaining = accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length
-        return remaining > 0
+        return g.unassignedPostIds.length > 0
       })
       .map(g => {
         // Override samplePost.thumbnail with Asset.Thumbnail when available.
-        // The asset is the single source of truth; sibling Posts can drift
-        // out of sync momentarily during fan-out + Airtable ingest, and
-        // picking any one of them as the tray preview means the user sees
-        // a stale thumbnail until refresh. Asset.Thumbnail is the only
-        // value updated atomically by every Replace Thumbnail flow, so
-        // it's always the most recently saved image.
         const assetId = g.samplePost.asset?.id
         const assetThumbObj = assetId ? assetMap[assetId] : null
         const pickImage = (atts) => (atts || []).find(a =>
@@ -563,10 +564,6 @@ export async function GET(request) {
         )
         const assetImg = assetThumbObj ? pickImage(assetThumbObj.Thumbnail) : null
         const assetCdn = assetThumbObj?.['CDN URL'] || ''
-        // Same preference flip as the cell render: Asset.Thumbnail wins over
-        // CDN. The CF mirror is uploaded once at asset creation and never
-        // refreshes when admin replaces the thumbnail, so preferring it
-        // means the tray keeps showing the original video frame forever.
         const assetThumbUrl =
           assetImg?.thumbnails?.large?.url ||
           assetImg?.url ||
@@ -577,12 +574,11 @@ export async function GET(request) {
           samplePost: assetThumbUrl
             ? { ...g.samplePost, thumbnail: assetThumbUrl }
             : g.samplePost,
-          remaining: accounts.length - [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)).length,
+          remaining: g.unassignedPostIds.length,
           unassignedPostIds: g.unassignedPostIds,
-          assignedAccountIds: [...g.assignedAccountIds].filter(id => accountIdsSet.has(id)),
+          assignedAccountIds: [...g.assignedAccountIds],
         }
       })
-      // Sort: needs-more-slots first, then by scheduled date
       .sort((a, b) => {
         if (b.remaining !== a.remaining) return b.remaining - a.remaining
         return new Date(a.samplePost.scheduledDate || 0) - new Date(b.samplePost.scheduledDate || 0)
@@ -644,13 +640,30 @@ export async function PATCH(request) {
       return NextResponse.json({ ok: true, swapped: { [postA]: dateB, [postB]: dateA } })
     }
 
+    // assign: writes Channel (IG/FB) based on the synthetic account ID.
+    // The frontend still calls this with `accountIds` for back-compat; in
+    // the new model an accountId is `${creatorId}-IG` or `${creatorId}-FB`.
+    // Passing an empty array clears the Channel (back to queue tray).
     if (action === 'assign') {
       const { postId, accountIds } = body
       if (!postId || !Array.isArray(accountIds)) {
         return NextResponse.json({ error: 'postId and accountIds[] required' }, { status: 400 })
       }
-      await patchAirtableRecord('Posts', postId, { 'Account': accountIds })
-      return NextResponse.json({ ok: true })
+      const accountId = accountIds[0] || null
+      let channel = null
+      if (accountId) {
+        if (accountId.endsWith('-IG')) channel = 'IG'
+        else if (accountId.endsWith('-FB')) channel = 'FB'
+        else return NextResponse.json({ error: `Unrecognized synthetic accountId: ${accountId}` }, { status: 400 })
+      }
+      // Stamp Scheduled Date as an ordering token so the new post lands at
+      // the end of the channel's FIFO queue. Empty array → null Channel +
+      // null Scheduled Date (back to tray).
+      await patchAirtableRecord('Posts', postId, {
+        'Channel': channel,
+        'Scheduled Date': channel ? new Date().toISOString() : null,
+      })
+      return NextResponse.json({ ok: true, channel })
     }
 
     if (action === 'setDate') {
@@ -698,47 +711,51 @@ export async function PATCH(request) {
     }
 
     // reorder: take an ordered list of post IDs (oldest at index 0, newest
-    // last) and assign each post the canonical slot date for its index.
-    // Used by drag-drop within an account grid — client computes the new
-    // queue order via insertion-shift, sends the full list, server writes.
+    // last) and re-stamp Scheduled Date so they sort in that exact order
+    // for the cron's FIFO drain. New model: Scheduled Date is an opaque
+    // ordering token, not a slot date.
     if (action === 'reorder') {
       const { accountId, postIds } = body
       if (!accountId || !Array.isArray(postIds) || !postIds.length) {
         return NextResponse.json({ error: 'accountId and postIds[] required' }, { status: 400 })
       }
-      const slots = getQueueSlots(postIds.length)
+      const baseTs = Date.now()
       await Promise.all(postIds.map((pid, i) =>
-        patchAirtableRecord('Posts', pid, { 'Scheduled Date': slots[i] })
+        patchAirtableRecord('Posts', pid, {
+          'Scheduled Date': new Date(baseTs + i * 1000).toISOString(),
+        })
       ))
-      return NextResponse.json({ ok: true, slots })
+      return NextResponse.json({ ok: true })
     }
 
-    // assignInstance: the "3-badge drag" action.
-    // Body shape: { action: 'assignInstance', taskId, accountId, unassignedPostIds: [...] }
-    //   - If unassignedPostIds has entries: re-use the first one, set Account + next-open-slot
-    //   - If all task instances already placed but user wants another: clone from a sibling
-    // Returns: { ok: true, postId: <assigned or created> }
+    // assignInstance: the queue-tray drag action.
+    // Body: { action: 'assignInstance', taskId, accountId, unassignedPostIds: [...] }
+    // New model: accountId is a synthetic `${creatorId}-IG/FB` — extract
+    // channel, reuse the first unchanneled post (or clone from sibling if
+    // somehow there are none), stamp Channel + ordering token.
     if (action === 'assignInstance') {
       const { taskId, accountId, unassignedPostIds = [] } = body
       if (!accountId) return NextResponse.json({ error: 'accountId required' }, { status: 400 })
+      let channel = null
+      if (accountId.endsWith('-IG')) channel = 'IG'
+      else if (accountId.endsWith('-FB')) channel = 'FB'
+      else return NextResponse.json({ error: `Unrecognized synthetic accountId: ${accountId}` }, { status: 400 })
 
-      // Append-to-end strategy. We don't try to fill gaps — normalize will
-      // renumber every queue date to the canonical slot sequence after the
-      // assign/clone, so the new post lands at slot N (queue length), and
-      // any drift in existing dates gets cleaned up in the same call.
-      const FAR_FUTURE = '2099-01-01T00:00:00.000Z'
+      const orderToken = new Date().toISOString()
       let assignedPostId = null
 
       if (unassignedPostIds.length) {
-        // Case 1: reuse an unassigned instance in this task group
+        // Reuse an unchanneled post in this task group
         const reuseId = unassignedPostIds[0]
         await patchAirtableRecord('Posts', reuseId, {
-          'Account': [accountId],
-          'Scheduled Date': FAR_FUTURE,
+          'Channel': channel,
+          'Scheduled Date': orderToken,
         })
         assignedPostId = reuseId
       } else {
-        // Case 2: all instances already placed — clone from a sibling
+        // No unchanneled posts left → clone from a sibling.
+        // (Rare in the new world since fanout is dead, but keeps drag-drop
+        // robust when an admin reassigns a sent reel back into the queue.)
         if (!taskId) return NextResponse.json({ error: 'taskId required when no unassigned instances' }, { status: 400 })
         const siblings = await fetchAirtableRecords('Posts', {
           filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
@@ -753,34 +770,23 @@ export async function PATCH(request) {
           ...(src.Creator ? { 'Creator': src.Creator } : {}),
           ...(src.Asset ? { 'Asset': src.Asset } : {}),
           'Task': [taskId],
-          'Account': [accountId],
-          'Status': 'Prepping',
+          'Channel': channel,
+          'Status': 'Staged',
           ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
           ...(src.Caption ? { 'Caption': src.Caption } : {}),
           ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
           ...(thumbField ? { 'Thumbnail': thumbField } : {}),
-          'Scheduled Date': FAR_FUTURE,
+          'Scheduled Date': orderToken,
         }
         const created = await createAirtableRecord('Posts', fields)
         assignedPostId = created.id
       }
 
-      // Re-fetch the account's posts now that we've appended one, then
-      // normalize. This compacts the queue and gives the new post a real
-      // slot date (slot N where N = queue length - 1).
-      const accountPosts = await fetchAirtableRecords('Posts', {
-        filterByFormula: `FIND('${accountId}', ARRAYJOIN({Account}))`,
-        fields: ['Account', 'Scheduled Date', 'Telegram Sent At', 'Posted At'],
-      })
-      const patches = await normalizeAccountQueue(accountId, accountPosts)
-      if (patches.length) await Promise.all(patches)
-
-      const newPost = accountPosts.find(p => p.id === assignedPostId)
-      const scheduledDate = newPost?.fields?.['Scheduled Date'] || null
       return NextResponse.json({
         ok: true,
         postId: assignedPostId,
-        scheduledDate,
+        scheduledDate: orderToken,
+        channel,
         ...(unassignedPostIds.length ? { reused: true } : { cloned: true }),
       })
     }
@@ -811,20 +817,20 @@ export async function POST(request) {
     const body = await request.json()
     const { action } = body
 
-    // distributeQueue (2026-05 rewrite): assign every unchanneled queue item
-    // for this creator to either IG or FB via round-robin, then schedule it
-    // at the next open slot on that channel's grid. ONE Post per source
-    // clip — no more fanout-cloning across multiple IG accounts.
+    // distributeQueue (2026-05 rewrite, post-calendar): assign every
+    // unchanneled queue item for this creator to either IG or FB via
+    // round-robin. ONE Post per source clip — no more fanout-cloning.
     //
-    // Old behavior (retired): clone source Post once per managed IG account
-    // (IG 1/2/3 each got their own copy of the same reel). That model died
-    // when we collapsed to 1 IG + 1 FB per creator and started sending
-    // UNIQUE content to each platform.
+    // No more calendar slots. SMM posts on their own cadence (~2x/day per
+    // channel); we just hand them the next reel in order. To keep cron
+    // ordering stable across a multi-post distribute, we still stamp
+    // Scheduled Date as an opaque "queued at" timestamp — UI never shows
+    // it as a date anymore, it's purely an ORDER token. Cron sorts by it
+    // ASC, draining oldest first.
     //
-    // Channel balancing: start with whichever side currently has fewer
-    // already-channeled posts (so a freshly-set-up creator with 0 of each
-    // starts with IG, but if there are 5 IG posts and 2 FB, the next 3
-    // queue items go to FB first). Inside the queue items, strict alternate.
+    // Old behavior (retired May 2026):
+    //  - Cloning one source Post per managed IG account (IG 1/2/3 fanout)
+    //  - Stamping AM/PM slot grid times via getNextOpenSlot
     if (action === 'distributeQueue') {
       const { creatorId } = body
       if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
@@ -843,11 +849,10 @@ export async function POST(request) {
         }, { status: 400 })
       }
 
-      // All unsent posts for this creator, in the recent window. We need
-      // existing-channeled posts to (a) count current IG vs FB balance,
-      // (b) build per-channel slot maps for next-open scheduling.
+      // All unsent posts for this creator. We need existing-channeled
+      // posts to count current IG vs FB balance for round-robin seeding.
       const allRecent = await fetchAirtableRecords('Posts', {
-        filterByFormula: `IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days'))`,
+        filterByFormula: `OR(IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days')), {Scheduled Date}=BLANK())`,
         fields: ['Post Name', 'Creator', 'Channel', 'Asset', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
       })
       const creatorPosts = allRecent.filter(p =>
@@ -863,44 +868,40 @@ export async function POST(request) {
         return typeof c === 'string' ? c : (c?.name || null)
       }
 
-      // Also pull all-time channeled posts (no date filter) so the
-      // unscheduled queue tail isn't missed if it was created >60d ago
-      // for some reason. Currently the same allRecent set covers it, but
-      // we keep the date filter to stay light on Airtable.
       const queueItems = creatorPosts.filter(p => !channelOf(p))
       if (!queueItems.length) {
         return NextResponse.json({ ok: true, distributed: 0, message: 'Queue empty' })
       }
 
-      // Per-channel slot map and balance counter, seeded from existing posts.
-      const slotsByChannel = { IG: [], FB: [] }
+      // Count existing channel balance so a creator with 5 IG / 2 FB gets
+      // the next 3 queue items pushed to FB first.
       const countByChannel = { IG: 0, FB: 0 }
       for (const p of creatorPosts) {
         const ch = channelOf(p)
-        if (!ch) continue
-        countByChannel[ch] = (countByChannel[ch] || 0) + 1
-        const sd = p.fields?.['Scheduled Date']
-        if (sd) slotsByChannel[ch].push(sd)
+        if (ch === 'IG' || ch === 'FB') countByChannel[ch]++
       }
 
       let distributed = 0
       const updates = []
+      // Stamp ordering tokens spaced 1 second apart from a single baseline.
+      // Within a single distributeQueue call this gives stable cron order.
+      // Across calls, fresh `now()` ensures later batches sort after earlier ones.
+      const baseTs = Date.now()
 
-      for (const p of queueItems) {
-        // Pick the channel with fewer current posts. Tie → IG (arbitrary
-        // but deterministic — matters when starting from 0/0).
+      for (let i = 0; i < queueItems.length; i++) {
+        const p = queueItems[i]
+        // Pick the channel with fewer current posts. Tie → IG.
         const ch = countByChannel.IG <= countByChannel.FB ? 'IG' : 'FB'
-        const nextSlot = getNextOpenSlot(slotsByChannel[ch]).toISOString()
+        const orderToken = new Date(baseTs + i * 1000).toISOString()
 
         await patchAirtableRecord('Posts', p.id, {
           'Channel': ch,
-          'Scheduled Date': nextSlot,
+          'Scheduled Date': orderToken,
         })
 
-        slotsByChannel[ch].push(nextSlot)
         countByChannel[ch]++
         distributed++
-        updates.push({ postId: p.id, channel: ch, scheduledDate: nextSlot })
+        updates.push({ postId: p.id, channel: ch, orderToken })
       }
 
       return NextResponse.json({
@@ -911,64 +912,16 @@ export async function POST(request) {
       })
     }
 
-    if (action !== 'fanOut') {
-      return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
+    // fanOut: retired May 2026. The whole point was fan-out cloning to
+    // multiple IG accounts (IG 1/2/3) — that model is gone. UI should
+    // call `assign` with a single synthetic accountId instead.
+    if (action === 'fanOut') {
+      return NextResponse.json({
+        error: 'fanOut is retired — use action=assign with a single synthetic accountId (`${creatorId}-IG` or `-FB`), or distributeQueue to bulk-assign the entire queue.',
+      }, { status: 410 })
     }
 
-    const { postId, accountIds } = body
-    if (!postId || !Array.isArray(accountIds) || accountIds.length === 0) {
-      return NextResponse.json({ error: 'postId and accountIds[] required' }, { status: 400 })
-    }
-
-    // Fetch the source post
-    const sourceRecs = await fetchAirtableRecords('Posts', {
-      filterByFormula: `RECORD_ID()='${postId}'`,
-      fields: ['Post Name', 'Creator', 'Asset', 'Task', 'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Scheduled Date'],
-    })
-    if (!sourceRecs.length) return NextResponse.json({ error: 'Source post not found' }, { status: 404 })
-    const src = sourceRecs[0].fields || {}
-
-    // Day-stagger: same time of day, +1 day for account 2, +2 days for account 3.
-    // This keeps the feeds distinct across the three accounts — same reel, but
-    // it hits each feed on a different day so the grids don't mirror each other.
-    const baseDate = src['Scheduled Date'] ? new Date(src['Scheduled Date']) : new Date()
-    const makeStaggered = (i) => {
-      const d = new Date(baseDate)
-      d.setDate(d.getDate() + i)
-      return d.toISOString()
-    }
-
-    // 1. Assign the existing post to the FIRST account
-    await patchAirtableRecord('Posts', postId, {
-      'Account': [accountIds[0]],
-      ...(src['Scheduled Date'] ? {} : { 'Scheduled Date': makeStaggered(0) }),
-    })
-
-    // 2. Clone the post for each remaining account with staggered times.
-    // Pre-resolve the thumbnail field once so we don't re-fetch the Asset
-    // record N times — bytes are stable, only the destination Account changes.
-    const thumbField = await buildClonedThumbnail((src.Asset || [])[0], src.Thumbnail)
-    const clones = []
-    for (let i = 1; i < accountIds.length; i++) {
-      const accId = accountIds[i]
-      const fields = {
-        'Post Name': src['Post Name'] || '',
-        ...(src.Creator ? { 'Creator': src.Creator } : {}),
-        ...(src.Asset ? { 'Asset': src.Asset } : {}),
-        ...(src.Task ? { 'Task': src.Task } : {}),
-        'Account': [accId],
-        'Status': 'Prepping',
-        ...(src.Platform?.length ? { 'Platform': src.Platform } : {}),
-        ...(src.Caption ? { 'Caption': src.Caption } : {}),
-        ...(src.Hashtags ? { 'Hashtags': src.Hashtags } : {}),
-        ...(thumbField ? { 'Thumbnail': thumbField } : {}),
-        'Scheduled Date': makeStaggered(i),
-      }
-      const created = await createAirtableRecord('Posts', fields)
-      clones.push(created.id)
-    }
-
-    return NextResponse.json({ ok: true, assigned: postId, clones, accountCount: accountIds.length })
+    return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
   } catch (err) {
     console.error('[Grid Planner] POST error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
