@@ -842,7 +842,14 @@ function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToas
   useEffect(() => {
     if (!creatorId) return
     setLoading(true)
-    fetch(`/api/admin/posts/photos?creatorId=${creatorId}&forReel=false`)
+    // forReel=true asks the photos endpoint to hide anything already used
+    // as a reel thumbnail in the past (Used As Reel Thumbnail flag) or
+    // currently attached as a Thumbnail to an active Post. Same filter as
+    // the per-post Choose Thumbnail picker. The modal is for ADDING new
+    // photos to the pool — once a photo's been used, it shouldn't reappear
+    // here. Removing existing pool members happens via the × on each
+    // tile in the Thumbnail Pool tray, not via this modal.
+    fetch(`/api/admin/posts/photos?creatorId=${creatorId}&forReel=true`)
       .then(r => r.json())
       .then(d => {
         setPhotos(d.photos || [])
