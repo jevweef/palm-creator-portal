@@ -1341,8 +1341,19 @@ export default function GridPlanner({ smmMode = false } = {}) {
         if (!res.ok) throw new Error('Reorder failed')
         showToast('Reordered')
       } else {
-        // Cross-account or from-unassigned → reassign
-        const newPosts = posts.map(p => p.id === sourcePostId ? { ...p, accountId: targetAccountId } : p)
+        // Cross-channel drag (IG ↔ FB) or from-unassigned → reassign.
+        // Optimistically update accountId, channel, AND scheduledDate so
+        // the cell renders correctly in the destination phone right away
+        // (otherwise it ends up with stale channel/scheduledDate fields
+        // and can show wrong status colors / sort position until refresh).
+        const targetChannel = targetAccountId?.endsWith('-IG') ? 'IG' :
+                              targetAccountId?.endsWith('-FB') ? 'FB' : null
+        const optimisticDate = targetChannel ? new Date().toISOString() : null
+        const newPosts = posts.map(p =>
+          p.id === sourcePostId
+            ? { ...p, accountId: targetAccountId, channel: targetChannel, scheduledDate: optimisticDate }
+            : p
+        )
         setPosts(newPosts)
         const res = await fetch('/api/admin/grid-planner', {
           method: 'PATCH',
@@ -1351,6 +1362,9 @@ export default function GridPlanner({ smmMode = false } = {}) {
         })
         if (!res.ok) throw new Error('Assign failed')
         showToast('Moved to ' + (accounts.find(a => a.id === targetAccountId)?.name || 'account'))
+        // Reload from server so any other fields settle correctly (and
+        // any concurrent edits land cleanly).
+        await loadCreator(selectedCreatorId)
       }
     } catch (e) {
       showToast(e.message, true)
@@ -1462,7 +1476,14 @@ export default function GridPlanner({ smmMode = false } = {}) {
     if (!src || src.accountId === accountId) return
     setSaving(true)
     try {
-      setPosts(posts.map(p => p.id === sourcePostId ? { ...p, accountId } : p))
+      const targetChannel = accountId?.endsWith('-IG') ? 'IG' :
+                            accountId?.endsWith('-FB') ? 'FB' : null
+      const optimisticDate = targetChannel ? new Date().toISOString() : null
+      setPosts(posts.map(p =>
+        p.id === sourcePostId
+          ? { ...p, accountId, channel: targetChannel, scheduledDate: optimisticDate }
+          : p
+      ))
       const res = await fetch('/api/admin/grid-planner', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1470,6 +1491,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
       })
       if (!res.ok) throw new Error('Assign failed')
       showToast('Assigned to ' + (accounts.find(a => a.id === accountId)?.name || 'account'))
+      await loadCreator(selectedCreatorId)
     } catch (e) {
       showToast(e.message, true)
       loadCreator(selectedCreatorId)
