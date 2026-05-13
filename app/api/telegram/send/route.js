@@ -408,11 +408,11 @@ function buildDatePrefix(iso) {
 // via waitUntil() so the admin's click returns in ~1s instead of 60-90s.
 async function doSend(params) {
   const { editedFileLink, threadId, smmTopicId, caption: rawIncomingCaption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
-  // Prepend the date/slot label so SMM can see at a glance which post this
-  // is for. Caption order: date prefix → user caption → hashtags (already
-  // joined client-side into the incoming caption).
-  const datePrefix = buildDatePrefix(scheduledDate)
-  const caption = [datePrefix, rawIncomingCaption].filter(Boolean).join('\n\n') || undefined
+  // Caption is just the user caption + hashtags (joined client-side into the
+  // incoming caption). No date prefix — post-calendar architecture means
+  // Scheduled Date is just an opaque ordering token, not a real post time,
+  // so showing it to SMM is meaningless and misleading.
+  const caption = rawIncomingCaption || undefined
 
   try {
     const rawUrl = rawDropboxUrl(editedFileLink)
