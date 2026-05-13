@@ -9,6 +9,7 @@ import { waitUntil } from '@vercel/functions'
 import { requireAdmin, patchAirtableRecord, fetchAirtableRecords } from '@/lib/adminAuth'
 import ffmpegStatic from 'ffmpeg-static'
 import ffmpeg from 'fluent-ffmpeg'
+import sharp from 'sharp'
 import { writeFile, readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -35,26 +36,47 @@ async function getVideoDuration(filePath) {
 }
 
 // Resize image to fit Telegram limits (max 1280px longest side, JPEG output).
-// Uses execFile directly — fluent-ffmpeg was causing 5+ minute hangs on Vercel
-// serverless because stdout/stderr pipes weren't being drained.
+// Resize thumbnail for Telegram (max 1280px). Uses sharp first because it
+// reliably honors EXIF orientation (.rotate() with no args reads the tag,
+// applies the rotation to the pixels, and strips the tag from the output).
+// ffmpeg's image decoder is inconsistent with EXIF — that's what was causing
+// SMM's sideways thumbnail complaints. Falls back to ffmpeg for HEIC/HEIF
+// (sharp's default build doesn't include libheif).
 async function resizeImage(inputBuffer, inputName) {
-  const id = Date.now()
-  // Sanitize "extension" — Airtable/Dropbox URLs often have no real extension,
-  // so split('.').pop() returns the URL hash. Without a known image extension
-  // ffmpeg sniffs the input and sometimes picks 'mjpeg' (Motion JPEG = video)
-  // instead of treating it as a single still — then complains about needing a
-  // '%03d' multi-frame output pattern. Force a clean .jpg extension.
+  const inputBuf = Buffer.from(inputBuffer)
   const rawExt = (inputName.split('.').pop() || '').toLowerCase()
+  const isHeic = rawExt === 'heic' || rawExt === 'heif'
+
+  // sharp path — JPEG/PNG/WEBP/GIF/BMP/TIFF.
+  if (!isHeic) {
+    try {
+      return await sharp(inputBuf)
+        .rotate()  // Auto-rotate per EXIF, strip orientation tag
+        .resize(1280, 1280, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 90, mozjpeg: false })
+        .toBuffer()
+    } catch (e) {
+      // Fall through to ffmpeg on any sharp failure — defensive in case
+      // the bytes are something exotic sharp can't open.
+      console.warn('[resizeImage] sharp failed, falling back to ffmpeg:', e.message)
+    }
+  }
+
+  // ffmpeg fallback — handles HEIC, and catches anything sharp couldn't.
+  // For HEIC, the heif decoder pre-rotates during decode so the output JPEG
+  // is in display orientation. For other formats, this path is best-effort
+  // and may not respect EXIF — sharp should have caught those above.
+  const id = Date.now()
   const knownExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'heic', 'heif']
   const ext = knownExts.includes(rawExt) ? rawExt : 'jpg'
   const inputPath = join(tmpdir(), `tg_img_in_${id}.${ext}`)
   const outputPath = join(tmpdir(), `tg_img_out_${id}.jpg`)
-  await writeFile(inputPath, Buffer.from(inputBuffer))
+  await writeFile(inputPath, inputBuf)
   await new Promise((resolve, reject) => {
     const args = [
       '-y', '-i', inputPath,
       '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease',
-      '-frames:v', '1',  // Belt + suspenders: even if ffmpeg sniffs as video, only write one frame
+      '-frames:v', '1',
       '-q:v', '2',
       outputPath,
     ]
@@ -69,8 +91,18 @@ async function resizeImage(inputBuffer, inputName) {
   return outputBuffer
 }
 
-// Remux MOV → MP4 using -c copy (zero quality loss, just container change).
-// Uses execFile — same reasoning as resizeImage (fluent-ffmpeg pipe deadlock).
+// MOV → MP4 with rotation baked into pixels.
+//
+// Old approach used `-c copy` (just a container swap, no re-encode). Fast,
+// but it preserved the source's rotation METADATA without rotating the
+// pixels. Telegram (and Android IG) frequently ignore the rotation tag —
+// result: portrait phone videos rendered sideways. Re-encoding through
+// libx264 makes ffmpeg auto-apply the rotation during decode and strips
+// the tag from the output container. Quality cost is negligible at CRF 18
+// (visually lossless), time cost is ~5–10s for a typical 15-30s reel.
+//
+// `-metadata:s:v:0 rotate=0` is belt-and-suspenders — libx264 already
+// drops the tag, but explicit is safer than implicit.
 async function remuxToMp4(inputBuffer, inputName) {
   const id = Date.now()
   const ext = inputName.split('.').pop().toLowerCase()
@@ -80,11 +112,16 @@ async function remuxToMp4(inputBuffer, inputName) {
   await new Promise((resolve, reject) => {
     const args = [
       '-y', '-i', inputPath,
-      '-c', 'copy',
+      '-c:v', 'libx264',
+      '-crf', '18',                       // visually lossless
+      '-preset', 'ultrafast',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-metadata:s:v:0', 'rotate=0',      // strip rotation tag explicitly
       '-movflags', '+faststart',
       outputPath,
     ]
-    execFile(ffmpegStatic, args, { timeout: 60000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+    execFile(ffmpegStatic, args, { timeout: 120000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
       if (err) reject(err)
       else resolve()
     })
@@ -125,6 +162,7 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
       '-vf', 'scale=w=-2:h=\'min(1280,ih)\'',
       '-c:a', 'aac',
       '-b:a', '96k',
+      '-metadata:s:v:0', 'rotate=0',  // strip rotation tag (libx264 already rotated pixels)
       '-movflags', '+faststart',
     ]
   } else {
@@ -151,6 +189,7 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
         '-vf', 'scale=w=-2:h=\'min(1920,ih)\'',
         '-c:a', 'aac',
         '-b:a', '128k',
+        '-metadata:s:v:0', 'rotate=0',  // strip rotation tag (libx264 already rotated pixels)
         '-movflags', '+faststart',
       ]
     } else {
@@ -162,6 +201,7 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
         '-preset', 'ultrafast',
         '-c:a', 'aac',
         '-b:a', '128k',
+        '-metadata:s:v:0', 'rotate=0',  // strip rotation tag (libx264 already rotated pixels)
         '-movflags', '+faststart',
       ]
     }
