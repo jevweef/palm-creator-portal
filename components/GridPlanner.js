@@ -1362,9 +1362,12 @@ export default function GridPlanner({ smmMode = false } = {}) {
         })
         if (!res.ok) throw new Error('Assign failed')
         showToast('Moved to ' + (accounts.find(a => a.id === targetAccountId)?.name || 'account'))
-        // Reload from server so any other fields settle correctly (and
-        // any concurrent edits land cleanly).
-        await loadCreator(selectedCreatorId)
+        // Fire-and-forget refresh so the UI unfreezes immediately. The
+        // optimistic update already moved the cell with correct channel
+        // and scheduledDate — the refresh just settles any side fields.
+        loadCreator(selectedCreatorId).catch(err =>
+          console.warn('[Grid] post-drag refresh failed:', err.message)
+        )
       }
     } catch (e) {
       showToast(e.message, true)
@@ -1491,7 +1494,10 @@ export default function GridPlanner({ smmMode = false } = {}) {
       })
       if (!res.ok) throw new Error('Assign failed')
       showToast('Assigned to ' + (accounts.find(a => a.id === accountId)?.name || 'account'))
-      await loadCreator(selectedCreatorId)
+      // Fire-and-forget refresh (see handleDropOnPost rationale).
+      loadCreator(selectedCreatorId).catch(err =>
+        console.warn('[Grid] post-drag refresh failed:', err.message)
+      )
     } catch (e) {
       showToast(e.message, true)
       loadCreator(selectedCreatorId)
