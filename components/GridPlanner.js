@@ -425,7 +425,7 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       onDragLeave={() => setIsOver(false)}
       onDrop={(e) => { e.preventDefault(); setIsOver(false); onDrop() }}
       onClick={onClick}
-      title={isScraped ? `Already on IG · ${formatScheduled(post.postedAt)}` : `${status}${post.scheduledDate ? ' · ' + formatScheduled(post.scheduledDate) : ''}`}
+      title={isScraped ? `Already on IG · ${formatScheduled(post.postedAt)}` : status}
       style={{
         aspectRatio: '1 / 1',
         background: post.thumbnail ? '#000' : style.bg,
@@ -465,17 +465,9 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       }}>
         {isScraped ? 'live' : status}
       </div>
-      {/* Date chip */}
-      {post.scheduledDate && status !== 'live' && !isScraped && (
-        <div style={{
-          position: 'absolute', bottom: 3, right: 3,
-          padding: '1px 4px', borderRadius: '3px',
-          background: 'rgba(0,0,0,0.55)', color: 'var(--foreground)',
-          fontSize: '8px', fontWeight: 600,
-        }}>
-          {new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })}
-        </div>
-      )}
+      {/* Date chip retired May 2026 — Scheduled Date is now an opaque
+          ordering token for cron FIFO, not a calendar time. SMM posts on
+          their own cadence. No date shown on cells. */}
 
       {/* SMM-scheduled checkmark — visible in all modes so admins can see status too */}
       {post.smmScheduled && !isScraped && (
@@ -594,10 +586,10 @@ function UnassignedTray({ groups, accounts, draggingTaskKey, onDragStart, onDrag
           <span>🗂️</span> Ready to schedule
         </div>
         <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px' }}>
-          {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} · {totalSlotsRemaining} slot{totalSlotsRemaining !== 1 && 's'} left
+          {visibleGroups.length} reel{visibleGroups.length !== 1 && 's'} waiting
         </div>
         <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
-          Drag a thumbnail onto an account →
+          Drag a thumbnail onto IG or FB →
         </div>
       </div>
 
@@ -720,6 +712,321 @@ function ConfirmModal({ dialog, onClose }) {
   )
 }
 
+// ─── Thumbnail Pool tray ────────────────────────────────────────────────────────
+
+// Per-creator pool of pre-approved thumbnail photos. Sits alongside the
+// "Ready to schedule" queue tray. Drag a tile from here onto any post cell
+// (IG or FB phone) to apply it as that post's Thumbnail.
+function ThumbnailPoolTray({ pool, draggingAssetId, onDragStart, onDragEnd, onAdd, onRemove, onAutoFill, autoFilling }) {
+  return (
+    <div style={{
+      width: '260px', flexShrink: 0,
+      background: 'var(--card-bg-solid)',
+      borderRadius: '24px',
+      border: '1px solid rgba(232, 160, 160, 0.15)',
+      overflow: 'hidden',
+      maxHeight: '70vh',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--palm-pink)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+          <span>🖼</span> Thumbnail Pool
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+          {pool.length} photo{pool.length !== 1 ? 's' : ''} · drag onto a cell to apply
+        </div>
+        <div style={{ display: 'flex', gap: '4px', marginTop: '10px' }}>
+          <button
+            onClick={onAdd}
+            style={{
+              flex: 1,
+              padding: '6px 0', fontSize: '12px', fontWeight: 700,
+              background: 'rgba(232, 160, 160, 0.10)',
+              color: 'var(--palm-pink)',
+              border: '1px solid rgba(232, 160, 160, 0.25)',
+              borderRadius: '6px', cursor: 'pointer',
+            }}
+          >
+            + Add
+          </button>
+          <button
+            onClick={onAutoFill}
+            disabled={!pool.length || autoFilling}
+            title="Auto-fill every queued post without a thumbnail with a random photo from this pool. Reusable — pool stays after."
+            style={{
+              flex: 1,
+              padding: '6px 0', fontSize: '12px', fontWeight: 700,
+              background: autoFilling ? 'rgba(168, 132, 232, 0.04)' : 'rgba(168, 132, 232, 0.10)',
+              color: '#a884e8',
+              border: '1px solid rgba(168, 132, 232, 0.25)',
+              borderRadius: '6px',
+              cursor: (!pool.length || autoFilling) ? 'default' : 'pointer',
+              opacity: !pool.length ? 0.4 : 1,
+            }}
+          >
+            {autoFilling ? 'Filling…' : '🎲 Auto-fill'}
+          </button>
+        </div>
+      </div>
+      <div style={{ overflowY: 'auto', padding: '8px', flex: 1 }}>
+        {pool.length === 0 ? (
+          <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '11px' }}>
+            No thumbnails approved yet. Click <strong>Add Thumbnails</strong> to choose photos.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+            {pool.map(tile => (
+              <ThumbnailPoolTile
+                key={tile.id}
+                tile={tile}
+                isDragging={draggingAssetId === tile.id}
+                onDragStart={() => onDragStart(tile)}
+                onDragEnd={onDragEnd}
+                onRemove={() => onRemove(tile.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ThumbnailPoolTile({ tile, isDragging, onDragStart, onDragEnd, onRemove }) {
+  const [showX, setShowX] = useState(false)
+  const sized = cdnUrlAtSize(tile.thumbnail, 240)
+  const src = sized ? proxyThumbUrl(sized) : (tile.thumbnail || '')
+  return (
+    <div
+      draggable
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; onDragStart() }}
+      onDragEnd={onDragEnd}
+      onMouseEnter={() => setShowX(true)}
+      onMouseLeave={() => setShowX(false)}
+      title={tile.name || 'Approved thumbnail'}
+      style={{
+        aspectRatio: '1 / 1',
+        background: '#000',
+        borderRadius: '4px',
+        overflow: 'hidden',
+        position: 'relative',
+        cursor: 'grab',
+        opacity: isDragging ? 0.4 : 1,
+      }}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+        />
+      ) : (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-muted)', fontSize: '20px' }}>·</div>
+      )}
+      {showX && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove() }}
+          title="Remove from pool"
+          style={{
+            position: 'absolute', top: 3, right: 3,
+            width: '18px', height: '18px', borderRadius: '50%',
+            background: 'rgba(0,0,0,0.7)', color: '#fff',
+            border: 'none', cursor: 'pointer',
+            fontSize: '11px', fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            lineHeight: 1,
+          }}
+        >×</button>
+      )}
+    </div>
+  )
+}
+
+// Modal for bulk-approving photos into the pool. Loads all the creator's
+// photos via the existing /api/admin/posts/photos endpoint (with the new
+// `approvedThumbnail` flag included). Admin ticks photos to add, unticks
+// to remove. Submit batches setThumbnailApproval calls.
+function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToast }) {
+  const [photos, setPhotos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [selected, setSelected] = useState(new Set())  // currently-checked photo IDs
+  const [initialSelected, setInitialSelected] = useState(new Set())  // server truth at load
+  const [sortNewest, setSortNewest] = useState(true)
+
+  useEffect(() => {
+    if (!creatorId) return
+    setLoading(true)
+    // forReel=true asks the photos endpoint to hide anything already used
+    // as a reel thumbnail in the past (Used As Reel Thumbnail flag) or
+    // currently attached as a Thumbnail to an active Post. Same filter as
+    // the per-post Choose Thumbnail picker. The modal is for ADDING new
+    // photos to the pool — once a photo's been used, it shouldn't reappear
+    // here. Removing existing pool members happens via the × on each
+    // tile in the Thumbnail Pool tray, not via this modal.
+    fetch(`/api/admin/posts/photos?creatorId=${creatorId}&forReel=true`)
+      .then(r => r.json())
+      .then(d => {
+        setPhotos(d.photos || [])
+        const approved = new Set((d.photos || []).filter(p => p.approvedThumbnail).map(p => p.id))
+        setSelected(approved)
+        setInitialSelected(new Set(approved))
+        setLoading(false)
+      })
+      .catch(e => {
+        showToast('Failed to load photos: ' + e.message, true)
+        setLoading(false)
+      })
+  }, [creatorId, showToast])
+
+  const toggle = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSubmit = async () => {
+    const toApprove = [...selected].filter(id => !initialSelected.has(id))
+    const toRevoke = [...initialSelected].filter(id => !selected.has(id))
+    if (!toApprove.length && !toRevoke.length) {
+      onClose()
+      return
+    }
+    setSaving(true)
+    try {
+      const calls = []
+      if (toApprove.length) calls.push(fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: toApprove, approved: true }),
+      }))
+      if (toRevoke.length) calls.push(fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: toRevoke, approved: false }),
+      }))
+      const results = await Promise.all(calls)
+      for (const r of results) {
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}))
+          throw new Error(d.error || `Update failed (${r.status})`)
+        }
+      }
+      const added = toApprove.length, removed = toRevoke.length
+      const bits = []
+      if (added) bits.push(`${added} added`)
+      if (removed) bits.push(`${removed} removed`)
+      showToast(`Pool updated: ${bits.join(' · ')}`)
+      onSaved()
+      onClose()
+    } catch (e) {
+      showToast(e.message, true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const sorted = sortNewest ? photos : [...photos].reverse()
+
+  return (
+    <div onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 350, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', borderRadius: '18px', width: '100%', maxWidth: '780px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 12px 50px rgba(0,0,0,0.4)' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>Approve Thumbnails</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+              {creatorName} · select photos to add to the pool
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '22px' }}>×</button>
+        </div>
+        <div style={{ padding: '12px 22px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <button onClick={() => setSortNewest(true)}
+            style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: sortNewest ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)', color: sortNewest ? '#060606' : 'var(--foreground-muted)' }}>
+            Newest
+          </button>
+          <button onClick={() => setSortNewest(false)}
+            style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: !sortNewest ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)', color: !sortNewest ? '#060606' : 'var(--foreground-muted)' }}>
+            Oldest
+          </button>
+          <div style={{ flex: 1 }} />
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+            <strong style={{ color: 'var(--palm-pink)' }}>{selected.size}</strong> selected
+          </div>
+        </div>
+        <div style={{ padding: '16px 22px', overflowY: 'auto', flex: 1 }}>
+          {loading && <div style={{ textAlign: 'center', color: 'var(--foreground-muted)', padding: '40px' }}>Loading photos…</div>}
+          {!loading && photos.length === 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--foreground-muted)', padding: '40px', fontSize: '13px' }}>
+              No photos in library for this creator.
+            </div>
+          )}
+          {!loading && photos.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
+              {sorted.map(photo => {
+                const isSelected = selected.has(photo.id)
+                const sized = cdnUrlAtSize(photo.cdnUrl || photo.dropboxLink, 300)
+                const src = sized ? proxyThumbUrl(sized) : (photo.dropboxLink || '')
+                return (
+                  <div
+                    key={photo.id}
+                    onClick={() => toggle(photo.id)}
+                    style={{
+                      aspectRatio: '1',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      border: `3px solid ${isSelected ? 'var(--palm-pink)' : 'transparent'}`,
+                      transition: 'border-color 0.1s',
+                    }}
+                  >
+                    {src && (
+                      <img
+                        src={src}
+                        alt=""
+                        loading="lazy"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    )}
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute', top: 6, right: 6,
+                        width: '22px', height: '22px', borderRadius: '50%',
+                        background: 'var(--palm-pink)', color: '#060606',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '13px', fontWeight: 700,
+                        boxShadow: '0 0 0 2px rgba(0,0,0,0.4)',
+                      }}>✓</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} disabled={saving}
+            style={{ padding: '8px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid transparent', color: 'var(--foreground-muted)', borderRadius: '8px', cursor: saving ? 'default' : 'pointer', fontSize: '13px', fontWeight: 600 }}>
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={saving}
+            style={{ padding: '8px 18px', background: 'var(--palm-pink)', border: '1px solid var(--palm-pink-dark)', color: '#060606', borderRadius: '8px', cursor: saving ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700, opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Saving…' : `Save pool (${selected.size})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function GridPlanner({ smmMode = false } = {}) {
@@ -738,6 +1045,11 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const [unassignedGroups, setUnassignedGroups] = useState([])
   const [draggingTaskGroup, setDraggingTaskGroup] = useState(null) // picked-up group (via click) — name kept so downstream code unchanged
   const [dragging, setDragging] = useState({ postId: null, sourceAccountId: null })
+  // Thumbnail Pool: curated photo Assets pre-approved for this creator.
+  // Drag a tile onto any cell to apply as that post's thumbnail.
+  const [thumbnailPool, setThumbnailPool] = useState([])
+  const [draggingThumbnail, setDraggingThumbnail] = useState(null) // { assetId, thumbnail, name }
+  const [showThumbnailModal, setShowThumbnailModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const [detailPost, setDetailPost] = useState(null) // { post, accountId, account }
@@ -835,6 +1147,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
       const freshPosts = d.posts || []
       setPosts(freshPosts)
       setUnassignedGroups(d.unassignedGroups || [])
+      setThumbnailPool(d.thumbnailPool || [])
       setSelectedCreatorMeta(d.selectedCreator || null)
       // CRITICAL: when the modal is open and we just refetched, fold the
       // server's fresh fields (Airtable CDN thumbnail URL especially) into
@@ -875,12 +1188,109 @@ export default function GridPlanner({ smmMode = false } = {}) {
     setDragging({ postId: null, sourceAccountId: null })
   }
 
+  // Reset + reshuffle every channeled queue post's thumbnail with a fresh
+  // random pool tile. Always overwrites — click again to reshuffle.
+  // To preserve a specific manual pick, drag it back from the pool onto
+  // the cell after running Auto-fill.
+  const [autoFilling, setAutoFilling] = useState(false)
+  const autoFillThumbnails = async () => {
+    if (!selectedCreatorId || !thumbnailPool.length) return
+    const targets = posts.filter(p =>
+      p.channel && !p.telegramSentAt && !p.postedAt
+    )
+    if (!targets.length) {
+      showToast('No queue posts to fill', true)
+      return
+    }
+    setConfirmDialog({
+      title: 'Auto-fill thumbnails',
+      message: `Replace every queue post's thumbnail with a random photo from the pool (${thumbnailPool.length} available)? Affects ${targets.length} post${targets.length !== 1 ? 's' : ''} across IG + FB. Click again any time to reshuffle.`,
+      confirmLabel: 'Shuffle',
+      onConfirm: async () => {
+        setAutoFilling(true)
+        try {
+          const res = await fetch('/api/admin/grid-planner', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'autoFillThumbnails', creatorId: selectedCreatorId }),
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Auto-fill failed')
+          // Surface a warning when pool is smaller than queue — some tiles
+          // had to repeat. User can add more photos to the pool to get
+          // fully-unique thumbnails.
+          if (data.poolShortBy > 0) {
+            showToast(`Filled ${data.applied} thumbnails — pool is ${data.poolShortBy} short, so ${data.poolShortBy} photo${data.poolShortBy !== 1 ? 's' : ''} had to repeat`, true)
+          } else {
+            showToast(`Filled ${data.applied} thumbnail${data.applied !== 1 ? 's' : ''} (all unique)`)
+          }
+          await loadCreator(selectedCreatorId)
+        } catch (e) {
+          showToast(e.message, true)
+        } finally {
+          setAutoFilling(false)
+        }
+      },
+    })
+  }
+
+  // Remove a single tile from the pool. Used by the × button on each tile.
+  const removeFromPool = async (assetId) => {
+    // Optimistic
+    setThumbnailPool(prev => prev.filter(t => t.id !== assetId))
+    try {
+      const res = await fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: [assetId], approved: false }),
+      })
+      if (!res.ok) throw new Error('Failed to remove from pool')
+    } catch (e) {
+      showToast(e.message, true)
+      loadCreator(selectedCreatorId)
+    }
+  }
+
+  // Apply a Thumbnail Pool tile's photo to a post. Called by handleDropOnPost
+  // when a pool tile (not a post cell) is being dragged. Optimistic UI updates
+  // the post's thumbnail immediately so the cell flips without waiting on
+  // Airtable's URL ingestion.
+  const applyThumbnailToPost = async (assetId, optimisticThumbUrl, postId) => {
+    setSaving(true)
+    setPosts(ps => ps.map(p =>
+      p.id === postId ? { ...p, thumbnail: optimisticThumbUrl || p.thumbnail } : p
+    ))
+    try {
+      const res = await fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'applyThumbnail', postId, assetId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Apply thumbnail failed')
+      showToast('Thumbnail applied')
+    } catch (e) {
+      showToast(e.message, true)
+      loadCreator(selectedCreatorId)  // Snap back to truth on failure
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Drop onto an existing post in an account grid.
   // Same account: insertion-shift reorder. Source moves to target's queue
   // position; everything between source and target shifts toward source's
   // old position. Server then renumbers all queue dates for that account.
   // Different account: reassign dragged post to target account.
   const handleDropOnPost = async (targetPostId, targetAccountId) => {
+    // Thumbnail Pool drop: if a pool tile is the active drag source, apply
+    // its photo to the target post and return. Takes precedence over
+    // post-reorder drops.
+    if (draggingThumbnail) {
+      await applyThumbnailToPost(draggingThumbnail.assetId, draggingThumbnail.thumbnail, targetPostId)
+      setDraggingThumbnail(null)
+      return
+    }
     const sourcePostId = dragging.postId
     const sourceAcc = dragging.sourceAccountId
     pushDebug(`dropOnPost target=${targetPostId.slice(-6)} acc=${targetAccountId.slice(-6)} src=${sourcePostId?.slice(-6) || 'null'}`)
@@ -913,33 +1323,11 @@ export default function GridPlanner({ smmMode = false } = {}) {
         const [moved] = newQueue.splice(fromIdx, 1)
         newQueue.splice(toIdx, 0, moved)
 
-        // Compute new dates: position 0 = today AM, 1 = today PM, 2 = tomorrow AM, ...
-        // Mirror server-side getQueueSlots so optimistic UI matches truth.
-        const computeSlots = (count) => {
-          const slots = []
-          const now = new Date()
-          const todayET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now)
-          const [sy, sm, sd] = todayET.split('-').map(Number)
-          for (let i = 0; i < count; i++) {
-            const dayOffset = Math.floor(i / 2)
-            const hourIdx = i % 2
-            const etHour = [11, 19][hourIdx]
-            // Construct noon UTC of target day so format-back-to-ET stays stable
-            const iter = new Date(Date.UTC(sy, sm - 1, sd + dayOffset, 12))
-            const etDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(iter)
-            const [ty, tm, td] = etDateStr.split('-').map(Number)
-            // 11 AM EDT = 15:00 UTC, 7 PM EDT = 23:00 UTC. Use Intl-derived offset
-            // to handle EDT/EST boundary correctly.
-            const noonUtc = new Date(Date.UTC(ty, tm - 1, td, 12))
-            const etHourAtNoon = parseInt(
-              new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(noonUtc)
-            )
-            const utcHour = etHour + (12 - etHourAtNoon)
-            slots.push(new Date(Date.UTC(ty, tm - 1, td, utcHour)).toISOString())
-          }
-          return slots
-        }
-        const slots = computeSlots(newQueue.length)
+        // Stamp ordering tokens 1 second apart so cron FIFO sort matches the
+        // new visual order. No more AM/PM slot grid — these are opaque
+        // sortable timestamps, not real post times.
+        const baseTs = Date.now()
+        const slots = newQueue.map((_, i) => new Date(baseTs + i * 1000).toISOString())
         const dateById = Object.fromEntries(newQueue.map((p, i) => [p.id, slots[i]]))
 
         // Optimistic UI
@@ -953,8 +1341,19 @@ export default function GridPlanner({ smmMode = false } = {}) {
         if (!res.ok) throw new Error('Reorder failed')
         showToast('Reordered')
       } else {
-        // Cross-account or from-unassigned → reassign
-        const newPosts = posts.map(p => p.id === sourcePostId ? { ...p, accountId: targetAccountId } : p)
+        // Cross-channel drag (IG ↔ FB) or from-unassigned → reassign.
+        // Optimistically update accountId, channel, AND scheduledDate so
+        // the cell renders correctly in the destination phone right away
+        // (otherwise it ends up with stale channel/scheduledDate fields
+        // and can show wrong status colors / sort position until refresh).
+        const targetChannel = targetAccountId?.endsWith('-IG') ? 'IG' :
+                              targetAccountId?.endsWith('-FB') ? 'FB' : null
+        const optimisticDate = targetChannel ? new Date().toISOString() : null
+        const newPosts = posts.map(p =>
+          p.id === sourcePostId
+            ? { ...p, accountId: targetAccountId, channel: targetChannel, scheduledDate: optimisticDate }
+            : p
+        )
         setPosts(newPosts)
         const res = await fetch('/api/admin/grid-planner', {
           method: 'PATCH',
@@ -963,6 +1362,12 @@ export default function GridPlanner({ smmMode = false } = {}) {
         })
         if (!res.ok) throw new Error('Assign failed')
         showToast('Moved to ' + (accounts.find(a => a.id === targetAccountId)?.name || 'account'))
+        // Fire-and-forget refresh so the UI unfreezes immediately. The
+        // optimistic update already moved the cell with correct channel
+        // and scheduledDate — the refresh just settles any side fields.
+        loadCreator(selectedCreatorId).catch(err =>
+          console.warn('[Grid] post-drag refresh failed:', err.message)
+        )
       }
     } catch (e) {
       showToast(e.message, true)
@@ -1074,7 +1479,14 @@ export default function GridPlanner({ smmMode = false } = {}) {
     if (!src || src.accountId === accountId) return
     setSaving(true)
     try {
-      setPosts(posts.map(p => p.id === sourcePostId ? { ...p, accountId } : p))
+      const targetChannel = accountId?.endsWith('-IG') ? 'IG' :
+                            accountId?.endsWith('-FB') ? 'FB' : null
+      const optimisticDate = targetChannel ? new Date().toISOString() : null
+      setPosts(posts.map(p =>
+        p.id === sourcePostId
+          ? { ...p, accountId, channel: targetChannel, scheduledDate: optimisticDate }
+          : p
+      ))
       const res = await fetch('/api/admin/grid-planner', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1082,6 +1494,10 @@ export default function GridPlanner({ smmMode = false } = {}) {
       })
       if (!res.ok) throw new Error('Assign failed')
       showToast('Assigned to ' + (accounts.find(a => a.id === accountId)?.name || 'account'))
+      // Fire-and-forget refresh (see handleDropOnPost rationale).
+      loadCreator(selectedCreatorId).catch(err =>
+        console.warn('[Grid] post-drag refresh failed:', err.message)
+      )
     } catch (e) {
       showToast(e.message, true)
       loadCreator(selectedCreatorId)
@@ -1199,17 +1615,16 @@ export default function GridPlanner({ smmMode = false } = {}) {
     }
   }
 
-  // Push every queue item onto every managed account that doesn't already
-  // have it. After this runs, the unassigned tray empties — admin can drag
-  // posts around inside each account grid to reorder.
+  // Split unchanneled queue items evenly between IG and FB via round-robin
+  // (server-side, in distributeQueue). Each unique clip lands on ONE
+  // channel — no more fanout.
   const [distributing, setDistributing] = useState(false)
   const handleDistributeQueue = async () => {
     if (!selectedCreatorId || !unassignedGroups.length) return
-    const remaining = unassignedGroups.reduce((s, g) => s + (g.remaining || 0), 0)
     setConfirmDialog({
-      title: 'Push queue to all accounts',
-      message: `Push ${unassignedGroups.length} queue item${unassignedGroups.length !== 1 ? 's' : ''} (${remaining} placement${remaining !== 1 ? 's' : ''}) onto every Palm IG account that's missing it?`,
-      confirmLabel: 'Distribute',
+      title: 'Split queue between IG and FB',
+      message: `Send ${unassignedGroups.length} queued reel${unassignedGroups.length !== 1 ? 's' : ''} across the IG and FB grids? Each reel lands on one platform (split as evenly as possible).`,
+      confirmLabel: 'Split queue',
       onConfirm: () => runDistributeQueue(),
     })
   }
@@ -1223,7 +1638,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Distribute failed')
-      showToast(`Distributed ${data.distributed} placement${data.distributed !== 1 ? 's' : ''}`)
+      const fb = data.finalBalance ? ` (IG: ${data.finalBalance.IG} · FB: ${data.finalBalance.FB})` : ''
+      showToast(`Distributed ${data.distributed}${fb}`)
       await loadCreator(selectedCreatorId)
     } catch (e) {
       showToast(e.message, true)
@@ -1251,7 +1667,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
     }
     setConfirmDialog({
       title: 'Shuffle queue',
-      message: `Randomize ${totalQueueItems} queue item${totalQueueItems !== 1 ? 's' : ''} across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}? Same reel won't land on the same slot across accounts.`,
+      message: `Randomize the order of ${totalQueueItems} queue item${totalQueueItems !== 1 ? 's' : ''} across IG and FB?`,
       confirmLabel: 'Shuffle',
       onConfirm: () => runShuffle(queues),
     })
@@ -1357,9 +1773,13 @@ export default function GridPlanner({ smmMode = false } = {}) {
       return
     }
     const estMin = Math.ceil(accountQueue.length * 25 / 60)
+    // Channel-aware label. Routing goes to the SMM group's per-creator
+    // topic (Telegram IG/FB Topic ID on Palm Creators), NOT by IG handle.
+    const channelLabel = account.channel === 'FB' ? 'Facebook' : 'Instagram'
+    const creatorName = creators.find(c => c.id === selectedCreatorId)?.name || 'creator'
     setConfirmDialog({
-      title: `Send queue to @${account.handle}`,
-      message: `Send ${accountQueue.length} post${accountQueue.length !== 1 ? 's' : ''} in queue order to the @${account.handle} topic? Each waits for the previous to fully upload (~${estMin} min). Keep this tab open.`,
+      title: `Send to ${creatorName} ${channelLabel} topic`,
+      message: `Send ${accountQueue.length} post${accountQueue.length !== 1 ? 's' : ''} in queue order to the "${creatorName} ${account.channel}" topic in the SMM Telegram group? Each waits for the previous to fully upload (~${estMin} min). Keep this tab open.`,
       confirmLabel: `Send ${accountQueue.length}`,
       onConfirm: () => runAccountBulkSend(accountId, account, accountQueue),
     })
@@ -1522,26 +1942,9 @@ export default function GridPlanner({ smmMode = false } = {}) {
     }
   }
 
-  // Fan out: duplicate post to all managed accounts, auto-staggering times
-  const handleFanOut = async (post) => {
-    if (!accounts.length) return
-    setSaving(true)
-    try {
-      const res = await fetch('/api/admin/grid-planner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'fanOut', postId: post.id, accountIds: accounts.map(a => a.id) }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Fan out failed')
-      showToast(`Fanned out to ${accounts.length} account${accounts.length > 1 ? 's' : ''}`)
-      await loadCreator(selectedCreatorId)
-    } catch (e) {
-      showToast(e.message, true)
-    } finally {
-      setSaving(false)
-    }
-  }
+  // Fan-out is retired (May 2026). Each clip lives on ONE channel now;
+  // no more cloning into multiple grids. Distribute-queue + drag-drop
+  // between IG/FB cover the use cases.
 
   return (
     <div>
@@ -1567,7 +1970,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           <button
             onClick={handleDistributeQueue}
             disabled={distributing}
-            title="Push every queue item onto every managed Palm IG account it's not already on. Skips accounts that already have the item."
+            title="Split every queue item between the IG and FB grids via round-robin. Each clip lands on one channel."
             style={{
               padding: '6px 14px', fontSize: '12px', fontWeight: 700,
               background: distributing ? 'rgba(232, 160, 160, 0.04)' : 'rgba(232, 160, 160, 0.10)',
@@ -1576,14 +1979,14 @@ export default function GridPlanner({ smmMode = false } = {}) {
               borderRadius: '6px', cursor: distributing ? 'default' : 'pointer',
             }}
           >
-            {distributing ? 'Distributing…' : `↗ Push queue to all accounts`}
+            {distributing ? 'Distributing…' : `↗ Split queue between IG & FB`}
           </button>
         )}
         {accounts.length > 1 && posts.some(p => postStatus(p) === 'queue') && (
           <button
             onClick={handleShuffle}
             disabled={shuffling}
-            title="Randomize each account's queue. Same reel won't land on the same slot across accounts."
+            title="Randomize the order of queued posts within each channel."
             style={{
               padding: '6px 14px', fontSize: '12px', fontWeight: 700,
               background: shuffling ? 'rgba(168, 132, 232, 0.04)' : 'rgba(168, 132, 232, 0.10)',
@@ -1599,7 +2002,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           <button
             onClick={handleBulkSend}
             disabled={bulkSending}
-            title={`Send all ${sendablePosts.length} scheduled-but-unsent posts to Telegram. Runs serially: account 1's full queue, then account 2's, etc. One upload at a time to stay under Telegram's rate limit.`}
+            title={`Send all ${sendablePosts.length} unsent posts to Telegram. Runs serially across IG + FB queues, one upload at a time to stay under Telegram's rate limit.`}
             style={{
               padding: '6px 14px', fontSize: '12px', fontWeight: 700,
               background: bulkSending ? 'rgba(125, 211, 164, 0.04)' : 'rgba(125, 211, 164, 0.10)',
@@ -1666,6 +2069,18 @@ export default function GridPlanner({ smmMode = false } = {}) {
                 onDebug={pushDebug}
               />
 
+              {/* Thumbnail Pool — drag a tile onto any cell to apply */}
+              <ThumbnailPoolTray
+                pool={thumbnailPool}
+                draggingAssetId={draggingThumbnail?.assetId || null}
+                onDragStart={(tile) => setDraggingThumbnail({ assetId: tile.id, thumbnail: tile.thumbnail, name: tile.name })}
+                onDragEnd={() => setDraggingThumbnail(null)}
+                onAdd={() => setShowThumbnailModal(true)}
+                onRemove={removeFromPool}
+                onAutoFill={autoFillThumbnails}
+                autoFilling={autoFilling}
+              />
+
               {/* Account phones — drop targets */}
               {accounts.map(acc => {
                 const accountQueueCount = (postsByAccount[acc.id] || []).filter(p =>
@@ -1703,7 +2118,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
                       <button
                         onClick={() => handleAccountBulkSend(acc.id)}
                         disabled={!!accountBulkSending}
-                        title={`Send all ${accountQueueCount} queue posts to @${acc.handle}'s Telegram topic, in order. Each waits for the previous to upload.`}
+                        title={`Send all ${accountQueueCount} queue posts to the ${acc.channel === 'FB' ? 'Facebook' : 'Instagram'} topic for this creator in the SMM Telegram group, in order. Each waits for the previous to upload.`}
                         style={{
                           padding: '6px 14px', fontSize: '11px', fontWeight: 700,
                           background: isThisAccountSending ? 'rgba(245, 158, 11, 0.10)' : 'rgba(125, 211, 164, 0.10)',
@@ -1835,6 +2250,16 @@ export default function GridPlanner({ smmMode = false } = {}) {
       )}
 
       <ConfirmModal dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
+
+      {showThumbnailModal && selectedCreatorId && (
+        <ThumbnailPoolModal
+          creatorId={selectedCreatorId}
+          creatorName={creators.find(c => c.id === selectedCreatorId)?.name || ''}
+          onClose={() => setShowThumbnailModal(false)}
+          onSaved={() => loadCreator(selectedCreatorId)}
+          showToast={showToast}
+        />
+      )}
 
       {/* Bulk-send progress banner (persistent during send, no auto-dismiss) */}
       {bulkProgress && (

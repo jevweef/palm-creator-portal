@@ -34,15 +34,19 @@ const GAP_BETWEEN_POSTS_MS = 6000
 // importing its logic so each send runs in its OWN Vercel function with
 // its own 300s budget — heavy compress on one post can't kill the cron.
 async function processOnePost(postId) {
-  // Need Creator (for telegramThreadId), Account (for smmTopicId),
-  // Asset (for editedFileLink) — same fields the client passes when it
-  // clicks Send to Telegram. Fetch fresh so any caption/hashtag edits made
-  // in Post Prep land in this send.
+  // Need Creator (for telegramThreadId + per-channel topic IDs),
+  // Asset (for editedFileLink), Channel (IG/FB — drives topic routing).
+  // The legacy Account-based topic routing (one CPD record per
+  // Instagram account, each with its own Telegram Topic ID) was
+  // retired 2026-05 — posts now route to Telegram IG Topic ID or
+  // Telegram FB Topic ID on the Palm Creator record based on
+  // Post.Channel. Fetch fresh so any caption/hashtag edits made in
+  // Post Prep land in this send.
   const postList = await fetchAirtableRecords('Posts', {
     filterByFormula: `RECORD_ID()='${postId}'`,
     fields: [
-      'Post Name', 'Status', 'Caption', 'Hashtags', 'Platform',
-      'Thumbnail', 'Scheduled Date', 'Creator', 'Account', 'Asset',
+      'Post Name', 'Status', 'Caption', 'Hashtags', 'Platform', 'Channel',
+      'Thumbnail', 'Scheduled Date', 'Creator', 'Asset',
     ],
   })
   const post = postList[0]
@@ -79,27 +83,34 @@ async function processOnePost(postId) {
 
   const creatorId = (f.Creator || [])[0]
   const assetId = (f.Asset || [])[0]
-  const accountId = (f.Account || [])[0]
+  const channel = f.Channel  // 'IG' or 'FB' (singleSelect value)
   if (!assetId) throw new Error('Post has no Asset link')
+  if (!creatorId) throw new Error('Post has no Creator link')
+  if (!channel) throw new Error('Post has no Channel set (expected IG or FB) — cannot resolve Telegram topic')
 
-  const [creatorList, assetList, accountList] = await Promise.all([
-    creatorId ? fetchAirtableRecords('Palm Creators', {
+  const [creatorList, assetList] = await Promise.all([
+    fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID()='${creatorId}'`,
-      fields: ['Creator', 'AKA', 'Telegram Thread ID'],
-    }) : [],
+      fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
+    }),
     fetchAirtableRecords('Assets', {
       filterByFormula: `RECORD_ID()='${assetId}'`,
       fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
     }),
-    accountId ? fetchAirtableRecords('Creator Platform Directory', {
-      filterByFormula: `RECORD_ID()='${accountId}'`,
-      fields: ['Telegram Topic ID', 'Account Name'],
-    }) : [],
   ])
 
   const creator = creatorList[0]?.fields || {}
   const asset = assetList[0]?.fields || {}
-  const account = accountList[0]?.fields || {}
+
+  // Resolve the per-channel Telegram topic for this creator.
+  // Channel='IG' → Telegram IG Topic ID, Channel='FB' → Telegram FB Topic ID.
+  // Both live on Palm Creators (Ops base). If the topic ID is missing, fail
+  // loud — we'd otherwise post into the group's General topic by accident.
+  const channelTopicField = channel === 'IG' ? 'Telegram IG Topic ID' : 'Telegram FB Topic ID'
+  const smmTopicId = creator[channelTopicField]
+  if (!smmTopicId) {
+    throw new Error(`Creator missing ${channelTopicField} for Channel=${channel} — set it on Palm Creators record`)
+  }
 
   // Prefer the pre-compressed file when available — that's the whole point
   // of the compress-pending-assets cron. Falls back to the raw Edited File
@@ -137,7 +148,7 @@ async function processOnePost(postId) {
       scheduledDate: f['Scheduled Date'] || null,
       creatorId,
       threadId: creator['Telegram Thread ID'] || null,
-      smmTopicId: account['Telegram Topic ID'] || null,
+      smmTopicId,
       wait: true,
     }),
   })
