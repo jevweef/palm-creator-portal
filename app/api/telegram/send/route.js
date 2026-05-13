@@ -604,46 +604,45 @@ async function doSend(params) {
       )
     }
 
-    // Mark the source thumbnail Asset as used (only now that it's genuinely
-    // being sent out). The Post record holds the thumbnail as an Airtable-
-    // hosted attachment, but the photo originated from an Asset record whose
-    // Dropbox Shared Link points to the same file. Match by FILENAME (which
-    // survives every URL rewrite — Airtable's signed URL has the original
-    // filename at the end of the path, and the Dropbox link has it in the
-    // /scl/fi/.../FILENAME path segment).
+    // Post-send Asset cleanup for the thumbnail:
+    //   - Used As Reel Thumbnail → true (hides from Choose Thumbnail picker
+    //     and Approve Thumbnails modal going forward)
+    //   - Approved Thumbnail → false (removes the tile from the creator's
+    //     Thumbnail Pool tray so SMM doesn't see it as a fresh option)
     //
-    // Old logic matched the FULL Airtable signed URL against {Dropbox Shared
-    // Link} — those URLs have nothing in common, so the FIND returned zero
-    // matches and the flag never flipped. That's why used thumbnails kept
-    // showing up in the picker as 'unused'. Non-fatal: if lookup fails, the
-    // send itself still succeeded.
+    // Asset is identified by FILENAME: Airtable's signed URL has the original
+    // filename as the last path segment, and the Dropbox Shared Link has it
+    // in /scl/fi/.../FILENAME. (Old code matched the full Airtable URL against
+    // {Dropbox Shared Link} which never overlapped — that's why the flag
+    // never flipped historically. See 5f18954.)
+    //
+    // Non-fatal: if lookup fails, the send itself still succeeded.
     if (thumbnailUrl) {
       try {
-        // Extract the filename from the Airtable URL: the path's last
-        // segment before the query string. Example:
-        //   https://v5.airtableusercontent.com/v3/u/40/40/abc/def/IMG_1234.jpg?ts=...
-        //   → "IMG_1234.jpg"
         const rawFilename = thumbnailUrl.split('?')[0].split('/').pop() || ''
         const filename = decodeURIComponent(rawFilename)
         if (filename) {
-          // Escape single quotes for the formula. Filenames rarely contain
-          // them but defensive anyway.
           const safeFilename = filename.replace(/'/g, "\\'")
           const matches = await fetchAirtableRecords('Assets', {
             filterByFormula: `FIND('${safeFilename}', {Dropbox Shared Link})`,
-            fields: ['Dropbox Shared Link', 'Used As Reel Thumbnail'],
+            fields: ['Dropbox Shared Link', 'Used As Reel Thumbnail', 'Approved Thumbnail'],
           })
           for (const a of matches) {
-            if (a.fields?.['Used As Reel Thumbnail']) continue
-            await patchAirtableRecord('Assets', a.id, { 'Used As Reel Thumbnail': true })
-            console.log(`[Telegram Send] Marked thumbnail asset ${a.id} as used (filename=${filename})`)
+            const alreadyUsed = !!a.fields?.['Used As Reel Thumbnail']
+            const stillInPool = !!a.fields?.['Approved Thumbnail']
+            if (alreadyUsed && !stillInPool) continue  // nothing to do
+            const patch = {}
+            if (!alreadyUsed) patch['Used As Reel Thumbnail'] = true
+            if (stillInPool) patch['Approved Thumbnail'] = false
+            await patchAirtableRecord('Assets', a.id, patch)
+            console.log(`[Telegram Send] Asset ${a.id} thumb cleanup: ${JSON.stringify(patch)} (filename=${filename})`)
           }
           if (!matches.length) {
-            console.warn(`[Telegram Send] No Asset found for thumbnail filename "${filename}" — won't be flagged as used`)
+            console.warn(`[Telegram Send] No Asset found for thumbnail filename "${filename}" — won't be flagged as used or removed from pool`)
           }
         }
       } catch (thumbErr) {
-        console.warn('[Telegram Send] Could not mark thumbnail as used (non-fatal):', thumbErr.message)
+        console.warn('[Telegram Send] Could not run thumbnail cleanup (non-fatal):', thumbErr.message)
       }
     }
 
