@@ -1189,21 +1189,34 @@ export default function GridPlanner({ smmMode = false } = {}) {
   }
 
   // Auto-fill every unthumbnailed queue post with a random pool photo.
+  //
+  // "Unthumbnailed" = no Post.Thumbnail attachment, OR the attachment is
+  // an auto-generated frame (filename starts with 'thumbnail' or is a
+  // short hex string). The upload pipeline auto-attaches video frames
+  // that LOOK like manually-picked thumbnails in the cell but aren't —
+  // we treat them as fillable. Real photo filenames (IMG_*.jpg, etc.)
+  // are assumed to be the operator's pick and left alone.
+  const isAutoGenThumbName = (fn) => {
+    if (!fn) return true
+    const f = fn.toLowerCase()
+    if (f.startsWith('thumbnail')) return true
+    const base = f.split('.')[0]
+    if (/^[0-9a-f]{6,12}$/.test(base)) return true
+    return false
+  }
   const [autoFilling, setAutoFilling] = useState(false)
   const autoFillThumbnails = async () => {
     if (!selectedCreatorId || !thumbnailPool.length) return
-    // Count how many queue posts actually need a thumbnail so we can show
-    // an honest confirm dialog before mutating.
     const targets = posts.filter(p =>
-      p.channel && !p.telegramSentAt && !p.postedAt && !p.thumbnail
+      p.channel && !p.telegramSentAt && !p.postedAt && isAutoGenThumbName(p.thumbnailFilename)
     )
     if (!targets.length) {
-      showToast('Every queue post already has a thumbnail', true)
+      showToast('Every queue post has a manually-picked thumbnail', true)
       return
     }
     setConfirmDialog({
       title: 'Auto-fill thumbnails',
-      message: `Apply a random photo from the pool (${thumbnailPool.length} available) to each of the ${targets.length} queue post${targets.length !== 1 ? 's' : ''} that doesn't have a thumbnail yet? Manually-set thumbnails are left alone. Pool stays unchanged.`,
+      message: `Apply a random photo from the pool (${thumbnailPool.length} available) to each of the ${targets.length} queue post${targets.length !== 1 ? 's' : ''} that doesn't have a manually-picked thumbnail yet? Auto-generated video frames will be replaced; manually-picked thumbnails are left alone. Pool stays unchanged.`,
       confirmLabel: 'Auto-fill',
       onConfirm: async () => {
         setAutoFilling(true)

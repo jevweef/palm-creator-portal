@@ -987,10 +987,17 @@ export async function POST(request) {
     }
 
     // autoFillThumbnails: for every queue post in this creator's IG or FB
-    // grid that doesn't have a thumbnail yet, pick a random Asset from the
-    // creator's Thumbnail Pool and apply it as that post's Thumbnail.
-    // Pool tiles can repeat if the queue is bigger than the pool — the
-    // pool is reusable by design.
+    // grid that doesn't have a MANUALLY-PICKED thumbnail, pick a random
+    // Asset from the creator's Thumbnail Pool and apply it.
+    //
+    // "Manually-picked" detection: filename ≠ auto-generated pattern. The
+    // upload pipeline auto-attaches a video frame to Post.Thumbnail with
+    // a name like 'thumbnail.jpg' or 'thumbnail_recXXX_<ts>.jpg' (or a
+    // short hex string). Those count as "no thumbnail yet" — we overwrite
+    // them. Anything with a real-looking filename (IMG_*.jpg, Photo Mar 19..jpg,
+    // etc.) is treated as the operator's pick and skipped.
+    //
+    // Pool tiles can repeat if the queue is bigger than the pool.
     // Body: { creatorId: 'rec...' }
     if (action === 'autoFillThumbnails') {
       const { creatorId } = body
@@ -1010,22 +1017,45 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Pool is empty — add some thumbnails first.' }, { status: 400 })
       }
 
-      // Queue posts for this creator that have a Channel but no Thumbnail.
-      // Pull every channeled, unsent post and filter client-side (ARRAYJOIN
-      // on linked records returns display text, not IDs).
+      // All channeled, unsent posts. We can't filter Thumbnail='' anymore
+      // because we ALSO want to overwrite auto-generated frame thumbnails.
+      // Filter creator client-side (ARRAYJOIN returns display text).
       const allPosts = await fetchAirtableRecords('Posts', {
-        filterByFormula: `AND({Channel}!='', {Telegram Sent At}='', {Posted At}='', {Thumbnail}='')`,
+        filterByFormula: `AND({Channel}!='', {Telegram Sent At}='', {Posted At}='')`,
         fields: ['Creator', 'Channel', 'Thumbnail', 'Status'],
       })
-      const targets = allPosts.filter(p => (p.fields?.Creator || []).some(c => {
-        const id = typeof c === 'string' ? c : c?.id
-        return id === creatorId
-      }))
-      if (!targets.length) {
-        return NextResponse.json({ ok: true, applied: 0, message: 'No queue posts need thumbnails' })
+
+      // Auto-generated thumbnail filename patterns:
+      //   - 'thumbnail.jpg' (case-insensitive) — video frame capture default
+      //   - 'thumbnail_recXXX_<ts>.jpg' — server-side upload pattern
+      //   - 'thumbnail_<anything>' — defensive catch-all for the above
+      //   - hex-only base names like '34f93bf7' (no extension or short)
+      const isAutoGenName = (fn) => {
+        if (!fn) return true  // no filename = no thumbnail at all
+        const f = fn.toLowerCase()
+        if (f.startsWith('thumbnail')) return true
+        const base = f.split('.')[0]
+        if (/^[0-9a-f]{6,12}$/.test(base)) return true
+        return false
       }
 
-      // Pick a random pool tile per post, normalize Dropbox URL for ingest.
+      const targets = allPosts.filter(p => {
+        if (!(p.fields?.Creator || []).some(c => (typeof c === 'string' ? c : c?.id) === creatorId)) return false
+        // Find the first image attachment on Post.Thumbnail (if any) and check
+        // its filename. Same image-only filter as the cell render.
+        const atts = p.fields?.Thumbnail || []
+        const img = atts.find(a =>
+          a?.type?.startsWith('image/') ||
+          (!a?.type && /\.(jpe?g|png|gif|webp)$/i.test(a?.filename || ''))
+        )
+        const filename = img?.filename || ''
+        return isAutoGenName(filename)
+      })
+
+      if (!targets.length) {
+        return NextResponse.json({ ok: true, applied: 0, message: 'Every queue post has a manually-picked thumbnail' })
+      }
+
       const pick = () => pool[Math.floor(Math.random() * pool.length)]
       const toRawUrl = (link) =>
         link.replace('?dl=0', '?raw=1').replace('www.dropbox.com', 'dl.dropboxusercontent.com')
