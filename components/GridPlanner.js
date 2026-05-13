@@ -1681,9 +1681,13 @@ export default function GridPlanner({ smmMode = false } = {}) {
       return
     }
     const estMin = Math.ceil(accountQueue.length * 25 / 60)
+    // Channel-aware label. Routing goes to the SMM group's per-creator
+    // topic (Telegram IG/FB Topic ID on Palm Creators), NOT by IG handle.
+    const channelLabel = account.channel === 'FB' ? 'Facebook' : 'Instagram'
+    const creatorName = creators.find(c => c.id === selectedCreatorId)?.name || 'creator'
     setConfirmDialog({
-      title: `Send queue to @${account.handle}`,
-      message: `Send ${accountQueue.length} post${accountQueue.length !== 1 ? 's' : ''} in queue order to the @${account.handle} topic? Each waits for the previous to fully upload (~${estMin} min). Keep this tab open.`,
+      title: `Send to ${creatorName} ${channelLabel} topic`,
+      message: `Send ${accountQueue.length} post${accountQueue.length !== 1 ? 's' : ''} in queue order to the "${creatorName} ${account.channel}" topic in the SMM Telegram group? Each waits for the previous to fully upload (~${estMin} min). Keep this tab open.`,
       confirmLabel: `Send ${accountQueue.length}`,
       onConfirm: () => runAccountBulkSend(accountId, account, accountQueue),
     })
@@ -2020,7 +2024,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
                       <button
                         onClick={() => handleAccountBulkSend(acc.id)}
                         disabled={!!accountBulkSending}
-                        title={`Send all ${accountQueueCount} queue posts to @${acc.handle}'s Telegram topic, in order. Each waits for the previous to upload.`}
+                        title={`Send all ${accountQueueCount} queue posts to the ${acc.channel === 'FB' ? 'Facebook' : 'Instagram'} topic for this creator in the SMM Telegram group, in order. Each waits for the previous to upload.`}
                         style={{
                           padding: '6px 14px', fontSize: '11px', fontWeight: 700,
                           background: isThisAccountSending ? 'rgba(245, 158, 11, 0.10)' : 'rgba(125, 211, 164, 0.10)',
