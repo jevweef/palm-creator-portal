@@ -1026,14 +1026,30 @@ export async function POST(request) {
         return NextResponse.json({ ok: true, applied: 0, message: 'No queue posts to fill' })
       }
 
-      const pick = () => pool[Math.floor(Math.random() * pool.length)]
+      // Sampling-without-replacement via Fisher-Yates shuffle. Previous code
+      // used Math.random() per pick (with replacement), which made duplicates
+      // common even when pool size >= queue size. Each draw was independent,
+      // so two queue posts could land on the same tile by chance.
+      //
+      // New approach: shuffle the pool once, then assign shuffled[i % poolSize]
+      // to each target. Guarantees zero duplicates when pool >= queue.
+      // When pool < queue, some unavoidable repeats happen but they're
+      // distributed as evenly as possible (each tile repeats once before
+      // any tile repeats twice).
+      const shuffled = [...pool]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+
       const toRawUrl = (link) =>
         link.replace('?dl=0', '?raw=1').replace('www.dropbox.com', 'dl.dropboxusercontent.com')
 
       let applied = 0
       const errors = []
-      for (const post of targets) {
-        const tile = pick()
+      for (let i = 0; i < targets.length; i++) {
+        const post = targets[i]
+        const tile = shuffled[i % shuffled.length]
         const rawUrl = toRawUrl(tile.link)
         try {
           await patchAirtableRecord('Posts', post.id, {
@@ -1044,10 +1060,14 @@ export async function POST(request) {
           errors.push({ postId: post.id, error: e.message })
         }
       }
+
+      const poolShortBy = Math.max(0, targets.length - pool.length)
       return NextResponse.json({
         ok: true,
         applied,
         poolSize: pool.length,
+        queueSize: targets.length,
+        poolShortBy,  // # of unavoidable duplicates (0 if pool >= queue)
         ...(errors.length ? { errors } : {}),
       })
     }

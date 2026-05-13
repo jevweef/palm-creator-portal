@@ -1216,7 +1216,14 @@ export default function GridPlanner({ smmMode = false } = {}) {
           })
           const data = await res.json()
           if (!res.ok) throw new Error(data.error || 'Auto-fill failed')
-          showToast(`Filled ${data.applied} thumbnail${data.applied !== 1 ? 's' : ''}`)
+          // Surface a warning when pool is smaller than queue — some tiles
+          // had to repeat. User can add more photos to the pool to get
+          // fully-unique thumbnails.
+          if (data.poolShortBy > 0) {
+            showToast(`Filled ${data.applied} thumbnails — pool is ${data.poolShortBy} short, so ${data.poolShortBy} photo${data.poolShortBy !== 1 ? 's' : ''} had to repeat`, true)
+          } else {
+            showToast(`Filled ${data.applied} thumbnail${data.applied !== 1 ? 's' : ''} (all unique)`)
+          }
           await loadCreator(selectedCreatorId)
         } catch (e) {
           showToast(e.message, true)
