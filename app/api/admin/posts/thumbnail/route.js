@@ -82,10 +82,17 @@ export async function POST(request) {
 
     if (!sharedUrl) throw new Error('Could not get shared URL for thumbnail')
 
-    // Save to Airtable Post record
+    // Save to Airtable Post record.
+    // 'Thumbnail Source' = 'post-prep' marks this as a hand-picked/uploaded
+    // thumbnail (from the file-upload button OR the video-frame-capture
+    // flow that posts here). Protects against Auto-fill overwrites on the
+    // Grid Planner side. typecast:true because Thumbnail Source is a
+    // newly-added field; this route may run against an Airtable base that
+    // hasn't had the option created yet on first run.
     await patchAirtableRecord('Posts', postId, {
       'Thumbnail': [{ url: sharedUrl }],
-    })
+      'Thumbnail Source': 'post-prep',
+    }, { typecast: true })
 
     return NextResponse.json({ ok: true, url: sharedUrl })
   } catch (err) {
