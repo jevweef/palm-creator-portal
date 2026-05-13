@@ -550,6 +550,12 @@ export async function GET(request) {
         // Use the same image-only filter so a text/html attachment doesn't
         // flow through to Telegram and break sendMediaGroup.
         thumbnailUrl: postImg?.url || '',
+        // Filename of Post.Thumbnail's first attachment — exposed so the
+        // client can distinguish a manually-picked thumbnail (real photo
+        // filename) from an auto-generated frame ('thumbnail.jpg',
+        // 'thumbnail_recXXX_*.jpg', short hex strings). Empty if Post.Thumbnail
+        // is unset.
+        thumbnailFilename: postImg?.filename || '',
         thumbnailBroken: hasBrokenThumb,
         smmScheduled: !!f['SMM Scheduled'],
         smmScheduledAt: f['SMM Scheduled At'] || null,
