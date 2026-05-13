@@ -37,7 +37,14 @@ export async function GET(request) {
         fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status', 'Used As Reel Thumbnail', 'File Extension', 'CDN URL'],
       }),
       forReel ? fetchAirtableRecords('Posts', {
-        filterByFormula: `AND(NOT({Thumbnail}=''),OR({Status}='Prepping',{Status}='Staged',{Status}='Sending',{Status}='Sent to Telegram',{Status}='Ready to Post',{Status}='Posted'))`,
+        // Any in-flight or completed post that has a thumbnail attached
+        // counts as "using" that photo — keep it out of the picker. Pre
+        // 2026-05 fix: the OR list missed 'Queued for Telegram' and 'Send
+        // Failed', so the cron-queue posts (which spend most of their
+        // pre-send life in 'Queued for Telegram') wouldn't reserve their
+        // thumbnails — the picker offered the same photo to the operator
+        // on the next post they prepared.
+        filterByFormula: `AND(NOT({Thumbnail}=''),OR({Status}='Prepping',{Status}='Staged',{Status}='Queued for Telegram',{Status}='Sending',{Status}='Send Failed',{Status}='Sent to Telegram',{Status}='Ready to Post',{Status}='Posted'))`,
         fields: ['Thumbnail', 'Creator'],
       }) : Promise.resolve([]),
     ])
