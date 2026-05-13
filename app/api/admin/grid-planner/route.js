@@ -980,6 +980,72 @@ export async function POST(request) {
       return NextResponse.json({ ok: true, updated })
     }
 
+    // autoFillThumbnails: for every queue post in this creator's IG or FB
+    // grid that doesn't have a thumbnail yet, pick a random Asset from the
+    // creator's Thumbnail Pool and apply it as that post's Thumbnail.
+    // Pool tiles can repeat if the queue is bigger than the pool — the
+    // pool is reusable by design.
+    // Body: { creatorId: 'rec...' }
+    if (action === 'autoFillThumbnails') {
+      const { creatorId } = body
+      if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
+
+      // Pool for this creator
+      const poolAssets = await fetchAirtableRecords('Assets', {
+        filterByFormula: `{Approved Thumbnail}=1`,
+        fields: ['Palm Creators', 'Dropbox Shared Link'],
+      })
+      const getLinkedIds = (val) => (val || []).map(c => typeof c === 'string' ? c : c?.id).filter(Boolean)
+      const pool = poolAssets
+        .filter(a => getLinkedIds(a.fields?.['Palm Creators']).includes(creatorId))
+        .map(a => ({ id: a.id, link: a.fields?.['Dropbox Shared Link'] || '' }))
+        .filter(p => p.link)
+      if (!pool.length) {
+        return NextResponse.json({ error: 'Pool is empty — add some thumbnails first.' }, { status: 400 })
+      }
+
+      // Queue posts for this creator that have a Channel but no Thumbnail.
+      // Pull every channeled, unsent post and filter client-side (ARRAYJOIN
+      // on linked records returns display text, not IDs).
+      const allPosts = await fetchAirtableRecords('Posts', {
+        filterByFormula: `AND({Channel}!='', {Telegram Sent At}='', {Posted At}='', {Thumbnail}='')`,
+        fields: ['Creator', 'Channel', 'Thumbnail', 'Status'],
+      })
+      const targets = allPosts.filter(p => (p.fields?.Creator || []).some(c => {
+        const id = typeof c === 'string' ? c : c?.id
+        return id === creatorId
+      }))
+      if (!targets.length) {
+        return NextResponse.json({ ok: true, applied: 0, message: 'No queue posts need thumbnails' })
+      }
+
+      // Pick a random pool tile per post, normalize Dropbox URL for ingest.
+      const pick = () => pool[Math.floor(Math.random() * pool.length)]
+      const toRawUrl = (link) =>
+        link.replace('?dl=0', '?raw=1').replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+
+      let applied = 0
+      const errors = []
+      for (const post of targets) {
+        const tile = pick()
+        const rawUrl = toRawUrl(tile.link)
+        try {
+          await patchAirtableRecord('Posts', post.id, {
+            'Thumbnail': [{ url: rawUrl }],
+          })
+          applied++
+        } catch (e) {
+          errors.push({ postId: post.id, error: e.message })
+        }
+      }
+      return NextResponse.json({
+        ok: true,
+        applied,
+        poolSize: pool.length,
+        ...(errors.length ? { errors } : {}),
+      })
+    }
+
     // applyThumbnail: drag a tile from the Thumbnail Pool tray onto a post
     // cell — set that post's Thumbnail attachment to the asset's photo.
     // Uses Airtable's URL-based attachment ingestion (same pattern as the

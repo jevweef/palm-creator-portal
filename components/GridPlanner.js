@@ -717,7 +717,7 @@ function ConfirmModal({ dialog, onClose }) {
 // Per-creator pool of pre-approved thumbnail photos. Sits alongside the
 // "Ready to schedule" queue tray. Drag a tile from here onto any post cell
 // (IG or FB phone) to apply it as that post's Thumbnail.
-function ThumbnailPoolTray({ pool, draggingAssetId, onDragStart, onDragEnd, onAdd, onRemove }) {
+function ThumbnailPoolTray({ pool, draggingAssetId, onDragStart, onDragEnd, onAdd, onRemove, onAutoFill, autoFilling }) {
   return (
     <div style={{
       width: '260px', flexShrink: 0,
@@ -735,20 +735,38 @@ function ThumbnailPoolTray({ pool, draggingAssetId, onDragStart, onDragEnd, onAd
         <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
           {pool.length} photo{pool.length !== 1 ? 's' : ''} · drag onto a cell to apply
         </div>
-        <button
-          onClick={onAdd}
-          style={{
-            marginTop: '10px',
-            width: '100%',
-            padding: '6px 0', fontSize: '12px', fontWeight: 700,
-            background: 'rgba(232, 160, 160, 0.10)',
-            color: 'var(--palm-pink)',
-            border: '1px solid rgba(232, 160, 160, 0.25)',
-            borderRadius: '6px', cursor: 'pointer',
-          }}
-        >
-          + Add Thumbnails
-        </button>
+        <div style={{ display: 'flex', gap: '4px', marginTop: '10px' }}>
+          <button
+            onClick={onAdd}
+            style={{
+              flex: 1,
+              padding: '6px 0', fontSize: '12px', fontWeight: 700,
+              background: 'rgba(232, 160, 160, 0.10)',
+              color: 'var(--palm-pink)',
+              border: '1px solid rgba(232, 160, 160, 0.25)',
+              borderRadius: '6px', cursor: 'pointer',
+            }}
+          >
+            + Add
+          </button>
+          <button
+            onClick={onAutoFill}
+            disabled={!pool.length || autoFilling}
+            title="Auto-fill every queued post without a thumbnail with a random photo from this pool. Reusable — pool stays after."
+            style={{
+              flex: 1,
+              padding: '6px 0', fontSize: '12px', fontWeight: 700,
+              background: autoFilling ? 'rgba(168, 132, 232, 0.04)' : 'rgba(168, 132, 232, 0.10)',
+              color: '#a884e8',
+              border: '1px solid rgba(168, 132, 232, 0.25)',
+              borderRadius: '6px',
+              cursor: (!pool.length || autoFilling) ? 'default' : 'pointer',
+              opacity: !pool.length ? 0.4 : 1,
+            }}
+          >
+            {autoFilling ? 'Filling…' : '🎲 Auto-fill'}
+          </button>
+        </div>
       </div>
       <div style={{ overflowY: 'auto', padding: '8px', flex: 1 }}>
         {pool.length === 0 ? (
@@ -1168,6 +1186,44 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const handleDragEnd = () => {
     pushDebug('cellDragEnd')
     setDragging({ postId: null, sourceAccountId: null })
+  }
+
+  // Auto-fill every unthumbnailed queue post with a random pool photo.
+  const [autoFilling, setAutoFilling] = useState(false)
+  const autoFillThumbnails = async () => {
+    if (!selectedCreatorId || !thumbnailPool.length) return
+    // Count how many queue posts actually need a thumbnail so we can show
+    // an honest confirm dialog before mutating.
+    const targets = posts.filter(p =>
+      p.channel && !p.telegramSentAt && !p.postedAt && !p.thumbnail
+    )
+    if (!targets.length) {
+      showToast('Every queue post already has a thumbnail', true)
+      return
+    }
+    setConfirmDialog({
+      title: 'Auto-fill thumbnails',
+      message: `Apply a random photo from the pool (${thumbnailPool.length} available) to each of the ${targets.length} queue post${targets.length !== 1 ? 's' : ''} that doesn't have a thumbnail yet? Manually-set thumbnails are left alone. Pool stays unchanged.`,
+      confirmLabel: 'Auto-fill',
+      onConfirm: async () => {
+        setAutoFilling(true)
+        try {
+          const res = await fetch('/api/admin/grid-planner', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'autoFillThumbnails', creatorId: selectedCreatorId }),
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Auto-fill failed')
+          showToast(`Filled ${data.applied} thumbnail${data.applied !== 1 ? 's' : ''}`)
+          await loadCreator(selectedCreatorId)
+        } catch (e) {
+          showToast(e.message, true)
+        } finally {
+          setAutoFilling(false)
+        }
+      },
+    })
   }
 
   // Remove a single tile from the pool. Used by the × button on each tile.
@@ -1985,6 +2041,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
                 onDragEnd={() => setDraggingThumbnail(null)}
                 onAdd={() => setShowThumbnailModal(true)}
                 onRemove={removeFromPool}
+                onAutoFill={autoFillThumbnails}
+                autoFilling={autoFilling}
               />
 
               {/* Account phones — drop targets */}
