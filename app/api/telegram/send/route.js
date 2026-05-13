@@ -564,22 +564,43 @@ async function doSend(params) {
       )
     }
 
-    // Mark the thumbnail asset as used (only now that it's genuinely being
-    // sent out). The Post record holds the thumbnail as an attachment URL —
-    // look up the source Asset record by matching its Dropbox Shared Link.
-    // Non-fatal: if lookup fails, the send itself still succeeded.
+    // Mark the source thumbnail Asset as used (only now that it's genuinely
+    // being sent out). The Post record holds the thumbnail as an Airtable-
+    // hosted attachment, but the photo originated from an Asset record whose
+    // Dropbox Shared Link points to the same file. Match by FILENAME (which
+    // survives every URL rewrite — Airtable's signed URL has the original
+    // filename at the end of the path, and the Dropbox link has it in the
+    // /scl/fi/.../FILENAME path segment).
+    //
+    // Old logic matched the FULL Airtable signed URL against {Dropbox Shared
+    // Link} — those URLs have nothing in common, so the FIND returned zero
+    // matches and the flag never flipped. That's why used thumbnails kept
+    // showing up in the picker as 'unused'. Non-fatal: if lookup fails, the
+    // send itself still succeeded.
     if (thumbnailUrl) {
       try {
-        // Strip query params (raw=1 etc.) and any trailing quotes for a clean substring match
-        const cleanUrl = thumbnailUrl.split('?')[0].replace(/["']/g, '')
-        const matches = await fetchAirtableRecords('Assets', {
-          filterByFormula: `FIND('${cleanUrl.replace(/'/g, "\\'")}', {Dropbox Shared Link})`,
-          fields: ['Dropbox Shared Link', 'Used As Reel Thumbnail'],
-        })
-        for (const a of matches) {
-          if (a.fields?.['Used As Reel Thumbnail']) continue
-          await patchAirtableRecord('Assets', a.id, { 'Used As Reel Thumbnail': true })
-          console.log(`[Telegram Send] Marked thumbnail asset ${a.id} as used`)
+        // Extract the filename from the Airtable URL: the path's last
+        // segment before the query string. Example:
+        //   https://v5.airtableusercontent.com/v3/u/40/40/abc/def/IMG_1234.jpg?ts=...
+        //   → "IMG_1234.jpg"
+        const rawFilename = thumbnailUrl.split('?')[0].split('/').pop() || ''
+        const filename = decodeURIComponent(rawFilename)
+        if (filename) {
+          // Escape single quotes for the formula. Filenames rarely contain
+          // them but defensive anyway.
+          const safeFilename = filename.replace(/'/g, "\\'")
+          const matches = await fetchAirtableRecords('Assets', {
+            filterByFormula: `FIND('${safeFilename}', {Dropbox Shared Link})`,
+            fields: ['Dropbox Shared Link', 'Used As Reel Thumbnail'],
+          })
+          for (const a of matches) {
+            if (a.fields?.['Used As Reel Thumbnail']) continue
+            await patchAirtableRecord('Assets', a.id, { 'Used As Reel Thumbnail': true })
+            console.log(`[Telegram Send] Marked thumbnail asset ${a.id} as used (filename=${filename})`)
+          }
+          if (!matches.length) {
+            console.warn(`[Telegram Send] No Asset found for thumbnail filename "${filename}" — won't be flagged as used`)
+          }
         }
       } catch (thumbErr) {
         console.warn('[Telegram Send] Could not mark thumbnail as used (non-fatal):', thumbErr.message)
