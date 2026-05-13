@@ -712,6 +712,296 @@ function ConfirmModal({ dialog, onClose }) {
   )
 }
 
+// ─── Thumbnail Pool tray ────────────────────────────────────────────────────────
+
+// Per-creator pool of pre-approved thumbnail photos. Sits alongside the
+// "Ready to schedule" queue tray. Drag a tile from here onto any post cell
+// (IG or FB phone) to apply it as that post's Thumbnail.
+function ThumbnailPoolTray({ pool, draggingAssetId, onDragStart, onDragEnd, onAdd, onRemove }) {
+  return (
+    <div style={{
+      width: '260px', flexShrink: 0,
+      background: 'var(--card-bg-solid)',
+      borderRadius: '24px',
+      border: '1px solid rgba(232, 160, 160, 0.15)',
+      overflow: 'hidden',
+      maxHeight: '70vh',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--palm-pink)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+          <span>🖼</span> Thumbnail Pool
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+          {pool.length} photo{pool.length !== 1 ? 's' : ''} · drag onto a cell to apply
+        </div>
+        <button
+          onClick={onAdd}
+          style={{
+            marginTop: '10px',
+            width: '100%',
+            padding: '6px 0', fontSize: '12px', fontWeight: 700,
+            background: 'rgba(232, 160, 160, 0.10)',
+            color: 'var(--palm-pink)',
+            border: '1px solid rgba(232, 160, 160, 0.25)',
+            borderRadius: '6px', cursor: 'pointer',
+          }}
+        >
+          + Add Thumbnails
+        </button>
+      </div>
+      <div style={{ overflowY: 'auto', padding: '8px', flex: 1 }}>
+        {pool.length === 0 ? (
+          <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '11px' }}>
+            No thumbnails approved yet. Click <strong>Add Thumbnails</strong> to choose photos.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+            {pool.map(tile => (
+              <ThumbnailPoolTile
+                key={tile.id}
+                tile={tile}
+                isDragging={draggingAssetId === tile.id}
+                onDragStart={() => onDragStart(tile)}
+                onDragEnd={onDragEnd}
+                onRemove={() => onRemove(tile.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ThumbnailPoolTile({ tile, isDragging, onDragStart, onDragEnd, onRemove }) {
+  const [showX, setShowX] = useState(false)
+  const sized = cdnUrlAtSize(tile.thumbnail, 240)
+  const src = sized ? proxyThumbUrl(sized) : (tile.thumbnail || '')
+  return (
+    <div
+      draggable
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; onDragStart() }}
+      onDragEnd={onDragEnd}
+      onMouseEnter={() => setShowX(true)}
+      onMouseLeave={() => setShowX(false)}
+      title={tile.name || 'Approved thumbnail'}
+      style={{
+        aspectRatio: '1 / 1',
+        background: '#000',
+        borderRadius: '4px',
+        overflow: 'hidden',
+        position: 'relative',
+        cursor: 'grab',
+        opacity: isDragging ? 0.4 : 1,
+      }}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+        />
+      ) : (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-muted)', fontSize: '20px' }}>·</div>
+      )}
+      {showX && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove() }}
+          title="Remove from pool"
+          style={{
+            position: 'absolute', top: 3, right: 3,
+            width: '18px', height: '18px', borderRadius: '50%',
+            background: 'rgba(0,0,0,0.7)', color: '#fff',
+            border: 'none', cursor: 'pointer',
+            fontSize: '11px', fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            lineHeight: 1,
+          }}
+        >×</button>
+      )}
+    </div>
+  )
+}
+
+// Modal for bulk-approving photos into the pool. Loads all the creator's
+// photos via the existing /api/admin/posts/photos endpoint (with the new
+// `approvedThumbnail` flag included). Admin ticks photos to add, unticks
+// to remove. Submit batches setThumbnailApproval calls.
+function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToast }) {
+  const [photos, setPhotos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [selected, setSelected] = useState(new Set())  // currently-checked photo IDs
+  const [initialSelected, setInitialSelected] = useState(new Set())  // server truth at load
+  const [sortNewest, setSortNewest] = useState(true)
+
+  useEffect(() => {
+    if (!creatorId) return
+    setLoading(true)
+    fetch(`/api/admin/posts/photos?creatorId=${creatorId}&forReel=false`)
+      .then(r => r.json())
+      .then(d => {
+        setPhotos(d.photos || [])
+        const approved = new Set((d.photos || []).filter(p => p.approvedThumbnail).map(p => p.id))
+        setSelected(approved)
+        setInitialSelected(new Set(approved))
+        setLoading(false)
+      })
+      .catch(e => {
+        showToast('Failed to load photos: ' + e.message, true)
+        setLoading(false)
+      })
+  }, [creatorId, showToast])
+
+  const toggle = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSubmit = async () => {
+    const toApprove = [...selected].filter(id => !initialSelected.has(id))
+    const toRevoke = [...initialSelected].filter(id => !selected.has(id))
+    if (!toApprove.length && !toRevoke.length) {
+      onClose()
+      return
+    }
+    setSaving(true)
+    try {
+      const calls = []
+      if (toApprove.length) calls.push(fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: toApprove, approved: true }),
+      }))
+      if (toRevoke.length) calls.push(fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: toRevoke, approved: false }),
+      }))
+      const results = await Promise.all(calls)
+      for (const r of results) {
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}))
+          throw new Error(d.error || `Update failed (${r.status})`)
+        }
+      }
+      const added = toApprove.length, removed = toRevoke.length
+      const bits = []
+      if (added) bits.push(`${added} added`)
+      if (removed) bits.push(`${removed} removed`)
+      showToast(`Pool updated: ${bits.join(' · ')}`)
+      onSaved()
+      onClose()
+    } catch (e) {
+      showToast(e.message, true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const sorted = sortNewest ? photos : [...photos].reverse()
+
+  return (
+    <div onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 350, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: 'var(--card-bg-solid)', borderRadius: '18px', width: '100%', maxWidth: '780px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 12px 50px rgba(0,0,0,0.4)' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>Approve Thumbnails</div>
+            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+              {creatorName} · select photos to add to the pool
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', cursor: 'pointer', fontSize: '22px' }}>×</button>
+        </div>
+        <div style={{ padding: '12px 22px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <button onClick={() => setSortNewest(true)}
+            style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: sortNewest ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)', color: sortNewest ? '#060606' : 'var(--foreground-muted)' }}>
+            Newest
+          </button>
+          <button onClick={() => setSortNewest(false)}
+            style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', background: !sortNewest ? 'var(--palm-pink)' : 'rgba(232, 160, 160, 0.06)', color: !sortNewest ? '#060606' : 'var(--foreground-muted)' }}>
+            Oldest
+          </button>
+          <div style={{ flex: 1 }} />
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+            <strong style={{ color: 'var(--palm-pink)' }}>{selected.size}</strong> selected
+          </div>
+        </div>
+        <div style={{ padding: '16px 22px', overflowY: 'auto', flex: 1 }}>
+          {loading && <div style={{ textAlign: 'center', color: 'var(--foreground-muted)', padding: '40px' }}>Loading photos…</div>}
+          {!loading && photos.length === 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--foreground-muted)', padding: '40px', fontSize: '13px' }}>
+              No photos in library for this creator.
+            </div>
+          )}
+          {!loading && photos.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
+              {sorted.map(photo => {
+                const isSelected = selected.has(photo.id)
+                const sized = cdnUrlAtSize(photo.cdnUrl || photo.dropboxLink, 300)
+                const src = sized ? proxyThumbUrl(sized) : (photo.dropboxLink || '')
+                return (
+                  <div
+                    key={photo.id}
+                    onClick={() => toggle(photo.id)}
+                    style={{
+                      aspectRatio: '1',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      border: `3px solid ${isSelected ? 'var(--palm-pink)' : 'transparent'}`,
+                      transition: 'border-color 0.1s',
+                    }}
+                  >
+                    {src && (
+                      <img
+                        src={src}
+                        alt=""
+                        loading="lazy"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    )}
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute', top: 6, right: 6,
+                        width: '22px', height: '22px', borderRadius: '50%',
+                        background: 'var(--palm-pink)', color: '#060606',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '13px', fontWeight: 700,
+                        boxShadow: '0 0 0 2px rgba(0,0,0,0.4)',
+                      }}>✓</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} disabled={saving}
+            style={{ padding: '8px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid transparent', color: 'var(--foreground-muted)', borderRadius: '8px', cursor: saving ? 'default' : 'pointer', fontSize: '13px', fontWeight: 600 }}>
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={saving}
+            style={{ padding: '8px 18px', background: 'var(--palm-pink)', border: '1px solid var(--palm-pink-dark)', color: '#060606', borderRadius: '8px', cursor: saving ? 'default' : 'pointer', fontSize: '13px', fontWeight: 700, opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Saving…' : `Save pool (${selected.size})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function GridPlanner({ smmMode = false } = {}) {
@@ -730,6 +1020,11 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const [unassignedGroups, setUnassignedGroups] = useState([])
   const [draggingTaskGroup, setDraggingTaskGroup] = useState(null) // picked-up group (via click) — name kept so downstream code unchanged
   const [dragging, setDragging] = useState({ postId: null, sourceAccountId: null })
+  // Thumbnail Pool: curated photo Assets pre-approved for this creator.
+  // Drag a tile onto any cell to apply as that post's thumbnail.
+  const [thumbnailPool, setThumbnailPool] = useState([])
+  const [draggingThumbnail, setDraggingThumbnail] = useState(null) // { assetId, thumbnail, name }
+  const [showThumbnailModal, setShowThumbnailModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const [detailPost, setDetailPost] = useState(null) // { post, accountId, account }
@@ -827,6 +1122,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
       const freshPosts = d.posts || []
       setPosts(freshPosts)
       setUnassignedGroups(d.unassignedGroups || [])
+      setThumbnailPool(d.thumbnailPool || [])
       setSelectedCreatorMeta(d.selectedCreator || null)
       // CRITICAL: when the modal is open and we just refetched, fold the
       // server's fresh fields (Airtable CDN thumbnail URL especially) into
@@ -867,12 +1163,63 @@ export default function GridPlanner({ smmMode = false } = {}) {
     setDragging({ postId: null, sourceAccountId: null })
   }
 
+  // Remove a single tile from the pool. Used by the × button on each tile.
+  const removeFromPool = async (assetId) => {
+    // Optimistic
+    setThumbnailPool(prev => prev.filter(t => t.id !== assetId))
+    try {
+      const res = await fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: [assetId], approved: false }),
+      })
+      if (!res.ok) throw new Error('Failed to remove from pool')
+    } catch (e) {
+      showToast(e.message, true)
+      loadCreator(selectedCreatorId)
+    }
+  }
+
+  // Apply a Thumbnail Pool tile's photo to a post. Called by handleDropOnPost
+  // when a pool tile (not a post cell) is being dragged. Optimistic UI updates
+  // the post's thumbnail immediately so the cell flips without waiting on
+  // Airtable's URL ingestion.
+  const applyThumbnailToPost = async (assetId, optimisticThumbUrl, postId) => {
+    setSaving(true)
+    setPosts(ps => ps.map(p =>
+      p.id === postId ? { ...p, thumbnail: optimisticThumbUrl || p.thumbnail } : p
+    ))
+    try {
+      const res = await fetch('/api/admin/grid-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'applyThumbnail', postId, assetId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Apply thumbnail failed')
+      showToast('Thumbnail applied')
+    } catch (e) {
+      showToast(e.message, true)
+      loadCreator(selectedCreatorId)  // Snap back to truth on failure
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Drop onto an existing post in an account grid.
   // Same account: insertion-shift reorder. Source moves to target's queue
   // position; everything between source and target shifts toward source's
   // old position. Server then renumbers all queue dates for that account.
   // Different account: reassign dragged post to target account.
   const handleDropOnPost = async (targetPostId, targetAccountId) => {
+    // Thumbnail Pool drop: if a pool tile is the active drag source, apply
+    // its photo to the target post and return. Takes precedence over
+    // post-reorder drops.
+    if (draggingThumbnail) {
+      await applyThumbnailToPost(draggingThumbnail.assetId, draggingThumbnail.thumbnail, targetPostId)
+      setDraggingThumbnail(null)
+      return
+    }
     const sourcePostId = dragging.postId
     const sourceAcc = dragging.sourceAccountId
     pushDebug(`dropOnPost target=${targetPostId.slice(-6)} acc=${targetAccountId.slice(-6)} src=${sourcePostId?.slice(-6) || 'null'}`)
@@ -1619,6 +1966,16 @@ export default function GridPlanner({ smmMode = false } = {}) {
                 onDebug={pushDebug}
               />
 
+              {/* Thumbnail Pool — drag a tile onto any cell to apply */}
+              <ThumbnailPoolTray
+                pool={thumbnailPool}
+                draggingAssetId={draggingThumbnail?.assetId || null}
+                onDragStart={(tile) => setDraggingThumbnail({ assetId: tile.id, thumbnail: tile.thumbnail, name: tile.name })}
+                onDragEnd={() => setDraggingThumbnail(null)}
+                onAdd={() => setShowThumbnailModal(true)}
+                onRemove={removeFromPool}
+              />
+
               {/* Account phones — drop targets */}
               {accounts.map(acc => {
                 const accountQueueCount = (postsByAccount[acc.id] || []).filter(p =>
@@ -1788,6 +2145,16 @@ export default function GridPlanner({ smmMode = false } = {}) {
       )}
 
       <ConfirmModal dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
+
+      {showThumbnailModal && selectedCreatorId && (
+        <ThumbnailPoolModal
+          creatorId={selectedCreatorId}
+          creatorName={creators.find(c => c.id === selectedCreatorId)?.name || ''}
+          onClose={() => setShowThumbnailModal(false)}
+          onSaved={() => loadCreator(selectedCreatorId)}
+          showToast={showToast}
+        />
+      )}
 
       {/* Bulk-send progress banner (persistent during send, no auto-dismiss) */}
       {bulkProgress && (

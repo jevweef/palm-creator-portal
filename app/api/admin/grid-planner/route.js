@@ -360,6 +360,40 @@ export async function GET(request) {
       for (const a of assets) assetMap[a.id] = a.fields || {}
     }
 
+    // Thumbnail pool: curated photo Assets the admin pre-approved for this
+    // creator. Powers the new pool tray on the Grid Planner — admin drags
+    // a tile onto a queued post in either the IG or FB frame to apply it
+    // as that post's Thumbnail. Approved Thumbnail flag is toggled via
+    // the 'Add Thumbnails' modal (action=setThumbnailApproval).
+    // ARRAYJOIN on linked records returns display text, not IDs — fetch
+    // all approved-pool assets and filter to this creator client-side.
+    const allPoolAssets = await fetchAirtableRecords('Assets', {
+      filterByFormula: `{Approved Thumbnail}=1`,
+      fields: ['Asset Name', 'Palm Creators', 'Dropbox Shared Link', 'CDN URL', 'Thumbnail'],
+    })
+    const getLinkedIds = (val) => (val || []).map(c => typeof c === 'string' ? c : c?.id).filter(Boolean)
+    const thumbnailPool = allPoolAssets
+      .filter(a => getLinkedIds(a.fields?.['Palm Creators']).includes(creatorId))
+      .map(a => {
+        const f = a.fields || {}
+        // Prefer Airtable-hosted Thumbnail attachment's large preview for
+        // the tile (fast + already-sized), fall back to CF mirror, then to
+        // the raw Dropbox link.
+        const pickImage = (atts) => (atts || []).find(att =>
+          att?.type?.startsWith('image/') ||
+          (!att?.type && /\.(jpe?g|png|gif|webp)$/i.test(att?.filename || ''))
+        )
+        const img = pickImage(f.Thumbnail)
+        const tileThumb = (img?.thumbnails?.large?.url) || (img?.url) || f['CDN URL'] || f['Dropbox Shared Link'] || ''
+        return {
+          id: a.id,
+          name: f['Asset Name'] || '',
+          dropboxLink: f['Dropbox Shared Link'] || '',
+          cdnUrl: f['CDN URL'] || null,
+          thumbnail: tileThumb,
+        }
+      })
+
     // Build the 2 synthetic "accounts" — one per channel. These have the
     // same shape as legacy CPD account objects so the frontend doesn't need
     // a model change. accountId pattern: `${creatorId}-IG` / `${creatorId}-FB`.
@@ -594,6 +628,7 @@ export async function GET(request) {
       accounts,
       posts: normalized,
       unassignedGroups,
+      thumbnailPool,
     })
   } catch (err) {
     console.error('[Grid Planner] GET error:', err)
@@ -910,6 +945,61 @@ export async function POST(request) {
         finalBalance: { IG: countByChannel.IG, FB: countByChannel.FB },
         updates,
       })
+    }
+
+    // setThumbnailApproval: bulk-flip the Approved Thumbnail checkbox on
+    // a set of Assets. Powers the 'Add Thumbnails' modal — admin checks
+    // photos to add to the creator's pool (approved=true), unchecks to
+    // remove (approved=false). Bulk-batched in 50-record patches to
+    // respect Airtable rate limits.
+    // Body: { assetIds: ['rec...'], approved: true|false }
+    if (action === 'setThumbnailApproval') {
+      const { assetIds, approved } = body
+      if (!Array.isArray(assetIds) || typeof approved !== 'boolean') {
+        return NextResponse.json({ error: 'assetIds[] and approved (bool) required' }, { status: 400 })
+      }
+      if (!assetIds.length) return NextResponse.json({ ok: true, updated: 0 })
+      // Sequential single-record patches — keeps it simple, throughput is
+      // fine for the typical batch size (~5-20 photos at a time).
+      let updated = 0
+      for (const id of assetIds) {
+        try {
+          await patchAirtableRecord('Assets', id, { 'Approved Thumbnail': approved })
+          updated++
+        } catch (e) {
+          console.warn(`[setThumbnailApproval] failed for ${id}:`, e.message)
+        }
+      }
+      return NextResponse.json({ ok: true, updated })
+    }
+
+    // applyThumbnail: drag a tile from the Thumbnail Pool tray onto a post
+    // cell — set that post's Thumbnail attachment to the asset's photo.
+    // Uses Airtable's URL-based attachment ingestion (same pattern as the
+    // existing PhotoPickerModal handleUse → /api/admin/posts PATCH flow).
+    // Body: { postId: 'rec...', assetId: 'rec...' }
+    if (action === 'applyThumbnail') {
+      const { postId, assetId } = body
+      if (!postId || !assetId) {
+        return NextResponse.json({ error: 'postId and assetId required' }, { status: 400 })
+      }
+      // Get the Asset's Dropbox link. Airtable's attachment ingester needs
+      // a URL that returns raw image bytes — Dropbox ?dl=0 returns an HTML
+      // preview page so we rewrite to ?raw=1 (same as PhotoPickerModal).
+      const assetRecs = await fetchAirtableRecords('Assets', {
+        filterByFormula: `RECORD_ID()='${assetId}'`,
+        fields: ['Dropbox Shared Link', 'Asset Name'],
+      })
+      if (!assetRecs.length) return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
+      const dropboxLink = assetRecs[0].fields?.['Dropbox Shared Link'] || ''
+      if (!dropboxLink) return NextResponse.json({ error: 'Asset has no Dropbox Shared Link' }, { status: 400 })
+      const rawUrl = dropboxLink
+        .replace('?dl=0', '?raw=1')
+        .replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+      await patchAirtableRecord('Posts', postId, {
+        'Thumbnail': [{ url: rawUrl }],
+      })
+      return NextResponse.json({ ok: true, thumbnailUrl: rawUrl })
     }
 
     // fanOut: retired May 2026. The whole point was fan-out cloning to
