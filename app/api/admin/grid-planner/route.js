@@ -586,6 +586,13 @@ export async function GET(request) {
       .filter(g => {
         const allFinal = g.allPosts.every(p => p.telegramSentAt || p.postedAt || p.postLink)
         if (allFinal) return false
+        // Hide the group if ANY sibling is already placed on a channel or
+        // sent/posted. In the new one-clip-one-post world, surplus
+        // unchanneled siblings are legacy fanout artifacts — the twin is
+        // already on a phone, so the orphan shouldn't loiter as a
+        // "ready to schedule" duplicate.
+        const anyPlaced = g.allPosts.some(p => p.channel || p.telegramSentAt || p.postLink)
+        if (anyPlaced) return false
         return g.unassignedPostIds.length > 0
       })
       .map(g => {
