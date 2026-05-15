@@ -223,7 +223,7 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   aria-label={rateState === 'up' ? 'Remove thumbs up' : 'Thumbs up — show more like this'}
                   style={{
                     background: rateState === 'up' ? 'var(--palm-pink)' : 'transparent',
-                    color: rateState === 'up' ? 'var(--foreground)' : '#888',
+                    color: rateState === 'up' ? 'var(--background)' : '#888',
                     border: 'none',
                     cursor: 'pointer',
                     padding: '6px 10px',
@@ -270,9 +270,9 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: 'var(--foreground)',
+                  color: 'var(--background)',
                   fontSize: '12px',
-                  fontWeight: 500,
+                  fontWeight: 700,
                   transition: 'all 0.2s',
                 }}
               >
@@ -332,13 +332,13 @@ export default function InspoModal({ record, grade, onClose, onPrev, onNext, has
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: isSaved ? 'var(--foreground)' : '#888',
+                  color: isSaved ? 'var(--background)' : '#888',
                   fontSize: '12px',
-                  fontWeight: 500,
+                  fontWeight: isSaved ? 700 : 500,
                   transition: 'all 0.2s',
                 }}
               >
-                <svg className="w-3.5 h-3.5" fill={isSaved ? 'var(--foreground)' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3.5 h-3.5" fill={isSaved ? 'var(--background)' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
                 <span className="hidden md:inline">{isSaved ? 'Saved' : 'Save'}</span>

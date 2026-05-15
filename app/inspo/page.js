@@ -568,8 +568,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   background: bulkDownloading ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)',
                   border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)',
                   borderRadius:'9999px',
-                  padding:'7px 12px', fontSize:'12px', fontWeight:600,
-                  color: bulkDownloading ? '#888' : 'var(--foreground)',
+                  padding:'7px 12px', fontSize:'12px', fontWeight:700,
+                  color: bulkDownloading ? '#888' : 'var(--background)',
                   cursor: bulkDownloading ? 'wait' : 'pointer',
                 }}
               >
@@ -686,8 +686,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
                   cursor: bulkDownloading ? 'wait' : 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
                   background: bulkDownloading ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)',
-                  color: bulkDownloading ? '#888' : 'var(--foreground)',
-                  fontWeight: 600,
+                  color: bulkDownloading ? '#888' : 'var(--background)',
+                  fontWeight: 700,
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}
               >
@@ -1000,8 +1000,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   <button key={val} onClick={() => setSort(val)} style={{
                     flex:1, padding:'10px', borderRadius:'10px', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', cursor:'pointer',
                     background: sort === val ? 'var(--palm-pink)' : 'var(--background)',
-                    color: sort === val ? 'rgba(255,255,255,0.08)' : '#888',
-                    fontSize:'13px', fontWeight: sort === val ? 600 : 400,
+                    color: sort === val ? 'var(--background)' : '#888',
+                    fontSize:'13px', fontWeight: sort === val ? 700 : 400,
                     transition:'all 0.15s',
                   }}>{label}</button>
                 ))}
@@ -1058,7 +1058,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                     Clear all
                   </button>
                 )}
-                <button onClick={() => setShowMobileFilters(false)} style={{flex:1, padding:'12px', borderRadius:'10px', border:'none', background:'var(--palm-pink)', color:'rgba(255,255,255,0.08)', fontSize:'14px', fontWeight:600, cursor:'pointer'}}>
+                <button onClick={() => setShowMobileFilters(false)} style={{flex:1, padding:'12px', borderRadius:'10px', border:'none', background:'var(--palm-pink)', color:'var(--background)', fontSize:'14px', fontWeight:700, cursor:'pointer'}}>
                   Show {filtered.length} reels
                 </button>
               </div>
