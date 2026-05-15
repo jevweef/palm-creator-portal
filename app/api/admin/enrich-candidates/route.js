@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, batchUpdateRecords } from '@/lib/adminAuth'
+import { requireAdmin, batchUpdateRecords } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -25,23 +25,26 @@ async function fetchFollowerCount(username) {
     clearTimeout(timeout)
     if (!res.ok) return null
     const data = await res.json()
-    const n = Number(data.follower_count || data.edge_followed_by?.count) || null
-    return n
+    return Number(data.follower_count || data.edge_followed_by?.count) || null
   } catch {
     return null
   }
 }
 
 /**
- * POST — fetch missing Follower Count values for handles in the review queue
- * via RapidAPI, in batches small enough to fit a single Vercel invocation.
+ * POST — enrich Follower Count for an explicit list of handles passed in
+ * by the client. The client computes the unknown set once via
+ * /api/admin/source-candidates and pages through here in small batches.
  *
- * Body: { limit?: number }   (default 25)
- * Returns: { processed, remaining, totalUnknown, results: [{handle, followerCount}] }
+ * We deliberately do NOT refetch Source Reels on every call — that pagination
+ * step was the 504 cause; with 5000+ records it eats 15-25s before any
+ * RapidAPI call fires.
  *
- * The Candidates API takes the max Follower Count across a handle's Source
- * Reels records, so we only update ONE representative record per handle and
- * the Candidates view picks it up immediately.
+ * Body: { handles: [{ handle: string, recordId: string }] }
+ * Returns: { results: [{ handle, followerCount }] }
+ *
+ * Misses are persisted to Airtable as 0 so /source-candidates sees them as
+ * `attempted: true` and they leave the unknown set.
  */
 export async function POST(request) {
   try {
@@ -52,88 +55,35 @@ export async function POST(request) {
     return NextResponse.json({ error: 'RAPIDAPI_KEY not configured' }, { status: 500 })
   }
 
-  // Default 15 to keep the serial loop comfortably under Vercel's 60s cap.
-  let limit = 15
+  let handles = []
   try {
     const body = await request.json()
-    if (typeof body.limit === 'number') limit = Math.min(Math.max(body.limit, 1), 25)
+    if (Array.isArray(body.handles)) handles = body.handles
   } catch {}
 
+  handles = handles
+    .filter(h => h && typeof h.handle === 'string' && typeof h.recordId === 'string')
+    .slice(0, 15) // defensive cap — keeps serial loop under 60s
+
+  if (handles.length === 0) {
+    return NextResponse.json({ results: [] })
+  }
+
   try {
-    // Pull pending Source Reels grouped by handle. Pick handles that have
-    // no follower count anywhere across their records and aren't already on
-    // Inspo Sources (no need to enrich accounts the admin has already classified).
-    const reels = await fetchAirtableRecords('Source Reels', {
-      fields: ['Username', 'Source Handle', 'Review Status', 'Follower Count'],
-    })
-
-    // Distinguish "never set" from "set to 0". The previous version checked
-    // truthiness of Follower Count, which meant misses written as 0 looked
-    // identical to unfetched and got re-spent every loop.
-    const byHandle = new Map() // handleLower -> { handle, attempted, anyFollower, firstRecordId }
-    for (const r of reels) {
-      const f = r.fields || {}
-      const status = (f['Review Status']?.name || f['Review Status'] || '').toLowerCase()
-      if (status && status !== 'pending review') continue
-      const raw = (f.Username || f['Source Handle'] || '').toString().trim().replace(/^@/, '')
-      if (!raw) continue
-      const key = raw.toLowerCase()
-      const rawFc = f['Follower Count']
-      const attempted = rawFc != null && rawFc !== ''
-      const fc = attempted ? Number(rawFc) || 0 : 0
-      const cur = byHandle.get(key)
-      if (!cur) {
-        byHandle.set(key, { handle: raw, attempted, anyFollower: fc, firstRecordId: r.id })
-      } else {
-        if (attempted) cur.attempted = true
-        if (fc > cur.anyFollower) cur.anyFollower = fc
-      }
-    }
-
-    const sources = await fetchAirtableRecords('Inspo Sources', { fields: ['Handle'] })
-    const onSources = new Set()
-    for (const r of sources) {
-      const h = (r.fields?.Handle || '').toString().trim().replace(/^@/, '').toLowerCase()
-      if (h) onSources.add(h)
-    }
-
-    const unknownHandles = []
-    for (const [key, v] of byHandle.entries()) {
-      if (onSources.has(key)) continue
-      if (v.attempted) continue   // already enriched OR confirmed unfetchable — don't re-spend
-      unknownHandles.push(v)
-    }
-
-    const totalUnknown = unknownHandles.length
-    const batch = unknownHandles.slice(0, limit)
-
-    // Serialize the RapidAPI lookups. Going 25-in-parallel was returning
-    // too many empty bodies (rate-limit / soft-fail), inflating misses and
-    // wasting credits.
     const results = []
-    for (const h of batch) {
-      results.push({
-        handle: h.handle,
-        recordId: h.firstRecordId,
-        followerCount: await fetchFollowerCount(h.handle),
-      })
+    for (const h of handles) {
+      const followerCount = await fetchFollowerCount(h.handle)
+      results.push({ handle: h.handle, recordId: h.recordId, followerCount })
     }
 
-    // Persist every result, including 0 sentinel for misses, so the next
-    // pass treats them as `attempted` and skips them.
     const updates = results.map(r => ({
       id: r.recordId,
       fields: { 'Follower Count': r.followerCount ?? 0 },
     }))
 
-    if (updates.length > 0) {
-      await batchUpdateRecords('Source Reels', updates)
-    }
+    await batchUpdateRecords('Source Reels', updates)
 
     return NextResponse.json({
-      processed: results.length,
-      remaining: Math.max(totalUnknown - results.length, 0),
-      totalUnknown,
       results: results.map(r => ({ handle: r.handle, followerCount: r.followerCount })),
     })
   } catch (err) {

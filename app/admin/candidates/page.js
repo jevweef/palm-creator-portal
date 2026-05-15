@@ -111,28 +111,62 @@ export default function AdminCandidates() {
 
   async function enrichFollowers() {
     if (enriching) return
+
+    // Snapshot the unknown queue at click time, using the candidates already
+    // loaded. attempted=true means a prior enrichment pass already wrote a
+    // value (0 for misses) — skip them so we don't re-spend RapidAPI credits.
+    const queue = (data?.candidates || []).filter(
+      c => !c.attempted && c.recordId && !dismissed.has(c.handle.toLowerCase())
+    )
+
+    if (queue.length === 0) {
+      alert('Nothing to enrich.')
+      return
+    }
+
     setEnriching(true)
-    setEnrichProgress({ processed: 0, total: 0 })
+    setEnrichProgress({ processed: 0, total: queue.length })
+
+    const BATCH = 12
+
     try {
-      let totalProcessed = 0
-      let totalToProcess = null
-      // Loop until the server reports no more handles need enrichment.
-      // 25 per batch keeps each call comfortably under Vercel's 60s ceiling.
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
+      for (let i = 0; i < queue.length; i += BATCH) {
+        const slice = queue.slice(i, i + BATCH).map(c => ({
+          handle: c.handle,
+          recordId: c.recordId,
+        }))
+
         const res = await fetch('/api/admin/enrich-candidates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limit: 15 }),
+          body: JSON.stringify({ handles: slice }),
         })
+
+        // Vercel returns HTML on timeout — guard against that.
+        const ct = res.headers.get('content-type') || ''
+        if (!res.ok || !ct.includes('application/json')) {
+          const text = await res.text()
+          throw new Error(`Enrich batch failed (${res.status}): ${text.slice(0, 120)}`)
+        }
         const d = await res.json()
-        if (!res.ok) throw new Error(d.error || 'Enrich failed')
-        if (totalToProcess === null) totalToProcess = d.totalUnknown
-        totalProcessed += d.processed
-        setEnrichProgress({ processed: totalProcessed, total: totalToProcess })
-        if (d.remaining === 0 || d.processed === 0) break
+
+        // Merge results into the loaded candidates so the UI reflects new
+        // follower counts without a full refresh.
+        setData(prev => {
+          if (!prev?.candidates) return prev
+          const byHandle = new Map(d.results.map(r => [r.handle.toLowerCase(), r.followerCount]))
+          return {
+            ...prev,
+            candidates: prev.candidates.map(c => {
+              const fc = byHandle.get(c.handle.toLowerCase())
+              if (fc === undefined) return c
+              return { ...c, followerCount: fc || null, attempted: true }
+            }),
+          }
+        })
+
+        setEnrichProgress({ processed: Math.min(i + slice.length, queue.length), total: queue.length })
       }
-      await refresh()
     } catch (err) {
       alert(err.message)
     } finally {
