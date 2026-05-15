@@ -123,7 +123,7 @@ export default function AdminCandidates() {
         const res = await fetch('/api/admin/enrich-candidates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limit: 25 }),
+          body: JSON.stringify({ limit: 15 }),
         })
         const d = await res.json()
         if (!res.ok) throw new Error(d.error || 'Enrich failed')

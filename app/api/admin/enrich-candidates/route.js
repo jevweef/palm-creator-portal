@@ -52,10 +52,11 @@ export async function POST(request) {
     return NextResponse.json({ error: 'RAPIDAPI_KEY not configured' }, { status: 500 })
   }
 
-  let limit = 25
+  // Default 15 to keep the serial loop comfortably under Vercel's 60s cap.
+  let limit = 15
   try {
     const body = await request.json()
-    if (typeof body.limit === 'number') limit = Math.min(Math.max(body.limit, 1), 50)
+    if (typeof body.limit === 'number') limit = Math.min(Math.max(body.limit, 1), 25)
   } catch {}
 
   try {
@@ -66,7 +67,10 @@ export async function POST(request) {
       fields: ['Username', 'Source Handle', 'Review Status', 'Follower Count'],
     })
 
-    const byHandle = new Map() // handleLower -> { handle, anyFollower, firstRecordId }
+    // Distinguish "never set" from "set to 0". The previous version checked
+    // truthiness of Follower Count, which meant misses written as 0 looked
+    // identical to unfetched and got re-spent every loop.
+    const byHandle = new Map() // handleLower -> { handle, attempted, anyFollower, firstRecordId }
     for (const r of reels) {
       const f = r.fields || {}
       const status = (f['Review Status']?.name || f['Review Status'] || '').toLowerCase()
@@ -74,12 +78,15 @@ export async function POST(request) {
       const raw = (f.Username || f['Source Handle'] || '').toString().trim().replace(/^@/, '')
       if (!raw) continue
       const key = raw.toLowerCase()
-      const fc = Number(f['Follower Count']) || 0
+      const rawFc = f['Follower Count']
+      const attempted = rawFc != null && rawFc !== ''
+      const fc = attempted ? Number(rawFc) || 0 : 0
       const cur = byHandle.get(key)
       if (!cur) {
-        byHandle.set(key, { handle: raw, anyFollower: fc, firstRecordId: r.id })
-      } else if (fc && fc > cur.anyFollower) {
-        cur.anyFollower = fc
+        byHandle.set(key, { handle: raw, attempted, anyFollower: fc, firstRecordId: r.id })
+      } else {
+        if (attempted) cur.attempted = true
+        if (fc > cur.anyFollower) cur.anyFollower = fc
       }
     }
 
@@ -93,24 +100,27 @@ export async function POST(request) {
     const unknownHandles = []
     for (const [key, v] of byHandle.entries()) {
       if (onSources.has(key)) continue
-      if (v.anyFollower) continue
+      if (v.attempted) continue   // already enriched OR confirmed unfetchable — don't re-spend
       unknownHandles.push(v)
     }
 
     const totalUnknown = unknownHandles.length
     const batch = unknownHandles.slice(0, limit)
 
-    // Fetch follower counts in parallel
-    const results = await Promise.all(
-      batch.map(async (h) => ({
+    // Serialize the RapidAPI lookups. Going 25-in-parallel was returning
+    // too many empty bodies (rate-limit / soft-fail), inflating misses and
+    // wasting credits.
+    const results = []
+    for (const h of batch) {
+      results.push({
         handle: h.handle,
         recordId: h.firstRecordId,
         followerCount: await fetchFollowerCount(h.handle),
-      }))
-    )
+      })
+    }
 
-    // Build Airtable updates — only for handles where the fetch succeeded.
-    // We mark misses by writing 0 so we don't re-fetch them on the next pass.
+    // Persist every result, including 0 sentinel for misses, so the next
+    // pass treats them as `attempted` and skips them.
     const updates = results.map(r => ({
       id: r.recordId,
       fields: { 'Follower Count': r.followerCount ?? 0 },
