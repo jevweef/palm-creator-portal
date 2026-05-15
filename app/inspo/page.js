@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 
 import InspoCard from '@/components/InspoCard'
@@ -176,6 +176,19 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [thumbStates, setThumbStates] = useState({}) // { reelId: 'up'|'down' }
   const [downloadedIds, setDownloadedIds] = useState(new Set())
   const [bulkDownloading, setBulkDownloading] = useState(false)
+
+  // Per-record shuffle jitter — cached for the session so the order is
+  // stable as the user paginates / filters, but every page load gets a
+  // fresh random nudge to surface different reels at the top of For You.
+  const shuffleSeedsRef = useRef({})
+  const jitter = useCallback((id, amplitude = 0.15) => {
+    let s = shuffleSeedsRef.current[id]
+    if (s === undefined) {
+      s = 1 + (Math.random() - 0.5) * amplitude * 2
+      shuffleSeedsRef.current[id] = s
+    }
+    return s
+  }, [])
 
   // Admin: "View as Creator" for testing For You
   const role = user?.publicMetadata?.role
@@ -436,6 +449,12 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       result = result.filter((r) => r.effort !== 'Niche')
     }
 
+    // Hide already-saved reels from the main board so the creator's feed keeps
+    // surfacing fresh inspiration. Saved reels remain available in My Content.
+    if (creatorOpsId && savedIds.size > 0) {
+      result = result.filter((r) => !savedIds.has(r.id))
+    }
+
     // Sort
     if (sort === 'top') {
       result.sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0))
@@ -500,8 +519,11 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         const perA = personalScores[idxA]
         const perB = personalScores[idxB]
 
-        const hybridA = W_SEM * semanticA + W_DNA * tagA + W_VIR * viralA + W_MGR * mgrA + W_PER * perA
-        const hybridB = W_SEM * semanticB + W_DNA * tagB + W_VIR * viralB + W_MGR * mgrB + W_PER * perB
+        // ±15% per-record jitter so the top-of-feed varies each visit instead
+        // of pinning the same reels every time. Stable within a session via
+        // the shuffleSeedsRef cache.
+        const hybridA = (W_SEM * semanticA + W_DNA * tagA + W_VIR * viralA + W_MGR * mgrA + W_PER * perA) * jitter(a.id)
+        const hybridB = (W_SEM * semanticB + W_DNA * tagB + W_VIR * viralB + W_MGR * mgrB + W_PER * perB) * jitter(b.id)
         return hybridB - hybridA
       })
 
@@ -529,7 +551,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, creatorTagWeights, creatorFormatWeights, tagBumps, creatorOpsId, isAdmin])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, savedIds, creatorTagWeights, creatorFormatWeights, tagBumps, creatorOpsId, isAdmin, jitter])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
