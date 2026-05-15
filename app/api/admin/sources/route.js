@@ -120,7 +120,8 @@ export async function PATCH(request) {
       if (key in fields) cleanFields[key] = fields[key]
     }
 
-    const updated = await patchAirtableRecord('Inspo Sources', id, cleanFields)
+    // typecast so new Account Status values (e.g. 'Banned') auto-create the option
+    const updated = await patchAirtableRecord('Inspo Sources', id, cleanFields, { typecast: true })
 
     return NextResponse.json({ source: updated })
   } catch (err) {

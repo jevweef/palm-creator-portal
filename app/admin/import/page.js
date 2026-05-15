@@ -46,6 +46,16 @@ export default function AdminImport() {
         if (Array.isArray(data)) {
           for (const item of data) {
             if (item.url && item.url.includes('instagram.com')) urls.push(item.url)
+
+            // Format 3: newer IG export — each entry has label_values: [{label:'URL', value, href}, ...]
+            if (Array.isArray(item.label_values)) {
+              for (const lv of item.label_values) {
+                if (lv.label === 'URL') {
+                  const u = lv.href || lv.value || ''
+                  if (u.includes('instagram.com')) urls.push(u)
+                }
+              }
+            }
           }
         }
 
