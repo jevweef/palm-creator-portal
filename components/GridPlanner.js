@@ -1188,32 +1188,23 @@ export default function GridPlanner({ smmMode = false } = {}) {
     setDragging({ postId: null, sourceAccountId: null })
   }
 
-  // Reset + reshuffle queue thumbnails — except posts whose Thumbnail
-  // Source = 'post-prep' (hand-picked by operator in Post Prep, preserved).
-  // Click again to reshuffle 'pool' and 'auto-frame' posts only.
+  // Reset + reshuffle every channeled queue post's thumbnail with a fresh
+  // random pool tile. Always overwrites — click again to reshuffle.
+  // To preserve a specific manual pick, drag it back from the pool onto
+  // the cell after running Auto-fill.
   const [autoFilling, setAutoFilling] = useState(false)
   const autoFillThumbnails = async () => {
     if (!selectedCreatorId || !thumbnailPool.length) return
-    const all = posts.filter(p =>
+    const targets = posts.filter(p =>
       p.channel && !p.telegramSentAt && !p.postedAt
     )
-    const preserved = all.filter(p => p.thumbnailSource === 'post-prep')
-    const targets = all.filter(p => p.thumbnailSource !== 'post-prep')
     if (!targets.length) {
-      showToast(
-        preserved.length
-          ? `All ${preserved.length} queue post${preserved.length !== 1 ? 's' : ''} have hand-picked thumbnails — nothing to fill`
-          : 'No queue posts to fill',
-        true
-      )
+      showToast('No queue posts to fill', true)
       return
     }
-    const preservedNote = preserved.length
-      ? ` ${preserved.length} hand-picked post${preserved.length !== 1 ? 's' : ''} preserved.`
-      : ''
     setConfirmDialog({
       title: 'Auto-fill thumbnails',
-      message: `Replace ${targets.length} queue post${targets.length !== 1 ? 's' : ''} (pool/auto-frame thumbnails) with random photos from the pool (${thumbnailPool.length} available)?${preservedNote} Click again any time to reshuffle.`,
+      message: `Replace every queue post's thumbnail with a random photo from the pool (${thumbnailPool.length} available)? Affects ${targets.length} post${targets.length !== 1 ? 's' : ''} across IG + FB. Click again any time to reshuffle.`,
       confirmLabel: 'Shuffle',
       onConfirm: async () => {
         setAutoFilling(true)
@@ -1228,13 +1219,10 @@ export default function GridPlanner({ smmMode = false } = {}) {
           // Surface a warning when pool is smaller than queue — some tiles
           // had to repeat. User can add more photos to the pool to get
           // fully-unique thumbnails.
-          const preservedSuffix = data.preserved
-            ? ` · ${data.preserved} preserved`
-            : ''
           if (data.poolShortBy > 0) {
-            showToast(`Filled ${data.applied} thumbnails (${data.poolShortBy} repeats due to small pool)${preservedSuffix}`, true)
+            showToast(`Filled ${data.applied} thumbnails — pool is ${data.poolShortBy} short, so ${data.poolShortBy} photo${data.poolShortBy !== 1 ? 's' : ''} had to repeat`, true)
           } else {
-            showToast(`Filled ${data.applied} thumbnail${data.applied !== 1 ? 's' : ''}${preservedSuffix} (all unique)`)
+            showToast(`Filled ${data.applied} thumbnail${data.applied !== 1 ? 's' : ''} (all unique)`)
           }
           await loadCreator(selectedCreatorId)
         } catch (e) {

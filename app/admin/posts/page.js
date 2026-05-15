@@ -690,10 +690,7 @@ function PostCard({ post, onRefresh, onSend }) {
             // Only write Thumbnail field if the user actually picked a NEW thumbnail
             // this session. Re-sending an already-ingested Airtable attachment URL
             // back to Airtable breaks it (shows as a broken "thumb" icon after refresh).
-            // Stamp Source so Auto-fill on the Grid Planner won't clobber
-            // this hand-picked thumbnail. Only set when actually writing a
-            // new Thumbnail this save (matches the Thumbnail field's guard).
-            ...(thumbnailUrl && thumbnailUrl !== savedThumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }], 'Thumbnail Source': 'post-prep' } : {}),
+            ...(thumbnailUrl && thumbnailUrl !== savedThumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }] } : {}),
           },
         }),
       })
@@ -727,10 +724,7 @@ function PostCard({ post, onRefresh, onSend }) {
             'Hashtags': hashtags,
             'Platform': platforms,
             ...(scheduledDate ? { 'Scheduled Date': etLocalToUTC(scheduledDate) } : {}),
-            // Stamp Source so Auto-fill on the Grid Planner won't clobber
-            // this hand-picked thumbnail. Only set when actually writing a
-            // new Thumbnail this save (matches the Thumbnail field's guard).
-            ...(thumbnailUrl && thumbnailUrl !== savedThumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }], 'Thumbnail Source': 'post-prep' } : {}),
+            ...(thumbnailUrl && thumbnailUrl !== savedThumbnailUrl ? { 'Thumbnail': [{ url: rawDropboxUrl(thumbnailUrl) }] } : {}),
             'Status': 'Staged',
           },
           typecast: true,
@@ -992,12 +986,10 @@ function PostCard({ post, onRefresh, onSend }) {
               const rawUrl = rawDropboxUrl(url)
               setThumbnailUrl(rawUrl)
               setShowPhotoPicker(false)
-              // 'post-prep' source flag protects this pick from Auto-fill
-              // overwrite on the Grid Planner side.
               await fetch('/api/admin/posts', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ postId: post.id, fields: { 'Thumbnail': [{ url: rawUrl }], 'Thumbnail Source': 'post-prep' } }),
+                body: JSON.stringify({ postId: post.id, fields: { 'Thumbnail': [{ url: rawUrl }] } }),
               })
             }}
             onClose={() => setShowPhotoPicker(false)}

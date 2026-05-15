@@ -127,15 +127,6 @@ export async function GET(request) {
       return creators.includes(creatorOpsId) && sourceType === 'Inspo Upload'
     })
 
-    // Separate stream: SM (non-inspo) uploads this creator dropped via the
-    // file request flow / Make.com / direct admin upload. These intentionally
-    // do NOT count toward the weekly inspo quota — they're tracked separately.
-    const mySmAssets = assetRecords.filter((r) => {
-      const creators = r.fields['Palm Creators'] || []
-      const sourceType = r.fields['Source Type']
-      return creators.includes(creatorOpsId) && sourceType !== 'Inspo Upload'
-    })
-
     // Build a set of inspo IDs that already have uploads
     const inspoIdsWithUploads = new Set()
     myAssets.forEach((a) => {
@@ -223,26 +214,11 @@ export async function GET(request) {
       else uploaded.push(item) // default: Uploaded or no status
     })
 
-    // Quota: count this week's inspo uploads (SM uploads do NOT count)
+    // Quota: count this week's uploads
     const weekStart = getWeekStart()
-    const weekStartTs = new Date(`${weekStart}T00:00:00`).getTime()
-    const weekEndTs = weekStartTs + 7 * 24 * 60 * 60 * 1000
-
     const weekUploads = myAssets.filter((a) => {
       const uploadWeek = a.fields['Upload Week']
       return uploadWeek === weekStart
-    }).length
-
-    // SM uploads might use the Upload Week formula field OR may only have
-    // Airtable's automatic createdTime (Make.com imports don't always set
-    // Upload Week). Check both so neither path is undercounted.
-    const smUploadsThisWeek = mySmAssets.filter((a) => {
-      if (a.fields['Upload Week'] === weekStart) return true
-      if (a.createdTime) {
-        const t = new Date(a.createdTime).getTime()
-        return t >= weekStartTs && t < weekEndTs
-      }
-      return false
     }).length
 
     return NextResponse.json({
@@ -254,10 +230,6 @@ export async function GET(request) {
       quota: {
         used: weekUploads,
         target: weeklyQuota,
-        weekStart,
-      },
-      smUploads: {
-        thisWeek: smUploadsThisWeek,
         weekStart,
       },
     })

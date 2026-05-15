@@ -700,29 +700,23 @@ export default function CreatorDashboard() {
               const savedOnly = savedReels.filter(r => !progressedInspoIds.has(r.id))
 
               return (<>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px', marginBottom: savedOnly.length > 0 || (pipeline?.editing?.length > 0) ? '10px' : 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: savedOnly.length > 0 || (pipeline?.editing?.length > 0) ? '14px' : 0 }}>
               {[
                 { label: 'Saved', count: savedOnly.length, color: 'var(--palm-pink)' },
                 { label: 'Uploaded', count: pipeline?.uploaded?.length || 0, color: '#E8C878' },
                 { label: 'Editing', count: pipeline?.editing?.length || 0, color: '#78B4E8' },
-                { label: 'Scheduled', count: pipeline?.scheduled?.length || 0, color: '#a78bfa' },
                 { label: 'Posted', count: pipeline?.posted?.length || 0, color: '#7DD3A4' },
               ].map(stage => (
                 <div key={stage.label} style={{
-                  textAlign: 'center', padding: '8px 4px',
+                  textAlign: 'center', padding: '8px',
                   background: 'rgba(232, 160, 160, 0.03)', borderRadius: '12px',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                 }}>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: stage.count > 0 ? stage.color : 'rgba(255,255,255,0.08)' }}>{stage.count}</div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>{stage.label}</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: stage.count > 0 ? stage.color : 'rgba(255,255,255,0.08)' }}>{stage.count}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stage.label}</div>
                 </div>
               ))}
             </div>
-            {pipeline?.smUploads?.thisWeek > 0 && (
-              <p style={{ fontSize: '10px', color: 'var(--foreground-subtle)', marginBottom: '10px', textAlign: 'center' }}>
-                + {pipeline.smUploads.thisWeek} social media upload{pipeline.smUploads.thisWeek === 1 ? '' : 's'} this week
-              </p>
-            )}
 
             {/* Saved inspo thumbnails */}
             {savedOnly.length > 0 ? (

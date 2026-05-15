@@ -272,7 +272,7 @@ export async function GET(request) {
       filterByFormula: `OR(IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days')), {Scheduled Date}=BLANK())`,
       fields: [
         'Post Name', 'Creator', 'Channel', 'Asset', 'Task',
-        'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Thumbnail Source',
+        'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail',
         'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link',
         'SMM Scheduled', 'SMM Scheduled At',
       ],
@@ -556,10 +556,6 @@ export async function GET(request) {
         // 'thumbnail_recXXX_*.jpg', short hex strings). Empty if Post.Thumbnail
         // is unset.
         thumbnailFilename: postImg?.filename || '',
-        // 'post-prep' = operator picked in Post Prep (protected from
-        // Auto-fill). 'pool' = applied via Thumbnail Pool drag/auto-fill.
-        // 'auto-frame' = upload-time video frame. Empty for legacy posts.
-        thumbnailSource: statusName(f['Thumbnail Source']) || '',
         thumbnailBroken: hasBrokenThumb,
         smmScheduled: !!f['SMM Scheduled'],
         smmScheduledAt: f['SMM Scheduled At'] || null,
@@ -1017,30 +1013,17 @@ export async function POST(request) {
       }
 
       // Every channeled, unsent post for this creator. Filter creator
-      // client-side (ARRAYJOIN returns display text, not IDs). Also EXCLUDE
-      // posts whose Thumbnail Source = 'post-prep' — those were hand-picked
-      // by the operator in Post Prep and shouldn't be overwritten by a
-      // reshuffle. 'pool' and 'auto-frame' (and empty/legacy) are fair game.
+      // client-side (ARRAYJOIN returns display text, not IDs).
       const allPosts = await fetchAirtableRecords('Posts', {
         filterByFormula: `AND({Channel}!='', {Telegram Sent At}='', {Posted At}='')`,
-        fields: ['Creator', 'Channel', 'Thumbnail Source'],
+        fields: ['Creator', 'Channel'],
       })
-      const sourceName = (v) => typeof v === 'string' ? v : (v?.name || '')
-      const all = allPosts.filter(p =>
+      const targets = allPosts.filter(p =>
         (p.fields?.Creator || []).some(c => (typeof c === 'string' ? c : c?.id) === creatorId)
       )
-      const preserved = all.filter(p => sourceName(p.fields?.['Thumbnail Source']) === 'post-prep')
-      const targets = all.filter(p => sourceName(p.fields?.['Thumbnail Source']) !== 'post-prep')
 
       if (!targets.length) {
-        return NextResponse.json({
-          ok: true,
-          applied: 0,
-          preserved: preserved.length,
-          message: preserved.length
-            ? `All ${preserved.length} queue post${preserved.length !== 1 ? 's' : ''} have hand-picked thumbnails — nothing to fill`
-            : 'No queue posts to fill',
-        })
+        return NextResponse.json({ ok: true, applied: 0, message: 'No queue posts to fill' })
       }
 
       // Sampling-without-replacement via Fisher-Yates shuffle. Previous code
@@ -1071,8 +1054,7 @@ export async function POST(request) {
         try {
           await patchAirtableRecord('Posts', post.id, {
             'Thumbnail': [{ url: rawUrl }],
-            'Thumbnail Source': 'pool',
-          }, { typecast: true })
+          })
           applied++
         } catch (e) {
           errors.push({ postId: post.id, error: e.message })
@@ -1083,7 +1065,6 @@ export async function POST(request) {
       return NextResponse.json({
         ok: true,
         applied,
-        preserved: preserved.length,
         poolSize: pool.length,
         queueSize: targets.length,
         poolShortBy,  // # of unavoidable duplicates (0 if pool >= queue)
@@ -1114,14 +1095,9 @@ export async function POST(request) {
       const rawUrl = dropboxLink
         .replace('?dl=0', '?raw=1')
         .replace('www.dropbox.com', 'dl.dropboxusercontent.com')
-      // 'pool' source flag — Auto-fill will reshuffle this on a future click.
-      // (Drag-drop applying from the pool is the "I'm using a pool tile"
-      // signal; if you want to preserve a specific drag-applied tile, do it
-      // via Post Prep PhotoPicker instead, which stamps 'post-prep'.)
       await patchAirtableRecord('Posts', postId, {
         'Thumbnail': [{ url: rawUrl }],
-        'Thumbnail Source': 'pool',
-      }, { typecast: true })
+      })
       return NextResponse.json({ ok: true, thumbnailUrl: rawUrl })
     }
 
