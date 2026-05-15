@@ -294,12 +294,18 @@ export async function POST(request) {
     // Update source record — always update even if create failed (so it's not stuck in Processing)
     if (sourceId) {
       try {
+        // Status logic:
+        //   - 0 new reels to create (all duped or filtered) → Complete, this
+        //     is the steady-state outcome on healthy recurring scrapes.
+        //   - newRecords.length > 0 AND batchCreate succeeded → Complete.
+        //   - newRecords.length > 0 AND batchCreate threw → Error.
+        const nothingToCreate = newRecords.length === 0
         const sourceUpdate = {
           'Last Scraped At': now.toISOString(),
           'Reels Scraped': useItems.length,
           'Too New Skipped': tooNewSkipped,
           'Source Reels Added': createSuccess ? newRecords.length : 0,
-          'Pipeline Status': createSuccess ? 'Complete' : 'Error',
+          'Pipeline Status': (createSuccess || nothingToCreate) ? 'Complete' : 'Error',
         }
         if (followerCount) sourceUpdate['Follower Count'] = followerCount
         if (dataSource === 'rapidapi-fallback') sourceUpdate['Age Restricted'] = true
