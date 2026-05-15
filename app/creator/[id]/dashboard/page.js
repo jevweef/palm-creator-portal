@@ -371,27 +371,28 @@ export default function CreatorDashboard() {
       })
       .catch((err) => { console.error(err); setLoading(false) })
 
-    // Fetch reels for preview strip (non-blocking, cached 5min on server)
+    // Fetch reels for preview strip (non-blocking, cached 5min on server).
+    // Uses the shared lib so the top-6 here exactly matches the first 6 the
+    // creator sees on /inspo's For You sort.
     Promise.all([
       fetch('/api/inspiration').then(r => r.json()).catch(() => ({ records: [] })),
-      fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then(r => r.json()).catch(() => ({ tagWeights: {} })),
-    ]).then(([inspoData, twData]) => {
+      fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then(r => r.json()).catch(() => ({ tagWeights: {}, filmFormatWeights: {}, tagBumps: {} })),
+    ]).then(async ([inspoData, twData]) => {
+      const { scoreAndRankForYou } = await import('@/lib/inspoScoring')
       const recs = (inspoData.records || []).filter(r => r.thumbnail)
-      const tw = twData.tagWeights || {}
-      const hasForYou = Object.keys(tw).length > 0
-      if (hasForYou) {
-        // Score by tag overlap, then sort
-        const scored = recs.map(r => {
-          const tags = [...(r.tags || []), ...(r.suggestedTags || [])]
-          const score = tags.reduce((sum, t) => sum + (tw[t] || 0), 0)
-          return { ...r, forYouScore: score }
-        })
-        scored.sort((a, b) => b.forYouScore - a.forYouScore)
-        setTopReels(scored.slice(0, 6))
-      } else {
-        recs.sort((a, b) => (b.views || 0) - (a.views || 0))
-        setTopReels(recs.slice(0, 6))
-      }
+      const savedIds = new Set(
+        recs.filter((r) => Array.isArray(r.savedBy) && r.savedBy.includes(creatorOpsId)).map((r) => r.id),
+      )
+      const ranked = scoreAndRankForYou(recs, {
+        creatorOpsId,
+        creatorTagWeights: twData.tagWeights || {},
+        creatorFormatWeights: twData.filmFormatWeights || {},
+        tagBumps: twData.tagBumps || {},
+        hiddenIds: savedIds,
+        hideNiche: true,
+        applyJitter: true,
+      })
+      setTopReels(ranked.slice(0, 6))
     }).catch(() => {})
   }, [isLoaded, creatorOpsId, hqId])
 

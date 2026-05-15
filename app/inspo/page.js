@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useUser } from '@clerk/nextjs'
 
 import InspoCard from '@/components/InspoCard'
 import InspoModal from '@/components/InspoModal'
 import { tagStyle } from '@/lib/tagStyle'
-import { managerBoostScore } from '@/lib/managerBoost'
+import { scoreAndRankForYou, clearShuffleSeeds } from '@/lib/inspoScoring'
 
 function computeGradeFn(records) {
   const scores = records.map((r) => r.engagementScore || 0).sort((a, b) => a - b)
@@ -177,22 +177,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [downloadedIds, setDownloadedIds] = useState(new Set())
   const [bulkDownloading, setBulkDownloading] = useState(false)
 
-  // Per-record shuffle jitter — cached for the session so the order is
-  // stable as the user paginates / filters, but a fresh shuffle (via the
-  // shuffle button or a full page reload) reseeds every record's nudge.
-  const shuffleSeedsRef = useRef({})
+  // Bumping shuffleEpoch forces the sort effect to re-run, picking up the
+  // fresh seeds clearShuffleSeeds() just wiped from session storage.
   const [shuffleEpoch, setShuffleEpoch] = useState(0)
-  const jitter = useCallback((id, amplitude = 0.15) => {
-    let s = shuffleSeedsRef.current[id]
-    if (s === undefined) {
-      s = 1 + (Math.random() - 0.5) * amplitude * 2
-      shuffleSeedsRef.current[id] = s
-    }
-    return s
-    // shuffleEpoch participates in the dep array of the sort effect so a
-    // click of the shuffle button forces a re-sort with the new seeds.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shuffleEpoch])
 
   // Admin: "View as Creator" for testing For You
   const role = user?.publicMetadata?.role
@@ -209,7 +196,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   // are declared — earlier placement caused a temporal dead zone error
   // (handleShuffle's closure tried to read creatorOpsId before init).
   const handleShuffle = useCallback(() => {
-    shuffleSeedsRef.current = {}
+    clearShuffleSeeds() // clears shared session storage so dashboard re-rolls too
     setShuffleEpoch((e) => e + 1)
     if (creatorOpsId && Object.keys(creatorTagWeights).length > 0) {
       setSort('foryou')
@@ -479,95 +466,39 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     } else if (sort === 'recent') {
       result.sort((a, b) => new Date(b.creatorPostedDate || 0) - new Date(a.creatorPostedDate || 0))
     } else if (sort === 'foryou' && Object.keys(creatorTagWeights).length > 0) {
-      // Hybrid scoring with two ranking layers on top of the creator's own DNA:
-      //   - Manager Boost (sitewide): agency-set tag weighting that pushes
-      //     funnel-signal content (Direct Flirt, POV, Implied Scenario, etc.)
-      //   - Personal Bumps: derived from this creator's thumbs up / thumbs
-      //     down history. Only kicks in once they've actually rated a reel.
-      //
-      // Formula:
-      //   no thumbs:  0.45·sem + 0.30·DNA + 0.10·viral + 0.15·manager
-      //   with thumbs: 0.40·sem + 0.25·DNA + 0.10·viral + 0.15·manager + 0.10·personal
-
-      const hasPersonal = Object.keys(tagBumps).length > 0
-      const W_SEM = hasPersonal ? 0.40 : 0.45
-      const W_DNA = hasPersonal ? 0.25 : 0.30
-      const W_VIR = 0.10
-      const W_MGR = 0.15
-      const W_PER = hasPersonal ? 0.10 : 0
-
-      const tagScores = result.map(r => {
-        const tagScore = [...(r.tags || []), ...(r.suggestedTags || [])].reduce((s, t) => s + (creatorTagWeights[t] || 0), 0)
-        const fmtScore = (r.filmFormat || []).reduce((s, f) => s + (creatorFormatWeights[f] || 0), 0) * 0.5
-        return tagScore + fmtScore
+      // Delegate to the shared scoring lib so /inspo and the dashboard's
+      // "Picked For You" strip rank from the exact same algorithm with the
+      // same per-session jitter seeds.
+      const ranked = scoreAndRankForYou(result, {
+        creatorOpsId,
+        creatorTagWeights,
+        creatorFormatWeights,
+        tagBumps,
+        hideNiche: false, // already filtered above
+        applyJitter: true,
       })
-      const maxTag = Math.max(...tagScores, 1)
+      result.length = 0
+      result.push(...ranked)
 
-      const managerScores = result.map(r => managerBoostScore(r))
-
-      // Personal tag-bump score per reel: signed sum of bumps for tags on
-      // this reel, normalized into the same 0-1 band the other terms use.
-      // Negative bumps (from thumbs-down tags) push the reel below neutral.
-      const personalRaw = result.map(r => {
-        let s = 0
-        const tags = [...(r.tags || []), ...(r.suggestedTags || []), ...(r.filmFormat || [])]
-        for (const t of tags) s += (tagBumps[t] || 0)
-        return s
-      })
-      const maxPersonalAbs = Math.max(...personalRaw.map(Math.abs), 1)
-      const personalScores = personalRaw.map(s => 0.5 + 0.5 * (s / maxPersonalAbs))
-
-      const zScores = result.map(r => r.zScore || 0)
-      const maxZ = Math.max(...zScores.map(Math.abs), 1)
-
-      result.sort((a, b) => {
-        const idxA = result.indexOf(a)
-        const idxB = result.indexOf(b)
-
-        const semanticA = (a.semanticScores && a.semanticScores[creatorOpsId]) || 0
-        const semanticB = (b.semanticScores && b.semanticScores[creatorOpsId]) || 0
-        const tagA = tagScores[idxA] / maxTag
-        const tagB = tagScores[idxB] / maxTag
-        const viralA = (zScores[idxA] + maxZ) / (2 * maxZ)
-        const viralB = (zScores[idxB] + maxZ) / (2 * maxZ)
-        const mgrA = managerScores[idxA]
-        const mgrB = managerScores[idxB]
-        const perA = personalScores[idxA]
-        const perB = personalScores[idxB]
-
-        // ±15% per-record jitter so the top-of-feed varies each visit instead
-        // of pinning the same reels every time. Stable within a session via
-        // the shuffleSeedsRef cache.
-        const hybridA = (W_SEM * semanticA + W_DNA * tagA + W_VIR * viralA + W_MGR * mgrA + W_PER * perA) * jitter(a.id)
-        const hybridB = (W_SEM * semanticB + W_DNA * tagB + W_VIR * viralB + W_MGR * mgrB + W_PER * perB) * jitter(b.id)
-        return hybridB - hybridA
-      })
-
-      // Store debug scores for admin overlay
       if (isAdmin) {
         const scores = {}
-        result.forEach((r) => {
-          const idx = result.indexOf(r)
-          const semantic = (r.semanticScores && r.semanticScores[creatorOpsId]) || 0
-          const tag = tagScores[idx] / maxTag
-          const viral = (zScores[idx] + maxZ) / (2 * maxZ)
-          const mgr = managerScores[idx]
-          const per = personalScores[idx]
+        for (const r of ranked) {
+          const c = r.forYouComponents || {}
           scores[r.id] = {
-            semantic: Math.round(semantic * 100),
-            tag: Math.round(tag * 100),
-            virality: Math.round(viral * 100),
-            manager: Math.round(mgr * 100),
-            personal: hasPersonal ? Math.round(per * 100) : null,
-            hybrid: Math.round((W_SEM * semantic + W_DNA * tag + W_VIR * viral + W_MGR * mgr + W_PER * per) * 100),
+            semantic: Math.round((c.semantic || 0) * 100),
+            tag: Math.round((c.tag || 0) * 100),
+            virality: Math.round((c.viral || 0) * 100),
+            manager: Math.round((c.manager || 0) * 100),
+            personal: c.personal == null ? null : Math.round(c.personal * 100),
+            hybrid: Math.round((r.forYouScore || 0) * 100),
           }
-        })
+        }
         setDebugScores(scores)
       }
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, savedIds, creatorTagWeights, creatorFormatWeights, tagBumps, creatorOpsId, isAdmin, jitter, shuffleEpoch])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, savedIds, creatorTagWeights, creatorFormatWeights, tagBumps, creatorOpsId, isAdmin, shuffleEpoch])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
