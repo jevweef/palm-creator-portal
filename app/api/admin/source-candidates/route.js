@@ -29,13 +29,22 @@ export async function GET() {
       const raw = (f.Username || f['Source Handle'] || '').toString().trim().replace(/^@/, '')
       if (!raw) continue
       const key = raw.toLowerCase()
-      const followerCount = Number(f['Follower Count']) || null
+
+      // Distinguish "never set" (null/undefined) from "set to 0" (miss sentinel
+      // from a prior enrichment attempt). 'attempted' = true if any record has
+      // the field populated, even with 0; the enrich endpoint skips attempted
+      // handles so we don't re-spend RapidAPI calls.
+      const rawFc = f['Follower Count']
+      const attempted = rawFc != null && rawFc !== ''
+      const followerCount = attempted ? (Number(rawFc) || null) : null
 
       const existing = byHandle.get(key)
       const savedAt = f['Date Saved'] || null
       if (!existing) {
         byHandle.set(key, {
           handle: raw,
+          recordId: r.id,
+          attempted,
           count: 1,
           latestSavedAt: savedAt,
           sampleUrl: f['Reel URL'] || null,
@@ -48,6 +57,7 @@ export async function GET() {
           existing.latestSavedAt = savedAt
           existing.sampleUrl = f['Reel URL'] || existing.sampleUrl
         }
+        if (attempted) existing.attempted = true
         if (followerCount && (!existing.followerCount || followerCount > existing.followerCount)) {
           existing.followerCount = followerCount
         }
@@ -71,6 +81,8 @@ export async function GET() {
       if (onSources.has(key)) continue
       candidates.push({
         handle: v.handle,
+        recordId: v.recordId,
+        attempted: v.attempted,
         count: v.count,
         latestSavedAt: v.latestSavedAt,
         sampleUrl: v.sampleUrl,
