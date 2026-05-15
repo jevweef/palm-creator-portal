@@ -371,13 +371,19 @@ export default function CreatorDashboard() {
       })
       .catch((err) => { console.error(err); setLoading(false) })
 
-    // Fetch reels for preview strip (non-blocking, cached 5min on server).
-    // Uses the shared lib so the top-6 here exactly matches the first 6 the
-    // creator sees on /inspo's For You sort.
+    // Fetch reels for the "Picked For You" preview strip. Only renders when
+    // the creator actually has DNA-driven tag weights — no viral fallback.
+    // Uses the same shared lib as /inspo so the top-6 here exactly matches
+    // the first 6 reels on the inspo board's For You sort.
     Promise.all([
       fetch('/api/inspiration').then(r => r.json()).catch(() => ({ records: [] })),
       fetch(`/api/creator/tag-weights?creatorOpsId=${creatorOpsId}`).then(r => r.json()).catch(() => ({ tagWeights: {}, filmFormatWeights: {}, tagBumps: {} })),
     ]).then(async ([inspoData, twData]) => {
+      const tw = twData.tagWeights || {}
+      if (Object.keys(tw).length === 0) {
+        setTopReels([]) // no DNA → no Picked For You strip
+        return
+      }
       const { scoreAndRankForYou } = await import('@/lib/inspoScoring')
       const recs = (inspoData.records || []).filter(r => r.thumbnail)
       const savedIds = new Set(
@@ -385,7 +391,7 @@ export default function CreatorDashboard() {
       )
       const ranked = scoreAndRankForYou(recs, {
         creatorOpsId,
-        creatorTagWeights: twData.tagWeights || {},
+        creatorTagWeights: tw,
         creatorFormatWeights: twData.filmFormatWeights || {},
         tagBumps: twData.tagBumps || {},
         hiddenIds: savedIds,
@@ -480,26 +486,21 @@ export default function CreatorDashboard() {
               </div>
             </div>
             {/* Reel preview strip — For You if available, otherwise Viral */}
-            {topReels.length > 0 && (() => {
-              const isForYou = creatorProfile && topReels[0]?.forYouScore !== undefined
-              const stripLabel = isForYou ? 'Picked For You' : 'Viral Right Now'
-              const stripSort = isForYou ? 'foryou' : 'viral'
-              return (
-                <div style={{ borderTop: '1px solid transparent', padding: '12px 20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{stripLabel}</span>
-                    <a href={withQuery(inspoPath, { sort: stripSort })} style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${topReels.length}, 1fr)`, gap: '6px' }}>
-                    {topReels.map(r => (
-                      <a key={r.id} href={withQuery(inspoPath, { sort: stripSort })} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: 'rgba(232, 160, 160, 0.04)', display: 'block' }}>
-                        {(r.cdnUrl || r.thumbnail) && <img src={cdnUrlAtSize(r.cdnUrl, 200) || r.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                      </a>
-                    ))}
-                  </div>
+            {topReels.length > 0 && (
+              <div style={{ borderTop: '1px solid transparent', padding: '12px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Picked For You</span>
+                  <a href={withQuery(inspoPath, { sort: 'foryou' })} style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', fontWeight: 500 }}>See All →</a>
                 </div>
-              )
-            })()}
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${topReels.length}, 1fr)`, gap: '6px' }}>
+                  {topReels.map(r => (
+                    <a key={r.id} href={withQuery(inspoPath, { sort: 'foryou' })} style={{ aspectRatio: '9/14', borderRadius: '8px', overflow: 'hidden', background: 'rgba(232, 160, 160, 0.04)', display: 'block' }}>
+                      {(r.cdnUrl || r.thumbnail) && <img src={cdnUrlAtSize(r.cdnUrl, 200) || r.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Quick Actions + Invoices */}
