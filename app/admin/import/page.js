@@ -225,6 +225,12 @@ export default function AdminImport() {
               <div style={{ fontSize: '10px', color: 'rgba(240, 236, 232, 0.85)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Already in Source Reels</div>
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--foreground-muted)' }}>{result.skippedAlreadyInSourceReels}</div>
             </div>
+            {result.backfilled > 0 && (
+              <div style={{ background: 'var(--background)', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(240, 236, 232, 0.85)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Handles Backfilled</div>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: '#7DD3A4' }}>{result.backfilled}</div>
+              </div>
+            )}
             <div style={{ background: 'var(--background)', borderRadius: '8px', padding: '12px' }}>
               <div style={{ fontSize: '10px', color: 'rgba(240, 236, 232, 0.85)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Parsed</div>
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'rgba(240, 236, 232, 0.85)' }}>{result.totalParsed}</div>
