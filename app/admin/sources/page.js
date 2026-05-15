@@ -768,7 +768,10 @@ export default function AdminSources() {
       const res = await fetch('/api/admin/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handles, force: true }),
+        // bypassCooldown only — Apify still respects Last Scraped At so we
+        // don't refetch reels we already have. Use the "Apply New Limit"
+        // flow if you actually want a deep refetch.
+        body: JSON.stringify({ handles, bypassCooldown: true }),
       })
       if (!res.ok) throw new Error('Batch scrape failed')
       setSources(prev => prev.map(s => handles.includes(s.handle) ? { ...s, pipelineStatus: 'Processing' } : s))
@@ -786,7 +789,7 @@ export default function AdminSources() {
       const res = await fetch('/api/admin/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handles: [source.handle], force: true }),
+        body: JSON.stringify({ handles: [source.handle], bypassCooldown: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Scrape failed')
@@ -857,7 +860,9 @@ export default function AdminSources() {
       const res = await fetch('/api/admin/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handles, force: true }),
+        // bypassCooldown only — keep Apify cost minimal by respecting each
+        // source's Last Scraped At date.
+        body: JSON.stringify({ handles, bypassCooldown: true }),
       })
       if (!res.ok) throw new Error('Scrape failed')
       setSources(prev => prev.map(s => handles.includes(s.handle) ? { ...s, pipelineStatus: 'Processing' } : s))
