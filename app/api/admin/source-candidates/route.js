@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 
+export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 /**
