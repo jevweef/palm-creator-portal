@@ -135,7 +135,20 @@ export async function POST(request) {
     }
 
     if (toCreate.length > 0) {
-      await batchCreateRecords('Source Reels', toCreate)
+      try {
+        // typecast lets Airtable auto-add 'IG Export' as a Data Source choice if the
+        // PAT has schema-write scope.
+        await batchCreateRecords('Source Reels', toCreate, { typecast: true })
+      } catch (err) {
+        // Fall back: PAT lacks schema scope — Airtable refuses to create the option.
+        // Retry with 'Manual', which already exists on the Data Source field.
+        if (/INVALID_MULTIPLE_CHOICE_OPTIONS|select option/i.test(err.message)) {
+          for (const rec of toCreate) rec.fields['Data Source'] = 'Manual'
+          await batchCreateRecords('Source Reels', toCreate)
+        } else {
+          throw err
+        }
+      }
     }
 
     return NextResponse.json({
