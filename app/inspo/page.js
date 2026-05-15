@@ -752,9 +752,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               <div style={{display:'flex', alignItems:'center', background:'rgba(255,255,255,0.08)', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', border:'none', borderRadius:'9999px', padding:'2px', flexShrink:0}}>
                 {['any','all'].map((m) => (
                   <button key={m} onClick={() => setTagMode(m)} style={{
-                    fontSize:'11px', fontWeight:500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
+                    fontSize:'11px', fontWeight: tagMode === m ? 700 : 500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
                     background: tagMode === m ? 'var(--palm-pink)' : 'transparent',
-                    color: tagMode === m ? 'rgba(255,255,255,0.08)' : '#999',
+                    color: tagMode === m ? 'var(--background)' : '#999',
                     transition:'all 0.15s',
                   }}>
                     {m === 'any' ? 'Match ANY' : 'Match ALL'}
@@ -1022,7 +1022,28 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               />
 
               {/* Tags */}
-              <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#999', marginBottom:'8px'}}>Tags</p>
+              <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px', gap:'8px'}}>
+                <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#999', margin:0}}>Tags</p>
+                {activeTags.length >= 2 && (
+                  <div style={{display:'flex', alignItems:'center', background:'rgba(255,255,255,0.08)', borderRadius:'9999px', padding:'2px', flexShrink:0}}>
+                    {['any','all'].map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setTagMode(m)}
+                        style={{
+                          fontSize:'11px', fontWeight: tagMode === m ? 700 : 500,
+                          padding:'4px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
+                          background: tagMode === m ? 'var(--palm-pink)' : 'transparent',
+                          color: tagMode === m ? 'var(--background)' : '#999',
+                          transition:'all 0.15s',
+                        }}
+                      >
+                        Match {m.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div style={{display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'16px'}}>
                 {allTags.map((tag) => (
                   <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
