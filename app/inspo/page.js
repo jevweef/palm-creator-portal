@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 
 import InspoCard from '@/components/InspoCard'
@@ -176,6 +176,31 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [thumbStates, setThumbStates] = useState({}) // { reelId: 'up'|'down' }
   const [downloadedIds, setDownloadedIds] = useState(new Set())
   const [bulkDownloading, setBulkDownloading] = useState(false)
+
+  // Per-record shuffle jitter — cached for the session so the order is
+  // stable as the user paginates / filters, but a fresh shuffle (via the
+  // shuffle button or a full page reload) reseeds every record's nudge.
+  const shuffleSeedsRef = useRef({})
+  const [shuffleEpoch, setShuffleEpoch] = useState(0)
+  const jitter = useCallback((id, amplitude = 0.15) => {
+    let s = shuffleSeedsRef.current[id]
+    if (s === undefined) {
+      s = 1 + (Math.random() - 0.5) * amplitude * 2
+      shuffleSeedsRef.current[id] = s
+    }
+    return s
+    // shuffleEpoch participates in the dep array of the sort effect so a
+    // click of the shuffle button forces a re-sort with the new seeds.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffleEpoch])
+
+  const handleShuffle = useCallback(() => {
+    shuffleSeedsRef.current = {}
+    setShuffleEpoch((e) => e + 1)
+    if (creatorOpsId && Object.keys(creatorTagWeights).length > 0) {
+      setSort('foryou')
+    }
+  }, [creatorOpsId, creatorTagWeights])
 
   // Admin: "View as Creator" for testing For You
   const role = user?.publicMetadata?.role
@@ -436,6 +461,12 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
       result = result.filter((r) => r.effort !== 'Niche')
     }
 
+    // Hide already-saved reels from the main board so the creator's feed keeps
+    // surfacing fresh inspiration. Saved reels remain available in My Content.
+    if (creatorOpsId && savedIds.size > 0) {
+      result = result.filter((r) => !savedIds.has(r.id))
+    }
+
     // Sort
     if (sort === 'top') {
       result.sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0))
@@ -500,8 +531,11 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
         const perA = personalScores[idxA]
         const perB = personalScores[idxB]
 
-        const hybridA = W_SEM * semanticA + W_DNA * tagA + W_VIR * viralA + W_MGR * mgrA + W_PER * perA
-        const hybridB = W_SEM * semanticB + W_DNA * tagB + W_VIR * viralB + W_MGR * mgrB + W_PER * perB
+        // ±15% per-record jitter so the top-of-feed varies each visit instead
+        // of pinning the same reels every time. Stable within a session via
+        // the shuffleSeedsRef cache.
+        const hybridA = (W_SEM * semanticA + W_DNA * tagA + W_VIR * viralA + W_MGR * mgrA + W_PER * perA) * jitter(a.id)
+        const hybridB = (W_SEM * semanticB + W_DNA * tagB + W_VIR * viralB + W_MGR * mgrB + W_PER * perB) * jitter(b.id)
         return hybridB - hybridA
       })
 
@@ -529,7 +563,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     }
 
     setFiltered(result)
-  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, creatorTagWeights, creatorFormatWeights, tagBumps, creatorOpsId, isAdmin])
+  }, [records, search, activeTags, activeFormats, tagMode, sort, textOnly, hideNiche, savedIds, creatorTagWeights, creatorFormatWeights, tagBumps, creatorOpsId, isAdmin, jitter, shuffleEpoch])
 
   const toggleTag = (tag) => setActiveTags((prev) =>
     prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -631,7 +665,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
             </div>
           </div>
           {/* Mobile: sort buttons always visible */}
-          <div className="flex md:hidden" style={{gap:'6px', marginTop:'10px', overflowX:'auto', paddingBottom:'2px'}}>
+          <div className="flex md:hidden" style={{gap:'6px', marginTop:'10px', overflowX:'auto', paddingBottom:'2px', alignItems:'center'}}>
             <div style={{display:'flex', alignItems:'center', background:'rgba(255,255,255,0.08)', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', borderRadius:'9999px', padding:'2px', gap:'1px'}}>
               {creatorOpsId && Object.keys(creatorTagWeights).length > 0 && (
                 <SortBtn value="foryou" label="For You" />
@@ -640,6 +674,22 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               <SortBtn value="viral" label="Viral" />
               <SortBtn value="recent" label="Recent" />
             </div>
+            <button
+              onClick={handleShuffle}
+              title="Reshuffle For You — surface different reels at the top"
+              style={{
+                display:'inline-flex', alignItems:'center', gap:'5px',
+                background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
+                borderRadius:'9999px', padding:'5px 10px',
+                fontSize:'11px', fontWeight:500, color:'#aaa',
+                cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
+              }}
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
+              </svg>
+              Shuffle
+            </button>
           </div>
 
           {/* Desktop: single row — sort + tags + search — NO wrap */}
@@ -653,6 +703,23 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               <SortBtn value="viral" label="Viral" />
               <SortBtn value="recent" label="Recent" />
             </div>
+            <button
+              onClick={handleShuffle}
+              title="Reshuffle For You — surface different reels at the top"
+              style={{
+                display:'inline-flex', alignItems:'center', gap:'5px',
+                background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
+                borderRadius:'9999px', padding:'5px 12px',
+                fontSize:'11px', fontWeight:500, color:'#aaa',
+                cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
+                transition:'all 0.15s',
+              }}
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
+              </svg>
+              Shuffle
+            </button>
 
             {/* Editor-only: Text on screen filter */}
             {isEditor && (
