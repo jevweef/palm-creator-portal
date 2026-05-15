@@ -6,6 +6,7 @@ import AdminPipeline from './PipelineControl'
 import AdminSources from '@/app/admin/sources/page'
 import AdminReview from '@/app/admin/review/page'
 import AdminImport from '@/app/admin/import/page'
+import AdminCandidates from '@/app/admin/candidates/page'
 import TextTrainingPage from '@/app/admin/training/page'
 import SuggestTestPage from '@/app/admin/suggest-test/page'
 import RecreatePage from '@/app/admin/recreate/page'
@@ -15,6 +16,7 @@ const TABS = [
   { key: 'sources', label: 'Sources', icon: '📡' },
   { key: 'review', label: 'Review', icon: '✅' },
   { key: 'import', label: 'Import', icon: '📥' },
+  { key: 'candidates', label: 'Candidates', icon: '👤' },
   { key: 'training', label: 'Training', icon: '🧠' },
   { key: 'suggest', label: 'Suggest', icon: '✨' },
   { key: 'recreate', label: 'AI Recreate', icon: '🎨' },
@@ -61,6 +63,7 @@ export default function InspoBoard() {
       {activeTab === 'sources' && <AdminSources />}
       {activeTab === 'review' && <AdminReview />}
       {activeTab === 'import' && <AdminImport />}
+      {activeTab === 'candidates' && <AdminCandidates />}
       {activeTab === 'training' && <TextTrainingPage />}
       {activeTab === 'suggest' && <SuggestTestPage />}
       {activeTab === 'recreate' && <RecreatePage />}
