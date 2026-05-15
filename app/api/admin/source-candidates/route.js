@@ -17,19 +17,19 @@ export async function GET() {
   try {
     // 1. All Source Reels still in review, grouped by handle.
     const reels = await fetchAirtableRecords('Source Reels', {
-      fields: ['Username', 'Source Handle', 'Reel URL', 'Date Saved', 'Review Status', 'Data Source'],
+      fields: ['Username', 'Source Handle', 'Reel URL', 'Date Saved', 'Review Status', 'Data Source', 'Follower Count'],
     })
 
-    const byHandle = new Map() // key: lowercase handle, value: { handle, count, latestSavedAt, sampleUrl, sources:Set }
+    const byHandle = new Map() // key: lowercase handle
     for (const r of reels) {
       const f = r.fields || {}
-      // Only consider pending reels (the user reviews creators of unreviewed reels)
       const status = (f['Review Status']?.name || f['Review Status'] || '').toLowerCase()
       if (status && status !== 'pending review') continue
 
       const raw = (f.Username || f['Source Handle'] || '').toString().trim().replace(/^@/, '')
       if (!raw) continue
       const key = raw.toLowerCase()
+      const followerCount = Number(f['Follower Count']) || null
 
       const existing = byHandle.get(key)
       const savedAt = f['Date Saved'] || null
@@ -39,6 +39,7 @@ export async function GET() {
           count: 1,
           latestSavedAt: savedAt,
           sampleUrl: f['Reel URL'] || null,
+          followerCount,
           dataSources: new Set([f['Data Source']?.name || f['Data Source'] || 'Unknown']),
         })
       } else {
@@ -46,6 +47,9 @@ export async function GET() {
         if (savedAt && (!existing.latestSavedAt || savedAt > existing.latestSavedAt)) {
           existing.latestSavedAt = savedAt
           existing.sampleUrl = f['Reel URL'] || existing.sampleUrl
+        }
+        if (followerCount && (!existing.followerCount || followerCount > existing.followerCount)) {
+          existing.followerCount = followerCount
         }
         if (f['Data Source']) existing.dataSources.add(f['Data Source']?.name || f['Data Source'])
       }
@@ -70,6 +74,7 @@ export async function GET() {
         count: v.count,
         latestSavedAt: v.latestSavedAt,
         sampleUrl: v.sampleUrl,
+        followerCount: v.followerCount,
         dataSources: Array.from(v.dataSources),
       })
     }

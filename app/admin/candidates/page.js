@@ -12,6 +12,30 @@ function timeAgo(iso) {
   return `${Math.floor(days / 365)}y ago`
 }
 
+function formatFollowers(n) {
+  if (!n) return null
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`
+  return String(n)
+}
+
+// Bucket definitions — match the labels the user asked for.
+// min is inclusive, max is exclusive. null max = no upper bound.
+const FOLLOWER_BUCKETS = [
+  { key: 'unknown', label: 'Unknown', match: (n) => !n },
+  { key: '0-10k',   label: '0–10K',   match: (n) => n > 0 && n < 10_000 },
+  { key: '10-50k',  label: '10–50K',  match: (n) => n >= 10_000 && n < 50_000 },
+  { key: '50-100k', label: '50–100K', match: (n) => n >= 50_000 && n < 100_000 },
+  { key: '100-500k',label: '100–500K',match: (n) => n >= 100_000 && n < 500_000 },
+  { key: '500k-1m', label: '500K–1M', match: (n) => n >= 500_000 && n < 1_000_000 },
+  { key: '1m+',     label: '1M+',          match: (n) => n >= 1_000_000 },
+]
+
+function bucketOf(n) {
+  for (const b of FOLLOWER_BUCKETS) if (b.match(n)) return b.key
+  return 'unknown'
+}
+
 const DISMISSED_KEY = 'inspo:candidates:dismissed'
 
 export default function AdminCandidates() {
@@ -23,6 +47,7 @@ export default function AdminCandidates() {
   const [dismissed, setDismissed] = useState(new Set())
   const [showDismissed, setShowDismissed] = useState(false)
   const [search, setSearch] = useState('')
+  const [bucket, setBucket] = useState('all') // 'all' or a FOLLOWER_BUCKETS key
 
   useEffect(() => {
     try {
@@ -91,11 +116,23 @@ export default function AdminCandidates() {
 
   const all = data?.candidates || []
   const q = search.trim().toLowerCase()
+
+  // Bucket counts are over the dismissed-aware pool (so they shift when you
+  // toggle "Showing Dismissed").
+  const poolForBuckets = all.filter(c => {
+    const isDismissed = dismissed.has(c.handle.toLowerCase())
+    return showDismissed ? isDismissed : !isDismissed
+  })
+  const bucketCounts = { all: poolForBuckets.length }
+  for (const b of FOLLOWER_BUCKETS) bucketCounts[b.key] = 0
+  for (const c of poolForBuckets) bucketCounts[bucketOf(c.followerCount)]++
+
   const filtered = all.filter(c => {
     const isDismissed = dismissed.has(c.handle.toLowerCase())
     if (!showDismissed && isDismissed) return false
     if (showDismissed && !isDismissed) return false
     if (q && !c.handle.toLowerCase().includes(q)) return false
+    if (bucket !== 'all' && bucketOf(c.followerCount) !== bucket) return false
     return true
   })
 
@@ -129,6 +166,32 @@ export default function AdminCandidates() {
             Refresh
           </button>
         </div>
+      </div>
+
+      {/* Follower-size filter pills */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        {[{ key: 'all', label: 'All' }, ...FOLLOWER_BUCKETS].map(b => {
+          const active = bucket === b.key
+          const count = bucketCounts[b.key]
+          if (b.key !== 'all' && count === 0) return null
+          return (
+            <button
+              key={b.key}
+              onClick={() => setBucket(active ? 'all' : b.key)}
+              style={{
+                padding: '5px 14px', fontSize: '12px', fontWeight: 600,
+                borderRadius: '20px', cursor: 'pointer', border: 'none',
+                background: active ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)',
+                color: active ? 'var(--palm-pink)' : '#999',
+                outline: active ? '1.5px solid #E88FAC' : '1px solid transparent',
+                transition: 'all 0.15s',
+              }}
+            >
+              {b.label}
+              <span style={{ marginLeft: '4px', fontSize: '11px', opacity: 0.7 }}>({count})</span>
+            </button>
+          )
+        })}
       </div>
 
       <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>
@@ -176,7 +239,12 @@ export default function AdminCandidates() {
                   </div>
                 </div>
 
-                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', gap: '10px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {c.followerCount ? (
+                    <span style={{ color: 'rgba(240, 236, 232, 0.85)', fontWeight: 600 }}>{formatFollowers(c.followerCount)} followers</span>
+                  ) : (
+                    <span style={{ opacity: 0.6 }}>followers unknown</span>
+                  )}
                   {c.latestSavedAt && <span>saved {timeAgo(c.latestSavedAt)}</span>}
                   {c.dataSources?.length > 0 && (
                     <span style={{ opacity: 0.7 }}>{c.dataSources.join(', ')}</span>
