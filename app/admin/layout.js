@@ -12,6 +12,7 @@ const ADMIN_NAV = [
     { key: 'sources', label: 'Sources' },
     { key: 'review', label: 'Review' },
     { key: 'import', label: 'Import' },
+    { key: 'candidates', label: 'Candidates' },
     { key: 'training', label: 'Training' },
     { key: 'suggest', label: 'Suggest' },
     { key: 'recreate', label: 'AI Recreate' },

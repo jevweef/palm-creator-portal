@@ -38,6 +38,27 @@ function StatusPill({ status }) {
   )
 }
 
+function SortableHeader({ label, sortKey, sort, onClick, align, style }) {
+  const active = sort.key === sortKey
+  const arrow = active ? (sort.dir === 'asc' ? '↑' : '↓') : ''
+  return (
+    <div
+      onClick={() => onClick(sortKey)}
+      style={{
+        textAlign: align || 'left',
+        cursor: 'pointer',
+        userSelect: 'none',
+        color: active ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+        ...(style || {}),
+      }}
+      title={`Sort by ${label}`}
+    >
+      {label}
+      {arrow && <span style={{ marginLeft: '4px', opacity: 0.8 }}>{arrow}</span>}
+    </div>
+  )
+}
+
 function formatNum(n) {
   if (n == null) return '—'
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
@@ -689,6 +710,8 @@ export default function AdminSources() {
   const [allCreators, setAllCreators] = useState([])
   const [activeFilters, setActiveFilters] = useState(new Set(['all']))
   const [showScrapeAll, setShowScrapeAll] = useState(false)
+  // Default sort: most recently scraped first (the most common scan order)
+  const [sort, setSort] = useState({ key: 'lastScrapedAt', dir: 'desc' })
 
   useEffect(() => {
     fetch('/api/admin/palm-creators')
@@ -768,7 +791,10 @@ export default function AdminSources() {
       const res = await fetch('/api/admin/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handles, force: true }),
+        // bypassCooldown only — Apify still respects Last Scraped At so we
+        // don't refetch reels we already have. Use the "Apply New Limit"
+        // flow if you actually want a deep refetch.
+        body: JSON.stringify({ handles, bypassCooldown: true }),
       })
       if (!res.ok) throw new Error('Batch scrape failed')
       setSources(prev => prev.map(s => handles.includes(s.handle) ? { ...s, pipelineStatus: 'Processing' } : s))
@@ -786,7 +812,7 @@ export default function AdminSources() {
       const res = await fetch('/api/admin/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handles: [source.handle], force: true }),
+        body: JSON.stringify({ handles: [source.handle], bypassCooldown: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Scrape failed')
@@ -820,7 +846,7 @@ export default function AdminSources() {
   // Live sources = Active only (Dead and Banned hidden from default view)
   const liveSources = sources.filter(s => s.accountStatus !== 'Dead' && s.accountStatus !== 'Banned')
 
-  const filteredSources = activeFilters.has('dead')
+  const _unsorted = activeFilters.has('dead')
     ? sources.filter(s => s.accountStatus === 'Dead')
     : activeFilters.has('banned')
       ? sources.filter(s => s.accountStatus === 'Banned')
@@ -833,6 +859,44 @@ export default function AdminSources() {
             if (activeFilters.has('disabled') && s.enabled) return false
             return true
           })
+
+  // Column sort. For date/number keys, null values sort to the bottom in
+  // both directions so blanks never float above real data.
+  const sortValue = (s, key) => {
+    switch (key) {
+      case 'handle':           return (s.handle || '').toLowerCase()
+      case 'followerCount':    return s.followerCount || 0
+      case 'lookbackDays':     return s.lookbackDays || 0
+      case 'apifyLimit':       return s.apifyLimit || 0
+      case 'pipelineStatus':   return (s.pipelineStatus || '').toLowerCase()
+      case 'lastScrapedAt':    return s.lastScrapedAt ? new Date(s.lastScrapedAt).getTime() : null
+      case 'reelsScraped':     return s.reelsScraped || 0
+      case 'sourceReelsAdded': return s.sourceReelsAdded || 0
+      case 'dateAdded':        return s.dateAdded ? new Date(s.dateAdded).getTime() : null
+      default:                 return 0
+    }
+  }
+  const filteredSources = [..._unsorted].sort((a, b) => {
+    const av = sortValue(a, sort.key)
+    const bv = sortValue(b, sort.key)
+    if (av == null && bv == null) return 0
+    if (av == null) return 1   // blanks always last
+    if (bv == null) return -1
+    if (av === bv) return 0
+    return (av < bv ? -1 : 1) * (sort.dir === 'asc' ? 1 : -1)
+  })
+
+  const toggleSort = (key) => {
+    setSort(prev => {
+      if (prev.key !== key) {
+        // First click on a new column: dates/numbers descend by default
+        // (most recent / biggest first), strings ascend.
+        const stringKeys = ['handle', 'pipelineStatus']
+        return { key, dir: stringKeys.includes(key) ? 'asc' : 'desc' }
+      }
+      return { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+    })
+  }
 
   const filterCounts = {
     all: liveSources.length,
@@ -857,7 +921,9 @@ export default function AdminSources() {
       const res = await fetch('/api/admin/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handles, force: true }),
+        // bypassCooldown only — keep Apify cost minimal by respecting each
+        // source's Last Scraped At date.
+        body: JSON.stringify({ handles, bypassCooldown: true }),
       })
       if (!res.ok) throw new Error('Scrape failed')
       setSources(prev => prev.map(s => handles.includes(s.handle) ? { ...s, pipelineStatus: 'Processing' } : s))
@@ -866,6 +932,32 @@ export default function AdminSources() {
     } finally {
       setBatchScraping(false)
       setShowScrapeAll(false)
+    }
+  }
+
+  // Rescrape every enabled live source in the table, ignoring the current
+  // filter view. Each source still respects its own Last Scraped At so Apify
+  // only fetches reels we don't already have.
+  const [showRescrapeAll, setShowRescrapeAll] = useState(false)
+  const rescrapeAllLive = async () => {
+    const handles = sources
+      .filter(s => s.enabled && s.accountStatus !== 'Banned' && s.accountStatus !== 'Dead')
+      .map(s => s.handle)
+    if (handles.length === 0) return
+    setBatchScraping(true)
+    try {
+      const res = await fetch('/api/admin/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handles, bypassCooldown: true }),
+      })
+      if (!res.ok) throw new Error('Scrape failed')
+      setSources(prev => prev.map(s => handles.includes(s.handle) ? { ...s, pipelineStatus: 'Processing' } : s))
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setBatchScraping(false)
+      setShowRescrapeAll(false)
     }
   }
 
@@ -878,6 +970,19 @@ export default function AdminSources() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>Inspo Sources</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
+          {(() => {
+            const liveCount = sources.filter(s => s.enabled && s.accountStatus !== 'Banned' && s.accountStatus !== 'Dead').length
+            return liveCount > 0 ? (
+              <button
+                onClick={() => setShowRescrapeAll(true)}
+                disabled={batchScraping}
+                title="Scrape every enabled live source against its Last Scraped At date"
+                style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent', opacity: batchScraping ? 0.6 : 1 }}
+              >
+                {batchScraping ? 'Scraping...' : `Rescrape All (${liveCount})`}
+              </button>
+            ) : null
+          })()}
           {!activeFilters.has('all') && filteredSources.length > 0 && (
             <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent', opacity: batchScraping ? 0.6 : 1 }}>
               {batchScraping ? 'Scraping...' : `Scrape All Visible (${filteredSources.filter(s => s.enabled).length})`}
@@ -934,15 +1039,15 @@ export default function AdminSources() {
           gap: '8px',
         }}>
           <div></div>
-          <div>Handle</div>
-          <div style={{ textAlign: 'right', paddingRight: '16px' }}>Followers</div>
-          <div style={{ textAlign: 'right' }}>Days</div>
-          <div style={{ textAlign: 'right' }}>Limit</div>
-          <div>Status</div>
-          <div>Last Scraped</div>
-          <div style={{ textAlign: 'right' }}>Scraped</div>
-          <div style={{ textAlign: 'right' }}>Added</div>
-          <div>Date Added</div>
+          <SortableHeader label="Handle" sortKey="handle" sort={sort} onClick={toggleSort} />
+          <SortableHeader label="Followers" sortKey="followerCount" sort={sort} onClick={toggleSort} align="right" style={{ paddingRight: '16px' }} />
+          <SortableHeader label="Days" sortKey="lookbackDays" sort={sort} onClick={toggleSort} align="right" />
+          <SortableHeader label="Limit" sortKey="apifyLimit" sort={sort} onClick={toggleSort} align="right" />
+          <SortableHeader label="Status" sortKey="pipelineStatus" sort={sort} onClick={toggleSort} />
+          <SortableHeader label="Last Scraped" sortKey="lastScrapedAt" sort={sort} onClick={toggleSort} />
+          <SortableHeader label="Scraped" sortKey="reelsScraped" sort={sort} onClick={toggleSort} align="right" />
+          <SortableHeader label="Added" sortKey="sourceReelsAdded" sort={sort} onClick={toggleSort} align="right" />
+          <SortableHeader label="Date Added" sortKey="dateAdded" sort={sort} onClick={toggleSort} />
           <div></div>
         </div>
 
@@ -1116,6 +1221,34 @@ export default function AdminSources() {
 
       {showAdd && <BulkAddSourcesModal onClose={() => setShowAdd(false)} onAdd={fetchSources} allCreators={allCreators} existingHandles={existingHandles} deadHandles={deadHandles} />}
       {reelsSource && <ReelsModal source={reelsSource} sources={filteredSources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} onStatusChange={(sourceId, status) => { setSources(prev => prev.map(s => s.id === sourceId ? { ...s, accountStatus: status } : s)); setReelsSource(prev => prev && prev.id === sourceId ? { ...prev, accountStatus: status } : prev) }} />}
+
+      {/* Rescrape All Live Sources confirmation */}
+      {showRescrapeAll && (() => {
+        const liveList = sources.filter(s => s.enabled && s.accountStatus !== 'Banned' && s.accountStatus !== 'Dead')
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowRescrapeAll(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg-solid)', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '460px', maxHeight: '80vh', overflow: 'auto' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>Rescrape every live source?</h3>
+              <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>
+                {liveList.length} enabled source{liveList.length !== 1 ? 's' : ''} will be scraped. Each respects its own Last Scraped At date — Apify only fetches reels newer than what we already have.
+              </p>
+              <div style={{ background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #fde68a', borderRadius: '10px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: '#E8C878' }}>
+                  up to ~${liveList.reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
+                </div>
+                <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Estimated Apify ceiling (actual is much lower — most sources only ask for a few days of new reels)</div>
+                <div style={{ fontSize: '11px', color: '#7DD3A4', marginTop: '6px' }}>Duplicates auto-skipped (free)</div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowRescrapeAll(false)} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
+                <button onClick={rescrapeAllLive} disabled={batchScraping} style={{ ...btnStyle, background: 'var(--palm-pink)', opacity: batchScraping ? 0.6 : 1 }}>
+                  {batchScraping ? 'Scraping...' : `Rescrape ${liveList.length} Sources`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Scrape All Visible confirmation */}
       {showScrapeAll && (

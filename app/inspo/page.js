@@ -568,8 +568,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   background: bulkDownloading ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)',
                   border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)',
                   borderRadius:'9999px',
-                  padding:'7px 12px', fontSize:'12px', fontWeight:600,
-                  color: bulkDownloading ? '#888' : 'var(--foreground)',
+                  padding:'7px 12px', fontSize:'12px', fontWeight:700,
+                  color: bulkDownloading ? '#888' : 'var(--background)',
                   cursor: bulkDownloading ? 'wait' : 'pointer',
                 }}
               >
@@ -686,8 +686,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
                   cursor: bulkDownloading ? 'wait' : 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
                   background: bulkDownloading ? 'rgba(232, 160, 160, 0.06)' : 'var(--palm-pink)',
-                  color: bulkDownloading ? '#888' : 'var(--foreground)',
-                  fontWeight: 600,
+                  color: bulkDownloading ? '#888' : 'var(--background)',
+                  fontWeight: 700,
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}
               >
@@ -752,9 +752,9 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               <div style={{display:'flex', alignItems:'center', background:'rgba(255,255,255,0.08)', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', border:'none', borderRadius:'9999px', padding:'2px', flexShrink:0}}>
                 {['any','all'].map((m) => (
                   <button key={m} onClick={() => setTagMode(m)} style={{
-                    fontSize:'11px', fontWeight:500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
+                    fontSize:'11px', fontWeight: tagMode === m ? 700 : 500, padding:'3px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
                     background: tagMode === m ? 'var(--palm-pink)' : 'transparent',
-                    color: tagMode === m ? 'rgba(255,255,255,0.08)' : '#999',
+                    color: tagMode === m ? 'var(--background)' : '#999',
                     transition:'all 0.15s',
                   }}>
                     {m === 'any' ? 'Match ANY' : 'Match ALL'}
@@ -1000,8 +1000,8 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                   <button key={val} onClick={() => setSort(val)} style={{
                     flex:1, padding:'10px', borderRadius:'10px', border:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', cursor:'pointer',
                     background: sort === val ? 'var(--palm-pink)' : 'var(--background)',
-                    color: sort === val ? 'rgba(255,255,255,0.08)' : '#888',
-                    fontSize:'13px', fontWeight: sort === val ? 600 : 400,
+                    color: sort === val ? 'var(--background)' : '#888',
+                    fontSize:'13px', fontWeight: sort === val ? 700 : 400,
                     transition:'all 0.15s',
                   }}>{label}</button>
                 ))}
@@ -1022,7 +1022,28 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
               />
 
               {/* Tags */}
-              <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#999', marginBottom:'8px'}}>Tags</p>
+              <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px', gap:'8px'}}>
+                <p style={{fontSize:'10px', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'#999', margin:0}}>Tags</p>
+                {activeTags.length >= 2 && (
+                  <div style={{display:'flex', alignItems:'center', background:'rgba(255,255,255,0.08)', borderRadius:'9999px', padding:'2px', flexShrink:0}}>
+                    {['any','all'].map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setTagMode(m)}
+                        style={{
+                          fontSize:'11px', fontWeight: tagMode === m ? 700 : 500,
+                          padding:'4px 10px', borderRadius:'9999px', border:'none', cursor:'pointer',
+                          background: tagMode === m ? 'var(--palm-pink)' : 'transparent',
+                          color: tagMode === m ? 'var(--background)' : '#999',
+                          transition:'all 0.15s',
+                        }}
+                      >
+                        Match {m.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div style={{display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'16px'}}>
                 {allTags.map((tag) => (
                   <TagPill key={tag} tag={tag} active={activeTags.includes(tag)} onClick={() => toggleTag(tag)} />
@@ -1058,7 +1079,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
                     Clear all
                   </button>
                 )}
-                <button onClick={() => setShowMobileFilters(false)} style={{flex:1, padding:'12px', borderRadius:'10px', border:'none', background:'var(--palm-pink)', color:'rgba(255,255,255,0.08)', fontSize:'14px', fontWeight:600, cursor:'pointer'}}>
+                <button onClick={() => setShowMobileFilters(false)} style={{flex:1, padding:'12px', borderRadius:'10px', border:'none', background:'var(--palm-pink)', color:'var(--background)', fontSize:'14px', fontWeight:700, cursor:'pointer'}}>
                   Show {filtered.length} reels
                 </button>
               </div>

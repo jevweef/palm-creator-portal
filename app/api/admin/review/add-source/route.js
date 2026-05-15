@@ -33,7 +33,18 @@ export async function POST(request) {
           Authorization: `Bearer ${process.env.AIRTABLE_PAT}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fields: { Handle: clean, Platform: 'Instagram' } }),
+        body: JSON.stringify({
+          fields: {
+            Handle: clean,
+            Platform: 'Instagram',
+            // Default to enabled + Active so the source can be scraped
+            // immediately. Without these, the row sat in Inspo Sources
+            // with a disabled Scrape button forever.
+            Enabled: true,
+            'Account Status': 'Active',
+          },
+          typecast: true,
+        }),
       }
     )
     if (!createRes.ok) throw new Error(`Airtable ${createRes.status}`)

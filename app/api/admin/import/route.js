@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, batchCreateRecords } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, batchCreateRecords, batchUpdateRecords } from '@/lib/adminAuth'
 
 const SHORTCODE_RE = /instagram\.com\/(?:p|reel|reels)\/([A-Za-z0-9_-]+)/
 
@@ -28,20 +28,34 @@ export async function POST(request) {
     if (body.raw) {
       // Newer IG export: top-level is a flat array, each entry has `label_values`
       // [{label:'URL', value, href}, ...] plus a top-level `timestamp` (unix seconds).
+      // The creator's handle lives in a nested `title: "Owner"` block.
       if (Array.isArray(body.raw)) {
         for (const entry of body.raw) {
           const savedAt = entry.timestamp
             ? new Date(entry.timestamp * 1000).toISOString()
             : null
+
+          let url = null
+          let username = null
           if (Array.isArray(entry.label_values)) {
             for (const lv of entry.label_values) {
               if (lv.label === 'URL') {
                 const u = lv.href || lv.value || ''
-                if (u) items.push({ url: u, savedAt })
+                if (u && !url) url = u
+              }
+              if (lv.title === 'Owner' && Array.isArray(lv.dict)) {
+                for (const owner of lv.dict) {
+                  const inner = owner?.dict
+                  if (!Array.isArray(inner)) continue
+                  for (const f of inner) {
+                    if (f.label === 'Username' && f.value) username = f.value
+                  }
+                }
               }
             }
           }
-          if (entry.url) items.push({ url: entry.url, savedAt })
+          if (url) items.push({ url, savedAt, username })
+          if (entry.url) items.push({ url: entry.url, savedAt, username })
         }
       }
 
@@ -84,7 +98,7 @@ export async function POST(request) {
       const sc = extractShortcode(item.url)
       if (!sc || seen.has(sc)) continue
       seen.add(sc)
-      parsed.push({ shortcode: sc, savedAt: item.savedAt || null })
+      parsed.push({ shortcode: sc, savedAt: item.savedAt || null, username: item.username || null })
     }
 
     // Dedup against Inspiration (if already on the board, skip)
@@ -97,27 +111,38 @@ export async function POST(request) {
       if (sc) inspoShortcodes.add(sc)
     }
 
-    // Also dedup against existing Source Reels
+    // Index existing Source Reels by shortcode so we can backfill missing
+    // Username/Source Handle on records imported before the Owner extractor existed.
     const srRecords = await fetchAirtableRecords('Source Reels', {
-      fields: ['Reel URL'],
+      fields: ['Reel URL', 'Username', 'Source Handle'],
     })
-    const srShortcodes = new Set()
+    const srByShortcode = new Map()
     for (const r of srRecords) {
       const sc = extractShortcode(r.fields['Reel URL'])
-      if (sc) srShortcodes.add(sc)
+      if (sc) srByShortcode.set(sc, r)
     }
 
     const toCreate = []
+    const toUpdate = []
     let skippedInspo = 0
     let skippedSR = 0
 
-    for (const { shortcode, savedAt } of parsed) {
+    for (const { shortcode, savedAt, username } of parsed) {
       if (inspoShortcodes.has(shortcode)) {
         skippedInspo++
         continue
       }
-      if (srShortcodes.has(shortcode)) {
-        skippedSR++
+      const existing = srByShortcode.get(shortcode)
+      if (existing) {
+        const existingHandle = existing.fields['Username'] || existing.fields['Source Handle']
+        if (username && !existingHandle) {
+          toUpdate.push({
+            id: existing.id,
+            fields: { 'Source Handle': username, 'Username': username },
+          })
+        } else {
+          skippedSR++
+        }
         continue
       }
 
@@ -128,18 +153,38 @@ export async function POST(request) {
           'Review Status': 'Pending Review',
         },
       }
-      if (savedAt) {
-        record.fields['Date Saved'] = savedAt
+      if (savedAt) record.fields['Date Saved'] = savedAt
+      if (username) {
+        record.fields['Source Handle'] = username
+        record.fields['Username'] = username
       }
       toCreate.push(record)
     }
 
     if (toCreate.length > 0) {
-      await batchCreateRecords('Source Reels', toCreate)
+      try {
+        // typecast lets Airtable auto-add 'IG Export' as a Data Source choice if the
+        // PAT has schema-write scope.
+        await batchCreateRecords('Source Reels', toCreate, { typecast: true })
+      } catch (err) {
+        // Fall back: PAT lacks schema scope — Airtable refuses to create the option.
+        // Retry with 'Manual', which already exists on the Data Source field.
+        if (/INVALID_MULTIPLE_CHOICE_OPTIONS|select option/i.test(err.message)) {
+          for (const rec of toCreate) rec.fields['Data Source'] = 'Manual'
+          await batchCreateRecords('Source Reels', toCreate)
+        } else {
+          throw err
+        }
+      }
+    }
+
+    if (toUpdate.length > 0) {
+      await batchUpdateRecords('Source Reels', toUpdate)
     }
 
     return NextResponse.json({
       created: toCreate.length,
+      backfilled: toUpdate.length,
       skippedAlreadyOnBoard: skippedInspo,
       skippedAlreadyInSourceReels: skippedSR,
       totalParsed: parsed.length,

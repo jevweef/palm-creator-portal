@@ -12,11 +12,18 @@ export async function POST(request) {
     await requireAdmin()
 
     let handles = null
-    let force = false
+    let bypassCooldown = false
+    let deepRefetch = false
     try {
       const body = await request.json()
       handles = body.handles || null
-      force = body.force || false
+      // `force` is the legacy flag — it meant "ignore cooldown AND use the
+      // full lookback window (for limit changes)". Splitting it lets the
+      // Rescrape button bypass cooldown without paying Apify to re-fetch
+      // every reel we already have.
+      if (body.force) { bypassCooldown = true; deepRefetch = true }
+      if (body.bypassCooldown) bypassCooldown = true
+      if (body.deepRefetch) deepRefetch = true
     } catch {
       // No body = scrape all enabled
     }
@@ -53,8 +60,9 @@ export async function POST(request) {
       const f = source.fields
       const handle = f.Handle.trim()
 
-      // Check cooldown (skip if force=true)
-      if (!force && f['Last Scraped At']) {
+      // Check cooldown — skipped when bypassCooldown is set (e.g. user
+      // clicked Rescrape) so we don't pointlessly wait 48h.
+      if (!bypassCooldown && f['Last Scraped At']) {
         try {
           const lastScrape = new Date(f['Last Scraped At'])
           const hoursSince = (now - lastScrape) / 3600000
@@ -68,9 +76,12 @@ export async function POST(request) {
       const lookbackDays = f['Lookback Days'] || 180
       const apifyLimit = f['Apify Limit'] || null
 
-      // Determine lookback — force=true uses full lookback (for limit changes)
+      // Determine lookback. Only deepRefetch (after a limit change) requests
+      // the full `lookbackDays` window from Apify. Normal rescrapes use the
+      // "days since latest reel" calculation so Apify only returns posts
+      // newer than what we already have — saves money on every Rescrape click.
       let onlyPostsNewerThan = `${lookbackDays} days`
-      if (!force && f['Last Scraped At']) {
+      if (!deepRefetch && f['Last Scraped At']) {
         try {
           const lastScrape = new Date(f['Last Scraped At'])
           const daysSince = Math.ceil((now - lastScrape) / 86400000) + 1

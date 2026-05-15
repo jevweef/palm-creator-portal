@@ -294,15 +294,47 @@ export async function POST(request) {
     // Update source record — always update even if create failed (so it's not stuck in Processing)
     if (sourceId) {
       try {
+        // Status logic:
+        //   - 0 new reels to create (all duped or filtered) → Complete, this
+        //     is the steady-state outcome on healthy recurring scrapes.
+        //   - newRecords.length > 0 AND batchCreate succeeded → Complete.
+        //   - newRecords.length > 0 AND batchCreate threw → Error.
+        const nothingToCreate = newRecords.length === 0
         const sourceUpdate = {
           'Last Scraped At': now.toISOString(),
           'Reels Scraped': useItems.length,
           'Too New Skipped': tooNewSkipped,
           'Source Reels Added': createSuccess ? newRecords.length : 0,
-          'Pipeline Status': createSuccess ? 'Complete' : 'Error',
+          'Pipeline Status': (createSuccess || nothingToCreate) ? 'Complete' : 'Error',
         }
         if (followerCount) sourceUpdate['Follower Count'] = followerCount
         if (dataSource === 'rapidapi-fallback') sourceUpdate['Age Restricted'] = true
+
+        // Banned/dead account detection: if both Apify + RapidAPI returned
+        // nothing, track consecutive empty runs. After 3 in a row, flip the
+        // Account Status to "Dead" so the source greys out in the UI and is
+        // skipped by future scheduled scrapes.
+        const isEmpty = useItems.length === 0
+        try {
+          const srcRes = await fetch(
+            `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID || 'applLIT2t83plMqNx'}/Inspo Sources/${sourceId}`,
+            { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' },
+          )
+          if (srcRes.ok) {
+            const current = (await srcRes.json()).fields || {}
+            const prevEmpty = current['Consecutive Empty Scrapes'] || 0
+            const nextEmpty = isEmpty ? prevEmpty + 1 : 0
+            sourceUpdate['Consecutive Empty Scrapes'] = nextEmpty
+            const accStatus = current['Account Status']?.name || current['Account Status'] || ''
+            if (nextEmpty >= 3 && accStatus !== 'Dead') {
+              sourceUpdate['Account Status'] = 'Dead'
+              console.log(`[Apify Callback] @${handle}: marking Account Status = Dead (${nextEmpty} consecutive empty scrapes)`)
+            }
+          }
+        } catch (e) {
+          console.warn(`[Apify Callback] could not read prev empty count for @${handle}:`, e.message)
+        }
+
         await patchAirtableRecord('Inspo Sources', sourceId, sourceUpdate)
       } catch (err) {
         console.error(`[Apify Callback] Failed to update source @${handle}:`, err.message)
