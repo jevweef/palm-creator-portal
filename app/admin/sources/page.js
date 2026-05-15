@@ -38,6 +38,27 @@ function StatusPill({ status }) {
   )
 }
 
+function SortableHeader({ label, sortKey, sort, onClick, align, style }) {
+  const active = sort.key === sortKey
+  const arrow = active ? (sort.dir === 'asc' ? '↑' : '↓') : ''
+  return (
+    <div
+      onClick={() => onClick(sortKey)}
+      style={{
+        textAlign: align || 'left',
+        cursor: 'pointer',
+        userSelect: 'none',
+        color: active ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+        ...(style || {}),
+      }}
+      title={`Sort by ${label}`}
+    >
+      {label}
+      {arrow && <span style={{ marginLeft: '4px', opacity: 0.8 }}>{arrow}</span>}
+    </div>
+  )
+}
+
 function formatNum(n) {
   if (n == null) return '—'
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
@@ -689,6 +710,8 @@ export default function AdminSources() {
   const [allCreators, setAllCreators] = useState([])
   const [activeFilters, setActiveFilters] = useState(new Set(['all']))
   const [showScrapeAll, setShowScrapeAll] = useState(false)
+  // Default sort: most recently scraped first (the most common scan order)
+  const [sort, setSort] = useState({ key: 'lastScrapedAt', dir: 'desc' })
 
   useEffect(() => {
     fetch('/api/admin/palm-creators')
@@ -823,7 +846,7 @@ export default function AdminSources() {
   // Live sources = Active only (Dead and Banned hidden from default view)
   const liveSources = sources.filter(s => s.accountStatus !== 'Dead' && s.accountStatus !== 'Banned')
 
-  const filteredSources = activeFilters.has('dead')
+  const _unsorted = activeFilters.has('dead')
     ? sources.filter(s => s.accountStatus === 'Dead')
     : activeFilters.has('banned')
       ? sources.filter(s => s.accountStatus === 'Banned')
@@ -836,6 +859,44 @@ export default function AdminSources() {
             if (activeFilters.has('disabled') && s.enabled) return false
             return true
           })
+
+  // Column sort. For date/number keys, null values sort to the bottom in
+  // both directions so blanks never float above real data.
+  const sortValue = (s, key) => {
+    switch (key) {
+      case 'handle':           return (s.handle || '').toLowerCase()
+      case 'followerCount':    return s.followerCount || 0
+      case 'lookbackDays':     return s.lookbackDays || 0
+      case 'apifyLimit':       return s.apifyLimit || 0
+      case 'pipelineStatus':   return (s.pipelineStatus || '').toLowerCase()
+      case 'lastScrapedAt':    return s.lastScrapedAt ? new Date(s.lastScrapedAt).getTime() : null
+      case 'reelsScraped':     return s.reelsScraped || 0
+      case 'sourceReelsAdded': return s.sourceReelsAdded || 0
+      case 'dateAdded':        return s.dateAdded ? new Date(s.dateAdded).getTime() : null
+      default:                 return 0
+    }
+  }
+  const filteredSources = [..._unsorted].sort((a, b) => {
+    const av = sortValue(a, sort.key)
+    const bv = sortValue(b, sort.key)
+    if (av == null && bv == null) return 0
+    if (av == null) return 1   // blanks always last
+    if (bv == null) return -1
+    if (av === bv) return 0
+    return (av < bv ? -1 : 1) * (sort.dir === 'asc' ? 1 : -1)
+  })
+
+  const toggleSort = (key) => {
+    setSort(prev => {
+      if (prev.key !== key) {
+        // First click on a new column: dates/numbers descend by default
+        // (most recent / biggest first), strings ascend.
+        const stringKeys = ['handle', 'pipelineStatus']
+        return { key, dir: stringKeys.includes(key) ? 'asc' : 'desc' }
+      }
+      return { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+    })
+  }
 
   const filterCounts = {
     all: liveSources.length,
@@ -978,15 +1039,15 @@ export default function AdminSources() {
           gap: '8px',
         }}>
           <div></div>
-          <div>Handle</div>
-          <div style={{ textAlign: 'right', paddingRight: '16px' }}>Followers</div>
-          <div style={{ textAlign: 'right' }}>Days</div>
-          <div style={{ textAlign: 'right' }}>Limit</div>
-          <div>Status</div>
-          <div>Last Scraped</div>
-          <div style={{ textAlign: 'right' }}>Scraped</div>
-          <div style={{ textAlign: 'right' }}>Added</div>
-          <div>Date Added</div>
+          <SortableHeader label="Handle" sortKey="handle" sort={sort} onClick={toggleSort} />
+          <SortableHeader label="Followers" sortKey="followerCount" sort={sort} onClick={toggleSort} align="right" style={{ paddingRight: '16px' }} />
+          <SortableHeader label="Days" sortKey="lookbackDays" sort={sort} onClick={toggleSort} align="right" />
+          <SortableHeader label="Limit" sortKey="apifyLimit" sort={sort} onClick={toggleSort} align="right" />
+          <SortableHeader label="Status" sortKey="pipelineStatus" sort={sort} onClick={toggleSort} />
+          <SortableHeader label="Last Scraped" sortKey="lastScrapedAt" sort={sort} onClick={toggleSort} />
+          <SortableHeader label="Scraped" sortKey="reelsScraped" sort={sort} onClick={toggleSort} align="right" />
+          <SortableHeader label="Added" sortKey="sourceReelsAdded" sort={sort} onClick={toggleSort} align="right" />
+          <SortableHeader label="Date Added" sortKey="dateAdded" sort={sort} onClick={toggleSort} />
           <div></div>
         </div>
 
