@@ -27,12 +27,14 @@ export async function POST(request) {
 
     // Fetch enabled sources
     const sources = await fetchAirtableRecords('Inspo Sources', {
-      fields: ['Handle', 'Platform', 'Enabled', 'Lookback Days', 'Apify Limit', 'Last Scraped At'],
+      fields: ['Handle', 'Platform', 'Enabled', 'Lookback Days', 'Apify Limit', 'Last Scraped At', 'Account Status'],
     })
 
     const enabled = sources.filter(r => {
       const f = r.fields || {}
       if (!f.Enabled) return false
+      const status = f['Account Status']?.name || f['Account Status'] || 'Active'
+      if (status !== 'Active') return false
       if ((f.Platform || '').toLowerCase() !== 'instagram') return false
       if (!f.Handle?.trim()) return false
       if (handles && !handles.includes(f.Handle.trim().toLowerCase())) return false

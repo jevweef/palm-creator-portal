@@ -26,6 +26,25 @@ export async function POST(request) {
 
     // Parse raw IG export format
     if (body.raw) {
+      // Newer IG export: top-level is a flat array, each entry has `label_values`
+      // [{label:'URL', value, href}, ...] plus a top-level `timestamp` (unix seconds).
+      if (Array.isArray(body.raw)) {
+        for (const entry of body.raw) {
+          const savedAt = entry.timestamp
+            ? new Date(entry.timestamp * 1000).toISOString()
+            : null
+          if (Array.isArray(entry.label_values)) {
+            for (const lv of entry.label_values) {
+              if (lv.label === 'URL') {
+                const u = lv.href || lv.value || ''
+                if (u) items.push({ url: u, savedAt })
+              }
+            }
+          }
+          if (entry.url) items.push({ url: entry.url, savedAt })
+        }
+      }
+
       const saved = body.raw.saved_saved_media || body.raw.saved_media || []
       for (const entry of saved) {
         // IG export has nested structure with string_map_data and media_list_data

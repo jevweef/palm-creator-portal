@@ -57,13 +57,31 @@ const GRADE_COLORS = {
   D: '#E87878', F: '#E87878',
 }
 
-function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreatorsChange }) {
+function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreatorsChange, onStatusChange }) {
   const [reels, setReels] = useState(null)
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState({})
   const [editMode, setEditMode] = useState(false)
   const [assignedCreators, setAssignedCreators] = useState(source.palmCreators || [])
   const [savingCreators, setSavingCreators] = useState(false)
+  const [savingStatus, setSavingStatus] = useState(false)
+
+  const setStatus = async (nextStatus) => {
+    setSavingStatus(true)
+    try {
+      const res = await fetch('/api/admin/sources', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: source.id, fields: { 'Account Status': nextStatus } }),
+      })
+      if (!res.ok) throw new Error('Failed to update status')
+      onStatusChange?.(source.id, nextStatus)
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSavingStatus(false)
+    }
+  }
 
   const currentIdx = sources.findIndex(s => s.id === source.id)
 
@@ -168,6 +186,23 @@ function ReelsModal({ source, sources, allCreators, onClose, onNavigate, onCreat
             >
               Open Profile ↗
             </a>
+            {source.accountStatus === 'Banned' ? (
+              <button
+                onClick={() => setStatus('Active')}
+                disabled={savingStatus}
+                style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'none', color: '#999', border: '1px solid transparent', borderRadius: '6px', cursor: savingStatus ? 'default' : 'pointer', opacity: savingStatus ? 0.6 : 1 }}
+              >
+                {savingStatus ? 'Saving...' : 'Unban'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setStatus('Banned')}
+                disabled={savingStatus}
+                style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 120, 120, 0.06)', color: '#E87878', border: '1px solid transparent', borderRadius: '6px', cursor: savingStatus ? 'default' : 'pointer', opacity: savingStatus ? 0.6 : 1 }}
+              >
+                {savingStatus ? 'Saving...' : 'Mark as Banned'}
+              </button>
+            )}
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
         </div>
@@ -766,10 +801,13 @@ export default function AdminSources() {
   const toggleFilter = (filter) => {
     setActiveFilters(prev => {
       if (filter === 'all') return new Set(['all'])
-      if (filter === 'dead') return prev.has('dead') ? new Set(['all']) : new Set(['dead'])
+      if (filter === 'dead' || filter === 'banned') {
+        return prev.has(filter) ? new Set(['all']) : new Set([filter])
+      }
       const next = new Set(prev)
       next.delete('all')
       next.delete('dead')
+      next.delete('banned')
       if (filter === 'enabled') next.delete('disabled')
       if (filter === 'disabled') next.delete('enabled')
       if (next.has(filter)) next.delete(filter)
@@ -779,20 +817,22 @@ export default function AdminSources() {
     })
   }
 
-  // Live sources = everything except Dead
-  const liveSources = sources.filter(s => s.accountStatus !== 'Dead')
+  // Live sources = Active only (Dead and Banned hidden from default view)
+  const liveSources = sources.filter(s => s.accountStatus !== 'Dead' && s.accountStatus !== 'Banned')
 
   const filteredSources = activeFilters.has('dead')
     ? sources.filter(s => s.accountStatus === 'Dead')
-    : activeFilters.has('all')
-      ? liveSources
-      : liveSources.filter(s => {
-          if (activeFilters.has('unscraped') && s.lastScrapedAt) return false
-          if (activeFilters.has('18+') && !s.ageRestricted) return false
-          if (activeFilters.has('enabled') && !s.enabled) return false
-          if (activeFilters.has('disabled') && s.enabled) return false
-          return true
-        })
+    : activeFilters.has('banned')
+      ? sources.filter(s => s.accountStatus === 'Banned')
+      : activeFilters.has('all')
+        ? liveSources
+        : liveSources.filter(s => {
+            if (activeFilters.has('unscraped') && s.lastScrapedAt) return false
+            if (activeFilters.has('18+') && !s.ageRestricted) return false
+            if (activeFilters.has('enabled') && !s.enabled) return false
+            if (activeFilters.has('disabled') && s.enabled) return false
+            return true
+          })
 
   const filterCounts = {
     all: liveSources.length,
@@ -801,13 +841,16 @@ export default function AdminSources() {
     enabled: liveSources.filter(s => s.enabled).length,
     disabled: liveSources.filter(s => !s.enabled).length,
     dead: sources.filter(s => s.accountStatus === 'Dead').length,
+    banned: sources.filter(s => s.accountStatus === 'Banned').length,
   }
 
   const existingHandles = new Set(sources.map(s => s.handle.toLowerCase()))
   const deadHandles = new Set(sources.filter(s => s.accountStatus === 'Dead').map(s => s.handle.toLowerCase()))
 
   const scrapeAllVisible = async () => {
-    const handles = filteredSources.filter(s => s.enabled).map(s => s.handle)
+    const handles = filteredSources
+      .filter(s => s.enabled && s.accountStatus !== 'Banned' && s.accountStatus !== 'Dead')
+      .map(s => s.handle)
     if (handles.length === 0) return
     setBatchScraping(true)
     try {
@@ -846,7 +889,7 @@ export default function AdminSources() {
 
       {/* Filter pills */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {['all', 'unscraped', '18+', 'enabled', 'disabled', 'dead'].map(filter => {
+        {['all', 'unscraped', '18+', 'enabled', 'disabled', 'dead', 'banned'].map(filter => {
           const active = activeFilters.has(filter)
           const count = filterCounts[filter]
           if (filter !== 'all' && count === 0) return null
@@ -863,7 +906,7 @@ export default function AdminSources() {
                 transition: 'all 0.15s',
               }}
             >
-              {filter === 'all' ? 'All' : filter === 'unscraped' ? 'Unscraped' : filter === '18+' ? '18+' : filter === 'enabled' ? 'Enabled' : filter === 'disabled' ? 'Disabled' : 'Dead'}
+              {filter === 'all' ? 'All' : filter === 'unscraped' ? 'Unscraped' : filter === '18+' ? '18+' : filter === 'enabled' ? 'Enabled' : filter === 'disabled' ? 'Disabled' : filter === 'banned' ? 'Banned' : 'Dead'}
               <span style={{ marginLeft: '4px', fontSize: '11px', opacity: 0.7 }}>({count})</span>
             </button>
           )
@@ -949,6 +992,12 @@ export default function AdminSources() {
               {source.ageRestricted && (
                 <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #FECACA', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>18+</span>
               )}
+              {source.accountStatus === 'Banned' && (
+                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid #FECACA', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>BANNED</span>
+              )}
+              {source.accountStatus === 'Dead' && (
+                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.06)', border: '1px solid transparent', borderRadius: '3px', padding: '1px 4px', verticalAlign: 'middle' }}>DEAD</span>
+              )}
               {source.addedBy && (
                 <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 500, color: 'var(--foreground-muted)', verticalAlign: 'middle' }}>by {source.addedBy}</span>
               )}
@@ -1033,21 +1082,27 @@ export default function AdminSources() {
             {/* Date Added */}
             <div style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{source.dateAdded ? formatTime(source.dateAdded + 'T12:00:00') : '—'}</div>
 
-            {/* Scrape button */}
+            {/* Scrape button — hidden for Banned/Dead accounts */}
             <div>
-              <button
-                onClick={() => scrapeOne(source)}
-                disabled={scraping[source.id] || !source.enabled}
-                style={{
-                  padding: '4px 10px', fontSize: '11px', fontWeight: 600,
-                  background: scraping[source.id] ? 'transparent' : 'rgba(232, 160, 160, 0.06)',
-                  color: scraping[source.id] ? 'rgba(240, 236, 232, 0.85)' : 'var(--palm-pink)',
-                  border: '1px solid transparent', borderRadius: '4px',
-                  cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {scraping[source.id] ? '...' : (source.lastScrapedAt ? 'Rescrape' : 'Scrape')}
-              </button>
+              {source.accountStatus === 'Banned' || source.accountStatus === 'Dead' ? (
+                <span style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)' }}>
+                  {source.accountStatus === 'Banned' ? 'Banned' : 'Dead'}
+                </span>
+              ) : (
+                <button
+                  onClick={() => scrapeOne(source)}
+                  disabled={scraping[source.id] || !source.enabled}
+                  style={{
+                    padding: '4px 10px', fontSize: '11px', fontWeight: 600,
+                    background: scraping[source.id] ? 'transparent' : 'rgba(232, 160, 160, 0.06)',
+                    color: scraping[source.id] ? 'rgba(240, 236, 232, 0.85)' : 'var(--palm-pink)',
+                    border: '1px solid transparent', borderRadius: '4px',
+                    cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {scraping[source.id] ? '...' : (source.lastScrapedAt ? 'Rescrape' : 'Scrape')}
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -1060,7 +1115,7 @@ export default function AdminSources() {
       </div>
 
       {showAdd && <BulkAddSourcesModal onClose={() => setShowAdd(false)} onAdd={fetchSources} allCreators={allCreators} existingHandles={existingHandles} deadHandles={deadHandles} />}
-      {reelsSource && <ReelsModal source={reelsSource} sources={filteredSources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} />}
+      {reelsSource && <ReelsModal source={reelsSource} sources={filteredSources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} onStatusChange={(sourceId, status) => { setSources(prev => prev.map(s => s.id === sourceId ? { ...s, accountStatus: status } : s)); setReelsSource(prev => prev && prev.id === sourceId ? { ...prev, accountStatus: status } : prev) }} />}
 
       {/* Scrape All Visible confirmation */}
       {showScrapeAll && (
