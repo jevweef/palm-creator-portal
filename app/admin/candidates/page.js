@@ -48,6 +48,8 @@ export default function AdminCandidates() {
   const [showDismissed, setShowDismissed] = useState(false)
   const [search, setSearch] = useState('')
   const [bucket, setBucket] = useState('all') // 'all' or a FOLLOWER_BUCKETS key
+  const [enriching, setEnriching] = useState(false)
+  const [enrichProgress, setEnrichProgress] = useState({ processed: 0, total: 0 })
 
   useEffect(() => {
     try {
@@ -107,6 +109,37 @@ export default function AdminCandidates() {
     persistDismissed(next)
   }
 
+  async function enrichFollowers() {
+    if (enriching) return
+    setEnriching(true)
+    setEnrichProgress({ processed: 0, total: 0 })
+    try {
+      let totalProcessed = 0
+      let totalToProcess = null
+      // Loop until the server reports no more handles need enrichment.
+      // 25 per batch keeps each call comfortably under Vercel's 60s ceiling.
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const res = await fetch('/api/admin/enrich-candidates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 25 }),
+        })
+        const d = await res.json()
+        if (!res.ok) throw new Error(d.error || 'Enrich failed')
+        if (totalToProcess === null) totalToProcess = d.totalUnknown
+        totalProcessed += d.processed
+        setEnrichProgress({ processed: totalProcessed, total: totalToProcess })
+        if (d.remaining === 0 || d.processed === 0) break
+      }
+      await refresh()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setEnriching(false)
+    }
+  }
+
   if (loading) {
     return <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px' }}>Loading candidates...</div>
   }
@@ -158,6 +191,16 @@ export default function AdminCandidates() {
             style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: showDismissed ? 'rgba(232, 160, 160, 0.06)' : 'rgba(255,255,255,0.08)', color: showDismissed ? 'var(--palm-pink)' : '#999', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
           >
             {showDismissed ? `Showing Dismissed (${dismissed.size})` : `Dismissed (${dismissed.size})`}
+          </button>
+          <button
+            onClick={enrichFollowers}
+            disabled={enriching}
+            title="Look up follower counts via RapidAPI for candidates currently in the Unknown bucket"
+            style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: enriching ? 'rgba(255,255,255,0.08)' : 'rgba(232, 160, 160, 0.06)', color: enriching ? '#999' : 'var(--palm-pink)', border: 'none', borderRadius: '6px', cursor: enriching ? 'default' : 'pointer' }}
+          >
+            {enriching
+              ? `Enriching ${enrichProgress.processed}/${enrichProgress.total || '...'}`
+              : `+ Enrich Followers${bucketCounts.unknown ? ` (${bucketCounts.unknown})` : ''}`}
           </button>
           <button
             onClick={refresh}
