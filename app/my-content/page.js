@@ -330,7 +330,14 @@ export default function MyContentPage({ opsIdOverride, hqIdOverride } = {}) {
         </h1>
         <div style={{ minHeight: '24px' }}>
           {data?.quota ? (
-            <QuotaBar used={data.quota.used} target={data.quota.target} />
+            <>
+              <QuotaBar used={data.quota.used} target={data.quota.target} />
+              {data?.smUploads?.thisWeek > 0 && (
+                <p style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '6px' }}>
+                  + {data.smUploads.thisWeek} social media upload{data.smUploads.thisWeek === 1 ? '' : 's'} this week (doesn&rsquo;t count toward your quota)
+                </p>
+              )}
+            </>
           ) : (
             <div style={{ height: '12px', borderRadius: '6px', background: 'rgba(255,255,255,0.04)' }} />
           )}
