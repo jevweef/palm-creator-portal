@@ -874,6 +874,32 @@ export default function AdminSources() {
     }
   }
 
+  // Rescrape every enabled live source in the table, ignoring the current
+  // filter view. Each source still respects its own Last Scraped At so Apify
+  // only fetches reels we don't already have.
+  const [showRescrapeAll, setShowRescrapeAll] = useState(false)
+  const rescrapeAllLive = async () => {
+    const handles = sources
+      .filter(s => s.enabled && s.accountStatus !== 'Banned' && s.accountStatus !== 'Dead')
+      .map(s => s.handle)
+    if (handles.length === 0) return
+    setBatchScraping(true)
+    try {
+      const res = await fetch('/api/admin/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handles, bypassCooldown: true }),
+      })
+      if (!res.ok) throw new Error('Scrape failed')
+      setSources(prev => prev.map(s => handles.includes(s.handle) ? { ...s, pipelineStatus: 'Processing' } : s))
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setBatchScraping(false)
+      setShowRescrapeAll(false)
+    }
+  }
+
   if (loading) {
     return <div style={{ color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', padding: '40px' }}>Loading sources...</div>
   }
@@ -883,6 +909,19 @@ export default function AdminSources() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--foreground)' }}>Inspo Sources</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
+          {(() => {
+            const liveCount = sources.filter(s => s.enabled && s.accountStatus !== 'Banned' && s.accountStatus !== 'Dead').length
+            return liveCount > 0 ? (
+              <button
+                onClick={() => setShowRescrapeAll(true)}
+                disabled={batchScraping}
+                title="Scrape every enabled live source against its Last Scraped At date"
+                style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent', opacity: batchScraping ? 0.6 : 1 }}
+              >
+                {batchScraping ? 'Scraping...' : `Rescrape All (${liveCount})`}
+              </button>
+            ) : null
+          })()}
           {!activeFilters.has('all') && filteredSources.length > 0 && (
             <button onClick={() => setShowScrapeAll(true)} disabled={batchScraping} style={{ ...btnStyle, background: 'rgba(232, 160, 160, 0.04)', color: 'var(--palm-pink)', border: '1px solid transparent', opacity: batchScraping ? 0.6 : 1 }}>
               {batchScraping ? 'Scraping...' : `Scrape All Visible (${filteredSources.filter(s => s.enabled).length})`}
@@ -1121,6 +1160,34 @@ export default function AdminSources() {
 
       {showAdd && <BulkAddSourcesModal onClose={() => setShowAdd(false)} onAdd={fetchSources} allCreators={allCreators} existingHandles={existingHandles} deadHandles={deadHandles} />}
       {reelsSource && <ReelsModal source={reelsSource} sources={filteredSources} allCreators={allCreators} onClose={() => setReelsSource(null)} onNavigate={setReelsSource} onCreatorsChange={(sourceId, ids) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, palmCreators: ids } : s))} onStatusChange={(sourceId, status) => { setSources(prev => prev.map(s => s.id === sourceId ? { ...s, accountStatus: status } : s)); setReelsSource(prev => prev && prev.id === sourceId ? { ...prev, accountStatus: status } : prev) }} />}
+
+      {/* Rescrape All Live Sources confirmation */}
+      {showRescrapeAll && (() => {
+        const liveList = sources.filter(s => s.enabled && s.accountStatus !== 'Banned' && s.accountStatus !== 'Dead')
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowRescrapeAll(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg-solid)', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '18px', padding: '24px', width: '460px', maxHeight: '80vh', overflow: 'auto' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '4px' }}>Rescrape every live source?</h3>
+              <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>
+                {liveList.length} enabled source{liveList.length !== 1 ? 's' : ''} will be scraped. Each respects its own Last Scraped At date — Apify only fetches reels newer than what we already have.
+              </p>
+              <div style={{ background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #fde68a', borderRadius: '10px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: '#E8C878' }}>
+                  up to ~${liveList.reduce((sum, s) => sum + (s.apifyLimit || 100) * COST_PER_REEL, 0).toFixed(2)}
+                </div>
+                <div style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '2px' }}>Estimated Apify ceiling (actual is much lower — most sources only ask for a few days of new reels)</div>
+                <div style={{ fontSize: '11px', color: '#7DD3A4', marginTop: '6px' }}>Duplicates auto-skipped (free)</div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowRescrapeAll(false)} style={{ ...btnStyle, background: 'transparent' }}>Cancel</button>
+                <button onClick={rescrapeAllLive} disabled={batchScraping} style={{ ...btnStyle, background: 'var(--palm-pink)', opacity: batchScraping ? 0.6 : 1 }}>
+                  {batchScraping ? 'Scraping...' : `Rescrape ${liveList.length} Sources`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Scrape All Visible confirmation */}
       {showScrapeAll && (

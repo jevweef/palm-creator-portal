@@ -309,6 +309,32 @@ export async function POST(request) {
         }
         if (followerCount) sourceUpdate['Follower Count'] = followerCount
         if (dataSource === 'rapidapi-fallback') sourceUpdate['Age Restricted'] = true
+
+        // Banned/dead account detection: if both Apify + RapidAPI returned
+        // nothing, track consecutive empty runs. After 3 in a row, flip the
+        // Account Status to "Dead" so the source greys out in the UI and is
+        // skipped by future scheduled scrapes.
+        const isEmpty = useItems.length === 0
+        try {
+          const srcRes = await fetch(
+            `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID || 'applLIT2t83plMqNx'}/Inspo Sources/${sourceId}`,
+            { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' },
+          )
+          if (srcRes.ok) {
+            const current = (await srcRes.json()).fields || {}
+            const prevEmpty = current['Consecutive Empty Scrapes'] || 0
+            const nextEmpty = isEmpty ? prevEmpty + 1 : 0
+            sourceUpdate['Consecutive Empty Scrapes'] = nextEmpty
+            const accStatus = current['Account Status']?.name || current['Account Status'] || ''
+            if (nextEmpty >= 3 && accStatus !== 'Dead') {
+              sourceUpdate['Account Status'] = 'Dead'
+              console.log(`[Apify Callback] @${handle}: marking Account Status = Dead (${nextEmpty} consecutive empty scrapes)`)
+            }
+          }
+        } catch (e) {
+          console.warn(`[Apify Callback] could not read prev empty count for @${handle}:`, e.message)
+        }
+
         await patchAirtableRecord('Inspo Sources', sourceId, sourceUpdate)
       } catch (err) {
         console.error(`[Apify Callback] Failed to update source @${handle}:`, err.message)
