@@ -11,7 +11,10 @@ async function fetchFollowerCount(username) {
   if (!RAPIDAPI_KEY || !username) return null
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000)
+    // Tight per-call timeout. A handle that hangs > 4s is almost always
+    // an unreachable account; record it as a miss and move on rather than
+    // burning the rest of the batch's budget on it.
+    const timeout = setTimeout(() => controller.abort(), 4000)
     const res = await fetch(`https://${RAPIDAPI_HOST}/ig_get_fb_profile_v3.php`, {
       method: 'POST',
       headers: {
@@ -63,7 +66,7 @@ export async function POST(request) {
 
   handles = handles
     .filter(h => h && typeof h.handle === 'string' && typeof h.recordId === 'string')
-    .slice(0, 15) // defensive cap — keeps serial loop under 60s
+    .slice(0, 10) // defensive cap — 10 × max 4s timeout = 40s, comfortable margin
 
   if (handles.length === 0) {
     return NextResponse.json({ results: [] })
