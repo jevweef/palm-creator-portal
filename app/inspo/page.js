@@ -194,14 +194,6 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shuffleEpoch])
 
-  const handleShuffle = useCallback(() => {
-    shuffleSeedsRef.current = {}
-    setShuffleEpoch((e) => e + 1)
-    if (creatorOpsId && Object.keys(creatorTagWeights).length > 0) {
-      setSort('foryou')
-    }
-  }, [creatorOpsId, creatorTagWeights])
-
   // Admin: "View as Creator" for testing For You
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
@@ -211,6 +203,18 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const [debugScores, setDebugScores] = useState({}) // { reelId: { semantic, tag, virality, hybrid } }
 
   const creatorOpsId = adminSelectedCreator || opsIdOverride || user?.publicMetadata?.airtableOpsId || null
+
+  // Reshuffle: clear cached jitter seeds + bump epoch so the sort effect
+  // re-runs with new random values. Defined AFTER creatorOpsId/tag weights
+  // are declared — earlier placement caused a temporal dead zone error
+  // (handleShuffle's closure tried to read creatorOpsId before init).
+  const handleShuffle = useCallback(() => {
+    shuffleSeedsRef.current = {}
+    setShuffleEpoch((e) => e + 1)
+    if (creatorOpsId && Object.keys(creatorTagWeights).length > 0) {
+      setSort('foryou')
+    }
+  }, [creatorOpsId, creatorTagWeights])
 
   // Fetch creator list for admin picker
   useEffect(() => {
