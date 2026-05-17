@@ -99,7 +99,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       if (cancelled) return
       attempts++
       try {
-        const res = await fetch('/api/admin/invoicing')
+        const res = await fetch('/api/admin/invoicing?nocache=1')
         const data = await res.json()
         if (cancelled) return
         if (data.records) onRecordsUpdate(() => data.records)
@@ -165,7 +165,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     // the Review-step poller takes over for any still-missing ones.
     await new Promise(r => setTimeout(r, 4000))
     try {
-      const refresh = await fetch('/api/admin/invoicing')
+      const refresh = await fetch('/api/admin/invoicing?nocache=1')
       const refreshData = await refresh.json()
       if (refreshData.records) onRecordsUpdate(() => refreshData.records)
     } catch (_) {}
