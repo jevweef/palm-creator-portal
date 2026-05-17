@@ -61,8 +61,9 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   // Test mode routes to Evan + Josh. Production mode routes to the creator's
-  // Communication Email, cc Josh, bcc Evan. Defaults to test for safety.
-  const [sendMode, setSendMode] = useState('test')
+  // Communication Email, cc Josh, bcc Evan. Defaults to production — the common
+  // case is sending the real invoice; test is opt-in.
+  const [sendMode, setSendMode] = useState('production')
 
   const sorted = [...rows].sort((a, b) => accountRank(a.accountName) - accountRank(b.accountName))
   const allHavePdfs = sorted.every(r => r.hasPdf)
