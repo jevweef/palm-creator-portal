@@ -78,9 +78,14 @@ export async function GET(request) {
   const periodParam = url.searchParams.get('period') // "YYYY-MM-DD|YYYY-MM-DD"
   const mode = url.searchParams.get('mode') // 'latest' | 'period' | 'all'
 
+  // nocache=1 bypasses the 60s in-memory cache. Used right after PDF
+  // generation, where the generate endpoint patches Airtable directly and
+  // can't bust this module's cache — without this the post-generate refresh
+  // returns stale records (hasPdf=false) and the modal shows "Generate first".
+  const noCache = url.searchParams.get('nocache') === '1'
   const cacheKey = `${mode || 'latest'}:${periodParam || ''}`
   const cached = cache.get(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) {
+  if (!noCache && cached && cached.expiresAt > Date.now()) {
     return Response.json(cached.data)
   }
 

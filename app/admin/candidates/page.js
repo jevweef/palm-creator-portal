@@ -127,7 +127,7 @@ export default function AdminCandidates() {
     setEnriching(true)
     setEnrichProgress({ processed: 0, total: queue.length })
 
-    const BATCH = 12
+    const BATCH = 8
 
     try {
       for (let i = 0; i < queue.length; i += BATCH) {

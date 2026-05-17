@@ -61,8 +61,9 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   // Test mode routes to Evan + Josh. Production mode routes to the creator's
-  // Communication Email, cc Josh, bcc Evan. Defaults to test for safety.
-  const [sendMode, setSendMode] = useState('test')
+  // Communication Email, cc Josh, bcc Evan. Defaults to production — the common
+  // case is sending the real invoice; test is opt-in.
+  const [sendMode, setSendMode] = useState('production')
 
   const sorted = [...rows].sort((a, b) => accountRank(a.accountName) - accountRank(b.accountName))
   const allHavePdfs = sorted.every(r => r.hasPdf)
@@ -98,7 +99,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
       if (cancelled) return
       attempts++
       try {
-        const res = await fetch('/api/admin/invoicing')
+        const res = await fetch('/api/admin/invoicing?nocache=1')
         const data = await res.json()
         if (cancelled) return
         if (data.records) onRecordsUpdate(() => data.records)
@@ -164,7 +165,7 @@ export default function InvoiceWorkflowModal({ aka, rows, onClose, onRecordsUpda
     // the Review-step poller takes over for any still-missing ones.
     await new Promise(r => setTimeout(r, 4000))
     try {
-      const refresh = await fetch('/api/admin/invoicing')
+      const refresh = await fetch('/api/admin/invoicing?nocache=1')
       const refreshData = await refresh.json()
       if (refreshData.records) onRecordsUpdate(() => refreshData.records)
     } catch (_) {}
