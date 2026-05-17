@@ -5,6 +5,7 @@ import { currentUser } from '@clerk/nextjs/server'
 import { waitUntil } from '@vercel/functions'
 import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { sendPushToAdmins } from '@/lib/sendPushNotifications'
+import { triggerAssetMirror } from '@/lib/triggerMirror'
 
 // Build a snapshot of who pressed submit (Clerk identity at the moment of save).
 // Stored on the Task record so the submissions feed can render an avatar +
@@ -476,9 +477,23 @@ export async function PATCH(request) {
 
     if (assetId) {
       const assetUpdate = { 'Pipeline Status': TASK_TO_ASSET_STATUS[newStatus] }
-      if (editedFileLink) assetUpdate['Edited File Link'] = editedFileLink
+      if (editedFileLink) {
+        assetUpdate['Edited File Link'] = editedFileLink
+        // A new edited file means the old CF Stream copy is now stale — the
+        // For Review card plays Stream Edit ID, so without this it would
+        // keep showing the PREVIOUS revision's video even though Download
+        // Edit (which uses Edited File Link) points to the new one. Clear
+        // the UID so mirrorAsset's `!Stream Edit ID` guard re-uploads the
+        // new file. The card falls back to its poster during the ~1min
+        // transcode window, which is correct rather than wrong-video.
+        assetUpdate['Stream Edit ID'] = ''
+      }
       if (editedFilePath) assetUpdate['Edited File Path'] = editedFilePath
       await patchAirtableRecord('Assets', assetId, assetUpdate)
+
+      // Re-mirror so the new edit lands on CF Stream. triggerAssetMirror
+      // handles its own waitUntil — fire-and-forget here.
+      if (editedFileLink) triggerAssetMirror(assetId)
     }
 
     // Push notification to admin when editor submits for review
