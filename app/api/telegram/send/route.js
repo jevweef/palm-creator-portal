@@ -91,18 +91,17 @@ async function resizeImage(inputBuffer, inputName) {
   return outputBuffer
 }
 
-// MOV → MP4 with rotation baked into pixels.
+// MOV → MP4, fast container swap (`-c copy`, no re-encode).
 //
-// Old approach used `-c copy` (just a container swap, no re-encode). Fast,
-// but it preserved the source's rotation METADATA without rotating the
-// pixels. Telegram (and Android IG) frequently ignore the rotation tag —
-// result: portrait phone videos rendered sideways. Re-encoding through
-// libx264 makes ffmpeg auto-apply the rotation during decode and strips
-// the tag from the output container. Quality cost is negligible at CRF 18
-// (visually lossless), time cost is ~5–10s for a typical 15-30s reel.
-//
-// `-metadata:s:v:0 rotate=0` is belt-and-suspenders — libx264 already
-// drops the tag, but explicit is safer than implicit.
+// REVERTED 2026-05-17: briefly changed to a full libx264 re-encode to bake
+// rotation tags into pixels (phones embed "rotate 90°" metadata that
+// Telegram/Android IG ignore). That re-encode was 5-10x slower on the
+// inline send path and blew the 300s function budget for non-pre-compressed
+// videos → every send timed out → posts stuck at 'Sending' → queue jammed.
+// Rotation baking still happens in compressVideo() (which already
+// re-encodes via libx264, so it's free there and covers any video large
+// enough to need compression). Small MOVs that only get remuxed keep
+// their rotation tag — acceptable tradeoff vs. a fully jammed queue.
 async function remuxToMp4(inputBuffer, inputName) {
   const id = Date.now()
   const ext = inputName.split('.').pop().toLowerCase()
@@ -112,16 +111,11 @@ async function remuxToMp4(inputBuffer, inputName) {
   await new Promise((resolve, reject) => {
     const args = [
       '-y', '-i', inputPath,
-      '-c:v', 'libx264',
-      '-crf', '18',                       // visually lossless
-      '-preset', 'ultrafast',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-metadata:s:v:0', 'rotate=0',      // strip rotation tag explicitly
+      '-c', 'copy',
       '-movflags', '+faststart',
       outputPath,
     ]
-    execFile(ffmpegStatic, args, { timeout: 120000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+    execFile(ffmpegStatic, args, { timeout: 60000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
       if (err) reject(err)
       else resolve()
     })
