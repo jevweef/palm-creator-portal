@@ -15,15 +15,12 @@ const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
 // Protects historic invoices from accidental rewrites.
 const AUTOMATION_START = '2026-04-15'
 
-// Default ManageHer chat team fee, expressed as % of net revenue.
+// Default ManageHer chat team fee = 20% of net revenue.
 // Stored on each invoice as `Chat Team Fee % (Snapshot)` so future rate
 // changes (e.g. dropping to 17.5% for select creators) don't retroactively
-// affect already-finalized invoices. The snapshot is stored as % of
-// commission (not % of revenue) because that's what the Airtable
-// `Chat Team Cost` formula multiplies against:
-//   chatTeamCost = Earnings × Commission% × Chat Team Fee%
-// To target 20% of revenue at e.g. 40% commission:
-//   Chat Team Fee% = 0.20 / 0.40 = 0.50
+// affect already-finalized invoices. The Airtable `Chat Team Cost` formula is:
+//   Chat Team Cost = Earnings (TR) × Chat Team Fee % (Snapshot)
+// i.e. a DIRECT % of revenue — so the snapshot is just 0.20, no division.
 const DEFAULT_CHAT_FEE_OF_REVENUE = 0.20
 
 // ── Field IDs ───────────────────────────────────────────────────────────────
@@ -359,12 +356,11 @@ export async function POST(request) {
         patchFields[INV_FIELDS.commissionSnap] = commissionPct
       }
 
-      // Snapshot chat team fee % if not already set. Stored as % of commission.
-      // Default = 20% of revenue → snap = 0.20 / commissionPct.
+      // Snapshot chat team fee %. Direct % of revenue (Airtable formula is
+      // Earnings × ChatFee%). Default 20%. Skip if already set (manual override).
       const existingChatSnap = f[INV_FIELDS.chatFeeSnap]
-      if (effectiveCommissionPct && effectiveCommissionPct > 0
-          && (existingChatSnap == null || existingChatSnap === 0)) {
-        patchFields[INV_FIELDS.chatFeeSnap] = DEFAULT_CHAT_FEE_OF_REVENUE / effectiveCommissionPct
+      if (existingChatSnap == null || existingChatSnap === 0) {
+        patchFields[INV_FIELDS.chatFeeSnap] = DEFAULT_CHAT_FEE_OF_REVENUE
       }
 
       if (dryRun) {
