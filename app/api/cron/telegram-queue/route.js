@@ -73,6 +73,11 @@ async function processOnePost(postId) {
   try {
     await patchAirtableRecord('Posts', postId, {
       'Status': 'Sending',
+      // Stamp the lock time so stale-lock recovery can find this post if
+      // the send hangs / times out. Was relying on {Last Modified} which
+      // never existed on this table — recovery silently no-op'd for weeks
+      // and stuck posts piled up forever.
+      'Sending Since': new Date().toISOString(),
     }, { typecast: true })
   } catch (lockErr) {
     // If we can't even claim the lock (Airtable rate limit / 429), don't
@@ -177,13 +182,17 @@ export async function GET(request) {
   // 10 minutes is plenty — even our worst sends finish in <5 min including
   // ffmpeg compression, so anything older means the function genuinely died.
   const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  // Use {Sending Since} — stamped by the lock above. The old code used
+  // {Last Modified}, a field that never existed on Posts, so this query
+  // 422'd every tick, the .catch swallowed it, and NOTHING was ever
+  // recovered. Stuck posts piled up for weeks. Also catch posts that
+  // were stuck BEFORE this field existed: {Sending Since}=BLANK means
+  // an old stuck lock with no timestamp — recover those too.
   const stuck = await fetchAirtableRecords('Posts', {
-    filterByFormula: `AND({Status}='Sending', IS_BEFORE({Last Modified}, '${tenMinAgo}'))`,
+    filterByFormula: `AND({Status}='Sending', OR({Sending Since}=BLANK(), IS_BEFORE({Sending Since}, '${tenMinAgo}')))`,
     fields: ['Status'],
-    maxRecords: 5,
+    maxRecords: 10,
   }).catch(err => {
-    // {Last Modified} may not exist on every base. Fall back to a simpler
-    // query if so — better to potentially over-recover than fail the cron.
     console.warn('[telegram-queue] stale-lock query failed:', err.message)
     return []
   })
@@ -191,6 +200,7 @@ export async function GET(request) {
     try {
       await patchAirtableRecord('Posts', s.id, {
         'Status': 'Queued for Telegram',
+        'Sending Since': null,
       })
       console.log(`[telegram-queue] stale-lock reset on ${s.id}`)
     } catch (e) {
