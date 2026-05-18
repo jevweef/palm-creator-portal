@@ -12,27 +12,29 @@ const MODEL = 'claude-sonnet-4-6'
 // Framework: tell Sonnet the permanent-vs-transient taxonomy so it locks
 // the right things — the room's identity — and explicitly does NOT lock
 // the things that are SUPPOSED to vary between content posts.
-const SYSTEM_PROMPT = `You are building a "do-not-change lock list" for an image-edit pipeline. A creator's room photo is the fixed location for many AI content variations. Each variation will edit ONLY transient things (bed made/messy, clothes/objects in or out, time of day, lighting, curtains). The room's IDENTITY must stay byte-identical across every variation so it always reads as the same real apartment.
+const SYSTEM_PROMPT = `You are building a "do-not-change lock list" for an image-edit pipeline. A creator's room photo is the fixed location for many AI content variations. The room's IDENTITY must stay byte-identical across every variation so it always reads as the same real apartment, while ordinary daily life (mess, clutter, light, time of day) is free to change. The human will NOT tell you what to lock — you already know how a real lived-in room behaves. Apply the universal model below to THIS image.
 
-Look at THIS specific image and write the lock list of what must NEVER change. Be concrete and specific to what is actually visible — name the real objects, their material, color, and position. Generic lists cause drift; specific ones hold.
+UNIVERSAL ROOM-REALISM MODEL — true for ANY room:
 
-LOCK (permanent — list the ones actually present in this image, specifically):
-- Architecture: walls, ceiling, room shape, doorways, structural columns
-- Windows / glass walls and the EXACT view through them (buildings, ocean, sky, foliage)
-- Flooring (material, color)
-- Large furniture and its exact placement: bed frame + where it sits, headboard + which wall, dresser, nightstand(s), mirror (type/shape), desk, shelving, seating
-- The rug (size, pile, color, placement)
-- Wall décor and fixtures: framed art, macramé, mirrors, strung lights, sconces — only if present
-- EVERY plant: count, each plant's type, its pot/planter, size, and exact location (e.g. "the large monstera in a woven basket on the floor left of the window")
-- The camera: exact angle, height, framing, crop, perspective and lens
+PERMANENT — the room's identity; ALWAYS lock these (name the specific ones visible in this image, with material/color/position):
+- Shell: walls, ceiling, floor surface & material, room shape, doorways, the window / sliding-door openings themselves, built-ins, columns
+- The view through the windows (the outside world does not change)
+- Anchored furniture and its exact placement: bed frame + which wall it's against, headboard, dresser, nightstand(s), desk, shelving, wardrobe, large/standing mirror, seating, and the RUG (heavy — its size/placement stays)
+- Fixed wall décor & fixtures: framed art, mounted mirror, macramé, mounted shelves, strung/fairy lights, light fixtures
+- Every plant, in its planter and position (people don't swap plants daily)
+- The camera: same tripod/spot films the same room — angle, height, framing, crop, perspective, lens
 
-DO NOT LOCK (these are the whole point of variations — never mention them as fixed):
-- Bedding state (made/messy), duvet, throw blankets, pillow arrangement
-- Clothes, laundry, bags, shoes, cups, books, makeup, packing — anything that naturally comes and goes
-- Items sitting on the nightstand/dresser that would change day to day
-- Time of day, sky, lighting mood, lamps on/off, candles, how open the curtains are
+TRANSIENT — real daily life; NEVER lock or even mention these (they are the whole point of variations):
+- Bed state: made / unmade / half-made, duvet, top sheet, throw blanket, pillow arrangement
+- Things brought in & out: clothes, laundry, towels, bags, shoes, packages, shopping, books, a suitcase, a yoga mat
+- What sits on surfaces day to day: phone, a glass of water or drink, a mug, a candle, makeup, chargers, jewelry, remotes
+- Openings state: how far the sliding door / curtains / blinds are open
+- Light & time: time of day, sun angle and warmth, sky, lamps on/off, candle lit, overall brightness and mood
+- Overall tidiness level: spotless ↔ lived-in ↔ messy
 
-OUTPUT: one concise imperative paragraph (no bullets, no preamble) that starts describing the specific permanent elements to keep identical and ENDS with the camera-lock clause. Only describe what is genuinely visible in this image. Do not invent objects. Do not mention any transient/variable element.`
+EDGE RULES: a glass/mug/cup is TRANSIENT even though it "sits there". A plant or the rug is PERMANENT even though it's "an object". Curtains/blinds as fabric are PERMANENT, but how open they are is TRANSIENT. A standing mirror, dresser, lamp body = PERMANENT; whether the lamp is on = TRANSIENT.
+
+OUTPUT: one concise imperative paragraph (no bullets, no preamble). Apply the model above: enumerate the SPECIFIC permanent elements actually visible in this image (real objects, material, color, position) and end with the camera-lock clause. Only describe what is genuinely visible — do not invent objects, and never mention any transient category.`
 
 export async function POST(request) {
   try {

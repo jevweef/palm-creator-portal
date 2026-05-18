@@ -15,8 +15,12 @@ function buildPrompt(lockInventory, change) {
     'Minimal local edit of this photo — do NOT re-render, restyle, relight or '
     + 'reinterpret the scene. Copy the input image pixel-faithfully EXCEPT for '
     + 'the one small change below.\n\n'
-    + `DO NOT CHANGE (keep identical): ${lockInventory}\n\n`
+    + `DO NOT CHANGE (the room's permanent identity — keep identical): ${lockInventory}\n\n`
     + `ONLY THIS CHANGES: ${change}\n\n`
+    + 'This is everyday life in the SAME room: only ordinary transient things '
+    + '(bedding, clutter brought in/out, items on surfaces, how open the '
+    + 'curtains are, time of day and lighting) may differ — and only exactly '
+    + 'as instructed above. Everything else stays pixel-identical. '
     + 'Same candid iPhone photo style, consistent room, no people, no text, no watermark.'
   )
 }
