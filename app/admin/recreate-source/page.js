@@ -624,13 +624,25 @@ function RoomCard({ room, variations, refresh }) {
   }
   const refineVar = async (v) => {
     const instruction = prompt('Describe the precise change(s) to make to THIS image (camera & room stay the same).\n\ne.g. "Make the left wall continue flat with no indent or recess; add a hanging trailing pothos plant on the left that matches the one on the right; add a small cute illustrated poster on the left wall with no text."')
-    if (!instruction || !instruction.trim()) return
-    setBusy(true); setMsg('Refining image…')
-    const d = await fetch('/api/admin/recreate-rooms/refine', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ variationId: v.id, instruction: instruction.trim() }),
-    }).then(r => r.json())
-    setMsg(d.ok ? 'Refined — new version added below' : (d.error || 'failed'))
+    if (instruction === null) return
+    if (!instruction.trim()) { alert('No instruction entered — nothing to refine.'); return }
+    setBusy(true); setMsg('⏳ Refining image… ~1–2 min, leave this tab open. You\'ll get a popup when it\'s done.')
+    try {
+      const d = await fetch('/api/admin/recreate-rooms/refine', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variationId: v.id, instruction: instruction.trim() }),
+      }).then(r => r.json())
+      if (d.ok) {
+        setMsg('✅ Refined — new version added in the gallery below.')
+        alert('Refine complete — the new version is in the gallery (look for a "… refined" card).')
+      } else {
+        setMsg(`❌ Refine failed: ${d.error || 'unknown error'}`)
+        alert(`Refine failed: ${d.error || 'unknown error'}`)
+      }
+    } catch (e) {
+      setMsg(`❌ Refine error: ${e.message || e}`)
+      alert(`Refine error: ${e.message || e}`)
+    }
     setBusy(false); refresh()
   }
   const downloadVar = (v) => { if (v?.dropbox || v?.image) window.open(v.dropbox || v.image, '_blank', 'noopener') }
