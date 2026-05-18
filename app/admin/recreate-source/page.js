@@ -327,23 +327,36 @@ const AXES = {
   ],
   // Clutter that lives AWAY from the bed/nightstand zone — foreground
   // near the camera, by the sliding doors/windows, against the dresser
-  // or mirror, in a back corner. This is the variety that was missing.
-  elsewhere: [
-    'a couple of clothing-store shopping bags left on the floor near the sliding glass doors',
-    'a weekender duffel and a canvas tote sitting on the floor by the windows',
-    'two or three cardboard shipping boxes stacked in the corner by the windows, one open with packaging spilling out',
-    'a small stack of delivery packages on the floor against the dresser',
+  // or mirror, in a back corner. Split by how often it's realistically
+  // there: everyday churn vs. occasional (trips, hauls, deliveries).
+  elsewhere_everyday: [
+    'a worn jacket and a couple of clothing items draped over the foot of the bed and onto the floor',
+    'a hoodie and a t-shirt dropped on the floor near the foot of the bed',
     'a pair of sneakers and some sandals kicked off in the foreground close to the camera',
-    'a laundry basket and a folded pile of laundry on the floor in a back corner',
-    'a standing clothing rack with a few hung outfits against the side wall',
-    'a rolled yoga mat propped against the wall by the windows with a water bottle beside it',
+    'a bath towel dropped on the floor and a gym towel draped over the mirror',
+    'a tote bag and a small purse set down on the floor by the dresser',
+    'a backpack slumped against the wall in the foreground with a jacket beside it',
     'a couple of water bottles and a coffee mug left on top of the dresser',
-    'a robe and a towel draped over the leaning mirror',
-    'a small carry-on suitcase standing upright by the sliding doors, half-packed',
-    'a beach bag, a sun hat and flip-flops dropped near the windows like just back from outside',
-    'a few cardboard boxes and some bubble wrap near the dresser like a half-finished move-in',
-    'a backpack slumped in the foreground and a jacket dropped beside it',
-    'scattered clothes across the foreground floor closer to the camera with a couple of items reaching the rug',
+    'a half-full laundry basket on the floor in a back corner',
+    'a folded pile of clean laundry on the floor by the dresser waiting to be put away',
+    'a cluster of skincare and makeup bottles spread across the top of the dresser',
+    'a small stack of books and a magazine on the floor near the nightstand',
+    'a hair straightener and a hair dryer with their cords out on the dresser',
+    'earbuds, a charging cable and sunglasses left on top of the dresser',
+    'keys, a wallet and sunglasses dropped on the dresser like a pocket dump',
+    'a reusable grocery bag with a couple of items left on the floor by the doors',
+    'a robe and a sweatshirt draped over the leaning mirror',
+    'a rolled yoga mat propped against the wall by the windows with small dumbbells beside it',
+    'scattered clothes across the foreground floor closer to the camera reaching onto the rug',
+  ],
+  elsewhere_occasional: [
+    'an open carry-on suitcase on the floor half-packed with folded clothes, like a trip is coming up',
+    'a weekender duffel and a tote standing by the sliding doors like just back from travelling',
+    'two or three cardboard delivery boxes stacked by the windows, one open with packaging spilling out',
+    'a few clothing-store shopping bags from a recent haul left on the floor near the doors',
+    'a standing clothing rack with a few hung outfits and a garment bag against the side wall',
+    'a folded ring light and a tripod leaning in the corner near the windows',
+    'a beach bag, a sun hat and flip-flops dropped by the windows like just back from outside',
   ],
   bed_items: [
     'nothing on the bed',
@@ -387,6 +400,11 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)]
 // so rooms read genuinely lived-in, with mess spread around the room
 // — foreground, windows, corners — not just bed/nightstand/rug.
 const STATE_AXES = ['bed', 'floor', 'bed_items', 'nightstand', 'elsewhere']
+// 'elsewhere' is mostly everyday churn; ~1 in 5 brings in an occasional
+// trip/haul/delivery moment so luggage etc. shows up but not daily.
+const pickAxis = (ax) => ax === 'elsewhere'
+  ? pick(Math.random() < 0.22 ? AXES.elsewhere_occasional : AXES.elsewhere_everyday)
+  : pick(AXES[ax])
 function shuffleScenarios(n) {
   const seen = new Set()
   const out = []
@@ -400,7 +418,7 @@ function shuffleScenarios(n) {
     const chosen = []
     for (let k = 0; k < zoneCount && pool.length; k++) {
       const ax = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]
-      chosen.push([ax, pick(AXES[ax])])
+      chosen.push([ax, pickAxis(ax)])
     }
     const withLight = Math.random() < 0.5
     const light = withLight ? pick(AXES.time_light) : null
