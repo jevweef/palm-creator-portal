@@ -48,6 +48,7 @@ export default function RecreateLibraryPage() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [filter, setFilter] = useState('')
+  const [posterBusy, setPosterBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +90,21 @@ export default function RecreateLibraryPage() {
       setMsg(res.ok ? `Started ${data.started?.length || 0} scrape(s)` : (data.error || 'Failed'))
       load()
     } catch (e) { setMsg(e.message) } finally { setBusy(false) }
+  }
+
+  const backfillPosters = async () => {
+    setPosterBusy(true); setMsg('Generating posters…')
+    try {
+      let guard = 0
+      while (guard++ < 50) {
+        const res = await fetch('/api/admin/recreate-backfill-posters', { method: 'POST' })
+        const d = await res.json()
+        if (!res.ok) { setMsg(d.error || 'Poster backfill failed'); break }
+        setMsg(`Posters: ${d.remaining} remaining…`)
+        if (d.done || d.remaining === 0) { setMsg('Posters generated.'); break }
+      }
+      load()
+    } catch (e) { setMsg(e.message) } finally { setPosterBusy(false) }
   }
 
   const removeReel = async (reel) => {
@@ -151,6 +167,10 @@ export default function RecreateLibraryPage() {
           style={{ padding: '7px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, width: 220 }} />
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>{shownReels.length} reels in library</span>
+          <button onClick={backfillPosters} disabled={posterBusy}
+            style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: posterBusy ? 'default' : 'pointer' }}>
+            {posterBusy ? 'Generating…' : 'Generate posters'}
+          </button>
           <button onClick={scrapeQueued} disabled={busy || queuedCount === 0}
             style={{ padding: '8px 16px', background: queuedCount ? 'rgba(106,198,138,0.15)' : 'transparent', color: queuedCount ? '#6AC68A' : '#666', border: `1px solid ${queuedCount ? 'rgba(106,198,138,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: queuedCount && !busy ? 'pointer' : 'default' }}>
             Scrape {queuedCount} Queued →
