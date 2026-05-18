@@ -529,25 +529,30 @@ function RoomsPanel() {
             style={{ flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
           <input value={form.angle} onChange={e => setForm(f => ({ ...f, angle: e.target.value }))} placeholder="Angle" style={{ width: 110, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
         </div>
-        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 6 }}>
-          Source:{' '}
-          <button onClick={() => setMode('upload')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, marginRight: 10, color: mode === 'upload' ? 'var(--palm-pink)' : 'var(--foreground-muted)', fontWeight: mode === 'upload' ? 700 : 400, textDecoration: mode === 'upload' ? 'underline' : 'none' }}>Upload an image</button>
-          <button onClick={() => setMode('prompt')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, color: mode === 'prompt' ? 'var(--palm-pink)' : 'var(--foreground-muted)', fontWeight: mode === 'prompt' ? 700 : 400, textDecoration: mode === 'prompt' ? 'underline' : 'none' }}>Generate from prompt</button>
-        </div>
         {mode === 'upload' ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <label style={{ display: 'inline-block', padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 6, cursor: 'pointer' }}>
-              {file ? 'Change image' : 'Choose image…'}
-              <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-            </label>
-            <span style={{ fontSize: 12, color: file ? '#6AC68A' : 'var(--foreground-muted)' }}>
-              {file ? file.name : 'No image selected'}
-            </span>
-          </div>
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <label style={{ display: 'inline-block', padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 6, cursor: 'pointer' }}>
+                {file ? 'Change image' : 'Choose room image…'}
+                <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+              </label>
+              <span style={{ fontSize: 12, color: file ? '#6AC68A' : 'var(--foreground-muted)' }}>
+                {file ? file.name : 'No image selected'}
+              </span>
+            </div>
+            <button onClick={() => setMode('prompt')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, marginTop: 8, color: 'var(--foreground-muted)', textDecoration: 'underline' }}>
+              or generate the room from a text prompt instead
+            </button>
+          </>
         ) : (
-          <textarea value={form.prompt} onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))} rows={4}
-            placeholder="Base room prompt (the locked location — paste your dialed-in bedroom prompt)"
-            style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', resize: 'vertical' }} />
+          <>
+            <textarea value={form.prompt} onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))} rows={4}
+              placeholder="Base room prompt (the locked location — paste your dialed-in bedroom prompt)"
+              style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', resize: 'vertical' }} />
+            <button onClick={() => setMode('upload')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, marginTop: 6, color: 'var(--foreground-muted)', textDecoration: 'underline' }}>
+              ← upload an image I already have instead
+            </button>
+          </>
         )}
         <div style={{ marginTop: 10 }}>
           <button onClick={createRoom} disabled={busy || (mode === 'upload' && !file)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: (busy || (mode === 'upload' && !file)) ? 'default' : 'pointer', opacity: (busy || (mode === 'upload' && !file)) ? 0.45 : 1 }}>
