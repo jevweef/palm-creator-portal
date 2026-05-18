@@ -442,12 +442,12 @@ function shuffleScenarios(n) {
 // These are CANDIDATE angle bases: generate, eyeball, then promote
 // the good one into its own locked Room.
 const ANGLES = [
-  'the tripod is moved about 4–5 ft to the LEFT and the camera rotated to the RIGHT to keep the whole room framed — a noticeably different left-side viewpoint of the same room',
-  'the tripod is moved about 4–5 ft to the RIGHT and the camera rotated to the LEFT to keep the whole room framed — a noticeably different right-side viewpoint of the same room',
-  'the tripod is moved a few feet toward the foot of the bed and the camera angled back toward the headboard wall — same room, seen more end-on',
-  'the tripod is moved a few feet toward the window side and the camera angled back across the room toward the bed — same room from nearer the windows',
-  'the tripod is stepped back a couple of feet for a slightly wider view of the same room, same height and aim',
-  'the tripod is lowered about a foot for a slightly lower, more grounded angle of the same room',
+  'the camera is moved well to the LEFT and rotated about 40° to the RIGHT — now looking down the room along the side wall toward the windows, the bed seen more from its side/foot, much more of the floor and rug in the foreground; a strongly different left vantage',
+  'the camera is moved well to the RIGHT and rotated about 40° to the LEFT — the glass wall and windows now dominate one side, the bed seen more end-on from the window side, the opposite wall receding; a strongly different right vantage',
+  'the camera is moved to the FOOT OF THE BED and turned back toward the headboard wall — a head-on view straight up the bed at the headboard, dresser and windows behind it, the wall behind the original camera position now visible',
+  'the camera is moved close to the WINDOW WALL looking back ACROSS the room toward the bed and the entry side — the side that was behind the camera before is now the backdrop, ocean view now off to the side',
+  'a high, wide CORNER view from the far corner of the room — camera pulled back into the opposite corner and rotated to take in the whole room at once, both walls and the full rug visible, deep perspective',
+  'a low vantage from near the floor on the far side of the rug, rotated back toward the bed and windows — strong foreground rug, the room rising up behind it, a dramatically different eye level',
 ]
 function angleScenarios(n) {
   const idx = [...ANGLES.keys()].sort(() => Math.random() - 0.5).slice(0, n)
