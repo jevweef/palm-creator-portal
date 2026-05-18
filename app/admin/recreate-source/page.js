@@ -551,9 +551,9 @@ function RoomCard({ room, variations, refresh }) {
     setBusy(false); refresh()
   }
   const doAngleShuffle = async () => {
-    // Angle edits run ~70s each; the route caps at 300s. 4 is the most
-    // that reliably finishes before the serverless timeout.
-    const n = Math.min(Math.max(1, Number(shuffleN) || 4), 4)
+    // Edits now run in parallel, so all 6 finish in ~one edit's time
+    // (well under the 300s route cap). 6 = the full angle set.
+    const n = Math.min(Math.max(1, Number(shuffleN) || 6), 6)
     const recipes = angleScenarios(n)
     setBusy(true); setMsg(`Generating ${recipes.length} angle candidates… (camera moves drift — keep the good ones)`)
     const d = await fetch('/api/admin/recreate-rooms/generate', {
