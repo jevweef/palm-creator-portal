@@ -302,6 +302,91 @@ const RECIPES = [
   { name: 'Packing day', change: 'an open suitcase on the bed half-packed with folded clothes, a couple of outfits laid beside it, shoes on the rug, bright afternoon light' },
 ]
 
+// Independent everyday-life axes. A "shuffle" picks one option per axis
+// and composes them into one believable scenario — so cleanliness,
+// clutter, time of day, nightstand etc. vary independently (messy bed +
+// clean floor, made bed + clothes everywhere, etc.).
+const AXES = {
+  bed: [
+    'the bed neatly made',
+    'the bed loosely made, slightly rumpled',
+    'the bed unmade with the duvet pulled back and a pillow askew',
+    'the bed messy — sheets and blanket twisted, pillows tossed around',
+  ],
+  floor: [
+    'the floor completely clear',
+    'one or two clothing items dropped on the floor',
+    'a small pile of clothes and a hoodie on the floor',
+    'a lot of clothes scattered across the floor with a tote bag',
+  ],
+  bed_items: [
+    'nothing on the bed',
+    'a knit throw blanket bunched at the foot of the bed',
+    'a small stack of folded laundry on the bed',
+    'a couple of worn clothing items tossed on the bed',
+    'an open book and a phone resting on the bed',
+  ],
+  nightstand: [
+    'the nightstand completely clear',
+    'just a glass of water on the nightstand',
+    'a phone and a glass of water on the nightstand',
+    'a book and a small lamp (lamp off) on the nightstand',
+    'a mug and a couple of skincare bottles on the nightstand',
+    'a candle, a phone and a charging cable on the nightstand',
+  ],
+  time_light: [
+    'bright sunny midday light through the windows',
+    'soft sunny late-morning light',
+    'warm golden-hour sunset light with long soft shadows and an orange sky',
+    'soft cool early-morning light, calm and dim',
+    'flat grey overcast daylight, no harsh sun',
+    'nighttime — dark outside with distant city lights, warm bedside lamp glow',
+  ],
+}
+const pick = (a) => a[Math.floor(Math.random() * a.length)]
+function shuffleScenarios(n) {
+  const seen = new Set()
+  const out = []
+  let guard = 0
+  while (out.length < n && guard++ < n * 12) {
+    const c = {
+      bed: pick(AXES.bed), floor: pick(AXES.floor), bed_items: pick(AXES.bed_items),
+      nightstand: pick(AXES.nightstand), time_light: pick(AXES.time_light),
+    }
+    const sig = Object.values(c).join('|')
+    if (seen.has(sig)) continue
+    seen.add(sig)
+    out.push({
+      name: `Shuffle ${out.length + 1}`,
+      change: `an ordinary everyday state of the same room: ${c.bed}; ${c.floor}; ${c.bed_items}; ${c.nightstand}; ${c.time_light}. Natural and realistic, like a random real day — not staged.`,
+    })
+  }
+  return out
+}
+
+// Downscale + JPEG re-encode a File → base64 (keeps payload under the
+// serverless body limit, same as the room-create path).
+function downscaleImage(file, MAX = 1536) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader()
+    fr.onerror = rej
+    fr.onload = () => {
+      const img = new Image()
+      img.onerror = rej
+      img.onload = () => {
+        let { width: w, height: h } = img
+        if (w > MAX || h > MAX) { const s = MAX / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s) }
+        const c = document.createElement('canvas')
+        c.width = w; c.height = h
+        c.getContext('2d').drawImage(img, 0, 0, w, h)
+        res(c.toDataURL('image/jpeg', 0.9).split(',')[1])
+      }
+      img.src = fr.result
+    }
+    fr.readAsDataURL(file)
+  })
+}
+
 function RoomCard({ room, variations, refresh }) {
   const [lock, setLock] = useState(room.lockInventory)
   // Re-sync the textarea when the saved lock list changes (e.g. after
@@ -311,6 +396,7 @@ function RoomCard({ room, variations, refresh }) {
   const [busy, setBusy] = useState(false)
   const [picked, setPicked] = useState(() => new Set())
   const [custom, setCustom] = useState('')
+  const [shuffleN, setShuffleN] = useState(6)
   const [msg, setMsg] = useState('')
 
   const api = async (method, body, qs = '') => {
@@ -359,6 +445,27 @@ function RoomCard({ room, variations, refresh }) {
     setMsg(d.ok ? `Made ${d.made?.length || 0}${d.failed?.length ? `, ${d.failed.length} failed` : ''}` : (d.error || 'failed'))
     setBusy(false); setPicked(new Set()); setCustom(''); refresh()
   }
+  const doShuffle = async () => {
+    const n = Math.min(Math.max(1, Number(shuffleN) || 6), 6)
+    const recipes = shuffleScenarios(n)
+    setBusy(true); setMsg(`Shuffling ${n} realistic variations…`)
+    const d = await fetch('/api/admin/recreate-rooms/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: room.id, recipes }),
+    }).then(r => r.json())
+    setMsg(d.ok ? `Made ${d.made?.length || 0}${d.failed?.length ? `, ${d.failed.length} failed` : ''}` : (d.error || 'failed'))
+    setBusy(false); refresh()
+  }
+  const replaceBase = async (f) => {
+    if (!f) return
+    setBusy(true); setMsg('Replacing base image…')
+    try {
+      const imageBase64 = await downscaleImage(f)
+      const d = await api('PATCH', { roomId: room.id, action: 'replaceImage', imageBase64, imageType: 'image/jpeg' })
+      setMsg(d.ok ? 'Base image replaced — re-analyze + re-lock it.' : (d.error || 'failed'))
+    } catch (e) { setMsg(`Error: ${e.message || e}`) }
+    setBusy(false); refresh()
+  }
   const setVar = async (id, status) => {
     await fetch(`/api/admin/recreate-rooms/variation?id=${id}&status=${status}`, { method: 'PATCH' })
     refresh()
@@ -391,6 +498,10 @@ function RoomCard({ room, variations, refresh }) {
             {room.basePrompt?.trim() && (
               <button onClick={regen} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, background: 'none', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>↻ Regenerate base</button>
             )}
+            <label style={{ padding: '6px 12px', fontSize: 12, background: 'none', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>
+              ⤒ Replace image
+              <input type="file" accept="image/*" onChange={e => replaceBase(e.target.files?.[0])} style={{ display: 'none' }} />
+            </label>
             <button onClick={doLock} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 5, cursor: 'pointer' }}>{room.status === 'Locked' ? 'Save lock list' : 'Lock room'}</button>
           </div>
         </div>
@@ -398,23 +509,40 @@ function RoomCard({ room, variations, refresh }) {
 
       {room.status === 'Locked' && (
         <div style={{ marginTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
-          <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 6 }}>Variation recipes</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {RECIPES.map(r => (
-              <button key={r.name} onClick={() => toggle(r.name)} style={{
-                padding: '4px 10px', fontSize: 11, borderRadius: 14, cursor: 'pointer',
-                background: picked.has(r.name) ? 'rgba(106,198,138,0.18)' : 'rgba(255,255,255,0.04)',
-                color: picked.has(r.name) ? '#6AC68A' : 'var(--foreground-muted)',
-                border: `1px solid ${picked.has(r.name) ? 'rgba(106,198,138,0.4)' : 'rgba(255,255,255,0.1)'}`,
-              }}>{r.name}</button>
-            ))}
+          <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 8 }}>
+            Generate variations — random realistic mixes of bed state, clothes, nightstand, time of day &amp; light. The room stays locked.
           </div>
-          <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="+ custom change (optional)"
-            style={{ width: '100%', marginTop: 8, padding: '6px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12 }} />
-          <button onClick={generate} disabled={busy} style={{ marginTop: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 5, cursor: 'pointer' }}>
-            {busy ? 'Working…' : `Generate ${picked.size + (custom.trim() ? 1 : 0) || ''} (max 6/run)`}
-          </button>
-          {msg && <span style={{ fontSize: 12, color: 'var(--foreground-muted)', marginLeft: 10 }}>{msg}</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <button onClick={doShuffle} disabled={busy} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+              {busy ? 'Working…' : '🎲 Shuffle & generate'}
+            </button>
+            <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
+              count{' '}
+              <input type="number" min={1} max={6} value={shuffleN} onChange={e => setShuffleN(e.target.value)}
+                style={{ width: 48, padding: '4px 6px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5, fontSize: 12 }} />
+              {' '}/ 6 per run
+            </label>
+            {msg && <span style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>{msg}</span>}
+          </div>
+
+          <details style={{ marginBottom: 4 }}>
+            <summary style={{ fontSize: 11, color: 'var(--foreground-muted)', cursor: 'pointer' }}>or pick specific recipes / a custom change</summary>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {RECIPES.map(r => (
+                <button key={r.name} onClick={() => toggle(r.name)} style={{
+                  padding: '4px 10px', fontSize: 11, borderRadius: 14, cursor: 'pointer',
+                  background: picked.has(r.name) ? 'rgba(106,198,138,0.18)' : 'rgba(255,255,255,0.04)',
+                  color: picked.has(r.name) ? '#6AC68A' : 'var(--foreground-muted)',
+                  border: `1px solid ${picked.has(r.name) ? 'rgba(106,198,138,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                }}>{r.name}</button>
+              ))}
+            </div>
+            <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="+ custom change (optional)"
+              style={{ width: '100%', marginTop: 8, padding: '6px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12 }} />
+            <button onClick={generate} disabled={busy} style={{ marginTop: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 5, cursor: 'pointer' }}>
+              {busy ? 'Working…' : `Generate selected ${picked.size + (custom.trim() ? 1 : 0) || ''}`}
+            </button>
+          </details>
 
           {variations.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, marginTop: 14 }}>
