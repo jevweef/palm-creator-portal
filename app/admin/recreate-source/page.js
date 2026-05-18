@@ -399,19 +399,20 @@ const AXES = {
     'a water bottle and wireless earbuds on the nightstand',
     'a small ring dish with jewelry on the nightstand',
   ],
-  // [text, weight] — heavily favor low, warm, "light pouring in"
-  // through the floor-to-ceiling windows. Harsh noon / overcast /
-  // full night are kept for variety but rare.
+  // [text, weight] — sun direction anchored to the room: the glass
+  // wall is on the RIGHT/back, the standing mirror, trailing plant and
+  // wood dresser are on the RIGHT by the windows. Looking straight in =
+  // 12 o'clock; sunrise from the right, sunset low from ~4–5 o'clock.
   time_light: [
-    ['warm golden-hour sunrise light pouring low through the floor-to-ceiling windows, long soft rays raking across the floor, rug and bed, soft warm glow', 5],
-    ['warm golden-hour sunset light flooding in low through the floor-to-ceiling windows, long warm rays stretched across the floor and bed, soft orange sky outside', 5],
-    ['warm late-afternoon sun coming in low and golden through the windows, light pooling across the rug and floor', 4],
-    ['soft warm early-morning sun just risen, gentle low light streaming through the glass across the room', 4],
-    ['soft glowing late-morning sun, bright but warm, light spilling across the floor', 2],
-    ['bright sunny midday light through the windows', 1],
-    ['hazy bright afternoon light, soft and warm', 1],
+    ['early sunrise — warm low sun entering from the RIGHT through the right-side floor-to-ceiling window, raking low across the RIGHT side of the porcelain floor and the right edge of the rug, long soft shadows stretching to the LEFT, gentle golden glow', 5],
+    ['golden-hour sunset — warm low sun pouring DIRECTLY through the right-side window from about the 4–5 o\'clock direction, landing on and lighting up the standing mirror, the trailing plant and the wood dresser, long warm shadows stretched across the room to the LEFT, soft orange sky', 5],
+    ['warm late-afternoon sun, lower and from the RIGHT, golden light pooling across the dresser side and the right half of the rug, gentle long shadows leaning left', 4],
+    ['mid-morning — bright warm sun higher and from the upper RIGHT, light spilling well into the room across the floor, medium soft shadows', 4],
+    ['bright MIDDAY — sun high and nearly overhead coming straight through the back/center windows (12 o\'clock), short shadows directly beneath the furniture, crisp clean daylight pooling in the CENTER of the floor, NOT low raking side light', 3],
+    ['late-morning sun, bright and warm from the upper right, even light filling the whole room', 2],
+    ['hazy bright afternoon light, soft and warm, diffused', 1],
     ['blue-hour dusk outside with the warm bedside lamp just switched on', 1],
-    ['flat grey overcast daylight, soft and even, no harsh sun', 1],
+    ['flat grey overcast daylight, soft and even, no direction, no harsh sun', 1],
     ['nighttime — dark outside with distant city lights, warm bedside lamp glow', 1],
   ],
 }
