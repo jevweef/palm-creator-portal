@@ -369,6 +369,8 @@ function shuffleScenarios(n) {
   const seen = new Set()
   const out = []
   let guard = 0
+  // Per-run tag so names never collide across separate shuffle runs.
+  const runTag = Date.now().toString(36).slice(-4)
   while (out.length < n && guard++ < n * 14) {
     const axis = pick(STATE_AXES)
     const stateChange = pick(AXES[axis])
@@ -380,7 +382,7 @@ function shuffleScenarios(n) {
     const change = light
       ? `just two small everyday differences: ${stateChange}; and the lighting is ${light}. Nothing else in the room changes.`
       : `just one small everyday difference: ${stateChange}. The lighting stays the same as the original and nothing else in the room changes.`
-    out.push({ name: `Shuffle ${out.length + 1}`, change })
+    out.push({ name: `Shuffle ${runTag}-${out.length + 1}`, change })
   }
   return out
 }
@@ -497,6 +499,16 @@ function RoomCard({ room, variations, refresh }) {
     setMsg(d.ok ? `Backfilled ${d.fixed}${d.skipped ? `, ${d.skipped} skipped` : ''}` : (d.error || 'failed'))
     setBusy(false); refresh()
   }
+  const renumberMasters = async () => {
+    if (!confirm('Rename every Dropbox master for this room to a clean sequential name (Variation 01, 02, …)? This also relinks Airtable.')) return
+    setBusy(true); setMsg('Renumbering Dropbox masters…')
+    const d = await fetch('/api/admin/recreate-rooms/variation', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: room.id, action: 'renumber' }),
+    }).then(r => r.json())
+    setMsg(d.ok ? `Renamed ${d.renamed}${d.skipped ? `, ${d.skipped} skipped` : ''}` : (d.error || 'failed'))
+    setBusy(false); refresh()
+  }
   const setVar = async (id, status) => {
     await fetch(`/api/admin/recreate-rooms/variation?id=${id}&status=${status}`, { method: 'PATCH' })
     refresh()
@@ -588,6 +600,15 @@ function RoomCard({ room, variations, refresh }) {
               <button onClick={backfillMasters} disabled={busy} style={{ fontSize: 11, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 5, padding: '4px 10px', cursor: busy ? 'default' : 'pointer' }}>
                 {busy ? 'Working…' : '↑ Backfill to Dropbox'}
               </button>
+            </div>
+          )}
+
+          {variations.some(v => v.dropbox) && (
+            <div style={{ marginTop: 10, fontSize: 11, color: 'var(--foreground-muted)' }}>
+              <button onClick={renumberMasters} disabled={busy} style={{ fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 5, padding: '4px 10px', cursor: busy ? 'default' : 'pointer' }}>
+                {busy ? 'Working…' : '# Renumber Dropbox files'}
+              </button>{' '}
+              cleans duplicate names → Variation 01, 02, …
             </div>
           )}
 

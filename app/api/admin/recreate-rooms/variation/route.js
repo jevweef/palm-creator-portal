@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile, uploadToDropbox, createDropboxSharedLink, moveDropboxItem } from '@/lib/dropbox'
 
 export const maxDuration = 300
 
@@ -8,13 +8,16 @@ const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const VARS = 'Recreate Room Variations'
 const ROOMS = 'Recreate Rooms'
 
-// POST { roomId } — backfill Dropbox masters for variations that never
-// got one (e.g. generated during a Dropbox auth blip). Pulls each
-// variation's Airtable image and pushes it to Dropbox.
+// POST { roomId, action? } —
+//   default        : backfill Dropbox masters for variations that never
+//                     got one (Dropbox auth blip). Pulls the Airtable image.
+//   action:renumber : rename every master to a unique sequential name
+//                     ("Variation NN.jpg") and resync Airtable. Fixes the
+//                     legacy duplicate "Shuffle 1/2/3" names.
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { roomId } = await request.json()
+    const { roomId, action } = await request.json()
     if (!roomId || !/^rec[A-Za-z0-9]{14}$/.test(roomId)) {
       return NextResponse.json({ error: 'Valid roomId required' }, { status: 400 })
     }
@@ -26,6 +29,35 @@ export async function POST(request) {
     const folderSafe = roomName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
 
     const all = await fetchAirtableRecords(VARS, { fields: ['Variation', 'Room', 'Recipe', 'Image', 'Dropbox Path'] })
+
+    if (action === 'renumber') {
+      const mine = all
+        .filter(v => (v.fields?.Room || []).includes(roomId) && v.fields?.['Dropbox Path'])
+        .sort((a, b) => String(a.createdTime).localeCompare(String(b.createdTime)))
+      if (mine.length === 0) return NextResponse.json({ ok: true, renamed: 0, skipped: 0 })
+      const tok = await getDropboxAccessToken()
+      const ns = await getDropboxRootNamespaceId(tok)
+      let renamed = 0
+      const skipped = []
+      for (let i = 0; i < mine.length; i++) {
+        const v = mine[i]
+        const from = v.fields['Dropbox Path']
+        const to = `/Palm Ops/Recreate Rooms/${folderSafe}/Variation ${String(i + 1).padStart(2, '0')}.jpg`
+        if (from === to) { renamed++; continue }
+        try {
+          await moveDropboxItem(tok, ns, from, to, { autorename: false })
+          let link = ''
+          try { link = await createDropboxSharedLink(tok, ns, to) } catch {}
+          await patchAirtableRecord(VARS, v.id, {
+            'Dropbox Path': to,
+            ...(link ? { 'Dropbox Link': link } : {}),
+          })
+          renamed++
+        } catch { skipped.push(v.id) }
+      }
+      return NextResponse.json({ ok: true, renamed, skipped: skipped.length })
+    }
+
     const missing = all.filter(v =>
       (v.fields?.Room || []).includes(roomId)
       && !v.fields?.['Dropbox Path']
