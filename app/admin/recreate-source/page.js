@@ -321,7 +321,7 @@ const AXES = {
     'a small pile of clothes and a hoodie on the floor',
     'a pair of shoes kicked off near the bed',
     'a towel dropped on the floor and a tote bag',
-    'a rolled-out yoga mat on the floor',
+'a single yoga mat unrolled flat on the bare marble floor (NOT on the rug), with two yoga blocks, a folded towel and a water bottle next to it so it clearly reads as a yoga setup',
     'a duffel/gym bag sitting on the floor',
     'a lot of clothes scattered across the floor, genuinely messy',
   ],
