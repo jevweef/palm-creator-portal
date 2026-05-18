@@ -41,15 +41,19 @@ export async function POST(request) {
       const skipped = []
       for (let i = 0; i < mine.length; i++) {
         const v = mine[i]
+        const label = `Variation ${String(i + 1).padStart(2, '0')}`
         const from = v.fields['Dropbox Path']
-        const to = `/Palm Ops/Recreate Rooms/${folderSafe}/Variation ${String(i + 1).padStart(2, '0')}.jpg`
-        if (from === to) { renamed++; continue }
+        const to = `/Palm Ops/Recreate Rooms/${folderSafe}/${label}.jpg`
         try {
-          await moveDropboxItem(tok, ns, from, to, { autorename: false })
+          if (from !== to) {
+            await moveDropboxItem(tok, ns, from, to, { autorename: false })
+          }
           let link = ''
           try { link = await createDropboxSharedLink(tok, ns, to) } catch {}
           await patchAirtableRecord(VARS, v.id, {
             'Dropbox Path': to,
+            Recipe: label,
+            Variation: `${roomName} - ${label}`,
             ...(link ? { 'Dropbox Link': link } : {}),
           })
           renamed++
