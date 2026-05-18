@@ -25,11 +25,15 @@ export async function GET(request) {
 
     let reels = []
     if (creatorId && /^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
-      const rows = await fetchAirtableRecords('Recreate Reels', {
+      // NOTE: do NOT filter the linked Creator via ARRAYJOIN+FIND —
+      // ARRAYJOIN({Creator}) yields the creator's primary-field text, not
+      // rec IDs, so FIND('rec…') silently matches nothing. Filter Status
+      // server-side, then match the Creator link array client-side.
+      const rows = (await fetchAirtableRecords('Recreate Reels', {
         fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Caption', 'Posted At', 'Views', 'Dropbox Video Link', 'Thumbnail', 'Status', 'Creator'],
-        filterByFormula: `AND(FIND('${creatorId}', ARRAYJOIN({Creator})), {Status} = 'Available')`,
+        filterByFormula: `{Status} = 'Available'`,
         sort: [{ field: 'Posted At', direction: 'desc' }],
-      })
+      })).filter(r => (r.fields?.Creator || []).includes(creatorId))
       reels = rows.map(r => {
         const f = r.fields || {}
         const thumb = Array.isArray(f.Thumbnail) && f.Thumbnail[0] ? f.Thumbnail[0].url : null

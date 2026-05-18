@@ -97,19 +97,20 @@ function ReelCard({ reel, selected, onToggle, onUploaded }) {
           <span>{reel.views ? `${reel.views.toLocaleString()} views` : ''}</span>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <a
-            href={`/api/ai-editor/download`} onClick={async (e) => {
-              e.preventDefault()
-              const r = await fetch('/api/ai-editor/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reelIds: [reel.id] }) })
-              if (!r.ok) return
-              const blob = await r.blob()
-              const a = document.createElement('a')
-              a.href = URL.createObjectURL(blob)
-              a.download = `${reel.reelId}.zip`
-              a.click()
+          <button
+            onClick={async () => {
+              if (!reel.video) return
+              try {
+                const r = await fetch(reel.video)
+                const blob = await r.blob()
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(blob)
+                a.download = `${reel.reelId || 'reel'}.mp4`
+                a.click()
+              } catch {}
             }}
-            style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: 12, color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, textDecoration: 'none', cursor: 'pointer' }}
-          >↓ Download</a>
+            style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: 12, color: 'var(--foreground)', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}
+          >↓ Download</button>
           <button
             onClick={() => setShowUpload(v => !v)}
             style={{ flex: 1, padding: '6px 0', fontSize: 12, color: '#6AC68A', background: 'rgba(106,198,138,0.1)', border: '1px solid rgba(106,198,138,0.3)', borderRadius: 5, cursor: 'pointer' }}

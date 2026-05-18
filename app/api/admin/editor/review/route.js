@@ -31,7 +31,7 @@ export async function GET() {
     const [assetRecords, creatorRecords, inspoRecords] = await Promise.all([
       assetIds.length ? fetchAirtableRecords('Assets', {
         filterByFormula: recordIdFormula(assetIds),
-        fields: ['Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Edited File Link', 'Thumbnail', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Palm Creators'],
+        fields: ['Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Edited File Link', 'Thumbnail', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Palm Creators', 'Source Type', 'Reference Source URL'],
       }) : [],
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
         filterByFormula: recordIdFormula(creatorIds),
@@ -83,6 +83,8 @@ export async function GET() {
           cdnUrl: asset['CDN URL'] || null,
           streamEditId: asset['Stream Edit ID'] || null,
           streamRawId: asset['Stream Raw ID'] || null,
+          sourceType: asset['Source Type'] || '',
+          referenceSourceUrl: asset['Reference Source URL'] || '',
         },
         inspo: {
           id: inspoId,
