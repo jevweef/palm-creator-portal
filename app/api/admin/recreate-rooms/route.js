@@ -94,28 +94,57 @@ export async function GET() {
   }
 }
 
-// POST — create a Draft room and generate its base plate
+// POST — create a Draft room. Either generate the base (basePrompt) OR
+// use an uploaded image (imageBase64) — for rooms you already made.
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { creatorId, roomName, angle, basePrompt } = await request.json()
+    const { creatorId, roomName, angle, basePrompt, imageBase64, imageType } = await request.json()
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
-    if (!roomName?.trim() || !basePrompt?.trim()) {
-      return NextResponse.json({ error: 'roomName and basePrompt required' }, { status: 400 })
+    if (!roomName?.trim()) {
+      return NextResponse.json({ error: 'roomName required' }, { status: 400 })
     }
-    const url = await genBaseImage(basePrompt)
-    const created = await createAirtableRecord(ROOMS, {
+    if (!imageBase64 && !basePrompt?.trim()) {
+      return NextResponse.json({ error: 'Provide an uploaded image or a base prompt' }, { status: 400 })
+    }
+
+    const fields = {
       'Room Name': roomName.trim(),
       Creator: [creatorId],
       Angle: (angle || 'Main').trim(),
-      'Base Prompt': basePrompt.trim(),
+      'Base Prompt': (basePrompt || '').trim(),
       'Lock Inventory': DEFAULT_LOCK,
-      'Base Image': [{ url }],
       Status: 'Draft',
-    })
-    return NextResponse.json({ ok: true, roomId: created?.records?.[0]?.id || created?.id, baseImage: url })
+    }
+    let baseUrl = null
+    if (!imageBase64) {
+      baseUrl = await genBaseImage(basePrompt)
+      fields['Base Image'] = [{ url: baseUrl }]
+    }
+    const created = await createAirtableRecord(ROOMS, fields)
+    const roomId = created?.records?.[0]?.id || created?.id
+
+    // Uploaded image → attach via the content API (no public URL needed)
+    if (imageBase64) {
+      const up = await fetch(
+        `https://content.airtable.com/v0/${OPS_BASE}/${roomId}/Base%20Image/uploadAttachment`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contentType: imageType || 'image/jpeg',
+            filename: `${roomName.trim()}.jpg`,
+            file: imageBase64,
+          }),
+        }
+      )
+      if (!up.ok) {
+        return NextResponse.json({ error: `Image attach failed: ${await up.text()}` }, { status: 500 })
+      }
+    }
+    return NextResponse.json({ ok: true, roomId, baseImage: baseUrl })
   } catch (err) {
     if (err instanceof Response) return err
     return NextResponse.json({ error: err.message }, { status: 500 })
@@ -126,7 +155,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     await requireAdmin()
-    const { roomId, action, lockInventory, roomName } = await request.json()
+    const { roomId, action, lockInventory, roomName, imageBase64, imageType } = await request.json()
     if (!roomId || !/^rec[A-Za-z0-9]{14}$/.test(roomId)) {
       return NextResponse.json({ error: 'Valid roomId required' }, { status: 400 })
     }
@@ -139,6 +168,25 @@ export async function PATCH(request) {
       const url = await genBaseImage(f['Base Prompt'] || '')
       await patchAirtableRecord(ROOMS, roomId, { 'Base Image': [{ url }], Status: 'Draft' })
       return NextResponse.json({ ok: true, baseImage: url })
+    }
+    if (action === 'replaceImage') {
+      if (!imageBase64) return NextResponse.json({ error: 'imageBase64 required' }, { status: 400 })
+      // Clear the existing attachment, then upload the new one.
+      await patchAirtableRecord(ROOMS, roomId, { 'Base Image': [], Status: 'Draft' })
+      const up = await fetch(
+        `https://content.airtable.com/v0/${OPS_BASE}/${roomId}/Base%20Image/uploadAttachment`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contentType: imageType || 'image/jpeg',
+            filename: `${f['Room Name'] || 'room'}.jpg`,
+            file: imageBase64,
+          }),
+        }
+      )
+      if (!up.ok) return NextResponse.json({ error: `attach failed: ${await up.text()}` }, { status: 500 })
+      return NextResponse.json({ ok: true })
     }
     if (action === 'lock') {
       await patchAirtableRecord(ROOMS, roomId, {

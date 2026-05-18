@@ -362,7 +362,9 @@ function RoomCard({ room, variations, refresh }) {
           <textarea value={lock} onChange={e => setLock(e.target.value)} rows={4}
             style={{ width: '100%', padding: 8, background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 11, fontFamily: 'inherit', resize: 'vertical' }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button onClick={regen} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, background: 'none', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>↻ Regenerate base</button>
+            {room.basePrompt?.trim() && (
+              <button onClick={regen} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, background: 'none', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>↻ Regenerate base</button>
+            )}
             <button onClick={doLock} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 5, cursor: 'pointer' }}>{room.status === 'Locked' ? 'Save lock list' : 'Lock room'}</button>
           </div>
         </div>
@@ -413,8 +415,17 @@ function RoomsPanel() {
   const [data, setData] = useState(null)
   const [creatorId, setCreatorId] = useState('')
   const [form, setForm] = useState({ name: '', angle: 'Main', prompt: '' })
+  const [mode, setMode] = useState('upload')
+  const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+
+  const fileToB64 = (f) => new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload = () => res(String(r.result).split(',')[1])
+    r.onerror = rej
+    r.readAsDataURL(f)
+  })
 
   const load = useCallback(async () => {
     const d = await fetch('/api/admin/recreate-rooms').then(r => r.json())
@@ -424,15 +435,25 @@ function RoomsPanel() {
   useEffect(() => { load() }, [load])
 
   const createRoom = async () => {
-    if (!creatorId || !form.name.trim() || !form.prompt.trim()) { setMsg('Creator, name and prompt required'); return }
-    setBusy(true); setMsg('Generating base room (~30s)…')
+    if (!creatorId || !form.name.trim()) { setMsg('Creator and room name required'); return }
+    let body = { creatorId, roomName: form.name, angle: form.angle }
+    if (mode === 'upload') {
+      if (!file) { setMsg('Choose an image to upload'); return }
+      setBusy(true); setMsg('Uploading room…')
+      body.imageBase64 = await fileToB64(file)
+      body.imageType = file.type || 'image/jpeg'
+    } else {
+      if (!form.prompt.trim()) { setMsg('Enter a base prompt'); return }
+      setBusy(true); setMsg('Generating base room (~30s)…')
+      body.basePrompt = form.prompt
+    }
     const d = await fetch('/api/admin/recreate-rooms', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ creatorId, roomName: form.name, angle: form.angle, basePrompt: form.prompt }),
+      body: JSON.stringify(body),
     }).then(r => r.json())
-    setMsg(d.ok ? 'Base generated — review & lock it below.' : (d.error || 'failed'))
+    setMsg(d.ok ? 'Base saved — review & lock it below.' : (d.error || 'failed'))
     setBusy(false)
-    if (d.ok) { setForm({ name: '', angle: 'Main', prompt: '' }); load() }
+    if (d.ok) { setForm({ name: '', angle: 'Main', prompt: '' }); setFile(null); load() }
   }
 
   if (!data) return <div style={{ padding: 40, color: '#666', fontSize: 13 }}>Loading…</div>
@@ -461,11 +482,26 @@ function RoomsPanel() {
             style={{ flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
           <input value={form.angle} onChange={e => setForm(f => ({ ...f, angle: e.target.value }))} placeholder="Angle" style={{ width: 110, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
         </div>
-        <textarea value={form.prompt} onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))} rows={4}
-          placeholder="Base room prompt (the locked location — paste your dialed-in bedroom prompt)"
-          style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', resize: 'vertical' }} />
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          {['upload', 'prompt'].map(m => (
+            <button key={m} onClick={() => setMode(m)} style={{
+              padding: '4px 12px', fontSize: 11, borderRadius: 5, cursor: 'pointer',
+              background: mode === m ? 'var(--palm-pink)' : 'rgba(255,255,255,0.04)',
+              color: mode === m ? '#1a0a0a' : 'var(--foreground-muted)',
+              border: '1px solid rgba(255,255,255,0.1)', fontWeight: mode === m ? 700 : 400,
+            }}>{m === 'upload' ? 'Upload image' : 'Generate from prompt'}</button>
+          ))}
+        </div>
+        {mode === 'upload' ? (
+          <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)}
+            style={{ fontSize: 12, color: 'var(--foreground-muted)', width: '100%' }} />
+        ) : (
+          <textarea value={form.prompt} onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))} rows={4}
+            placeholder="Base room prompt (the locked location — paste your dialed-in bedroom prompt)"
+            style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', resize: 'vertical' }} />
+        )}
         <button onClick={createRoom} disabled={busy} style={{ marginTop: 8, padding: '8px 18px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
-          {busy ? 'Generating…' : 'Generate base room'}
+          {busy ? 'Working…' : mode === 'upload' ? 'Add room from image' : 'Generate base room'}
         </button>
         {msg && <span style={{ fontSize: 12, color: 'var(--foreground-muted)', marginLeft: 10 }}>{msg}</span>}
       </div>
