@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, createAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 export const maxDuration = 60
 
@@ -46,21 +47,59 @@ export async function POST(request) {
     const sameRoot = allRooms.filter(r =>
       (r.fields?.Creator || []).includes(creatorId)
       && String(r.fields?.['Room Name'] || '').replace(/\s*[—-]\s*Angle\s*\d+\s*$/i, '').trim() === root)
-    const newName = `${root} — Angle ${sameRoot.length + 1}`
+    const angleN = sameRoot.length + 1
+    const newName = `${root} — Angle ${angleN}`
+    const safe = newName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
+
+    // Give the angle room its OWN Dropbox master (independent copy), so
+    // the staging candidate can be removed without breaking it and the
+    // two never share a file. Falls back to the shared path if the copy
+    // fails (non-fatal).
+    let baseDbxPath = dbxPath, baseDbxLink = dbxLink, baseImg = imgUrl
+    try {
+      const imgRes = await fetch(imgUrl)
+      if (imgRes.ok) {
+        const buf = Buffer.from(await imgRes.arrayBuffer())
+        const tok = await getDropboxAccessToken()
+        const ns = await getDropboxRootNamespaceId(tok)
+        const newPath = `/Palm Ops/Recreate Rooms/${safe}/_base/${safe}-${Date.now()}.jpg`
+        await uploadToDropbox(tok, ns, newPath, buf, { overwrite: true })
+        let link = ''
+        try { link = await createDropboxSharedLink(tok, ns, newPath) } catch {}
+        baseDbxPath = newPath
+        if (link) { baseDbxLink = link; baseImg = rawDbx(link) }
+      }
+    } catch (e) {
+      console.warn(`[promote-angle] independent copy failed, sharing source path: ${e.message}`)
+    }
 
     const fields = {
       'Room Name': newName,
       Creator: [creatorId],
-      Angle: `Angle ${sameRoot.length + 1}`,
+      Angle: `Angle ${angleN}`,
       'Base Prompt': '',
       Status: 'Locked',
-      'Base Image': [{ url: imgUrl }],
-      ...(dbxPath ? { 'Base Dropbox Path': dbxPath } : {}),
-      ...(dbxLink ? { 'Base Dropbox Link': dbxLink } : {}),
+      'Base Image': [{ url: baseImg }],
+      ...(baseDbxPath ? { 'Base Dropbox Path': baseDbxPath } : {}),
+      ...(baseDbxLink ? { 'Base Dropbox Link': baseDbxLink } : {}),
     }
     const created = await createAirtableRecord(ROOMS, fields)
     const roomId = created?.records?.[0]?.id || created?.id
-    return NextResponse.json({ ok: true, roomId, name: newName })
+
+    // Remove the source candidate from the staging gallery so a promoted
+    // angle never lingers as a pending candidate. Airtable record ONLY —
+    // do not touch Dropbox (only safe to skip the file delete because the
+    // angle room now has its own independent copy when baseDbxPath !=
+    // dbxPath; if the copy fell back to the shared path, keep the source).
+    let removedSource = false
+    if (baseDbxPath && baseDbxPath !== dbxPath) {
+      try {
+        const dRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(VARS)}/${variationId}`,
+          { method: 'DELETE', headers: { Authorization: `Bearer ${AIRTABLE_PAT}` } })
+        removedSource = dRes.ok
+      } catch {}
+    }
+    return NextResponse.json({ ok: true, roomId, name: newName, removedSource })
   } catch (err) {
     if (err instanceof Response) return err
     return NextResponse.json({ error: err.message }, { status: 500 })
