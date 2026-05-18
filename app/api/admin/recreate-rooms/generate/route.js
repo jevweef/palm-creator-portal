@@ -11,6 +11,35 @@ const VARS = 'Recreate Room Variations'
 const EDIT_MODEL = 'google/nano-banana-2/edit'
 const MAX_PER_RUN = 6
 
+// Camera-move variation. This is the ONLY case where the viewpoint may
+// change — and it is the highest-drift operation, so every physical
+// object is clamped as hard as possible while only the tripod moves.
+function buildAnglePrompt(lockInventory, change) {
+  return (
+    'This is a NEW photograph of the EXACT SAME real room, taken with the '
+    + 'tripod physically moved to a different spot in that same room and the '
+    + 'camera re-aimed. It is NOT a redesign, restyle or re-render — it is the '
+    + 'identical room shot from a new position.\n\n'
+    + 'CAMERA — the only thing that changes: ' + change + ' Re-frame so the room '
+    + 'is composed cleanly (verticals stay vertical, nothing important cropped '
+    + 'awkwardly). Perspective, parallax and which parts of the room are visible '
+    + 'should update naturally for the new tripod position.\n\n'
+    + 'HARD CONSTRAINTS — these are violations, not preferences: every physical '
+    + 'object keeps its EXACT real-world size, shape, material, color, count and '
+    + 'place in the room. Do NOT resize, rescale, stretch, add, remove, replace, '
+    + 'duplicate or redesign ANY furniture or object. The bed stays the exact '
+    + 'same size and in the exact same spot against the same wall. The rug stays '
+    + 'the EXACT same size, shape and place and must NOT be removed, shrunk or '
+    + 'enlarged. Walls, windows, the outside view, floor, dresser, nightstand, '
+    + 'mirror, plants and décor are all unchanged — only the angle they are seen '
+    + 'from changes. Same time of day, same lighting, same tidiness/clutter as '
+    + 'the input. It must look like the same room a viewer would instantly '
+    + 'recognize, just filmed from a tripod moved a few feet.\n\n'
+    + `THE ROOM\'S PERMANENT IDENTITY (must read identical, just from the new angle): ${lockInventory}\n\n`
+    + 'Same candid iPhone photo style, no people, no text, no watermark.'
+  )
+}
+
 function buildPrompt(lockInventory, change) {
   return (
     'This is a TINY local edit of the photo. Treat the input image as final '
@@ -54,7 +83,8 @@ async function runEdit(baseUrl, prompt) {
   throw new Error('edit timed out')
 }
 
-// POST — { roomId, recipes: [{ name, change }] }  (cap MAX_PER_RUN)
+// POST — { roomId, recipes: [{ name, change, mode? }] }  (cap MAX_PER_RUN)
+// mode 'angle' = camera-move variation (different prompt path).
 export async function POST(request) {
   try {
     await requireAdmin()
@@ -95,7 +125,9 @@ export async function POST(request) {
       const name = String(r?.name || 'variation').slice(0, 60)
       const change = String(r?.change || '').trim()
       if (!change) { failed.push({ name, reason: 'no change text' }); continue }
-      const prompt = buildPrompt(lock, change)
+      const prompt = r?.mode === 'angle'
+        ? buildAnglePrompt(lock, change)
+        : buildPrompt(lock, change)
       try {
         const url = await runEdit(baseUrl, prompt)
 

@@ -437,6 +437,24 @@ function shuffleScenarios(n) {
   return out
 }
 
+// Modest tripod moves only — big moves drift hard. Each describes
+// where the tripod goes and how it re-aims so the room stays framed.
+// These are CANDIDATE angle bases: generate, eyeball, then promote
+// the good one into its own locked Room.
+const ANGLES = [
+  'the tripod is moved about 4–5 ft to the LEFT and the camera rotated to the RIGHT to keep the whole room framed — a noticeably different left-side viewpoint of the same room',
+  'the tripod is moved about 4–5 ft to the RIGHT and the camera rotated to the LEFT to keep the whole room framed — a noticeably different right-side viewpoint of the same room',
+  'the tripod is moved a few feet toward the foot of the bed and the camera angled back toward the headboard wall — same room, seen more end-on',
+  'the tripod is moved a few feet toward the window side and the camera angled back across the room toward the bed — same room from nearer the windows',
+  'the tripod is stepped back a couple of feet for a slightly wider view of the same room, same height and aim',
+  'the tripod is lowered about a foot for a slightly lower, more grounded angle of the same room',
+]
+function angleScenarios(n) {
+  const idx = [...ANGLES.keys()].sort(() => Math.random() - 0.5).slice(0, n)
+  const runTag = Date.now().toString(36).slice(-4)
+  return idx.map((i, k) => ({ name: `Angle ${runTag}-${k + 1}`, change: ANGLES[i], mode: 'angle' }))
+}
+
 // Upload the FULL-RES file straight to Dropbox (no downscale, no
 // serverless body limit) via a minted token; returns the Dropbox path.
 async function dropboxUploadBase(file, roomName) {
@@ -529,6 +547,35 @@ function RoomCard({ room, variations, refresh }) {
     setMsg(d.ok ? `Made ${d.made?.length || 0}${d.failed?.length ? `, ${d.failed.length} failed` : ''}` : (d.error || 'failed'))
     setBusy(false); refresh()
   }
+  const doAngleShuffle = async () => {
+    const n = Math.min(Math.max(1, Number(shuffleN) || 4), 6)
+    const recipes = angleScenarios(n)
+    setBusy(true); setMsg(`Generating ${recipes.length} angle candidates… (camera moves drift — keep the good ones)`)
+    const d = await fetch('/api/admin/recreate-rooms/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: room.id, recipes }),
+    }).then(r => r.json())
+    setMsg(d.ok ? `Made ${d.made?.length || 0} angle candidate(s) — review, then “Save as angle” on a good one` : (d.error || 'failed'))
+    setBusy(false); refresh()
+  }
+  const promoteAngle = async (v) => {
+    if (!confirm('Save this image as its own locked room (a new angle for this creator)? Sonnet will auto-write its lock list.')) return
+    setBusy(true); setMsg('Creating new angle room…')
+    const d = await fetch('/api/admin/recreate-rooms/promote-angle', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variationId: v.id }),
+    }).then(r => r.json())
+    if (!d.ok) { setMsg(d.error || 'failed'); setBusy(false); return }
+    setMsg(`Created “${d.name}” — analyzing lock list…`)
+    try {
+      await fetch('/api/admin/recreate-rooms/analyze-lock', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: d.roomId }),
+      })
+    } catch {}
+    setMsg(`“${d.name}” ready — shuffle clutter off it like any room.`)
+    setBusy(false); refresh()
+  }
   const replaceBase = async (f) => {
     if (!f) return
     setBusy(true); setMsg('Replacing base image…')
@@ -616,6 +663,9 @@ function RoomCard({ room, variations, refresh }) {
             <button onClick={doShuffle} disabled={busy} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
               {busy ? 'Working…' : '🎲 Shuffle & generate'}
             </button>
+            <button onClick={doAngleShuffle} disabled={busy} title="Generate alternate camera angles of this room. Pick a faithful one and Save as angle." style={{ padding: '9px 16px', fontSize: 13, fontWeight: 700, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: '1px solid rgba(120,160,232,0.4)', borderRadius: 6, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+              📐 Angle shuffle
+            </button>
             <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
               count{' '}
               <input type="number" min={1} max={6} value={shuffleN} onChange={e => setShuffleN(e.target.value)}
@@ -693,6 +743,7 @@ function RoomCard({ room, variations, refresh }) {
                 <button onClick={() => go(-1)} disabled={modalIdx === 0} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>‹</button>
                 <button onClick={() => approveAndDownload(v)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, background: '#6AC68A', color: '#0a1a0f', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✓ Approve &amp; download</button>
                 <button onClick={() => downloadVar(v)} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, cursor: 'pointer' }}>⬇ Download</button>
+                <button onClick={async () => { await promoteAngle(v); setModalIdx(-1) }} title="Make this image its own locked room (a new angle for this creator)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.18)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.4)', borderRadius: 6, cursor: 'pointer' }}>📐 Save as angle</button>
                 <button onClick={async () => { await setVar(v.id, 'Rejected'); setModalIdx(-1) }} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(232,120,120,0.15)', color: '#E87878', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
                 <button onClick={async () => { await delVar(v.id); setModalIdx(-1) }} style={{ padding: '8px 12px', fontSize: 13, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>🗑</button>
                 <button onClick={() => go(1)} disabled={modalIdx >= variations.length - 1} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>›</button>
