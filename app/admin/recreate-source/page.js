@@ -942,17 +942,21 @@ function RoomsPanel() {
     if (!confirm(`Organize Dropbox files for ALL ${rooms.length} rooms of this creator?\n\nMoves each room's base into its own /{room}/_base/ folder and renumbers variations. Relinks Airtable. Safe to re-run.`)) return
     setBusy(true)
     let done = 0
+    const errs = []
     for (const r of rooms) {
       setMsg(`Organizing ${done + 1}/${rooms.length}: ${r.name}…`)
       try {
-        await fetch('/api/admin/recreate-rooms/variation', {
+        const d = await fetch('/api/admin/recreate-rooms/variation', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ roomId: r.id, action: 'renumber' }),
-        })
-      } catch {}
+        }).then(x => x.json())
+        if (d?.baseError) errs.push(`${r.name}: ${d.baseError}`)
+      } catch (e) { errs.push(`${r.name}: ${e.message || e}`) }
       done++
     }
-    setMsg(`✅ Organized ${done} room(s) — every base is now in its own /{room}/_base/ folder.`)
+    setMsg(errs.length
+      ? `Organized ${done}, but base move failed on ${errs.length}: ${errs.join(' | ')}`
+      : `✅ Organized ${done} room(s) — every base is now in its own /{room}/_base/ folder.`)
     setBusy(false); load()
   }
 

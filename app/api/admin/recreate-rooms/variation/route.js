@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, patchAirtableRecord, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile, uploadToDropbox, createDropboxSharedLink, moveDropboxItem } from '@/lib/dropbox'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile, uploadToDropbox, createDropboxSharedLink, moveDropboxItem, createDropboxFolder } from '@/lib/dropbox'
 
 export const maxDuration = 300
 
@@ -35,21 +35,22 @@ export async function POST(request) {
       const mine = all
         .filter(v => (v.fields?.Room || []).includes(roomId) && v.fields?.['Dropbox Path'])
         .sort((a, b) => String(a.createdTime).localeCompare(String(b.createdTime)))
-      if (mine.length === 0) return NextResponse.json({ ok: true, renamed: 0, skipped: 0 })
       const tok = await getDropboxAccessToken()
       const ns = await getDropboxRootNamespaceId(tok)
       let renamed = 0
       let baseMoved = false
+      let baseError = ''
       const skipped = []
 
       // Put the room's BASE image inside its own /{room}/_base/ folder
-      // so every room is organized the same way (older angle rooms had
-      // their base loose in the parent folder).
+      // so every room is organized the same way. MUST run before any
+      // variation early-return — angle rooms often have no variations yet.
       const basePath = roomFields['Base Dropbox Path']
       if (basePath) {
         const baseTo = `/Palm Ops/Recreate Rooms/${folderSafe}/_base/${folderSafe} base.jpg`
         if (basePath !== baseTo) {
           try {
+            try { await createDropboxFolder(tok, ns, `/Palm Ops/Recreate Rooms/${folderSafe}/_base`) } catch {}
             await moveDropboxItem(tok, ns, basePath, baseTo, { autorename: false })
             let bl = ''
             try { bl = await createDropboxSharedLink(tok, ns, baseTo) } catch {}
@@ -58,7 +59,9 @@ export async function POST(request) {
               ...(bl ? { 'Base Dropbox Link': bl, 'Base Image': [{ url: bl.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') }] } : {}),
             })
             baseMoved = true
-          } catch { /* non-fatal: base stays where it is */ }
+          } catch (e) { baseError = e?.message || String(e) }
+        } else {
+          baseMoved = true
         }
       }
       for (let i = 0; i < mine.length; i++) {
@@ -81,7 +84,7 @@ export async function POST(request) {
           renamed++
         } catch { skipped.push(v.id) }
       }
-      return NextResponse.json({ ok: true, renamed, skipped: skipped.length, baseMoved })
+      return NextResponse.json({ ok: true, renamed, skipped: skipped.length, baseMoved, baseError })
     }
 
     const missing = all.filter(v =>
