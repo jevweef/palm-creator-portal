@@ -120,6 +120,22 @@ export default function RecreateLibraryPage() {
     } catch (e) { setMsg(e.message) } finally { setBusy(false) }
   }
 
+  // Manual single re-scrape of one account (works for Ready/Error rows
+  // too — `recordIds` selects regardless of status). Upsert dedup makes
+  // this 100% safe to click: it resumes/fills gaps, never duplicates.
+  const reScrape = async (s) => {
+    setBusy(true); setMsg(`Re-scraping @${s.handle}…`)
+    try {
+      const res = await fetch('/api/admin/recreate-scrape', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: [s.id] }),
+      })
+      const data = await res.json()
+      setMsg(res.ok ? `Re-scrape started for @${s.handle}` : (data.error || 'Failed'))
+      load()
+    } catch (e) { setMsg(e.message) } finally { setBusy(false) }
+  }
+
   const backfillPosters = async () => {
     setPosterBusy(true); setMsg('Optimizing (Cloudflare + posters)…')
     try {
@@ -189,6 +205,12 @@ export default function RecreateLibraryPage() {
             <span style={{ color: 'var(--foreground-muted)', fontSize: 10 }}>
               {reels.filter(r => (r.handle || '').toLowerCase() === (s.handle || '').toLowerCase()).length} in library
             </span>
+            {s.status !== 'Scraping' && (
+              <button onClick={() => reScrape(s)} disabled={busy} title="Re-scrape this account (safe — upsert dedup, never duplicates)"
+                style={{ background: 'rgba(106,198,138,0.12)', border: '1px solid rgba(106,198,138,0.35)', color: '#6AC68A', cursor: busy ? 'default' : 'pointer', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>
+                ↻ Re-scrape
+              </button>
+            )}
             <button onClick={() => removeSource(s.id)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 13, padding: 0 }}>×</button>
           </div>
         ))}
