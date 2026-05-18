@@ -444,13 +444,16 @@ function shuffleScenarios(n) {
 // Composition-TARGET framing: name what sits dead-center, then the
 // tripod move that achieves it. The model controls rotation far
 // better from "center X" than from "rotate N degrees".
+// TIGHT, distinct compositions — the model keeps snapping back to the
+// wide full-room view, so each of these is a close shot on one subject
+// that physically cannot look like the original establishing frame.
 const ANGLES = [
-  'AIM so the CORNER where the two floor-to-ceiling glass/window walls meet is DEAD-CENTER of the frame. To do this the tripod moves well to the LEFT and the camera rotates RIGHT toward the windows. The back window is NO LONGER centered — the glass corner is. Both glass walls splay away from that centered corner.',
-  'AIM so the standing LEANING MIRROR is DEAD-CENTER of the frame. The tripod moves to the RIGHT and the camera rotates LEFT back toward the headboard wall, so the mirror and the wall behind the bed face the camera and the windows fall to one side.',
-  'AIM straight down the bed so the HEADBOARD and the wall décor above it are DEAD-CENTER. The tripod moves to the FOOT OF THE BED and faces back at the headboard wall; the windows and dresser sit off to the side.',
-  'AIM so the DRESSER against the glass is DEAD-CENTER of the frame. The tripod moves toward the bed and rotates to point at the dresser, the ocean view directly behind it, the bed running in from one side.',
-  'A WIDE view from the far CORNER of the room behind the foot of the bed, the camera taking in the whole room at once — the glass-wall corner roughly centered, both walls and the full rug visible, deep perspective.',
-  'A LOW vantage near the floor at the foot of the rug, aimed back at the bed with the bed roughly centered and the windows behind it — strong foreground rug, the room rising up behind, a clearly different eye level.',
+  'TIGHT shot into the CORNER where the two floor-to-ceiling glass walls meet: step the tripod CLOSE to the windows and aim straight into that corner so it runs floor-to-ceiling up the dead-center, both glass walls splaying out to fill the left and right of the frame. The bed is mostly out of frame (only its foot may clip an edge). Close, NOT a wide room view.',
+  'TIGHT shot on the leaning MIRROR: move close and aim at the mirror so it stands nearly floor-to-ceiling in the dead-center of the frame, the headboard wall and macramé wall-hanging beside it. The windows only just clip one edge. Close, NOT a wide room view.',
+  'TIGHT shot on the DRESSER: move toward the dresser and aim straight at it so it fills the lower-center of the frame with the ocean view directly behind it through the glass. The bed only intrudes a little from the far edge. Close, NOT a wide room view.',
+  'DOWN-THE-BED axis from the FOOT of the bed aimed straight at the headboard: the bed runs directly away from the camera up the center to the centered headboard and macramé above it, roughly symmetrical, windows only at the right edge. A completely different camera axis.',
+  'ALONG THE GLASS: stand right at the window wall and aim lengthwise back toward the headboard end of the room, the glass wall raking down one side in steep perspective, the room compressed front-to-back. A long lengthwise shot, not the standard cross-room view.',
+  'HIGH and looking DOWN at about 30° over the rug and bed — much more floor and rug, the ceiling barely visible. A clearly different camera pitch from the original eye-level shot.',
 ]
 function angleScenarios(n) {
   const idx = [...ANGLES.keys()].sort(() => Math.random() - 0.5).slice(0, n)
