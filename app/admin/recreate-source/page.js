@@ -293,13 +293,13 @@ const RECIPES = [
   { name: 'Clean / midday', change: 'the room is spotless and freshly tidied, bed neatly made with smooth bedding, nothing on the floor, bright clean midday light' },
   { name: 'Lightly lived-in', change: 'gently lived-in — bed loosely made, a throw casually bunched, a phone and a glass of water on the nightstand, a cardigan on the corner of the bed' },
   { name: 'Messy', change: 'the bed is unmade with the duvet pulled back and pillows tossed, a small pile of clothes and a hoodie on the floor near the bed' },
-  { name: 'Super messy', change: 'genuinely messy — clothes scattered on the bed and floor, an overflowing laundry basket, a towel tossed down, cups on the nightstand, shoes kicked off' },
+  { name: 'Super messy', change: 'genuinely messy — women\'s clothes scattered on the bed and floor, an overflowing laundry basket, a towel tossed down, cups on the nightstand, white Nike Air Force 1 sneakers and strappy heels kicked off' },
   { name: 'Clothes on floor', change: 'a casual pile of clothes and one hoodie on the floor near the foot of the bed and a tote bag leaning against the dresser, light realistic amount' },
   { name: 'Golden hour', change: 'warm golden-hour sunset light through the windows with long soft shadows and an orange-pink sky' },
   { name: 'Early morning', change: 'soft cool early-morning light, dim and calm, lamps off, bed slept-in and unmade' },
   { name: 'Night / lamps', change: 'nighttime — dark outside with distant lights through the windows, the warm bedside lamp and fairy lights on, a lit candle' },
   { name: 'Overcast', change: 'flat soft grey overcast daylight, cozy and moody, no harsh sun' },
-  { name: 'Packing day', change: 'an open suitcase on the bed half-packed with folded clothes, a couple of outfits laid beside it, shoes on the rug, bright afternoon light' },
+  { name: 'Packing day', change: 'an open suitcase on the bed half-packed with folded women\'s clothes, a couple of outfits laid beside it, Birkenstock sandals and white sneakers by the suitcase, bright afternoon light' },
 ]
 
 // Independent everyday-life axes. A "shuffle" picks one option per axis
@@ -318,7 +318,7 @@ const AXES = {
   floor: [
     'one or two pieces of women\'s clothing — a sundress and a crop top — tossed in a crumpled heap on the BARE porcelain tile floor near the side, off the rug (not laid flat)',
     'a small folded stack of women\'s laundry (leggings, tops, a cardigan) sitting directly on the bare tile floor away from the rug',
-    'a pair of women\'s heels kicked off on the bare tile near the left wall and a women\'s knit top draped over the nightstand',
+'a pair of strappy tan stiletto heels kicked off on the bare tile near the left wall and a women\'s knit top draped over the nightstand',
     'a towel and a women\'s handbag tipped over on the bare porcelain floor between the rug and the camera',
     'a single yoga mat unrolled along the FAR RIGHT side parallel to the glass windows (off the rug, NOT in the center where someone would stand), with two yoga blocks, a folded towel and a water bottle beside it',
     'a women\'s gym bag open on the bare tile floor with workout clothes and a sports bra spilling out onto the tile',
@@ -330,7 +330,7 @@ const AXES = {
   foreground: [
     'a laundry basket of women\'s clothes in the lower-LEFT corner of the frame, close to the camera and partially cropped by the edge (center stays clear)',
     'the corner of a women\'s tote or handbag intruding from the far RIGHT edge of the foreground, cut off by the side of the frame (center stays clear)',
-    'a pair of women\'s heels kicked off into the lower-LEFT corner near the side wall, close to camera (center stays clear)',
+    'a pair of clean white Nike Air Force 1 women\'s sneakers kicked off into the lower-LEFT corner near the side wall, close to camera (center stays clear)',
     'a crumpled cardigan tossed in the lower-RIGHT corner of the frame, partially out of frame at the side (center stays clear)',
   ],
   // The shag rug is transient surface — it gets walked on.
@@ -351,10 +351,12 @@ const AXES = {
   elsewhere_everyday: [
     'a women\'s cardigan and a couple of tops draped over the foot of the bed and onto the floor',
     'a cropped hoodie and a women\'s tank top dropped on the floor near the foot of the bed',
-    'a pair of women\'s sneakers and some strappy sandals kicked off in the foreground close to the camera',
+    'a pair of Adidas Samba sneakers and tan Birkenstock Arizona sandals kicked off to the side close to the camera',
     'a bath towel dropped on the floor and a workout towel draped over the mirror',
     'a women\'s tote bag and a small purse set down on the floor by the dresser',
     'a women\'s mini backpack slumped against the wall in the foreground with a denim jacket beside it',
+    'a pair of tan UGG mini platform boots and white New Balance 530 sneakers lined up against the side wall',
+    'pink Hoka running shoes kicked off by the dresser with a scrunchie and a water bottle beside them',
     'a couple of water bottles and a coffee mug left on top of the dresser',
     'a half-full laundry basket of women\'s clothes on the floor in a back corner',
     'a folded pile of clean women\'s laundry on the floor by the dresser waiting to be put away',
@@ -375,7 +377,7 @@ const AXES = {
     'a few clothing-store and boutique shopping bags from a recent haul left on the floor near the doors',
     'a standing clothing rack with a few hung dresses and outfits and a garment bag against the side wall',
     'a folded ring light and a tripod leaning in the corner near the windows',
-    'a beach bag, a sun hat and sandals dropped by the windows like just back from outside',
+    'a straw beach bag, a sun hat and tan leather slide sandals dropped by the windows like just back from outside',
   ],
   bed_items: [
     'nothing on the bed',
