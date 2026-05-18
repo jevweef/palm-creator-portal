@@ -568,6 +568,7 @@ function RoomCard({ room, variations, refresh }) {
                   <div style={{ display: 'flex', gap: 2, padding: '0 4px 4px' }}>
                     <button onClick={() => setVar(v.id, 'Approved')} title="Approve" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(106,198,138,0.15)', color: '#6AC68A', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓</button>
                     <button onClick={() => setVar(v.id, 'Rejected')} title="Reject" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(232,120,120,0.12)', color: '#E87878', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                    <a href={v.image || '#'} target="_blank" rel="noopener noreferrer" title="Open / download" style={{ flex: 1, textAlign: 'center', fontSize: 11, padding: '3px 0', background: 'rgba(120,160,232,0.12)', color: '#8fb4f0', borderRadius: 4, textDecoration: 'none' }}>⬇</a>
                     <button onClick={() => delVar(v.id)} title="Delete" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'none', color: '#666', border: 'none', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
                   </div>
                 </div>
