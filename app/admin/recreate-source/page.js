@@ -73,6 +73,7 @@ export default function RecreateLibraryPage() {
   const [msg, setMsg] = useState('')
   const [filter, setFilter] = useState('')
   const [posterBusy, setPosterBusy] = useState(false)
+  const [tab, setTab] = useState('library')
 
   const load = useCallback(async () => {
     try {
@@ -167,8 +168,18 @@ export default function RecreateLibraryPage() {
   const queuedCount = sources.filter(s => s.status === 'Queued').length
   const shownReels = filter ? reels.filter(r => r.handle.toLowerCase().includes(filter.toLowerCase())) : reels
 
+  if (tab === 'rooms') {
+    return (
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <TabBar tab={tab} setTab={setTab} />
+        <RoomsPanel />
+      </div>
+    )
+  }
+
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <TabBar tab={tab} setTab={setTab} />
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>AI Recreate Library</h1>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 20 }}>
         One global pool. Add accounts → scrape → reels land here for every AI editor. They&apos;re filtered per-creator only by what&apos;s already been produced.
@@ -244,6 +255,224 @@ export default function RecreateLibraryPage() {
           {shownReels.map(r => <LibraryReel key={r.id} reel={r} onRemove={removeReel} />)}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Rooms tab ────────────────────────────────────────────────────────────
+
+function TabBar({ tab, setTab }) {
+  const t = (k, label) => (
+    <button onClick={() => setTab(k)} style={{
+      padding: '6px 16px', fontSize: 13, fontWeight: tab === k ? 700 : 500,
+      color: tab === k ? '#1a0a0a' : 'var(--foreground-muted)',
+      background: tab === k ? 'var(--palm-pink)' : 'transparent',
+      border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, cursor: 'pointer',
+    }}>{label}</button>
+  )
+  return (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+      {t('library', 'Reel Library')}
+      {t('rooms', 'Rooms')}
+    </div>
+  )
+}
+
+// Built-in variation recipes — each is a small additive change clause.
+const RECIPES = [
+  { name: 'Clean / midday', change: 'the room is spotless and freshly tidied, bed neatly made with smooth bedding, nothing on the floor, bright clean midday light' },
+  { name: 'Lightly lived-in', change: 'gently lived-in — bed loosely made, a throw casually bunched, a phone and a glass of water on the nightstand, a cardigan on the corner of the bed' },
+  { name: 'Messy', change: 'the bed is unmade with the duvet pulled back and pillows tossed, a small pile of clothes and a hoodie on the floor near the bed' },
+  { name: 'Super messy', change: 'genuinely messy — clothes scattered on the bed and floor, an overflowing laundry basket, a towel tossed down, cups on the nightstand, shoes kicked off' },
+  { name: 'Clothes on floor', change: 'a casual pile of clothes and one hoodie on the floor near the foot of the bed and a tote bag leaning against the dresser, light realistic amount' },
+  { name: 'Golden hour', change: 'warm golden-hour sunset light through the windows with long soft shadows and an orange-pink sky' },
+  { name: 'Early morning', change: 'soft cool early-morning light, dim and calm, lamps off, bed slept-in and unmade' },
+  { name: 'Night / lamps', change: 'nighttime — dark outside with distant lights through the windows, the warm bedside lamp and fairy lights on, a lit candle' },
+  { name: 'Overcast', change: 'flat soft grey overcast daylight, cozy and moody, no harsh sun' },
+  { name: 'Packing day', change: 'an open suitcase on the bed half-packed with folded clothes, a couple of outfits laid beside it, shoes on the rug, bright afternoon light' },
+]
+
+function RoomCard({ room, variations, refresh }) {
+  const [lock, setLock] = useState(room.lockInventory)
+  const [busy, setBusy] = useState(false)
+  const [picked, setPicked] = useState(() => new Set())
+  const [custom, setCustom] = useState('')
+  const [msg, setMsg] = useState('')
+
+  const api = async (method, body, qs = '') => {
+    const r = await fetch(`/api/admin/recreate-rooms${qs}`, {
+      method, headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+    return r.json()
+  }
+
+  const toggle = (n) => setPicked(p => { const s = new Set(p); s.has(n) ? s.delete(n) : s.add(n); return s })
+
+  const doLock = async () => {
+    setBusy(true); setMsg('Locking…')
+    await api('PATCH', { roomId: room.id, action: 'lock', lockInventory: lock })
+    setMsg(''); setBusy(false); refresh()
+  }
+  const regen = async () => {
+    setBusy(true); setMsg('Regenerating base…')
+    const d = await api('PATCH', { roomId: room.id, action: 'regenerate' })
+    setMsg(d.ok ? '' : (d.error || 'failed')); setBusy(false); refresh()
+  }
+  const del = async () => {
+    if (!confirm(`Delete room "${room.name}" and its variations?`)) return
+    await api('DELETE', null, `?roomId=${room.id}`); refresh()
+  }
+  const generate = async () => {
+    const recipes = RECIPES.filter(r => picked.has(r.name))
+    if (custom.trim()) recipes.push({ name: 'Custom', change: custom.trim() })
+    if (recipes.length === 0) { setMsg('Pick at least one recipe'); return }
+    setBusy(true); setMsg(`Generating ${recipes.length}…`)
+    const d = await fetch('/api/admin/recreate-rooms/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: room.id, recipes }),
+    }).then(r => r.json())
+    setMsg(d.ok ? `Made ${d.made?.length || 0}${d.failed?.length ? `, ${d.failed.length} failed` : ''}` : (d.error || 'failed'))
+    setBusy(false); setPicked(new Set()); setCustom(''); refresh()
+  }
+  const setVar = async (id, status) => {
+    await fetch(`/api/admin/recreate-rooms/variation?id=${id}&status=${status}`, { method: 'PATCH' })
+    refresh()
+  }
+  const delVar = async (id) => {
+    await fetch(`/api/admin/recreate-rooms/variation?id=${id}`, { method: 'DELETE' })
+    refresh()
+  }
+
+  return (
+    <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 16, marginBottom: 16, background: 'rgba(255,255,255,0.02)' }}>
+      <div style={{ display: 'flex', gap: 16 }}>
+        <div style={{ width: 150, flexShrink: 0 }}>
+          {room.baseImage
+            ? <img src={room.baseImage} alt="" style={{ width: '100%', borderRadius: 8, aspectRatio: '9/16', objectFit: 'cover' }} />
+            : <div style={{ width: '100%', aspectRatio: '9/16', background: '#000', borderRadius: 8 }} />}
+          <div style={{ fontSize: 11, fontWeight: 700, marginTop: 6, color: room.status === 'Locked' ? '#6AC68A' : '#888' }}>{room.status}</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ color: 'var(--foreground)', fontSize: 14 }}>{room.name} <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}>· {room.angle}</span></strong>
+            <button onClick={del} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14 }}>×</button>
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '10px 0 4px' }}>Do-not-change lock list</div>
+          <textarea value={lock} onChange={e => setLock(e.target.value)} rows={4}
+            style={{ width: '100%', padding: 8, background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 11, fontFamily: 'inherit', resize: 'vertical' }} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button onClick={regen} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, background: 'none', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>↻ Regenerate base</button>
+            <button onClick={doLock} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 5, cursor: 'pointer' }}>{room.status === 'Locked' ? 'Save lock list' : 'Lock room'}</button>
+          </div>
+        </div>
+      </div>
+
+      {room.status === 'Locked' && (
+        <div style={{ marginTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+          <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 6 }}>Variation recipes</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {RECIPES.map(r => (
+              <button key={r.name} onClick={() => toggle(r.name)} style={{
+                padding: '4px 10px', fontSize: 11, borderRadius: 14, cursor: 'pointer',
+                background: picked.has(r.name) ? 'rgba(106,198,138,0.18)' : 'rgba(255,255,255,0.04)',
+                color: picked.has(r.name) ? '#6AC68A' : 'var(--foreground-muted)',
+                border: `1px solid ${picked.has(r.name) ? 'rgba(106,198,138,0.4)' : 'rgba(255,255,255,0.1)'}`,
+              }}>{r.name}</button>
+            ))}
+          </div>
+          <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="+ custom change (optional)"
+            style={{ width: '100%', marginTop: 8, padding: '6px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12 }} />
+          <button onClick={generate} disabled={busy} style={{ marginTop: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 5, cursor: 'pointer' }}>
+            {busy ? 'Working…' : `Generate ${picked.size + (custom.trim() ? 1 : 0) || ''} (max 6/run)`}
+          </button>
+          {msg && <span style={{ fontSize: 12, color: 'var(--foreground-muted)', marginLeft: 10 }}>{msg}</span>}
+
+          {variations.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, marginTop: 14 }}>
+              {variations.map(v => (
+                <div key={v.id} style={{ border: `1px solid ${v.status === 'Approved' ? 'rgba(106,198,138,0.5)' : v.status === 'Rejected' ? 'rgba(232,120,120,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, overflow: 'hidden' }}>
+                  {v.image && <img src={v.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover' }} />}
+                  <div style={{ fontSize: 10, color: 'var(--foreground-muted)', padding: '4px 6px' }}>{v.recipe} · {v.status}</div>
+                  <div style={{ display: 'flex', gap: 2, padding: '0 4px 4px' }}>
+                    <button onClick={() => setVar(v.id, 'Approved')} title="Approve" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(106,198,138,0.15)', color: '#6AC68A', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓</button>
+                    <button onClick={() => setVar(v.id, 'Rejected')} title="Reject" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(232,120,120,0.12)', color: '#E87878', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                    <button onClick={() => delVar(v.id)} title="Delete" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'none', color: '#666', border: 'none', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RoomsPanel() {
+  const [data, setData] = useState(null)
+  const [creatorId, setCreatorId] = useState('')
+  const [form, setForm] = useState({ name: '', angle: 'Main', prompt: '' })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const load = useCallback(async () => {
+    const d = await fetch('/api/admin/recreate-rooms').then(r => r.json())
+    setData(d)
+    if (!creatorId && d.creators?.[0]) setCreatorId(d.creators[0].id)
+  }, [creatorId])
+  useEffect(() => { load() }, [load])
+
+  const createRoom = async () => {
+    if (!creatorId || !form.name.trim() || !form.prompt.trim()) { setMsg('Creator, name and prompt required'); return }
+    setBusy(true); setMsg('Generating base room (~30s)…')
+    const d = await fetch('/api/admin/recreate-rooms', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creatorId, roomName: form.name, angle: form.angle, basePrompt: form.prompt }),
+    }).then(r => r.json())
+    setMsg(d.ok ? 'Base generated — review & lock it below.' : (d.error || 'failed'))
+    setBusy(false)
+    if (d.ok) { setForm({ name: '', angle: 'Main', prompt: '' }); load() }
+  }
+
+  if (!data) return <div style={{ padding: 40, color: '#666', fontSize: 13 }}>Loading…</div>
+
+  const rooms = (data.rooms || []).filter(r => r.creatorId === creatorId)
+  const varsByRoom = {}
+  for (const v of data.variations || []) (varsByRoom[v.roomId] = varsByRoom[v.roomId] || []).push(v)
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Rooms</h1>
+      <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 16 }}>
+        Per-creator locked location plates. Generate a base room once, lock it, then batch realistic variations off that exact room.
+      </p>
+
+      <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
+        style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
+        {(data.creators || []).length === 0 && <option>No TJP creators</option>}
+        {(data.creators || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+
+      <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 16, marginBottom: 18 }}>
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>New base room</div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Room name (e.g. Amelia Bedroom)"
+            style={{ flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
+          <input value={form.angle} onChange={e => setForm(f => ({ ...f, angle: e.target.value }))} placeholder="Angle" style={{ width: 110, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
+        </div>
+        <textarea value={form.prompt} onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))} rows={4}
+          placeholder="Base room prompt (the locked location — paste your dialed-in bedroom prompt)"
+          style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', resize: 'vertical' }} />
+        <button onClick={createRoom} disabled={busy} style={{ marginTop: 8, padding: '8px 18px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+          {busy ? 'Generating…' : 'Generate base room'}
+        </button>
+        {msg && <span style={{ fontSize: 12, color: 'var(--foreground-muted)', marginLeft: 10 }}>{msg}</span>}
+      </div>
+
+      {rooms.length === 0
+        ? <div style={{ padding: 30, textAlign: 'center', color: '#666', fontSize: 13 }}>No rooms for this creator yet.</div>
+        : rooms.map(r => <RoomCard key={r.id} room={r} variations={varsByRoom[r.id] || []} refresh={load} />)}
     </div>
   )
 }
