@@ -319,11 +319,31 @@ const AXES = {
     'the floor completely clear',
     'one or two clothing items dropped on the floor',
     'a small pile of clothes and a hoodie on the floor',
-    'a pair of shoes kicked off near the bed',
-    'a towel dropped on the floor and a tote bag',
-'a single yoga mat unrolled flat on the bare marble floor (NOT on the rug), with two yoga blocks, a folded towel and a water bottle next to it so it clearly reads as a yoga setup',
-    'a duffel/gym bag sitting on the floor',
-    'a lot of clothes scattered across the floor, genuinely messy',
+    'a pair of shoes kicked off near the bed and another pair on the rug',
+    'a towel dropped on the floor and a tote bag tipped over beside it',
+    'a single yoga mat unrolled flat on the bare marble floor (NOT on the rug), with two yoga blocks, a folded towel and a water bottle next to it so it clearly reads as a yoga setup',
+    'a duffel/gym bag open on the floor with a couple of clothes spilling out',
+    'a lot of clothes, a towel and a couple of shoes scattered across the floor and rug, genuinely messy but not trashed',
+  ],
+  // Clutter that lives AWAY from the bed/nightstand zone — foreground
+  // near the camera, by the sliding doors/windows, against the dresser
+  // or mirror, in a back corner. This is the variety that was missing.
+  elsewhere: [
+    'a couple of clothing-store shopping bags left on the floor near the sliding glass doors',
+    'a weekender duffel and a canvas tote sitting on the floor by the windows',
+    'two or three cardboard shipping boxes stacked in the corner by the windows, one open with packaging spilling out',
+    'a small stack of delivery packages on the floor against the dresser',
+    'a pair of sneakers and some sandals kicked off in the foreground close to the camera',
+    'a laundry basket and a folded pile of laundry on the floor in a back corner',
+    'a standing clothing rack with a few hung outfits against the side wall',
+    'a rolled yoga mat propped against the wall by the windows with a water bottle beside it',
+    'a couple of water bottles and a coffee mug left on top of the dresser',
+    'a robe and a towel draped over the leaning mirror',
+    'a small carry-on suitcase standing upright by the sliding doors, half-packed',
+    'a beach bag, a sun hat and flip-flops dropped near the windows like just back from outside',
+    'a few cardboard boxes and some bubble wrap near the dresser like a half-finished move-in',
+    'a backpack slumped in the foreground and a jacket dropped beside it',
+    'scattered clothes across the foreground floor closer to the camera with a couple of items reaching the rug',
   ],
   bed_items: [
     'nothing on the bed',
@@ -359,29 +379,41 @@ const AXES = {
   ],
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
-// SMALL edits only. Changing all 5 axes at once made nano-banana
-// re-render the whole scene (bed grew, rug vanished). Each variation
-// changes just ONE everyday "state" thing, plus optionally the
-// time-of-day/light — never more. Variety comes from N shuffles, not
-// from a 5-way overhaul per image.
-const STATE_AXES = ['bed', 'floor', 'bed_items', 'nightstand']
+// Additive clutter only. The earlier drift (bed grew, rug vanished)
+// came from restyling FURNITURE across 5 axes — not from adding
+// objects. Adding everyday items in a few zones is low-risk as long
+// as the furniture/rug/walls/view stay locked (buildPrompt enforces
+// the hard constraints). A shuffle touches 1–3 zones (biased to 2)
+// so rooms read genuinely lived-in, with mess spread around the room
+// — foreground, windows, corners — not just bed/nightstand/rug.
+const STATE_AXES = ['bed', 'floor', 'bed_items', 'nightstand', 'elsewhere']
 function shuffleScenarios(n) {
   const seen = new Set()
   const out = []
   let guard = 0
   // Per-run tag so names never collide across separate shuffle runs.
   const runTag = Date.now().toString(36).slice(-4)
-  while (out.length < n && guard++ < n * 14) {
-    const axis = pick(STATE_AXES)
-    const stateChange = pick(AXES[axis])
+  while (out.length < n && guard++ < n * 20) {
+    const r = Math.random()
+    const zoneCount = r < 0.2 ? 1 : r < 0.65 ? 2 : 3
+    const pool = [...STATE_AXES]
+    const chosen = []
+    for (let k = 0; k < zoneCount && pool.length; k++) {
+      const ax = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]
+      chosen.push([ax, pick(AXES[ax])])
+    }
     const withLight = Math.random() < 0.5
     const light = withLight ? pick(AXES.time_light) : null
-    const sig = `${axis}:${stateChange}|${light || 'same'}`
+    const sig = chosen.map(([a, c]) => `${a}:${c}`).sort().join('||') + `|${light || 'same'}`
     if (seen.has(sig)) continue
     seen.add(sig)
+    const details = chosen.map(([, c]) => c).join('; ')
+    const lockTail = 'Only add or adjust exactly these everyday items — every piece of '
+      + 'furniture, the rug, the walls, the windows and the outside view stay '
+      + 'exactly as in the original photo, same size and position.'
     const change = light
-      ? `just two small everyday differences: ${stateChange}; and the lighting is ${light}. Nothing else in the room changes.`
-      : `just one small everyday difference: ${stateChange}. The lighting stays the same as the original and nothing else in the room changes.`
+      ? `the room has these lived-in details: ${details}; and the lighting is ${light}. ${lockTail}`
+      : `the room has these lived-in details: ${details}. The lighting stays the same as the original. ${lockTail}`
     out.push({ name: `Shuffle ${runTag}-${out.length + 1}`, change })
   }
   return out
@@ -560,7 +592,7 @@ function RoomCard({ room, variations, refresh }) {
       {room.status === 'Locked' && (
         <div style={{ marginTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
           <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-            Generate variations — random realistic mixes of bed state, clothes, nightstand, time of day &amp; light. The room stays locked.
+            Generate variations — random lived-in mixes: bed state, clutter on the floor, nightstand, plus bags/boxes/clothes spread around the room (foreground, windows, corners) and time of day &amp; light. The room stays locked.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             <button onClick={doShuffle} disabled={busy} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
