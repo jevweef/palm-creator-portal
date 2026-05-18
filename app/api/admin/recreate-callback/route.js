@@ -9,45 +9,6 @@ function rawDbx(url) {
   const clean = String(url).replace(/[?&]dl=0/, '').replace(/[?&]dl=1/, '').replace(/[?&]raw=1/, '')
   return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
 }
-import ffmpegStatic from 'ffmpeg-static'
-import { writeFile, readFile, unlink, stat } from 'fs/promises'
-import { execFile } from 'child_process'
-import { tmpdir } from 'os'
-import { join } from 'path'
-
-// Extract one JPEG frame from the downloaded mp4 buffer → base64. Used as
-// the reliable poster (IG thumbnail URLs frequently fail for restricted
-// reels). Returns null if ffmpeg can't produce a frame.
-async function posterFromBuffer(buf, tag) {
-  const inPath = join(tmpdir(), `rc_in_${tag}_${Date.now()}.mp4`)
-  const outPath = join(tmpdir(), `rc_out_${tag}_${Date.now()}.jpg`)
-  try {
-    await writeFile(inPath, buf)
-    for (const seek of ['0.5', '0']) {
-      await unlink(outPath).catch(() => {})
-      const ok = await new Promise(resolve => {
-        execFile(
-          ffmpegStatic,
-          ['-y', '-ss', seek, '-i', inPath, '-frames:v', '1', '-update', '1',
-           '-vf', 'scale=640:-2', '-q:v', '4', outPath],
-          { timeout: 20000 },
-          async () => {
-            const s = await stat(outPath).catch(() => null)
-            resolve(!!s && s.size > 0)
-          }
-        )
-      })
-      if (ok) return (await readFile(outPath)).toString('base64')
-    }
-    return null
-  } catch {
-    return null
-  } finally {
-    await unlink(inPath).catch(() => {})
-    await unlink(outPath).catch(() => {})
-  }
-}
-
 const APIFY_TOKEN = process.env.APIFY_TOKEN
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
@@ -56,7 +17,7 @@ const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api
 // Reels processed per invocation (resolve fresh CDN url + download +
 // Dropbox upload + Airtable write each). Keep low so a batch finishes
 // inside maxDuration; the callback re-invokes itself for the next batch.
-const CHUNK = 15
+const CHUNK = 20
 
 export const maxDuration = 300
 
@@ -346,30 +307,12 @@ async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, stor
       const created = await createAirtableRecord('Recreate Reels', fields)
       const newId = created?.records?.[0]?.id || created?.id
 
-      // Poster: prefer a frame ffmpeg'd from the actual mp4 (reliable for
-      // age-restricted reels where IG thumbnail URLs 403); fall back to
-      // the IG thumbnail only if ffmpeg can't produce one.
-      if (newId) {
-        let posterB64 = await posterFromBuffer(buf, shortcode)
-        if (!posterB64 && item.thumbUrl) {
-          try {
-            const tRes = await fetch(item.thumbUrl)
-            if (tRes.ok) posterB64 = Buffer.from(await tRes.arrayBuffer()).toString('base64')
-          } catch {}
-        }
-        if (posterB64) {
-          try {
-            await fetch(
-              `https://content.airtable.com/v0/${OPS_BASE}/${newId}/Thumbnail/uploadAttachment`,
-              {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contentType: 'image/jpeg', filename: `${shortcode}.jpg`, file: posterB64 }),
-              }
-            )
-          } catch {}
-        }
-      }
+      // NOTE: poster generation is intentionally NOT done here. ffmpeg per
+      // reel was the heaviest per-invocation cost and made the chain long
+      // + stall-prone. Posters are backfilled by the "Optimize
+      // (Cloudflare)" button + mirror-stream cron (Dropbox thumbnail), and
+      // once the Stream copy below transcodes it serves a poster anyway.
+      // Keeping the per-reel loop lean = fewer hops = far fewer stalls.
 
       // Mirror to Cloudflare Stream for fast grid loading/playback.
       // Non-fatal — the mirror-stream cron backfills any that fail.

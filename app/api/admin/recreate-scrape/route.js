@@ -21,9 +21,11 @@ export async function POST(request) {
     }
 
     let recordIds = null
+    let force = false
     try {
       const body = await request.json()
       recordIds = Array.isArray(body.recordIds) ? body.recordIds : null
+      force = !!body.force
     } catch {
       // No body = scrape all Queued sources
     }
@@ -50,7 +52,11 @@ export async function POST(request) {
       if (!handle) return false
       const selected = recordIds ? recordIds.includes(r.id) : (f.Status?.name || f.Status) === 'Queued'
       if (!selected) return false
-      if (scrapingHandles.has(handle.toLowerCase())) {
+      // force = explicit resume of a stalled 'Scraping' source (watchdog).
+      // The stall means no live chain, so re-launching can't create the
+      // concurrent-run dupes the guard protects against; dedup covers the
+      // rare overlap. Without force, the guard still blocks double-runs.
+      if (!force && scrapingHandles.has(handle.toLowerCase())) {
         skippedBusy.push({ handle, reason: 'already scraping' })
         return false
       }

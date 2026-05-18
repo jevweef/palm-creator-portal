@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 const STATUS_COLORS = { Queued: '#888', Scraping: '#E8C36A', Ready: '#6AC68A', Error: '#E87878' }
@@ -89,6 +89,32 @@ export default function RecreateLibraryPage() {
     const id = setInterval(load, 5000)
     return () => clearInterval(id)
   }, [sources, load])
+
+  // Stall watchdog: while a source is Scraping, if its library count
+  // hasn't grown in ~75s the continuation chain has died — auto force-
+  // resume it (dedup makes the relaunch pick up exactly where it left
+  // off). Self-heals so the scrape reaches 200 unattended.
+  const progressRef = useRef({})
+  useEffect(() => {
+    const scraping = sources.filter(s => s.status === 'Scraping')
+    if (scraping.length === 0) { progressRef.current = {}; return }
+    const now = Date.now()
+    scraping.forEach(s => {
+      const count = reels.filter(r => (r.handle || '').toLowerCase() === (s.handle || '').toLowerCase()).length
+      const p = progressRef.current[s.id]
+      if (!p || count > p.count) {
+        progressRef.current[s.id] = { count, ts: now }
+      } else if (now - p.ts > 75000) {
+        progressRef.current[s.id] = { count, ts: now } // reset before re-checking
+        setMsg(`@${s.handle} stalled at ${count} — auto-resuming…`)
+        fetch('/api/admin/recreate-scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordIds: [s.id], force: true }),
+        }).catch(() => {})
+      }
+    })
+  }, [reels, sources])
 
   const addHandles = async () => {
     if (!handles.trim()) return
