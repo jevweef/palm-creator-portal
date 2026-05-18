@@ -388,16 +388,18 @@ const AXES = {
     'an open half-packed suitcase with women\'s clothes on the bed',
     'a couple of pillows pushed off to one side',
   ],
+  // Additive — these get ADDED to whatever is already on the
+  // nightstand by default (lamp, candle, etc. stay).
   nightstand: [
-    'the nightstand clear apart from its usual lamp',
-    'a glass of water beside the lamp on the nightstand',
-    'a phone and a glass of water on the nightstand',
-    'a mug and a couple of skincare bottles on the nightstand',
-    'a candle and a charging cable on the nightstand',
-    'a book and reading glasses on the nightstand',
-    'a few hair ties, a scrunchie and lip balm on the nightstand',
-    'a water bottle and wireless earbuds on the nightstand',
-    'a small ring dish with jewelry on the nightstand',
+    'a glass of water added beside the lamp on the nightstand (its existing items stay)',
+    'a phone and a glass of water added to the nightstand (its existing items stay)',
+    'a mug and a couple of skincare bottles added to the nightstand (its existing items stay)',
+    'a charging cable and earbuds added to the nightstand (its existing items stay)',
+    'a book and reading glasses added to the nightstand (its existing items stay)',
+    'a few hair ties, a scrunchie and lip balm added to the nightstand (its existing items stay)',
+    'a water bottle added to the nightstand (its existing items stay)',
+    'a small ring dish with jewelry added to the nightstand (its existing items stay)',
+    'a folded top draped over the edge of the nightstand, its existing items still on top',
   ],
   // [text, weight] — sun direction anchored to the room: the glass
   // wall is on the RIGHT/back, the standing mirror, trailing plant and
