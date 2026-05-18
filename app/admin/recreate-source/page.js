@@ -720,22 +720,47 @@ function RoomCard({ room, variations, refresh }) {
             </div>
           )}
 
-          {variations.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, marginTop: 14 }}>
-              {variations.map((v, i) => (
-                <div key={v.id} style={{ border: `1px solid ${v.status === 'Approved' ? 'rgba(106,198,138,0.5)' : v.status === 'Rejected' ? 'rgba(232,120,120,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, overflow: 'hidden' }}>
-                  {v.image && <img src={v.image} alt="" loading="lazy" onClick={() => setModalIdx(i)} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', cursor: 'zoom-in' }} />}
-                  <div style={{ fontSize: 10, color: 'var(--foreground-muted)', padding: '4px 6px' }}>{v.recipe} · {v.status}</div>
-                  <div style={{ display: 'flex', gap: 2, padding: '0 4px 4px' }}>
-                    <button onClick={() => setVar(v.id, 'Approved')} title="Approve" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(106,198,138,0.15)', color: '#6AC68A', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓</button>
-                    <button onClick={() => setVar(v.id, 'Rejected')} title="Reject" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(232,120,120,0.12)', color: '#E87878', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
-                    <a href={v.dropbox || v.image || '#'} target="_blank" rel="noopener noreferrer" title={v.dropbox ? 'Download full-res master (Dropbox)' : 'Open image'} style={{ flex: 1, textAlign: 'center', fontSize: 11, padding: '3px 0', background: 'rgba(120,160,232,0.12)', color: '#8fb4f0', borderRadius: 4, textDecoration: 'none' }}>⬇</a>
-                    <button onClick={() => delVar(v.id)} title="Delete" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'none', color: '#666', border: 'none', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
-                  </div>
+          {variations.length > 0 && (() => {
+            const indexed = variations.map((v, i) => [v, i])
+            const isAngle = ([v]) => /^Angle\b/i.test(v.recipe || '')
+            const angleItems = indexed.filter(isAngle)
+            const varItems = indexed.filter(x => !isAngle(x))
+            const hdr = { fontSize: 11, fontWeight: 700, color: 'var(--foreground)', margin: '14px 0 6px', letterSpacing: 0.2 }
+            const sub = { fontWeight: 400, color: 'var(--foreground-muted)' }
+            const renderCard = ([v, i]) => (
+              <div key={v.id} style={{ border: `1px solid ${v.status === 'Approved' ? 'rgba(106,198,138,0.5)' : v.status === 'Rejected' ? 'rgba(232,120,120,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, overflow: 'hidden' }}>
+                {v.image && <img src={v.image} alt="" loading="lazy" onClick={() => setModalIdx(i)} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', cursor: 'zoom-in' }} />}
+                <div style={{ fontSize: 10, color: 'var(--foreground-muted)', padding: '4px 6px' }}>{v.recipe} · {v.status}</div>
+                <div style={{ display: 'flex', gap: 2, padding: '0 4px 4px' }}>
+                  <button onClick={() => setVar(v.id, 'Approved')} title="Approve" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(106,198,138,0.15)', color: '#6AC68A', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓</button>
+                  <button onClick={() => setVar(v.id, 'Rejected')} title="Reject" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(232,120,120,0.12)', color: '#E87878', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                  <a href={v.dropbox || v.image || '#'} target="_blank" rel="noopener noreferrer" title={v.dropbox ? 'Download full-res master (Dropbox)' : 'Open image'} style={{ flex: 1, textAlign: 'center', fontSize: 11, padding: '3px 0', background: 'rgba(120,160,232,0.12)', color: '#8fb4f0', borderRadius: 4, textDecoration: 'none' }}>⬇</a>
+                  <button onClick={() => delVar(v.id)} title="Delete" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'none', color: '#666', border: 'none', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )
+            const grid = (items) => (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+                {items.map(renderCard)}
+              </div>
+            )
+            return (
+              <>
+                {angleItems.length > 0 && (
+                  <div>
+                    <div style={hdr}>📐 Angle candidates ({angleItems.length}) <span style={sub}>— pick a faithful one, then “Save as angle” to make it its own room</span></div>
+                    {grid(angleItems)}
+                  </div>
+                )}
+                {varItems.length > 0 && (
+                  <div>
+                    <div style={hdr}>🎲 Variations ({varItems.length}) <span style={sub}>— clutter & time off the locked base</span></div>
+                    {grid(varItems)}
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       )}
 
