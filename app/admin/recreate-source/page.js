@@ -395,20 +395,30 @@ const AXES = {
     'a water bottle and wireless earbuds on the nightstand',
     'a small ring dish with jewelry on the nightstand',
   ],
+  // [text, weight] — heavily favor low, warm, "light pouring in"
+  // through the floor-to-ceiling windows. Harsh noon / overcast /
+  // full night are kept for variety but rare.
   time_light: [
-    'bright sunny midday light through the windows',
-    'harsh high-noon sun with strong defined shadows',
-    'soft sunny late-morning light',
-    'hazy bright afternoon light',
-    'warm late-afternoon light coming in low',
-    'warm golden-hour sunset light with long soft shadows and an orange sky',
-    'soft cool early-morning light, calm and dim',
-    'flat grey overcast daylight, soft and even, no harsh sun',
-    'blue-hour dusk outside with the warm bedside lamp just switched on',
-    'nighttime — dark outside with distant city lights, warm bedside lamp glow',
+    ['warm golden-hour sunrise light pouring low through the floor-to-ceiling windows, long soft rays raking across the floor, rug and bed, soft warm glow', 5],
+    ['warm golden-hour sunset light flooding in low through the floor-to-ceiling windows, long warm rays stretched across the floor and bed, soft orange sky outside', 5],
+    ['warm late-afternoon sun coming in low and golden through the windows, light pooling across the rug and floor', 4],
+    ['soft warm early-morning sun just risen, gentle low light streaming through the glass across the room', 4],
+    ['soft glowing late-morning sun, bright but warm, light spilling across the floor', 2],
+    ['bright sunny midday light through the windows', 1],
+    ['hazy bright afternoon light, soft and warm', 1],
+    ['blue-hour dusk outside with the warm bedside lamp just switched on', 1],
+    ['flat grey overcast daylight, soft and even, no harsh sun', 1],
+    ['nighttime — dark outside with distant city lights, warm bedside lamp glow', 1],
   ],
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
+// Weighted pick over [text, weight] tuples → returns the text.
+const pickWeighted = (pairs) => {
+  const total = pairs.reduce((s, [, w]) => s + w, 0)
+  let r = Math.random() * total
+  for (const [t, w] of pairs) { if ((r -= w) <= 0) return t }
+  return pairs[0][0]
+}
 // Additive clutter only. The earlier drift (bed grew, rug vanished)
 // came from restyling FURNITURE across 5 axes — not from adding
 // objects. Adding everyday items in a few zones is low-risk as long
@@ -437,8 +447,9 @@ function shuffleScenarios(n) {
       const ax = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]
       chosen.push([ax, pickAxis(ax)])
     }
-    const withLight = Math.random() < 0.5
-    const light = withLight ? pick(AXES.time_light) : null
+    // Always change the time of day, weighted toward warm "light
+    // pouring in" (sunrise/sunset/low golden).
+    const light = pickWeighted(AXES.time_light)
     const sig = chosen.map(([a, c]) => `${a}:${c}`).sort().join('||') + `|${light || 'same'}`
     if (seen.has(sig)) continue
     seen.add(sig)
