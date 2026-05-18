@@ -318,7 +318,7 @@ const AXES = {
   floor: [
     'one or two pieces of women\'s clothing — a sundress and a crop top — tossed in a crumpled heap on the BARE porcelain tile floor near the side, off the rug (not laid flat)',
     'a small folded stack of women\'s laundry (leggings, tops, a cardigan) sitting directly on the bare tile floor away from the rug',
-'a pair of strappy tan stiletto heels kicked off on the bare tile near the left wall and a women\'s knit top draped over the nightstand',
+'a pair of strappy tan stiletto heels kicked off on the bare tile near the left wall and a women\'s knit top tossed over the foot of the bed',
     'a towel and a women\'s handbag tipped over on the bare porcelain floor between the rug and the camera',
     'a single yoga mat unrolled along the FAR RIGHT side parallel to the glass windows (off the rug, NOT in the center where someone would stand), with two yoga blocks, a folded towel and a water bottle beside it',
     'a women\'s gym bag open on the bare tile floor with workout clothes and a sports bra spilling out onto the tile',
