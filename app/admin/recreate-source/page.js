@@ -411,6 +411,7 @@ function RoomCard({ room, variations, refresh }) {
   const [picked, setPicked] = useState(() => new Set())
   const [custom, setCustom] = useState('')
   const [shuffleN, setShuffleN] = useState(6)
+  const [modalIdx, setModalIdx] = useState(-1)
   const [msg, setMsg] = useState('')
 
   const api = async (method, body, qs = '') => {
@@ -489,6 +490,13 @@ function RoomCard({ room, variations, refresh }) {
     await fetch(`/api/admin/recreate-rooms/variation?id=${id}`, { method: 'DELETE' })
     refresh()
   }
+  const downloadVar = (v) => { if (v?.dropbox || v?.image) window.open(v.dropbox || v.image, '_blank', 'noopener') }
+  const approveAndDownload = async (v) => {
+    downloadVar(v)
+    await fetch(`/api/admin/recreate-rooms/variation?id=${v.id}&status=Approved`, { method: 'PATCH' })
+    setModalIdx(-1)
+    refresh()
+  }
 
   return (
     <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 16, marginBottom: 16, background: 'rgba(255,255,255,0.02)' }}>
@@ -561,9 +569,9 @@ function RoomCard({ room, variations, refresh }) {
 
           {variations.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, marginTop: 14 }}>
-              {variations.map(v => (
+              {variations.map((v, i) => (
                 <div key={v.id} style={{ border: `1px solid ${v.status === 'Approved' ? 'rgba(106,198,138,0.5)' : v.status === 'Rejected' ? 'rgba(232,120,120,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, overflow: 'hidden' }}>
-                  {v.image && <img src={v.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover' }} />}
+                  {v.image && <img src={v.image} alt="" loading="lazy" onClick={() => setModalIdx(i)} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', cursor: 'zoom-in' }} />}
                   <div style={{ fontSize: 10, color: 'var(--foreground-muted)', padding: '4px 6px' }}>{v.recipe} · {v.status}</div>
                   <div style={{ display: 'flex', gap: 2, padding: '0 4px 4px' }}>
                     <button onClick={() => setVar(v.id, 'Approved')} title="Approve" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(106,198,138,0.15)', color: '#6AC68A', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓</button>
@@ -577,6 +585,28 @@ function RoomCard({ room, variations, refresh }) {
           )}
         </div>
       )}
+
+      {modalIdx >= 0 && variations[modalIdx] && (() => {
+        const v = variations[modalIdx]
+        const go = (d) => setModalIdx(m => Math.min(Math.max(0, m + d), variations.length - 1))
+        return (
+          <div onClick={() => setModalIdx(-1)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, maxHeight: '100%' }}>
+              <img src={v.image} alt="" style={{ maxHeight: '74vh', maxWidth: '90vw', objectFit: 'contain', borderRadius: 8 }} />
+              <div style={{ fontSize: 12, color: '#bbb' }}>{v.recipe} · {v.status} · {modalIdx + 1}/{variations.length}</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={() => go(-1)} disabled={modalIdx === 0} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>‹</button>
+                <button onClick={() => approveAndDownload(v)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, background: '#6AC68A', color: '#0a1a0f', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✓ Approve &amp; download</button>
+                <button onClick={() => downloadVar(v)} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, cursor: 'pointer' }}>⬇ Download</button>
+                <button onClick={async () => { await setVar(v.id, 'Rejected'); setModalIdx(-1) }} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(232,120,120,0.15)', color: '#E87878', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
+                <button onClick={async () => { await delVar(v.id); setModalIdx(-1) }} style={{ padding: '8px 12px', fontSize: 13, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>🗑</button>
+                <button onClick={() => go(1)} disabled={modalIdx >= variations.length - 1} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>›</button>
+                <button onClick={() => setModalIdx(-1)} style={{ padding: '8px 12px', fontSize: 13, background: 'none', color: '#888', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Close ✕</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
