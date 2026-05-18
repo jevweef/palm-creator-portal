@@ -77,32 +77,37 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
   return (
     <div style={{ border: selected ? '1px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden', background: 'rgba(255,255,255,0.02)' }}>
       <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
-        {reel.streamUid ? (
-          showPlayer ? (
-            <iframe
-              src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
-              allow="autoplay; fullscreen"
-              allowFullScreen
-              style={{ width: '100%', height: '100%', border: 'none' }}
-            />
-          ) : (
-            <img
-              src={buildStreamPosterUrl(reel.streamUid, { width: 480, fit: 'crop' })}
-              alt=""
-              loading="lazy"
-              onClick={() => setShowPlayer(true)}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
-            />
-          )
-        ) : reel.video ? (
+        {showPlayer && reel.streamUid ? (
+          <iframe
+            src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
+            allow="autoplay; fullscreen"
+            allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none' }}
+          />
+        ) : showPlayer && reel.video ? (
           <video
-            src={`${reel.video}#t=0.1`}
-            poster={reel.thumbnail || undefined}
-            preload="metadata"
-            playsInline
+            src={reel.video}
+            autoPlay
             controls
+            playsInline
             style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
           />
+        ) : (reel.streamUid || reel.video) ? (
+          <div onClick={() => setShowPlayer(true)} style={{ width: '100%', height: '100%', cursor: 'pointer' }}>
+            {reel.streamUid ? (
+              <img src={buildStreamPosterUrl(reel.streamUid, { width: 480, fit: 'crop' })} alt="" loading="lazy"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : reel.thumbnail ? (
+              <img src={reel.thumbnail} alt="" loading="lazy"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <video src={`${reel.video}#t=0.1`} muted preload="metadata" playsInline
+                style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000', pointerEvents: 'none' }} />
+            )}
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16, paddingLeft: 3 }}>▶</div>
+            </div>
+          </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#555', fontSize: 12 }}>processing…</div>
         )}

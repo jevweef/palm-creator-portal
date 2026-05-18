@@ -12,32 +12,39 @@ function LibraryReel({ reel, onRemove }) {
   // back to the Dropbox video first-frame.
   return (
     <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
-      {reel.streamUid ? (
-        playing ? (
-          <iframe
-            src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
-            allow="autoplay; fullscreen"
-            allowFullScreen
-            style={{ width: '100%', height: '100%', border: 'none' }}
-          />
-        ) : (
-          <img
-            src={buildStreamPosterUrl(reel.streamUid, { width: 480, fit: 'crop' })}
-            alt=""
-            loading="lazy"
-            onClick={() => setPlaying(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
-          />
-        )
-      ) : reel.video ? (
+      {playing && reel.streamUid ? (
+        <iframe
+          src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          style={{ width: '100%', height: '100%', border: 'none' }}
+        />
+      ) : playing && reel.video ? (
+        // User-gesture play → autoPlay WITHOUT muted, so it just plays
+        // with sound. No reliance on the native overflow ⋮ menu.
         <video
-          src={`${reel.video}#t=0.1`}
-          poster={reel.thumbnail || undefined}
-          preload="metadata"
-          playsInline
+          src={reel.video}
+          autoPlay
           controls
+          playsInline
           style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
         />
+      ) : (reel.streamUid || reel.video) ? (
+        <div onClick={() => setPlaying(true)} style={{ width: '100%', height: '100%', cursor: 'pointer' }}>
+          {reel.streamUid ? (
+            <img src={buildStreamPosterUrl(reel.streamUid, { width: 480, fit: 'crop' })} alt="" loading="lazy"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : reel.thumbnail ? (
+            <img src={reel.thumbnail} alt="" loading="lazy"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <video src={`${reel.video}#t=0.1`} muted preload="metadata" playsInline
+              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000', pointerEvents: 'none' }} />
+          )}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, paddingLeft: 3 }}>▶</div>
+          </div>
+        </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#555', fontSize: 11 }}>processing…</div>
       )}
@@ -172,7 +179,12 @@ export default function RecreateLibraryPage() {
           <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, fontSize: 12 }}>
             <span style={{ color: 'var(--foreground)' }}>@{s.handle}</span>
             <span style={{ color: STATUS_COLORS[s.status] || '#888', fontWeight: 700, fontSize: 10 }}>{s.status}</span>
-            <span style={{ color: 'var(--foreground-muted)', fontSize: 10 }}>{s.reelsStored}/{s.reelsFound || s.maxReels || '—'}</span>
+            {/* Live count of THIS handle's reels actually in the library —
+                the source's per-run stored/found counter is stale and
+                confusing (it reflects only the last run, pre-dedup). */}
+            <span style={{ color: 'var(--foreground-muted)', fontSize: 10 }}>
+              {reels.filter(r => (r.handle || '').toLowerCase() === (s.handle || '').toLowerCase()).length} in library
+            </span>
             <button onClick={() => removeSource(s.id)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 13, padding: 0 }}>×</button>
           </div>
         ))}
