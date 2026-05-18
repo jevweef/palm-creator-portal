@@ -25,7 +25,8 @@ export async function POST(request) {
     const rRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(ROOMS)}/${roomId}`,
       { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' })
     if (!rRes.ok) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
-    const roomName = (await rRes.json()).fields?.['Room Name'] || 'Room'
+    const roomFields = (await rRes.json()).fields || {}
+    const roomName = roomFields['Room Name'] || 'Room'
     const folderSafe = roomName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
 
     const all = await fetchAirtableRecords(VARS, { fields: ['Variation', 'Room', 'Recipe', 'Image', 'Dropbox Path'] })
@@ -38,7 +39,28 @@ export async function POST(request) {
       const tok = await getDropboxAccessToken()
       const ns = await getDropboxRootNamespaceId(tok)
       let renamed = 0
+      let baseMoved = false
       const skipped = []
+
+      // Put the room's BASE image inside its own /{room}/_base/ folder
+      // so every room is organized the same way (older angle rooms had
+      // their base loose in the parent folder).
+      const basePath = roomFields['Base Dropbox Path']
+      if (basePath) {
+        const baseTo = `/Palm Ops/Recreate Rooms/${folderSafe}/_base/${folderSafe} base.jpg`
+        if (basePath !== baseTo) {
+          try {
+            await moveDropboxItem(tok, ns, basePath, baseTo, { autorename: false })
+            let bl = ''
+            try { bl = await createDropboxSharedLink(tok, ns, baseTo) } catch {}
+            await patchAirtableRecord(ROOMS, roomId, {
+              'Base Dropbox Path': baseTo,
+              ...(bl ? { 'Base Dropbox Link': bl, 'Base Image': [{ url: bl.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') }] } : {}),
+            })
+            baseMoved = true
+          } catch { /* non-fatal: base stays where it is */ }
+        }
+      }
       for (let i = 0; i < mine.length; i++) {
         const v = mine[i]
         const label = `Variation ${String(i + 1).padStart(2, '0')}`
@@ -59,7 +81,7 @@ export async function POST(request) {
           renamed++
         } catch { skipped.push(v.id) }
       }
-      return NextResponse.json({ ok: true, renamed, skipped: skipped.length })
+      return NextResponse.json({ ok: true, renamed, skipped: skipped.length, baseMoved })
     }
 
     const missing = all.filter(v =>

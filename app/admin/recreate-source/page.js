@@ -628,13 +628,13 @@ function RoomCard({ room, variations, refresh }) {
     setBusy(false); refresh()
   }
   const renumberMasters = async () => {
-    if (!confirm('Rename every Dropbox master for this room to a clean sequential name (Variation 01, 02, …)? This also relinks Airtable.')) return
-    setBusy(true); setMsg('Renumbering Dropbox masters…')
+    if (!confirm('Organize this room\'s Dropbox files: move the base image into its own /{room}/_base/ folder and rename variations to Variation 01, 02, … (relinks Airtable). Safe to re-run.')) return
+    setBusy(true); setMsg('Organizing Dropbox files…')
     const d = await fetch('/api/admin/recreate-rooms/variation', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomId: room.id, action: 'renumber' }),
     }).then(r => r.json())
-    setMsg(d.ok ? `Renamed ${d.renamed}${d.skipped ? `, ${d.skipped} skipped` : ''}` : (d.error || 'failed'))
+    setMsg(d.ok ? `Organized — ${d.renamed} variation(s)${d.baseMoved ? ' + base moved to its own folder' : ''}${d.skipped ? `, ${d.skipped} skipped` : ''}` : (d.error || 'failed'))
     setBusy(false); refresh()
   }
   const setVar = async (id, status) => {
@@ -759,12 +759,12 @@ function RoomCard({ room, variations, refresh }) {
             </div>
           )}
 
-          {variations.some(v => v.dropbox) && (
+          {(variations.some(v => v.dropbox) || room.baseImage) && (
             <div style={{ marginTop: 10, fontSize: 11, color: 'var(--foreground-muted)' }}>
               <button onClick={renumberMasters} disabled={busy} style={{ fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 5, padding: '4px 10px', cursor: busy ? 'default' : 'pointer' }}>
-                {busy ? 'Working…' : '# Renumber Dropbox files'}
+                {busy ? 'Working…' : '🗂 Organize Dropbox files'}
               </button>{' '}
-              cleans duplicate names → Variation 01, 02, …
+              base → /{`{room}`}/_base/, variations → Variation 01, 02, …
             </div>
           )}
 
