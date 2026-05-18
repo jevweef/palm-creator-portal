@@ -488,6 +488,15 @@ function RoomCard({ room, variations, refresh }) {
     } catch (e) { setMsg(`Error: ${e.message || e}`) }
     setBusy(false); refresh()
   }
+  const backfillMasters = async () => {
+    setBusy(true); setMsg('Backfilling missing Dropbox masters…')
+    const d = await fetch('/api/admin/recreate-rooms/variation', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: room.id }),
+    }).then(r => r.json())
+    setMsg(d.ok ? `Backfilled ${d.fixed}${d.skipped ? `, ${d.skipped} skipped` : ''}` : (d.error || 'failed'))
+    setBusy(false); refresh()
+  }
   const setVar = async (id, status) => {
     await fetch(`/api/admin/recreate-rooms/variation?id=${id}&status=${status}`, { method: 'PATCH' })
     refresh()
@@ -572,6 +581,15 @@ function RoomCard({ room, variations, refresh }) {
               {busy ? 'Working…' : `Generate selected ${picked.size + (custom.trim() ? 1 : 0) || ''}`}
             </button>
           </details>
+
+          {variations.some(v => !v.dropbox) && (
+            <div style={{ marginTop: 12, fontSize: 11, color: 'var(--foreground-muted)' }}>
+              {variations.filter(v => !v.dropbox).length} variation(s) have no Dropbox master.{' '}
+              <button onClick={backfillMasters} disabled={busy} style={{ fontSize: 11, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 5, padding: '4px 10px', cursor: busy ? 'default' : 'pointer' }}>
+                {busy ? 'Working…' : '↑ Backfill to Dropbox'}
+              </button>
+            </div>
+          )}
 
           {variations.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, marginTop: 14 }}>
