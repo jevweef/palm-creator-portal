@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 const STATUS_COLORS = { Queued: '#888', Scraping: '#E8C36A', Ready: '#6AC68A', Error: '#E87878' }
@@ -73,7 +74,16 @@ export default function RecreateLibraryPage() {
   const [msg, setMsg] = useState('')
   const [filter, setFilter] = useState('')
   const [posterBusy, setPosterBusy] = useState(false)
-  const [tab, setTab] = useState('library')
+  // Tab persists in the URL (?tab=rooms) so a refresh stays put.
+  const sp = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const tab = sp.get('tab') === 'rooms' ? 'rooms' : 'library'
+  const setTab = (k) => {
+    const params = new URLSearchParams(sp.toString())
+    if (k === 'rooms') params.set('tab', 'rooms'); else params.delete('tab')
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
 
   const load = useCallback(async () => {
     try {
@@ -412,8 +422,18 @@ function RoomCard({ room, variations, refresh }) {
 }
 
 function RoomsPanel() {
+  const sp = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const [data, setData] = useState(null)
-  const [creatorId, setCreatorId] = useState('')
+  // Selected creator persists in the URL (?creator=rec…) too.
+  const creatorId = sp.get('creator') || ''
+  const setCreatorId = (id) => {
+    const params = new URLSearchParams(sp.toString())
+    params.set('tab', 'rooms')
+    if (id) params.set('creator', id); else params.delete('creator')
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
   const [form, setForm] = useState({ name: '', angle: 'Main', prompt: '' })
   const [mode, setMode] = useState('upload')
   const [file, setFile] = useState(null)
