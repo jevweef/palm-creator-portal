@@ -526,6 +526,29 @@ function RoomCard({ room, variations, refresh }) {
     else setMsg(d.error || 'analyze failed')
     setBusy(false)
   }
+  const refineBase = async () => {
+    const instruction = prompt('Describe the precise fix for THIS locked angle\'s base image (camera & room stay the same).\n\ne.g. "Remove the string/fairy lights and any glowing bokeh dots — there are no lights here; keep the wall, plant and everything else exactly the same. No text."')
+    if (instruction === null) return
+    if (!instruction.trim()) { alert('No instruction entered — nothing to refine.'); return }
+    setBusy(true); setMsg('⏳ Refining the locked base image… ~1–2 min, leave this tab open. Popup when done.')
+    try {
+      const d = await fetch('/api/admin/recreate-rooms/refine', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: room.id, instruction: instruction.trim() }),
+      }).then(r => r.json())
+      if (d.ok) {
+        setMsg('✅ Base image refined — re-analyze the lock list if the change was significant.')
+        alert('Base image refined. If the change was significant, click Re-analyze (Sonnet) to refresh the lock list.')
+      } else {
+        setMsg(`❌ Refine failed: ${d.error || 'unknown error'}`)
+        alert(`Refine failed: ${d.error || 'unknown error'}`)
+      }
+    } catch (e) {
+      setMsg(`❌ Refine error: ${e.message || e}`)
+      alert(`Refine error: ${e.message || e}`)
+    }
+    setBusy(false); refresh()
+  }
   const del = async () => {
     if (!confirm(`Delete room "${room.name}" and its variations?`)) return
     await api('DELETE', null, `?roomId=${room.id}`); refresh()
@@ -673,6 +696,8 @@ function RoomCard({ room, variations, refresh }) {
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
             <button onClick={reAnalyze} disabled={busy} title="Have Sonnet rewrite the lock list from this exact image"
               style={{ padding: '6px 12px', fontSize: 12, background: 'rgba(120,160,232,0.12)', color: '#8fb4f0', border: '1px solid rgba(120,160,232,0.35)', borderRadius: 5, cursor: 'pointer' }}>✨ Re-analyze (Sonnet)</button>
+            <button onClick={refineBase} disabled={busy} title="Edit this locked base image (fix/remove things, same camera)"
+              style={{ padding: '6px 12px', fontSize: 12, background: 'rgba(168,120,232,0.14)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.35)', borderRadius: 5, cursor: 'pointer' }}>✏️ Refine base</button>
             {room.basePrompt?.trim() && (
               <button onClick={regen} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, background: 'none', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>↻ Regenerate base</button>
             )}

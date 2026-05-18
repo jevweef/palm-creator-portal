@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, createAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { requireAdmin, createAirtableRecord, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
@@ -7,6 +7,7 @@ export const maxDuration = 200
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const VARS = 'Recreate Room Variations'
+const ROOMS = 'Recreate Rooms'
 const EDIT_MODEL = 'google/nano-banana-2/edit'
 
 const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
@@ -51,17 +52,58 @@ async function runEdit(imageUrl, prompt) {
   throw new Error('refine timed out')
 }
 
-// POST { variationId, instruction } — edits that variation's image and
-// saves the result as a NEW variation under the same room.
+// POST — two modes:
+//   { variationId, instruction } → edits that variation, saves a NEW
+//       variation under the same room.
+//   { roomId, instruction }      → edits the room's locked BASE image
+//       and replaces it IN PLACE (Base Image + Base Dropbox), so a
+//       locked angle can be cleaned up (e.g. remove hallucinated lights).
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { variationId, instruction } = await request.json()
-    if (!variationId || !/^rec[A-Za-z0-9]{14}$/.test(variationId)) {
-      return NextResponse.json({ error: 'Valid variationId required' }, { status: 400 })
-    }
+    const { variationId, roomId: bodyRoomId, instruction } = await request.json()
     const instr = String(instruction || '').trim()
     if (!instr) return NextResponse.json({ error: 'instruction required' }, { status: 400 })
+
+    // ---- Base-image mode (locked angle rooms) ----
+    if (bodyRoomId && /^rec[A-Za-z0-9]{14}$/.test(bodyRoomId)) {
+      const rRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(ROOMS)}/${bodyRoomId}`,
+        { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' })
+      if (!rRes.ok) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
+      const rf = (await rRes.json()).fields || {}
+      const baseSrc = (rf['Base Dropbox Link'] && rawDbx(rf['Base Dropbox Link']))
+        || (Array.isArray(rf['Base Image']) && rf['Base Image'][0]?.url) || ''
+      if (!baseSrc) return NextResponse.json({ error: 'Room has no base image' }, { status: 400 })
+      const rName = String(rf['Room Name'] || 'Room')
+      const safe = rName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
+      const newUrl = await runEdit(baseSrc, buildRefinePrompt(instr))
+
+      let bPath = '', bLink = ''
+      try {
+        const ir = await fetch(newUrl)
+        if (ir.ok) {
+          const buf = Buffer.from(await ir.arrayBuffer())
+          const tok = await getDropboxAccessToken()
+          const ns = await getDropboxRootNamespaceId(tok)
+          bPath = `/Palm Ops/Recreate Rooms/${safe}/_base/${safe}-refined-${Date.now()}.jpg`
+          await uploadToDropbox(tok, ns, bPath, buf, { overwrite: true })
+          try { bLink = await createDropboxSharedLink(tok, ns, bPath) } catch {}
+        }
+      } catch (e) {
+        console.warn(`[recreate-rooms/refine] base Dropbox save failed: ${e.message}`)
+      }
+      await patchAirtableRecord(ROOMS, bodyRoomId, {
+        'Base Image': [{ url: bLink ? rawDbx(bLink) : newUrl }],
+        ...(bPath ? { 'Base Dropbox Path': bPath } : {}),
+        ...(bLink ? { 'Base Dropbox Link': bLink } : {}),
+      })
+      return NextResponse.json({ ok: true, base: true })
+    }
+
+    // ---- Variation mode ----
+    if (!variationId || !/^rec[A-Za-z0-9]{14}$/.test(variationId)) {
+      return NextResponse.json({ error: 'Valid variationId or roomId required' }, { status: 400 })
+    }
 
     const vRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(VARS)}/${variationId}`,
       { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' })
