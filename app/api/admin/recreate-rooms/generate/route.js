@@ -123,10 +123,14 @@ export async function POST(request) {
     const batch = recipes.slice(0, MAX_PER_RUN)
     const made = []
     const failed = []
-    for (const r of batch) {
+
+    // Run all edits CONCURRENTLY. Serially, 6 × ~60s blew past the 300s
+    // function limit and the last 1–2 never landed. In parallel total
+    // wall time ≈ the slowest single edit, well under the cap.
+    const oneRecipe = async (r) => {
       const name = String(r?.name || 'variation').slice(0, 60)
       const change = String(r?.change || '').trim()
-      if (!change) { failed.push({ name, reason: 'no change text' }); continue }
+      if (!change) { failed.push({ name, reason: 'no change text' }); return }
       const prompt = r?.mode === 'angle'
         ? buildAnglePrompt(lock, change)
         : buildPrompt(lock, change)
@@ -166,6 +170,7 @@ export async function POST(request) {
         failed.push({ name, reason: e.message })
       }
     }
+    await Promise.allSettled(batch.map(oneRecipe))
     return NextResponse.json({ ok: true, made, failed, capped: recipes.length > MAX_PER_RUN })
   } catch (err) {
     if (err instanceof Response) return err
