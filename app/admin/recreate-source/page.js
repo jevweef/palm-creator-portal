@@ -908,7 +908,14 @@ function RoomsPanel() {
 
   if (!data) return <div style={{ padding: 40, color: '#666', fontSize: 13 }}>Loading…</div>
 
-  const rooms = (data.rooms || []).filter(r => r.creatorId === creatorId)
+  // Main room first (no "— Angle N"), then angles in numeric order.
+  const angleNum = (n) => {
+    const m = String(n || '').match(/Angle\s*(\d+)/i)
+    return m ? parseInt(m[1], 10) : 0
+  }
+  const rooms = (data.rooms || [])
+    .filter(r => r.creatorId === creatorId)
+    .sort((a, b) => angleNum(a.name) - angleNum(b.name) || String(a.name).localeCompare(String(b.name)))
   const varsByRoom = {}
   for (const v of data.variations || []) (varsByRoom[v.roomId] = varsByRoom[v.roomId] || []).push(v)
 
