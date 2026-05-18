@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
@@ -166,6 +167,9 @@ export default function AiEditorPage() {
   const [selected, setSelected] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const { user } = useUser()
+  const role = user?.publicMetadata?.role
+  const isAdminViewing = role === 'admin' || role === 'super_admin'
 
   const loadCreators = useCallback(async () => {
     const res = await fetch('/api/ai-editor/pool')
@@ -220,6 +224,11 @@ export default function AiEditorPage() {
     <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)', padding: '24px 32px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
+          {isAdminViewing && (
+            <a href="/admin/recreate-source" style={{ fontSize: 12, color: 'var(--palm-pink)', textDecoration: 'none', display: 'inline-block', marginBottom: 6 }}>
+              ← Back to Admin (viewing as AI Editor)
+            </a>
+          )}
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate Pool</h1>
           <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 2 }}>
             Download source reels → recreate in TJP → upload the AI version + thumbnail back for review.
