@@ -15,6 +15,7 @@ import {
 const OPS_BASE = 'applLIT2t83plMqNx'
 const ASSETS = 'Assets'
 const INSPIRATION = 'Inspiration'
+const RECREATE_REELS = 'Recreate Reels'
 
 // Up to N records per run get their Stream uploads kicked. Each call is ~1s
 // round trip to CF + ~0.5s Airtable PATCH. Split between Assets (30) and
@@ -22,6 +23,7 @@ const INSPIRATION = 'Inspiration'
 // backlogs — ≈ 67s wall-clock with headroom under maxDuration.
 const ASSETS_PER_RUN = 30
 const INSPIRATION_PER_RUN = 15
+const REELS_PER_RUN = 25
 
 function rawDropboxUrl(url) {
   if (!url) return ''
@@ -30,6 +32,21 @@ function rawDropboxUrl(url) {
     .replace(/[?&]raw=1/, '')
     .replace(/[?&]dl=1/, '')
   return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
+}
+
+async function patchRecord(table, recordId, fields) {
+  const res = await fetch(
+    `https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(table)}/${recordId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${process.env.AIRTABLE_PAT}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields }),
+    }
+  )
+  if (!res.ok) throw new Error(`PATCH ${res.status}: ${await res.text()}`)
 }
 
 async function patchAsset(recordId, fields) {
@@ -84,7 +101,7 @@ export async function GET(request) {
     // Fetch both Assets and Inspiration backlogs in parallel. Each table
     // has its own filter — Assets needs raw OR edit missing; Inspiration
     // is just one Stream UID per record.
-    const [assetCandidates, inspoCandidates] = await Promise.all([
+    const [assetCandidates, inspoCandidates, reelCandidates] = await Promise.all([
       fetchAirtableRecords(ASSETS, {
         filterByFormula: `AND({Asset Type}='Video',OR(NOT({Edited File Link}=''),NOT({Dropbox Shared Link}='')),OR({Stream Edit ID}='',{Stream Raw ID}=''))`,
         fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
@@ -92,6 +109,10 @@ export async function GET(request) {
       fetchAirtableRecords(INSPIRATION, {
         filterByFormula: `AND(OR(NOT({DB Share Link}=''),NOT({DB Raw = 1}='')),{Stream UID}='')`,
         fields: ['Title', 'DB Share Link', 'DB Raw = 1', 'Stream UID'],
+      }),
+      fetchAirtableRecords(RECREATE_REELS, {
+        filterByFormula: `AND(NOT({Dropbox Video Link}=''),{Stream UID}='')`,
+        fields: ['Reel ID', 'Dropbox Video Link', 'Stream UID'],
       }),
     ])
 
@@ -147,9 +168,26 @@ export async function GET(request) {
       }
     }
 
+    // ── Recreate Reels (one Stream UID per reel) ───────────────────────
+    for (const rec of reelCandidates.slice(0, REELS_PER_RUN)) {
+      if (Date.now() - startedAt > 270_000) break
+      processed++
+      try {
+        const { uid } = await uploadVideoByUrl(rawDropboxUrl(rec.fields['Dropbox Video Link']), {
+          airtableId: rec.id, kind: 'recreate-reels',
+        })
+        await patchRecord(RECREATE_REELS, rec.id, { 'Stream UID': uid })
+        kicked++
+      } catch (err) {
+        failed++
+        errors.push({ id: rec.id, kind: 'reel', error: err.message })
+      }
+    }
+
     const remainingAssets = Math.max(0, assetCandidates.length - ASSETS_PER_RUN)
     const remainingInspo = Math.max(0, inspoCandidates.length - INSPIRATION_PER_RUN)
-    const remaining = remainingAssets + remainingInspo
+    const remainingReels = Math.max(0, reelCandidates.length - REELS_PER_RUN)
+    const remaining = remainingAssets + remainingInspo + remainingReels
     const elapsed = Math.round((Date.now() - startedAt) / 1000)
     console.log(
       `[cron/mirror-stream] processed=${processed} kicked=${kicked} ` +

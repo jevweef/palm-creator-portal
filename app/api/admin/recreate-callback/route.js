@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { fetchAirtableRecords, patchAirtableRecord, createAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
+import { uploadVideoByUrl } from '@/lib/cloudflareStream'
+
+function rawDbx(url) {
+  if (!url) return ''
+  const clean = String(url).replace(/[?&]dl=0/, '').replace(/[?&]dl=1/, '').replace(/[?&]raw=1/, '')
+  return clean + (clean.includes('?') ? '&raw=1' : '?raw=1')
+}
 import ffmpegStatic from 'ffmpeg-static'
 import { writeFile, readFile, unlink, stat } from 'fs/promises'
 import { execFile } from 'child_process'
@@ -341,6 +348,23 @@ async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, stor
               }
             )
           } catch {}
+        }
+      }
+
+      // Mirror to Cloudflare Stream for fast grid loading/playback.
+      // Non-fatal — the mirror-stream cron backfills any that fail.
+      if (newId && sharedLink) {
+        try {
+          const { uid } = await uploadVideoByUrl(rawDbx(sharedLink), { airtableId: newId, kind: 'recreate-reels' })
+          if (uid) {
+            await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Recreate%20Reels/${newId}`, {
+              method: 'PATCH',
+              headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fields: { 'Stream UID': uid } }),
+            })
+          }
+        } catch (e) {
+          console.warn(`[Recreate Callback] stream mirror failed ${shortcode}: ${e.message}`)
         }
       }
 
