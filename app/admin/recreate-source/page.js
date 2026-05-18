@@ -316,14 +316,31 @@ const AXES = {
     'the comforter dragged halfway off onto the floor, bed clearly slept in',
   ],
   floor: [
-    'the floor completely clear',
-    'one or two clothing items dropped on the floor',
-    'a small pile of clothes and a hoodie on the floor',
-    'a pair of shoes kicked off near the bed and another pair on the rug',
-    'a towel dropped on the floor and a tote bag tipped over beside it',
-    'a single yoga mat unrolled flat on the bare marble floor (NOT on the rug), with two yoga blocks, a folded towel and a water bottle next to it so it clearly reads as a yoga setup',
-    'a duffel/gym bag open on the floor with a couple of clothes spilling out',
-    'a lot of clothes, a towel and a couple of shoes scattered across the floor and rug, genuinely messy but not trashed',
+    'one or two clothing items dropped on the BARE porcelain tile floor, off the rug',
+    'a small folded stack of laundry sitting directly on the bare tile floor away from the rug',
+    'a pair of shoes kicked off on the bare tile near the left wall and a top draped over the nightstand',
+    'a towel and a tote bag tipped over on the bare porcelain floor between the rug and the camera',
+    'a single yoga mat unrolled flat on the bare porcelain floor (NOT on the rug), with two yoga blocks, a folded towel and a water bottle next to it',
+    'a duffel/gym bag open on the bare tile floor with a couple of clothes spilling out onto the tile',
+    'a couple of clothing pieces strewn across the bare floor and one trailing onto the rug, like clothes were tried on',
+  ],
+  // Right at the camera — so close it is only partly in frame.
+  foreground: [
+    'an item in the immediate foreground so close to the camera it is partially cropped — only the top of a laundry basket visible at the bottom edge',
+    'the corner of a tote bag or duffel intruding into the very foreground, cut off by the bottom of the frame',
+    'a stack of folded clothes right at the camera in the foreground, only the top of the pile in frame',
+    'a pair of shoes and a dropped sweater in the extreme foreground, partially out of frame at the bottom',
+  ],
+  // The shag rug is transient surface — it gets walked on.
+  rug: [
+    'the shag rug pile pushed around and a little uneven, with faint footprint impressions, clearly walked on (same rug, same size and place)',
+    'one corner of the shag rug slightly flipped/folded over from being walked on (same rug, same size and place)',
+    'the rug pile raked in soft directional lines like it was just walked across (same rug, same size and place)',
+  ],
+  // Vines re-drape after watering / being nudged.
+  plants: [
+    'the trailing vine plants on the left hanging and draping noticeably differently, a few tendrils repositioned as if just watered and nudged (same plants, same pots, same spots)',
+    'the long pothos vines swept to one side and a little longer/looser than before, like they were tidied after watering (same plants, same pots, same spots)',
   ],
   // Clutter that lives AWAY from the bed/nightstand zone — foreground
   // near the camera, by the sliding doors/windows, against the dresser
@@ -399,7 +416,7 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)]
 // the hard constraints). A shuffle touches 1–3 zones (biased to 2)
 // so rooms read genuinely lived-in, with mess spread around the room
 // — foreground, windows, corners — not just bed/nightstand/rug.
-const STATE_AXES = ['bed', 'floor', 'bed_items', 'nightstand', 'elsewhere']
+const STATE_AXES = ['bed', 'floor', 'foreground', 'bed_items', 'nightstand', 'elsewhere', 'rug', 'plants']
 // 'elsewhere' is mostly everyday churn; ~1 in 5 brings in an occasional
 // trip/haul/delivery moment so luggage etc. shows up but not daily.
 const pickAxis = (ax) => ax === 'elsewhere'
@@ -413,7 +430,7 @@ function shuffleScenarios(n) {
   const runTag = Date.now().toString(36).slice(-4)
   while (out.length < n && guard++ < n * 20) {
     const r = Math.random()
-    const zoneCount = r < 0.2 ? 1 : r < 0.65 ? 2 : 3
+    const zoneCount = r < 0.12 ? 1 : r < 0.5 ? 2 : 3
     const pool = [...STATE_AXES]
     const chosen = []
     for (let k = 0; k < zoneCount && pool.length; k++) {
@@ -426,9 +443,11 @@ function shuffleScenarios(n) {
     if (seen.has(sig)) continue
     seen.add(sig)
     const details = chosen.map(([, c]) => c).join('; ')
-    const lockTail = 'Only add or adjust exactly these everyday items — every piece of '
-      + 'furniture, the rug, the walls, the windows and the outside view stay '
-      + 'exactly as in the original photo, same size and position.'
+    const lockTail = 'Stage these details spread across the WHOLE scene (bare floor, '
+      + 'foreground, against the left wall — not clustered by the bed). Furniture, '
+      + 'architecture, walls, windows, the outside view and the rug\'s size/position '
+      + 'stay exactly as in the original; the rug pile and plant vines may look '
+      + 'naturally disturbed. No added furniture.'
     const change = light
       ? `the room has these lived-in details: ${details}; and the lighting is ${light}. ${lockTail}`
       : `the room has these lived-in details: ${details}. The lighting stays the same as the original. ${lockTail}`

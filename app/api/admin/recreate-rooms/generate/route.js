@@ -56,22 +56,32 @@ function buildAnglePrompt(lockInventory, change) {
 
 function buildPrompt(lockInventory, change) {
   return (
-    'This is a TINY local edit of the photo. Treat the input image as final '
-    + 'and reproduce it pixel-for-pixel, changing ONLY the one small thing '
-    + 'described below. Do not re-render, regenerate, restyle or reinterpret '
-    + 'the scene.\n\n'
-    + 'HARD CONSTRAINTS — these are violations, not preferences: do NOT resize, '
-    + 'rescale, stretch, move, rotate, add, remove, replace or redesign ANY '
-    + 'furniture or object. The bed keeps the EXACT same size, shape, footprint '
-    + 'and position. The rug keeps the EXACT same size, shape and position and '
-    + 'must NOT be removed or shrunk. Walls, windows, the view, floor, dresser, '
-    + 'nightstand, mirror, plants and décor keep their exact size and position. '
-    + 'The camera does not move — identical framing, angle, perspective, crop, '
-    + 'zoom.\n\n'
-    + `KEEP IDENTICAL (the room's permanent identity): ${lockInventory}\n\n`
-    + `THE ONLY THING THAT MAY CHANGE: ${change}\n\n`
-    + 'Everything not explicitly named in that one change stays pixel-identical '
-    + 'to the input. Same candid iPhone photo style, no people, no text, no watermark.'
+    'Same room, same camera — a DIFFERENT DAY in this room. Keep the camera '
+    + 'locked (identical framing, angle, perspective, crop, zoom) and keep the '
+    + "room's PERMANENT IDENTITY exactly: every furniture piece (bed, frame, "
+    + 'dresser, nightstand, leaning mirror), the wall hanging, the architecture, '
+    + 'walls, ceiling, the windows and the exact outside view, the floor material, '
+    + 'and the rug — same rug, same size, same position (do not delete, resize or '
+    + 'move it). Furniture does not move, resize or change.\n\n'
+    + `PERMANENT IDENTITY (must stay identical): ${lockInventory}\n\n`
+    + 'But the LIVED-IN / TRANSIENT layer genuinely changes, the way a real room '
+    + 'looks on a different day — and it must change across the WHOLE scene, NOT '
+    + 'clustered in one spot:\n'
+    + `• THE CHANGE TO STAGE: ${change}\n`
+    + '• Spread it through the frame — use the BARE porcelain tile floor (not '
+    + 'just the rug), the IMMEDIATE FOREGROUND right at the camera (an item so '
+    + 'close it is partially cropped, only its top visible), and AGAINST THE LEFT '
+    + 'WALL by the nightstand — not only on or beside the bed.\n'
+    + '• The shag rug is soft: its pile realistically looks pushed around, '
+    + 'walked-on, a little uneven or footprinted — NOT perfectly vacuumed and '
+    + 'flat. Its size, shape and position stay the same.\n'
+    + '• The trailing vine plants drape/hang a little differently than before — '
+    + 'as if they were watered and nudged — same plants, same pots, same spots.\n'
+    + '• Favor VARIETY OF PLACEMENT over quantity: a believable amount of stuff '
+    + '(often just one or two items: a couple pieces of clothing, a folded '
+    + 'laundry stack, a bag), but in places it would not have been before.\n\n'
+    + 'Photoreal, same candid iPhone style and lighting unless the change says '
+    + 'otherwise. No people, no text, no watermark, no added furniture or décor.'
   )
 }
 
