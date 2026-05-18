@@ -441,13 +441,16 @@ function shuffleScenarios(n) {
 // where the tripod goes and how it re-aims so the room stays framed.
 // These are CANDIDATE angle bases: generate, eyeball, then promote
 // the good one into its own locked Room.
+// Composition-TARGET framing: name what sits dead-center, then the
+// tripod move that achieves it. The model controls rotation far
+// better from "center X" than from "rotate N degrees".
 const ANGLES = [
-  'the camera is moved well to the LEFT and rotated about 40° to the RIGHT — now looking down the room along the side wall toward the windows, the bed seen more from its side/foot, much more of the floor and rug in the foreground; a strongly different left vantage',
-  'the camera is moved well to the RIGHT and rotated about 40° to the LEFT — the glass wall and windows now dominate one side, the bed seen more end-on from the window side, the opposite wall receding; a strongly different right vantage',
-  'the camera is moved to the FOOT OF THE BED and turned back toward the headboard wall — a head-on view straight up the bed at the headboard, dresser and windows behind it, the wall behind the original camera position now visible',
-  'the camera is moved close to the WINDOW WALL looking back ACROSS the room toward the bed and the entry side — the side that was behind the camera before is now the backdrop, ocean view now off to the side',
-  'a high, wide CORNER view from the far corner of the room — camera pulled back into the opposite corner and rotated to take in the whole room at once, both walls and the full rug visible, deep perspective',
-  'a low vantage from near the floor on the far side of the rug, rotated back toward the bed and windows — strong foreground rug, the room rising up behind it, a dramatically different eye level',
+  'AIM so the CORNER where the two floor-to-ceiling glass/window walls meet is DEAD-CENTER of the frame. To do this the tripod moves well to the LEFT and the camera rotates RIGHT toward the windows. The back window is NO LONGER centered — the glass corner is. Both glass walls splay away from that centered corner.',
+  'AIM so the standing LEANING MIRROR is DEAD-CENTER of the frame. The tripod moves to the RIGHT and the camera rotates LEFT back toward the headboard wall, so the mirror and the wall behind the bed face the camera and the windows fall to one side.',
+  'AIM straight down the bed so the HEADBOARD and the wall décor above it are DEAD-CENTER. The tripod moves to the FOOT OF THE BED and faces back at the headboard wall; the windows and dresser sit off to the side.',
+  'AIM so the DRESSER against the glass is DEAD-CENTER of the frame. The tripod moves toward the bed and rotates to point at the dresser, the ocean view directly behind it, the bed running in from one side.',
+  'A WIDE view from the far CORNER of the room behind the foot of the bed, the camera taking in the whole room at once — the glass-wall corner roughly centered, both walls and the full rug visible, deep perspective.',
+  'A LOW vantage near the floor at the foot of the rug, aimed back at the bed with the bed roughly centered and the windows behind it — strong foreground rug, the room rising up behind, a clearly different eye level.',
 ]
 function angleScenarios(n) {
   const idx = [...ANGLES.keys()].sort(() => Math.random() - 0.5).slice(0, n)

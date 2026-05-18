@@ -37,6 +37,13 @@ function buildAnglePrompt(lockInventory, change) {
     + 'redesign, restyle, swap or change the proportions of any piece, and do not '
     + 'add new furniture. Their on-screen size and overlap SHOULD change — that '
     + 'is correct, because the camera moved.\n\n'
+    + 'DO NOT INVENT ANYTHING: do not add any object, furniture, plant, décor, '
+    + 'artwork, lamp, light fixture, ceiling light, string/fairy lights or bokeh '
+    + 'glints that are not already physically in this room. The ceiling and every '
+    + 'already-visible surface keep exactly what they had in the original (a plain '
+    + 'ceiling stays plain — no added lights). You may ONLY re-show the objects '
+    + 'that genuinely exist in the room, from the new angle — never imagine new '
+    + 'ones to fill space.\n\n'
     + `ROOM IDENTITY REFERENCE (same pieces, new angle): ${lockInventory}\n\n`
     + 'Candid iPhone photo style, natural perspective, no people, no text, no watermark.'
   )
