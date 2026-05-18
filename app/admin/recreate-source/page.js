@@ -111,15 +111,15 @@ export default function RecreateLibraryPage() {
   }
 
   const backfillPosters = async () => {
-    setPosterBusy(true); setMsg('Generating posters…')
+    setPosterBusy(true); setMsg('Optimizing (Cloudflare + posters)…')
     try {
       let guard = 0
-      while (guard++ < 50) {
+      while (guard++ < 80) {
         const res = await fetch('/api/admin/recreate-backfill-posters', { method: 'POST' })
         const d = await res.json()
-        if (!res.ok) { setMsg(d.error || 'Poster backfill failed'); break }
-        setMsg(`Posters: ${d.remaining} remaining…`)
-        if (d.done || d.remaining === 0) { setMsg('Posters generated.'); break }
+        if (!res.ok) { setMsg(d.error || 'Optimize failed'); break }
+        setMsg(`Optimizing: ${d.remaining} reels remaining…`)
+        if (d.done || d.remaining === 0) { setMsg('Library optimized — Cloudflare + posters done.'); break }
       }
       load()
     } catch (e) { setMsg(e.message) } finally { setPosterBusy(false) }
@@ -187,7 +187,7 @@ export default function RecreateLibraryPage() {
           <span style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>{shownReels.length} reels in library</span>
           <button onClick={backfillPosters} disabled={posterBusy}
             style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: posterBusy ? 'default' : 'pointer' }}>
-            {posterBusy ? 'Generating…' : 'Generate posters'}
+            {posterBusy ? 'Optimizing…' : 'Optimize (Cloudflare)'}
           </button>
           <button onClick={scrapeQueued} disabled={busy || queuedCount === 0}
             style={{ padding: '8px 16px', background: queuedCount ? 'rgba(106,198,138,0.15)' : 'transparent', color: queuedCount ? '#6AC68A' : '#666', border: `1px solid ${queuedCount ? 'rgba(106,198,138,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: queuedCount && !busy ? 'pointer' : 'default' }}>
