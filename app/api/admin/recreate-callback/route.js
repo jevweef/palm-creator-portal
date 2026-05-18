@@ -108,6 +108,9 @@ async function resolveRapidVideoUrl(shortcode) {
 export async function POST(request) {
   try {
     const { searchParams } = new URL(request.url)
+    const fwdHost = request.headers.get('x-forwarded-host') || request.headers.get('host')
+    const fwdProto = request.headers.get('x-forwarded-proto') || 'https'
+    const selfBaseUrl = fwdHost ? `${fwdProto}://${fwdHost}` : null
     const secret = searchParams.get('secret')
     const expectedSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
     if (secret !== expectedSecret) {
@@ -122,6 +125,7 @@ export async function POST(request) {
 
     if (body.continue) {
       return processBatch({
+        selfBaseUrl,
         sourceId: body.sourceId,
         handle: body.handle,
         reels: body.reels || [],
@@ -205,14 +209,14 @@ export async function POST(request) {
     }
     console.log(`[Recreate Callback] @${handle}: ${reels.length} reels via ${dataSource}`)
 
-    return processBatch({ sourceId, handle, reels, offset: 0, storedSoFar: 0 })
+    return processBatch({ selfBaseUrl, sourceId, handle, reels, offset: 0, storedSoFar: 0 })
   } catch (err) {
     console.error('[Recreate Callback] error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
-async function processBatch({ sourceId, handle, reels, offset, storedSoFar }) {
+async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, storedSoFar }) {
   // Global library: one row per IG reel (Reel ID = shortcode). Dedup so a
   // re-scrape only stores genuinely new reels.
   const existing = await fetchAirtableRecords('Recreate Reels', {
@@ -318,7 +322,9 @@ async function processBatch({ sourceId, handle, reels, offset, storedSoFar }) {
   }
 
   const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
+  // Re-invoke on the SAME deployment that received this webhook (preview
+  // or prod), not a hardcoded env — see recreate-scrape for rationale.
+  const baseUrl = selfBaseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
   fetch(`${baseUrl}/api/admin/recreate-callback?secret=${callbackSecret}&handle=${encodeURIComponent(handle)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

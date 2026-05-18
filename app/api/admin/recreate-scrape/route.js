@@ -45,7 +45,15 @@ export async function POST(request) {
     }
 
     const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
+    // Derive the callback base from THIS request's origin, not a hardcoded
+    // env. A scrape triggered on the dev preview must call back to that
+    // same preview deployment — otherwise the Apify webhook fires to
+    // production (which doesn't have this code) and silently 404s.
+    const fwdHost = request.headers.get('x-forwarded-host') || request.headers.get('host')
+    const fwdProto = request.headers.get('x-forwarded-proto') || 'https'
+    const baseUrl = fwdHost
+      ? `${fwdProto}://${fwdHost}`
+      : (process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com')
 
     const started = []
     const skipped = []
