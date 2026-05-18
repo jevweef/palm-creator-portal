@@ -529,28 +529,32 @@ function RoomsPanel() {
             style={{ flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
           <input value={form.angle} onChange={e => setForm(f => ({ ...f, angle: e.target.value }))} placeholder="Angle" style={{ width: 110, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
         </div>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          {['upload', 'prompt'].map(m => (
-            <button key={m} onClick={() => setMode(m)} style={{
-              padding: '4px 12px', fontSize: 11, borderRadius: 5, cursor: 'pointer',
-              background: mode === m ? 'var(--palm-pink)' : 'rgba(255,255,255,0.04)',
-              color: mode === m ? '#1a0a0a' : 'var(--foreground-muted)',
-              border: '1px solid rgba(255,255,255,0.1)', fontWeight: mode === m ? 700 : 400,
-            }}>{m === 'upload' ? 'Upload image' : 'Generate from prompt'}</button>
-          ))}
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 6 }}>
+          Source:{' '}
+          <button onClick={() => setMode('upload')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, marginRight: 10, color: mode === 'upload' ? 'var(--palm-pink)' : 'var(--foreground-muted)', fontWeight: mode === 'upload' ? 700 : 400, textDecoration: mode === 'upload' ? 'underline' : 'none' }}>Upload an image</button>
+          <button onClick={() => setMode('prompt')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, color: mode === 'prompt' ? 'var(--palm-pink)' : 'var(--foreground-muted)', fontWeight: mode === 'prompt' ? 700 : 400, textDecoration: mode === 'prompt' ? 'underline' : 'none' }}>Generate from prompt</button>
         </div>
         {mode === 'upload' ? (
-          <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)}
-            style={{ fontSize: 12, color: 'var(--foreground-muted)', width: '100%' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <label style={{ display: 'inline-block', padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 6, cursor: 'pointer' }}>
+              {file ? 'Change image' : 'Choose image…'}
+              <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+            </label>
+            <span style={{ fontSize: 12, color: file ? '#6AC68A' : 'var(--foreground-muted)' }}>
+              {file ? file.name : 'No image selected'}
+            </span>
+          </div>
         ) : (
           <textarea value={form.prompt} onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))} rows={4}
             placeholder="Base room prompt (the locked location — paste your dialed-in bedroom prompt)"
             style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', resize: 'vertical' }} />
         )}
-        <button onClick={createRoom} disabled={busy} style={{ marginTop: 8, padding: '8px 18px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
-          {busy ? 'Working…' : mode === 'upload' ? 'Add room from image' : 'Generate base room'}
-        </button>
-        {msg && <span style={{ fontSize: 12, color: 'var(--foreground-muted)', marginLeft: 10 }}>{msg}</span>}
+        <div style={{ marginTop: 10 }}>
+          <button onClick={createRoom} disabled={busy || (mode === 'upload' && !file)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: (busy || (mode === 'upload' && !file)) ? 'default' : 'pointer', opacity: (busy || (mode === 'upload' && !file)) ? 0.45 : 1 }}>
+            {busy ? 'Working…' : mode === 'upload' ? 'Add room from image' : 'Generate base room'}
+          </button>
+        </div>
+        {msg && <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 8 }}>{msg}</div>}
       </div>
 
       {rooms.length === 0
