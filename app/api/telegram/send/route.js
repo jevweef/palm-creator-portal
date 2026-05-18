@@ -401,7 +401,7 @@ function buildDatePrefix(iso) {
 // upload to Telegram → stamp Post record. Runs entirely in the background
 // via waitUntil() so the admin's click returns in ~1s instead of 60-90s.
 async function doSend(params) {
-  const { editedFileLink, threadId, smmTopicId, caption: rawIncomingCaption, taskName, postId, thumbnailUrl, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
+  const { editedFileLink, threadId, smmTopicId, caption: rawIncomingCaption, taskName, postId, thumbnailUrl, thumbnailAssetId, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
   // Caption is just the user caption + hashtags (joined client-side into the
   // incoming caption). No date prefix — post-calendar architecture means
   // Scheduled Date is just an opaque ordering token, not a real post time,
@@ -604,15 +604,40 @@ async function doSend(params) {
     //   - Approved Thumbnail → false (removes the tile from the creator's
     //     Thumbnail Pool tray so SMM doesn't see it as a fresh option)
     //
-    // Asset is identified by FILENAME: Airtable's signed URL has the original
-    // filename as the last path segment, and the Dropbox Shared Link has it
-    // in /scl/fi/.../FILENAME. (Old code matched the full Airtable URL against
-    // {Dropbox Shared Link} which never overlapped — that's why the flag
-    // never flipped historically. See 5f18954.)
+    // PRIMARY path: thumbnailAssetId — the exact source Asset record ID,
+    // recorded by applyThumbnail / autoFillThumbnails when a pool tile was
+    // applied. Deterministic, can't miss. This is THE fix for the whole
+    // "used thumbnails won't leave the pool" saga.
     //
-    // Non-fatal: if lookup fails, the send itself still succeeded.
-    if (thumbnailUrl) {
-      try {
+    // FALLBACK path: filename match against {Dropbox Shared Link}, for
+    // legacy posts (sent before the Thumbnail Asset field existed) or
+    // thumbnails set outside the pool flow. Best-effort — the Airtable
+    // signed URL ends in a token not a filename, so this misses a lot;
+    // that's exactly why the deterministic path above exists.
+    //
+    // Non-fatal: if cleanup fails, the send itself still succeeded.
+    try {
+      if (thumbnailAssetId) {
+        const recs = await fetchAirtableRecords('Assets', {
+          filterByFormula: `RECORD_ID()='${thumbnailAssetId}'`,
+          fields: ['Used As Reel Thumbnail', 'Approved Thumbnail'],
+        })
+        const a = recs[0]
+        if (a) {
+          const alreadyUsed = !!a.fields?.['Used As Reel Thumbnail']
+          const stillInPool = !!a.fields?.['Approved Thumbnail']
+          if (!alreadyUsed || stillInPool) {
+            const patch = {}
+            if (!alreadyUsed) patch['Used As Reel Thumbnail'] = true
+            if (stillInPool) patch['Approved Thumbnail'] = false
+            await patchAirtableRecord('Assets', thumbnailAssetId, patch)
+            console.log(`[Telegram Send] Asset ${thumbnailAssetId} thumb cleanup via Thumbnail Asset: ${JSON.stringify(patch)}`)
+          }
+        } else {
+          console.warn(`[Telegram Send] Thumbnail Asset ${thumbnailAssetId} not found — skipping cleanup`)
+        }
+      } else if (thumbnailUrl) {
+        // Legacy fallback — filename match (lossy, see comment above).
         const rawFilename = thumbnailUrl.split('?')[0].split('/').pop() || ''
         const filename = decodeURIComponent(rawFilename)
         if (filename) {
@@ -624,20 +649,17 @@ async function doSend(params) {
           for (const a of matches) {
             const alreadyUsed = !!a.fields?.['Used As Reel Thumbnail']
             const stillInPool = !!a.fields?.['Approved Thumbnail']
-            if (alreadyUsed && !stillInPool) continue  // nothing to do
+            if (alreadyUsed && !stillInPool) continue
             const patch = {}
             if (!alreadyUsed) patch['Used As Reel Thumbnail'] = true
             if (stillInPool) patch['Approved Thumbnail'] = false
             await patchAirtableRecord('Assets', a.id, patch)
-            console.log(`[Telegram Send] Asset ${a.id} thumb cleanup: ${JSON.stringify(patch)} (filename=${filename})`)
-          }
-          if (!matches.length) {
-            console.warn(`[Telegram Send] No Asset found for thumbnail filename "${filename}" — won't be flagged as used or removed from pool`)
+            console.log(`[Telegram Send] Asset ${a.id} thumb cleanup via filename: ${JSON.stringify(patch)} (filename=${filename})`)
           }
         }
-      } catch (thumbErr) {
-        console.warn('[Telegram Send] Could not run thumbnail cleanup (non-fatal):', thumbErr.message)
       }
+    } catch (thumbErr) {
+      console.warn('[Telegram Send] Could not run thumbnail cleanup (non-fatal):', thumbErr.message)
     }
 
     console.log('[Telegram Send] ✓ Complete for post', postId)

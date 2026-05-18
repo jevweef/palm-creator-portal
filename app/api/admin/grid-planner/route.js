@@ -1072,6 +1072,9 @@ export async function POST(request) {
           await patchAirtableRecord('Posts', post.id, {
             'Thumbnail': [{ url: rawUrl }],
             'Thumbnail Source': 'pool',
+            // Record the exact source Asset so the send route can flip
+            // its pool/used flags deterministically (no filename guessing).
+            'Thumbnail Asset': tile.id,
           }, { typecast: true })
           applied++
         } catch (e) {
@@ -1121,6 +1124,9 @@ export async function POST(request) {
       await patchAirtableRecord('Posts', postId, {
         'Thumbnail': [{ url: rawUrl }],
         'Thumbnail Source': 'pool',
+        // Record the exact source Asset so the send route can flip its
+        // pool/used flags deterministically (no filename guessing).
+        'Thumbnail Asset': assetId,
       }, { typecast: true })
       return NextResponse.json({ ok: true, thumbnailUrl: rawUrl })
     }
