@@ -420,11 +420,30 @@ function RoomsPanel() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
+  // Downscale to <=1536px and re-encode JPEG before upload. A 4k base64
+  // blows the serverless request-body limit (the upload silently never
+  // reaches the API); the edit model doesn't need >1536px anyway.
   const fileToB64 = (f) => new Promise((res, rej) => {
-    const r = new FileReader()
-    r.onload = () => res(String(r.result).split(',')[1])
-    r.onerror = rej
-    r.readAsDataURL(f)
+    const fr = new FileReader()
+    fr.onerror = rej
+    fr.onload = () => {
+      const img = new Image()
+      img.onerror = rej
+      img.onload = () => {
+        const MAX = 1536
+        let { width: w, height: h } = img
+        if (w > MAX || h > MAX) {
+          const s = MAX / Math.max(w, h)
+          w = Math.round(w * s); h = Math.round(h * s)
+        }
+        const c = document.createElement('canvas')
+        c.width = w; c.height = h
+        c.getContext('2d').drawImage(img, 0, 0, w, h)
+        res(c.toDataURL('image/jpeg', 0.9).split(',')[1])
+      }
+      img.src = fr.result
+    }
+    fr.readAsDataURL(f)
   })
 
   const load = useCallback(async () => {
@@ -437,23 +456,31 @@ function RoomsPanel() {
   const createRoom = async () => {
     if (!creatorId || !form.name.trim()) { setMsg('Creator and room name required'); return }
     let body = { creatorId, roomName: form.name, angle: form.angle }
-    if (mode === 'upload') {
-      if (!file) { setMsg('Choose an image to upload'); return }
-      setBusy(true); setMsg('Uploading room…')
-      body.imageBase64 = await fileToB64(file)
-      body.imageType = file.type || 'image/jpeg'
-    } else {
-      if (!form.prompt.trim()) { setMsg('Enter a base prompt'); return }
-      setBusy(true); setMsg('Generating base room (~30s)…')
-      body.basePrompt = form.prompt
+    try {
+      if (mode === 'upload') {
+        if (!file) { setMsg('Choose an image to upload'); return }
+        setBusy(true); setMsg('Processing image…')
+        body.imageBase64 = await fileToB64(file)   // downscaled JPEG
+        body.imageType = 'image/jpeg'
+      } else {
+        if (!form.prompt.trim()) { setMsg('Enter a base prompt'); return }
+        setBusy(true); setMsg('Generating base room (~30s)…')
+        body.basePrompt = form.prompt
+      }
+      const res = await fetch('/api/admin/recreate-rooms', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      let d
+      try { d = await res.json() } catch { d = { error: `HTTP ${res.status}` } }
+      if (!res.ok || !d.ok) { setMsg(d.error || `Failed (HTTP ${res.status})`); return }
+      setMsg('Base saved — review & lock it below.')
+      setForm({ name: '', angle: 'Main', prompt: '' }); setFile(null); load()
+    } catch (e) {
+      setMsg(`Error: ${e.message || e}`)
+    } finally {
+      setBusy(false)
     }
-    const d = await fetch('/api/admin/recreate-rooms', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then(r => r.json())
-    setMsg(d.ok ? 'Base saved — review & lock it below.' : (d.error || 'failed'))
-    setBusy(false)
-    if (d.ok) { setForm({ name: '', angle: 'Main', prompt: '' }); setFile(null); load() }
   }
 
   if (!data) return <div style={{ padding: 40, color: '#666', fontSize: 13 }}>Loading…</div>
