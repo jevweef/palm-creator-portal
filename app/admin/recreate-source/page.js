@@ -304,6 +304,10 @@ const RECIPES = [
 
 function RoomCard({ room, variations, refresh }) {
   const [lock, setLock] = useState(room.lockInventory)
+  // Re-sync the textarea when the saved lock list changes (e.g. after
+  // auto-analyze on create / a parent reload). useState only seeds once,
+  // so without this the box keeps showing the stale initial value.
+  useEffect(() => { setLock(room.lockInventory) }, [room.id, room.lockInventory])
   const [busy, setBusy] = useState(false)
   const [picked, setPicked] = useState(() => new Set())
   const [custom, setCustom] = useState('')
