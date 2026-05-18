@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { fetchAirtableRecords, patchAirtableRecord, createAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { uploadVideoByUrl } from '@/lib/cloudflareStream'
+import { waitUntil } from '@vercel/functions'
 
 function rawDbx(url) {
   if (!url) return ''
@@ -55,7 +56,7 @@ const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api
 // Reels processed per invocation (resolve fresh CDN url + download +
 // Dropbox upload + Airtable write each). Keep low so a batch finishes
 // inside maxDuration; the callback re-invokes itself for the next batch.
-const CHUNK = 8
+const CHUNK = 15
 
 export const maxDuration = 300
 
@@ -414,16 +415,37 @@ async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, stor
   // Re-invoke on the SAME deployment that received this webhook (preview
   // or prod), not a hardcoded env — see recreate-scrape for rationale.
   const baseUrl = selfBaseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
-  fetch(`${baseUrl}/api/admin/recreate-callback?secret=${callbackSecret}&handle=${encodeURIComponent(handle)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ continue: true, sourceId, handle, reels, offset: nextOffset, storedSoFar: stored }),
-  }).catch(e => console.error(`[Recreate Callback] continuation trigger failed: ${e.message}`))
 
   if (sourceId) {
     await patchAirtableRecord('Recreate Sources', sourceId, {
       'Reels Stored': stored,
     }, { typecast: true }).catch(() => {})
   }
+
+  // CRITICAL: a bare fire-and-forget fetch gets killed when Vercel freezes
+  // the function on return — that's why the chain kept dying after a hop
+  // or two. waitUntil keeps the invocation alive until the next-hop
+  // request is delivered. Retry a few times for transient failures.
+  const kickNext = async () => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const r = await fetch(
+          `${baseUrl}/api/admin/recreate-callback?secret=${callbackSecret}&handle=${encodeURIComponent(handle)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ continue: true, sourceId, handle, reels, offset: nextOffset, storedSoFar: stored }),
+          }
+        )
+        if (r.ok) return
+        console.error(`[Recreate Callback] continuation hop ${r.status} (attempt ${attempt})`)
+      } catch (e) {
+        console.error(`[Recreate Callback] continuation trigger failed (attempt ${attempt}): ${e.message}`)
+      }
+      await new Promise(res => setTimeout(res, 1500 * attempt))
+    }
+  }
+  waitUntil(kickNext())
+
   return NextResponse.json({ handled: true, done: false, handle, stored, nextOffset })
 }

@@ -80,7 +80,7 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
         {reel.streamUid ? (
           showPlayer ? (
             <iframe
-              src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: true, loop: true, controls: true })}
+              src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
               allow="autoplay; fullscreen"
               allowFullScreen
               style={{ width: '100%', height: '100%', border: 'none' }}
@@ -99,7 +99,6 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
             src={`${reel.video}#t=0.1`}
             poster={reel.thumbnail || undefined}
             preload="metadata"
-            muted
             playsInline
             controls
             style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
