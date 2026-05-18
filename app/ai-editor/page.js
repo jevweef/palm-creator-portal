@@ -122,16 +122,15 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
           <button
-            onClick={async () => {
+            onClick={() => {
               if (!reel.video) return
-              try {
-                const r = await fetch(reel.video)
-                const blob = await r.blob()
-                const a = document.createElement('a')
-                a.href = URL.createObjectURL(blob)
-                a.download = `${reel.reelId || 'reel'}.mp4`
-                a.click()
-              } catch {}
+              // Hand the browser Dropbox's direct-download URL (dl=1).
+              // Do NOT fetch()+blob — that's a cross-origin request to
+              // dropbox.com with no CORS headers, so it throws and the
+              // download silently never happens. dl=1 makes Dropbox serve
+              // the file with an attachment disposition, browser saves it.
+              const dl = String(reel.video).replace(/([?&])raw=1/, '$1dl=1')
+              window.open(dl, '_blank', 'noopener')
             }}
             style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: 12, color: 'var(--foreground)', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}
           >↓ Download</button>
