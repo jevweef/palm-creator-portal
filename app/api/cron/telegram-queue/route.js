@@ -46,7 +46,7 @@ async function processOnePost(postId) {
     filterByFormula: `RECORD_ID()='${postId}'`,
     fields: [
       'Post Name', 'Status', 'Caption', 'Hashtags', 'Platform', 'Channel',
-      'Thumbnail', 'Scheduled Date', 'Creator', 'Asset',
+      'Thumbnail', 'Thumbnail Asset', 'Scheduled Date', 'Creator', 'Asset',
     ],
   })
   const post = postList[0]
@@ -147,6 +147,10 @@ async function processOnePost(postId) {
       assetId,
       editedFileLink,
       thumbnailUrl,
+      // Exact source Asset of a pool-applied thumbnail (if any). Send
+      // route uses this to deterministically flip Approved Thumbnail /
+      // Used As Reel Thumbnail on the right asset post-send.
+      thumbnailAssetId: f['Thumbnail Asset'] || null,
       caption: f.Caption || '',
       hashtags: f.Hashtags || '',
       platform: f.Platform || ['Instagram Reel'],
