@@ -329,6 +329,16 @@ function RoomCard({ room, variations, refresh }) {
     const d = await api('PATCH', { roomId: room.id, action: 'regenerate' })
     setMsg(d.ok ? '' : (d.error || 'failed')); setBusy(false); refresh()
   }
+  const reAnalyze = async () => {
+    setBusy(true); setMsg('Analyzing room with Sonnet…')
+    const d = await fetch('/api/admin/recreate-rooms/analyze-lock', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: room.id }),
+    }).then(r => r.json()).catch(() => ({}))
+    if (d.ok) { setLock(d.lockList); setMsg('Lock list rebuilt from the image.') }
+    else setMsg(d.error || 'analyze failed')
+    setBusy(false)
+  }
   const del = async () => {
     if (!confirm(`Delete room "${room.name}" and its variations?`)) return
     await api('DELETE', null, `?roomId=${room.id}`); refresh()
@@ -371,7 +381,9 @@ function RoomCard({ room, variations, refresh }) {
           <div style={{ fontSize: 10, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '10px 0 4px' }}>Do-not-change lock list</div>
           <textarea value={lock} onChange={e => setLock(e.target.value)} rows={4}
             style={{ width: '100%', padding: 8, background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 11, fontFamily: 'inherit', resize: 'vertical' }} />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            <button onClick={reAnalyze} disabled={busy} title="Have Sonnet rewrite the lock list from this exact image"
+              style={{ padding: '6px 12px', fontSize: 12, background: 'rgba(120,160,232,0.12)', color: '#8fb4f0', border: '1px solid rgba(120,160,232,0.35)', borderRadius: 5, cursor: 'pointer' }}>✨ Re-analyze (Sonnet)</button>
             {room.basePrompt?.trim() && (
               <button onClick={regen} disabled={busy} style={{ padding: '6px 12px', fontSize: 12, background: 'none', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>↻ Regenerate base</button>
             )}
@@ -494,8 +506,19 @@ function RoomsPanel() {
       let d
       try { d = await res.json() } catch { d = { error: `HTTP ${res.status}` } }
       if (!res.ok || !d.ok) { setMsg(d.error || `Failed (HTTP ${res.status})`); return }
-      setMsg('Base saved — review & lock it below.')
-      setForm({ name: '', angle: 'Main', prompt: '' }); setFile(null); load()
+      setForm({ name: '', angle: 'Main', prompt: '' }); setFile(null)
+      // Auto-analyze the new room with Sonnet → image-specific lock list.
+      if (d.roomId) {
+        setMsg('Base saved. Analyzing the room with Sonnet (~10s)…')
+        const a = await fetch('/api/admin/recreate-rooms/analyze-lock', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId: d.roomId }),
+        }).then(r => r.json()).catch(() => ({}))
+        setMsg(a.ok ? 'Room analyzed — review the lock list & lock it below.' : 'Base saved — review & lock it below (auto lock-list unavailable).')
+      } else {
+        setMsg('Base saved — review & lock it below.')
+      }
+      load()
     } catch (e) {
       setMsg(`Error: ${e.message || e}`)
     } finally {
