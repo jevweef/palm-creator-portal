@@ -379,27 +379,26 @@ function shuffleScenarios(n) {
   return out
 }
 
-// Downscale + JPEG re-encode a File → base64 (keeps payload under the
-// serverless body limit, same as the room-create path).
-function downscaleImage(file, MAX = 1536) {
-  return new Promise((res, rej) => {
-    const fr = new FileReader()
-    fr.onerror = rej
-    fr.onload = () => {
-      const img = new Image()
-      img.onerror = rej
-      img.onload = () => {
-        let { width: w, height: h } = img
-        if (w > MAX || h > MAX) { const s = MAX / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s) }
-        const c = document.createElement('canvas')
-        c.width = w; c.height = h
-        c.getContext('2d').drawImage(img, 0, 0, w, h)
-        res(c.toDataURL('image/jpeg', 0.9).split(',')[1])
-      }
-      img.src = fr.result
-    }
-    fr.readAsDataURL(file)
+// Upload the FULL-RES file straight to Dropbox (no downscale, no
+// serverless body limit) via a minted token; returns the Dropbox path.
+async function dropboxUploadBase(file, roomName) {
+  const tok = await fetch('/api/admin/recreate-rooms/upload-token', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roomName }),
+  }).then(r => r.json())
+  if (!tok.path) throw new Error(tok.error || 'upload token failed')
+  const up = await fetch('https://content.dropboxapi.com/2/files/upload', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${tok.accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path: tok.path, mode: 'overwrite', mute: true }),
+      'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
+      'Content-Type': 'application/octet-stream',
+    },
+    body: await file.arrayBuffer(),
   })
+  if (!up.ok) throw new Error(`Dropbox upload failed (${up.status})`)
+  return tok.path
 }
 
 function RoomCard({ room, variations, refresh }) {
@@ -475,9 +474,10 @@ function RoomCard({ room, variations, refresh }) {
     if (!f) return
     setBusy(true); setMsg('Replacing base image…')
     try {
-      const imageBase64 = await downscaleImage(f)
-      const d = await api('PATCH', { roomId: room.id, action: 'replaceImage', imageBase64, imageType: 'image/jpeg' })
-      setMsg(d.ok ? 'Base image replaced — re-analyze + re-lock it.' : (d.error || 'failed'))
+      setMsg('Uploading full-res to Dropbox…')
+      const baseDropboxPath = await dropboxUploadBase(f, room.name)
+      const d = await api('PATCH', { roomId: room.id, action: 'replaceImage', baseDropboxPath })
+      setMsg(d.ok ? 'Base image replaced (full-res master in Dropbox) — re-analyze + re-lock it.' : (d.error || 'failed'))
     } catch (e) { setMsg(`Error: ${e.message || e}`) }
     setBusy(false); refresh()
   }
@@ -600,32 +600,6 @@ function RoomsPanel() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
-  // Downscale to <=1536px and re-encode JPEG before upload. A 4k base64
-  // blows the serverless request-body limit (the upload silently never
-  // reaches the API); the edit model doesn't need >1536px anyway.
-  const fileToB64 = (f) => new Promise((res, rej) => {
-    const fr = new FileReader()
-    fr.onerror = rej
-    fr.onload = () => {
-      const img = new Image()
-      img.onerror = rej
-      img.onload = () => {
-        const MAX = 1536
-        let { width: w, height: h } = img
-        if (w > MAX || h > MAX) {
-          const s = MAX / Math.max(w, h)
-          w = Math.round(w * s); h = Math.round(h * s)
-        }
-        const c = document.createElement('canvas')
-        c.width = w; c.height = h
-        c.getContext('2d').drawImage(img, 0, 0, w, h)
-        res(c.toDataURL('image/jpeg', 0.9).split(',')[1])
-      }
-      img.src = fr.result
-    }
-    fr.readAsDataURL(f)
-  })
-
   const load = useCallback(async () => {
     const d = await fetch('/api/admin/recreate-rooms').then(r => r.json())
     setData(d)
@@ -639,9 +613,8 @@ function RoomsPanel() {
     try {
       if (mode === 'upload') {
         if (!file) { setMsg('Choose an image to upload'); return }
-        setBusy(true); setMsg('Processing image…')
-        body.imageBase64 = await fileToB64(file)   // downscaled JPEG
-        body.imageType = 'image/jpeg'
+        setBusy(true); setMsg('Uploading full-res to Dropbox…')
+        body.baseDropboxPath = await dropboxUploadBase(file, form.name)
       } else {
         if (!form.prompt.trim()) { setMsg('Enter a base prompt'); return }
         setBusy(true); setMsg('Generating base room (~30s)…')
