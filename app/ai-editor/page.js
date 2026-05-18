@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 
-function ReelCard({ reel, selected, onToggle, onUploaded }) {
+function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
   const [playing, setPlaying] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -58,6 +58,7 @@ function ReelCard({ reel, selected, onToggle, onUploaded }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reelRecordId: reel.id,
+          creatorId,
           dropboxPath: tok.path,
           thumbnailBase64,
         }),
@@ -230,7 +231,7 @@ export default function AiEditorPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
           {reels.map(r => (
-            <ReelCard key={r.id} reel={r} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} />
+            <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} />
           ))}
         </div>
       )}

@@ -61,7 +61,6 @@ export async function POST(request) {
         datasetId: body.datasetId,
         sourceId: body.sourceId,
         handle: body.handle,
-        creatorIds: body.creatorIds || [],
         offset: body.offset || 0,
         totalFound: body.totalFound || 0,
         storedSoFar: body.storedSoFar || 0,
@@ -89,19 +88,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No dataset ID in callback' }, { status: 400 })
     }
 
-    // Resolve which creator this account was queued for.
-    let creatorIds = []
-    if (sourceId) {
-      const srcRes = await fetch(
-        `https://api.airtable.com/v0/${OPS_BASE}/Recreate%20Sources/${sourceId}`,
-        { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
-      )
-      if (srcRes.ok) {
-        const f = (await srcRes.json()).fields || {}
-        creatorIds = Array.isArray(f.Creator) ? f.Creator : []
-      }
-    }
-
     const items = await fetchDatasetItems(datasetId)
     const totalFound = items.length
     console.log(`[Recreate Callback] @${handle}: ${totalFound} reels in dataset`)
@@ -116,7 +102,6 @@ export async function POST(request) {
       datasetId,
       sourceId,
       handle,
-      creatorIds,
       offset: 0,
       totalFound,
       storedSoFar: 0,
@@ -127,12 +112,11 @@ export async function POST(request) {
   }
 }
 
-async function processBatch({ datasetId, sourceId, handle, creatorIds, offset, totalFound, storedSoFar }) {
+async function processBatch({ datasetId, sourceId, handle, offset, totalFound, storedSoFar }) {
   const items = await fetchDatasetItems(datasetId)
-  const creatorId = creatorIds[0] || null
 
-  // Dedup: a reel already stored for this creator (by primary "Reel ID"
-  // = shortcode-creatorRec) is skipped so re-queues only cost new reels.
+  // Global library: one row per IG reel (Reel ID = shortcode). Dedup so a
+  // re-scrape of the same account only stores/pays for genuinely new reels.
   const existing = await fetchAirtableRecords('Recreate Reels', {
     fields: ['Reel ID'],
     filterByFormula: `{Source Handle} = "${handle}"`,
@@ -151,7 +135,7 @@ async function processBatch({ datasetId, sourceId, handle, creatorIds, offset, t
       const shortcode = pickFirst(item, ['shortCode', 'shortcode'], null) || shortcodeFromUrl(reelUrl)
       if (!shortcode) continue
 
-      const reelId = creatorId ? `${shortcode}-${creatorId}` : shortcode
+      const reelId = shortcode
       if (existingIds.has(reelId)) continue
 
       const videoUrl = pickFirst(item, ['videoUrl', 'videoUrlHd', 'video_url'], null)
@@ -192,7 +176,6 @@ async function processBatch({ datasetId, sourceId, handle, creatorIds, offset, t
       const postedAt = normalizeDatetime(pickFirst(item, ['timestamp', 'takenAtTimestamp'], ''))
       if (postedAt) fields['Posted At'] = postedAt
       if (sourceId) fields.Source = [sourceId]
-      if (creatorId) fields.Creator = [creatorId]
 
       const created = await createAirtableRecord('Recreate Reels', fields)
       const newId = created?.records?.[0]?.id || created?.id
@@ -253,7 +236,6 @@ async function processBatch({ datasetId, sourceId, handle, creatorIds, offset, t
       datasetId,
       sourceId,
       handle,
-      creatorIds,
       offset: nextOffset,
       totalFound,
       storedSoFar: stored,

@@ -4,10 +4,11 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/a
 const APIFY_TOKEN = process.env.APIFY_TOKEN
 const ACTOR_ID = 'apify/instagram-reel-scraper'
 
-// Hard ceiling so a single account can't run away with Apify spend.
-// Overridable per-source via the "Reels Found" intent isn't a thing yet;
-// this is the safety cap for "all reels".
-const DEFAULT_LIMIT = 500
+// Per-account reel cap. Each source can override via its "Max Reels"
+// field; blank falls back to DEFAULT, and nothing may exceed HARD_CEIL
+// even if mis-set (runaway Apify spend guard).
+const DEFAULT_LIMIT = 50
+const HARD_CEIL = 100
 
 export const maxDuration = 60
 
@@ -28,7 +29,7 @@ export async function POST(request) {
     }
 
     const sources = await fetchAirtableRecords('Recreate Sources', {
-      fields: ['Handle', 'Status', 'Creator'],
+      fields: ['Handle', 'Status', 'Max Reels'],
     })
 
     const toScrape = sources.filter(r => {
@@ -52,12 +53,14 @@ export async function POST(request) {
     for (const source of toScrape) {
       const handle = source.fields.Handle.trim()
       try {
-        // No `onlyPostsNewerThan` → Apify returns the account's full reel
-        // history (capped by resultsLimit). This is the deliberate
-        // difference from the inspo Sources scraper.
+        const rawMax = Number(source.fields['Max Reels']) || DEFAULT_LIMIT
+        const limit = Math.min(Math.max(1, rawMax), HARD_CEIL)
+        // No `onlyPostsNewerThan` → Apify returns the account's recent reel
+        // history capped by resultsLimit. Deliberate difference from the
+        // inspo Sources scraper (which uses a lookback window).
         const payload = {
           username: [handle],
-          resultsLimit: DEFAULT_LIMIT,
+          resultsLimit: limit,
           skipPinnedPosts: false,
           includeTranscript: false,
           includeSharesCount: false,

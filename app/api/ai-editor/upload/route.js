@@ -26,10 +26,13 @@ function getWeekStart() {
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { reelRecordId, dropboxPath, thumbnailBase64 } = await request.json()
+    const { reelRecordId, creatorId, dropboxPath, thumbnailBase64 } = await request.json()
 
     if (!reelRecordId || !/^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) {
       return NextResponse.json({ error: 'Valid reelRecordId required' }, { status: 400 })
+    }
+    if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
+      return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
     if (!dropboxPath || !thumbnailBase64) {
       return NextResponse.json({ error: 'dropboxPath and thumbnailBase64 required' }, { status: 400 })
@@ -42,14 +45,9 @@ export async function POST(request) {
     )
     if (!reelRes.ok) return NextResponse.json({ error: 'Reel not found' }, { status: 404 })
     const rf = (await reelRes.json()).fields || {}
-    const creatorId = Array.isArray(rf.Creator) ? rf.Creator[0] : null
     const originalUrl = rf['Reel URL'] || ''
     const handle = rf['Source Handle'] || ''
     const reelId = rf['Reel ID'] || reelRecordId
-
-    if (!creatorId) {
-      return NextResponse.json({ error: 'Reel has no linked creator' }, { status: 400 })
-    }
 
     // Shared link for the uploaded AI reel
     const accessToken = await getDropboxAccessToken()
@@ -124,12 +122,22 @@ export async function POST(request) {
     let taskCreated = taskRes.ok
     if (!taskRes.ok) console.warn('[ai-editor upload] task create failed:', await taskRes.text())
 
-    // Mark the pool reel Produced
+    // Append this creator to the reel's "Produced For" (union, so other
+    // creators still see it) + link the new asset. Global Status stays
+    // Available — the pool hides it per-creator via Produced For.
+    const curProducedFor = Array.isArray(rf['Produced For']) ? rf['Produced For'] : []
+    const curProducedAsset = Array.isArray(rf['Produced Asset']) ? rf['Produced Asset'] : []
     await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Recreate%20Reels/${reelRecordId}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ typecast: true, fields: { Status: 'Produced', 'Produced Asset': [assetId] } }),
-    }).catch(e => console.warn('[ai-editor upload] mark Produced failed:', e.message))
+      body: JSON.stringify({
+        typecast: true,
+        fields: {
+          'Produced For': Array.from(new Set([...curProducedFor, creatorId])),
+          'Produced Asset': Array.from(new Set([...curProducedAsset, assetId])),
+        },
+      }),
+    }).catch(e => console.warn('[ai-editor upload] mark Produced For failed:', e.message))
 
     triggerAssetMirror(assetId)
 
