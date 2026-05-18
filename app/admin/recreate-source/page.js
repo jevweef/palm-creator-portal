@@ -622,6 +622,17 @@ function RoomCard({ room, variations, refresh }) {
     await fetch(`/api/admin/recreate-rooms/variation?id=${id}`, { method: 'DELETE' })
     refresh()
   }
+  const refineVar = async (v) => {
+    const instruction = prompt('Describe the precise change(s) to make to THIS image (camera & room stay the same).\n\ne.g. "Make the left wall continue flat with no indent or recess; add a hanging trailing pothos plant on the left that matches the one on the right; add a small cute illustrated poster on the left wall with no text."')
+    if (!instruction || !instruction.trim()) return
+    setBusy(true); setMsg('Refining image…')
+    const d = await fetch('/api/admin/recreate-rooms/refine', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variationId: v.id, instruction: instruction.trim() }),
+    }).then(r => r.json())
+    setMsg(d.ok ? 'Refined — new version added below' : (d.error || 'failed'))
+    setBusy(false); refresh()
+  }
   const downloadVar = (v) => { if (v?.dropbox || v?.image) window.open(v.dropbox || v.image, '_blank', 'noopener') }
   const approveAndDownload = async (v) => {
     downloadVar(v)
@@ -734,6 +745,7 @@ function RoomCard({ room, variations, refresh }) {
                 <div style={{ display: 'flex', gap: 2, padding: '0 4px 4px' }}>
                   <button onClick={() => setVar(v.id, 'Approved')} title="Approve" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(106,198,138,0.15)', color: '#6AC68A', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓</button>
                   <button onClick={() => setVar(v.id, 'Rejected')} title="Reject" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(232,120,120,0.12)', color: '#E87878', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                  <button onClick={() => refineVar(v)} disabled={busy} title="Refine this image (fix/add specific things, same camera)" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(168,120,232,0.14)', color: '#b48ff0', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✏️</button>
                   <a href={v.dropbox || v.image || '#'} target="_blank" rel="noopener noreferrer" title={v.dropbox ? 'Download full-res master (Dropbox)' : 'Open image'} style={{ flex: 1, textAlign: 'center', fontSize: 11, padding: '3px 0', background: 'rgba(120,160,232,0.12)', color: '#8fb4f0', borderRadius: 4, textDecoration: 'none' }}>⬇</a>
                   <button onClick={() => delVar(v.id)} title="Delete" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'none', color: '#666', border: 'none', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
                 </div>
@@ -776,6 +788,7 @@ function RoomCard({ room, variations, refresh }) {
                 <button onClick={() => go(-1)} disabled={modalIdx === 0} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>‹</button>
                 <button onClick={() => approveAndDownload(v)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, background: '#6AC68A', color: '#0a1a0f', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✓ Approve &amp; download</button>
                 <button onClick={() => downloadVar(v)} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, cursor: 'pointer' }}>⬇ Download</button>
+                <button onClick={() => refineVar(v)} disabled={busy} title="Fix/add specific things on this exact image (same camera)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.14)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.35)', borderRadius: 6, cursor: 'pointer' }}>✏️ Refine</button>
                 <button onClick={async () => { await promoteAngle(v); setModalIdx(-1) }} title="Make this image its own locked room (a new angle for this creator)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.18)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.4)', borderRadius: 6, cursor: 'pointer' }}>📐 Save as angle</button>
                 <button onClick={async () => { await setVar(v.id, 'Rejected'); setModalIdx(-1) }} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(232,120,120,0.15)', color: '#E87878', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
                 <button onClick={async () => { await delVar(v.id); setModalIdx(-1) }} style={{ padding: '8px 12px', fontSize: 13, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>🗑</button>
