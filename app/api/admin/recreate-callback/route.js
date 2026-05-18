@@ -262,6 +262,25 @@ export async function POST(request) {
 }
 
 async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, storedSoFar }) {
+  // Supersede guard: if the source row was deleted or is no longer
+  // 'Scraping' (user removed/re-added it, or another run took over),
+  // abort this chain so an orphaned run doesn't keep inserting dupes.
+  if (sourceId) {
+    const sr = await fetch(
+      `https://api.airtable.com/v0/${OPS_BASE}/Recreate%20Sources/${sourceId}`,
+      { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
+    ).catch(() => null)
+    if (!sr || !sr.ok) {
+      console.log(`[Recreate Callback] @${handle}: source ${sourceId} gone — aborting orphaned run`)
+      return NextResponse.json({ handled: true, aborted: 'source-deleted' })
+    }
+    const st = (await sr.json()).fields?.Status
+    if ((st?.name || st) !== 'Scraping') {
+      console.log(`[Recreate Callback] @${handle}: source status=${st?.name || st} — aborting superseded run`)
+      return NextResponse.json({ handled: true, aborted: 'superseded' })
+    }
+  }
+
   // Global library: one row per IG reel (Reel ID = shortcode). Dedup so a
   // re-scrape only stores genuinely new reels.
   const existing = await fetchAirtableRecords('Recreate Reels', {

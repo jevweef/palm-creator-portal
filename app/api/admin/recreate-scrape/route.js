@@ -32,16 +32,33 @@ export async function POST(request) {
       fields: ['Handle', 'Status', 'Max Reels'],
     })
 
+    // Concurrency guard: a handle already mid-scrape (this row OR any other
+    // row with the same handle) must NOT get a second Apify run. Overlapping
+    // chunked callbacks for the same handle can't see each other's in-flight
+    // inserts → duplicate reels. This is the duplicate-reel root cause.
+    const scrapingHandles = new Set(
+      sources
+        .filter(r => (r.fields?.Status?.name || r.fields?.Status) === 'Scraping')
+        .map(r => (r.fields?.Handle || '').trim().toLowerCase())
+        .filter(Boolean)
+    )
+
+    const skippedBusy = []
     const toScrape = sources.filter(r => {
       const f = r.fields || {}
-      if (!f.Handle?.trim()) return false
-      if (recordIds) return recordIds.includes(r.id)
-      const status = f.Status?.name || f.Status || ''
-      return status === 'Queued'
+      const handle = (f.Handle || '').trim()
+      if (!handle) return false
+      const selected = recordIds ? recordIds.includes(r.id) : (f.Status?.name || f.Status) === 'Queued'
+      if (!selected) return false
+      if (scrapingHandles.has(handle.toLowerCase())) {
+        skippedBusy.push({ handle, reason: 'already scraping' })
+        return false
+      }
+      return true
     })
 
     if (toScrape.length === 0) {
-      return NextResponse.json({ started: [], skipped: [{ reason: 'no Queued sources' }] })
+      return NextResponse.json({ started: [], skipped: skippedBusy.length ? skippedBusy : [{ reason: 'no Queued sources' }] })
     }
 
     const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
