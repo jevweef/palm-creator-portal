@@ -316,20 +316,22 @@ const AXES = {
     'the comforter dragged halfway off onto the floor, bed clearly slept in',
   ],
   floor: [
-    'one or two pieces of women\'s clothing — a sundress and a crop top — dropped on the BARE porcelain tile floor, off the rug',
+    'one or two pieces of women\'s clothing — a sundress and a crop top — tossed in a crumpled heap on the BARE porcelain tile floor near the side, off the rug (not laid flat)',
     'a small folded stack of women\'s laundry (leggings, tops, a cardigan) sitting directly on the bare tile floor away from the rug',
     'a pair of women\'s heels kicked off on the bare tile near the left wall and a women\'s knit top draped over the nightstand',
     'a towel and a women\'s handbag tipped over on the bare porcelain floor between the rug and the camera',
     'a single yoga mat unrolled flat on the bare porcelain floor (NOT on the rug), with two yoga blocks, a folded towel and a water bottle next to it',
     'a women\'s gym bag open on the bare tile floor with workout clothes and a sports bra spilling out onto the tile',
-    'a few women\'s outfits strewn across the bare floor and one trailing onto the rug, like she was trying clothes on',
+    'a few women\'s outfits tossed in crumpled piles toward the side of the bare floor, one trailing onto the rug, like she was trying clothes on (not spread flat, center clear)',
   ],
   // Right at the camera — so close it is only partly in frame.
+  // Near-camera but ALWAYS shoved into the lower-LEFT or lower-RIGHT
+  // corner — the dead-center bottom stays clear (a person stands there).
   foreground: [
-    'a laundry basket of women\'s clothes in the immediate foreground so close to the camera it is partially cropped — only its top visible at the bottom edge',
-    'the corner of a women\'s tote or handbag intruding into the very foreground, cut off by the bottom of the frame',
-    'a stack of folded women\'s clothes right at the camera in the foreground, only the top of the pile in frame',
-    'a pair of women\'s heels and a dropped oversized sweater in the extreme foreground, partially out of frame at the bottom',
+    'a laundry basket of women\'s clothes in the lower-LEFT corner of the frame, close to the camera and partially cropped by the edge (center stays clear)',
+    'the corner of a women\'s tote or handbag intruding from the far RIGHT edge of the foreground, cut off by the side of the frame (center stays clear)',
+    'a pair of women\'s heels kicked off into the lower-LEFT corner near the side wall, close to camera (center stays clear)',
+    'a crumpled cardigan tossed in the lower-RIGHT corner of the frame, partially out of frame at the side (center stays clear)',
   ],
   // The shag rug is transient surface — it gets walked on.
   rug: [
