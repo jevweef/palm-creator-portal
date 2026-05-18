@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
+  const [showPlayer, setShowPlayer] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState('')
@@ -75,7 +77,24 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
   return (
     <div style={{ border: selected ? '1px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden', background: 'rgba(255,255,255,0.02)' }}>
       <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
-        {reel.video ? (
+        {reel.streamUid ? (
+          showPlayer ? (
+            <iframe
+              src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: true, loop: true, controls: true })}
+              allow="autoplay; fullscreen"
+              allowFullScreen
+              style={{ width: '100%', height: '100%', border: 'none' }}
+            />
+          ) : (
+            <img
+              src={buildStreamPosterUrl(reel.streamUid, { width: 480, fit: 'crop' })}
+              alt=""
+              loading="lazy"
+              onClick={() => setShowPlayer(true)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+            />
+          )
+        ) : reel.video ? (
           <video
             src={`${reel.video}#t=0.1`}
             poster={reel.thumbnail || undefined}
@@ -86,7 +105,7 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
             style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
           />
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#555', fontSize: 12 }}>no video</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#555', fontSize: 12 }}>processing…</div>
         )}
         <label style={{ position: 'absolute', top: 8, left: 8 }} onClick={e => e.stopPropagation()}>
           <input type="checkbox" checked={selected} onChange={() => onToggle(reel.id)} style={{ width: 18, height: 18, cursor: 'pointer' }} />

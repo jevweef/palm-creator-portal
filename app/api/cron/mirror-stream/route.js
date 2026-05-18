@@ -191,11 +191,11 @@ export async function GET(request) {
     const elapsed = Math.round((Date.now() - startedAt) / 1000)
     console.log(
       `[cron/mirror-stream] processed=${processed} kicked=${kicked} ` +
-      `failed=${failed} remaining=${remaining} (assets=${remainingAssets}, inspo=${remainingInspo}) elapsed=${elapsed}s`
+      `failed=${failed} remaining=${remaining} (assets=${remainingAssets}, inspo=${remainingInspo}, reels=${remainingReels}) elapsed=${elapsed}s`
     )
 
     return NextResponse.json({
-      ok: true, processed, kicked, failed, remaining, remainingAssets, remainingInspo, elapsed,
+      ok: true, processed, kicked, failed, remaining, remainingAssets, remainingInspo, remainingReels, elapsed,
       errors: errors.slice(0, 10),
     })
   } catch (err) {

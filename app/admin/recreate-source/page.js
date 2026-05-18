@@ -1,17 +1,35 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 const STATUS_COLORS = { Queued: '#888', Scraping: '#E8C36A', Ready: '#6AC68A', Error: '#E87878' }
 
 function LibraryReel({ reel, onRemove }) {
-  // Show the Dropbox video itself (first frame via #t media fragment) so
-  // every card previews with no click. IG thumbnails often fail to
-  // attach for age-restricted reels, so we don't depend on them — the
-  // thumbnail, when present, is just a fast-painting poster.
+  const [playing, setPlaying] = useState(false)
+  // Prefer Cloudflare Stream: a CDN poster image loads instantly (fast to
+  // sift), click plays the Stream player. Reels not yet mirrored fall
+  // back to the Dropbox video first-frame.
   return (
     <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
-      {reel.video ? (
+      {reel.streamUid ? (
+        playing ? (
+          <iframe
+            src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: true, loop: true, controls: true })}
+            allow="autoplay; fullscreen"
+            allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none' }}
+          />
+        ) : (
+          <img
+            src={buildStreamPosterUrl(reel.streamUid, { width: 480, fit: 'crop' })}
+            alt=""
+            loading="lazy"
+            onClick={() => setPlaying(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+          />
+        )
+      ) : reel.video ? (
         <video
           src={`${reel.video}#t=0.1`}
           poster={reel.thumbnail || undefined}
@@ -22,7 +40,7 @@ function LibraryReel({ reel, onRemove }) {
           style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
         />
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#555', fontSize: 11 }}>no video</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#555', fontSize: 11 }}>processing…</div>
       )}
       <div style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.7)', padding: '1px 6px', borderRadius: 4, fontSize: 10, color: '#ddd' }}>@{reel.handle}</div>
       <button

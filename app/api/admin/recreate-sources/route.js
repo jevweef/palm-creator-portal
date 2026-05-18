@@ -18,7 +18,7 @@ export async function GET() {
         sort: [{ field: 'Last Scraped', direction: 'desc' }],
       }),
       fetchAirtableRecords('Recreate Reels', {
-        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Posted At', 'Views', 'Thumbnail', 'Dropbox Video Link', 'Status', 'Produced For'],
+        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Posted At', 'Views', 'Thumbnail', 'Dropbox Video Link', 'Stream UID', 'Status', 'Produced For'],
         sort: [{ field: 'Posted At', direction: 'desc' }],
       }),
     ])
@@ -51,6 +51,7 @@ export async function GET() {
           views: f.Views || 0,
           thumbnail: thumb,
           video: (f['Dropbox Video Link'] || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1'),
+          streamUid: f['Stream UID'] || null,
           producedForCount: Array.isArray(f['Produced For']) ? f['Produced For'].length : 0,
         }
       }),

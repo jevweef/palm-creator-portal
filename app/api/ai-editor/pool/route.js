@@ -30,7 +30,7 @@ export async function GET(request) {
       // via ARRAYJOIN+FIND (that yields primary-field text, not rec IDs,
       // so FIND('rec…') silently matches nothing).
       const rows = (await fetchAirtableRecords('Recreate Reels', {
-        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Caption', 'Posted At', 'Views', 'Dropbox Video Link', 'Thumbnail', 'Status', 'Produced For'],
+        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Caption', 'Posted At', 'Views', 'Dropbox Video Link', 'Stream UID', 'Thumbnail', 'Status', 'Produced For'],
         filterByFormula: `{Status} = 'Available'`,
         sort: [{ field: 'Posted At', direction: 'desc' }],
       })).filter(r => !(r.fields?.['Produced For'] || []).includes(creatorId))
@@ -46,6 +46,7 @@ export async function GET(request) {
           postedAt: f['Posted At'] || null,
           views: f.Views || 0,
           video: rawLink(f['Dropbox Video Link']),
+          streamUid: f['Stream UID'] || null,
           thumbnail: thumb,
         }
       })
