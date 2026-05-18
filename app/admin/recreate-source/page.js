@@ -919,6 +919,24 @@ function RoomsPanel() {
   const varsByRoom = {}
   for (const v of data.variations || []) (varsByRoom[v.roomId] = varsByRoom[v.roomId] || []).push(v)
 
+  const organizeAll = async () => {
+    if (!confirm(`Organize Dropbox files for ALL ${rooms.length} rooms of this creator?\n\nMoves each room's base into its own /{room}/_base/ folder and renumbers variations. Relinks Airtable. Safe to re-run.`)) return
+    setBusy(true)
+    let done = 0
+    for (const r of rooms) {
+      setMsg(`Organizing ${done + 1}/${rooms.length}: ${r.name}…`)
+      try {
+        await fetch('/api/admin/recreate-rooms/variation', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId: r.id, action: 'renumber' }),
+        })
+      } catch {}
+      done++
+    }
+    setMsg(`✅ Organized ${done} room(s) — every base is now in its own /{room}/_base/ folder.`)
+    setBusy(false); load()
+  }
+
   return (
     <div>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Rooms</h1>
@@ -974,7 +992,18 @@ function RoomsPanel() {
 
       {rooms.length === 0
         ? <div style={{ padding: 30, textAlign: 'center', color: '#666', fontSize: 13 }}>No rooms for this creator yet.</div>
-        : rooms.map(r => <RoomCard key={r.id} room={r} variations={varsByRoom[r.id] || []} refresh={load} />)}
+        : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+              <button onClick={organizeAll} disabled={busy} title="Move every room's base into its own _base folder + renumber variations"
+                style={{ fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 6, padding: '6px 12px', cursor: busy ? 'default' : 'pointer' }}>
+                {busy ? 'Working…' : `🗂 Organize ALL ${rooms.length} rooms`}
+              </button>
+            </div>
+            {msg && <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 10 }}>{msg}</div>}
+            {rooms.map(r => <RoomCard key={r.id} room={r} variations={varsByRoom[r.id] || []} refresh={load} />)}
+          </>
+        )}
     </div>
   )
 }
