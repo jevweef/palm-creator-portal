@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { fetchAirtableRecords, patchAirtableRecord, createAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { uploadVideoByUrl } from '@/lib/cloudflareStream'
 import { waitUntil } from '@vercel/functions'
@@ -304,8 +304,31 @@ async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, stor
       if (item.postedAt) fields['Posted At'] = item.postedAt
       if (sourceId) fields.Source = [sourceId]
 
-      const created = await createAirtableRecord('Recreate Reels', fields)
-      const newId = created?.records?.[0]?.id || created?.id
+      // UPSERT on "Reel ID" instead of plain create — structural dedup.
+      // If any chain (even a concurrent one) already wrote this shortcode,
+      // this merges into that row instead of creating a duplicate. This is
+      // the real fix; the in-memory existingIds check is just a fast skip.
+      const upRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Recreate%20Reels`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          performUpsert: { fieldsToMergeOn: ['Reel ID'] },
+          records: [{ fields }],
+        }),
+      })
+      if (!upRes.ok) {
+        console.error(`[Recreate Callback] upsert failed ${shortcode}: ${upRes.status} ${await upRes.text()}`)
+        continue
+      }
+      const upJson = await upRes.json()
+      const wasCreated = (upJson.createdRecords || []).length > 0
+      const newId = upJson?.records?.[0]?.id
+      if (!wasCreated) {
+        // Already existed (another chain or prior run) — don't double-count
+        // or re-kick Stream; just move on.
+        existingIds.add(shortcode)
+        continue
+      }
 
       // NOTE: poster generation is intentionally NOT done here. ffmpeg per
       // reel was the heaviest per-invocation cost and made the chain long
