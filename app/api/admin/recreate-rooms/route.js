@@ -56,7 +56,7 @@ export async function GET() {
         fields: ['Room Name', 'Creator', 'Angle', 'Base Prompt', 'Lock Inventory', 'Base Image', 'Status'],
       }),
       fetchAirtableRecords(VARS, {
-        fields: ['Variation', 'Room', 'Recipe', 'Image', 'Status'],
+        fields: ['Variation', 'Room', 'Recipe', 'Image', 'Status', 'Dropbox Link'],
       }),
     ])
     const att = a => (Array.isArray(a) && a[0] ? (a[0].thumbnails?.large?.url || a[0].url) : null)
@@ -84,6 +84,7 @@ export async function GET() {
           roomId: Array.isArray(f.Room) ? f.Room[0] : null,
           recipe: f.Recipe || '',
           image: att(f.Image),
+          dropbox: f['Dropbox Link'] ? String(f['Dropbox Link']).replace('dl=0', 'dl=1') : null,
           status: f.Status?.name || f.Status || 'Pending',
         }
       }),

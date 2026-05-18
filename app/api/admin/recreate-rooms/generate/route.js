@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, createAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 export const maxDuration = 300
 
@@ -30,6 +31,7 @@ async function runEdit(baseUrl, prompt) {
     images: [baseUrl],
     prompt,
     aspect_ratio: '9:16',
+    resolution: '2k',          // full-res master (kept on Dropbox)
     output_format: 'jpeg',
   })
   const t0 = Date.now()
@@ -70,6 +72,16 @@ export async function POST(request) {
     const lock = rf['Lock Inventory'] || ''
     const roomName = rf['Room Name'] || 'Room'
 
+    // Dropbox = full-res master store (same as the rest of the system).
+    let dbxToken = null, dbxNs = null
+    try {
+      dbxToken = await getDropboxAccessToken()
+      dbxNs = await getDropboxRootNamespaceId(dbxToken)
+    } catch (e) {
+      console.warn('[recreate-rooms/generate] Dropbox auth failed (variations still saved to Airtable):', e.message)
+    }
+    const folderSafe = roomName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
+
     const batch = recipes.slice(0, MAX_PER_RUN)
     const made = []
     const failed = []
@@ -80,12 +92,33 @@ export async function POST(request) {
       const prompt = buildPrompt(lock, change)
       try {
         const url = await runEdit(baseUrl, prompt)
+
+        // Pull the full-res model output and store it as the Dropbox
+        // master. Non-fatal: if Dropbox fails the variation still lands
+        // in Airtable (the gallery), just without a master link.
+        let dbxPath = '', dbxLink = ''
+        if (dbxToken) {
+          try {
+            const imgRes = await fetch(url)
+            if (imgRes.ok) {
+              const buf = Buffer.from(await imgRes.arrayBuffer())
+              dbxPath = `/Palm Ops/Recreate Rooms/${folderSafe}/${name.replace(/[^a-zA-Z0-9-_ ]/g, '')}-${Date.now()}.jpg`
+              await uploadToDropbox(dbxToken, dbxNs, dbxPath, buf, { overwrite: true })
+              try { dbxLink = await createDropboxSharedLink(dbxToken, dbxNs, dbxPath) } catch {}
+            }
+          } catch (e) {
+            console.warn(`[recreate-rooms/generate] Dropbox save failed for ${name}: ${e.message}`)
+          }
+        }
+
         await createAirtableRecord(VARS, {
           Variation: `${roomName} - ${name}`,
           Room: [roomId],
           Recipe: name,
           'Prompt Used': prompt,
           Image: [{ url }],
+          ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
+          ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
           Status: 'Pending',
         })
         made.push(name)
