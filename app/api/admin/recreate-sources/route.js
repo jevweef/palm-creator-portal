@@ -5,7 +5,7 @@ import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile } f
 export const maxDuration = 30
 
 const DEFAULT_MAX = 50
-const HARD_CEIL = 100
+const HARD_CEIL = 500
 
 // GET — the global library: queued/scraped accounts + every scraped reel
 export async function GET() {

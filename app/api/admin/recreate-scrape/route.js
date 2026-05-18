@@ -8,7 +8,7 @@ const ACTOR_ID = 'apify/instagram-reel-scraper'
 // field; blank falls back to DEFAULT, and nothing may exceed HARD_CEIL
 // even if mis-set (runaway Apify spend guard).
 const DEFAULT_LIMIT = 50
-const HARD_CEIL = 100
+const HARD_CEIL = 500
 
 export const maxDuration = 60
 

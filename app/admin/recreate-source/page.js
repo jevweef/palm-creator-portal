@@ -120,7 +120,7 @@ export default function RecreateLibraryPage() {
         </div>
         <div style={{ width: 110 }}>
           <label style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Max reels</label>
-          <input type="number" value={maxReels} onChange={e => setMaxReels(e.target.value)} placeholder="50" min={1} max={100}
+          <input type="number" value={maxReels} onChange={e => setMaxReels(e.target.value)} placeholder="50" min={1} max={500}
             style={{ width: '100%', marginTop: 6, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }} />
         </div>
         <button onClick={addHandles} disabled={busy || !handles.trim()}
