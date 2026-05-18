@@ -359,22 +359,28 @@ const AXES = {
   ],
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
+// SMALL edits only. Changing all 5 axes at once made nano-banana
+// re-render the whole scene (bed grew, rug vanished). Each variation
+// changes just ONE everyday "state" thing, plus optionally the
+// time-of-day/light — never more. Variety comes from N shuffles, not
+// from a 5-way overhaul per image.
+const STATE_AXES = ['bed', 'floor', 'bed_items', 'nightstand']
 function shuffleScenarios(n) {
   const seen = new Set()
   const out = []
   let guard = 0
-  while (out.length < n && guard++ < n * 12) {
-    const c = {
-      bed: pick(AXES.bed), floor: pick(AXES.floor), bed_items: pick(AXES.bed_items),
-      nightstand: pick(AXES.nightstand), time_light: pick(AXES.time_light),
-    }
-    const sig = Object.values(c).join('|')
+  while (out.length < n && guard++ < n * 14) {
+    const axis = pick(STATE_AXES)
+    const stateChange = pick(AXES[axis])
+    const withLight = Math.random() < 0.5
+    const light = withLight ? pick(AXES.time_light) : null
+    const sig = `${axis}:${stateChange}|${light || 'same'}`
     if (seen.has(sig)) continue
     seen.add(sig)
-    out.push({
-      name: `Shuffle ${out.length + 1}`,
-      change: `an ordinary everyday state of the same room: ${c.bed}; ${c.floor}; ${c.bed_items}; ${c.nightstand}; ${c.time_light}. Natural and realistic, like a random real day — not staged.`,
-    })
+    const change = light
+      ? `just two small everyday differences: ${stateChange}; and the lighting is ${light}. Nothing else in the room changes.`
+      : `just one small everyday difference: ${stateChange}. The lighting stays the same as the original and nothing else in the room changes.`
+    out.push({ name: `Shuffle ${out.length + 1}`, change })
   }
   return out
 }

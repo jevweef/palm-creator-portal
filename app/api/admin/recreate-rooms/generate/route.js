@@ -13,16 +13,22 @@ const MAX_PER_RUN = 6
 
 function buildPrompt(lockInventory, change) {
   return (
-    'Minimal local edit of this photo — do NOT re-render, restyle, relight or '
-    + 'reinterpret the scene. Copy the input image pixel-faithfully EXCEPT for '
-    + 'the one small change below.\n\n'
-    + `DO NOT CHANGE (the room's permanent identity — keep identical): ${lockInventory}\n\n`
-    + `ONLY THIS CHANGES: ${change}\n\n`
-    + 'This is everyday life in the SAME room: only ordinary transient things '
-    + '(bedding, clutter brought in/out, items on surfaces, how open the '
-    + 'curtains are, time of day and lighting) may differ — and only exactly '
-    + 'as instructed above. Everything else stays pixel-identical. '
-    + 'Same candid iPhone photo style, consistent room, no people, no text, no watermark.'
+    'This is a TINY local edit of the photo. Treat the input image as final '
+    + 'and reproduce it pixel-for-pixel, changing ONLY the one small thing '
+    + 'described below. Do not re-render, regenerate, restyle or reinterpret '
+    + 'the scene.\n\n'
+    + 'HARD CONSTRAINTS — these are violations, not preferences: do NOT resize, '
+    + 'rescale, stretch, move, rotate, add, remove, replace or redesign ANY '
+    + 'furniture or object. The bed keeps the EXACT same size, shape, footprint '
+    + 'and position. The rug keeps the EXACT same size, shape and position and '
+    + 'must NOT be removed or shrunk. Walls, windows, the view, floor, dresser, '
+    + 'nightstand, mirror, plants and décor keep their exact size and position. '
+    + 'The camera does not move — identical framing, angle, perspective, crop, '
+    + 'zoom.\n\n'
+    + `KEEP IDENTICAL (the room's permanent identity): ${lockInventory}\n\n`
+    + `THE ONLY THING THAT MAY CHANGE: ${change}\n\n`
+    + 'Everything not explicitly named in that one change stays pixel-identical '
+    + 'to the input. Same candid iPhone photo style, no people, no text, no watermark.'
   )
 }
 
