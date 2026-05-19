@@ -721,7 +721,6 @@ function RoomCard({ room, variations, refresh }) {
   }
   const downloadVar = (v) => { if (v?.dropbox || v?.image) window.open(v.dropbox || v.image, '_blank', 'noopener') }
   const approveAndDownload = async (v) => {
-    downloadVar(v)
     await fetch(`/api/admin/recreate-rooms/variation?id=${v.id}&status=Approved`, { method: 'PATCH' })
     setModalIdx(-1)
     refresh()
@@ -889,7 +888,7 @@ function RoomCard({ room, variations, refresh }) {
               <div style={{ fontSize: 12, color: '#bbb' }}>{v.recipe} · {v.status} · {modalIdx + 1}/{variations.length}</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={() => go(-1)} disabled={modalIdx === 0} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>‹</button>
-                <button onClick={() => approveAndDownload(v)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, background: '#6AC68A', color: '#0a1a0f', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✓ Approve &amp; download</button>
+                <button onClick={() => approveAndDownload(v)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, background: '#6AC68A', color: '#0a1a0f', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✓ Approve</button>
                 <button onClick={() => downloadVar(v)} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, cursor: 'pointer' }}>⬇ Download</button>
                 <button onClick={() => refineVar(v)} disabled={busy} title="Fix/add specific things on this exact image (same camera)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.14)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.35)', borderRadius: 6, cursor: 'pointer' }}>✏️ Refine</button>
                 <button onClick={async () => { await promoteAngle(v); setModalIdx(-1) }} title="Make this image its own locked room (a new angle for this creator)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.18)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.4)', borderRadius: 6, cursor: 'pointer' }}>📐 Save as angle</button>
