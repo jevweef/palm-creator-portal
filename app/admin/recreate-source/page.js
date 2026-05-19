@@ -629,16 +629,24 @@ function StageBPanel() {
   const [msg, setMsg] = useState('')
   const videoRef = useRef(null)
 
+  const [creators, setCreators] = useState([])
+
   useEffect(() => {
+    fetch('/api/admin/recreate-rooms/stage-b/creators').then(r => r.json()).then(d => {
+      setCreators(d.creators || [])
+      if (d.creators?.[0]) setCreatorId(d.creators[0].id)
+    }).catch(() => {})
     fetch('/api/admin/recreate-rooms').then(r => r.json()).then(d => {
       setData({ creators: d.creators || [], rooms: d.rooms || [], variations: d.variations || [] })
-      if (!creatorId && d.creators?.[0]) setCreatorId(d.creators[0].id)
     }).catch(() => {})
     fetch('/api/admin/recreate-sources').then(r => r.json()).then(d => setReels(d.reels || [])).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const myRoomIds = data.rooms.filter(r => r.creatorId === creatorId).map(r => r.id)
-  const locations = data.variations.filter(v => myRoomIds.includes(v.roomId) && v.status === 'Approved')
+  const roomName = (id) => data.rooms.find(r => r.id === id)?.name || 'Room'
+  // ANY approved room variation can be the location (creator-driven —
+  // not limited to rooms this creator owns).
+  const locations = data.variations.filter(v => v.status === 'Approved')
+  const sel = creators.find(c => c.id === creatorId)
 
   const capture = () => {
     const vid = videoRef.current
@@ -665,9 +673,9 @@ function StageBPanel() {
       setMsg('⏳ Stage B — compositing creator into the room… ~2–3 min, leave this tab open.')
       const d = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variationId, poseDropboxPath: posePath, refDropboxPaths: refPaths }),
+        body: JSON.stringify({ creatorId, variationId, poseDropboxPath: posePath, refDropboxPaths: refPaths }),
       }).then(r => r.json())
-      if (d.ok) setMsg(`✅ Done — "Stage B" card added under that room in the Rooms tab (used ${d.images} images).`)
+      if (d.ok) setMsg(`✅ Done — "Stage B · ${sel?.name || ''}" card added under that room in the Rooms tab (used ${d.images} images).`)
       else setMsg(`❌ ${d.error || 'failed'}`)
     } catch (e) { setMsg(`❌ ${e.message || e}`) }
     setBusy(false)
@@ -680,28 +688,34 @@ function StageBPanel() {
     <div>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Stage B — Creator into Room</h1>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 16 }}>
-        Pick a locked room (location), screenshot a reel for the pose &amp; outfit, and the creator&apos;s on-file AI Super Clone refs (+ optional extra uploads) supply identity. Wan 2.7 composites — room stays untouched.
+Pick the creator, any approved room (location), and screenshot a reel for the pose &amp; outfit. The creator&apos;s on-file AI Super Clone refs (face + front + back, + optional extra uploads) supply identity. Wan 2.7 composites — room stays untouched.
       </p>
 
       <div style={card}>
         <div style={lbl}>1 · Creator</div>
-        <select value={creatorId} onChange={e => { setCreatorId(e.target.value); setVariationId('') }}
+        <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
           style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
-          {data.creators.length === 0 && <option>No TJP creators</option>}
-          {data.creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {creators.length === 0 && <option>No creators with AI refs</option>}
+          {creators.map(c => <option key={c.id} value={c.id}>{c.name} — {c.face}F·{c.front}Fr·{c.back}B</option>)}
         </select>
-        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 8 }}>Identity uses this creator&apos;s AI Super Clone reference photos on file (Front + Face) plus any extra uploads below.</div>
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 8 }}>
+          {sel ? `Identity: ${sel.face} face + ${sel.front} front + ${sel.back} back AI Super Clone refs on file (interleaved into 7 slots), plus any extra uploads.` : 'Any creator with AI Super Clone refs on file.'}
+        </div>
       </div>
 
       <div style={card}>
-        <div style={lbl}>2 · Location — pick an approved room variation</div>
+        <div style={lbl}>2 · Location — pick ANY approved room variation</div>
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 8 }}>Tip: for a tight reel (creator cut at the waist/thighs) pick a punched-in / tighter room.</div>
         {locations.length === 0
-          ? <div style={{ fontSize: 12, color: '#888' }}>No approved variations for this creator yet. Approve some in the Rooms tab.</div>
-          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+          ? <div style={{ fontSize: 12, color: '#888' }}>No approved room variations yet. Approve some in the Rooms tab.</div>
+          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
               {locations.map(v => (
-                <img key={v.id} src={v.image} alt="" loading="lazy" onClick={() => setVariationId(v.id)}
-                  style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, cursor: 'pointer',
-                    border: variationId === v.id ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }} />
+                <div key={v.id} onClick={() => setVariationId(v.id)} style={{ cursor: 'pointer' }}>
+                  <img src={v.image} alt="" loading="lazy"
+                    style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8,
+                      border: variationId === v.id ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }} />
+                  <div style={{ fontSize: 9, color: 'var(--foreground-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{roomName(v.roomId)}</div>
+                </div>
               ))}
             </div>}
       </div>

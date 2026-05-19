@@ -55,17 +55,23 @@ async function runWan(images, prompt) {
   throw new Error('Stage B timed out')
 }
 
-// POST { variationId, poseDropboxPath, refDropboxPaths?: [] }
-//  - variationId: an approved Recreate Room Variation = the LOCATION
-//    (its image is Wan image 1, kept exactly). Its room → the creator.
+// POST { creatorId, variationId, poseDropboxPath, refDropboxPaths?: [] }
+//  - creatorId: the creator to insert (explicit — NOT derived from
+//    the room; any creator with AI Super Clone refs, any room).
+//  - variationId: ANY approved Recreate Room Variation = the LOCATION
+//    (its image is Wan image 1, kept exactly).
 //  - poseDropboxPath: a screenshot from a reel = pose+outfit reference.
 //  - refDropboxPaths: optional extra per-run identity images.
-// Creator's on-file AI Super Clone refs (Front+Face) fill remaining
-// slots. Wan caps at 9 images total: [room, pose, ...identity].
+// Identity = extras + the creator's on-file Front/Face/Back AI refs
+// (interleaved so all 3 angles are represented). Wan caps at 9
+// images total: [room, pose, ...identity (max 7)].
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { variationId, poseDropboxPath, refDropboxPaths } = await request.json()
+    const { creatorId, variationId, poseDropboxPath, refDropboxPaths } = await request.json()
+    if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
+      return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
+    }
     if (!variationId || !/^rec[A-Za-z0-9]{14}$/.test(variationId)) {
       return NextResponse.json({ error: 'Valid variationId required' }, { status: 400 })
     }
@@ -77,19 +83,10 @@ export async function POST(request) {
       { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' })
     if (!vRes.ok) return NextResponse.json({ error: 'Variation not found' }, { status: 404 })
     const vf = (await vRes.json()).fields || {}
-    const roomId = Array.isArray(vf.Room) ? vf.Room[0] : null
     const roomUrl = (vf['Dropbox Link'] && rawDbx(vf['Dropbox Link']))
       || (Array.isArray(vf.Image) && vf.Image[0]?.url) || ''
-    if (!roomId) return NextResponse.json({ error: 'Variation has no room' }, { status: 400 })
-    if (!roomUrl) return NextResponse.json({ error: 'Variation has no image' }, { status: 400 })
-
-    const rRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(ROOMS)}/${roomId}`,
-      { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' })
-    if (!rRes.ok) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
-    const rf = (await rRes.json()).fields || {}
-    const roomName = rf['Room Name'] || 'Room'
-    const creatorId = Array.isArray(rf.Creator) ? rf.Creator[0] : null
-    if (!creatorId) return NextResponse.json({ error: 'Room has no linked creator' }, { status: 400 })
+    if (!roomUrl) return NextResponse.json({ error: 'Location variation has no image' }, { status: 400 })
+    const roomId = Array.isArray(vf.Room) ? vf.Room[0] : null
 
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
@@ -101,7 +98,15 @@ export async function POST(request) {
     const allRefs = cRecs[0].fields['AI Ref Inputs'] || []
     const front = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
     const face = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
-    const onFileRefs = [...front, ...face]
+    const back = allRefs.filter(a => a.filename?.startsWith('Back View input_'))
+    // Interleave face → front → back so a 7-slot budget always spans
+    // all three angles (identity holds best with face + a body angle).
+    const onFileRefs = []
+    for (let i = 0; i < Math.max(face.length, front.length, back.length); i++) {
+      if (face[i]) onFileRefs.push(face[i])
+      if (front[i]) onFileRefs.push(front[i])
+      if (back[i]) onFileRefs.push(back[i])
+    }
 
     // Turn Dropbox paths (browser-uploaded) into raw shared-link URLs.
     const tok = await getDropboxAccessToken()
@@ -129,7 +134,8 @@ export async function POST(request) {
     const prompt = buildPrompt(idRange)
     const outUrl = await runWan(images, prompt)
 
-    const folderSafe = String(roomName).replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
+    const locName = String(vf.Variation || 'Room').split(' - ')[0].trim() || 'Room'
+    const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
     const name = `Stage B · ${aka}`
     let dbxPath = '', dbxLink = ''
     try {
@@ -145,8 +151,8 @@ export async function POST(request) {
     }
 
     await createAirtableRecord(VARS, {
-      Variation: `${roomName} - ${name}`,
-      Room: [roomId],
+      Variation: `${locName} - ${name}`,
+      ...(roomId ? { Room: [roomId] } : {}),
       Recipe: name,
       'Prompt Used': prompt,
       Image: [{ url: outUrl }],
