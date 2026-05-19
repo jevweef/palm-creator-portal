@@ -709,7 +709,7 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
         <div style={lbl}>3 · Pose &amp; outfit — pick a reel, scrub to the pose, capture</div>
         {captured && reel?.streamUid && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, padding: 10, background: 'rgba(106,198,138,0.1)', border: '1px solid rgba(106,198,138,0.35)', borderRadius: 8 }}>
-            <img src={buildStreamPosterUrl(reel.streamUid, { time: `${poseTime}s`, width: 160, fit: 'crop' })} alt=""
+            <img src={buildStreamPosterUrl(reel.streamUid, { time: `${Math.max(0.1, poseTime)}s`, width: 160, fit: 'crop' })} alt=""
               style={{ width: 70, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6 }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A' }}>✓ Pose captured @ {poseTime.toFixed(1)}s</div>
@@ -749,7 +749,7 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
         <div onClick={() => setPoseModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: 'min(440px, 92vw)' }}>
             <div style={{ fontSize: 13, color: '#bbb', alignSelf: 'flex-start' }}>Scrub to the exact pose &amp; outfit — this is the frame fed to the model.</div>
-            <img src={buildStreamPosterUrl(reel.streamUid, { time: `${poseTime}s`, width: 720, fit: 'scale-down' })} alt=""
+            <img src={buildStreamPosterUrl(reel.streamUid, { time: `${Math.max(0.1, poseTime)}s`, width: 720, fit: 'crop' })} alt=""
               style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
             <input type="range" min={0} max={30} step={0.1} value={poseTime}
               onChange={e => { setPoseTime(Number(e.target.value)); setCaptured(false) }}

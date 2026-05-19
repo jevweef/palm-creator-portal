@@ -122,8 +122,10 @@ export async function POST(request) {
     if (!poseStreamUid) {
       return NextResponse.json({ error: 'A captured pose frame is required (reel has no Stream video)' }, { status: 400 })
     }
-    const tSec = Math.max(0, Number(poseTime) || 0)
-    const poseUrl = buildStreamPosterUrl(poseStreamUid, { time: `${tSec}s`, width: 1080, fit: 'scale-down' })
+    // CF Stream thumbnails 404 on fit=scale-down with width-only and on
+    // time=0 — use fit=crop and a non-zero floor (matches what the UI shows).
+    const tSec = Math.max(0.1, Number(poseTime) || 0)
+    const poseUrl = buildStreamPosterUrl(poseStreamUid, { time: `${tSec}s`, width: 1080, fit: 'crop' })
     if (!poseUrl) return NextResponse.json({ error: 'Could not build pose frame URL' }, { status: 400 })
 
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
