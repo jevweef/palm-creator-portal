@@ -3,6 +3,7 @@ import { requireAdmin, fetchAirtableRecords, createAirtableRecord, OPS_BASE } fr
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import Anthropic from '@anthropic-ai/sdk'
+import { buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 export const maxDuration = 300
 
@@ -99,10 +100,12 @@ async function runWan(images, prompt) {
   throw new Error('Stage B timed out')
 }
 
-// POST { creatorId, poseDropboxPath, refDropboxPaths?: [] }
+// POST { creatorId, poseStreamUid, poseTime, refDropboxPaths?: [] }
 //  - creatorId: the creator to insert. Their OWN rooms are the
 //    location pool (a room = that creator's virtual bedroom).
-//  - poseDropboxPath: a screenshot from a reel = pose+outfit reference.
+//  - poseStreamUid + poseTime: the reel's Cloudflare Stream UID and
+//    the timestamp (seconds) to grab as the pose+outfit frame. We use
+//    Stream's thumbnail-at-time JPG directly (public URL, no CORS).
 //  - refDropboxPaths: optional extra per-run identity images.
 // The system Sonnet-classifies the screenshot framing and auto-picks
 // the creator's room ANGLE whose framing best matches (full-body →
@@ -112,13 +115,16 @@ async function runWan(images, prompt) {
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { creatorId, poseDropboxPath, refDropboxPaths } = await request.json()
+    const { creatorId, poseStreamUid, poseTime, refDropboxPaths } = await request.json()
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
-    if (!poseDropboxPath) {
-      return NextResponse.json({ error: 'A pose screenshot is required' }, { status: 400 })
+    if (!poseStreamUid) {
+      return NextResponse.json({ error: 'A captured pose frame is required (reel has no Stream video)' }, { status: 400 })
     }
+    const tSec = Math.max(0, Number(poseTime) || 0)
+    const poseUrl = buildStreamPosterUrl(poseStreamUid, { time: `${tSec}s`, width: 1080, fit: 'scale-down' })
+    if (!poseUrl) return NextResponse.json({ error: 'Could not build pose frame URL' }, { status: 400 })
 
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
@@ -143,8 +149,6 @@ export async function POST(request) {
     const pathToUrl = async (p) => {
       try { return rawDbx(await createDropboxSharedLink(tok, ns, p)) } catch { return '' }
     }
-    const poseUrl = await pathToUrl(poseDropboxPath)
-    if (!poseUrl) return NextResponse.json({ error: 'Could not link the pose screenshot' }, { status: 400 })
     const extraUrls = []
     for (const p of (Array.isArray(refDropboxPaths) ? refDropboxPaths : [])) {
       const u = await pathToUrl(p)

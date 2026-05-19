@@ -621,12 +621,11 @@ function StageBPanel() {
   const [reels, setReels] = useState([])
   const [creatorId, setCreatorId] = useState('')
   const [reel, setReel] = useState(null)
-  const [poseBlob, setPoseBlob] = useState(null)
-  const [posePreview, setPosePreview] = useState('')
+  const [poseTime, setPoseTime] = useState(0)
+  const [captured, setCaptured] = useState(false)
   const [extraFiles, setExtraFiles] = useState([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
-  const videoRef = useRef(null)
 
   const [creators, setCreators] = useState([])
 
@@ -645,32 +644,22 @@ function StageBPanel() {
   // Rooms ARE per-creator (the creator's virtual bedroom).
   const myRooms = data.rooms.filter(r => r.creatorId === creatorId)
 
-  const capture = () => {
-    const vid = videoRef.current
-    if (!vid) return
-    try {
-      const c = document.createElement('canvas')
-      c.width = vid.videoWidth; c.height = vid.videoHeight
-      c.getContext('2d').drawImage(vid, 0, 0)
-      c.toBlob(b => {
-        if (!b) { setMsg('Could not capture (video blocked by CORS — try a different reel)'); return }
-        setPoseBlob(b); setPosePreview(URL.createObjectURL(b)); setMsg('Pose frame captured.')
-      }, 'image/jpeg', 0.95)
-    } catch (e) { setMsg(`Capture failed: ${e.message} (CORS — try another reel)`) }
-  }
+  const poseFrameUrl = reel?.streamUid
+    ? buildStreamPosterUrl(reel.streamUid, { time: `${poseTime}s`, width: 540, fit: 'scale-down' })
+    : null
 
   const generate = async () => {
     if (!creatorId) { setMsg('Pick a creator first.'); return }
-    if (!poseBlob) { setMsg('Capture a pose frame from a reel first.'); return }
-    setBusy(true); setMsg('⏳ Uploading inputs…')
+    if (!reel?.streamUid) { setMsg('Pick a reel (with Stream video) and capture a frame first.'); return }
+    if (!captured) { setMsg('Scrub to the pose and click “Capture this frame”.'); return }
+    setBusy(true); setMsg('⏳ Uploading any extra refs…')
     try {
-      const posePath = await stageBUpload(poseBlob, 'pose')
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
       setMsg('⏳ Stage B — classifying the shot, picking the matching room, compositing… ~2–3 min, leave this tab open.')
       const d = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, poseDropboxPath: posePath, refDropboxPaths: refPaths }),
+        body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths }),
       }).then(r => r.json())
       if (d.ok) setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. "Stage B · ${sel?.name || ''}" card added in the Rooms tab (${d.images} images).`)
       else setMsg(`❌ ${d.error || 'failed'}`)
@@ -713,21 +702,30 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
       </div>
 
       <div style={card}>
-        <div style={lbl}>3 · Pose &amp; outfit — pick a reel, scrub, capture a frame</div>
+        <div style={lbl}>3 · Pose &amp; outfit — pick a reel, scrub to the pose, capture</div>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 320px', minWidth: 280 }}>
-            {reel
-              ? <video ref={videoRef} src={String(reel.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')} crossOrigin="anonymous" controls playsInline
-                  style={{ width: '100%', maxHeight: 360, borderRadius: 8, background: '#000' }} />
-              : <div style={{ fontSize: 12, color: '#888', padding: 20 }}>Select a reel from the strip →</div>}
-            {reel && <button onClick={capture} disabled={busy} style={{ marginTop: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>📸 Capture this frame</button>}
-            {posePreview && <div style={{ marginTop: 8 }}><span style={{ fontSize: 11, color: '#6AC68A' }}>Pose captured:</span><br /><img src={posePreview} alt="" style={{ height: 120, borderRadius: 6, marginTop: 4 }} /></div>}
+            {!reel
+              ? <div style={{ fontSize: 12, color: '#888', padding: 20 }}>Select a reel from the strip →</div>
+              : !reel.streamUid
+                ? <div style={{ fontSize: 12, color: '#E87878', padding: 20 }}>This reel has no Stream video — pick a different one.</div>
+                : <>
+                    <img src={poseFrameUrl} alt="" style={{ width: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 8, background: '#000' }} />
+                    <input type="range" min={0} max={30} step={0.1} value={poseTime}
+                      onChange={e => { setPoseTime(Number(e.target.value)); setCaptured(false) }}
+                      style={{ width: '100%', marginTop: 8 }} />
+                    <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>Frame @ {poseTime.toFixed(1)}s — drag to the exact pose</div>
+                    <button onClick={() => { setCaptured(true); setMsg(`Pose captured @ ${poseTime.toFixed(1)}s`) }} disabled={busy}
+                      style={{ marginTop: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, background: captured ? '#6AC68A' : 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                      {captured ? '✓ Frame captured' : '📸 Capture this frame'}
+                    </button>
+                  </>}
           </div>
           <div style={{ flex: '2 1 420px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
             {reels.map(r => {
               const isSel = reel?.id === r.id
               const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
-              const onPick = () => { setReel(r); setPoseBlob(null); setPosePreview('') }
+              const onPick = () => { setReel(r); setPoseTime(0); setCaptured(false) }
               return r.streamUid
                 ? <img key={r.id} src={buildStreamPosterUrl(r.streamUid, { width: 240, fit: 'crop' })} alt="" loading="lazy" onClick={onPick} style={bd} />
                 : r.thumbnail
