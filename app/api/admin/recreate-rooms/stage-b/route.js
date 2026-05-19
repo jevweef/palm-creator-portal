@@ -92,23 +92,30 @@ const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'ra
 function buildSinglePrompt(idList) {
   return (
     'WHAT TO DO: Figure 1 is the empty room — the exact location and '
-    + 'background to use. Place one woman standing in it. From Figure 2 take '
-    + 'ONLY: her body POSE and limb positioning, her exact outfit and '
-    + 'clothing, and the camera distance and crop. The face, head AND body '
-    + 'of the woman in Figure 2 are a PLACEHOLDER — discard them; she is a '
-    + `DIFFERENT person, never reproduce Figure 2's face or body shape. The `
-    + `final woman's face, head, hair, skin tone, identity AND her body `
-    + `shape, proportions and figure must ALL come ONLY from ${idList} (the `
-    + `real person). Her face must be an EXACT likeness of ${idList} — the `
-    + `SAME individual, not a lookalike or "similar" face: reproduce the `
-    + `precise facial structure, eye shape and spacing, eyebrows, nose, lips, `
-    + `jawline, skin tone and hairline from ${idList} faithfully. Final `
-    + `result = the POSE and OUTFIT of Figure 2, on the exact real person `
-    + `(face and body) from ${idList}.\n\n`
-    + 'WHAT TO KEEP: Keep the room in Figure 1 completely unchanged — walls, '
-    + 'windows, the outside view, furniture, bed, rug, décor, plants, '
-    + 'lighting and time of day identical to Figure 1. Do NOT copy Figure '
-    + "2's background or location.\n\n"
+    + 'background to use. Place one woman in it. COPY FROM FIGURE 2 EXACTLY: '
+    + 'her full body pose and stance, the precise position of her arms, '
+    + 'hands, legs and head tilt, her exact outfit and clothing, AND the '
+    + 'camera distance / zoom / crop — frame her at the SAME distance and '
+    + 'size as in Figure 2. If she is close to the camera / cropped (e.g. '
+    + 'thigh-up or waist-up) in Figure 2, she must be equally close and '
+    + 'cropped here — do NOT default to a small far-away full-body figure. '
+    + 'Her pose and the framing must visibly match Figure 2.\n\n'
+    + 'The face, head AND body of the woman in Figure 2 are a PLACEHOLDER — '
+    + `discard them; she is a DIFFERENT person, never reproduce Figure 2's `
+    + `face or body shape. The final woman's face, head, hair, skin tone, `
+    + `identity AND her body shape, proportions, bust and figure must ALL `
+    + `come ONLY from ${idList} (the real person) — match her real `
+    + `proportions, do not exaggerate or enlarge the chest. Her face must be `
+    + `an EXACT likeness of ${idList} — the SAME individual, not a lookalike: `
+    + `reproduce the precise facial structure, eye shape and spacing, `
+    + `eyebrows, nose, lips, jawline, skin tone and hairline from ${idList} `
+    + `faithfully. Final = the POSE, FRAMING and OUTFIT of Figure 2, on the `
+    + `exact real person (face and true body) from ${idList}.\n\n`
+    + 'WHAT TO KEEP: Keep the room and its contents in Figure 1 unchanged — '
+    + 'walls, windows, the outside view, furniture, bed, rug, décor, plants, '
+    + 'lighting and time of day. The camera may move closer/reframe to match '
+    + "Figure 2's crop, but it is the same room. Do NOT copy Figure 2's "
+    + 'background or location.\n\n'
     + 'Hyper realistic, ultra-detailed natural skin texture, raw iPhone '
     + 'photo look, no text, no watermark.'
   )
@@ -184,8 +191,11 @@ export async function POST(request) {
       .sort((a, b) => inputNo(b) - inputNo(a))
     const faces = pick('Close Up Face input_')
     const fronts = pick('Front View input_')
-    const backs = pick('Back View input_')
-    let onFileRefs = [...faces.slice(0, 6), ...fronts.slice(0, 1), ...backs.slice(0, 1)]
+    // 4 face + 3 front: face is locked enough now; more FRONT shots give
+    // the model her real body/proportions (was inheriting the reel
+    // girl's body / oversized chest). 4+3 = 7 → fills 9 w/ room+reel;
+    // back dropped (least useful for a front-facing standing shot).
+    let onFileRefs = [...faces.slice(0, 4), ...fronts.slice(0, 3)]
 
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
