@@ -183,9 +183,10 @@ export async function POST(request) {
     const faces = dedupe([...(cf['AI Ref Face'] || []), ...inFace])
     const fronts = dedupe([...(cf['AI Ref Front'] || []), ...inFront])
     const backs = dedupe([...(cf['AI Ref Back'] || []), ...inBack])
-    // Face-weighted: up to 5 faces (identity) + 2 fronts (body) + 1 back.
-    // [room, reel, ...identity].slice(0,9) keeps the first 7 of these.
-    let onFileRefs = [...faces.slice(0, 5), ...fronts.slice(0, 2), ...backs.slice(0, 1)]
+    // Fill the full 9-image budget, face-weighted (identity is the
+    // bigger miss): 6 faces + 1 front (body) → with room+reel that's
+    // exactly 9. Falls back gracefully if the pool is smaller.
+    let onFileRefs = [...faces.slice(0, 6), ...fronts.slice(0, 1), ...backs.slice(0, 1)]
 
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
