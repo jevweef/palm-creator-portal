@@ -620,7 +620,6 @@ function StageBPanel() {
   const [data, setData] = useState({ creators: [], rooms: [], variations: [] })
   const [reels, setReels] = useState([])
   const [creatorId, setCreatorId] = useState('')
-  const [variationId, setVariationId] = useState('')
   const [reel, setReel] = useState(null)
   const [poseBlob, setPoseBlob] = useState(null)
   const [posePreview, setPosePreview] = useState('')
@@ -642,11 +641,9 @@ function StageBPanel() {
     fetch('/api/admin/recreate-sources').then(r => r.json()).then(d => setReels(d.reels || [])).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const roomName = (id) => data.rooms.find(r => r.id === id)?.name || 'Room'
-  // ANY approved room variation can be the location (creator-driven —
-  // not limited to rooms this creator owns).
-  const locations = data.variations.filter(v => v.status === 'Approved')
   const sel = creators.find(c => c.id === creatorId)
+  // Rooms ARE per-creator (the creator's virtual bedroom).
+  const myRooms = data.rooms.filter(r => r.creatorId === creatorId)
 
   const capture = () => {
     const vid = videoRef.current
@@ -663,19 +660,19 @@ function StageBPanel() {
   }
 
   const generate = async () => {
-    if (!variationId) { setMsg('Pick a location (approved room) first.'); return }
+    if (!creatorId) { setMsg('Pick a creator first.'); return }
     if (!poseBlob) { setMsg('Capture a pose frame from a reel first.'); return }
     setBusy(true); setMsg('⏳ Uploading inputs…')
     try {
       const posePath = await stageBUpload(poseBlob, 'pose')
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
-      setMsg('⏳ Stage B — compositing creator into the room… ~2–3 min, leave this tab open.')
+      setMsg('⏳ Stage B — classifying the shot, picking the matching room, compositing… ~2–3 min, leave this tab open.')
       const d = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, variationId, poseDropboxPath: posePath, refDropboxPaths: refPaths }),
+        body: JSON.stringify({ creatorId, poseDropboxPath: posePath, refDropboxPaths: refPaths }),
       }).then(r => r.json())
-      if (d.ok) setMsg(`✅ Done — "Stage B · ${sel?.name || ''}" card added under that room in the Rooms tab (used ${d.images} images).`)
+      if (d.ok) setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. "Stage B · ${sel?.name || ''}" card added in the Rooms tab (${d.images} images).`)
       else setMsg(`❌ ${d.error || 'failed'}`)
     } catch (e) { setMsg(`❌ ${e.message || e}`) }
     setBusy(false)
@@ -688,7 +685,7 @@ function StageBPanel() {
     <div>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Stage B — Creator into Room</h1>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 16 }}>
-Pick the creator, any approved room (location), and screenshot a reel for the pose &amp; outfit. The creator&apos;s on-file AI Super Clone refs (face + front + back, + optional extra uploads) supply identity. Wan 2.7 composites — room stays untouched.
+Pick the creator and screenshot a reel for the pose &amp; outfit. The system reads the screenshot&apos;s framing, auto-picks the creator&apos;s best-matching room angle, and composites them in with their on-file AI Super Clone refs (face + front + back + optional uploads). Wan 2.7 — room stays untouched. Motion control happens off-site (TJP).
       </p>
 
       <div style={card}>
@@ -704,20 +701,15 @@ Pick the creator, any approved room (location), and screenshot a reel for the po
       </div>
 
       <div style={card}>
-        <div style={lbl}>2 · Location — pick ANY approved room variation</div>
-        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 8 }}>Tip: for a tight reel (creator cut at the waist/thighs) pick a punched-in / tighter room.</div>
-        {locations.length === 0
-          ? <div style={{ fontSize: 12, color: '#888' }}>No approved room variations yet. Approve some in the Rooms tab.</div>
-          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
-              {locations.map(v => (
-                <div key={v.id} onClick={() => setVariationId(v.id)} style={{ cursor: 'pointer' }}>
-                  <img src={v.image} alt="" loading="lazy"
-                    style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8,
-                      border: variationId === v.id ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }} />
-                  <div style={{ fontSize: 9, color: 'var(--foreground-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{roomName(v.roomId)}</div>
-                </div>
-              ))}
-            </div>}
+        <div style={lbl}>2 · Location — auto-picked from the creator&apos;s rooms</div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
+          The system reads the screenshot&apos;s framing and auto-picks {sel?.name || 'this creator'}&apos;s room angle that best matches (full-body → Wide, cropped → Tight), then a random approved variation of it. No manual pick.
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 8 }}>
+          {myRooms.length === 0
+            ? `⚠️ ${sel?.name || 'This creator'} has no rooms yet — create & approve at least one in the Rooms tab first.`
+            : <>Rooms on file: {myRooms.map(r => `${r.name} [${r.framing || 'unclassified'}]`).join(' · ')}</>}
+        </div>
       </div>
 
       <div style={card}>

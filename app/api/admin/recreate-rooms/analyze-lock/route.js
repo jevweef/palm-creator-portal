@@ -70,8 +70,13 @@ export async function POST(request) {
             type: 'string',
             description: 'One concise imperative paragraph of the specific permanent elements in THIS image to keep identical, ending with the camera-lock clause. No transient/variable elements.',
           },
+          framing: {
+            type: 'string',
+            enum: ['Wide', 'Medium', 'Tight'],
+            description: 'How wide/zoomed this room shot is for placing a person: "Wide" = full room, a standing person\'s whole body incl. feet would fit; "Medium" = mid-range, a person would show roughly knees/thighs-up; "Tight" = punched-in/close, only waist-up or chest-up of a person would fit.',
+          },
         },
-        required: ['lockList'],
+        required: ['lockList', 'framing'],
       },
     }
 
@@ -96,8 +101,12 @@ export async function POST(request) {
     if (!lockList) {
       return NextResponse.json({ error: `Sonnet did not return a lock list (stop: ${resp.stop_reason})` }, { status: 500 })
     }
-    await patchAirtableRecord(ROOMS, roomId, { 'Lock Inventory': lockList })
-    return NextResponse.json({ ok: true, lockList })
+    const framing = ['Wide', 'Medium', 'Tight'].includes(toolUse?.input?.framing) ? toolUse.input.framing : null
+    await patchAirtableRecord(ROOMS, roomId, {
+      'Lock Inventory': lockList,
+      ...(framing ? { Framing: framing } : {}),
+    }, { typecast: true })
+    return NextResponse.json({ ok: true, lockList, framing })
   } catch (err) {
     if (err instanceof Response) return err
     return NextResponse.json({ error: err?.message || 'Unknown error' }, { status: 500 })

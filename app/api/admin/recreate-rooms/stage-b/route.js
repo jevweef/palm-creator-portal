@@ -2,8 +2,52 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, createAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
+import Anthropic from '@anthropic-ai/sdk'
 
 export const maxDuration = 300
+
+// Sonnet looks at the reel screenshot and says how the subject is
+// framed, so we can match it to a room of similar tightness.
+async function classifyScreenshotFraming(imgUrl) {
+  try {
+    const r = await fetch(imgUrl)
+    if (!r.ok) return null
+    const b64 = Buffer.from(await r.arrayBuffer()).toString('base64')
+    const ct = r.headers.get('content-type') || ''
+    const m = ct.match(/^(image\/[a-z]+)/i)
+    const mediaType = m ? m[1].toLowerCase().replace('image/jpg', 'image/jpeg') : 'image/jpeg'
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const resp = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
+      tools: [{
+        name: 'submit_framing',
+        description: 'Report how the person in this reel screenshot is framed.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            framing: {
+              type: 'string',
+              enum: ['Wide', 'Medium', 'Tight'],
+              description: '"Wide" = full body, her feet/whole figure visible; "Medium" = roughly knees/thighs-up; "Tight" = punched-in, only waist-up or chest-up.',
+            },
+          },
+          required: ['framing'],
+        },
+      }],
+      tool_choice: { type: 'tool', name: 'submit_framing' },
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+          { type: 'text', text: 'Classify how the person is framed using submit_framing.' },
+        ],
+      }],
+    })
+    const t = resp.content.find(b => b.type === 'tool_use')
+    return ['Wide', 'Medium', 'Tight'].includes(t?.input?.framing) ? t.input.framing : null
+  } catch { return null }
+}
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const ROOMS = 'Recreate Rooms'
@@ -55,38 +99,26 @@ async function runWan(images, prompt) {
   throw new Error('Stage B timed out')
 }
 
-// POST { creatorId, variationId, poseDropboxPath, refDropboxPaths?: [] }
-//  - creatorId: the creator to insert (explicit — NOT derived from
-//    the room; any creator with AI Super Clone refs, any room).
-//  - variationId: ANY approved Recreate Room Variation = the LOCATION
-//    (its image is Wan image 1, kept exactly).
+// POST { creatorId, poseDropboxPath, refDropboxPaths?: [] }
+//  - creatorId: the creator to insert. Their OWN rooms are the
+//    location pool (a room = that creator's virtual bedroom).
 //  - poseDropboxPath: a screenshot from a reel = pose+outfit reference.
 //  - refDropboxPaths: optional extra per-run identity images.
-// Identity = extras + the creator's on-file Front/Face/Back AI refs
-// (interleaved so all 3 angles are represented). Wan caps at 9
-// images total: [room, pose, ...identity (max 7)].
+// The system Sonnet-classifies the screenshot framing and auto-picks
+// the creator's room ANGLE whose framing best matches (full-body →
+// Wide, cropped → Tight), then a RANDOM approved variation of it.
+// Identity = extras + the creator's Front/Face/Back AI refs. Wan
+// caps at 9: [room, pose, ...identity (max 7)].
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { creatorId, variationId, poseDropboxPath, refDropboxPaths } = await request.json()
+    const { creatorId, poseDropboxPath, refDropboxPaths } = await request.json()
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
-    }
-    if (!variationId || !/^rec[A-Za-z0-9]{14}$/.test(variationId)) {
-      return NextResponse.json({ error: 'Valid variationId required' }, { status: 400 })
     }
     if (!poseDropboxPath) {
       return NextResponse.json({ error: 'A pose screenshot is required' }, { status: 400 })
     }
-
-    const vRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(VARS)}/${variationId}`,
-      { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' })
-    if (!vRes.ok) return NextResponse.json({ error: 'Variation not found' }, { status: 404 })
-    const vf = (await vRes.json()).fields || {}
-    const roomUrl = (vf['Dropbox Link'] && rawDbx(vf['Dropbox Link']))
-      || (Array.isArray(vf.Image) && vf.Image[0]?.url) || ''
-    if (!roomUrl) return NextResponse.json({ error: 'Location variation has no image' }, { status: 400 })
-    const roomId = Array.isArray(vf.Room) ? vf.Room[0] : null
 
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
@@ -99,8 +131,6 @@ export async function POST(request) {
     const front = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
     const face = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
     const back = allRefs.filter(a => a.filename?.startsWith('Back View input_'))
-    // Interleave face → front → back so a 7-slot budget always spans
-    // all three angles (identity holds best with face + a body angle).
     const onFileRefs = []
     for (let i = 0; i < Math.max(face.length, front.length, back.length); i++) {
       if (face[i]) onFileRefs.push(face[i])
@@ -108,7 +138,6 @@ export async function POST(request) {
       if (back[i]) onFileRefs.push(back[i])
     }
 
-    // Turn Dropbox paths (browser-uploaded) into raw shared-link URLs.
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
     const pathToUrl = async (p) => {
@@ -122,6 +151,54 @@ export async function POST(request) {
       if (u) extraUrls.push(u)
     }
 
+    // Classify the screenshot, then auto-pick this creator's room
+    // whose Framing best matches; random approved variation within it.
+    const shotFraming = await classifyScreenshotFraming(poseUrl)
+    const allRooms = await fetchAirtableRecords(ROOMS, { fields: ['Room Name', 'Creator', 'Framing'] })
+    const myRooms = allRooms.filter(r => (r.fields?.Creator || []).includes(creatorId))
+    if (myRooms.length === 0) {
+      return NextResponse.json({ error: `${aka} has no rooms yet. Create & approve a room for this creator in the Rooms tab first.` }, { status: 400 })
+    }
+    const myRoomIds = new Set(myRooms.map(r => r.id))
+    const allVars = await fetchAirtableRecords(VARS, { fields: ['Variation', 'Room', 'Status', 'Image', 'Dropbox Link'] })
+    const approved = allVars.filter(v =>
+      (v.fields?.Status?.name || v.fields?.Status) === 'Approved'
+      && (v.fields?.Room || []).some(rid => myRoomIds.has(rid)))
+    if (approved.length === 0) {
+      return NextResponse.json({ error: `${aka} has no approved room variations yet. Approve some in the Rooms tab.` }, { status: 400 })
+    }
+    const order = ['Wide', 'Medium', 'Tight']
+    const framingOf = (v) => {
+      const rid = (v.fields?.Room || [])[0]
+      return myRooms.find(r => r.id === rid)?.fields?.Framing?.name
+        || myRooms.find(r => r.id === rid)?.fields?.Framing || null
+    }
+    let pool = approved
+    if (shotFraming) {
+      const exact = approved.filter(v => framingOf(v) === shotFraming)
+      if (exact.length) pool = exact
+      else {
+        // nearest framing by the Wide→Medium→Tight scale
+        const si = order.indexOf(shotFraming)
+        let best = null, bestD = 99
+        for (const v of approved) {
+          const fi = order.indexOf(framingOf(v))
+          if (fi < 0) continue
+          const d = Math.abs(fi - si)
+          if (d < bestD) { bestD = d; best = framingOf(v) }
+        }
+        if (best) pool = approved.filter(v => framingOf(v) === best)
+      }
+    }
+    const chosen = pool[Math.floor(Math.random() * pool.length)]
+    const vf = chosen.fields || {}
+    const roomUrl = (vf['Dropbox Link'] && rawDbx(vf['Dropbox Link']))
+      || (Array.isArray(vf.Image) && vf.Image[0]?.url) || ''
+    if (!roomUrl) return NextResponse.json({ error: 'Picked variation has no image' }, { status: 400 })
+    const roomId = (vf.Room || [])[0] || null
+    const chosenRoomName = myRooms.find(r => r.id === roomId)?.fields?.['Room Name'] || 'Room'
+    const chosenFraming = framingOf(chosen) || 'unclassified'
+
     // Wan cap = 9 total: [room, pose, ...identity]. Identity = uploaded
     // extras first, then on-file AI refs, filling remaining slots.
     const identity = [...extraUrls, ...onFileRefs.map(a => a.url)]
@@ -134,7 +211,7 @@ export async function POST(request) {
     const prompt = buildPrompt(idRange)
     const outUrl = await runWan(images, prompt)
 
-    const locName = String(vf.Variation || 'Room').split(' - ')[0].trim() || 'Room'
+    const locName = chosenRoomName
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
     const name = `Stage B · ${aka}`
     let dbxPath = '', dbxLink = ''
@@ -160,7 +237,11 @@ export async function POST(request) {
       ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
       Status: 'Pending',
     })
-    return NextResponse.json({ ok: true, images: images.length })
+    return NextResponse.json({
+      ok: true, images: images.length,
+      room: chosenRoomName, roomFraming: chosenFraming,
+      screenshotFraming: shotFraming || 'unknown',
+    })
   } catch (err) {
     if (err instanceof Response) return err
     return NextResponse.json({ error: err.message }, { status: 500 })

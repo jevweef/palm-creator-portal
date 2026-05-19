@@ -72,7 +72,7 @@ export async function GET() {
         filterByFormula: '{TJP Enabled} = 1',
       }),
       fetchAirtableRecords(ROOMS, {
-        fields: ['Room Name', 'Creator', 'Angle', 'Base Prompt', 'Lock Inventory', 'Base Image', 'Status'],
+        fields: ['Room Name', 'Creator', 'Angle', 'Base Prompt', 'Lock Inventory', 'Base Image', 'Status', 'Framing'],
       }),
       fetchAirtableRecords(VARS, {
         fields: ['Variation', 'Room', 'Recipe', 'Image', 'Status', 'Dropbox Link'],
@@ -94,6 +94,7 @@ export async function GET() {
           lockInventory: f['Lock Inventory'] || DEFAULT_LOCK,
           baseImage: att(f['Base Image']),
           status: f.Status?.name || f.Status || 'Draft',
+          framing: f.Framing?.name || f.Framing || null,
         }
       }),
       variations: vars.map(v => {
