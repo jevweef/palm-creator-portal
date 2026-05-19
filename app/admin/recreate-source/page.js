@@ -149,7 +149,7 @@ export default function RecreateLibraryPage() {
   const router = useRouter()
   const pathname = usePathname()
   const tabParam = sp.get('tab')
-  const tab = tabParam === 'rooms' ? 'rooms' : tabParam === 'stageb' ? 'stageb' : tabParam === 'avatar' ? 'avatar' : 'library'
+  const tab = tabParam === 'rooms' ? 'rooms' : tabParam === 'stageb' ? 'stageb' : tabParam === 'avatar' ? 'avatar' : tabParam === 'outfit' ? 'outfit' : 'library'
   const setTab = (k) => {
     const params = new URLSearchParams(sp.toString())
     if (k === 'library') params.delete('tab'); else params.set('tab', k)
@@ -276,6 +276,15 @@ export default function RecreateLibraryPage() {
       </div>
     )
   }
+  if (tab === 'outfit') {
+    return (
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <TabBar tab={tab} setTab={setTab} />
+        <OutfitSwapPanel />
+        <ModalHost />
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -377,6 +386,7 @@ function TabBar({ tab, setTab }) {
       {t('rooms', 'Rooms')}
       {t('avatar', 'Creator Avatar')}
       {t('stageb', 'Stage B')}
+      {t('outfit', 'Outfit Swap')}
     </div>
   )
 }
@@ -685,6 +695,107 @@ function CreatorAvatarPanel() {
         {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
       </select>
       {creatorId && <AISuperClonePanel creatorId={creatorId} />}
+    </div>
+  )
+}
+
+function OutfitSwapPanel() {
+  const [outfits, setOutfits] = useState([])
+  const [pickedId, setPickedId] = useState('')
+  const [freeText, setFreeText] = useState('')
+  const [model, setModel] = useState('wan')
+  const [file, setFile] = useState(null)
+  const [srcPreview, setSrcPreview] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [resultUrl, setResultUrl] = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/recreate-rooms/outfit-swap').then(r => r.json())
+      .then(d => setOutfits(d.outfits || [])).catch(() => {})
+  }, [])
+
+  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 16, marginBottom: 16 }
+  const lbl = { fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }
+
+  const onFile = (f) => { setFile(f || null); setResultUrl(''); setSrcPreview(f ? URL.createObjectURL(f) : '') }
+
+  const generate = async () => {
+    const outfit = (freeText.trim()) || (outfits.find(o => o.id === pickedId)?.prompt || '')
+    if (!file) { setMsg('Upload the upscaled screen-grab first.'); return }
+    if (!outfit) { setMsg('Pick an outfit or type your own.'); return }
+    setBusy(true); setResultUrl(''); setMsg('⏳ Uploading image…')
+    try {
+      const path = await stageBUpload(file, 'outfit')
+      setMsg('⏳ Swapping the outfit… ~1–3 min, stays on this screen.')
+      const sub = await fetch('/api/admin/recreate-rooms/outfit-swap', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageDropboxPath: path, outfit, model }),
+      }).then(r => r.json())
+      if (!sub.predictionId) { setMsg(`❌ ${sub.error || 'submit failed'}`); setBusy(false); return }
+      const id = sub.predictionId
+      for (let i = 0; i < 90; i++) {
+        await new Promise(r => setTimeout(r, 4000))
+        const st = await fetch(`/api/admin/recreate-rooms/outfit-swap?id=${id}`).then(r => r.json()).catch(() => ({}))
+        if (st.status === 'completed' && st.out) { setResultUrl(st.out); setMsg('✅ Done — outfit swapped. Take this to TJP for the likeness swap.'); break }
+        if (st.status === 'failed') { setMsg(`❌ ${st.error || 'generation failed'}`); break }
+        setMsg(`⏳ Swapping the outfit… (${st.status || 'processing'})`)
+      }
+    } catch (e) { setMsg(`❌ ${e?.message || String(e)}`) }
+    setBusy(false)
+  }
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Outfit Swap</h1>
+      <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 16 }}>
+        Step 2 of the workflow. Upload the upscaled reel screen-grab, pick (or type) an outfit, generate. Only the clothing changes — pose, distance and framing stay. Then take the result to TJP for the creator likeness swap.
+      </p>
+
+      <div style={card}>
+        <div style={lbl}>1 · Upscaled screen-grab</div>
+        <input type="file" accept="image/*" onChange={e => onFile(e.target.files?.[0] || null)}
+          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
+        {srcPreview && <img src={srcPreview} alt="" style={{ display: 'block', marginTop: 10, width: 'min(220px,45vw)', borderRadius: 8 }} />}
+      </div>
+
+      <div style={card}>
+        <div style={lbl}>2 · Outfit (pick from the closet, or type your own — keep it short)</div>
+        <select value={pickedId} onChange={e => { setPickedId(e.target.value); setFreeText('') }}
+          style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, minWidth: 240 }}>
+          <option value="">— choose an outfit —</option>
+          {outfits.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', margin: '10px 0 4px' }}>or type a custom outfit (short — long prompts move the pose):</div>
+        <textarea value={freeText} onChange={e => { setFreeText(e.target.value); if (e.target.value) setPickedId('') }} rows={2}
+          placeholder="e.g. a fitted black tank top and denim cut-off shorts"
+          style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }} />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
+        <select value={model} onChange={e => setModel(e.target.value)}
+          style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
+          <option value="wan">Wan 2.7 image-edit-pro</option>
+          <option value="nano">Nano-Banana 2</option>
+          <option value="gpt">GPT-Image-2</option>
+        </select>
+      </div>
+
+      <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
+        {busy ? 'Working…' : '👗 Swap outfit'}
+      </button>
+      {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
+
+      {resultUrl && (
+        <div style={{ ...card, marginTop: 16 }}>
+          <div style={lbl}>Result — outfit swapped (next: TJP likeness swap)</div>
+          <img src={resultUrl} alt="outfit swap result"
+            style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
+          <a href={resultUrl} target="_blank" rel="noreferrer"
+            style={{ display: 'inline-block', marginTop: 10, padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', borderRadius: 6, textDecoration: 'none' }}>↗ Open / download full size</a>
+        </div>
+      )}
     </div>
   )
 }
