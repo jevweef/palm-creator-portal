@@ -172,13 +172,19 @@ export async function POST(request) {
     // AI Ref Inputs). The `AI Ref Face/Front/Back` fields are the AI
     // Super Clone's GENERATED renders ("… AI Reference.*") — driving
     // identity off a synthetic image just propagates its errors, so we
-    // exclude them entirely. Face-weighted, fills the 9-image budget
+    // exclude them entirely. Sort each set by the `input_N` number
+    // DESCENDING — the newest/highest-numbered shots are the curated
+    // good ones (older low ones were getting picked by attachment order
+    // and missing the best). Face-weighted, fills the 9-image budget
     // (6 faces + 1 front + 1 back → first 7 kept after room+reel).
     const allRefs = cf['AI Ref Inputs'] || []
     const dedupe = arr => { const s = new Set(); return arr.filter(a => { const k = a?.url || a?.id; if (!k || s.has(k)) return false; s.add(k); return true }) }
-    const faces = dedupe(allRefs.filter(a => a.filename?.startsWith('Close Up Face input_')))
-    const fronts = dedupe(allRefs.filter(a => a.filename?.startsWith('Front View input_')))
-    const backs = dedupe(allRefs.filter(a => a.filename?.startsWith('Back View input_')))
+    const inputNo = a => { const m = (a.filename || '').match(/input_(\d+)/i); return m ? parseInt(m[1], 10) : 0 }
+    const pick = (prefix) => dedupe(allRefs.filter(a => a.filename?.startsWith(prefix)))
+      .sort((a, b) => inputNo(b) - inputNo(a))
+    const faces = pick('Close Up Face input_')
+    const fronts = pick('Front View input_')
+    const backs = pick('Back View input_')
     let onFileRefs = [...faces.slice(0, 6), ...fronts.slice(0, 1), ...backs.slice(0, 1)]
 
     const tok = await getDropboxAccessToken()
