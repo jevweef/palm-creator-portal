@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import AISuperClonePanel from '../creators/AISuperClonePanel'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
@@ -79,7 +80,7 @@ export default function RecreateLibraryPage() {
   const router = useRouter()
   const pathname = usePathname()
   const tabParam = sp.get('tab')
-  const tab = tabParam === 'rooms' ? 'rooms' : tabParam === 'stageb' ? 'stageb' : 'library'
+  const tab = tabParam === 'rooms' ? 'rooms' : tabParam === 'stageb' ? 'stageb' : tabParam === 'avatar' ? 'avatar' : 'library'
   const setTab = (k) => {
     const params = new URLSearchParams(sp.toString())
     if (k === 'library') params.delete('tab'); else params.set('tab', k)
@@ -184,6 +185,14 @@ export default function RecreateLibraryPage() {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <TabBar tab={tab} setTab={setTab} />
         <RoomsPanel />
+      </div>
+    )
+  }
+  if (tab === 'avatar') {
+    return (
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <TabBar tab={tab} setTab={setTab} />
+        <CreatorAvatarPanel />
       </div>
     )
   }
@@ -293,6 +302,7 @@ function TabBar({ tab, setTab }) {
     <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
       {t('library', 'Reel Library')}
       {t('rooms', 'Rooms')}
+      {t('avatar', 'Creator Avatar')}
       {t('stageb', 'Stage B')}
     </div>
   )
@@ -579,6 +589,31 @@ async function stageBUpload(blob, kind) {
   })
   if (!up.ok) throw new Error(`Dropbox upload failed (${up.status})`)
   return tok.path
+}
+
+function CreatorAvatarPanel() {
+  const [creators, setCreators] = useState([])
+  const [creatorId, setCreatorId] = useState('')
+  useEffect(() => {
+    fetch('/api/admin/recreate-rooms').then(r => r.json()).then(d => {
+      setCreators(d.creators || [])
+      if (d.creators?.[0]) setCreatorId(d.creators[0].id)
+    }).catch(() => {})
+  }, [])
+  return (
+    <div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Creator Avatar — AI Super Clone</h1>
+      <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 16 }}>
+        Set up the creator&apos;s reference photos here once. These supply identity for Stage B and the recreate pipeline.
+      </p>
+      <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
+        style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
+        {creators.length === 0 && <option>No TJP creators</option>}
+        {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+      {creatorId && <AISuperClonePanel creatorId={creatorId} />}
+    </div>
+  )
 }
 
 function StageBPanel() {
