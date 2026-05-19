@@ -13,31 +13,36 @@ const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 
 const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
 
-function buildPrompt(refRange, poseText) {
+// 3-role prompt: image 1 = the room (keep 100%), image 2 = pose &
+// outfit reference (copy ONLY her body pose + clothing/styling, NOT
+// its background or her face), images 3..N = the creator's identity.
+function buildPrompt(idRange) {
   return (
-    'Use image 1 as the fixed environment — this exact room. Keep the room, '
-    + 'furniture, layout, windows, the outside view, the rug, décor, wall '
-    + 'hangings, plants, lighting, time of day and camera perspective EXACTLY '
-    + 'as in image 1. Do not change, move, restyle, re-render or re-light the '
-    + 'room in any way.\n\n'
-    + `There is no person in image 1 — ADD one woman into this room. She is the `
-    + `EXACT same woman as in ${refRange}: match her face, skin tone, hair and `
-    + 'body shape to those references precisely, with natural anatomy and '
+    'Image 1 is the FIXED SCENE — this exact room. Keep the room, furniture, '
+    + 'layout, windows, the outside view, the rug, décor, wall hangings, '
+    + 'plants, lighting, time of day and camera framing EXACTLY as in image 1. '
+    + 'Do not change, move, restyle, re-render or re-light the room at all. '
+    + 'There is no person in image 1 — add one woman standing in it.\n\n'
+    + 'Image 2 is a POSE & OUTFIT reference ONLY. Copy the woman\'s body pose, '
+    + 'stance, limb positioning and her clothing/outfit, fabric and styling '
+    + 'from image 2. Do NOT copy image 2\'s background, location, lighting, '
+    + 'crop or her face/identity — only the pose and what she is wearing.\n\n'
+    + `Her IDENTITY — face, skin tone, hair, facial features and body shape — `
+    + `must be the EXACT same woman as in ${idRange}. Natural anatomy and `
     + 'realistic proportions.\n\n'
-    + `Her pose: ${poseText}. She stands on the open floor area in front of the `
-    + 'bed at a realistic human scale, properly grounded with correct contact '
-    + 'shadows on the floor, and the light on her matched to the room\'s '
-    + 'existing lighting and direction.\n\n'
-    + 'Hyper realistic, ultra detailed natural skin texture, true-to-life '
-    + 'colors, raw iPhone camera style, seamless blend into the scene, no text '
-    + 'overlay, no watermark.'
+    + 'Composite her standing on the open floor area in front of the bed at a '
+    + 'realistic human scale, properly grounded with correct contact shadows, '
+    + 'and the light on her matched to the room\'s existing lighting and '
+    + 'direction. Hyper realistic, ultra detailed natural skin texture, '
+    + 'true-to-life colors, raw iPhone camera style, seamless blend into the '
+    + 'scene, no text overlay, no watermark.'
   )
 }
 
 async function runWan(images, prompt) {
   const task = await submitWaveSpeedTask(WAN_MODEL, { images, prompt, size: '1080*1920', seed: -1 })
   const t0 = Date.now()
-  while (Date.now() - t0 < 240000) {
+  while (Date.now() - t0 < 270000) {
     const d = await pollWaveSpeedTask(task.id)
     if (d.status === 'completed') {
       const out = (d.outputs || [])[0]
@@ -50,20 +55,24 @@ async function runWan(images, prompt) {
   throw new Error('Stage B timed out')
 }
 
-// POST { variationId, poseText } — insert the room's creator into an
-// approved room variation, in the given pose, room untouched. Saves the
-// result as a new variation under the same room.
+// POST { variationId, poseDropboxPath, refDropboxPaths?: [] }
+//  - variationId: an approved Recreate Room Variation = the LOCATION
+//    (its image is Wan image 1, kept exactly). Its room → the creator.
+//  - poseDropboxPath: a screenshot from a reel = pose+outfit reference.
+//  - refDropboxPaths: optional extra per-run identity images.
+// Creator's on-file AI Super Clone refs (Front+Face) fill remaining
+// slots. Wan caps at 9 images total: [room, pose, ...identity].
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { variationId, poseText } = await request.json()
+    const { variationId, poseDropboxPath, refDropboxPaths } = await request.json()
     if (!variationId || !/^rec[A-Za-z0-9]{14}$/.test(variationId)) {
       return NextResponse.json({ error: 'Valid variationId required' }, { status: 400 })
     }
-    const pose = String(poseText || '').trim()
-    if (!pose) return NextResponse.json({ error: 'poseText required' }, { status: 400 })
+    if (!poseDropboxPath) {
+      return NextResponse.json({ error: 'A pose screenshot is required' }, { status: 400 })
+    }
 
-    // Variation → its room image + parent room → creator
     const vRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(VARS)}/${variationId}`,
       { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' })
     if (!vRes.ok) return NextResponse.json({ error: 'Variation not found' }, { status: 404 })
@@ -82,7 +91,6 @@ export async function POST(request) {
     const creatorId = Array.isArray(rf.Creator) ? rf.Creator[0] : null
     if (!creatorId) return NextResponse.json({ error: 'Room has no linked creator' }, { status: 400 })
 
-    // Creator identity refs: front-body + face inputs from AI Super Clone.
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
       fields: ['AKA', 'AI Ref Inputs'],
@@ -90,20 +98,37 @@ export async function POST(request) {
     })
     if (!cRecs.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
     const aka = cRecs[0].fields.AKA || 'Creator'
-    const all = cRecs[0].fields['AI Ref Inputs'] || []
-    const front = all.filter(a => a.filename?.startsWith('Front View input_'))
-    const face = all.filter(a => a.filename?.startsWith('Close Up Face input_'))
-    const refs = [...front, ...face].slice(0, 7)
-    if (refs.length === 0) {
-      return NextResponse.json({ error: `No AI Super Clone reference photos for ${aka}. Set them up under Creators → DNA → AI Super Clone.` }, { status: 400 })
+    const allRefs = cRecs[0].fields['AI Ref Inputs'] || []
+    const front = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
+    const face = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
+    const onFileRefs = [...front, ...face]
+
+    // Turn Dropbox paths (browser-uploaded) into raw shared-link URLs.
+    const tok = await getDropboxAccessToken()
+    const ns = await getDropboxRootNamespaceId(tok)
+    const pathToUrl = async (p) => {
+      try { return rawDbx(await createDropboxSharedLink(tok, ns, p)) } catch { return '' }
+    }
+    const poseUrl = await pathToUrl(poseDropboxPath)
+    if (!poseUrl) return NextResponse.json({ error: 'Could not link the pose screenshot' }, { status: 400 })
+    const extraUrls = []
+    for (const p of (Array.isArray(refDropboxPaths) ? refDropboxPaths : [])) {
+      const u = await pathToUrl(p)
+      if (u) extraUrls.push(u)
     }
 
-    const images = [roomUrl, ...refs.map(a => a.url)]
-    const refRange = images.length === 2 ? 'image 2' : `images 2 to ${images.length}`
-    const prompt = buildPrompt(refRange, pose)
+    // Wan cap = 9 total: [room, pose, ...identity]. Identity = uploaded
+    // extras first, then on-file AI refs, filling remaining slots.
+    const identity = [...extraUrls, ...onFileRefs.map(a => a.url)]
+    if (identity.length === 0) {
+      return NextResponse.json({ error: `No identity references — upload some for this run, or set up ${aka}'s AI Super Clone refs.` }, { status: 400 })
+    }
+    const images = [roomUrl, poseUrl, ...identity].slice(0, 9)
+    const idCount = images.length - 2
+    const idRange = idCount === 1 ? 'image 3' : `images 3 to ${images.length}`
+    const prompt = buildPrompt(idRange)
     const outUrl = await runWan(images, prompt)
 
-    // Save the composite as a new variation under the same room.
     const folderSafe = String(roomName).replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
     const name = `Stage B · ${aka}`
     let dbxPath = '', dbxLink = ''
@@ -111,8 +136,6 @@ export async function POST(request) {
       const ir = await fetch(outUrl)
       if (ir.ok) {
         const buf = Buffer.from(await ir.arrayBuffer())
-        const tok = await getDropboxAccessToken()
-        const ns = await getDropboxRootNamespaceId(tok)
         dbxPath = `/Palm Ops/Recreate Rooms/${folderSafe}/_stageB/${aka}-${Date.now()}.jpg`.replace(/[^ -~]/g, '')
         await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
         try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
@@ -131,7 +154,7 @@ export async function POST(request) {
       ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
       Status: 'Pending',
     })
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, images: images.length })
   } catch (err) {
     if (err instanceof Response) return err
     return NextResponse.json({ error: err.message }, { status: 500 })

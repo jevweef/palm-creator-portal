@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
@@ -78,10 +78,11 @@ export default function RecreateLibraryPage() {
   const sp = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
-  const tab = sp.get('tab') === 'rooms' ? 'rooms' : 'library'
+  const tabParam = sp.get('tab')
+  const tab = tabParam === 'rooms' ? 'rooms' : tabParam === 'stageb' ? 'stageb' : 'library'
   const setTab = (k) => {
     const params = new URLSearchParams(sp.toString())
-    if (k === 'rooms') params.set('tab', 'rooms'); else params.delete('tab')
+    if (k === 'library') params.delete('tab'); else params.set('tab', k)
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }
 
@@ -186,6 +187,14 @@ export default function RecreateLibraryPage() {
       </div>
     )
   }
+  if (tab === 'stageb') {
+    return (
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <TabBar tab={tab} setTab={setTab} />
+        <StageBPanel />
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -284,6 +293,7 @@ function TabBar({ tab, setTab }) {
     <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
       {t('library', 'Reel Library')}
       {t('rooms', 'Rooms')}
+      {t('stageb', 'Stage B')}
     </div>
   )
 }
@@ -549,6 +559,154 @@ async function dropboxUploadBase(file, roomName) {
   return tok.path
 }
 
+// Upload a Stage B input (pose screenshot blob / extra ref file)
+// straight to Dropbox; returns the Dropbox path.
+async function stageBUpload(blob, kind) {
+  const tok = await fetch('/api/admin/recreate-rooms/stage-b/upload-token', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind }),
+  }).then(r => r.json())
+  if (!tok.path) throw new Error(tok.error || 'upload token failed')
+  const up = await fetch('https://content.dropboxapi.com/2/files/upload', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${tok.accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path: tok.path, mode: 'overwrite', mute: true }),
+      'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
+      'Content-Type': 'application/octet-stream',
+    },
+    body: await blob.arrayBuffer(),
+  })
+  if (!up.ok) throw new Error(`Dropbox upload failed (${up.status})`)
+  return tok.path
+}
+
+function StageBPanel() {
+  const [data, setData] = useState({ creators: [], rooms: [], variations: [] })
+  const [reels, setReels] = useState([])
+  const [creatorId, setCreatorId] = useState('')
+  const [variationId, setVariationId] = useState('')
+  const [reel, setReel] = useState(null)
+  const [poseBlob, setPoseBlob] = useState(null)
+  const [posePreview, setPosePreview] = useState('')
+  const [extraFiles, setExtraFiles] = useState([])
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const videoRef = useRef(null)
+
+  useEffect(() => {
+    fetch('/api/admin/recreate-rooms').then(r => r.json()).then(d => {
+      setData({ creators: d.creators || [], rooms: d.rooms || [], variations: d.variations || [] })
+      if (!creatorId && d.creators?.[0]) setCreatorId(d.creators[0].id)
+    }).catch(() => {})
+    fetch('/api/admin/recreate-sources').then(r => r.json()).then(d => setReels(d.reels || [])).catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const myRoomIds = data.rooms.filter(r => r.creatorId === creatorId).map(r => r.id)
+  const locations = data.variations.filter(v => myRoomIds.includes(v.roomId) && v.status === 'Approved')
+
+  const capture = () => {
+    const vid = videoRef.current
+    if (!vid) return
+    try {
+      const c = document.createElement('canvas')
+      c.width = vid.videoWidth; c.height = vid.videoHeight
+      c.getContext('2d').drawImage(vid, 0, 0)
+      c.toBlob(b => {
+        if (!b) { setMsg('Could not capture (video blocked by CORS — try a different reel)'); return }
+        setPoseBlob(b); setPosePreview(URL.createObjectURL(b)); setMsg('Pose frame captured.')
+      }, 'image/jpeg', 0.95)
+    } catch (e) { setMsg(`Capture failed: ${e.message} (CORS — try another reel)`) }
+  }
+
+  const generate = async () => {
+    if (!variationId) { setMsg('Pick a location (approved room) first.'); return }
+    if (!poseBlob) { setMsg('Capture a pose frame from a reel first.'); return }
+    setBusy(true); setMsg('⏳ Uploading inputs…')
+    try {
+      const posePath = await stageBUpload(poseBlob, 'pose')
+      const refPaths = []
+      for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
+      setMsg('⏳ Stage B — compositing creator into the room… ~2–3 min, leave this tab open.')
+      const d = await fetch('/api/admin/recreate-rooms/stage-b', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variationId, poseDropboxPath: posePath, refDropboxPaths: refPaths }),
+      }).then(r => r.json())
+      if (d.ok) setMsg(`✅ Done — "Stage B" card added under that room in the Rooms tab (used ${d.images} images).`)
+      else setMsg(`❌ ${d.error || 'failed'}`)
+    } catch (e) { setMsg(`❌ ${e.message || e}`) }
+    setBusy(false)
+  }
+
+  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 16, marginBottom: 16 }
+  const lbl = { fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Stage B — Creator into Room</h1>
+      <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 16 }}>
+        Pick a locked room (location), screenshot a reel for the pose &amp; outfit, and the creator&apos;s on-file AI Super Clone refs (+ optional extra uploads) supply identity. Wan 2.7 composites — room stays untouched.
+      </p>
+
+      <div style={card}>
+        <div style={lbl}>1 · Creator</div>
+        <select value={creatorId} onChange={e => { setCreatorId(e.target.value); setVariationId('') }}
+          style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
+          {data.creators.length === 0 && <option>No TJP creators</option>}
+          {data.creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 8 }}>Identity uses this creator&apos;s AI Super Clone reference photos on file (Front + Face) plus any extra uploads below.</div>
+      </div>
+
+      <div style={card}>
+        <div style={lbl}>2 · Location — pick an approved room variation</div>
+        {locations.length === 0
+          ? <div style={{ fontSize: 12, color: '#888' }}>No approved variations for this creator yet. Approve some in the Rooms tab.</div>
+          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+              {locations.map(v => (
+                <img key={v.id} src={v.image} alt="" loading="lazy" onClick={() => setVariationId(v.id)}
+                  style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, cursor: 'pointer',
+                    border: variationId === v.id ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }} />
+              ))}
+            </div>}
+      </div>
+
+      <div style={card}>
+        <div style={lbl}>3 · Pose &amp; outfit — pick a reel, scrub, capture a frame</div>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 320px', minWidth: 280 }}>
+            {reel
+              ? <video ref={videoRef} src={String(reel.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')} crossOrigin="anonymous" controls playsInline
+                  style={{ width: '100%', maxHeight: 360, borderRadius: 8, background: '#000' }} />
+              : <div style={{ fontSize: 12, color: '#888', padding: 20 }}>Select a reel from the strip →</div>}
+            {reel && <button onClick={capture} disabled={busy} style={{ marginTop: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>📸 Capture this frame</button>}
+            {posePreview && <div style={{ marginTop: 8 }}><span style={{ fontSize: 11, color: '#6AC68A' }}>Pose captured:</span><br /><img src={posePreview} alt="" style={{ height: 120, borderRadius: 6, marginTop: 4 }} /></div>}
+          </div>
+          <div style={{ flex: '2 1 420px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
+            {reels.map(r => (
+              <img key={r.id} src={r.thumbnail || ''} alt="" loading="lazy" onClick={() => { setReel(r); setPoseBlob(null); setPosePreview('') }}
+                style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, cursor: 'pointer',
+                  border: reel?.id === r.id ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={card}>
+        <div style={lbl}>4 · Optional — extra identity reference images for this run</div>
+        <input type="file" accept="image/*" multiple onChange={e => setExtraFiles([...e.target.files])}
+          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
+        {extraFiles.length > 0 && <span style={{ fontSize: 12, color: '#6AC68A', marginLeft: 8 }}>{extraFiles.length} added</span>}
+      </div>
+
+      <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
+        {busy ? 'Working…' : '👤 Generate — insert creator'}
+      </button>
+      {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
+    </div>
+  )
+}
+
 function RoomCard({ room, variations, refresh }) {
   const [lock, setLock] = useState(room.lockInventory)
   // Re-sync the textarea when the saved lock list changes (e.g. after
@@ -757,29 +915,6 @@ function RoomCard({ room, variations, refresh }) {
     }
     setBusy(false); refresh()
   }
-  const stageB = async (v) => {
-    const poseText = prompt('Describe the creator\'s POSE to put her in this room (from the reference reel frame).\n\ne.g. "standing facing the camera, weight on one hip, one hand in her hair, looking over her shoulder, relaxed natural posture"')
-    if (poseText === null) return
-    if (!poseText.trim()) { alert('No pose entered.'); return }
-    setBusy(true); setMsg('⏳ Stage B — inserting creator into the room… ~2 min, leave this tab open. Popup when done.')
-    try {
-      const d = await fetch('/api/admin/recreate-rooms/stage-b', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variationId: v.id, poseText: poseText.trim() }),
-      }).then(r => r.json())
-      if (d.ok) {
-        setMsg('✅ Stage B done — new "Stage B · {creator}" card added in the gallery.')
-        alert('Stage B complete — the composite is in the gallery (a "Stage B · …" card).')
-      } else {
-        setMsg(`❌ Stage B failed: ${d.error || 'unknown error'}`)
-        alert(`Stage B failed: ${d.error || 'unknown error'}`)
-      }
-    } catch (e) {
-      setMsg(`❌ Stage B error: ${e.message || e}`)
-      alert(`Stage B error: ${e.message || e}`)
-    }
-    setBusy(false); refresh()
-  }
   const downloadVar = (v) => { if (v?.dropbox || v?.image) window.open(v.dropbox || v.image, '_blank', 'noopener') }
   const approveAndDownload = async (v) => {
     await fetch(`/api/admin/recreate-rooms/variation?id=${v.id}&status=Approved`, { method: 'PATCH' })
@@ -961,7 +1096,6 @@ function RoomCard({ room, variations, refresh }) {
                 <button onClick={async () => { await rejectVar(v.id); setModalIdx(-1) }} title="Reject and record why (kept for tuning, not deleted)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'rgba(232,120,120,0.18)', color: '#E87878', border: '1px solid rgba(232,120,120,0.4)', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
                 <button onClick={() => downloadVar(v)} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, cursor: 'pointer' }}>⬇ Download</button>
                 <button onClick={() => refineVar(v)} disabled={busy} title="Fix/add specific things on this exact image (same camera)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.14)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.35)', borderRadius: 6, cursor: 'pointer' }}>✏️ Refine</button>
-                <button onClick={() => stageB(v)} disabled={busy} title="Insert this room's creator into this exact image, in a pose you describe (room untouched)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8a878', border: '1px solid rgba(232,168,120,0.4)', borderRadius: 6, cursor: 'pointer' }}>👤 Insert creator</button>
                 {/^Angle\b/i.test(v.recipe || '') && (
                   <button onClick={async () => { await promoteAngle(v); setModalIdx(-1) }} title="Make this image its own locked room (a new angle for this creator)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.18)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.4)', borderRadius: 6, cursor: 'pointer' }}>📐 Save as angle</button>
                 )}
