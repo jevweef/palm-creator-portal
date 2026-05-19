@@ -535,6 +535,18 @@ function RoomCard({ room, variations, refresh }) {
   const [modalIdx, setModalIdx] = useState(-1)
   const [msg, setMsg] = useState('')
 
+  // Arrow keys navigate the lightbox; Escape closes it.
+  useEffect(() => {
+    if (modalIdx < 0) return
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') setModalIdx(m => Math.min(m + 1, variations.length - 1))
+      else if (e.key === 'ArrowLeft') setModalIdx(m => Math.max(m - 1, 0))
+      else if (e.key === 'Escape') setModalIdx(-1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [modalIdx, variations.length])
+
   const api = async (method, body, qs = '') => {
     const r = await fetch(`/api/admin/recreate-rooms${qs}`, {
       method, headers: { 'Content-Type': 'application/json' },
