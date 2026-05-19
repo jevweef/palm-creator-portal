@@ -123,6 +123,7 @@ export async function POST(request) {
 }
 
 // PATCH ?id=rec...&status=Approved|Rejected|Pending
+// Optional JSON body { reason } — stored as tuning feedback on reject.
 export async function PATCH(request) {
   try {
     await requireAdmin()
@@ -135,7 +136,12 @@ export async function PATCH(request) {
     if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
-    await patchAirtableRecord(VARS, id, { Status: status }, { typecast: true })
+    let reason = ''
+    try { reason = String((await request.json())?.reason || '').trim() } catch {}
+    await patchAirtableRecord(VARS, id, {
+      Status: status,
+      ...(status === 'Rejected' && reason ? { 'Reject Reason': reason } : {}),
+    }, { typecast: true })
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof Response) return err

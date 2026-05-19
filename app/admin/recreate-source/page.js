@@ -692,6 +692,16 @@ function RoomCard({ room, variations, refresh }) {
     await fetch(`/api/admin/recreate-rooms/variation?id=${id}&status=${status}`, { method: 'PATCH' })
     refresh()
   }
+  // Reject keeps the generation (no delete) + records WHY for tuning.
+  const rejectVar = async (id) => {
+    const reason = prompt('Why is this rejected? (saved as tuning feedback — the image is kept, not deleted)\n\ne.g. "ring light reflected in mirror", "rug flipped up", "clothes on dresser folded", "creator body distorted"')
+    if (reason === null) return
+    await fetch(`/api/admin/recreate-rooms/variation?id=${id}&status=Rejected`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason.trim() }),
+    })
+    refresh()
+  }
   const delVar = async (id) => {
     await fetch(`/api/admin/recreate-rooms/variation?id=${id}`, { method: 'DELETE' })
     refresh()
@@ -854,7 +864,7 @@ function RoomCard({ room, variations, refresh }) {
                 <div style={{ fontSize: 10, color: 'var(--foreground-muted)', padding: '4px 6px' }}>{v.recipe} · {v.status}</div>
                 <div style={{ display: 'flex', gap: 2, padding: '0 4px 4px' }}>
                   <button onClick={() => setVar(v.id, 'Approved')} title="Approve" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(106,198,138,0.15)', color: '#6AC68A', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓</button>
-                  <button onClick={() => setVar(v.id, 'Rejected')} title="Reject" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(232,120,120,0.12)', color: '#E87878', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                  <button onClick={() => rejectVar(v.id)} title="Reject + say why (kept for tuning)" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(232,120,120,0.12)', color: '#E87878', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
                   <button onClick={() => refineVar(v)} disabled={busy} title="Refine this image (fix/add specific things, same camera)" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'rgba(168,120,232,0.14)', color: '#b48ff0', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✏️</button>
                   <a href={v.dropbox || v.image || '#'} target="_blank" rel="noopener noreferrer" title={v.dropbox ? 'Download full-res master (Dropbox)' : 'Open image'} style={{ flex: 1, textAlign: 'center', fontSize: 11, padding: '3px 0', background: 'rgba(120,160,232,0.12)', color: '#8fb4f0', borderRadius: 4, textDecoration: 'none' }}>⬇</a>
                   <button onClick={() => delVar(v.id)} title="Delete" style={{ flex: 1, fontSize: 11, padding: '3px 0', background: 'none', color: '#666', border: 'none', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
@@ -912,11 +922,13 @@ function RoomCard({ room, variations, refresh }) {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={() => go(-1)} disabled={modalIdx === 0} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>‹</button>
                 <button onClick={() => approveAndDownload(v)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, background: '#6AC68A', color: '#0a1a0f', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✓ Approve</button>
+                <button onClick={async () => { await rejectVar(v.id); setModalIdx(-1) }} title="Reject and record why (kept for tuning, not deleted)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'rgba(232,120,120,0.18)', color: '#E87878', border: '1px solid rgba(232,120,120,0.4)', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
                 <button onClick={() => downloadVar(v)} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, cursor: 'pointer' }}>⬇ Download</button>
                 <button onClick={() => refineVar(v)} disabled={busy} title="Fix/add specific things on this exact image (same camera)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.14)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.35)', borderRadius: 6, cursor: 'pointer' }}>✏️ Refine</button>
-                <button onClick={async () => { await promoteAngle(v); setModalIdx(-1) }} title="Make this image its own locked room (a new angle for this creator)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.18)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.4)', borderRadius: 6, cursor: 'pointer' }}>📐 Save as angle</button>
                 <button onClick={() => stageB(v)} disabled={busy} title="Insert this room's creator into this exact image, in a pose you describe (room untouched)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8a878', border: '1px solid rgba(232,168,120,0.4)', borderRadius: 6, cursor: 'pointer' }}>👤 Insert creator</button>
-                <button onClick={async () => { await setVar(v.id, 'Rejected'); setModalIdx(-1) }} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(232,120,120,0.15)', color: '#E87878', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
+                {/^Angle\b/i.test(v.recipe || '') && (
+                  <button onClick={async () => { await promoteAngle(v); setModalIdx(-1) }} title="Make this image its own locked room (a new angle for this creator)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.18)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.4)', borderRadius: 6, cursor: 'pointer' }}>📐 Save as angle</button>
+                )}
                 <button onClick={async () => { await delVar(v.id); setModalIdx(-1) }} style={{ padding: '8px 12px', fontSize: 13, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>🗑</button>
                 <button onClick={() => go(1)} disabled={modalIdx >= variations.length - 1} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>›</button>
                 <button onClick={() => setModalIdx(-1)} style={{ padding: '8px 12px', fontSize: 13, background: 'none', color: '#888', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Close ✕</button>
