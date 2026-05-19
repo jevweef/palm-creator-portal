@@ -832,18 +832,33 @@ function RoomCard({ room, variations, refresh }) {
                 {items.map(renderCard)}
               </div>
             )
+            // Within a section, group by status: Approved → Pending → Rejected.
+            const subHdr = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, margin: '10px 0 6px' }
+            const byStatus = (items) => {
+              const groups = [
+                ['Approved', '#6AC68A', items.filter(([v]) => v.status === 'Approved')],
+                ['Pending', '#caa84a', items.filter(([v]) => !v.status || v.status === 'Pending')],
+                ['Rejected', '#E87878', items.filter(([v]) => v.status === 'Rejected')],
+              ]
+              return groups.filter(([, , g]) => g.length > 0).map(([label, color, g]) => (
+                <div key={label}>
+                  <div style={{ ...subHdr, color }}>{label} ({g.length})</div>
+                  {grid(g)}
+                </div>
+              ))
+            }
             return (
               <>
                 {angleItems.length > 0 && (
                   <div>
                     <div style={hdr}>📐 Angle candidates ({angleItems.length}) <span style={sub}>— pick a faithful one, then “Save as angle” to make it its own room</span></div>
-                    {grid(angleItems)}
+                    {byStatus(angleItems)}
                   </div>
                 )}
                 {varItems.length > 0 && (
                   <div>
                     <div style={hdr}>🎲 Variations ({varItems.length}) <span style={sub}>— clutter & time off the locked base</span></div>
-                    {grid(varItems)}
+                    {byStatus(varItems)}
                   </div>
                 )}
               </>
