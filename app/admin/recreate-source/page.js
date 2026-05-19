@@ -415,7 +415,7 @@ const AXES = {
     'golden-hour sunset — warm low sun pouring DIRECTLY through the right-side window from about the 4–5 o\'clock direction, lighting up the standing mirror, the trailing plant and the wood dresser, long warm shadows stretched across the room to the LEFT, soft orange sky',
     'blue-hour dusk — dim cool blue light outside, the warm bedside lamp just switched on, soft pools of warm lamp light',
     'flat grey overcast daylight, soft and even, no sun direction, no harsh shadows',
-    'nighttime — dark outside, distant city lights through the glass, the warm bedside lamp and a candle on, PLUS a ring light positioned behind the camera casting soft even frontal light into the room; because it is dark out the floor-to-ceiling glass acts like a mirror — show the bright circular ring-light reflection in the dark window glass (and in the standing mirror) wherever the angle would naturally catch it',
+    'nighttime — dark outside, distant city lights through the glass, the warm bedside lamp and a candle on, PLUS a ring light positioned behind the camera casting soft even frontal light into the room; because it is dark out the floor-to-ceiling glass acts like a mirror — show ONE subtle circular ring-light reflection in the dark window glass only, where the angle would naturally catch it. Do NOT put a ring-light reflection in the standing mirror or anywhere else',
   ],
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
