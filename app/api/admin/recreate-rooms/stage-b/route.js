@@ -149,20 +149,24 @@ export async function POST(request) {
     const cf = cRecs[0].fields
     const aka = cf.AKA || 'Creator'
     // Prefer the APPROVED single best ref per angle (curated via AI Super
-    // Clone). Fall back to the raw multi-pose AI Ref Inputs dump only for
-    // creators whose refs haven't been approved yet.
-    // wan-2.7/image-edit-pro accepts a MAX of 3 images total. So we use
-    // exactly: Figure 1 = room, Figure 2 = face (identity), Figure 3 =
-    // full-body front (body/grounding). One unambiguous image per role —
-    // the official docs reference a single ordinal image per instruction.
-    let faceRef = (cf['AI Ref Face'] || [])[0] || null
-    let frontRef = (cf['AI Ref Front'] || [])[0] || null
-    if (!faceRef && !frontRef) {
+    // Clone): face first (identity weight), then front (body/grounding),
+    // then back. Fall back to the raw multi-pose AI Ref Inputs dump only
+    // for creators whose refs haven't been approved yet.
+    const approvedFace = cf['AI Ref Face'] || []
+    const approvedFront = cf['AI Ref Front'] || []
+    const approvedBack = cf['AI Ref Back'] || []
+    let onFileRefs = [...approvedFace, ...approvedFront, ...approvedBack]
+    if (onFileRefs.length === 0) {
       const allRefs = cf['AI Ref Inputs'] || []
-      faceRef = allRefs.find(a => a.filename?.startsWith('Close Up Face input_')) || null
-      frontRef = allRefs.find(a => a.filename?.startsWith('Front View input_')) || null
+      const face = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
+      const front = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
+      const back = allRefs.filter(a => a.filename?.startsWith('Back View input_'))
+      for (let i = 0; i < Math.max(face.length, front.length, back.length); i++) {
+        if (face[i]) onFileRefs.push(face[i])
+        if (front[i]) onFileRefs.push(front[i])
+        if (back[i]) onFileRefs.push(back[i])
+      }
     }
-    const onFileRefs = [faceRef, frontRef].filter(Boolean)
 
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
@@ -223,17 +227,17 @@ export async function POST(request) {
     const chosenRoomName = myRooms.find(r => r.id === roomId)?.fields?.['Room Name'] || 'Room'
     const chosenFraming = framingOf(chosen) || 'unclassified'
 
-    // The model's hard API max is 3 images (WaveSpeed README + Alibaba
-    // Model Studio: "up to 3 reference images"). The playground UI's
-    // 9-item cap is just its uploader widget, NOT the model contract —
-    // sending >3 means it silently honors 3 and the identity never
-    // binds ("wrong girl"). So: Figure 1 = room, Figures 2-3 = identity
-    // (uploaded extras take priority, then on-file face/front).
+    // Image count is NOT a hard limit — empirically the endpoint accepts
+    // and completes 9 images fine (the docs' "up to 3" is guidance, not
+    // enforced). The PROVEN cause of the "wrong girl" was a pose/reel
+    // screenshot fed as a person ref (now removed entirely). Identity =
+    // uploaded extras + the creator's on-file face/front/back; capped at
+    // 9 only because that's the largest count we've verified works.
     const identity = [...extraUrls, ...onFileRefs.map(a => a.url)]
     if (identity.length === 0) {
       return NextResponse.json({ error: `No identity references — upload some for this run, or set up ${aka}'s AI Super Clone refs.` }, { status: 400 })
     }
-    const images = [roomUrl, ...identity].slice(0, 3)
+    const images = [roomUrl, ...identity].slice(0, 9)
     const figs = []
     for (let i = 2; i <= images.length; i++) figs.push(`Figure ${i}`)
     const idList = figs.length <= 1
