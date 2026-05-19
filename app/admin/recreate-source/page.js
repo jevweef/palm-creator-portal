@@ -623,6 +623,7 @@ function StageBPanel() {
   const [reel, setReel] = useState(null)
   const [poseTime, setPoseTime] = useState(0)
   const [captured, setCaptured] = useState(false)
+  const [poseModalOpen, setPoseModalOpen] = useState(false)
   const [extraFiles, setExtraFiles] = useState([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -640,13 +641,16 @@ function StageBPanel() {
     fetch('/api/admin/recreate-sources').then(r => r.json()).then(d => setReels(d.reels || [])).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!poseModalOpen) return
+    const onKey = (e) => { if (e.key === 'Escape') setPoseModalOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [poseModalOpen])
+
   const sel = creators.find(c => c.id === creatorId)
   // Rooms ARE per-creator (the creator's virtual bedroom).
   const myRooms = data.rooms.filter(r => r.creatorId === creatorId)
-
-  const poseFrameUrl = reel?.streamUid
-    ? buildStreamPosterUrl(reel.streamUid, { time: `${poseTime}s`, width: 540, fit: 'scale-down' })
-    : null
 
   const generate = async () => {
     if (!creatorId) { setMsg('Pick a creator first.'); return }
@@ -703,36 +707,29 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
 
       <div style={card}>
         <div style={lbl}>3 · Pose &amp; outfit — pick a reel, scrub to the pose, capture</div>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 320px', minWidth: 280 }}>
-            {!reel
-              ? <div style={{ fontSize: 12, color: '#888', padding: 20 }}>Select a reel from the strip →</div>
-              : !reel.streamUid
-                ? <div style={{ fontSize: 12, color: '#E87878', padding: 20 }}>This reel has no Stream video — pick a different one.</div>
-                : <>
-                    <img src={poseFrameUrl} alt="" style={{ width: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 8, background: '#000' }} />
-                    <input type="range" min={0} max={30} step={0.1} value={poseTime}
-                      onChange={e => { setPoseTime(Number(e.target.value)); setCaptured(false) }}
-                      style={{ width: '100%', marginTop: 8 }} />
-                    <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>Frame @ {poseTime.toFixed(1)}s — drag to the exact pose</div>
-                    <button onClick={() => { setCaptured(true); setMsg(`Pose captured @ ${poseTime.toFixed(1)}s`) }} disabled={busy}
-                      style={{ marginTop: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, background: captured ? '#6AC68A' : 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-                      {captured ? '✓ Frame captured' : '📸 Capture this frame'}
-                    </button>
-                  </>}
+        {captured && reel?.streamUid && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, padding: 10, background: 'rgba(106,198,138,0.1)', border: '1px solid rgba(106,198,138,0.35)', borderRadius: 8 }}>
+            <img src={buildStreamPosterUrl(reel.streamUid, { time: `${poseTime}s`, width: 160, fit: 'crop' })} alt=""
+              style={{ width: 70, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A' }}>✓ Pose captured @ {poseTime.toFixed(1)}s</div>
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>Click any reel below to re-pick.</div>
+            </div>
+            <button onClick={() => setPoseModalOpen(true)} style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Re-scrub</button>
           </div>
-          <div style={{ flex: '2 1 420px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
-            {reels.map(r => {
-              const isSel = reel?.id === r.id
-              const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
-              const onPick = () => { setReel(r); setPoseTime(0); setCaptured(false) }
-              return r.streamUid
-                ? <img key={r.id} src={buildStreamPosterUrl(r.streamUid, { width: 240, fit: 'crop' })} alt="" loading="lazy" onClick={onPick} style={bd} />
-                : r.thumbnail
-                  ? <img key={r.id} src={r.thumbnail} alt="" loading="lazy" onClick={onPick} style={bd} />
-                  : <video key={r.id} src={`${String(r.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')}#t=0.1`} muted preload="metadata" playsInline onClick={onPick} style={bd} />
-            })}
-          </div>
+        )}
+        <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Click a reel to open it full-size and scrub to the exact pose.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 480, overflowY: 'auto' }}>
+          {reels.map(r => {
+            const isSel = reel?.id === r.id
+            const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
+            const onPick = () => { setReel(r); setPoseTime(0); setCaptured(false); if (r.streamUid) setPoseModalOpen(true) }
+            return r.streamUid
+              ? <img key={r.id} src={buildStreamPosterUrl(r.streamUid, { width: 240, fit: 'crop' })} alt="" loading="lazy" onClick={onPick} style={bd} />
+              : r.thumbnail
+                ? <img key={r.id} src={r.thumbnail} alt="" loading="lazy" onClick={onPick} style={bd} />
+                : <video key={r.id} src={`${String(r.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')}#t=0.1`} muted preload="metadata" playsInline onClick={onPick} style={bd} />
+          })}
         </div>
       </div>
 
@@ -747,6 +744,25 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
         {busy ? 'Working…' : '👤 Generate — insert creator'}
       </button>
       {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
+
+      {poseModalOpen && reel?.streamUid && (
+        <div onClick={() => setPoseModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: 'min(440px, 92vw)' }}>
+            <div style={{ fontSize: 13, color: '#bbb', alignSelf: 'flex-start' }}>Scrub to the exact pose &amp; outfit — this is the frame fed to the model.</div>
+            <img src={buildStreamPosterUrl(reel.streamUid, { time: `${poseTime}s`, width: 720, fit: 'scale-down' })} alt=""
+              style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
+            <input type="range" min={0} max={30} step={0.1} value={poseTime}
+              onChange={e => { setPoseTime(Number(e.target.value)); setCaptured(false) }}
+              style={{ width: '100%' }} />
+            <div style={{ fontSize: 13, color: '#ddd', fontWeight: 600 }}>Frame @ {poseTime.toFixed(1)}s</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setCaptured(true); setPoseModalOpen(false); setMsg(`Pose captured @ ${poseTime.toFixed(1)}s`) }}
+                style={{ padding: '10px 22px', fontSize: 14, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: 'pointer' }}>📸 Capture this frame</button>
+              <button onClick={() => setPoseModalOpen(false)} style={{ padding: '10px 16px', fontSize: 13, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, cursor: 'pointer' }}>Close ✕</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
