@@ -261,15 +261,19 @@ export async function POST(request) {
     // SINGLE PASS — user compared A (this) vs B (face-swap-pro) on real
     // outputs and chose this; the face-swap arm was bad. Figure 1 = room,
     // Figure 2 = reel frame (pose/outfit/framing), Figures 3..N = identity.
-    // 250s cap: it's the only model call, route maxDuration is 300, and a
-    // legit run has taken ~112s — never false-time-out a success again.
+    // Poll cap = 275s. Route maxDuration is 300s; this is the only model
+    // call, leaving ~25s for the Dropbox upload + Airtable write after.
+    // Historical inference 23–112s, but WaveSpeed can queue slower — a
+    // 250s cap risked abandoning a job that would have finished. This is
+    // the platform ceiling: if wan needs >275s the real fix is
+    // decoupling Stage B from the synchronous request (webhook/poll).
     const images = [roomUrl, poseUrl, ...identity].slice(0, 9)
     const figs = []
     for (let i = 3; i <= images.length; i++) figs.push(`Figure ${i}`)
     const idList = figs.length <= 1 ? (figs[0] || 'Figure 3')
       : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
     const prompt = buildSinglePrompt(idList)
-    const outUrl = await runWan(images, prompt, 250000)
+    const outUrl = await runWan(images, prompt, 275000)
 
     let dbxPath = '', dbxLink = ''
     try {
