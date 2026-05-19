@@ -104,7 +104,33 @@ function buildPosePrompt() {
   )
 }
 
-const FACE_SWAP_MODEL = 'wavespeed-ai/image-face-swap'
+// Pro variant — the standard image-face-swap badly artifacted the
+// whole frame. Same params (image / face_image).
+const FACE_SWAP_MODEL = 'wavespeed-ai/image-face-swap-pro'
+
+// Strengthened SINGLE-PASS prompt (comparison arm). Sharper than the
+// original "do not copy her face": Figure 2's head is an explicit
+// discardable placeholder and Figure 2 vs the identity figures are
+// stated to be different people.
+function buildSinglePrompt(idList) {
+  return (
+    'WHAT TO DO: Figure 1 is the empty room — the exact location and '
+    + 'background to use. Place one woman standing in it. Take her body '
+    + 'pose, stance, limb positioning, her exact outfit and clothing, and '
+    + 'the camera distance and crop from Figure 2 ONLY. The face and head of '
+    + 'the woman in Figure 2 are a PLACEHOLDER and must be discarded — she '
+    + `is a DIFFERENT person; never reproduce Figure 2's face. The final `
+    + `woman's face, head, hair, skin tone and identity must come ONLY from `
+    + `${idList} (the real person). Final result = body and outfit of Figure `
+    + `2 + the identity/face of ${idList}.\n\n`
+    + 'WHAT TO KEEP: Keep the room in Figure 1 completely unchanged — walls, '
+    + 'windows, the outside view, furniture, bed, rug, décor, plants, '
+    + 'lighting and time of day identical to Figure 1. Do NOT copy Figure '
+    + "2's background or location.\n\n"
+    + 'Hyper realistic, ultra-detailed natural skin texture, raw iPhone '
+    + 'photo look, no text, no watermark.'
+  )
+}
 
 async function pollWaveSpeed(taskId, label, maxMs) {
   const t0 = Date.now()
@@ -259,55 +285,68 @@ export async function POST(request) {
       return NextResponse.json({ error: `No identity references — upload some for this run, or set up ${aka}'s AI Super Clone refs.` }, { status: 400 })
     }
 
-    // Pass 1 — pose/outfit/framing transfer (room + reel frame).
-    const posePrompt = buildPosePrompt()
-    const pass1Out = await runWan([roomUrl, poseUrl], posePrompt)
-
-    // Pass 2 — dedicated face-swap model puts the creator's face onto
-    // Pass 1 (keeps the reel pose/outfit/room/framing). Prompting the
-    // image editor to "swap only the face" did NOT work — it kept the
-    // reel girl. A purpose-built face-swap model is the right tool.
-    // face_image = the single clearest front-facing identity photo.
-    const faceImageUrl = (cf['AI Ref Face'] || [])[0]?.url
-      || (cf['AI Ref Front'] || [])[0]?.url
-      || identity[0]
-    const outUrl = await faceSwap(pass1Out, faceImageUrl)
-    const prompt = `PASS 1 (pose/outfit/framing — ${WAN_MODEL}):\n${posePrompt}\n\n---\n\nPASS 2 (identity — ${FACE_SWAP_MODEL}, face_image=approved face)`
-
     const locName = chosenRoomName
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
     const reelShort = (reelRecordId && /^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) ? reelRecordId : null
-    let dbxPath = '', dbxLink = ''
-    try {
-      const ir = await fetch(outUrl)
-      if (ir.ok) {
-        const buf = Buffer.from(await ir.arrayBuffer())
-        dbxPath = `/Palm Ops/Stage B Outputs/${folderSafe}/${aka}-${Date.now()}.jpg`.replace(/[^ -~]/g, '')
-        await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
-        try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
-      }
-    } catch (e) {
-      console.warn(`[recreate-rooms/stage-b] Dropbox save failed: ${e.message}`)
-    }
+    const faceImageUrl = (cf['AI Ref Face'] || [])[0]?.url
+      || (cf['AI Ref Front'] || [])[0]?.url
+      || identity[0]
 
-    await createAirtableRecord(STAGE_B_OUTPUTS, {
-      Name: `${aka} · ${locName} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-      Creator: [creatorId],
-      ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
-      ...(roomId ? { Room: [roomId] } : {}),
-      Image: [{ url: outUrl }],
-      ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
-      ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
-      'Pose Time': Number(tSec) || 0,
-      ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
-      ...(chosenFraming && chosenFraming !== 'unclassified' ? { 'Room Framing': chosenFraming } : {}),
-      'Prompt Used': prompt,
-      Status: 'Pending',
-    })
+    // COMPARE MODE — run both arms so the same reel/creator yields two
+    // outputs side by side:
+    //   A) strengthened SINGLE pass: [room, reel, ...identity]
+    //   B) TWO pass: wan(room+reel → pose/outfit) → face-swap-PRO(identity)
+    // The single pass and Pass-1-of-B are independent → run in parallel.
+    const singleImages = [roomUrl, poseUrl, ...identity].slice(0, 9)
+    const sFigs = []
+    for (let i = 3; i <= singleImages.length; i++) sFigs.push(`Figure ${i}`)
+    const sIdList = sFigs.length <= 1 ? (sFigs[0] || 'Figure 3')
+      : `${sFigs.slice(0, -1).join(', ')} and ${sFigs[sFigs.length - 1]}`
+    const singlePrompt = buildSinglePrompt(sIdList)
+    const posePrompt = buildPosePrompt()
+
+    const [outA, pass1Out] = await Promise.all([
+      runWan(singleImages, singlePrompt, 110000),
+      runWan([roomUrl, poseUrl], posePrompt, 110000),
+    ])
+    const outB = await faceSwap(pass1Out, faceImageUrl)
+
+    // Save both as their own Stage B Output records + push to Dropbox.
+    const saveOne = async (url, tag, promptText) => {
+      let dbxPath = '', dbxLink = ''
+      try {
+        const ir = await fetch(url)
+        if (ir.ok) {
+          const buf = Buffer.from(await ir.arrayBuffer())
+          dbxPath = `/Palm Ops/Stage B Outputs/${folderSafe}/${aka}-${tag}-${Date.now()}.jpg`.replace(/[^ -~]/g, '')
+          await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
+          try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
+        }
+      } catch (e) { console.warn(`[stage-b] Dropbox save (${tag}) failed: ${e.message}`) }
+      await createAirtableRecord(STAGE_B_OUTPUTS, {
+        Name: `${aka} · ${locName} · ${tag} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+        Creator: [creatorId],
+        ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
+        ...(roomId ? { Room: [roomId] } : {}),
+        Image: [{ url }],
+        ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
+        ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
+        'Pose Time': Number(tSec) || 0,
+        ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
+        ...(chosenFraming && chosenFraming !== 'unclassified' ? { 'Room Framing': chosenFraming } : {}),
+        'Prompt Used': promptText,
+        Status: 'Pending',
+      })
+      return dbxLink || null
+    }
+    const dropA = await saveOne(outA, '1pass', `SINGLE PASS (${WAN_MODEL}):\n${singlePrompt}`)
+    const dropB = await saveOne(outB, '2pass', `PASS 1 (${WAN_MODEL}):\n${posePrompt}\n\n---\n\nPASS 2 (${FACE_SWAP_MODEL}, face_image=approved face)`)
+
     return NextResponse.json({
       ok: true,
-      out: outUrl,
-      dropbox: dbxLink || null,
+      compare: { a: { url: outA, dropbox: dropA, label: 'Single pass (strengthened prompt)' },
+                 b: { url: outB, dropbox: dropB, label: 'Two pass (face-swap pro)' } },
+      out: outB, dropbox: dropB,
       room: chosenRoomName, roomFraming: chosenFraming,
       screenshotFraming: shotFraming || 'unknown',
     })

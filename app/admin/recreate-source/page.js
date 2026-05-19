@@ -701,7 +701,7 @@ function StageBPanel() {
     try {
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
-      setMsg('⏳ Stage B — 2-pass: matching the reel pose/outfit/framing, then swapping in the creator… ~3–4 min, leave this tab open.')
+      setMsg('⏳ Stage B — running BOTH approaches to compare (single-pass + two-pass face-swap)… ~2–3 min, leave this tab open.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id }),
@@ -713,8 +713,8 @@ function StageBPanel() {
         : v && typeof v === 'object' ? (v.message || v.error || JSON.stringify(v))
         : String(v)
       if (d && d.ok) {
-        setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming })
-        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Saved to Stage B Outputs below.`)
+        setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming, compare: d.compare || null })
+        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Compare the two approaches below; both saved to Stage B Outputs.`)
         loadOutputs()
       } else if (d) {
         setMsg(`❌ ${asStr(d.error) || `HTTP ${res.status}`}`)
@@ -802,13 +802,29 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
       {stageBOut && (
         <div style={{ ...card, marginTop: 16 }}>
           <div style={lbl}>Result — {sel?.name} in {stageBOut.room} [{stageBOut.roomFraming}] · shot read as {stageBOut.screenshotFraming}</div>
-          <img src={stageBOut.url} alt="Stage B result"
-            style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
-          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-            <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
-              style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, textDecoration: 'none' }}>↗ Open full size</a>
-            <span style={{ fontSize: 12, color: 'var(--foreground-muted)', alignSelf: 'center' }}>Saved as Pending in Stage B Outputs below.</span>
-          </div>
+          {stageBOut.compare ? (
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              {[stageBOut.compare.a, stageBOut.compare.b].map((c, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? '#e8b878' : '#6AC68A' }}>{String.fromCharCode(65 + i)} · {c.label}</div>
+                  <img src={c.url} alt={c.label}
+                    style={{ width: 'min(340px, 44vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
+                  <a href={c.dropbox || c.url} target="_blank" rel="noreferrer"
+                    style={{ fontSize: 12, color: '#8fb4f0', textDecoration: 'none' }}>↗ Open full size</a>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <img src={stageBOut.url} alt="Stage B result"
+                style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
+              <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
+                  style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, textDecoration: 'none' }}>↗ Open full size</a>
+              </div>
+            </>
+          )}
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>Both saved as Pending in Stage B Outputs below (tagged 1pass / 2pass).</div>
         </div>
       )}
 
