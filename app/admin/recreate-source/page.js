@@ -362,9 +362,14 @@ const AXES = {
     'the rug pile raked in soft directional lines like it was just walked across (rug stays flat on the floor, same size and place)',
   ],
   // Vines re-drape after watering / being nudged.
+  // Subtle only — same plant/pot/spot, just the loose vines fall a
+  // little differently (watered/nudged). Never dramatic.
   plants: [
-    'the trailing vine plants on the left hanging and draping noticeably differently, a few tendrils repositioned as if just watered and nudged (same plants, same pots, same spots)',
-    'the long pothos vines swept to one side and a little longer/looser than before, like they were tidied after watering (same plants, same pots, same spots)',
+    'the trailing vines hang slightly differently — a few strands fallen forward as if just watered (same plant, same pot, same spot)',
+    'the long pothos vines swept gently to one side, a touch looser than before (same plant, same pot, same spot)',
+    'a couple of vine tendrils nudged back behind the mirror, the rest draping a little differently (same plant, same pot, same spot)',
+    'the vines a little longer and looser, one strand curled differently near the bottom (same plant, same pot, same spot)',
+    'the hanging vines tucked slightly tidier, gathered a bit more toward the wall (same plant, same pot, same spot)',
   ],
   // Clutter that lives AWAY from the bed/nightstand zone — foreground
   // near the camera, by the sliding doors/windows, against the dresser
