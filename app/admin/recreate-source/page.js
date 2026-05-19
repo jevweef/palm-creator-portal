@@ -717,13 +717,28 @@ function StageBPanel() {
     fetch('/api/admin/recreate-sources').then(r => r.json()).then(d => setReels(d.reels || [])).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadOutputs = useCallback(() => {
+  const loadOutputs = useCallback(async () => {
     if (!creatorId) { setOutputs([]); return }
-    fetch(`/api/admin/recreate-rooms/stage-b/outputs?creatorId=${creatorId}`)
-      .then(r => r.json()).then(d => setOutputs(d.outputs || [])).catch(() => {})
+    // First resolve any "Generating" jobs (fetch finished WaveSpeed
+    // results by prediction id — captures jobs the request couldn't
+    // wait for), then load the list.
+    try { await fetch('/api/admin/recreate-rooms/stage-b/resolve', { method: 'POST' }) } catch {}
+    try {
+      const d = await fetch(`/api/admin/recreate-rooms/stage-b/outputs?creatorId=${creatorId}`).then(r => r.json())
+      setOutputs(d.outputs || [])
+    } catch {}
   }, [creatorId])
 
   useEffect(() => { loadOutputs() }, [loadOutputs])
+
+  // While anything is still generating, keep polling so finished jobs
+  // surface on their own (~no user action needed).
+  const anyGenerating = outputs.some(o => o.status === 'Generating')
+  useEffect(() => {
+    if (!anyGenerating) return
+    const t = setInterval(() => { loadOutputs() }, 25000)
+    return () => clearInterval(t)
+  }, [anyGenerating, loadOutputs])
 
   const setOutputStatus = async (o, status) => {
     let reason
@@ -785,9 +800,13 @@ function StageBPanel() {
       const asStr = (v) => typeof v === 'string' ? v
         : v && typeof v === 'object' ? (v.message || v.error || JSON.stringify(v))
         : String(v)
-      if (d && d.ok) {
+      if (d && d.ok && d.generating) {
+        setStageBOut(null)
+        setMsg(`✅ Submitted — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Rendering on WaveSpeed (~3–6 min). It'll appear in Stage B Outputs below automatically — no need to wait on this screen.`)
+        loadOutputs()
+      } else if (d && d.ok) {
         setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming, compare: d.compare || null })
-        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. ${d.compare ? 'Compare A vs B below' : 'Saved'} — both in Stage B Outputs.`)
+        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Saved to Stage B Outputs.`)
         loadOutputs()
       } else if (d) {
         setMsg(`❌ ${asStr(d.error) || `HTTP ${res.status}`}`)
@@ -906,12 +925,13 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
           <div style={lbl}>Stage B Outputs — {sel?.name} ({outputs.length})</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
             {outputs.map(o => {
-              const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : '#e8b878'
+              const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
+              const placeholder = o.status === 'Generating' ? '⏳ rendering on WaveSpeed…' : o.status === 'Failed' ? '✕ failed' : '…'
               return (
                 <div key={o.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
                   {o.image
                     ? <img src={o.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
-                    : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#888' }}>transcoding…</div>}
+                    : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>{placeholder}</div>}
                   <div style={{ padding: 8, fontSize: 11 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#ddd', fontWeight: 700 }}>{sel?.name} · Reel {o.index ?? '?'}</span>

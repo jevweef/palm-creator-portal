@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, createAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
-import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
+import { requireAdmin, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
+import { submitWaveSpeedTask } from '@/lib/wavespeed'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
@@ -107,28 +107,17 @@ function buildSinglePrompt(idList) {
 }
 
 
-async function pollWaveSpeed(taskId, label, maxMs) {
-  const t0 = Date.now()
-  while (Date.now() - t0 < maxMs) {
-    const d = await pollWaveSpeedTask(taskId)
-    if (d.status === 'completed') {
-      const out = (d.outputs || [])[0]
-      if (!out) throw new Error(`${label}: no output`)
-      return out
-    }
-    if (d.status === 'failed') {
-      const e = typeof d.error === 'string' && d.error ? d.error
-        : d.error ? JSON.stringify(d.error) : 'failed'
-      throw new Error(`${label}: ${e}`)
-    }
-    await new Promise(r => setTimeout(r, 3000))
-  }
-  throw new Error(`${label}: timed out`)
-}
-
-async function runWan(images, prompt, maxMs = 120000) {
-  const task = await submitWaveSpeedTask(WAN_MODEL, { images, prompt, size: '1080*1920', seed: STAGE_B_SEED })
-  return pollWaveSpeed(task.id, 'Wan', maxMs)
+// Direct typecast POST so 'Generating' / 'Failed' auto-create as
+// Status options on first use (the shared createAirtableRecord helper
+// doesn't pass typecast).
+async function createStageBRecord(fields) {
+  const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(STAGE_B_OUTPUTS)}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: [{ fields }], typecast: true }),
+  })
+  if (!res.ok) throw new Error(`Stage B record create ${res.status}: ${await res.text()}`)
+  return res.json()
 }
 
 
@@ -256,52 +245,43 @@ export async function POST(request) {
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
     const reelShort = (reelRecordId && /^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) ? reelRecordId : null
 
-    // SINGLE PASS — user compared A (this) vs B (face-swap-pro) on real
-    // outputs and chose this; the face-swap arm was bad. Figure 1 = room,
-    // Figure 2 = reel frame (pose/outfit/framing), Figures 3..N = identity.
-    // Poll cap = 275s. Route maxDuration is 300s; this is the only model
-    // call, leaving ~25s for the Dropbox upload + Airtable write after.
-    // Historical inference 23–112s, but WaveSpeed can queue slower — a
-    // 250s cap risked abandoning a job that would have finished. This is
-    // the platform ceiling: if wan needs >275s the real fix is
-    // decoupling Stage B from the synchronous request (webhook/poll).
+    // DECOUPLED: single-pass wan, but we SUBMIT and return immediately —
+    // no server-side poll. WaveSpeed keeps the prediction; /stage-b/
+    // resolve fetches the finished image by prediction id later, so a
+    // >300s inference can't lose the result (proven: a 301s job
+    // completed on WaveSpeed after the old synchronous route had died).
+    // Figure 1 = room, Figure 2 = reel frame, Figures 3..N = identity.
     const images = [roomUrl, poseUrl, ...identity].slice(0, 9)
     const figs = []
     for (let i = 3; i <= images.length; i++) figs.push(`Figure ${i}`)
     const idList = figs.length <= 1 ? (figs[0] || 'Figure 3')
       : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
     const prompt = buildSinglePrompt(idList)
-    const outUrl = await runWan(images, prompt, 275000)
 
-    let dbxPath = '', dbxLink = ''
-    try {
-      const ir = await fetch(outUrl)
-      if (ir.ok) {
-        const buf = Buffer.from(await ir.arrayBuffer())
-        dbxPath = `/Palm Ops/Stage B Outputs/${folderSafe}/${aka}-${Date.now()}.jpg`.replace(/[^ -~]/g, '')
-        await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
-        try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
-      }
-    } catch (e) { console.warn(`[stage-b] Dropbox save failed: ${e.message}`) }
+    const task = await submitWaveSpeedTask(WAN_MODEL, { images, prompt, size: '1080*1920', seed: STAGE_B_SEED })
+    const predictionId = task?.id
+    if (!predictionId) {
+      return NextResponse.json({ error: 'WaveSpeed did not return a prediction id' }, { status: 502 })
+    }
 
-    await createAirtableRecord(STAGE_B_OUTPUTS, {
+    const created = await createStageBRecord({
       Name: `${aka} · ${locName} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       Creator: [creatorId],
       ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
       ...(roomId ? { Room: [roomId] } : {}),
-      Image: [{ url: outUrl }],
-      ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
-      ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
+      'Prediction ID': predictionId,
       'Pose Time': Number(tSec) || 0,
       ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
       ...(chosenFraming && chosenFraming !== 'unclassified' ? { 'Room Framing': chosenFraming } : {}),
       'Prompt Used': prompt,
-      Status: 'Pending',
+      Status: 'Generating',
     })
 
     return NextResponse.json({
       ok: true,
-      out: outUrl, dropbox: dbxLink || null,
+      generating: true,
+      recordId: created?.records?.[0]?.id || null,
+      predictionId,
       room: chosenRoomName, roomFraming: chosenFraming,
       screenshotFraming: shotFraming || 'unknown',
     })
