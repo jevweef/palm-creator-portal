@@ -116,27 +116,6 @@ function buildSinglePrompt(idList) {
   )
 }
 
-// Pass-1 prompt for the two-pass (B) arm: room + reel frame → a woman
-// in the reel's pose/outfit/framing. Identity is irrelevant here (the
-// face-swap replaces it). Reel background is NOT copied.
-function buildPosePrompt() {
-  return (
-    'WHAT TO DO: Figure 1 is an empty room with no person in it. Add exactly '
-    + 'one woman standing in it. Copy her body pose, stance, limb positioning, '
-    + 'her exact clothing and outfit (garments, colours, fabric, styling), and '
-    + "the camera distance, crop and how close she is to the camera, all from "
-    + 'Figure 2. Match Figure 2\'s framing exactly. Ground her realistically '
-    + 'with correct contact shadows and lighting that matches the room.\n\n'
-    + 'WHAT TO KEEP: Keep the room in Figure 1 completely unchanged. Do NOT '
-    + "copy Figure 2's background, room or location — only the woman's pose, "
-    + 'outfit and the camera framing.\n\n'
-    + 'Hyper realistic, raw iPhone photo look, no text, no watermark.'
-  )
-}
-
-// Pro variant — the non-pro image-face-swap badly artifacted the whole
-// frame (verified). Same params: image = base, face_image = identity.
-const FACE_SWAP_MODEL = 'wavespeed-ai/image-face-swap-pro'
 
 async function pollWaveSpeed(taskId, label, maxMs) {
   const t0 = Date.now()
@@ -162,10 +141,6 @@ async function runWan(images, prompt, maxMs = 120000) {
   return pollWaveSpeed(task.id, 'Wan', maxMs)
 }
 
-async function faceSwap(baseUrl, faceUrl, maxMs = 90000) {
-  const task = await submitWaveSpeedTask(FACE_SWAP_MODEL, { image: baseUrl, face_image: faceUrl })
-  return pollWaveSpeed(task.id, 'FaceSwap', maxMs)
-}
 
 
 // POST { creatorId, poseStreamUid, poseTime, refDropboxPaths?: [] }
@@ -293,66 +268,48 @@ export async function POST(request) {
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
     const reelShort = (reelRecordId && /^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) ? reelRecordId : null
 
-    const faceImageUrl = (cf['AI Ref Face'] || [])[0]?.url
-      || (cf['AI Ref Front'] || [])[0]?.url
-      || identity[0]
+    // SINGLE PASS — user compared A (this) vs B (face-swap-pro) on real
+    // outputs and chose this; the face-swap arm was bad. Figure 1 = room,
+    // Figure 2 = reel frame (pose/outfit/framing), Figures 3..N = identity.
+    // 250s cap: it's the only model call, route maxDuration is 300, and a
+    // legit run has taken ~112s — never false-time-out a success again.
+    const images = [roomUrl, poseUrl, ...identity].slice(0, 9)
+    const figs = []
+    for (let i = 3; i <= images.length; i++) figs.push(`Figure ${i}`)
+    const idList = figs.length <= 1 ? (figs[0] || 'Figure 3')
+      : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
+    const prompt = buildSinglePrompt(idList)
+    const outUrl = await runWan(images, prompt, 250000)
 
-    // REAL COMPARE — one Generate yields BOTH so they can be judged on
-    // actual images (the earlier compare crashed before B ever rendered):
-    //   A) single pass: [room, reel, ...identity] + buildSinglePrompt
-    //   B) two pass: wan(room+reel → pose/outfit) → face-swap-PRO(identity)
-    // A and Pass-1-of-B are independent → run in parallel. Timeouts are
-    // generous (wan has legitimately run ~112s); parallel wan ≤200s then
-    // face-swap ≤90s stays within the 300s route budget.
-    const singleImages = [roomUrl, poseUrl, ...identity].slice(0, 9)
-    const sFigs = []
-    for (let i = 3; i <= singleImages.length; i++) sFigs.push(`Figure ${i}`)
-    const sIdList = sFigs.length <= 1 ? (sFigs[0] || 'Figure 3')
-      : `${sFigs.slice(0, -1).join(', ')} and ${sFigs[sFigs.length - 1]}`
-    const singlePrompt = buildSinglePrompt(sIdList)
-    const posePrompt = buildPosePrompt()
+    let dbxPath = '', dbxLink = ''
+    try {
+      const ir = await fetch(outUrl)
+      if (ir.ok) {
+        const buf = Buffer.from(await ir.arrayBuffer())
+        dbxPath = `/Palm Ops/Stage B Outputs/${folderSafe}/${aka}-${Date.now()}.jpg`.replace(/[^ -~]/g, '')
+        await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
+        try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
+      }
+    } catch (e) { console.warn(`[stage-b] Dropbox save failed: ${e.message}`) }
 
-    const [outA, pass1Out] = await Promise.all([
-      runWan(singleImages, singlePrompt, 200000),
-      runWan([roomUrl, poseUrl], posePrompt, 200000),
-    ])
-    const outB = await faceSwap(pass1Out, faceImageUrl, 90000)
-
-    const saveOne = async (url, tag, promptText) => {
-      let dbxPath = '', dbxLink = ''
-      try {
-        const ir = await fetch(url)
-        if (ir.ok) {
-          const buf = Buffer.from(await ir.arrayBuffer())
-          dbxPath = `/Palm Ops/Stage B Outputs/${folderSafe}/${aka}-${tag}-${Date.now()}.jpg`.replace(/[^ -~]/g, '')
-          await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
-          try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
-        }
-      } catch (e) { console.warn(`[stage-b] Dropbox save (${tag}) failed: ${e.message}`) }
-      await createAirtableRecord(STAGE_B_OUTPUTS, {
-        Name: `${aka} · ${locName} · ${tag} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-        Creator: [creatorId],
-        ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
-        ...(roomId ? { Room: [roomId] } : {}),
-        Image: [{ url }],
-        ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
-        ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
-        'Pose Time': Number(tSec) || 0,
-        ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
-        ...(chosenFraming && chosenFraming !== 'unclassified' ? { 'Room Framing': chosenFraming } : {}),
-        'Prompt Used': promptText,
-        Status: 'Pending',
-      })
-      return dbxLink || null
-    }
-    const dropA = await saveOne(outA, '1pass', `SINGLE PASS (${WAN_MODEL}):\n${singlePrompt}`)
-    const dropB = await saveOne(outB, '2pass', `PASS 1 (${WAN_MODEL}):\n${posePrompt}\n\n---\n\nPASS 2 (${FACE_SWAP_MODEL}, face_image=approved face)`)
+    await createAirtableRecord(STAGE_B_OUTPUTS, {
+      Name: `${aka} · ${locName} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+      Creator: [creatorId],
+      ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
+      ...(roomId ? { Room: [roomId] } : {}),
+      Image: [{ url: outUrl }],
+      ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
+      ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
+      'Pose Time': Number(tSec) || 0,
+      ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
+      ...(chosenFraming && chosenFraming !== 'unclassified' ? { 'Room Framing': chosenFraming } : {}),
+      'Prompt Used': prompt,
+      Status: 'Pending',
+    })
 
     return NextResponse.json({
       ok: true,
-      compare: { a: { url: outA, dropbox: dropA, label: 'A · Single pass' },
-                 b: { url: outB, dropbox: dropB, label: 'B · Two pass (face-swap pro)' } },
-      out: outA, dropbox: dropA,
+      out: outUrl, dropbox: dbxLink || null,
       room: chosenRoomName, roomFraming: chosenFraming,
       screenshotFraming: shotFraming || 'unknown',
     })
