@@ -328,10 +328,21 @@ const AXES = {
   // Near-camera but ALWAYS shoved into the lower-LEFT or lower-RIGHT
   // corner — the dead-center bottom stays clear (a person stands there).
   foreground: [
-    'a laundry basket of women\'s clothes in the lower-LEFT corner of the frame, close to the camera and partially cropped by the edge (center stays clear)',
+    'a small woven tote or handbag in the lower-LEFT corner of the frame, close to the camera and partially cropped by the edge (center stays clear)',
     'the corner of a women\'s tote or handbag intruding from the far RIGHT edge of the foreground, cut off by the side of the frame (center stays clear)',
     'a pair of clean white Nike Air Force 1 women\'s sneakers kicked off into the lower-LEFT corner near the side wall, close to camera (center stays clear)',
     'a crumpled cardigan tossed in the lower-RIGHT corner of the frame, partially out of frame at the side (center stays clear)',
+  ],
+  // The throw blanket is bedding (transient) — it does not always
+  // look the same. Same blanket (same knit/color), arranged differently.
+  throw: [
+    'the same knit throw blanket folded lengthwise and laid neatly across the foot of the bed',
+    'the same knit throw blanket draped over the far/back corner of the bed, trailing a little',
+    'the same knit throw blanket bunched casually at the near corner of the bed',
+    'the same knit throw blanket pulled across most of the bed like a second blanket, softly rumpled',
+    'the same knit throw blanket half slid off the side of the bed, one end pooling on the rug',
+    'the same knit throw blanket loosely twisted and tossed toward the head of the bed',
+    'no throw blanket on the bed (it has been put away) — bed just has its duvet and pillows',
   ],
   // The shag rug is transient surface — it gets walked on.
   rug: [
@@ -358,7 +369,7 @@ const AXES = {
     'a pair of tan UGG mini platform boots and white New Balance 530 sneakers lined up against the side wall',
     'pink Hoka running shoes kicked off by the dresser with a scrunchie and a water bottle beside them',
     'a couple of water bottles and a coffee mug left on top of the dresser',
-    'a half-full laundry basket of women\'s clothes on the floor in a back corner',
+    'a modern woven rattan laundry basket with a few women\'s clothes in it, tucked in a back corner against the wall (never in the foreground)',
     'a folded pile of clean women\'s laundry on the floor by the dresser waiting to be put away',
     'a cluster of skincare and makeup bottles spread across the top of the dresser',
     'a small stack of books and a magazine on the floor near the nightstand',
@@ -433,7 +444,7 @@ const pickWeighted = (pairs) => {
 // the hard constraints). A shuffle touches 1–3 zones (biased to 2)
 // so rooms read genuinely lived-in, with mess spread around the room
 // — foreground, windows, corners — not just bed/nightstand/rug.
-const STATE_AXES = ['bed', 'floor', 'foreground', 'bed_items', 'nightstand', 'elsewhere', 'rug', 'plants']
+const STATE_AXES = ['bed', 'floor', 'foreground', 'bed_items', 'nightstand', 'elsewhere', 'rug', 'plants', 'throw']
 // 'elsewhere' is mostly everyday churn; ~1 in 5 brings in an occasional
 // trip/haul/delivery moment so luggage etc. shows up but not daily.
 const pickAxis = (ax) => ax === 'elsewhere'

@@ -3,7 +3,7 @@ import { requireAdmin, createAirtableRecord, patchAirtableRecord, OPS_BASE } fro
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
-export const maxDuration = 200
+export const maxDuration = 300
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const VARS = 'Recreate Room Variations'
@@ -39,7 +39,7 @@ async function runEdit(imageUrl, prompt) {
     output_format: 'jpeg',
   })
   const t0 = Date.now()
-  while (Date.now() - t0 < 150000) {
+  while (Date.now() - t0 < 270000) {
     const d = await pollWaveSpeedTask(task.id)
     if (d.status === 'completed') {
       const out = (d.outputs || [])[0]
