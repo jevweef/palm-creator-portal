@@ -333,6 +333,17 @@ const AXES = {
     'a pair of clean white Nike Air Force 1 women\'s sneakers kicked off into the lower-LEFT corner near the side wall, close to camera (center stays clear)',
     'a crumpled cardigan tossed in the lower-RIGHT corner of the frame, partially out of frame at the side (center stays clear)',
   ],
+  // The linen tote that sits by the nightstand in the base is a
+  // personal item, NOT fixed — it moves around or leaves the room.
+  tote: [
+    'the linen tote bag is gone entirely — taken out of the room (not by the nightstand, not anywhere)',
+    'the linen tote bag moved to the foot of the bed instead of by the nightstand',
+    'the linen tote bag set down on the floor by the sliding doors instead of by the nightstand',
+    'the linen tote bag tossed onto the bed instead of by the nightstand',
+    'the linen tote bag hung over the corner of the leaning mirror instead of by the nightstand',
+    'the linen tote bag slumped on the floor near the dresser instead of by the nightstand',
+    'the linen tote bag still by the nightstand but tipped over / sitting differently than before',
+  ],
   // The throw blanket is bedding (transient) — it does not always
   // look the same. Same blanket (same knit/color), arranged differently.
   throw: [
@@ -444,7 +455,7 @@ const pickWeighted = (pairs) => {
 // the hard constraints). A shuffle touches 1–3 zones (biased to 2)
 // so rooms read genuinely lived-in, with mess spread around the room
 // — foreground, windows, corners — not just bed/nightstand/rug.
-const STATE_AXES = ['bed', 'floor', 'foreground', 'bed_items', 'nightstand', 'elsewhere', 'rug', 'plants', 'throw']
+const STATE_AXES = ['bed', 'floor', 'foreground', 'bed_items', 'nightstand', 'elsewhere', 'rug', 'plants', 'throw', 'tote']
 // 'elsewhere' is mostly everyday churn; ~1 in 5 brings in an occasional
 // trip/haul/delivery moment so luggage etc. shows up but not daily.
 const pickAxis = (ax) => ax === 'elsewhere'
