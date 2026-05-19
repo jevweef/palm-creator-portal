@@ -724,11 +724,16 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
             {posePreview && <div style={{ marginTop: 8 }}><span style={{ fontSize: 11, color: '#6AC68A' }}>Pose captured:</span><br /><img src={posePreview} alt="" style={{ height: 120, borderRadius: 6, marginTop: 4 }} /></div>}
           </div>
           <div style={{ flex: '2 1 420px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
-            {reels.map(r => (
-              <img key={r.id} src={r.thumbnail || ''} alt="" loading="lazy" onClick={() => { setReel(r); setPoseBlob(null); setPosePreview('') }}
-                style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, cursor: 'pointer',
-                  border: reel?.id === r.id ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }} />
-            ))}
+            {reels.map(r => {
+              const isSel = reel?.id === r.id
+              const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
+              const onPick = () => { setReel(r); setPoseBlob(null); setPosePreview('') }
+              return r.streamUid
+                ? <img key={r.id} src={buildStreamPosterUrl(r.streamUid, { width: 240, fit: 'crop' })} alt="" loading="lazy" onClick={onPick} style={bd} />
+                : r.thumbnail
+                  ? <img key={r.id} src={r.thumbnail} alt="" loading="lazy" onClick={onPick} style={bd} />
+                  : <video key={r.id} src={`${String(r.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')}#t=0.1`} muted preload="metadata" playsInline onClick={onPick} style={bd} />
+            })}
           </div>
         </div>
       </div>
