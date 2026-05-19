@@ -107,7 +107,11 @@ async function runWan(images, prompt) {
       if (!out) throw new Error('no output')
       return out
     }
-    if (d.status === 'failed') throw new Error(d.error || 'Wan edit failed')
+    if (d.status === 'failed') {
+      const we = typeof d.error === 'string' && d.error ? d.error
+        : d.error ? JSON.stringify(d.error) : 'Wan edit failed'
+      throw new Error(`Wan: ${we}`)
+    }
     await new Promise(r => setTimeout(r, 3000))
   }
   throw new Error('Stage B timed out')
@@ -286,6 +290,8 @@ export async function POST(request) {
     })
   } catch (err) {
     if (err instanceof Response) return err
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    const msg = typeof err?.message === 'string' && err.message ? err.message : String(err)
+    console.error('[recreate-rooms/stage-b] error:', msg, err?.stack || '')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -702,16 +702,26 @@ function StageBPanel() {
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
       setMsg('⏳ Stage B — classifying the shot, picking the matching room, compositing… ~2–3 min, leave this tab open.')
-      const d = await fetch('/api/admin/recreate-rooms/stage-b', {
+      const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id }),
-      }).then(r => r.json())
-      if (d.ok) {
+      })
+      const raw = await res.text()
+      let d
+      try { d = JSON.parse(raw) } catch { d = null }
+      const asStr = (v) => typeof v === 'string' ? v
+        : v && typeof v === 'object' ? (v.message || v.error || JSON.stringify(v))
+        : String(v)
+      if (d && d.ok) {
         setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming })
         setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Saved to Stage B Outputs below.`)
         loadOutputs()
-      } else setMsg(`❌ ${d.error || 'failed'}`)
-    } catch (e) { setMsg(`❌ ${e.message || e}`) }
+      } else if (d) {
+        setMsg(`❌ ${asStr(d.error) || `HTTP ${res.status}`}`)
+      } else {
+        setMsg(`❌ HTTP ${res.status} — ${raw.slice(0, 300) || 'no response body'}`)
+      }
+    } catch (e) { setMsg(`❌ ${e?.message || String(e)}`) }
     setBusy(false)
   }
 
