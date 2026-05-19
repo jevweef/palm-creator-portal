@@ -701,7 +701,7 @@ function StageBPanel() {
     try {
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
-      setMsg('⏳ Stage B — running BOTH approaches to compare (single-pass + two-pass face-swap)… ~2–3 min, leave this tab open.')
+      setMsg('⏳ Stage B — compositing the creator into the room (reel pose/outfit/framing)… ~2–3 min, leave this tab open.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id }),
@@ -714,7 +714,7 @@ function StageBPanel() {
         : String(v)
       if (d && d.ok) {
         setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming, compare: d.compare || null })
-        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Compare the two approaches below; both saved to Stage B Outputs.`)
+        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Saved to Stage B Outputs below.`)
         loadOutputs()
       } else if (d) {
         setMsg(`❌ ${asStr(d.error) || `HTTP ${res.status}`}`)
@@ -824,7 +824,7 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
               </div>
             </>
           )}
-          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>Both saved as Pending in Stage B Outputs below (tagged 1pass / 2pass).</div>
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>Saved as Pending in Stage B Outputs below.</div>
         </div>
       )}
 
