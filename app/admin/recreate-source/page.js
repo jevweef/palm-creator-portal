@@ -7,6 +7,75 @@ import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
 const STATUS_COLORS = { Queued: '#888', Scraping: '#E8C36A', Ready: '#6AC68A', Error: '#E87878' }
 
+// ─── Styled modal system — replaces native confirm/prompt/alert ───
+// Promise-based, module-level so any component can call it without
+// prop-drilling. <ModalHost/> is mounted once per page render branch.
+let _modalListeners = []
+let _modalState = null
+function _emitModal() { _modalListeners.forEach(fn => fn(_modalState)) }
+function uiConfirm(message, { okLabel = 'OK', cancelLabel = 'Cancel', danger = false } = {}) {
+  return new Promise(resolve => { _modalState = { kind: 'confirm', message, okLabel, cancelLabel, danger, resolve }; _emitModal() })
+}
+function uiPrompt(message, { placeholder = '', defaultValue = '', okLabel = 'Submit' } = {}) {
+  return new Promise(resolve => { _modalState = { kind: 'prompt', message, placeholder, defaultValue, okLabel, resolve }; _emitModal() })
+}
+function uiAlert(message, { okLabel = 'OK' } = {}) {
+  return new Promise(resolve => { _modalState = { kind: 'alert', message, okLabel, resolve }; _emitModal() })
+}
+
+function ModalHost() {
+  const [st, setSt] = useState(_modalState)
+  const [val, setVal] = useState('')
+  useEffect(() => {
+    const fn = s => { setSt(s); setVal(s?.defaultValue || '') }
+    _modalListeners.push(fn)
+    return () => { _modalListeners = _modalListeners.filter(x => x !== fn) }
+  }, [])
+  useEffect(() => {
+    if (!st) return
+    const onKey = e => {
+      if (e.key !== 'Escape') return
+      const r = st.resolve; _modalState = null; setSt(null)
+      r(st.kind === 'confirm' ? false : st.kind === 'prompt' ? null : undefined)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [st])
+  if (!st) return null
+
+  const finish = (result) => { const r = st.resolve; _modalState = null; setSt(null); r(result) }
+  const cancelVal = st.kind === 'confirm' ? false : st.kind === 'prompt' ? null : undefined
+  const okColor = st.danger ? '#E87878' : 'var(--palm-pink, #e8a878)'
+
+  return (
+    <div onClick={() => finish(cancelVal)}
+      style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ width: 'min(460px, 94vw)', background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 22, boxShadow: '0 20px 60px rgba(0,0,0,0.55)' }}>
+        <div style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--foreground, #eee)', whiteSpace: 'pre-wrap' }}>{st.message}</div>
+        {st.kind === 'prompt' && (
+          <textarea autoFocus value={val} onChange={e => setVal(e.target.value)} rows={4} placeholder={st.placeholder}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) finish(val) }}
+            style={{ width: '100%', marginTop: 14, padding: '10px 12px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground, #eee)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }} />
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+          {st.kind !== 'alert' && (
+            <button onClick={() => finish(cancelVal)}
+              style={{ padding: '9px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground, #eee)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8, cursor: 'pointer' }}>
+              {st.cancelLabel || 'Cancel'}
+            </button>
+          )}
+          <button autoFocus={st.kind !== 'prompt'}
+            onClick={() => finish(st.kind === 'confirm' ? true : st.kind === 'prompt' ? val : undefined)}
+            style={{ padding: '9px 18px', fontSize: 13, fontWeight: 700, background: okColor, color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+            {st.okLabel || 'OK'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function LibraryReel({ reel, onRemove }) {
   const [playing, setPlaying] = useState(false)
   // Prefer Cloudflare Stream: a CDN poster image loads instantly (fast to
@@ -165,14 +234,14 @@ export default function RecreateLibraryPage() {
   }
 
   const removeReel = async (reel) => {
-    if (!confirm(`Remove ${reel.reelId} from the library? This deletes the Dropbox file.`)) return
+    if (!(await uiConfirm(`Remove ${reel.reelId} from the library? This deletes the Dropbox file.`, { danger: true, okLabel: 'Remove' }))) return
     setReels(prev => prev.filter(r => r.id !== reel.id))
     try { await fetch(`/api/admin/recreate-sources?reelId=${reel.id}`, { method: 'DELETE' }) }
     catch (e) { setMsg(e.message); load() }
   }
 
   const removeSource = async (id) => {
-    if (!confirm('Remove this account from the library?')) return
+    if (!(await uiConfirm('Remove this account from the library?', { danger: true, okLabel: 'Remove' }))) return
     try { await fetch(`/api/admin/recreate-sources?id=${id}`, { method: 'DELETE' }); load() }
     catch (e) { setMsg(e.message) }
   }
@@ -185,6 +254,7 @@ export default function RecreateLibraryPage() {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <TabBar tab={tab} setTab={setTab} />
         <RoomsPanel />
+        <ModalHost />
       </div>
     )
   }
@@ -193,6 +263,7 @@ export default function RecreateLibraryPage() {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <TabBar tab={tab} setTab={setTab} />
         <CreatorAvatarPanel />
+        <ModalHost />
       </div>
     )
   }
@@ -201,6 +272,7 @@ export default function RecreateLibraryPage() {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <TabBar tab={tab} setTab={setTab} />
         <StageBPanel />
+        <ModalHost />
       </div>
     )
   }
@@ -208,6 +280,7 @@ export default function RecreateLibraryPage() {
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto' }}>
       <TabBar tab={tab} setTab={setTab} />
+      <ModalHost />
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>AI Recreate Library</h1>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 20 }}>
         One global pool. Add accounts → scrape → reels land here for every AI editor. They&apos;re filtered per-creator only by what&apos;s already been produced.
@@ -655,7 +728,7 @@ function StageBPanel() {
   const setOutputStatus = async (o, status) => {
     let reason
     if (status === 'Rejected') {
-      reason = window.prompt('Why is this rejected? (kept as a tuning signal)') || ''
+      reason = (await uiPrompt('Why is this rejected? (kept as a tuning signal)', { placeholder: 'reason…' })) || ''
     }
     await fetch('/api/admin/recreate-rooms/stage-b/outputs', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -664,7 +737,7 @@ function StageBPanel() {
     loadOutputs()
   }
   const deleteOutput = async (o) => {
-    if (!window.confirm('Delete this Stage B output record?')) return
+    if (!(await uiConfirm('Delete this Stage B output record?', { danger: true, okLabel: 'Delete' }))) return
     await fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${o.id}`, { method: 'DELETE' }).catch(() => {})
     loadOutputs()
   }
@@ -942,9 +1015,9 @@ function RoomCard({ room, variations, refresh }) {
     setBusy(false)
   }
   const refineBase = async () => {
-    const instruction = prompt('Describe the precise fix for THIS locked angle\'s base image (camera & room stay the same).\n\ne.g. "Remove the string/fairy lights and any glowing bokeh dots — there are no lights here; keep the wall, plant and everything else exactly the same. No text."')
+    const instruction = await uiPrompt('Describe the precise fix for THIS locked angle\'s base image (camera & room stay the same).', { placeholder: 'e.g. Remove the string/fairy lights and any glowing bokeh dots — keep the wall, plant and everything else exactly the same. No text.' })
     if (instruction === null) return
-    if (!instruction.trim()) { alert('No instruction entered — nothing to refine.'); return }
+    if (!instruction.trim()) { await uiAlert('No instruction entered — nothing to refine.'); return }
     setBusy(true); setMsg('⏳ Refining the locked base image… ~1–2 min, leave this tab open. Popup when done.')
     try {
       const d = await fetch('/api/admin/recreate-rooms/refine', {
@@ -953,19 +1026,19 @@ function RoomCard({ room, variations, refresh }) {
       }).then(r => r.json())
       if (d.ok) {
         setMsg('✅ Base image refined — re-analyze the lock list if the change was significant.')
-        alert('Base image refined. If the change was significant, click Re-analyze (Sonnet) to refresh the lock list.')
+        await uiAlert('Base image refined. If the change was significant, click Re-analyze (Sonnet) to refresh the lock list.')
       } else {
         setMsg(`❌ Refine failed: ${d.error || 'unknown error'}`)
-        alert(`Refine failed: ${d.error || 'unknown error'}`)
+        await uiAlert(`Refine failed: ${d.error || 'unknown error'}`)
       }
     } catch (e) {
       setMsg(`❌ Refine error: ${e.message || e}`)
-      alert(`Refine error: ${e.message || e}`)
+      await uiAlert(`Refine error: ${e.message || e}`)
     }
     setBusy(false); refresh()
   }
   const del = async () => {
-    if (!confirm(`Delete room "${room.name}" and its variations?`)) return
+    if (!(await uiConfirm(`Delete room "${room.name}" and its variations?`, { danger: true, okLabel: 'Delete' }))) return
     await api('DELETE', null, `?roomId=${room.id}`); refresh()
   }
   const generate = async () => {
@@ -1005,7 +1078,7 @@ function RoomCard({ room, variations, refresh }) {
     setBusy(false); refresh()
   }
   const promoteAngle = async (v) => {
-    if (!confirm('Save this image as its own locked room (a new angle for this creator)? Sonnet will auto-write its lock list.')) return
+    if (!(await uiConfirm('Save this image as its own locked room (a new angle for this creator)? Sonnet will auto-write its lock list.', { okLabel: 'Save as room' }))) return
     setBusy(true); setMsg('Creating new angle room…')
     const d = await fetch('/api/admin/recreate-rooms/promote-angle', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1043,7 +1116,7 @@ function RoomCard({ room, variations, refresh }) {
     setBusy(false); refresh()
   }
   const renumberMasters = async () => {
-    if (!confirm('Organize this room\'s Dropbox files: move the base image into its own /{room}/_base/ folder and rename variations to Variation 01, 02, … (relinks Airtable). Safe to re-run.')) return
+    if (!(await uiConfirm('Organize this room\'s Dropbox files: move the base image into its own /{room}/_base/ folder and rename variations to Variation 01, 02, … (relinks Airtable). Safe to re-run.', { okLabel: 'Organize' }))) return
     setBusy(true); setMsg('Organizing Dropbox files…')
     const d = await fetch('/api/admin/recreate-rooms/variation', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1058,7 +1131,7 @@ function RoomCard({ room, variations, refresh }) {
   }
   // Reject keeps the generation (no delete) + records WHY for tuning.
   const rejectVar = async (id) => {
-    const reason = prompt('Why is this rejected? (saved as tuning feedback — the image is kept, not deleted)\n\ne.g. "ring light reflected in mirror", "rug flipped up", "clothes on dresser folded", "creator body distorted"')
+    const reason = await uiPrompt('Why is this rejected? (saved as tuning feedback — the image is kept, not deleted)', { placeholder: 'e.g. ring light reflected in mirror, rug flipped up, clothes on dresser folded, creator body distorted' })
     if (reason === null) return
     await fetch(`/api/admin/recreate-rooms/variation?id=${id}&status=Rejected`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -1071,9 +1144,9 @@ function RoomCard({ room, variations, refresh }) {
     refresh()
   }
   const refineVar = async (v) => {
-    const instruction = prompt('Describe the precise change(s) to make to THIS image (camera & room stay the same).\n\ne.g. "Make the left wall continue flat with no indent or recess; add a hanging trailing pothos plant on the left that matches the one on the right; add a small cute illustrated poster on the left wall with no text."')
+    const instruction = await uiPrompt('Describe the precise change(s) to make to THIS image (camera & room stay the same).', { placeholder: 'e.g. Make the left wall flat with no indent; add a trailing pothos on the left matching the right; add a small illustrated poster (no text).' })
     if (instruction === null) return
-    if (!instruction.trim()) { alert('No instruction entered — nothing to refine.'); return }
+    if (!instruction.trim()) { await uiAlert('No instruction entered — nothing to refine.'); return }
     setBusy(true); setMsg('⏳ Refining image… ~1–2 min, leave this tab open. You\'ll get a popup when it\'s done.')
     try {
       const d = await fetch('/api/admin/recreate-rooms/refine', {
@@ -1082,14 +1155,14 @@ function RoomCard({ room, variations, refresh }) {
       }).then(r => r.json())
       if (d.ok) {
         setMsg('✅ Refined — new version added in the gallery below.')
-        alert('Refine complete — the new version is in the gallery (look for a "… refined" card).')
+        await uiAlert('Refine complete — the new version is in the gallery (look for a "… refined" card).')
       } else {
         setMsg(`❌ Refine failed: ${d.error || 'unknown error'}`)
-        alert(`Refine failed: ${d.error || 'unknown error'}`)
+        await uiAlert(`Refine failed: ${d.error || 'unknown error'}`)
       }
     } catch (e) {
       setMsg(`❌ Refine error: ${e.message || e}`)
-      alert(`Refine error: ${e.message || e}`)
+      await uiAlert(`Refine error: ${e.message || e}`)
     }
     setBusy(false); refresh()
   }
@@ -1369,7 +1442,7 @@ function RoomsPanel() {
   for (const v of data.variations || []) (varsByRoom[v.roomId] = varsByRoom[v.roomId] || []).push(v)
 
   const organizeAll = async () => {
-    if (!confirm(`Organize Dropbox files for ALL ${rooms.length} rooms of this creator?\n\nMoves each room's base into its own /{room}/_base/ folder and renumbers variations. Relinks Airtable. Safe to re-run.`)) return
+    if (!(await uiConfirm(`Organize Dropbox files for ALL ${rooms.length} rooms of this creator? Moves each room's base into its own /{room}/_base/ folder and renumbers variations. Relinks Airtable. Safe to re-run.`, { okLabel: 'Organize all' }))) return
     setBusy(true)
     let done = 0
     const errs = []
