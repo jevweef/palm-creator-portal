@@ -63,9 +63,12 @@ const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 
 const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
 
-// 3-role prompt: image 1 = the room (keep 100%), image 2 = pose &
-// outfit reference (copy ONLY her body pose + clothing/styling, NOT
-// its background or her face), images 3..N = the creator's identity.
+// 2-role prompt: image 1 = the room (keep 100%), images 2..N = the
+// creator's identity. NO pose-reference image — a pose ref carries the
+// reel girl's face and an image-edit model blends it in ("wrong girl").
+// The off-site motion-control step drives pose/motion from the reel
+// video, so Stage B only needs a clean still of THIS woman standing in
+// her room.
 function buildPrompt(idRange) {
   return (
     'Image 1 is the FIXED SCENE — this exact room. Keep the room, furniture, '
@@ -73,19 +76,19 @@ function buildPrompt(idRange) {
     + 'plants, lighting, time of day and camera framing EXACTLY as in image 1. '
     + 'Do not change, move, restyle, re-render or re-light the room at all. '
     + 'There is no person in image 1 — add one woman standing in it.\n\n'
-    + 'Image 2 is a POSE & OUTFIT reference ONLY. Copy the woman\'s body pose, '
-    + 'stance, limb positioning and her clothing/outfit, fabric and styling '
-    + 'from image 2. Do NOT copy image 2\'s background, location, lighting, '
-    + 'crop or her face/identity — only the pose and what she is wearing.\n\n'
-    + `Her IDENTITY — face, skin tone, hair, facial features and body shape — `
-    + `must be the EXACT same woman as in ${idRange}. Natural anatomy and `
-    + 'realistic proportions.\n\n'
-    + 'Composite her standing on the open floor area in front of the bed at a '
-    + 'realistic human scale, properly grounded with correct contact shadows, '
-    + 'and the light on her matched to the room\'s existing lighting and '
-    + 'direction. Hyper realistic, ultra detailed natural skin texture, '
-    + 'true-to-life colors, raw iPhone camera style, seamless blend into the '
-    + 'scene, no text overlay, no watermark.'
+    + `${idRange} show the EXACT woman to insert — this is the only person `
+    + 'who may appear. Reproduce her face, facial features, skin tone, hair '
+    + 'and body shape faithfully and identically from those reference images; '
+    + 'do not blend, average, beautify or substitute a different face. She '
+    + 'must be unmistakably the same person as in those references.\n\n'
+    + 'Pose her standing naturally and relaxed, facing the camera, full body '
+    + 'comfortably in frame, wearing simple casual everyday clothing. Composite '
+    + 'her on the open floor area in front of the bed at a realistic human '
+    + 'scale, properly grounded with correct contact shadows, and the light on '
+    + 'her matched to the room\'s existing lighting and direction. Hyper '
+    + 'realistic, ultra detailed natural skin texture, true-to-life colors, '
+    + 'raw iPhone camera style, seamless blend into the scene, no text '
+    + 'overlay, no watermark.'
   )
 }
 
@@ -219,15 +222,17 @@ export async function POST(request) {
     const chosenRoomName = myRooms.find(r => r.id === roomId)?.fields?.['Room Name'] || 'Room'
     const chosenFraming = framingOf(chosen) || 'unclassified'
 
-    // Wan cap = 9 total: [room, pose, ...identity]. Identity = uploaded
-    // extras first, then on-file AI refs, filling remaining slots.
+    // Wan cap = 9 total: [room, ...identity]. NO pose image (it carried
+    // the reel girl's face → wrong identity; motion comes from the reel
+    // video off-site). Identity = uploaded extras first, then on-file
+    // AI refs.
     const identity = [...extraUrls, ...onFileRefs.map(a => a.url)]
     if (identity.length === 0) {
       return NextResponse.json({ error: `No identity references — upload some for this run, or set up ${aka}'s AI Super Clone refs.` }, { status: 400 })
     }
-    const images = [roomUrl, poseUrl, ...identity].slice(0, 9)
-    const idCount = images.length - 2
-    const idRange = idCount === 1 ? 'image 3' : `images 3 to ${images.length}`
+    const images = [roomUrl, ...identity].slice(0, 9)
+    const idCount = images.length - 1
+    const idRange = idCount === 1 ? 'image 2' : `images 2 to ${images.length}`
     const prompt = buildPrompt(idRange)
     const outUrl = await runWan(images, prompt)
 
