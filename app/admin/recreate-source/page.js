@@ -626,6 +626,7 @@ function StageBPanel() {
   const [poseModalOpen, setPoseModalOpen] = useState(false)
   const [poseDuration, setPoseDuration] = useState(0)
   const [stageBOut, setStageBOut] = useState(null)
+  const [outputs, setOutputs] = useState([])
   const [extraFiles, setExtraFiles] = useState([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -642,6 +643,31 @@ function StageBPanel() {
     }).catch(() => {})
     fetch('/api/admin/recreate-sources').then(r => r.json()).then(d => setReels(d.reels || [])).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadOutputs = useCallback(() => {
+    if (!creatorId) { setOutputs([]); return }
+    fetch(`/api/admin/recreate-rooms/stage-b/outputs?creatorId=${creatorId}`)
+      .then(r => r.json()).then(d => setOutputs(d.outputs || [])).catch(() => {})
+  }, [creatorId])
+
+  useEffect(() => { loadOutputs() }, [loadOutputs])
+
+  const setOutputStatus = async (o, status) => {
+    let reason
+    if (status === 'Rejected') {
+      reason = window.prompt('Why is this rejected? (kept as a tuning signal)') || ''
+    }
+    await fetch('/api/admin/recreate-rooms/stage-b/outputs', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: o.id, status, reason }),
+    }).catch(() => {})
+    loadOutputs()
+  }
+  const deleteOutput = async (o) => {
+    if (!window.confirm('Delete this Stage B output record?')) return
+    await fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${o.id}`, { method: 'DELETE' }).catch(() => {})
+    loadOutputs()
+  }
 
   // Real video length from CF Stream so the scrub slider spans exactly the
   // clip (not a hardcoded 30s). Same source as the Post Prep picker.
@@ -678,11 +704,12 @@ function StageBPanel() {
       setMsg('⏳ Stage B — classifying the shot, picking the matching room, compositing… ~2–3 min, leave this tab open.')
       const d = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths }),
+        body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id }),
       }).then(r => r.json())
       if (d.ok) {
         setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming })
-        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Also saved as a "Stage B · ${sel?.name || ''}" card in the Rooms tab.`)
+        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Saved to Stage B Outputs below.`)
+        loadOutputs()
       } else setMsg(`❌ ${d.error || 'failed'}`)
     } catch (e) { setMsg(`❌ ${e.message || e}`) }
     setBusy(false)
@@ -770,7 +797,37 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
           <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
             <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
               style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, textDecoration: 'none' }}>↗ Open full size</a>
-            <span style={{ fontSize: 12, color: 'var(--foreground-muted)', alignSelf: 'center' }}>Saved as a Pending card in the Rooms tab — approve/reject it there.</span>
+            <span style={{ fontSize: 12, color: 'var(--foreground-muted)', alignSelf: 'center' }}>Saved as Pending in Stage B Outputs below.</span>
+          </div>
+        </div>
+      )}
+
+      {outputs.length > 0 && (
+        <div style={{ ...card, marginTop: 16 }}>
+          <div style={lbl}>Stage B Outputs — {sel?.name} ({outputs.length})</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
+            {outputs.map(o => {
+              const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : '#e8b878'
+              return (
+                <div key={o.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
+                  {o.image
+                    ? <img src={o.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#888' }}>transcoding…</div>}
+                  <div style={{ padding: 8, fontSize: 11 }}>
+                    <div style={{ color: sc, fontWeight: 700 }}>{o.status}</div>
+                    <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''} · shot {o.screenshotFraming || '?'}</div>
+                    {o.reel && <a href={o.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↗ reel @{o.reel.handle || o.reel.reelId}</a>}
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                      {o.status !== 'Approved' && <button onClick={() => setOutputStatus(o, 'Approved')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(106,198,138,0.18)', color: '#6AC68A', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✓</button>}
+                      {o.status !== 'Rejected' && <button onClick={() => setOutputStatus(o, 'Rejected')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(232,120,120,0.16)', color: '#E87878', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✕</button>}
+                      <a href={o.dropbox || o.image || '#'} target="_blank" rel="noreferrer" style={{ padding: '4px 8px', fontSize: 11, background: 'rgba(120,160,232,0.16)', color: '#8fb4f0', borderRadius: 5, textDecoration: 'none' }}>↗</a>
+                      <button onClick={() => deleteOutput(o)} style={{ padding: '4px 8px', fontSize: 11, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 5, cursor: 'pointer' }}>🗑</button>
+                    </div>
+                    {o.rejectReason && <div style={{ marginTop: 4, color: '#E87878', fontStyle: 'italic' }}>{o.rejectReason}</div>}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

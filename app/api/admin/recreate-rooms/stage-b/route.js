@@ -54,6 +54,11 @@ const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const ROOMS = 'Recreate Rooms'
 const VARS = 'Recreate Room Variations'
 const PALM_CREATORS = 'Palm Creators'
+// Finished Stage B content lives here — NOT in VARS. VARS is the
+// empty-room location pool that Stage B itself draws from; writing
+// creator-in-room images back into it would let a future run pick a
+// populated frame as a "room" backdrop.
+const STAGE_B_OUTPUTS = 'Stage B Outputs'
 const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 
 const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
@@ -115,7 +120,7 @@ async function runWan(images, prompt) {
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { creatorId, poseStreamUid, poseTime, refDropboxPaths } = await request.json()
+    const { creatorId, poseStreamUid, poseTime, refDropboxPaths, reelRecordId } = await request.json()
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
@@ -228,13 +233,13 @@ export async function POST(request) {
 
     const locName = chosenRoomName
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
-    const name = `Stage B · ${aka}`
+    const reelShort = (reelRecordId && /^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) ? reelRecordId : null
     let dbxPath = '', dbxLink = ''
     try {
       const ir = await fetch(outUrl)
       if (ir.ok) {
         const buf = Buffer.from(await ir.arrayBuffer())
-        dbxPath = `/Palm Ops/Recreate Rooms/${folderSafe}/_stageB/${aka}-${Date.now()}.jpg`.replace(/[^ -~]/g, '')
+        dbxPath = `/Palm Ops/Stage B Outputs/${folderSafe}/${aka}-${Date.now()}.jpg`.replace(/[^ -~]/g, '')
         await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
         try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
       }
@@ -242,14 +247,18 @@ export async function POST(request) {
       console.warn(`[recreate-rooms/stage-b] Dropbox save failed: ${e.message}`)
     }
 
-    await createAirtableRecord(VARS, {
-      Variation: `${locName} - ${name}`,
+    await createAirtableRecord(STAGE_B_OUTPUTS, {
+      Name: `${aka} · ${locName} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+      Creator: [creatorId],
+      ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
       ...(roomId ? { Room: [roomId] } : {}),
-      Recipe: name,
-      'Prompt Used': prompt,
       Image: [{ url: outUrl }],
       ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
       ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
+      'Pose Time': Number(tSec) || 0,
+      ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
+      ...(chosenFraming && chosenFraming !== 'unclassified' ? { 'Room Framing': chosenFraming } : {}),
+      'Prompt Used': prompt,
       Status: 'Pending',
     })
     return NextResponse.json({
