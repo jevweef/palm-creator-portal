@@ -719,6 +719,29 @@ function RoomCard({ room, variations, refresh }) {
     }
     setBusy(false); refresh()
   }
+  const stageB = async (v) => {
+    const poseText = prompt('Describe the creator\'s POSE to put her in this room (from the reference reel frame).\n\ne.g. "standing facing the camera, weight on one hip, one hand in her hair, looking over her shoulder, relaxed natural posture"')
+    if (poseText === null) return
+    if (!poseText.trim()) { alert('No pose entered.'); return }
+    setBusy(true); setMsg('⏳ Stage B — inserting creator into the room… ~2 min, leave this tab open. Popup when done.')
+    try {
+      const d = await fetch('/api/admin/recreate-rooms/stage-b', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variationId: v.id, poseText: poseText.trim() }),
+      }).then(r => r.json())
+      if (d.ok) {
+        setMsg('✅ Stage B done — new "Stage B · {creator}" card added in the gallery.')
+        alert('Stage B complete — the composite is in the gallery (a "Stage B · …" card).')
+      } else {
+        setMsg(`❌ Stage B failed: ${d.error || 'unknown error'}`)
+        alert(`Stage B failed: ${d.error || 'unknown error'}`)
+      }
+    } catch (e) {
+      setMsg(`❌ Stage B error: ${e.message || e}`)
+      alert(`Stage B error: ${e.message || e}`)
+    }
+    setBusy(false); refresh()
+  }
   const downloadVar = (v) => { if (v?.dropbox || v?.image) window.open(v.dropbox || v.image, '_blank', 'noopener') }
   const approveAndDownload = async (v) => {
     await fetch(`/api/admin/recreate-rooms/variation?id=${v.id}&status=Approved`, { method: 'PATCH' })
@@ -892,6 +915,7 @@ function RoomCard({ room, variations, refresh }) {
                 <button onClick={() => downloadVar(v)} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, cursor: 'pointer' }}>⬇ Download</button>
                 <button onClick={() => refineVar(v)} disabled={busy} title="Fix/add specific things on this exact image (same camera)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.14)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.35)', borderRadius: 6, cursor: 'pointer' }}>✏️ Refine</button>
                 <button onClick={async () => { await promoteAngle(v); setModalIdx(-1) }} title="Make this image its own locked room (a new angle for this creator)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, background: 'rgba(168,120,232,0.18)', color: '#b48ff0', border: '1px solid rgba(168,120,232,0.4)', borderRadius: 6, cursor: 'pointer' }}>📐 Save as angle</button>
+                <button onClick={() => stageB(v)} disabled={busy} title="Insert this room's creator into this exact image, in a pose you describe (room untouched)" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8a878', border: '1px solid rgba(232,168,120,0.4)', borderRadius: 6, cursor: 'pointer' }}>👤 Insert creator</button>
                 <button onClick={async () => { await setVar(v.id, 'Rejected'); setModalIdx(-1) }} style={{ padding: '8px 14px', fontSize: 13, background: 'rgba(232,120,120,0.15)', color: '#E87878', border: 'none', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
                 <button onClick={async () => { await delVar(v.id); setModalIdx(-1) }} style={{ padding: '8px 12px', fontSize: 13, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>🗑</button>
                 <button onClick={() => go(1)} disabled={modalIdx >= variations.length - 1} style={{ padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>›</button>
