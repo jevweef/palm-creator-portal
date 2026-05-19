@@ -121,6 +121,30 @@ function buildSinglePrompt(idList) {
   )
 }
 
+// SUBJECT MODE prompt — Figure 1 is a finished, correct photo of the
+// person (identity, pose, outfit already right, from TJP). Only the
+// background changes. This is background compositing, not generation.
+function buildScenePrompt() {
+  return (
+    'WHAT TO DO: Figure 1 is a finished photo of a woman. Keep the woman '
+    + 'in Figure 1 EXACTLY as she is — her exact face, hair, skin tone, '
+    + 'body and proportions, her exact pose, stance, hands and expression, '
+    + 'and her full outfit/clothing — do not alter, restyle, beautify or '
+    + 'reproportion her in any way. Replace ONLY her surroundings: place '
+    + 'her, unchanged, standing in the room shown in Figure 2. Match her '
+    + 'scale and perspective to that room, ground her with realistic '
+    + 'contact shadows, and relight her to match the room\'s existing '
+    + 'light direction and warmth so she blends in naturally.\n\n'
+    + 'WHAT TO KEEP: Keep the room in Figure 2 completely unchanged — '
+    + 'walls, windows, the outside view, furniture, bed, rug, décor, '
+    + 'plants, lighting and time of day. Do NOT keep or copy Figure 1\'s '
+    + 'original background/location at all.\n\n'
+    + 'The result = the EXACT woman from Figure 1, standing in the room '
+    + 'from Figure 2. Hyper realistic, raw iPhone photo look, no text, '
+    + 'no watermark.'
+  )
+}
+
 
 // Direct typecast POST so 'Generating' / 'Failed' auto-create as
 // Status options on first use (the shared createAirtableRecord helper
@@ -153,19 +177,23 @@ async function createStageBRecord(fields) {
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { creatorId, poseStreamUid, poseTime, refDropboxPaths, reelRecordId, model } = await request.json()
+    const { creatorId, poseStreamUid, poseTime, refDropboxPaths, reelRecordId, model, subjectDropboxPath } = await request.json()
     const mdl = MODELS[model] || MODELS.wan
+    // SUBJECT MODE: a finished TJP photo (identity+pose+outfit already
+    // correct) → just composite that exact person into our room. Far
+    // easier than reconstructing her; no reel/identity refs needed.
+    const subjectMode = !!(subjectDropboxPath && typeof subjectDropboxPath === 'string')
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
-    if (!poseStreamUid) {
+    if (!subjectMode && !poseStreamUid) {
       return NextResponse.json({ error: 'A captured pose frame is required (reel has no Stream video)' }, { status: 400 })
     }
     // CF Stream thumbnails 404 on fit=scale-down with width-only and on
     // time=0 — use fit=crop and a non-zero floor (matches what the UI shows).
     const tSec = Math.max(0.1, Number(poseTime) || 0)
-    const poseUrl = buildStreamPosterUrl(poseStreamUid, { time: `${tSec}s`, width: 1080, fit: 'crop' })
-    if (!poseUrl) return NextResponse.json({ error: 'Could not build pose frame URL' }, { status: 400 })
+    const poseUrl = subjectMode ? null : buildStreamPosterUrl(poseStreamUid, { time: `${tSec}s`, width: 1080, fit: 'crop' })
+    if (!subjectMode && !poseUrl) return NextResponse.json({ error: 'Could not build pose frame URL' }, { status: 400 })
 
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
@@ -207,10 +235,15 @@ export async function POST(request) {
       const u = await pathToUrl(p)
       if (u) extraUrls.push(u)
     }
+    let subjectUrl = ''
+    if (subjectMode) {
+      subjectUrl = await pathToUrl(subjectDropboxPath)
+      if (!subjectUrl) return NextResponse.json({ error: 'Could not resolve the subject photo' }, { status: 400 })
+    }
 
-    // Classify the screenshot, then auto-pick this creator's room
-    // whose Framing best matches; random approved variation within it.
-    const shotFraming = await classifyScreenshotFraming(poseUrl)
+    // Classify framing (subject photo in subject mode, else the reel
+    // screenshot), then auto-pick the best-matching room variation.
+    const shotFraming = await classifyScreenshotFraming(subjectMode ? subjectUrl : poseUrl)
     const allRooms = await fetchAirtableRecords(ROOMS, { fields: ['Room Name', 'Creator', 'Framing'] })
     const myRooms = allRooms.filter(r => (r.fields?.Creator || []).includes(creatorId))
     if (myRooms.length === 0) {
@@ -257,7 +290,7 @@ export async function POST(request) {
     const chosenFraming = framingOf(chosen) || 'unclassified'
 
     const identity = [...extraUrls, ...onFileRefs.map(a => a.url)]
-    if (identity.length === 0) {
+    if (!subjectMode && identity.length === 0) {
       return NextResponse.json({ error: `No identity references — upload some for this run, or set up ${aka}'s AI Super Clone refs.` }, { status: 400 })
     }
 
@@ -265,18 +298,23 @@ export async function POST(request) {
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
     const reelShort = (reelRecordId && /^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) ? reelRecordId : null
 
-    // DECOUPLED: single-pass wan, but we SUBMIT and return immediately —
-    // no server-side poll. WaveSpeed keeps the prediction; /stage-b/
-    // resolve fetches the finished image by prediction id later, so a
-    // >300s inference can't lose the result (proven: a 301s job
-    // completed on WaveSpeed after the old synchronous route had died).
-    // Figure 1 = room, Figure 2 = reel frame, Figures 3..N = identity.
-    const images = [roomUrl, poseUrl, ...identity].slice(0, 9)
-    const figs = []
-    for (let i = 3; i <= images.length; i++) figs.push(`Figure ${i}`)
-    const idList = figs.length <= 1 ? (figs[0] || 'Figure 3')
-      : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
-    const prompt = buildSinglePrompt(idList)
+    // DECOUPLED: submit + return immediately; /stage-b/resolve fetches
+    // the finished image by prediction id later (no timeout possible).
+    let images, prompt
+    if (subjectMode) {
+      // Figure 1 = the finished TJP person (keep EXACTLY); Figure 2 =
+      // our room → just place that exact person into the room.
+      images = [subjectUrl, roomUrl]
+      prompt = buildScenePrompt()
+    } else {
+      // Figure 1 = room, Figure 2 = reel frame, Figures 3..N = identity.
+      images = [roomUrl, poseUrl, ...identity].slice(0, 9)
+      const figs = []
+      for (let i = 3; i <= images.length; i++) figs.push(`Figure ${i}`)
+      const idList = figs.length <= 1 ? (figs[0] || 'Figure 3')
+        : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
+      prompt = buildSinglePrompt(idList)
+    }
 
     const task = await submitWaveSpeedTask(mdl.path, mdl.body(images, prompt))
     const predictionId = task?.id

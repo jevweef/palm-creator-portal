@@ -702,6 +702,7 @@ function StageBPanel() {
   const [outputs, setOutputs] = useState([])
   const [genModel, setGenModel] = useState('wan')
   const [extraFiles, setExtraFiles] = useState([])
+  const [subjectFile, setSubjectFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -784,16 +785,26 @@ function StageBPanel() {
 
   const generate = async () => {
     if (!creatorId) { setMsg('Pick a creator first.'); return }
-    if (!reel?.streamUid) { setMsg('Pick a reel (with Stream video) and capture a frame first.'); return }
-    if (!captured) { setMsg('Scrub to the pose and click “Capture this frame”.'); return }
-    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading any extra refs…')
+    const subjectMode = !!subjectFile
+    if (!subjectMode) {
+      if (!reel?.streamUid) { setMsg('Pick a reel (with Stream video) and capture a frame first — or upload a finished subject photo below.'); return }
+      if (!captured) { setMsg('Scrub to the pose and click “Capture this frame”.'); return }
+    }
+    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading…')
     try {
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
-      setMsg('⏳ Stage B — compositing the creator into the room (reel pose/outfit/framing)… ~1–2 min, leave this tab open.')
+      let subjectDropboxPath
+      if (subjectMode) {
+        setMsg('⏳ Uploading subject photo…')
+        subjectDropboxPath = await stageBUpload(subjectFile, 'subject')
+      }
+      setMsg(subjectMode
+        ? '⏳ Stage B — placing the subject into the room… appears below when done.'
+        : '⏳ Stage B — compositing the creator into the room… appears below when done.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id, model: genModel }),
+        body: JSON.stringify({ creatorId, poseStreamUid: reel?.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel?.id, model: genModel, subjectDropboxPath }),
       })
       const raw = await res.text()
       let d
@@ -885,6 +896,16 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
         <input type="file" accept="image/*" multiple onChange={e => setExtraFiles([...e.target.files])}
           style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
         {extraFiles.length > 0 && <span style={{ fontSize: 12, color: '#6AC68A', marginLeft: 8 }}>{extraFiles.length} added</span>}
+      </div>
+
+      <div style={{ ...card, border: '1px solid rgba(232,168,120,0.35)' }}>
+        <div style={lbl}>5 · OR — finished subject photo (from TJP) → just drop into the room</div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
+          Upload a photo where identity, pose &amp; outfit are already correct. Stage B keeps that person exactly and only swaps the background to the creator&apos;s room — no reel/identity refs needed (skips the steps above).
+        </div>
+        <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)}
+          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
+        {subjectFile && <span style={{ fontSize: 12, color: '#e8b878', marginLeft: 8 }}>{subjectFile.name} — subject mode ON</span>}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
