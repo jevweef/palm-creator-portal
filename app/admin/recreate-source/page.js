@@ -685,7 +685,7 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
           {creators.map(c => <option key={c.id} value={c.id}>{c.name} — {c.face}F·{c.front}Fr·{c.back}B</option>)}
         </select>
         <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 8 }}>
-          {sel ? `Identity: ${sel.face} face + ${sel.front} front + ${sel.back} back AI Super Clone refs on file (interleaved into 7 slots), plus any extra uploads.` : 'Any creator with AI Super Clone refs on file.'}
+          {sel ? `Identity: ${sel.face} face + ${sel.front} front + ${sel.back} back ${sel.approved ? 'approved AI Super Clone refs' : 'raw AI Ref Inputs (not yet approved — approve them in Creator Avatar for best results)'}, plus any extra uploads.` : 'Any creator with AI Super Clone refs on file.'}
         </div>
       </div>
 

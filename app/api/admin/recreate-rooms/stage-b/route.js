@@ -128,20 +128,29 @@ export async function POST(request) {
 
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
       filterByFormula: `RECORD_ID() = '${creatorId}'`,
-      fields: ['AKA', 'AI Ref Inputs'],
+      fields: ['AKA', 'AI Ref Inputs', 'AI Ref Front', 'AI Ref Back', 'AI Ref Face'],
       maxRecords: 1,
     })
     if (!cRecs.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
-    const aka = cRecs[0].fields.AKA || 'Creator'
-    const allRefs = cRecs[0].fields['AI Ref Inputs'] || []
-    const front = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
-    const face = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
-    const back = allRefs.filter(a => a.filename?.startsWith('Back View input_'))
-    const onFileRefs = []
-    for (let i = 0; i < Math.max(face.length, front.length, back.length); i++) {
-      if (face[i]) onFileRefs.push(face[i])
-      if (front[i]) onFileRefs.push(front[i])
-      if (back[i]) onFileRefs.push(back[i])
+    const cf = cRecs[0].fields
+    const aka = cf.AKA || 'Creator'
+    // Prefer the APPROVED single best ref per angle (curated via AI Super
+    // Clone). Fall back to the raw multi-pose AI Ref Inputs dump only for
+    // creators whose refs haven't been approved yet.
+    const approvedFace = cf['AI Ref Face'] || []
+    const approvedFront = cf['AI Ref Front'] || []
+    const approvedBack = cf['AI Ref Back'] || []
+    let onFileRefs = [...approvedFace, ...approvedFront, ...approvedBack]
+    if (onFileRefs.length === 0) {
+      const allRefs = cf['AI Ref Inputs'] || []
+      const front = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
+      const face = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
+      const back = allRefs.filter(a => a.filename?.startsWith('Back View input_'))
+      for (let i = 0; i < Math.max(face.length, front.length, back.length); i++) {
+        if (face[i]) onFileRefs.push(face[i])
+        if (front[i]) onFileRefs.push(front[i])
+        if (back[i]) onFileRefs.push(back[i])
+      }
     }
 
     const tok = await getDropboxAccessToken()
