@@ -71,10 +71,11 @@ const STAGE_B_SEED = 77777
 // Two-part prompt per the official Wan image-edit guidance ("what to
 // do / what to keep") with ordinal Figure refs mapped to the images
 // array order. NO pose image — a pose ref carries the reel girl's face
-// and the model blends it in ("wrong girl"); motion is driven from the
-// reel video off-site, so the still only needs THIS woman in her room.
-// images[] is capped at 3 (the model's hard API max): Figure 1 = room,
-// Figures 2..N = identity.
+// and the model blends it in ("wrong girl", proven from a real failed
+// call); motion is driven from the reel video off-site, so the still
+// only needs THIS woman in her room. Figure 1 = room, Figures 2..N =
+// identity. (Image count is NOT hard-capped at 3 — a 9-image request
+// was tested and completes fine; the docs' "up to 3" is guidance.)
 function buildPrompt(idList) {
   return (
     `WHAT TO DO: Figure 1 is an empty room with no person in it. Add exactly `
