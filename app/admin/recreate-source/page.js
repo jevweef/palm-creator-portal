@@ -335,9 +335,9 @@ const AXES = {
   ],
   // The shag rug is transient surface — it gets walked on.
   rug: [
-    'the shag rug pile pushed around and a little uneven, with faint footprint impressions, clearly walked on (same rug, same size and place)',
-    'one corner of the shag rug slightly flipped/folded over from being walked on (same rug, same size and place)',
-    'the rug pile raked in soft directional lines like it was just walked across (same rug, same size and place)',
+    'the shag rug pile pushed around and a little uneven, with faint footprint impressions, clearly walked on (rug stays flat on the floor, same size and place)',
+    'the shag rug pile a little matted and ruffled in places like it was walked across (rug stays flat on the floor, same size and place)',
+    'the rug pile raked in soft directional lines like it was just walked across (rug stays flat on the floor, same size and place)',
   ],
   // Vines re-drape after watering / being nudged.
   plants: [
@@ -401,21 +401,21 @@ const AXES = {
     'a small ring dish with jewelry added to the nightstand (its existing items stay)',
     'a folded top draped over the edge of the nightstand, its existing items still on top',
   ],
-  // [text, weight] — sun direction anchored to the room: the glass
-  // wall is on the RIGHT/back, the standing mirror, trailing plant and
-  // wood dresser are on the RIGHT by the windows. Looking straight in =
-  // 12 o'clock; sunrise from the right, sunset low from ~4–5 o'clock.
+  // DISTINCT times — one per variation per run (drawn from a shuffled
+  // bag so a batch spreads across the day, never clumps). Sun direction
+  // anchored to the room: glass wall on the RIGHT/back; mirror, plant
+  // and dresser on the RIGHT by the windows; straight-in view = 12 o'clock.
   time_light: [
-    ['early sunrise — warm low sun entering from the RIGHT through the right-side floor-to-ceiling window, raking low across the RIGHT side of the porcelain floor and the right edge of the rug, long soft shadows stretching to the LEFT, gentle golden glow', 5],
-    ['golden-hour sunset — warm low sun pouring DIRECTLY through the right-side window from about the 4–5 o\'clock direction, landing on and lighting up the standing mirror, the trailing plant and the wood dresser, long warm shadows stretched across the room to the LEFT, soft orange sky', 5],
-    ['warm late-afternoon sun, lower and from the RIGHT, golden light pooling across the dresser side and the right half of the rug, gentle long shadows leaning left', 4],
-    ['mid-morning — bright warm sun higher and from the upper RIGHT, light spilling well into the room across the floor, medium soft shadows', 4],
-    ['bright MIDDAY — sun high and nearly overhead coming straight through the back/center windows (12 o\'clock), short shadows directly beneath the furniture, crisp clean daylight pooling in the CENTER of the floor, NOT low raking side light', 3],
-    ['late-morning sun, bright and warm from the upper right, even light filling the whole room', 2],
-    ['hazy bright afternoon light, soft and warm, diffused', 1],
-    ['blue-hour dusk outside with the warm bedside lamp just switched on', 1],
-    ['flat grey overcast daylight, soft and even, no direction, no harsh sun', 1],
-    ['nighttime — dark outside with distant city lights, warm bedside lamp glow', 1],
+    'early sunrise — warm low sun entering from the RIGHT through the right-side window, raking low across the RIGHT side of the porcelain floor and the right edge of the rug, long soft shadows stretching LEFT, gentle golden glow',
+    'late-morning — bright warm sun from the upper RIGHT, even light filling the whole room, medium shadows',
+    'harsh high-noon — strong bright sun almost straight overhead through the back/center windows, hard-edged short shadows directly under the furniture, crisp high-contrast daylight (NOT soft, NOT low side light)',
+    'soft bright midday — high sun through the back/center windows (12 o\'clock), gentle short shadows, clean even daylight pooling in the CENTER of the floor',
+    'hazy warm afternoon light, soft and diffused, mild shadows',
+    'warm late-afternoon sun, lower and from the RIGHT, golden light pooling across the dresser side and the right half of the rug, long shadows leaning LEFT',
+    'golden-hour sunset — warm low sun pouring DIRECTLY through the right-side window from about the 4–5 o\'clock direction, lighting up the standing mirror, the trailing plant and the wood dresser, long warm shadows stretched across the room to the LEFT, soft orange sky',
+    'blue-hour dusk — dim cool blue light outside, the warm bedside lamp just switched on, soft pools of warm lamp light',
+    'flat grey overcast daylight, soft and even, no sun direction, no harsh shadows',
+    'nighttime — dark outside with distant city lights through the glass, room lit only by the warm bedside lamp and a candle, cozy and dim',
   ],
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
@@ -445,6 +445,9 @@ function shuffleScenarios(n) {
   let guard = 0
   // Per-run tag so names never collide across separate shuffle runs.
   const runTag = Date.now().toString(36).slice(-4)
+  // Distinct time-of-day per variation: shuffle the full set and walk
+  // it so a run spreads across sunrise→night instead of clumping.
+  const lightBag = [...AXES.time_light].sort(() => Math.random() - 0.5)
   while (out.length < n && guard++ < n * 20) {
     const r = Math.random()
     const zoneCount = r < 0.12 ? 1 : r < 0.5 ? 2 : 3
@@ -454,9 +457,8 @@ function shuffleScenarios(n) {
       const ax = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]
       chosen.push([ax, pickAxis(ax)])
     }
-    // Always change the time of day, weighted toward warm "light
-    // pouring in" (sunrise/sunset/low golden).
-    const light = pickWeighted(AXES.time_light)
+    // Always change the time of day — distinct per variation in the run.
+    const light = lightBag[out.length % lightBag.length]
     const sig = chosen.map(([a, c]) => `${a}:${c}`).sort().join('||') + `|${light || 'same'}`
     if (seen.has(sig)) continue
     seen.add(sig)
