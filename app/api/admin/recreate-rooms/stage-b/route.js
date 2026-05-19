@@ -104,41 +104,38 @@ function buildPosePrompt() {
   )
 }
 
-function buildSwapPrompt(idList) {
-  return (
-    `WHAT TO DO: Replace ONLY the face and identity of the woman in Figure 1 `
-    + `with the woman shown in ${idList} (the SAME real woman across those `
-    + 'reference photos). Match her face, facial features, skin tone and hair '
-    + `exactly to ${idList}. Do not beautify, average, stylise or substitute a `
-    + 'different face — it must be unmistakably that same woman.\n\n'
-    + 'WHAT TO KEEP: Keep EVERYTHING ELSE in Figure 1 byte-identical — her '
-    + 'exact body pose, stance, hands, body shape, her full outfit and '
-    + 'clothing, the entire room and all its contents, the lighting, and the '
-    + 'camera distance, crop and framing. Only the face/identity changes; '
-    + 'nothing moves or re-renders.\n\n'
-    + 'Hyper realistic, ultra-detailed natural skin texture, seamless, no '
-    + 'text, no watermark.'
-  )
+const FACE_SWAP_MODEL = 'wavespeed-ai/image-face-swap'
+
+async function pollWaveSpeed(taskId, label, maxMs) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < maxMs) {
+    const d = await pollWaveSpeedTask(taskId)
+    if (d.status === 'completed') {
+      const out = (d.outputs || [])[0]
+      if (!out) throw new Error(`${label}: no output`)
+      return out
+    }
+    if (d.status === 'failed') {
+      const e = typeof d.error === 'string' && d.error ? d.error
+        : d.error ? JSON.stringify(d.error) : 'failed'
+      throw new Error(`${label}: ${e}`)
+    }
+    await new Promise(r => setTimeout(r, 3000))
+  }
+  throw new Error(`${label}: timed out`)
 }
 
 async function runWan(images, prompt, maxMs = 120000) {
   const task = await submitWaveSpeedTask(WAN_MODEL, { images, prompt, size: '1080*1920', seed: STAGE_B_SEED })
-  const t0 = Date.now()
-  while (Date.now() - t0 < maxMs) {
-    const d = await pollWaveSpeedTask(task.id)
-    if (d.status === 'completed') {
-      const out = (d.outputs || [])[0]
-      if (!out) throw new Error('no output')
-      return out
-    }
-    if (d.status === 'failed') {
-      const we = typeof d.error === 'string' && d.error ? d.error
-        : d.error ? JSON.stringify(d.error) : 'Wan edit failed'
-      throw new Error(`Wan: ${we}`)
-    }
-    await new Promise(r => setTimeout(r, 3000))
-  }
-  throw new Error('Stage B timed out')
+  return pollWaveSpeed(task.id, 'Wan', maxMs)
+}
+
+// Dedicated face-swap model: `image` = base (keep its body/scene/pose),
+// `face_image` = the identity to apply. Purpose-built for "replace only
+// the face" — far more reliable than prompting an image editor to do it.
+async function faceSwap(baseUrl, faceUrl, maxMs = 90000) {
+  const task = await submitWaveSpeedTask(FACE_SWAP_MODEL, { image: baseUrl, face_image: faceUrl })
+  return pollWaveSpeed(task.id, 'FaceSwap', maxMs)
 }
 
 // POST { creatorId, poseStreamUid, poseTime, refDropboxPaths?: [] }
@@ -266,18 +263,16 @@ export async function POST(request) {
     const posePrompt = buildPosePrompt()
     const pass1Out = await runWan([roomUrl, poseUrl], posePrompt)
 
-    // Pass 2 — face-swap the creator's identity onto Pass 1.
-    // (Image count is NOT hard-capped — a 9-image request was tested
-    // and completes fine; docs' "up to 3" is guidance, not enforced.)
-    const swapImages = [pass1Out, ...identity].slice(0, 9)
-    const figs = []
-    for (let i = 2; i <= swapImages.length; i++) figs.push(`Figure ${i}`)
-    const idList = figs.length <= 1
-      ? (figs[0] || 'Figure 2')
-      : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
-    const swapPrompt = buildSwapPrompt(idList)
-    const outUrl = await runWan(swapImages, swapPrompt)
-    const prompt = `PASS 1 (pose/outfit/framing):\n${posePrompt}\n\n---\n\nPASS 2 (identity face-swap):\n${swapPrompt}`
+    // Pass 2 — dedicated face-swap model puts the creator's face onto
+    // Pass 1 (keeps the reel pose/outfit/room/framing). Prompting the
+    // image editor to "swap only the face" did NOT work — it kept the
+    // reel girl. A purpose-built face-swap model is the right tool.
+    // face_image = the single clearest front-facing identity photo.
+    const faceImageUrl = (cf['AI Ref Face'] || [])[0]?.url
+      || (cf['AI Ref Front'] || [])[0]?.url
+      || identity[0]
+    const outUrl = await faceSwap(pass1Out, faceImageUrl)
+    const prompt = `PASS 1 (pose/outfit/framing — ${WAN_MODEL}):\n${posePrompt}\n\n---\n\nPASS 2 (identity — ${FACE_SWAP_MODEL}, face_image=approved face)`
 
     const locName = chosenRoomName
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
