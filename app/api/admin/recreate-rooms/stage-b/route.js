@@ -253,7 +253,9 @@ export async function POST(request) {
       Status: 'Pending',
     })
     return NextResponse.json({
-      ok: true, images: images.length,
+      ok: true, imageCount: images.length,
+      out: outUrl,
+      dropbox: dbxLink || null,
       room: chosenRoomName, roomFraming: chosenFraming,
       screenshotFraming: shotFraming || 'unknown',
     })

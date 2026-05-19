@@ -625,6 +625,7 @@ function StageBPanel() {
   const [captured, setCaptured] = useState(false)
   const [poseModalOpen, setPoseModalOpen] = useState(false)
   const [poseDuration, setPoseDuration] = useState(0)
+  const [stageBOut, setStageBOut] = useState(null)
   const [extraFiles, setExtraFiles] = useState([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -670,7 +671,7 @@ function StageBPanel() {
     if (!creatorId) { setMsg('Pick a creator first.'); return }
     if (!reel?.streamUid) { setMsg('Pick a reel (with Stream video) and capture a frame first.'); return }
     if (!captured) { setMsg('Scrub to the pose and click “Capture this frame”.'); return }
-    setBusy(true); setMsg('⏳ Uploading any extra refs…')
+    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading any extra refs…')
     try {
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
@@ -679,8 +680,10 @@ function StageBPanel() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths }),
       }).then(r => r.json())
-      if (d.ok) setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. "Stage B · ${sel?.name || ''}" card added in the Rooms tab (${d.images} images).`)
-      else setMsg(`❌ ${d.error || 'failed'}`)
+      if (d.ok) {
+        setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming })
+        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Also saved as a "Stage B · ${sel?.name || ''}" card in the Rooms tab.`)
+      } else setMsg(`❌ ${d.error || 'failed'}`)
     } catch (e) { setMsg(`❌ ${e.message || e}`) }
     setBusy(false)
   }
@@ -758,6 +761,19 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
         {busy ? 'Working…' : '👤 Generate — insert creator'}
       </button>
       {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
+
+      {stageBOut && (
+        <div style={{ ...card, marginTop: 16 }}>
+          <div style={lbl}>Result — {sel?.name} in {stageBOut.room} [{stageBOut.roomFraming}] · shot read as {stageBOut.screenshotFraming}</div>
+          <img src={stageBOut.url} alt="Stage B result"
+            style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
+          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
+              style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, textDecoration: 'none' }}>↗ Open full size</a>
+            <span style={{ fontSize: 12, color: 'var(--foreground-muted)', alignSelf: 'center' }}>Saved as a Pending card in the Rooms tab — approve/reject it there.</span>
+          </div>
+        </div>
+      )}
 
       {poseModalOpen && reel?.streamUid && (
         <div onClick={() => setPoseModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
