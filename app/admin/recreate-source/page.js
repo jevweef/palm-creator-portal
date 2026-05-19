@@ -701,7 +701,7 @@ function StageBPanel() {
     try {
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
-      setMsg('⏳ Stage B — classifying the shot, picking the matching room, compositing… ~2–3 min, leave this tab open.')
+      setMsg('⏳ Stage B — 2-pass: matching the reel pose/outfit/framing, then swapping in the creator… ~3–4 min, leave this tab open.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id }),

@@ -68,39 +68,63 @@ const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'ra
 // randomise later once it locks.
 const STAGE_B_SEED = 77777
 
-// Two-part prompt per the official Wan image-edit guidance ("what to
-// do / what to keep") with ordinal Figure refs mapped to the images
-// array order. NO pose image — a pose ref carries the reel girl's face
-// and the model blends it in ("wrong girl", proven from a real failed
-// call); motion is driven from the reel video off-site, so the still
-// only needs THIS woman in her room. Figure 1 = room, Figures 2..N =
-// identity. (Image count is NOT hard-capped at 3 — a 9-image request
-// was tested and completes fine; the docs' "up to 3" is guidance.)
-function buildPrompt(idList) {
+// TWO-PASS pipeline. A single pass can't both match the reel
+// (pose/outfit/framing) AND keep the creator's identity — feeding the
+// reel frame as a person ref makes the model blend the reel girl's
+// face in ("wrong girl", proven from a real failed call). So:
+//
+//   Pass 1 — pose/outfit/framing transfer. Figure 1 = empty room,
+//     Figure 2 = reel screenshot. Put a woman in the room copying the
+//     reel's pose, exact outfit and camera distance/crop. Identity is
+//     irrelevant here (Pass 2 replaces it).
+//   Pass 2 — identity face-swap. Figure 1 = Pass 1 output, Figures
+//     2..N = the creator's AI refs. Swap ONLY the face/identity; keep
+//     her pose, body, outfit, the room and framing byte-identical.
+//     Face-swap is the one operation this model is reliably good at.
+//
+// Both prompts use the official two-part "WHAT TO DO / WHAT TO KEEP"
+// structure with ordinal Figure refs (Figure N = images[N-1]).
+
+function buildPosePrompt() {
   return (
-    `WHAT TO DO: Figure 1 is an empty room with no person in it. Add exactly `
-    + 'one woman standing on the open floor in front of the bed, at realistic '
-    + 'human scale, properly grounded with correct contact shadows, lit to '
-    + 'match the room\'s existing light direction and warmth. She stands '
-    + 'naturally and relaxed, facing the camera, full body in frame, in '
-    + `simple casual everyday clothing. ${idList} are reference photos of the `
-    + 'SAME real woman — she is the only person who may appear. Copy her face, '
-    + `facial features, skin tone, hair and body shape EXACTLY from ${idList}; `
-    + 'do not beautify, average, stylise or substitute a different face. She '
-    + 'must be unmistakably that same woman.\n\n'
+    'WHAT TO DO: Figure 1 is an empty room with no person in it. Add exactly '
+    + 'one woman standing in it. Copy her body pose, stance, limb positioning, '
+    + 'her exact clothing and outfit (garments, colours, fabric, styling), and '
+    + 'the camera distance, crop and how close she is to the camera, all from '
+    + 'Figure 2. Match Figure 2\'s framing — if she is close/cropped in Figure '
+    + '2 she must be equally close/cropped here; if full-body, full-body. '
+    + 'Ground her realistically with correct contact shadows and lighting that '
+    + 'matches the room.\n\n'
     + 'WHAT TO KEEP: Keep the room in Figure 1 completely unchanged — walls, '
     + 'windows, the outside view, furniture, bed, rug, décor, wall hangings, '
-    + 'plants, lighting, time of day, camera angle and framing all identical '
-    + 'to Figure 1. Do not move, restyle, re-render or re-light the room.\n\n'
-    + 'Hyper realistic, ultra-detailed natural skin texture, true-to-life '
-    + 'colors, raw iPhone photo look, seamless blend, no text, no watermark.'
+    + 'plants, lighting and time of day identical to Figure 1. Do NOT copy '
+    + 'Figure 2\'s background, room or location — only the woman\'s pose, '
+    + 'outfit and the camera framing.\n\n'
+    + 'Hyper realistic, raw iPhone photo look, no text, no watermark.'
   )
 }
 
-async function runWan(images, prompt) {
+function buildSwapPrompt(idList) {
+  return (
+    `WHAT TO DO: Replace ONLY the face and identity of the woman in Figure 1 `
+    + `with the woman shown in ${idList} (the SAME real woman across those `
+    + 'reference photos). Match her face, facial features, skin tone and hair '
+    + `exactly to ${idList}. Do not beautify, average, stylise or substitute a `
+    + 'different face — it must be unmistakably that same woman.\n\n'
+    + 'WHAT TO KEEP: Keep EVERYTHING ELSE in Figure 1 byte-identical — her '
+    + 'exact body pose, stance, hands, body shape, her full outfit and '
+    + 'clothing, the entire room and all its contents, the lighting, and the '
+    + 'camera distance, crop and framing. Only the face/identity changes; '
+    + 'nothing moves or re-renders.\n\n'
+    + 'Hyper realistic, ultra-detailed natural skin texture, seamless, no '
+    + 'text, no watermark.'
+  )
+}
+
+async function runWan(images, prompt, maxMs = 120000) {
   const task = await submitWaveSpeedTask(WAN_MODEL, { images, prompt, size: '1080*1920', seed: STAGE_B_SEED })
   const t0 = Date.now()
-  while (Date.now() - t0 < 270000) {
+  while (Date.now() - t0 < maxMs) {
     const d = await pollWaveSpeedTask(task.id)
     if (d.status === 'completed') {
       const out = (d.outputs || [])[0]
@@ -127,8 +151,9 @@ async function runWan(images, prompt) {
 // The system Sonnet-classifies the screenshot framing and auto-picks
 // the creator's room ANGLE whose framing best matches (full-body →
 // Wide, cropped → Tight), then a RANDOM approved variation of it.
-// Identity = extras + the creator's Front/Face/Back AI refs. Wan
-// caps at 9: [room, pose, ...identity (max 7)].
+// Then a two-pass Wan run: Pass 1 = reel pose/outfit/framing into the
+// room; Pass 2 = face-swap the creator's identity (extras + Face/Front/
+// Back AI refs) onto Pass 1.
 export async function POST(request) {
   try {
     await requireAdmin()
@@ -232,24 +257,27 @@ export async function POST(request) {
     const chosenRoomName = myRooms.find(r => r.id === roomId)?.fields?.['Room Name'] || 'Room'
     const chosenFraming = framingOf(chosen) || 'unclassified'
 
-    // Image count is NOT a hard limit — empirically the endpoint accepts
-    // and completes 9 images fine (the docs' "up to 3" is guidance, not
-    // enforced). The PROVEN cause of the "wrong girl" was a pose/reel
-    // screenshot fed as a person ref (now removed entirely). Identity =
-    // uploaded extras + the creator's on-file face/front/back; capped at
-    // 9 only because that's the largest count we've verified works.
     const identity = [...extraUrls, ...onFileRefs.map(a => a.url)]
     if (identity.length === 0) {
       return NextResponse.json({ error: `No identity references — upload some for this run, or set up ${aka}'s AI Super Clone refs.` }, { status: 400 })
     }
-    const images = [roomUrl, ...identity].slice(0, 9)
+
+    // Pass 1 — pose/outfit/framing transfer (room + reel frame).
+    const posePrompt = buildPosePrompt()
+    const pass1Out = await runWan([roomUrl, poseUrl], posePrompt)
+
+    // Pass 2 — face-swap the creator's identity onto Pass 1.
+    // (Image count is NOT hard-capped — a 9-image request was tested
+    // and completes fine; docs' "up to 3" is guidance, not enforced.)
+    const swapImages = [pass1Out, ...identity].slice(0, 9)
     const figs = []
-    for (let i = 2; i <= images.length; i++) figs.push(`Figure ${i}`)
+    for (let i = 2; i <= swapImages.length; i++) figs.push(`Figure ${i}`)
     const idList = figs.length <= 1
       ? (figs[0] || 'Figure 2')
       : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
-    const prompt = buildPrompt(idList)
-    const outUrl = await runWan(images, prompt)
+    const swapPrompt = buildSwapPrompt(idList)
+    const outUrl = await runWan(swapImages, swapPrompt)
+    const prompt = `PASS 1 (pose/outfit/framing):\n${posePrompt}\n\n---\n\nPASS 2 (identity face-swap):\n${swapPrompt}`
 
     const locName = chosenRoomName
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
