@@ -560,6 +560,7 @@ function RoomCard({ room, variations, refresh }) {
   const [custom, setCustom] = useState('')
   const [shuffleN, setShuffleN] = useState(6)
   const [modalIdx, setModalIdx] = useState(-1)
+  const [showRejected, setShowRejected] = useState(false)
   const [msg, setMsg] = useState('')
 
   // Arrow keys navigate the lightbox; Escape closes it.
@@ -911,12 +912,20 @@ function RoomCard({ room, variations, refresh }) {
                 ['Pending', '#caa84a', items.filter(([v]) => !v.status || v.status === 'Pending')],
                 ['Rejected', '#E87878', items.filter(([v]) => v.status === 'Rejected')],
               ]
-              return groups.filter(([, , g]) => g.length > 0).map(([label, color, g]) => (
-                <div key={label}>
-                  <div style={{ ...subHdr, color }}>{label} ({g.length})</div>
-                  {grid(g)}
-                </div>
-              ))
+              return groups.filter(([, , g]) => g.length > 0).map(([label, color, g]) => {
+                const collapsible = label === 'Rejected'
+                const open = !collapsible || showRejected
+                return (
+                  <div key={label}>
+                    <div
+                      onClick={collapsible ? () => setShowRejected(s => !s) : undefined}
+                      style={{ ...subHdr, color, cursor: collapsible ? 'pointer' : 'default', userSelect: 'none' }}>
+                      {collapsible ? (open ? '▾ ' : '▸ ') : ''}{label} ({g.length}){collapsible && !open ? ' — click to show' : ''}
+                    </div>
+                    {open && grid(g)}
+                  </div>
+                )
+              })
             }
             return (
               <>
