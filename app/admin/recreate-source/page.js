@@ -700,6 +700,7 @@ function StageBPanel() {
   const [poseDuration, setPoseDuration] = useState(0)
   const [stageBOut, setStageBOut] = useState(null)
   const [outputs, setOutputs] = useState([])
+  const [genModel, setGenModel] = useState('wan')
   const [extraFiles, setExtraFiles] = useState([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -792,7 +793,7 @@ function StageBPanel() {
       setMsg('⏳ Stage B — compositing the creator into the room (reel pose/outfit/framing)… ~1–2 min, leave this tab open.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id }),
+        body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id, model: genModel }),
       })
       const raw = await res.text()
       let d
@@ -886,7 +887,17 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
         {extraFiles.length > 0 && <span style={{ fontSize: 12, color: '#6AC68A', marginLeft: 8 }}>{extraFiles.length} added</span>}
       </div>
 
-      <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
+        <select value={genModel} onChange={e => setGenModel(e.target.value)}
+          style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
+          <option value="wan">Wan 2.7 image-edit-pro</option>
+          <option value="nano">Nano-Banana 2</option>
+          <option value="gpt">GPT-Image-2</option>
+        </select>
+      </div>
+
+      <button onClick={generate} disabled={busy} style={{ marginTop: 10, padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
         {busy ? 'Working…' : '👤 Generate — insert creator'}
       </button>
       {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}

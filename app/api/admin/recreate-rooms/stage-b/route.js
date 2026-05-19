@@ -61,12 +61,20 @@ const PALM_CREATORS = 'Palm Creators'
 const STAGE_B_OUTPUTS = 'Stage B Outputs'
 const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 
-const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
-
-// Fixed seed: the official Wan docs recommend a stable seed so prompt
-// iterations are comparable. Identity is still being dialed in; can
-// randomise later once it locks.
+// Selectable models — all take images[] + prompt; param schemas differ
+// (verified against WaveSpeed docs). Decoupled submit/resolve is
+// model-agnostic (poll by prediction id), so any of these "just works".
 const STAGE_B_SEED = 77777
+const MODELS = {
+  wan: { label: 'Wan 2.7 image-edit-pro', path: WAN_MODEL,
+    body: (images, prompt) => ({ images, prompt, size: '1080*1920', seed: STAGE_B_SEED }) },
+  nano: { label: 'Nano-Banana 2', path: 'google/nano-banana-2/edit',
+    body: (images, prompt) => ({ images, prompt, aspect_ratio: '9:16', resolution: '2k', output_format: 'jpeg' }) },
+  gpt: { label: 'GPT-Image-2', path: 'openai/gpt-image-2/edit',
+    body: (images, prompt) => ({ images, prompt, aspect_ratio: '9:16', resolution: '2k', quality: 'high' }) },
+}
+
+const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
 
 // SINGLE-PASS pipeline — this exact config produced the verified-good
 // output (prediction d1750824): one wan call with [room, reel,
@@ -138,7 +146,8 @@ async function createStageBRecord(fields) {
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { creatorId, poseStreamUid, poseTime, refDropboxPaths, reelRecordId } = await request.json()
+    const { creatorId, poseStreamUid, poseTime, refDropboxPaths, reelRecordId, model } = await request.json()
+    const mdl = MODELS[model] || MODELS.wan
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
@@ -258,14 +267,14 @@ export async function POST(request) {
       : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
     const prompt = buildSinglePrompt(idList)
 
-    const task = await submitWaveSpeedTask(WAN_MODEL, { images, prompt, size: '1080*1920', seed: STAGE_B_SEED })
+    const task = await submitWaveSpeedTask(mdl.path, mdl.body(images, prompt))
     const predictionId = task?.id
     if (!predictionId) {
       return NextResponse.json({ error: 'WaveSpeed did not return a prediction id' }, { status: 502 })
     }
 
     const created = await createStageBRecord({
-      Name: `${aka} · ${locName} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+      Name: `${aka} · ${locName} · [${mdl.label}] · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       Creator: [creatorId],
       ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
       ...(roomId ? { Room: [roomId] } : {}),
