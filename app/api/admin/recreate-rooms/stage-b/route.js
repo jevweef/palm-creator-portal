@@ -170,25 +170,22 @@ export async function POST(request) {
     if (!cRecs.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
     const cf = cRecs[0].fields
     const aka = cf.AKA || 'Creator'
-    // Prefer the APPROVED single best ref per angle (curated via AI Super
-    // Clone): face first (identity weight), then front (body/grounding),
-    // then back. Fall back to the raw multi-pose AI Ref Inputs dump only
-    // for creators whose refs haven't been approved yet.
-    const approvedFace = cf['AI Ref Face'] || []
-    const approvedFront = cf['AI Ref Front'] || []
-    const approvedBack = cf['AI Ref Back'] || []
-    let onFileRefs = [...approvedFace, ...approvedFront, ...approvedBack]
-    if (onFileRefs.length === 0) {
-      const allRefs = cf['AI Ref Inputs'] || []
-      const face = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
-      const front = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
-      const back = allRefs.filter(a => a.filename?.startsWith('Back View input_'))
-      for (let i = 0; i < Math.max(face.length, front.length, back.length); i++) {
-        if (face[i]) onFileRefs.push(face[i])
-        if (front[i]) onFileRefs.push(front[i])
-        if (back[i]) onFileRefs.push(back[i])
-      }
-    }
+    // Identity signal was just ONE face + ONE front + ONE back (the
+    // approved refs) → "close, not exact". The model accepts up to 9
+    // images (verified); we only used 5. Enrich it: pull MANY face
+    // shots from the raw AI Ref Inputs pool too, face-weighted, so the
+    // model has multiple angles of the SAME person to lock identity.
+    const allRefs = cf['AI Ref Inputs'] || []
+    const inFace = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
+    const inFront = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
+    const inBack = allRefs.filter(a => a.filename?.startsWith('Back View input_'))
+    const dedupe = arr => { const s = new Set(); return arr.filter(a => { const k = a?.url || a?.id; if (!k || s.has(k)) return false; s.add(k); return true }) }
+    const faces = dedupe([...(cf['AI Ref Face'] || []), ...inFace])
+    const fronts = dedupe([...(cf['AI Ref Front'] || []), ...inFront])
+    const backs = dedupe([...(cf['AI Ref Back'] || []), ...inBack])
+    // Face-weighted: up to 5 faces (identity) + 2 fronts (body) + 1 back.
+    // [room, reel, ...identity].slice(0,9) keeps the first 7 of these.
+    let onFileRefs = [...faces.slice(0, 5), ...fronts.slice(0, 2), ...backs.slice(0, 1)]
 
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
