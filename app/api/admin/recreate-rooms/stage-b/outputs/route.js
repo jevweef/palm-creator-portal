@@ -25,6 +25,19 @@ export async function GET(request) {
     ])
     const reelById = Object.fromEntries(reels.map(r => [r.id, r.fields || {}]))
     const roomById = Object.fromEntries(rooms.map(r => [r.id, r.fields?.['Room Name'] || '']))
+    // 1-based index per creator, oldest = 1 (stable label that matches
+    // the ZIP filename).
+    const idxById = {}
+    const byCreator = {}
+    for (const o of outputs) {
+      const cid = (o.fields?.Creator || [])[0] || '_'
+      ;(byCreator[cid] ||= []).push(o)
+    }
+    for (const cid of Object.keys(byCreator)) {
+      byCreator[cid]
+        .sort((a, b) => (a.createdTime || '').localeCompare(b.createdTime || ''))
+        .forEach((o, i) => { idxById[o.id] = i + 1 })
+    }
     const list = outputs
       .filter(o => !creatorId || (o.fields?.Creator || []).includes(creatorId))
       .map(o => {
@@ -34,6 +47,7 @@ export async function GET(request) {
         const roomId = (f.Room || [])[0]
         return {
           id: o.id,
+          index: idxById[o.id] || null,
           name: f.Name || '',
           image: att(f.Image),
           dropbox: f['Dropbox Link'] ? String(f['Dropbox Link']).replace('dl=0', 'dl=1') : null,
