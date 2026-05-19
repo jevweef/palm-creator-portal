@@ -624,6 +624,7 @@ function StageBPanel() {
   const [poseTime, setPoseTime] = useState(0)
   const [captured, setCaptured] = useState(false)
   const [poseModalOpen, setPoseModalOpen] = useState(false)
+  const [poseDuration, setPoseDuration] = useState(0)
   const [extraFiles, setExtraFiles] = useState([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -640,6 +641,19 @@ function StageBPanel() {
     }).catch(() => {})
     fetch('/api/admin/recreate-sources').then(r => r.json()).then(d => setReels(d.reels || [])).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Real video length from CF Stream so the scrub slider spans exactly the
+  // clip (not a hardcoded 30s). Same source as the Post Prep picker.
+  useEffect(() => {
+    setPoseDuration(0)
+    if (!reel?.streamUid) return
+    let cancelled = false
+    fetch(`/api/admin/cf-stream/info?uid=${encodeURIComponent(reel.streamUid)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d?.duration) setPoseDuration(d.duration) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [reel])
 
   useEffect(() => {
     if (!poseModalOpen) return
@@ -751,10 +765,10 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
             <div style={{ fontSize: 13, color: '#bbb', alignSelf: 'flex-start' }}>Scrub to the exact pose &amp; outfit — this is the frame fed to the model.</div>
             <img src={buildStreamPosterUrl(reel.streamUid, { time: `${Math.max(0.1, poseTime)}s`, width: 720, fit: 'crop' })} alt=""
               style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
-            <input type="range" min={0} max={30} step={0.1} value={poseTime}
+            <input type="range" min={0} max={poseDuration ? poseDuration.toFixed(2) : 30} step={0.05} value={Math.min(poseTime, poseDuration || 30)}
               onChange={e => { setPoseTime(Number(e.target.value)); setCaptured(false) }}
               style={{ width: '100%' }} />
-            <div style={{ fontSize: 13, color: '#ddd', fontWeight: 600 }}>Frame @ {poseTime.toFixed(1)}s</div>
+            <div style={{ fontSize: 13, color: '#ddd', fontWeight: 600 }}>Frame @ {poseTime.toFixed(1)}s{poseDuration ? ` / ${poseDuration.toFixed(1)}s` : ''}</div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setCaptured(true); setPoseModalOpen(false); setMsg(`Pose captured @ ${poseTime.toFixed(1)}s`) }}
                 style={{ padding: '10px 22px', fontSize: 14, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: 'pointer' }}>📸 Capture this frame</button>
