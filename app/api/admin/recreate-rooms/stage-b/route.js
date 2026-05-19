@@ -63,37 +63,41 @@ const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 
 const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
 
-// 2-role prompt: image 1 = the room (keep 100%), images 2..N = the
-// creator's identity. NO pose-reference image — a pose ref carries the
-// reel girl's face and an image-edit model blends it in ("wrong girl").
-// The off-site motion-control step drives pose/motion from the reel
-// video, so Stage B only needs a clean still of THIS woman standing in
-// her room.
-function buildPrompt(idRange) {
+// Fixed seed: the official Wan docs recommend a stable seed so prompt
+// iterations are comparable. Identity is still being dialed in; can
+// randomise later once it locks.
+const STAGE_B_SEED = 77777
+
+// Two-part prompt per the official Wan image-edit guidance ("what to
+// do / what to keep") with ordinal Figure refs mapped to the images
+// array order. NO pose image — a pose ref carries the reel girl's face
+// and the model blends it in ("wrong girl"); motion is driven from the
+// reel video off-site, so the still only needs THIS woman in her room.
+// images[] is capped at 3 (the model's hard API max): Figure 1 = room,
+// Figures 2..N = identity.
+function buildPrompt(idList) {
   return (
-    'Image 1 is the FIXED SCENE — this exact room. Keep the room, furniture, '
-    + 'layout, windows, the outside view, the rug, décor, wall hangings, '
-    + 'plants, lighting, time of day and camera framing EXACTLY as in image 1. '
-    + 'Do not change, move, restyle, re-render or re-light the room at all. '
-    + 'There is no person in image 1 — add one woman standing in it.\n\n'
-    + `${idRange} show the EXACT woman to insert — this is the only person `
-    + 'who may appear. Reproduce her face, facial features, skin tone, hair '
-    + 'and body shape faithfully and identically from those reference images; '
-    + 'do not blend, average, beautify or substitute a different face. She '
-    + 'must be unmistakably the same person as in those references.\n\n'
-    + 'Pose her standing naturally and relaxed, facing the camera, full body '
-    + 'comfortably in frame, wearing simple casual everyday clothing. Composite '
-    + 'her on the open floor area in front of the bed at a realistic human '
-    + 'scale, properly grounded with correct contact shadows, and the light on '
-    + 'her matched to the room\'s existing lighting and direction. Hyper '
-    + 'realistic, ultra detailed natural skin texture, true-to-life colors, '
-    + 'raw iPhone camera style, seamless blend into the scene, no text '
-    + 'overlay, no watermark.'
+    `WHAT TO DO: Figure 1 is an empty room with no person in it. Add exactly `
+    + 'one woman standing on the open floor in front of the bed, at realistic '
+    + 'human scale, properly grounded with correct contact shadows, lit to '
+    + 'match the room\'s existing light direction and warmth. She stands '
+    + 'naturally and relaxed, facing the camera, full body in frame, in '
+    + `simple casual everyday clothing. ${idList} are reference photos of the `
+    + 'SAME real woman — she is the only person who may appear. Copy her face, '
+    + `facial features, skin tone, hair and body shape EXACTLY from ${idList}; `
+    + 'do not beautify, average, stylise or substitute a different face. She '
+    + 'must be unmistakably that same woman.\n\n'
+    + 'WHAT TO KEEP: Keep the room in Figure 1 completely unchanged — walls, '
+    + 'windows, the outside view, furniture, bed, rug, décor, wall hangings, '
+    + 'plants, lighting, time of day, camera angle and framing all identical '
+    + 'to Figure 1. Do not move, restyle, re-render or re-light the room.\n\n'
+    + 'Hyper realistic, ultra-detailed natural skin texture, true-to-life '
+    + 'colors, raw iPhone photo look, seamless blend, no text, no watermark.'
   )
 }
 
 async function runWan(images, prompt) {
-  const task = await submitWaveSpeedTask(WAN_MODEL, { images, prompt, size: '1080*1920', seed: -1 })
+  const task = await submitWaveSpeedTask(WAN_MODEL, { images, prompt, size: '1080*1920', seed: STAGE_B_SEED })
   const t0 = Date.now()
   while (Date.now() - t0 < 270000) {
     const d = await pollWaveSpeedTask(task.id)
@@ -147,21 +151,18 @@ export async function POST(request) {
     // Prefer the APPROVED single best ref per angle (curated via AI Super
     // Clone). Fall back to the raw multi-pose AI Ref Inputs dump only for
     // creators whose refs haven't been approved yet.
-    const approvedFace = cf['AI Ref Face'] || []
-    const approvedFront = cf['AI Ref Front'] || []
-    const approvedBack = cf['AI Ref Back'] || []
-    let onFileRefs = [...approvedFace, ...approvedFront, ...approvedBack]
-    if (onFileRefs.length === 0) {
+    // wan-2.7/image-edit-pro accepts a MAX of 3 images total. So we use
+    // exactly: Figure 1 = room, Figure 2 = face (identity), Figure 3 =
+    // full-body front (body/grounding). One unambiguous image per role —
+    // the official docs reference a single ordinal image per instruction.
+    let faceRef = (cf['AI Ref Face'] || [])[0] || null
+    let frontRef = (cf['AI Ref Front'] || [])[0] || null
+    if (!faceRef && !frontRef) {
       const allRefs = cf['AI Ref Inputs'] || []
-      const front = allRefs.filter(a => a.filename?.startsWith('Front View input_'))
-      const face = allRefs.filter(a => a.filename?.startsWith('Close Up Face input_'))
-      const back = allRefs.filter(a => a.filename?.startsWith('Back View input_'))
-      for (let i = 0; i < Math.max(face.length, front.length, back.length); i++) {
-        if (face[i]) onFileRefs.push(face[i])
-        if (front[i]) onFileRefs.push(front[i])
-        if (back[i]) onFileRefs.push(back[i])
-      }
+      faceRef = allRefs.find(a => a.filename?.startsWith('Close Up Face input_')) || null
+      frontRef = allRefs.find(a => a.filename?.startsWith('Front View input_')) || null
     }
+    const onFileRefs = [faceRef, frontRef].filter(Boolean)
 
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
@@ -222,18 +223,23 @@ export async function POST(request) {
     const chosenRoomName = myRooms.find(r => r.id === roomId)?.fields?.['Room Name'] || 'Room'
     const chosenFraming = framingOf(chosen) || 'unclassified'
 
-    // Wan cap = 9 total: [room, ...identity]. NO pose image (it carried
-    // the reel girl's face → wrong identity; motion comes from the reel
-    // video off-site). Identity = uploaded extras first, then on-file
-    // AI refs.
+    // The model's hard API max is 3 images (WaveSpeed README + Alibaba
+    // Model Studio: "up to 3 reference images"). The playground UI's
+    // 9-item cap is just its uploader widget, NOT the model contract —
+    // sending >3 means it silently honors 3 and the identity never
+    // binds ("wrong girl"). So: Figure 1 = room, Figures 2-3 = identity
+    // (uploaded extras take priority, then on-file face/front).
     const identity = [...extraUrls, ...onFileRefs.map(a => a.url)]
     if (identity.length === 0) {
       return NextResponse.json({ error: `No identity references — upload some for this run, or set up ${aka}'s AI Super Clone refs.` }, { status: 400 })
     }
-    const images = [roomUrl, ...identity].slice(0, 9)
-    const idCount = images.length - 1
-    const idRange = idCount === 1 ? 'image 2' : `images 2 to ${images.length}`
-    const prompt = buildPrompt(idRange)
+    const images = [roomUrl, ...identity].slice(0, 3)
+    const figs = []
+    for (let i = 2; i <= images.length; i++) figs.push(`Figure ${i}`)
+    const idList = figs.length <= 1
+      ? (figs[0] || 'Figure 2')
+      : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
+    const prompt = buildPrompt(idList)
     const outUrl = await runWan(images, prompt)
 
     const locName = chosenRoomName
