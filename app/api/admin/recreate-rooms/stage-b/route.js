@@ -85,34 +85,48 @@ const STAGE_B_SEED = 77777
 // Both prompts use the official two-part "WHAT TO DO / WHAT TO KEEP"
 // structure with ordinal Figure refs (Figure N = images[N-1]).
 
-// SINGLE-PASS prompt. The strengthened "placeholder head" framing
-// solved the wrong-girl problem (verified from a real winning output:
-// Amelia's face + the reel's outfit/pose/room). Refinement: pull BODY
-// SHAPE from the identity refs too — earlier it took the reel girl's
-// body. Pose (limb arrangement) still comes from Figure 2; body
-// proportions/figure come from the identity figures.
-function buildSinglePrompt(idList) {
+// TWO-STEP, both wan image-edit-pro (no dedicated face-swap — user
+// rejected it). Step 1 = reel creator composited into the locked room
+// (pose/outfit/framing). Step 2 = take Step-1's clean composite and
+// replace the PERSON with the creator's identity. Editing a clean
+// composite (Step 2) is a cleaner identity task than fighting a raw
+// reel screenshot in one shot.
+
+// Step 1 — pose/outfit/framing into the room. Identity irrelevant.
+function buildPosePrompt() {
   return (
-    'WHAT TO DO: Figure 1 is the empty room — the exact location and '
-    + 'background to use. Place one woman standing in it. From Figure 2 take '
-    + 'ONLY: her body POSE and limb positioning, her exact outfit and '
-    + 'clothing, and the camera distance and crop. The face, head AND body '
-    + 'of the woman in Figure 2 are a PLACEHOLDER — discard them; she is a '
-    + `DIFFERENT person, never reproduce Figure 2's face or body shape. The `
-    + `final woman's face, head, hair, skin tone, identity AND her body `
-    + `shape, proportions and figure must ALL come ONLY from ${idList} (the `
-    + `real person). Her face must be an EXACT likeness of ${idList} — the `
-    + `SAME individual, not a lookalike or "similar" face: reproduce the `
-    + `precise facial structure, eye shape and spacing, eyebrows, nose, lips, `
-    + `jawline, skin tone and hairline from ${idList} faithfully. Final `
-    + `result = the POSE and OUTFIT of Figure 2, on the exact real person `
-    + `(face and body) from ${idList}.\n\n`
-    + 'WHAT TO KEEP: Keep the room in Figure 1 completely unchanged — walls, '
-    + 'windows, the outside view, furniture, bed, rug, décor, plants, '
-    + 'lighting and time of day identical to Figure 1. Do NOT copy Figure '
-    + "2's background or location.\n\n"
-    + 'Hyper realistic, ultra-detailed natural skin texture, raw iPhone '
-    + 'photo look, no text, no watermark.'
+    'WHAT TO DO: Figure 1 is an empty room with no person in it. Add exactly '
+    + 'one woman standing in it. Copy her body pose, stance, limb positioning, '
+    + 'her exact clothing and outfit (garments, colours, fabric, styling), and '
+    + "the camera distance, crop and how close she is to the camera, all from "
+    + 'Figure 2. Match Figure 2\'s framing exactly. Ground her realistically '
+    + 'with correct contact shadows and lighting that matches the room.\n\n'
+    + 'WHAT TO KEEP: Keep the room in Figure 1 completely unchanged. Do NOT '
+    + "copy Figure 2's background, room or location — only the woman's pose, "
+    + 'outfit and the camera framing.\n\n'
+    + 'Hyper realistic, raw iPhone photo look, no text, no watermark.'
+  )
+}
+
+// Step 2 — Figure 1 is the finished Step-1 composite; Figures 2..N are
+// the creator. Replace the person's identity AND body to be exactly her,
+// keeping pose/outfit/room/framing/lighting byte-identical.
+function buildSwapPrompt(idList) {
+  return (
+    `WHAT TO DO: Figure 1 is a finished photo of a woman standing in a room. `
+    + `Change WHO she is: her face, head, hair, skin tone and her body shape `
+    + `and proportions must become EXACTLY the woman shown in ${idList} (the `
+    + `same real individual across those reference photos — not a lookalike). `
+    + `Reproduce her precise facial structure, eye shape and spacing, `
+    + `eyebrows, nose, lips, jawline, hairline and skin tone from ${idList} `
+    + `faithfully. She must be unmistakably that person.\n\n`
+    + 'WHAT TO KEEP: Keep EVERYTHING ELSE in Figure 1 byte-identical — her '
+    + 'exact body pose, stance and hands, her full outfit and clothing, the '
+    + 'entire room and its contents, the lighting and the camera distance, '
+    + 'crop and framing. Only the identity (face + body shape) changes; '
+    + 'nothing else moves or re-renders.\n\n'
+    + 'Hyper realistic, ultra-detailed natural skin texture, seamless, no '
+    + 'text, no watermark.'
   )
 }
 
@@ -268,18 +282,21 @@ export async function POST(request) {
     const folderSafe = locName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Room'
     const reelShort = (reelRecordId && /^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) ? reelRecordId : null
 
-    // SINGLE PASS — user compared A (this) vs B (face-swap-pro) on real
-    // outputs and chose this; the face-swap arm was bad. Figure 1 = room,
-    // Figure 2 = reel frame (pose/outfit/framing), Figures 3..N = identity.
-    // 250s cap: it's the only model call, route maxDuration is 300, and a
-    // legit run has taken ~112s — never false-time-out a success again.
-    const images = [roomUrl, poseUrl, ...identity].slice(0, 9)
+    // TWO-STEP, both wan image-edit-pro (sequential; ~40-112s each, 130s
+    // cap each keeps total under the 300s route budget).
+    //   Step 1: room + reel frame → reel creator in the locked room.
+    //   Step 2: Step-1 composite + identity refs → swap to the creator.
+    const posePrompt = buildPosePrompt()
+    const step1Out = await runWan([roomUrl, poseUrl], posePrompt, 130000)
+
+    const swapImages = [step1Out, ...identity].slice(0, 9)
     const figs = []
-    for (let i = 3; i <= images.length; i++) figs.push(`Figure ${i}`)
-    const idList = figs.length <= 1 ? (figs[0] || 'Figure 3')
+    for (let i = 2; i <= swapImages.length; i++) figs.push(`Figure ${i}`)
+    const idList = figs.length <= 1 ? (figs[0] || 'Figure 2')
       : `${figs.slice(0, -1).join(', ')} and ${figs[figs.length - 1]}`
-    const prompt = buildSinglePrompt(idList)
-    const outUrl = await runWan(images, prompt, 250000)
+    const swapPrompt = buildSwapPrompt(idList)
+    const outUrl = await runWan(swapImages, swapPrompt, 130000)
+    const prompt = `STEP 1 (${WAN_MODEL}):\n${posePrompt}\n\n---\n\nSTEP 2 (${WAN_MODEL}):\n${swapPrompt}`
 
     let dbxPath = '', dbxLink = ''
     try {
@@ -310,6 +327,7 @@ export async function POST(request) {
     return NextResponse.json({
       ok: true,
       out: outUrl, dropbox: dbxLink || null,
+      step1: step1Out,
       room: chosenRoomName, roomFraming: chosenFraming,
       screenshotFraming: shotFraming || 'unknown',
     })

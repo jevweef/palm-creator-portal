@@ -701,7 +701,7 @@ function StageBPanel() {
     try {
       const refPaths = []
       for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
-      setMsg('⏳ Stage B — compositing the creator into the room (reel pose/outfit/framing)… ~1–2 min, leave this tab open.')
+      setMsg('⏳ Stage B — Step 1: reel creator into the room, then Step 2: swap in the creator… ~2–3 min, leave this tab open.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, poseStreamUid: reel.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel.id }),
@@ -713,8 +713,8 @@ function StageBPanel() {
         : v && typeof v === 'object' ? (v.message || v.error || JSON.stringify(v))
         : String(v)
       if (d && d.ok) {
-        setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming, compare: d.compare || null })
-        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. ${d.compare ? 'Compare A vs B below' : 'Saved'} — both in Stage B Outputs.`)
+        setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming, step1: d.step1 || null })
+        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Saved to Stage B Outputs below.`)
         loadOutputs()
       } else if (d) {
         setMsg(`❌ ${asStr(d.error) || `HTTP ${res.status}`}`)
@@ -802,29 +802,23 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
       {stageBOut && (
         <div style={{ ...card, marginTop: 16 }}>
           <div style={lbl}>Result — {sel?.name} in {stageBOut.room} [{stageBOut.roomFraming}] · shot read as {stageBOut.screenshotFraming}</div>
-          {stageBOut.compare ? (
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {[stageBOut.compare.a, stageBOut.compare.b].map((c, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? '#e8b878' : '#6AC68A' }}>{String.fromCharCode(65 + i)} · {c.label}</div>
-                  <img src={c.url} alt={c.label}
-                    style={{ width: 'min(340px, 44vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
-                  <a href={c.dropbox || c.url} target="_blank" rel="noreferrer"
-                    style={{ fontSize: 12, color: '#8fb4f0', textDecoration: 'none' }}>↗ Open full size</a>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              <img src={stageBOut.url} alt="Stage B result"
-                style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
-              <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-                <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
-                  style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, textDecoration: 'none' }}>↗ Open full size</a>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            {stageBOut.step1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#e8b878' }}>Step 1 · reel creator in room</div>
+                <img src={stageBOut.step1} alt="Step 1"
+                  style={{ width: 'min(220px, 40vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block', opacity: 0.85 }} />
               </div>
-            </>
-          )}
-          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>{stageBOut.compare ? 'Both A & B saved as Pending in Stage B Outputs below (tagged 1pass / 2pass).' : 'Saved as Pending in Stage B Outputs below.'}</div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#6AC68A' }}>Step 2 · {sel?.name} (final)</div>
+              <img src={stageBOut.url} alt="Stage B result"
+                style={{ width: 'min(340px, 60vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
+              <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
+                style={{ fontSize: 12, color: '#8fb4f0', textDecoration: 'none' }}>↗ Open full size</a>
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>Final (Step 2) saved as Pending in Stage B Outputs below.</div>
         </div>
       )}
 
