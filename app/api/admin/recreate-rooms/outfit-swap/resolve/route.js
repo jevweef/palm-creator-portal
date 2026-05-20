@@ -15,7 +15,7 @@ export async function POST() {
   try {
     await requireAdminOrAiEditor()
     const rows = await fetchAirtableRecords(OUTPUTS, {
-      fields: ['Name', 'Prediction ID', 'Status'],
+      fields: ['Name', 'Prediction ID', 'Status', 'Slug'],
       filterByFormula: `AND({Status}='Generating', NOT({Prediction ID}=''))`,
     })
     if (rows.length === 0) return NextResponse.json({ ok: true, checked: 0, completed: 0, failed: 0, pending: 0 })
@@ -42,7 +42,13 @@ export async function POST() {
             const ir = await fetch(outUrl)
             if (ir.ok) {
               const buf = Buffer.from(await ir.arrayBuffer())
-              dbxPath = `/Palm Ops/Outfit Swaps/${r.id}-${Date.now()}.jpg`
+              // Slug-based path: matches the parent Stage B file naming
+              // so an editor unzipping a bulk ZIP sees consistent names.
+              const slug = r.fields?.Slug || ''
+              const akaFolder = (slug.split('_')[0] || 'misc')
+              dbxPath = slug
+                ? `/Palm Ops/Outfit Swaps/${akaFolder}/${slug}.jpg`
+                : `/Palm Ops/Outfit Swaps/${r.id}-${Date.now()}.jpg`
               await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
               try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
             }

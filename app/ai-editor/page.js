@@ -166,6 +166,318 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
   )
 }
 
+// ─── Needs Revision section (closes the rejection loop for AI editors) ───
+function RevisionsSection({ revisions, creatorId, onResubmitted }) {
+  return (
+    <div style={{ marginBottom: 24, padding: 16, border: '1px solid rgba(232,120,120,0.35)', borderRadius: 10, background: 'rgba(232,120,120,0.05)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: 16 }}>⚠️</span>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#E87878' }}>
+          {revisions.length} revision{revisions.length === 1 ? '' : 's'} needed
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+        {revisions.map(rev => (
+          <RevisionCard key={rev.taskId} rev={rev} creatorId={creatorId} onResubmitted={onResubmitted} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RevisionCard({ rev, creatorId, onResubmitted }) {
+  const [showUpload, setShowUpload] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [err, setErr] = useState('')
+  const fileRef = useRef(null)
+
+  const fileToBase64 = (file) => new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload = () => res(String(r.result).split(',')[1])
+    r.onerror = rej
+    r.readAsDataURL(file)
+  })
+  const extractFirstFrame = (file) => new Promise((res, rej) => {
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.src = URL.createObjectURL(file)
+    video.muted = true
+    video.onloadeddata = () => {
+      video.currentTime = Math.min(0.1, video.duration / 4)
+    }
+    video.onseeked = () => {
+      const c = document.createElement('canvas')
+      c.width = video.videoWidth
+      c.height = video.videoHeight
+      c.getContext('2d').drawImage(video, 0, 0)
+      res(c.toDataURL('image/jpeg', 0.85).split(',')[1])
+    }
+    video.onerror = rej
+  })
+
+  const submitResubmit = async () => {
+    const vf = fileRef.current?.files?.[0]
+    if (!vf) { setErr('Pick the revised video'); return }
+    setUploading(true); setErr('')
+    try {
+      const tokRes = await fetch('/api/ai-editor/upload-token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reelRecordId: rev.stageBParent?.reelRecordId || rev.taskId }),
+      })
+      const tok = await tokRes.json()
+      if (!tokRes.ok) throw new Error(tok.error || 'token failed')
+      const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tok.accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: tok.path, mode: 'overwrite', mute: true }),
+          'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: await vf.arrayBuffer(),
+      })
+      if (!dbxRes.ok) throw new Error(`Dropbox upload failed (${dbxRes.status})`)
+
+      let thumbnailBase64
+      try { thumbnailBase64 = await extractFirstFrame(vf) } catch { /* optional */ }
+      const r = await fetch('/api/ai-editor/resubmit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: rev.taskId, dropboxPath: tok.path, thumbnailBase64 }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'resubmit failed')
+      onResubmitted()
+    } catch (e) { setErr(e.message) }
+    finally { setUploading(false) }
+  }
+
+  return (
+    <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(232,120,120,0.25)', borderRadius: 8, padding: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        {rev.thumbnail && (
+          <img src={rev.thumbnail} alt="" loading="lazy"
+            style={{ width: 56, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 5, background: '#000' }} />
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, fontWeight: 700, color: '#E87878', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {rev.slug || rev.name}
+          </div>
+          {rev.referenceReelUrl && (
+            <a href={rev.referenceReelUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#8fb4f0', textDecoration: 'none' }}>↗ original inspo reel</a>
+          )}
+        </div>
+      </div>
+
+      {rev.adminFeedback && (
+        <div style={{ marginTop: 10, padding: 8, background: 'rgba(0,0,0,0.4)', borderLeft: '2px solid #E87878', borderRadius: 4, fontSize: 12, color: '#ddd', whiteSpace: 'pre-wrap' }}>
+          {rev.adminFeedback}
+        </div>
+      )}
+
+      {rev.adminScreenshots?.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: 4, marginTop: 8 }}>
+          {rev.adminScreenshots.map((url, i) => (
+            <a key={i} href={url} target="_blank" rel="noreferrer">
+              <img src={url} alt="" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)' }} />
+            </a>
+          ))}
+        </div>
+      )}
+
+      {rev.revisionHistory?.length > 1 && (
+        <div style={{ marginTop: 8, fontSize: 10, color: 'var(--foreground-muted)' }}>
+          ↻ Round {rev.revisionHistory.length} of revisions on this asset
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+        <button onClick={() => setShowUpload(v => !v)}
+          style={{ flex: '1 1 120px', padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#6AC68A', background: 'rgba(106,198,138,0.12)', border: '1px solid rgba(106,198,138,0.3)', borderRadius: 5, cursor: 'pointer' }}>
+          ↑ Re-upload revised
+        </button>
+        {rev.stageBParent && (
+          <a href={`/ai-editor/recreate?tab=stageb&creator=${rev.stageBParent.creatorId || creatorId}&reel=${rev.stageBParent.reelRecordId}`}
+            style={{ flex: '1 1 120px', textAlign: 'center', padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#e8b878', background: 'rgba(232,184,120,0.12)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 5, textDecoration: 'none' }}>
+            🎨 Re-do Stage B
+          </a>
+        )}
+      </div>
+
+      {showUpload && (
+        <div style={{ marginTop: 10, padding: 10, background: 'rgba(0,0,0,0.4)', borderRadius: 6 }}>
+          <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 4 }}>Revised video (mp4) — thumbnail auto-generated from the first frame</div>
+          <input ref={fileRef} type="file" accept="video/*" style={{ fontSize: 11, color: 'var(--foreground-muted)', width: '100%' }} />
+          {err && <div style={{ fontSize: 11, color: '#E87878', marginTop: 6 }}>{err}</div>}
+          <button onClick={submitResubmit} disabled={uploading}
+            style={{ width: '100%', marginTop: 8, padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#1a0a0a', background: 'var(--palm-pink)', border: 'none', borderRadius: 5, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.5 : 1 }}>
+            {uploading ? 'Uploading…' : 'Submit revised → Pending Review'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Batch upload — drag N finished videos at once ─────────────────────────
+function BatchUploadModal({ creatorId, onClose, onDone }) {
+  const [files, setFiles] = useState([])
+  const [progress, setProgress] = useState({}) // name -> { status: 'pending'|'resolving'|'uploading'|'done'|'error', error? }
+  const [resolvedSlugs, setResolvedSlugs] = useState({}) // name -> { ok, reelRecordId, creatorId, slug, error }
+  const [running, setRunning] = useState(false)
+
+  const onDrop = (e) => { e.preventDefault(); setFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('video/'))) }
+  const onPick = (e) => setFiles([...e.target.files].filter(f => f.type.startsWith('video/')))
+
+  // Resolve every slug in one round-trip so the editor sees up front
+  // which files match a real Stage B Output and which are mystery files.
+  useEffect(() => {
+    if (!files.length) { setResolvedSlugs({}); return }
+    const slugs = files.map(f => f.name)
+    fetch('/api/ai-editor/slug-lookup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slugs }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        const byName = {}
+        d.results?.forEach((r, i) => { byName[files[i].name] = r })
+        setResolvedSlugs(byName)
+      })
+      .catch(() => {})
+  }, [files])
+
+  const extractFirstFrame = (file) => new Promise((res, rej) => {
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.src = URL.createObjectURL(file)
+    video.muted = true
+    video.onloadeddata = () => { video.currentTime = Math.min(0.1, video.duration / 4) }
+    video.onseeked = () => {
+      const c = document.createElement('canvas')
+      c.width = video.videoWidth
+      c.height = video.videoHeight
+      c.getContext('2d').drawImage(video, 0, 0)
+      res(c.toDataURL('image/jpeg', 0.85).split(',')[1])
+    }
+    video.onerror = rej
+  })
+
+  const runBatch = async () => {
+    setRunning(true)
+    // Concurrency of 3 — Dropbox uploads in parallel work fine but we
+    // don't want to slam the API at 50-wide for a single editor.
+    const queue = files.filter(f => resolvedSlugs[f.name]?.ok)
+    const CONC = 3
+    let idx = 0
+    const next = async () => {
+      const f = queue[idx++]
+      if (!f) return
+      const meta = resolvedSlugs[f.name]
+      setProgress(p => ({ ...p, [f.name]: { status: 'uploading' } }))
+      try {
+        const tokRes = await fetch('/api/ai-editor/upload-token', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reelRecordId: meta.reelRecordId }),
+        })
+        const tok = await tokRes.json()
+        if (!tokRes.ok) throw new Error(tok.error || 'token failed')
+        const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${tok.accessToken}`,
+            'Dropbox-API-Arg': JSON.stringify({ path: tok.path, mode: 'overwrite', mute: true }),
+            'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
+            'Content-Type': 'application/octet-stream',
+          },
+          body: await f.arrayBuffer(),
+        })
+        if (!dbxRes.ok) throw new Error(`Dropbox ${dbxRes.status}`)
+        let thumb
+        try { thumb = await extractFirstFrame(f) } catch {}
+        const r = await fetch('/api/ai-editor/upload', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reelRecordId: meta.reelRecordId,
+            creatorId: meta.creatorId || creatorId,
+            dropboxPath: tok.path,
+            thumbnailBase64: thumb,
+          }),
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error || 'upload failed')
+        setProgress(p => ({ ...p, [f.name]: { status: 'done' } }))
+      } catch (e) {
+        setProgress(p => ({ ...p, [f.name]: { status: 'error', error: e.message } }))
+      }
+      await next()
+    }
+    await Promise.all(Array.from({ length: CONC }, next))
+    setRunning(false)
+    setTimeout(onDone, 1500)
+  }
+
+  const ok = files.filter(f => resolvedSlugs[f.name]?.ok).length
+  const bad = files.length - ok
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: 'min(640px, 96vw)', maxHeight: '92vh', overflow: 'auto', background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 22 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>📦 Batch upload finished videos</div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14 }}>
+          Drop N finished AI motion videos at once. Filenames should match the slug pattern (e.g. <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>Amelia_R042_S01_O03.mp4</span>) so each file lands on its parent Stage B Output. Thumbnails are auto-generated from the first frame.
+        </div>
+
+        <div onDrop={onDrop} onDragOver={e => e.preventDefault()}
+          style={{ border: '2px dashed rgba(255,255,255,0.2)', borderRadius: 10, padding: 24, textAlign: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginBottom: 8 }}>Drop video files here</div>
+          <label style={{ display: 'inline-block', padding: '8px 16px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 6, cursor: 'pointer' }}>
+            …or pick files
+            <input type="file" accept="video/*" multiple onChange={onPick} style={{ display: 'none' }} />
+          </label>
+        </div>
+
+        {files.length > 0 && (
+          <>
+            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
+              {files.length} file{files.length === 1 ? '' : 's'} · <span style={{ color: '#6AC68A' }}>{ok} matched</span>{bad > 0 && <>, <span style={{ color: '#E87878' }}>{bad} unmatched</span></>}
+            </div>
+            <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6 }}>
+              {files.map(f => {
+                const meta = resolvedSlugs[f.name]
+                const p = progress[f.name]
+                const matched = meta?.ok
+                const color = p?.status === 'done' ? '#6AC68A' : p?.status === 'error' || !matched ? '#E87878' : p?.status === 'uploading' ? '#8fb4f0' : '#aaa'
+                return (
+                  <div key={f.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--foreground-muted)' }}>
+                        {matched ? `→ slug ${meta.slug}${meta.outfit ? ' · ' + meta.outfit : ''}` : (meta?.error || 'parsing…')}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color, whiteSpace: 'nowrap' }}>
+                      {p?.status === 'done' ? '✓' : p?.status === 'error' ? `✕ ${p.error}` : p?.status === 'uploading' ? '⏳' : matched ? 'ready' : 'skip'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+          <button onClick={onClose}
+            style={{ padding: '9px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8, cursor: 'pointer' }}>Close</button>
+          <button onClick={runBatch} disabled={running || ok === 0}
+            style={{ padding: '9px 18px', fontSize: 13, fontWeight: 700, background: (running || ok === 0) ? 'rgba(232,160,160,0.4)' : 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: (running || ok === 0) ? 'default' : 'pointer' }}>
+            {running ? 'Uploading…' : `Upload ${ok} matched video${ok === 1 ? '' : 's'}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AiEditorPage() {
   const sp = useSearchParams()
   const urlCreator = sp.get('creator') || ''
@@ -176,6 +488,8 @@ export default function AiEditorPage() {
   const [selected, setSelected] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [revisions, setRevisions] = useState([])
+  const [batchOpen, setBatchOpen] = useState(false)
 
   const loadCreators = useCallback(async () => {
     const res = await fetch('/api/ai-editor/pool')
@@ -199,8 +513,17 @@ export default function AiEditorPage() {
     setLoading(false)
   }, [])
 
+  const loadRevisions = useCallback(async (cid) => {
+    if (!cid) { setRevisions([]); return }
+    try {
+      const r = await fetch(`/api/ai-editor/revisions?creatorId=${cid}`)
+      const d = await r.json()
+      if (r.ok) setRevisions(d.revisions || [])
+    } catch {}
+  }, [])
+
   useEffect(() => { loadCreators() }, [loadCreators])
-  useEffect(() => { if (creatorId) loadReels(creatorId) }, [creatorId, loadReels])
+  useEffect(() => { if (creatorId) { loadReels(creatorId); loadRevisions(creatorId) } }, [creatorId, loadReels, loadRevisions])
 
   // When arriving with ?upload=<reelId>, scroll to that reel once loaded.
   useEffect(() => {
@@ -250,15 +573,29 @@ export default function AiEditorPage() {
             → Stage B & Outfit Swap
           </a>
         </div>
-        <select
-          value={creatorId}
-          onChange={e => setCreatorId(e.target.value)}
-          style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}
-        >
-          {creators.length === 0 && <option>No TJP creators</option>}
-          {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button onClick={() => setBatchOpen(true)}
+            style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+            📦 Batch Upload
+          </button>
+          <select
+            value={creatorId}
+            onChange={e => setCreatorId(e.target.value)}
+            style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}
+          >
+            {creators.length === 0 && <option>No TJP creators</option>}
+            {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
       </div>
+
+      {revisions.length > 0 && (
+        <RevisionsSection revisions={revisions} creatorId={creatorId} onResubmitted={() => loadRevisions(creatorId)} />
+      )}
+
+      {batchOpen && (
+        <BatchUploadModal creatorId={creatorId} onClose={() => setBatchOpen(false)} onDone={() => { setBatchOpen(false); loadReels(creatorId) }} />
+      )}
 
       {selected.size > 0 && (
         <div style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(232,160,160,0.1)', border: '1px solid rgba(232,160,160,0.3)', borderRadius: 8, marginBottom: 16 }}>

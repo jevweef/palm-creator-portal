@@ -4,6 +4,7 @@ import { submitWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildStreamPosterUrl } from '@/lib/cfStreamUrl'
+import { nextStageBSequence, stageBSlug } from '@/lib/recreateSlug'
 
 export const maxDuration = 300
 
@@ -330,8 +331,21 @@ export async function POST(request) {
       return NextResponse.json({ error: 'WaveSpeed did not return a prediction id' }, { status: 502 })
     }
 
+    // Canonical naming: a sequential (Reel #, Still #) per creator → a
+    // single slug that travels with the work through outfit fan-out,
+    // TJP, upload, and review.
+    let reelNum = null, stillNum = null, slug = null
+    try {
+      const seq = await nextStageBSequence({ creatorId, reelRecordId: reelShort })
+      reelNum = seq.reelNum
+      stillNum = seq.stillNum
+      slug = stageBSlug({ aka, reelNum, stillNum })
+    } catch (e) {
+      console.warn('[stage-b POST] slug compute failed:', e.message)
+    }
+
     const created = await createStageBRecord({
-      Name: `${aka} · ${locName} · [${mdl.label}] · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+      Name: slug || `${aka} · ${locName} · [${mdl.label}] · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       Creator: [creatorId],
       ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
       ...(roomId ? { Room: [roomId] } : {}),
@@ -340,6 +354,9 @@ export async function POST(request) {
       ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
       ...(chosenFraming && chosenFraming !== 'unclassified' ? { 'Room Framing': chosenFraming } : {}),
       'Prompt Used': prompt,
+      ...(reelNum != null ? { 'Reel #': reelNum } : {}),
+      ...(stillNum != null ? { 'Still #': stillNum } : {}),
+      ...(slug ? { Slug: slug } : {}),
       Status: 'Generating',
     })
 
@@ -348,6 +365,7 @@ export async function POST(request) {
       generating: true,
       recordId: created?.records?.[0]?.id || null,
       predictionId,
+      slug,
       room: chosenRoomName, roomFraming: chosenFraming,
       screenshotFraming: shotFraming || 'unknown',
     })

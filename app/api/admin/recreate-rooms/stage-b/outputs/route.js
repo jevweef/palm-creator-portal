@@ -15,14 +15,37 @@ export async function GET(request) {
   try {
     await requireAdminOrAiEditor()
     const creatorId = new URL(request.url).searchParams.get('creatorId')
-    const [outputs, reels, rooms] = await Promise.all([
+    const [outputs, reels, rooms, outfitVariants] = await Promise.all([
       fetchAirtableRecords(OUTPUTS, {
-        fields: ['Name', 'Creator', 'Source Reel', 'Room', 'Image', 'Dropbox Link',
-          'Pose Time', 'Screenshot Framing', 'Room Framing', 'Status', 'Reject Reason'],
+        fields: ['Name', 'Creator', 'Source Reel', 'Room', 'Image', 'Dropbox Link', 'Dropbox Path',
+          'Pose Time', 'Screenshot Framing', 'Room Framing', 'Status', 'Reject Reason',
+          'Reel #', 'Still #', 'Slug'],
       }),
       fetchAirtableRecords(REELS, { fields: ['Reel ID', 'Reel URL', 'Source Handle'] }),
       fetchAirtableRecords(ROOMS, { fields: ['Room Name'] }),
+      fetchAirtableRecords('Outfit Swap Outputs', {
+        fields: ['Stage B Parent', 'Variant #', 'Outfit', 'Image', 'Dropbox Link', 'Slug', 'Status'],
+      }),
     ])
+    // Group outfit variants under their parent so each Stage B card
+    // knows how many fan-outs exist + their statuses.
+    const variantsByParent = {}
+    for (const v of outfitVariants) {
+      const pid = (v.fields?.['Stage B Parent'] || [])[0]
+      if (!pid) continue
+      ;(variantsByParent[pid] ||= []).push({
+        id: v.id,
+        variantNum: v.fields?.['Variant #'] || null,
+        slug: v.fields?.Slug || '',
+        outfit: v.fields?.Outfit || '',
+        image: v.fields?.Image?.[0]?.thumbnails?.large?.url || v.fields?.Image?.[0]?.url || null,
+        dropbox: v.fields?.['Dropbox Link'] ? String(v.fields['Dropbox Link']).replace('dl=0', 'dl=1') : null,
+        status: v.fields?.Status?.name || v.fields?.Status || 'Pending',
+      })
+    }
+    for (const arr of Object.values(variantsByParent)) {
+      arr.sort((a, b) => (a.variantNum || 0) - (b.variantNum || 0))
+    }
     const reelById = Object.fromEntries(reels.map(r => [r.id, r.fields || {}]))
     const roomById = Object.fromEntries(rooms.map(r => [r.id, r.fields?.['Room Name'] || '']))
     // 1-based index per creator, oldest = 1 (stable label that matches
@@ -49,6 +72,10 @@ export async function GET(request) {
           id: o.id,
           index: idxById[o.id] || null,
           name: f.Name || '',
+          slug: f.Slug || '',
+          reelNum: f['Reel #'] || null,
+          stillNum: f['Still #'] || null,
+          dropboxPath: f['Dropbox Path'] || '',
           image: att(f.Image),
           dropbox: f['Dropbox Link'] ? String(f['Dropbox Link']).replace('dl=0', 'dl=1') : null,
           poseTime: f['Pose Time'] ?? null,
@@ -58,6 +85,7 @@ export async function GET(request) {
           rejectReason: f['Reject Reason'] || '',
           room: roomId ? roomById[roomId] || '' : '',
           reel: reel ? { id: reelId, reelId: reel['Reel ID'] || '', url: reel['Reel URL'] || '', handle: reel['Source Handle'] || '' } : null,
+          variants: variantsByParent[o.id] || [],
           createdTime: o.createdTime,
         }
       })

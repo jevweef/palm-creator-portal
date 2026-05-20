@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { submitWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
+import { nextOutfitVariantNumber, outfitSlug } from '@/lib/recreateSlug'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -68,7 +69,8 @@ export async function GET(request) {
 
     if (creatorId) {
       const rows = await fetchAirtableRecords(OUTPUTS, {
-        fields: ['Name', 'Creator', 'Outfit', 'Source Image Link', 'Image', 'Dropbox Link', 'Status', 'Reject Reason', 'Model'],
+        fields: ['Name', 'Creator', 'Outfit', 'Source Image Link', 'Image', 'Dropbox Link',
+          'Status', 'Reject Reason', 'Model', 'Slug', 'Variant #', 'Stage B Parent'],
       })
       const list = rows
         .filter(o => (o.fields?.Creator || []).includes(creatorId))
@@ -77,6 +79,9 @@ export async function GET(request) {
           return {
             id: o.id,
             name: f.Name || '',
+            slug: f.Slug || '',
+            variantNum: f['Variant #'] || null,
+            stageBParentId: (f['Stage B Parent'] || [])[0] || null,
             outfit: f.Outfit || '',
             sourceLink: f['Source Image Link'] || '',
             image: f.Image?.[0]?.thumbnails?.large?.url || f.Image?.[0]?.url || null,
@@ -103,22 +108,46 @@ export async function GET(request) {
   }
 }
 
-// POST { imageDropboxPath, outfit, model?, creatorId? } — submit the
-// outfit swap, persist a Generating record (so the result is captured
-// even if the editor navigates away), return the new record + prediction
-// id immediately. The /resolve route picks it up later and finalizes.
+// POST { imageDropboxPath, outfit, model?, creatorId?, stageBOutputId? }
+// — submit the outfit swap, persist a Generating record, return record
+// + prediction id immediately. The /resolve route picks it up later.
+//
+// When stageBOutputId is provided (the fan-out path from a Stage B
+// still), we use the parent's source image automatically, link the
+// records, compute the canonical variant slug
+// ({parentSlug}_O{nn}), and infer the creator from the parent — caller
+// only needs to send {stageBOutputId, outfit, model?}.
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { imageDropboxPath, outfit, model, creatorId } = await request.json()
-    if (!imageDropboxPath || typeof imageDropboxPath !== 'string') {
-      return NextResponse.json({ error: 'imageDropboxPath required' }, { status: 400 })
-    }
+    const { imageDropboxPath: bodyImagePath, outfit, model, creatorId: bodyCreatorId, stageBOutputId } = await request.json()
     if (!outfit || !String(outfit).trim()) {
       return NextResponse.json({ error: 'Pick or type an outfit' }, { status: 400 })
     }
-    const mdl = MODELS[model] || MODELS.wan
 
+    // Fan-out from a Stage B Output: derive source image + creator from
+    // the parent so the caller can just send {stageBOutputId, outfit}.
+    let imageDropboxPath = bodyImagePath
+    let creatorId = bodyCreatorId
+    let parentSlug = ''
+    if (stageBOutputId) {
+      if (!/^rec[A-Za-z0-9]{14}$/.test(stageBOutputId)) {
+        return NextResponse.json({ error: 'Valid stageBOutputId required' }, { status: 400 })
+      }
+      const pRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Stage B Outputs')}/${stageBOutputId}`,
+        { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' })
+      if (!pRes.ok) return NextResponse.json({ error: 'Stage B parent not found' }, { status: 404 })
+      const pf = (await pRes.json()).fields || {}
+      imageDropboxPath = pf['Dropbox Path'] || imageDropboxPath
+      creatorId = (pf.Creator || [])[0] || creatorId
+      parentSlug = pf.Slug || ''
+    }
+
+    if (!imageDropboxPath || typeof imageDropboxPath !== 'string') {
+      return NextResponse.json({ error: 'imageDropboxPath required (or pass stageBOutputId for fan-out)' }, { status: 400 })
+    }
+
+    const mdl = MODELS[model] || MODELS.wan
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
     let imageUrl = ''
@@ -131,8 +160,18 @@ export async function POST(request) {
     const predictionId = task?.id
     if (!predictionId) return NextResponse.json({ error: 'WaveSpeed did not return a prediction id' }, { status: 502 })
 
+    // Variant # + slug — only when we have a Stage B parent to anchor
+    // to. Free-form outfit swaps (no parent) keep the legacy name.
+    let variantNum = null, slug = null
+    if (stageBOutputId && parentSlug) {
+      try {
+        variantNum = await nextOutfitVariantNumber({ stageBOutputId })
+        slug = outfitSlug({ parentSlug, variantNum })
+      } catch (e) { console.warn('[outfit-swap POST] slug compute failed:', e.message) }
+    }
+
     const fields = {
-      Name: `Outfit · ${outfitStr.slice(0, 40)} · [${mdl.label}] · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+      Name: slug || `Outfit · ${outfitStr.slice(0, 40)} · [${mdl.label}] · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       Outfit: outfitStr,
       'Source Image Path': imageDropboxPath,
       'Source Image Link': imageUrl,
@@ -142,6 +181,9 @@ export async function POST(request) {
       Status: 'Generating',
     }
     if (creatorId && /^rec[A-Za-z0-9]{14}$/.test(creatorId)) fields.Creator = [creatorId]
+    if (stageBOutputId) fields['Stage B Parent'] = [stageBOutputId]
+    if (variantNum != null) fields['Variant #'] = variantNum
+    if (slug) fields.Slug = slug
     const created = await createOutputRecord(fields)
 
     return NextResponse.json({
@@ -149,6 +191,7 @@ export async function POST(request) {
       generating: true,
       recordId: created?.records?.[0]?.id || null,
       predictionId,
+      slug,
       prompt,
     })
   } catch (err) {
