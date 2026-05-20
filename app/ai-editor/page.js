@@ -16,8 +16,8 @@ const POOL_TOUR_STEPS = [
     body: `The whole process in 4 steps:
 
 1. Pick the creator you're working on today.
-2. Click 🎨 Create Scene on inspo reels you want to recreate. (A second page walks you through scrubbing the pose, generating the scene, picking outfits, and downloading.)
-3. Do the motion + outfit work in TJP (off-site).
+2. For each inspo reel you want to recreate, screenshot it in TJP and run image-to-image with the creator. Then click 🎨 Create Scene here and upload that TJP photo — the portal swaps the background to her saved room.
+3. Take the finished scene back to TJP for outfit transfer + motion control.
 4. Come back here and 📦 Batch Upload the finished videos.
 
 I'll highlight each piece in the order you'll actually use them — just hit Next to step through.`,
@@ -36,19 +36,19 @@ Try switching it now if you want to feel how it works.`,
     title: 'Step 2 — Click 🎨 Create Scene on a reel',
     body: `These are inspo reels available for the selected creator (anything she's already used is hidden).
 
-Click 🎨 Create Scene on whichever reel you want to recreate. That'll take you to a second page where you scrub the reel to the exact pose and generate the still — a second tour picks up there to walk you through it.
+Click 🎨 Create Scene on whichever reel you want to recreate. That'll take you to a second page where you'll upload the TJP image-to-image photo and the portal generates the scene with your creator in her saved room — a second tour picks up there to walk you through it.
 
 The other two buttons:
-• ↓ Raw — skip the scene step entirely, download just the reel
+• ↓ Raw — download just the reel (handy when you're starting the TJP work for this reel)
 • ↑ Upload AI — for one-off finished uploads (Batch Upload below is better when you have several)`,
   },
   {
     target: '#tour-batch-upload',
     placement: 'bottom',
     title: 'Step 3 — After TJP, come back and upload',
-    body: `Once you've done the motion + outfit work in TJP and you have your finished mp4s, click 📦 Batch Upload and drop them all in at once.
+    body: `Once you've done the outfit transfer + motion control in TJP and you have your finished mp4s, click 📦 Batch Upload and drop them all in at once.
 
-The filename of each video (e.g. Amelia_R042_S01_O03.mp4) tells the system which scene + outfit it belongs to. Thumbnails are auto-generated from the first frame.
+The filename of each video (e.g. Amelia_R042_S01.mp4) tells the system which scene it belongs to. Thumbnails are auto-generated from the first frame.
 
 You'll come back to this button later — don't click it yet.`,
   },
@@ -70,11 +70,12 @@ This section only appears when there's something to revise.`,
     title: '🎯 Ready to start',
     body: `Recap of what you'll actually do:
 
-1. Pick a creator from the dropdown ↑
-2. Scroll the reels below, click 🎨 Create Scene on one you like.
-3. The Create Scene page has its own tour that walks you through pose scrubbing → generate → approve → pair with outfits → download ZIP.
-4. Do TJP off-site.
-5. Come back, 📦 Batch Upload the finished videos.
+1. Pick a creator from the dropdown ↑.
+2. Scroll the reels below, click 🎨 Create Scene on one you want to recreate.
+3. Do the initial TJP image-to-image work to get a photo of your creator in the reel's pose & outfit.
+4. Upload that photo on the Create Scene page — the portal swaps her background to her saved room.
+5. Download the scene + reel as a ZIP, take to TJP for outfit transfer + motion control.
+6. Come back here, 📦 Batch Upload the finished videos.
 
 Hit "? Guide" any time to replay this tour.`,
   },
@@ -524,7 +525,7 @@ function BatchUploadModal({ creatorId, onClose, onDone }) {
       <div onClick={e => e.stopPropagation()} style={{ width: 'min(640px, 96vw)', maxHeight: '92vh', overflow: 'auto', background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 22 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>📦 Batch upload finished videos</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14 }}>
-          Drop N finished AI motion videos at once. Filenames should match the scene + outfit name (e.g. <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>Amelia_R042_S01_O03.mp4</span>) so each file lands on its parent scene. Thumbnails are auto-generated from the first frame.
+          Drop N finished AI motion videos at once. Filenames should match the scene name (e.g. <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>Amelia_R042_S01.mp4</span>) so each file lands on its parent scene. Thumbnails are auto-generated from the first frame.
         </div>
 
         <div onDrop={onDrop} onDragOver={e => e.preventDefault()}
@@ -674,7 +675,7 @@ export default function AiEditorPage() {
           </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <TourTriggerButton storageKey="ai-editor-pool-v3" label="? Guide" />
+          <TourTriggerButton storageKey="ai-editor-pool-v4" label="? Guide" />
           <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
             style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
             📦 Batch Upload
@@ -725,7 +726,7 @@ export default function AiEditorPage() {
         </div>
       )}
       <ModalHost />
-      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v3" />
+      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v4" />
     </div>
   )
 }
