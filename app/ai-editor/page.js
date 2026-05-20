@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
-function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
+function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen }) {
   const [showPlayer, setShowPlayer] = useState(false)
-  const [showUpload, setShowUpload] = useState(false)
+  const [showUpload, setShowUpload] = useState(!!autoOpen)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState('')
   const videoFileRef = useRef(null)
@@ -75,7 +76,7 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
   }
 
   return (
-    <div style={{ border: selected ? '1px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden', background: 'rgba(255,255,255,0.02)' }}>
+    <div id={`reel-${reel.id}`} style={{ border: autoOpen ? '2px solid #6AC68A' : selected ? '1px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden', background: autoOpen ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)' }}>
       <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
         {showPlayer && reel.streamUid ? (
           <iframe
@@ -159,6 +160,9 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded }) {
 }
 
 export default function AiEditorPage() {
+  const sp = useSearchParams()
+  const urlCreator = sp.get('creator') || ''
+  const urlUpload = sp.get('upload') || ''
   const [creators, setCreators] = useState([])
   const [creatorId, setCreatorId] = useState('')
   const [reels, setReels] = useState([])
@@ -171,10 +175,12 @@ export default function AiEditorPage() {
     const data = await res.json()
     if (res.ok) {
       setCreators(data.creators || [])
-      if (data.creators?.[0]) setCreatorId(data.creators[0].id)
+      const match = urlCreator && data.creators?.some(c => c.id === urlCreator) ? urlCreator : null
+      if (match) setCreatorId(match)
+      else if (data.creators?.[0]) setCreatorId(data.creators[0].id)
     }
     setLoading(false)
-  }, [])
+  }, [urlCreator])
 
   const loadReels = useCallback(async (cid) => {
     if (!cid) return
@@ -188,6 +194,16 @@ export default function AiEditorPage() {
 
   useEffect(() => { loadCreators() }, [loadCreators])
   useEffect(() => { if (creatorId) loadReels(creatorId) }, [creatorId, loadReels])
+
+  // When arriving with ?upload=<reelId>, scroll to that reel once loaded.
+  useEffect(() => {
+    if (!urlUpload || loading) return
+    if (!reels.some(r => r.id === urlUpload)) return
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`reel-${urlUpload}`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }, [urlUpload, reels, loading])
 
   const toggle = (id) => setSelected(prev => {
     const next = new Set(prev)
@@ -216,7 +232,7 @@ export default function AiEditorPage() {
   }
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)', padding: '24px 32px' }}>
+    <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 32px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate Pool</h1>
@@ -256,7 +272,7 @@ export default function AiEditorPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
           {reels.map(r => (
-            <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} />
+            <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} autoOpen={r.id === urlUpload} />
           ))}
         </div>
       )}

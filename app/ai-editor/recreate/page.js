@@ -43,8 +43,11 @@ export default function AiEditorRecreatePage() {
   const setTab = (k) => router.replace(`${pathname}?tab=${k}`, { scroll: false })
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)', padding: '24px 32px' }}>
+    <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 32px)' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ marginBottom: 12 }}>
+          <a href="/ai-editor" style={{ fontSize: 12, color: 'var(--foreground-muted)', textDecoration: 'none' }}>← AI Recreate Pool</a>
+        </div>
         <TabBar tab={tab} setTab={setTab} />
         {tab === 'stageb' ? <StageBPanel /> : <OutfitSwapPanel />}
         <ModalHost />

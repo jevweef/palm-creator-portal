@@ -100,6 +100,8 @@ export async function stageBUpload(blob, kind) {
 }
 
 export function OutfitSwapPanel() {
+  const [creators, setCreators] = useState([])
+  const [creatorId, setCreatorId] = useState('')
   const [outfits, setOutfits] = useState([])
   const [pickedId, setPickedId] = useState('')
   const [freeText, setFreeText] = useState('')
@@ -108,39 +110,73 @@ export function OutfitSwapPanel() {
   const [srcPreview, setSrcPreview] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
-  const [resultUrl, setResultUrl] = useState('')
+  const [outputs, setOutputs] = useState([])
 
   useEffect(() => {
     fetch('/api/admin/recreate-rooms/outfit-swap').then(r => r.json())
       .then(d => setOutfits(d.outfits || [])).catch(() => {})
+    fetch('/api/admin/recreate-rooms/stage-b/creators').then(r => r.json()).then(d => {
+      setCreators(d.creators || [])
+      if (d.creators?.[0]) setCreatorId(d.creators[0].id)
+    }).catch(() => {})
   }, [])
+
+  const loadOutputs = useCallback(async () => {
+    if (!creatorId) { setOutputs([]); return }
+    try { await fetch('/api/admin/recreate-rooms/outfit-swap/resolve', { method: 'POST' }) } catch {}
+    try {
+      const d = await fetch(`/api/admin/recreate-rooms/outfit-swap?creatorId=${creatorId}`).then(r => r.json())
+      setOutputs(d.outputs || [])
+    } catch {}
+  }, [creatorId])
+
+  useEffect(() => { loadOutputs() }, [loadOutputs])
+
+  const anyGenerating = outputs.some(o => o.status === 'Generating')
+  useEffect(() => {
+    if (!anyGenerating) return
+    const t = setInterval(() => { loadOutputs() }, 25000)
+    return () => clearInterval(t)
+  }, [anyGenerating, loadOutputs])
 
   const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 16, marginBottom: 16 }
   const lbl = { fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }
 
-  const onFile = (f) => { setFile(f || null); setResultUrl(''); setSrcPreview(f ? URL.createObjectURL(f) : '') }
+  const onFile = (f) => { setFile(f || null); setSrcPreview(f ? URL.createObjectURL(f) : '') }
+  const sel = creators.find(c => c.id === creatorId)
+
+  const setOutputStatus = async (o, status) => {
+    let reason
+    if (status === 'Rejected') {
+      reason = (await uiPrompt('Why is this rejected? (kept as a tuning signal)', { placeholder: 'reason…' })) || ''
+    }
+    await fetch('/api/admin/recreate-rooms/outfit-swap', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: o.id, status, reason }),
+    }).catch(() => {})
+    loadOutputs()
+  }
+  const deleteOutput = async (o) => {
+    if (!(await uiConfirm('Delete this outfit swap record?', { danger: true, okLabel: 'Delete' }))) return
+    await fetch(`/api/admin/recreate-rooms/outfit-swap?id=${o.id}`, { method: 'DELETE' }).catch(() => {})
+    loadOutputs()
+  }
 
   const generate = async () => {
     const outfit = (freeText.trim()) || (outfits.find(o => o.id === pickedId)?.prompt || '')
     if (!file) { setMsg('Upload the upscaled screen-grab first.'); return }
     if (!outfit) { setMsg('Pick an outfit or type your own.'); return }
-    setBusy(true); setResultUrl(''); setMsg('⏳ Uploading image…')
+    setBusy(true); setMsg('⏳ Uploading image…')
     try {
       const path = await stageBUpload(file, 'outfit')
-      setMsg('⏳ Swapping the outfit… ~1–3 min, stays on this screen.')
+      setMsg('⏳ Submitting…')
       const sub = await fetch('/api/admin/recreate-rooms/outfit-swap', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageDropboxPath: path, outfit, model }),
+        body: JSON.stringify({ imageDropboxPath: path, outfit, model, creatorId: creatorId || undefined }),
       }).then(r => r.json())
-      if (!sub.predictionId) { setMsg(`❌ ${sub.error || 'submit failed'}`); setBusy(false); return }
-      const id = sub.predictionId
-      for (let i = 0; i < 90; i++) {
-        await new Promise(r => setTimeout(r, 4000))
-        const st = await fetch(`/api/admin/recreate-rooms/outfit-swap?id=${id}`).then(r => r.json()).catch(() => ({}))
-        if (st.status === 'completed' && st.out) { setResultUrl(st.out); setMsg('✅ Done — outfit swapped. Take this to TJP for the likeness swap.'); break }
-        if (st.status === 'failed') { setMsg(`❌ ${st.error || 'generation failed'}`); break }
-        setMsg(`⏳ Swapping the outfit… (${st.status || 'processing'})`)
-      }
+      if (!sub.ok) { setMsg(`❌ ${sub.error || 'submit failed'}`); setBusy(false); return }
+      setMsg('✅ Submitted — rendering on WaveSpeed (~1–3 min). The result appears below automatically; no need to wait on this screen.')
+      loadOutputs()
     } catch (e) { setMsg(`❌ ${e?.message || String(e)}`) }
     setBusy(false)
   }
@@ -153,14 +189,23 @@ export function OutfitSwapPanel() {
       </p>
 
       <div style={card}>
-        <div style={lbl}>1 · Upscaled screen-grab</div>
+        <div style={lbl}>1 · Creator (so the output ends up in the right gallery)</div>
+        <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
+          style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, minWidth: 240 }}>
+          <option value="">— pick creator —</option>
+          {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+
+      <div style={card}>
+        <div style={lbl}>2 · Upscaled screen-grab</div>
         <input type="file" accept="image/*" onChange={e => onFile(e.target.files?.[0] || null)}
           style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
         {srcPreview && <img src={srcPreview} alt="" style={{ display: 'block', marginTop: 10, width: 'min(220px,45vw)', borderRadius: 8 }} />}
       </div>
 
       <div style={card}>
-        <div style={lbl}>2 · Outfit (pick from the closet, or type your own — keep it short)</div>
+        <div style={lbl}>3 · Outfit (pick from the closet, or type your own — keep it short)</div>
         <select value={pickedId} onChange={e => { setPickedId(e.target.value); setFreeText('') }}
           style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, minWidth: 240 }}>
           <option value="">— choose an outfit —</option>
@@ -172,28 +217,53 @@ export function OutfitSwapPanel() {
           style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }} />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
-        <select value={model} onChange={e => setModel(e.target.value)}
-          style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
-          <option value="wan">Wan 2.7 image-edit-pro</option>
-          <option value="nano">Nano-Banana 2</option>
-          <option value="gpt">GPT-Image-2</option>
-        </select>
+      <div style={card}>
+        <div style={lbl}>4 · Generate</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
+          <select value={model} onChange={e => setModel(e.target.value)}
+            style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
+            <option value="wan">Wan 2.7 image-edit-pro</option>
+            <option value="nano">Nano-Banana 2 (⚠ may hit content filter)</option>
+            <option value="gpt">GPT-Image-2</option>
+          </select>
+          <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
+            {busy ? 'Working…' : '👗 Swap outfit'}
+          </button>
+        </div>
+        {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
       </div>
 
-      <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
-        {busy ? 'Working…' : '👗 Swap outfit'}
-      </button>
-      {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
-
-      {resultUrl && (
-        <div style={{ ...card, marginTop: 16 }}>
-          <div style={lbl}>Result — outfit swapped (next: TJP likeness swap)</div>
-          <img src={resultUrl} alt="outfit swap result"
-            style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
-          <a href={resultUrl} target="_blank" rel="noreferrer"
-            style={{ display: 'inline-block', marginTop: 10, padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', borderRadius: 6, textDecoration: 'none' }}>↗ Open / download full size</a>
+      {outputs.length > 0 && (
+        <div style={card}>
+          <div style={lbl}>Outfit swap outputs — {sel?.name || 'creator'} ({outputs.length})</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
+            {outputs.map(o => {
+              const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
+              const placeholder = o.status === 'Generating' ? '⏳ rendering on WaveSpeed…' : o.status === 'Failed' ? '✕ failed' : '…'
+              return (
+                <div key={o.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
+                  {o.image
+                    ? <img src={o.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>{placeholder}</div>}
+                  <div style={{ padding: 8, fontSize: 11 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#ddd', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.outfit || 'Outfit'}</span>
+                      <span style={{ color: sc, fontWeight: 700 }}>{o.status}</span>
+                    </div>
+                    <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.model || 'wan'}</div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                      {o.status !== 'Approved' && <button onClick={() => setOutputStatus(o, 'Approved')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(106,198,138,0.18)', color: '#6AC68A', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✓</button>}
+                      {o.status !== 'Rejected' && <button onClick={() => setOutputStatus(o, 'Rejected')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(232,120,120,0.16)', color: '#E87878', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✕</button>}
+                      <a href={o.dropbox || o.image || '#'} target="_blank" rel="noreferrer" style={{ padding: '4px 8px', fontSize: 11, background: 'rgba(120,160,232,0.16)', color: '#8fb4f0', borderRadius: 5, textDecoration: 'none' }}>↗</a>
+                      <button onClick={() => deleteOutput(o)} style={{ padding: '4px 8px', fontSize: 11, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 5, cursor: 'pointer' }}>🗑</button>
+                    </div>
+                    {o.rejectReason && <div style={{ marginTop: 4, color: '#E87878', fontStyle: 'italic' }}>{o.rejectReason}</div>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -401,30 +471,32 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
         {extraFiles.length > 0 && <span style={{ fontSize: 12, color: '#6AC68A', marginLeft: 8 }}>{extraFiles.length} added</span>}
       </div>
 
-      <div style={{ ...card, border: '1px solid rgba(232,168,120,0.35)' }}>
-        <div style={lbl}>5 · OR — finished subject photo (from TJP) → just drop into the room</div>
+      <div style={{ ...card, borderStyle: 'dashed', borderColor: 'rgba(232,168,120,0.35)' }}>
+        <div style={{ ...lbl, color: '#e8b878' }}>OR — alternate entry: finished subject photo (from TJP)</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-          Upload a photo where identity, pose &amp; outfit are already correct. Stage B keeps that person exactly and only swaps the background to the creator&apos;s room — no reel/identity refs needed (skips the steps above).
+          Skip steps 3-4. Upload a photo where identity, pose &amp; outfit are already correct. Stage B keeps that person exactly and only swaps the background to the creator&apos;s room.
         </div>
         <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)}
           style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
         {subjectFile && <span style={{ fontSize: 12, color: '#e8b878', marginLeft: 8 }}>{subjectFile.name} — subject mode ON</span>}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
-        <select value={genModel} onChange={e => setGenModel(e.target.value)}
-          style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
-          <option value="wan">Wan 2.7 image-edit-pro</option>
-          <option value="nano">Nano-Banana 2</option>
-          <option value="gpt">GPT-Image-2</option>
-        </select>
+      <div style={card}>
+        <div style={lbl}>{subjectFile ? '5 · Generate (subject mode)' : '5 · Generate'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
+          <select value={genModel} onChange={e => setGenModel(e.target.value)}
+            style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
+            <option value="wan">Wan 2.7 image-edit-pro</option>
+            <option value="nano">Nano-Banana 2 (⚠ may hit content filter)</option>
+            <option value="gpt">GPT-Image-2</option>
+          </select>
+          <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
+            {busy ? 'Working…' : '👤 Generate — insert creator'}
+          </button>
+        </div>
+        {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
       </div>
-
-      <button onClick={generate} disabled={busy} style={{ marginTop: 10, padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
-        {busy ? 'Working…' : '👤 Generate — insert creator'}
-      </button>
-      {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
 
       {stageBOut && (
         <div style={{ ...card, marginTop: 16 }}>
@@ -476,6 +548,10 @@ Pick the creator and screenshot a reel for the pose &amp; outfit. The system rea
                     {o.reel && <a href={o.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↗ source reel @{o.reel.handle || o.reel.reelId}</a>}
                     <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip?id=${o.id}`}
                       style={{ display: 'block', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(232,168,120,0.18)', color: '#e8b878', borderRadius: 5, textDecoration: 'none' }}>⬇ ZIP (photo + reel) for motion control</a>
+                    {o.reel?.id && (
+                      <a href={`/ai-editor?creator=${creatorId}&upload=${o.reel.id}`}
+                        style={{ display: 'block', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(106,198,138,0.16)', color: '#6AC68A', borderRadius: 5, textDecoration: 'none' }}>↑ Upload finished video</a>
+                    )}
                     <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                       {o.status !== 'Approved' && <button onClick={() => setOutputStatus(o, 'Approved')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(106,198,138,0.18)', color: '#6AC68A', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✓</button>}
                       {o.status !== 'Rejected' && <button onClick={() => setOutputStatus(o, 'Rejected')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(232,120,120,0.16)', color: '#E87878', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✕</button>}
