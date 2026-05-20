@@ -40,6 +40,8 @@ export default function AiEditorRecreatePage() {
   const pathname = usePathname()
   const tabParam = sp.get('tab')
   const tab = tabParam === 'outfit' ? 'outfit' : 'stageb'
+  const initialCreatorId = sp.get('creator') || undefined
+  const initialReelRecordId = sp.get('reel') || undefined
   const setTab = (k) => router.replace(`${pathname}?tab=${k}`, { scroll: false })
 
   return (
@@ -49,7 +51,9 @@ export default function AiEditorRecreatePage() {
           <a href="/ai-editor" style={{ fontSize: 12, color: 'var(--foreground-muted)', textDecoration: 'none' }}>← AI Recreate Pool</a>
         </div>
         <TabBar tab={tab} setTab={setTab} />
-        {tab === 'stageb' ? <StageBPanel /> : <OutfitSwapPanel />}
+        {tab === 'stageb'
+          ? <StageBPanel initialCreatorId={initialCreatorId} initialReelRecordId={initialReelRecordId} />
+          : <OutfitSwapPanel />}
         <ModalHost />
       </div>
     </div>

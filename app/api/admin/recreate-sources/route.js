@@ -53,6 +53,7 @@ export async function GET() {
           video: (f['Dropbox Video Link'] || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1'),
           streamUid: f['Stream UID'] || null,
           producedForCount: Array.isArray(f['Produced For']) ? f['Produced For'].length : 0,
+          producedFor: Array.isArray(f['Produced For']) ? f['Produced For'] : [],
         }
       }),
     })
