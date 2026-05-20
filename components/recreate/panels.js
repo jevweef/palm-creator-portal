@@ -361,27 +361,39 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     loadOutputs()
   }
 
-  // Fan out N outfit variants from a single Stage B still. Each picked
-  // outfit becomes its own Outfit Swap job, linked back to the parent
-  // so the bulk ZIP can bundle them automatically.
+  // Fan out N outfit variants. `fanOutFor` is either a single Stage B
+  // Output id (one-still fan-out) or the sentinel 'all-approved' which
+  // fans out across every approved still for the current creator —
+  // 8 stills × 5 outfits = 40 jobs in one click.
   const submitFanOut = async () => {
     const closetPicks = closet.filter(o => pickedOutfits.has(o.id)).map(o => o.prompt)
     const customLines = customOutfits.split('\n').map(s => s.trim()).filter(Boolean)
     const outfits = [...closetPicks, ...customLines]
     if (!outfits.length) { await uiAlert('Pick at least one outfit (or type a custom one).'); return }
     if (!fanOutFor) return
+
+    // Resolve target Stage B Outputs.
+    const targets = fanOutFor === 'all-approved'
+      ? outputs.filter(o => o.status === 'Approved').map(o => o.id)
+      : [fanOutFor]
+    if (!targets.length) { await uiAlert('No approved Stage B stills to fan out across.'); return }
+
     setBusy(true)
     try {
       // Sequential POSTs so each one gets a clean Variant # (the slug
       // helper counts existing siblings — running them in parallel
       // would race and double-assign).
-      for (const outfit of outfits) {
-        await fetch('/api/admin/recreate-rooms/outfit-swap', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stageBOutputId: fanOutFor, outfit, model: 'wan' }),
-        }).catch(() => {})
+      let queued = 0
+      for (const stageBId of targets) {
+        for (const outfit of outfits) {
+          await fetch('/api/admin/recreate-rooms/outfit-swap', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stageBOutputId: stageBId, outfit, model: 'wan' }),
+          }).catch(() => {})
+          queued++
+        }
       }
-      setMsg(`✅ Queued ${outfits.length} outfit variant${outfits.length === 1 ? '' : 's'} — they'll appear on the card as they finish (~1–3 min each).`)
+      setMsg(`✅ Queued ${queued} outfit variant${queued === 1 ? '' : 's'} across ${targets.length} still${targets.length === 1 ? '' : 's'} — they'll appear as they finish (~1–3 min each).`)
       setFanOutFor(null)
       setPickedOutfits(new Set())
       setCustomOutfits('')
@@ -605,7 +617,25 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
 
       {outputs.length > 0 && (
         <div style={{ ...card, marginTop: 16 }} id="stageb-outputs">
-          <div style={lbl}>Stage B Outputs — {sel?.name} ({outputs.length})</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <div style={lbl}>Stage B Outputs — {sel?.name} ({outputs.length})</div>
+            {(() => {
+              const approvedCount = outputs.filter(o => o.status === 'Approved').length
+              if (!approvedCount) return null
+              return (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button onClick={() => { setFanOutFor('all-approved'); setPickedOutfits(new Set()); setCustomOutfits('') }}
+                    style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,184,120,0.16)', color: '#e8b878', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 5, cursor: 'pointer' }}>
+                    👗 Fan out across all {approvedCount} approved
+                  </button>
+                  <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-all?creatorId=${creatorId}`}
+                    style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
+                    ⬇ Download all (1 mega-ZIP)
+                  </a>
+                </div>
+              )
+            })()}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
             {outputs.map(o => {
               const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
@@ -674,12 +704,22 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         </div>
       )}
 
-      {fanOutFor && (
+      {fanOutFor && (() => {
+        const isAll = fanOutFor === 'all-approved'
+        const approvedStills = isAll ? outputs.filter(o => o.status === 'Approved') : []
+        const targetLabel = isAll
+          ? `all ${approvedStills.length} approved stills`
+          : (outputs.find(o => o.id === fanOutFor)?.slug || 'this still')
+        const totalPicks = pickedOutfits.size + customOutfits.split('\n').map(s => s.trim()).filter(Boolean).length
+        const jobCount = isAll ? approvedStills.length * totalPicks : totalPicks
+        return (
         <div onClick={() => setFanOutFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ width: 'min(520px, 94vw)', maxHeight: '90vh', overflow: 'auto', background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 22 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Fan out outfits</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Fan out outfits {isAll ? '(bulk)' : ''}</div>
             <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14 }}>
-              For <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>{outputs.find(o => o.id === fanOutFor)?.slug || 'this still'}</span> — each pick becomes one Outfit Swap job (~1–3 min each on WaveSpeed). They&apos;ll show up on the card as they finish.
+              For <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>{targetLabel}</span>{isAll && approvedStills.length > 0 && (
+                <> ({approvedStills.map(o => o.slug).filter(Boolean).join(', ')})</>
+              )}. Each outfit × each still = one Outfit Swap job (~1–3 min each on WaveSpeed). They&apos;ll show up as they finish.
             </div>
 
             <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>From the Outfit Closet ({pickedOutfits.size} selected)</div>
@@ -706,12 +746,13 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
                 style={{ padding: '9px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8, cursor: 'pointer' }}>Cancel</button>
               <button onClick={submitFanOut} disabled={busy}
                 style={{ padding: '9px 18px', fontSize: 13, fontWeight: 700, background: busy ? 'rgba(232,184,120,0.4)' : '#e8b878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
-                {busy ? 'Submitting…' : `Generate ${pickedOutfits.size + customOutfits.split('\n').map(s => s.trim()).filter(Boolean).length} variants`}
+                {busy ? 'Submitting…' : `Generate ${jobCount} variant${jobCount === 1 ? '' : 's'}`}
               </button>
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {poseModalOpen && reel?.streamUid && (
         <div onClick={() => setPoseModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
+import { ModalHost, uiConfirm } from '@/components/recreate/panels'
 
 function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen }) {
   const [showPlayer, setShowPlayer] = useState(false)
@@ -24,13 +25,17 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
     const tf = thumbFileRef.current?.files?.[0]
     if (!vf) { setErr('Pick the AI reel file'); return }
     if (!tf) { setErr('Pick the thumbnail'); return }
+    // Slug-named files (Aka_R042_S01_O03.mp4) inherit the canonical
+    // identifier so this single-upload path matches batch behavior.
+    const slugMatch = (vf.name || '').match(/^([A-Za-z]+_R\d{1,4}_S\d{1,3}(?:_O\d{1,3})?)/)
+    const slug = slugMatch ? slugMatch[1] : null
     setUploading(true); setErr('')
     try {
       // 1. Mint a Dropbox token + target path for this reel
       const tokRes = await fetch('/api/ai-editor/upload-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reelRecordId: reel.id }),
+        body: JSON.stringify({ reelRecordId: reel.id, slug }),
       })
       const tok = await tokRes.json()
       if (!tokRes.ok) throw new Error(tok.error || 'Could not get upload token')
@@ -63,6 +68,7 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
           creatorId,
           dropboxPath: tok.path,
           thumbnailBase64,
+          slug,
         }),
       })
       const data = await res.json()
@@ -302,6 +308,20 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
           </a>
         )}
       </div>
+      <button onClick={async () => {
+        if (!(await uiConfirm(`Discard this rejected task? The Dropbox file stays (archive). Use this when you're starting fresh via Re-do Stage B — otherwise just re-upload.`, { danger: true, okLabel: 'Discard' }))) return
+        try {
+          const r = await fetch('/api/ai-editor/discard', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskId: rev.taskId }),
+          })
+          if (!r.ok) throw new Error((await r.json()).error || 'discard failed')
+          onResubmitted()
+        } catch (e) { setErr(e.message) }
+      }}
+        style={{ width: '100%', marginTop: 6, padding: '6px 0', fontSize: 11, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>
+        🗑 Discard (starting fresh from Stage B)
+      </button>
 
       {showUpload && (
         <div style={{ marginTop: 10, padding: 10, background: 'rgba(0,0,0,0.4)', borderRadius: 6 }}>
@@ -375,9 +395,12 @@ function BatchUploadModal({ creatorId, onClose, onDone }) {
       const meta = resolvedSlugs[f.name]
       setProgress(p => ({ ...p, [f.name]: { status: 'uploading' } }))
       try {
+        // Slug threaded into upload-token so each variant lands at a
+        // unique Dropbox path — without this, every outfit variant of
+        // the same reel would overwrite the same file.
         const tokRes = await fetch('/api/ai-editor/upload-token', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reelRecordId: meta.reelRecordId }),
+          body: JSON.stringify({ reelRecordId: meta.reelRecordId, slug: meta.slug }),
         })
         const tok = await tokRes.json()
         if (!tokRes.ok) throw new Error(tok.error || 'token failed')
@@ -401,6 +424,7 @@ function BatchUploadModal({ creatorId, onClose, onDone }) {
             creatorId: meta.creatorId || creatorId,
             dropboxPath: tok.path,
             thumbnailBase64: thumb,
+            slug: meta.slug,
           }),
         })
         const d = await r.json()
@@ -620,6 +644,7 @@ export default function AiEditorPage() {
           ))}
         </div>
       )}
+      <ModalHost />
     </div>
   )
 }

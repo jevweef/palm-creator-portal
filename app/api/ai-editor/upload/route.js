@@ -26,7 +26,7 @@ function getWeekStart() {
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { reelRecordId, creatorId, dropboxPath, thumbnailBase64 } = await request.json()
+    const { reelRecordId, creatorId, dropboxPath, thumbnailBase64, slug } = await request.json()
 
     if (!reelRecordId || !/^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) {
       return NextResponse.json({ error: 'Valid reelRecordId required' }, { status: 400 })
@@ -59,6 +59,12 @@ export async function POST(request) {
       console.warn('[ai-editor upload] shared link failed:', e.message)
     }
 
+    // When a slug is provided, use it for the Asset + Task name so the
+    // canonical identifier travels into the admin's For Review surface
+    // and downstream Post records.
+    const assetName = slug ? slug : `AI Recreate: @${handle} ${reelId}`
+    const taskName = slug ? `AI Review: ${slug}` : `AI Review: @${handle} ${reelId}`
+
     // Create the Asset — goes straight to In Review
     const assetRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}`, {
       method: 'POST',
@@ -67,7 +73,7 @@ export async function POST(request) {
         typecast: true,
         records: [{
           fields: {
-            'Asset Name': `AI Recreate: @${handle} ${reelId}`,
+            'Asset Name': assetName,
             'Palm Creators': [creatorId],
             'Source Type': 'AI Generated',
             'Source': 'Dropbox',
@@ -110,7 +116,7 @@ export async function POST(request) {
         typecast: true,
         records: [{
           fields: {
-            'Name': `AI Review: @${handle} ${reelId}`,
+            'Name': taskName,
             'Status': 'Done',
             'Admin Review Status': 'Pending Review',
             'Asset': [assetId],
@@ -122,26 +128,49 @@ export async function POST(request) {
     let taskCreated = taskRes.ok
     if (!taskRes.ok) console.warn('[ai-editor upload] task create failed:', await taskRes.text())
 
-    // Append this creator to the reel's "Produced For" (union, so other
-    // creators still see it) + link the new asset. Global Status stays
-    // Available — the pool hides it per-creator via Produced For.
-    const curProducedFor = Array.isArray(rf['Produced For']) ? rf['Produced For'] : []
-    const curProducedAsset = Array.isArray(rf['Produced Asset']) ? rf['Produced Asset'] : []
-    await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Recreate%20Reels/${reelRecordId}`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        typecast: true,
-        fields: {
-          'Produced For': Array.from(new Set([...curProducedFor, creatorId])),
-          'Produced Asset': Array.from(new Set([...curProducedAsset, assetId])),
-        },
-      }),
-    }).catch(e => console.warn('[ai-editor upload] mark Produced For failed:', e.message))
+    // Append this creator to the reel's Produced For + link the new
+    // asset. The PATCH is wrapped in a small retry loop because batch
+    // upload runs 3 concurrent requests against the same reel — without
+    // a re-read, two concurrent writes would both base off the same
+    // snapshot and the second would drop the first's assetId. Re-read
+    // on every retry so the union is correct under contention.
+    const patchProducedFor = async () => {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const cur = await fetch(
+            `https://api.airtable.com/v0/${OPS_BASE}/Recreate%20Reels/${reelRecordId}`,
+            { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
+          )
+          if (!cur.ok) return
+          const cf = (await cur.json()).fields || {}
+          const curProducedFor = Array.isArray(cf['Produced For']) ? cf['Produced For'] : []
+          const curProducedAsset = Array.isArray(cf['Produced Asset']) ? cf['Produced Asset'] : []
+          if (curProducedFor.includes(creatorId) && curProducedAsset.includes(assetId)) return
+          const pRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Recreate%20Reels/${reelRecordId}`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              typecast: true,
+              fields: {
+                'Produced For': Array.from(new Set([...curProducedFor, creatorId])),
+                'Produced Asset': Array.from(new Set([...curProducedAsset, assetId])),
+              },
+            }),
+          })
+          if (pRes.ok) return
+          // 422 from Airtable on concurrent writes — back off briefly and re-read.
+          await new Promise(r => setTimeout(r, 200 + attempt * 200))
+        } catch (e) {
+          console.warn(`[ai-editor upload] Produced For attempt ${attempt + 1} failed:`, e.message)
+        }
+      }
+      console.warn(`[ai-editor upload] gave up updating Produced For after retries for ${reelRecordId}`)
+    }
+    await patchProducedFor()
 
     triggerAssetMirror(assetId)
 
-    return NextResponse.json({ status: 'success', assetId, taskCreated })
+    return NextResponse.json({ status: 'success', assetId, taskCreated, slug: slug || null })
   } catch (err) {
     if (err instanceof Response) return err
     console.error('[ai-editor upload] error:', err)
