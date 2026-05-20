@@ -2067,6 +2067,24 @@ function ForReview({ showToast }) {
                       <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600, pointerEvents: 'none' }}>INSPO</div>
                     </div>
                   )}
+
+                  {/* AI-Generated assets carry no Inspo link — instead show
+                      the original scraped reel as the side-by-side reference
+                      so the reviewer can judge the AI recreation's fidelity. */}
+                  {!hasInspo && task.asset.sourceType === 'AI Generated' && task.asset.referenceSourceUrl && (
+                    <a
+                      href={task.asset.referenceSourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: 'rgba(255,255,255,0.8)' }}
+                      title="Open original reel on Instagram"
+                    >
+                      <span style={{ fontSize: '12px', textAlign: 'center', padding: '0 12px' }}>
+                        ↗ Original reel<br /><span style={{ opacity: 0.6 }}>(open on Instagram)</span>
+                      </span>
+                      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>ORIGINAL</div>
+                    </a>
+                  )}
                 </div>
 
                 {/* Content */}

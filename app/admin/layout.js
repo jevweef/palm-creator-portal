@@ -17,6 +17,7 @@ const ADMIN_NAV = [
     { key: 'suggest', label: 'Suggest' },
     { key: 'recreate', label: 'AI Recreate' },
   ]},
+  { href: '/admin/recreate-source', label: 'AI Source', icon: '🎞️' },
   { href: '/admin/editor', label: 'Editor', icon: '✂️', children: [
     { key: 'editorview', label: 'Dashboard' },
     { key: 'review', label: 'For Review' },

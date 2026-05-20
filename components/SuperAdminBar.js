@@ -29,7 +29,8 @@ export default function SuperAdminBar() {
   const isCreatorTab = pathname?.startsWith('/creator')
   const isEditorTab = pathname?.startsWith('/editor')
   const isChatManagerTab = pathname?.startsWith('/photo-library')
-  const isAdminTab = !isCreatorTab && !isEditorTab && !isChatManagerTab
+  const isAiEditorTab = pathname?.startsWith('/ai-editor')
+  const isAdminTab = !isCreatorTab && !isEditorTab && !isChatManagerTab && !isAiEditorTab
 
   // Fetch creators for picker, then reconcile with stored selection
   useEffect(() => {
@@ -116,6 +117,7 @@ export default function SuperAdminBar() {
 
   const handleAdminTab = () => router.push('/admin/dashboard')
   const handleEditorTab = () => router.push('/editor')
+  const handleAiEditorTab = () => router.push('/ai-editor')
 
   const handleChatManagerSelect = (cm) => {
     if (typeof window !== 'undefined') {
@@ -158,6 +160,7 @@ export default function SuperAdminBar() {
 
       <button style={tabStyle(isAdminTab)} onClick={handleAdminTab}>Admin</button>
       <button style={tabStyle(isEditorTab)} onClick={handleEditorTab}>Editor</button>
+      <button style={tabStyle(isAiEditorTab)} onClick={handleAiEditorTab}>AI Editor</button>
 
       {/* Chat Manager tab — clicking opens a dropdown with every chat
           manager user from Clerk so the admin can impersonate a specific

@@ -17,6 +17,8 @@ export default function Home() {
       router.replace('/admin/dashboard')
     } else if (role === 'editor') {
       router.replace('/admin/editor')
+    } else if (role === 'ai_editor') {
+      router.replace('/ai-editor')
     } else if (role === 'chat_manager') {
       router.replace('/photo-library')
     } else {

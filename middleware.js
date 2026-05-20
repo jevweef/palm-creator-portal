@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks(.*)',
   '/api/onboarding/validate-token(.*)',
   '/api/admin/apify-callback(.*)',
+  '/api/admin/recreate-callback(.*)',
   '/api/admin/promote-handle(.*)',
   '/api/admin/score-reels(.*)',
   '/api/admin/mirror-asset(.*)',

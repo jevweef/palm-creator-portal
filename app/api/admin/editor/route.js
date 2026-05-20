@@ -190,6 +190,7 @@ export async function GET() {
         fields: [
           'Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Edited File Link', 'Dropbox Path (Current)',
           'Creator Notes', 'Source Type', 'Thumbnail', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID',
+          'Reference Source URL',
         ],
       }) : [],
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
@@ -249,6 +250,7 @@ export async function GET() {
           dropboxPath: asset['Dropbox Path (Current)'] || '',
           creatorNotes: asset['Creator Notes'] || '',
           sourceType: asset['Source Type'] || '',
+          referenceSourceUrl: asset['Reference Source URL'] || '',
           thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
           cdnUrl: asset['CDN URL'] || null,
           streamEditId: asset['Stream Edit ID'] || null,
