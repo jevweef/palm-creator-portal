@@ -40,17 +40,22 @@ Each scene gets a name like "Amelia_R042_S01" that follows it everywhere.`,
 This is just for tracking — the reel becomes part of the bundle when you download for TJP later (so TJP has the motion source).`,
   },
   {
+    placement: 'center',
+    title: '3, 4 · Upload your TJP files (optional organization)',
+    body: `Between steps 2 and 5 you'll see two optional upload slots — Raw Screenshot and Upscaled Screenshot. These are for keeping the TJP intermediate files attached to the project record so you can find them later. Skip them if you don't care about archival; they're not needed to generate.`,
+  },
+  {
     target: '#tour-stageb-subject',
     placement: 'top',
-    title: '3 · Upload the TJP photo',
-    body: `Drop the photo from TJP where your creator is already in the reel's pose & outfit (still in the reel's environment).
+    title: '5 · Upload the TJP image-to-image output',
+    body: `This one IS required — it's the photo the portal will keep as-is and just swap her background.
 
-The portal will keep that person exactly as-is and swap her background for her saved room.`,
+It's the TJP output where your creator is already in the reel's pose & outfit (still in the reel's environment). The portal places her into her saved room and relights.`,
   },
   {
     target: '#tour-stageb-generate',
     placement: 'top',
-    title: '4 · Generate the scene',
+    title: '6 · Generate the scene',
     body: `Click 🪄 Generate scene. Takes about 3–6 minutes — you can navigate away. The result shows up in the Scenes gallery below as soon as it's done.`,
   },
   {

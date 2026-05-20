@@ -108,6 +108,8 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
   const [stageBOut, setStageBOut] = useState(null)
   const [outputs, setOutputs] = useState([])
   const [subjectFile, setSubjectFile] = useState(null)
+  const [rawScreenshotFile, setRawScreenshotFile] = useState(null)
+  const [upscaledScreenshotFile, setUpscaledScreenshotFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -186,14 +188,19 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
   const generate = async () => {
     if (!creatorId) { setMsg('Pick a creator first.'); return }
     if (!reel?.id) { setMsg('Pick the inspo reel this scene goes with (step 2).'); return }
-    if (!subjectFile) { setMsg('Upload the TJP image-to-image photo first (step 3).'); return }
-    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading your TJP photo…')
+    if (!subjectFile) { setMsg('Upload the TJP image-to-image photo (step 5).'); return }
+    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading project files…')
     try {
+      // Upload the TJP photo (required input to generation) plus the
+      // optional organizational artifacts. The route attaches all three
+      // to the new record so the editor can find them later by project.
       const subjectDropboxPath = await stageBUpload(subjectFile, 'subject')
+      const rawScreenshotPath = rawScreenshotFile ? await stageBUpload(rawScreenshotFile, 'raw_screenshot') : null
+      const upscaledScreenshotPath = upscaledScreenshotFile ? await stageBUpload(upscaledScreenshotFile, 'upscaled_screenshot') : null
       setMsg('⏳ Creating the scene — swapping the background to her room… result appears below when done.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, reelRecordId: reel.id, subjectDropboxPath }),
+        body: JSON.stringify({ creatorId, reelRecordId: reel.id, subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath }),
       })
       const raw = await res.text()
       let d
@@ -262,10 +269,40 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         </div>
       </div>
 
-      <div id="tour-stageb-subject" style={card}>
-        <div style={lbl}>3 · Upload the TJP image-to-image output</div>
+      <div style={card}>
+        <div style={lbl}>3 · Raw screenshot (optional, for organization)</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-          The photo from TJP where your creator is already in the reel&apos;s pose &amp; outfit (currently still in the reel&apos;s environment). The portal will keep that person exactly as-is and swap her background to her saved room.
+          The screenshot you grabbed from the inspo reel in TJP, before any other editing. Kept on the project record so you can find it later.
+        </div>
+        <input type="file" accept="image/*" onChange={e => setRawScreenshotFile(e.target.files?.[0] || null)}
+          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
+        {rawScreenshotFile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+            <img src={URL.createObjectURL(rawScreenshotFile)} alt="" style={{ width: 56, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, background: '#000' }} />
+            <span style={{ fontSize: 12, color: '#6AC68A' }}>✓ {rawScreenshotFile.name}</span>
+          </div>
+        )}
+      </div>
+
+      <div style={card}>
+        <div style={lbl}>4 · Upscaled screenshot (optional, for organization)</div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
+          The TJP-upscaled version of that screenshot. Also just for organization — useful if you want to re-use it later for a different scene.
+        </div>
+        <input type="file" accept="image/*" onChange={e => setUpscaledScreenshotFile(e.target.files?.[0] || null)}
+          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
+        {upscaledScreenshotFile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+            <img src={URL.createObjectURL(upscaledScreenshotFile)} alt="" style={{ width: 56, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, background: '#000' }} />
+            <span style={{ fontSize: 12, color: '#6AC68A' }}>✓ {upscaledScreenshotFile.name}</span>
+          </div>
+        )}
+      </div>
+
+      <div id="tour-stageb-subject" style={{ ...card, border: '1px solid rgba(232,168,120,0.35)' }}>
+        <div style={{ ...lbl, color: '#e8b878' }}>5 · TJP image-to-image output (required)</div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
+          The photo from TJP where your creator is already in the reel&apos;s pose &amp; outfit (still in the reel&apos;s environment). This is the photo the portal will keep as-is and swap behind her with her saved room.
         </div>
         <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)}
           style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
@@ -278,7 +315,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
       </div>
 
       <div id="tour-stageb-generate" style={card}>
-        <div style={lbl}>4 · Generate the scene</div>
+        <div style={lbl}>6 · Generate the scene</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 10 }}>
           The portal will swap your TJP photo&apos;s background for {sel?.name || 'the creator'}&apos;s saved room and relight her to match. Takes ~3–6 min — you can navigate away.
         </div>

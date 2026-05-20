@@ -142,7 +142,7 @@ async function createStageBRecord(fields) {
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { creatorId, reelRecordId, model, subjectDropboxPath } = await request.json()
+    const { creatorId, reelRecordId, model, subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath } = await request.json()
     const mdl = MODELS[model] || MODELS.wan
 
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
@@ -172,6 +172,12 @@ export async function POST(request) {
     }
     const subjectUrl = await pathToUrl(subjectDropboxPath)
     if (!subjectUrl) return NextResponse.json({ error: 'Could not resolve the subject photo' }, { status: 400 })
+
+    // Resolve optional organizational uploads (raw + upscaled). These
+    // never feed the generation step — they're attached to the record
+    // so the editor can find them on the project later.
+    const rawScreenshotUrl = rawScreenshotPath ? await pathToUrl(rawScreenshotPath) : ''
+    const upscaledScreenshotUrl = upscaledScreenshotPath ? await pathToUrl(upscaledScreenshotPath) : ''
 
     // Classify framing of the subject photo, then auto-pick the best-
     // matching room variation. Tight crops → tight rooms; full-body → wide.
@@ -250,6 +256,15 @@ export async function POST(request) {
       console.warn('[stage-b POST] slug compute failed:', e.message)
     }
 
+    // Attach organizational uploads + the TJP source photo to the
+    // record via Airtable's attach-from-URL. Airtable downloads from
+    // the Dropbox shared link and stores its own copy, so editors can
+    // see the project's artifacts in the Airtable view too.
+    const attachments = {}
+    if (rawScreenshotUrl) attachments['Raw Screenshot'] = [{ url: rawScreenshotUrl, filename: `${slug || 'raw'}_raw.jpg` }]
+    if (upscaledScreenshotUrl) attachments['Upscaled Screenshot'] = [{ url: upscaledScreenshotUrl, filename: `${slug || 'upscaled'}_upscaled.jpg` }]
+    attachments['TJP Output'] = [{ url: subjectUrl, filename: `${slug || 'tjp'}_tjp_output.jpg` }]
+
     const created = await createStageBRecord({
       Name: slug || `${aka} · ${locName} · [${mdl.label}] · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       Creator: [creatorId],
@@ -262,6 +277,7 @@ export async function POST(request) {
       ...(reelNum != null ? { 'Reel #': reelNum } : {}),
       ...(stillNum != null ? { 'Still #': stillNum } : {}),
       ...(slug ? { Slug: slug } : {}),
+      ...attachments,
       Status: 'Generating',
     })
 
