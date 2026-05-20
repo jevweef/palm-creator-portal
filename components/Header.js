@@ -101,9 +101,6 @@ export default function Header() {
               <Link href={`/creator/${creatorIdFromPath}/dashboard${hqSuffix}`} style={linkStyle(pathname?.endsWith('/dashboard'))}>Dashboard</Link>
               <Link href={`/creator/${creatorIdFromPath}/my-content${hqSuffix}`} style={linkStyle(pathname?.includes('/my-content'))}>My Content</Link>
               <Link href={`/creator/${creatorIdFromPath}/inspo${hqSuffix}`} style={linkStyle(pathname?.includes('/inspo'))}>Inspo Board</Link>
-              {isAdmin && (
-                <Link href={`/creator/${creatorIdFromPath}/content-request${hqSuffix}`} style={linkStyle(pathname?.includes('/content-request'))}>Content Request</Link>
-              )}
             </>
           ) : (
             <>
