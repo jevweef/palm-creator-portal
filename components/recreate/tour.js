@@ -38,12 +38,39 @@ export function startTour(storageKey) {
 
 function clamp(n, min, max) { return Math.max(min, Math.min(max, n)) }
 
+// Only scroll if the target isn't already mostly visible — otherwise the
+// page jumps unnecessarily on every Next click. When we DO scroll, use
+// 'instant' so the bounding rect we return is immediately correct (smooth
+// scrolling is async and leaves us measuring the pre-scroll position).
 function getTargetRect(selector) {
   if (!selector || typeof document === 'undefined') return null
   const el = document.querySelector(selector)
   if (!el) return null
-  // Scroll element into view so the tour anchor is on screen.
-  try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }) } catch {}
+
+  const r0 = el.getBoundingClientRect()
+  const vh = window.innerHeight || 0
+  const vw = window.innerWidth || 0
+
+  // Fraction of the target's height + width currently visible.
+  const visibleH = Math.max(0, Math.min(r0.bottom, vh) - Math.max(r0.top, 0))
+  const visibleW = Math.max(0, Math.min(r0.right, vw) - Math.max(r0.left, 0))
+  const heightFrac = r0.height > 0 ? visibleH / r0.height : 0
+  const widthFrac = r0.width > 0 ? visibleW / r0.width : 0
+
+  // If at least the top-third is on screen, leave the scroll alone — the
+  // editor can already see the highlighted element and the spotlight will
+  // anchor where they expect. The 0.25 height threshold catches very tall
+  // targets (a reel grid covering 3× viewport) where "in view" really
+  // means "the top is visible".
+  if (heightFrac >= 0.25 && widthFrac >= 0.5 && r0.top >= 0 && r0.top < vh * 0.85) {
+    return r0
+  }
+
+  try {
+    el.scrollIntoView({ behavior: 'instant', block: 'start', inline: 'center' })
+  } catch {
+    try { el.scrollIntoView({ block: 'start', inline: 'center' }) } catch {}
+  }
   return el.getBoundingClientRect()
 }
 
