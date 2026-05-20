@@ -12,64 +12,71 @@ import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
 const POOL_TOUR_STEPS = [
   {
     placement: 'center',
-    title: '👋 Welcome',
-    body: `This page is your home base for making AI content in bulk. Here's the workflow in plain English:
+    title: '👋 Welcome — here\'s the workflow',
+    body: `The whole process in 4 steps:
 
-1. Pick an inspo reel you like → click "Create Scene". The system places your creator into her room, posed exactly like the reel.
-2. Pick a few outfits to pair with that scene.
-3. Download a ZIP with the scene, the reel, and the outfit photos.
-4. Do the motion + outfit work in TJP (off-site).
-5. Come back here and drop the finished videos into Batch Upload.
+1. Pick the creator you're working on today.
+2. Click 🎨 Create Scene on inspo reels you want to recreate. (A second page walks you through scrubbing the pose, generating the scene, picking outfits, and downloading.)
+3. Do the motion + outfit work in TJP (off-site).
+4. Come back here and 📦 Batch Upload the finished videos.
 
-Let's walk through where each button lives.`,
+I'll highlight each piece in the order you'll actually use them — just hit Next to step through.`,
   },
   {
     target: '#tour-creator-picker',
     placement: 'bottom',
-    title: 'Pick a creator first',
-    body: `Everything below is filtered to whichever creator is selected here — the reels you can use, your upload queue, anything admin wants you to revise.`,
-  },
-  {
-    target: '#tour-batch-upload',
-    placement: 'bottom',
-    title: '📦 Batch Upload',
-    body: `When you come back from TJP with a bunch of finished motion videos, drop them all here at once.
+    title: 'Step 1 — Pick the creator',
+    body: `Start here. Everything below filters to whoever is selected — the available reels, your finished uploads queue, anything admin wants you to revise.
 
-The filename of each video tells the system which scene + outfit it belongs to (e.g. Amelia_R042_S01_O03.mp4). The system auto-creates a thumbnail from the first frame.`,
-  },
-  {
-    target: '#tour-revisions',
-    placement: 'bottom',
-    title: '⚠️ Needs Revision',
-    body: `If admin sees something they don't like, the video shows up here with their feedback + screenshots.
-
-Three ways to handle it:
-• ↑ Re-upload revised — small tweak (re-edit in TJP, drop the new mp4 here)
-• 🎨 Re-do Scene — start over from a fresh scene
-• 🗑 Discard — pair with "Re-do Scene" if the rejected version is dead`,
+Try switching it now if you want to feel how it works.`,
   },
   {
     target: '#tour-reel-grid',
     placement: 'top',
-    title: 'The reel pool',
-    body: `Each card is one inspo reel available for this creator (anything she's already used is hidden).
+    title: 'Step 2 — Click 🎨 Create Scene on a reel',
+    body: `These are inspo reels available for the selected creator (anything she's already used is hidden).
 
-Three actions on each card:
-• ↓ Raw — download just the reel and skip the scene step
-• 🎨 Create Scene — put your creator into her room with this reel's pose (recommended path)
-• ↑ Upload AI — for one-off finished uploads (Batch Upload is better when you have several)`,
+Click 🎨 Create Scene on whichever reel you want to recreate. That'll take you to a second page where you scrub the reel to the exact pose and generate the still — a second tour picks up there to walk you through it.
+
+The other two buttons:
+• ↓ Raw — skip the scene step entirely, download just the reel
+• ↑ Upload AI — for one-off finished uploads (Batch Upload below is better when you have several)`,
+  },
+  {
+    target: '#tour-batch-upload',
+    placement: 'bottom',
+    title: 'Step 3 — After TJP, come back and upload',
+    body: `Once you've done the motion + outfit work in TJP and you have your finished mp4s, click 📦 Batch Upload and drop them all in at once.
+
+The filename of each video (e.g. Amelia_R042_S01_O03.mp4) tells the system which scene + outfit it belongs to. Thumbnails are auto-generated from the first frame.
+
+You'll come back to this button later — don't click it yet.`,
+  },
+  {
+    target: '#tour-revisions',
+    placement: 'bottom',
+    title: 'Step 4 — Handle any rejections',
+    body: `If admin sees something they don't like, the video shows up at the top of this page with their feedback + screenshots.
+
+Three ways to handle it:
+• ↑ Re-upload revised — small tweak (re-edit in TJP, drop the new mp4)
+• 🎨 Re-do Scene — start over from a fresh scene
+• 🗑 Discard — for when you're starting completely over
+
+This section only appears when there's something to revise.`,
   },
   {
     placement: 'center',
-    title: '🎯 Suggested first session',
-    body: `1. Pick a creator from the dropdown.
-2. Click 🎨 Create Scene on 5–10 inspo reels you like. You'll land on the Create Scene page where you scrub each reel to the exact pose, then generate.
-3. Approve the good scenes → click 👗 Fan out outfits on each to pair them with outfit photos.
-4. ⬇ Download all (1 ZIP) — gives you everything TJP needs.
-5. Do the motion + outfit work in TJP.
-6. Come back, 📦 Batch Upload the finished videos.
+    title: '🎯 Ready to start',
+    body: `Recap of what you'll actually do:
 
-Click "? Guide" any time to replay this. The Create Scene page has its own tour too.`,
+1. Pick a creator from the dropdown ↑
+2. Scroll the reels below, click 🎨 Create Scene on one you like.
+3. The Create Scene page has its own tour that walks you through pose scrubbing → generate → approve → pair with outfits → download ZIP.
+4. Do TJP off-site.
+5. Come back, 📦 Batch Upload the finished videos.
+
+Hit "? Guide" any time to replay this tour.`,
   },
 ]
 
@@ -667,7 +674,7 @@ export default function AiEditorPage() {
           </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <TourTriggerButton storageKey="ai-editor-pool-v2" label="? Guide" />
+          <TourTriggerButton storageKey="ai-editor-pool-v3" label="? Guide" />
           <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
             style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
             📦 Batch Upload
@@ -718,7 +725,7 @@ export default function AiEditorPage() {
         </div>
       )}
       <ModalHost />
-      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v2" />
+      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v3" />
     </div>
   )
 }
